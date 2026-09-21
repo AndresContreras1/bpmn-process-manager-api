@@ -36,6 +36,7 @@ import com.facimus.procesos.gestion.controller.dto.CambiarEstadoProcesoRequest;
 import com.facimus.procesos.gestion.controller.dto.ActualizarUsuarioRequest;
 import com.facimus.procesos.gestion.controller.dto.EditarProcesoRequest;
 import com.facimus.procesos.gestion.controller.dto.LoginRequest;
+import com.facimus.procesos.gestion.controller.dto.ProcesoRequest;
 import com.facimus.procesos.gestion.controller.dto.RolProcesoRequest;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.Proceso;
@@ -297,15 +298,13 @@ class AislamientoEmpresasIntegracionTest {
     }
 
     @Test
-    @DisplayName("Un empresaId de otra empresa en el cuerpo o en la URL se ignora: manda el token")
-    void Aislamiento_empresaIdEnElRequest_seIgnora() throws Exception {
-        Map<String, Object> cuerpo = Map.of("nombre", "Devoluciones", "descripcion", "Proceso de devoluciones",
-                "categoria", "Comercial", "empresaId", empresaB);
-
+    @DisplayName("Un empresaId de otra empresa en la URL se ignora: manda el token")
+    void Aislamiento_empresaIdEnLaUrl_seIgnora() throws Exception {
         String respuesta = mockMvc.perform(post("/api/v1/procesos?empresaId={id}", empresaB)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(cuerpo)))
+                        .content(jsonMapper.writeValueAsString(
+                                new ProcesoRequest("Devoluciones", "Proceso de devoluciones", "Comercial"))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         Long procesoCreado = jsonMapper.readTree(respuesta).get("id").asLong();
@@ -313,6 +312,24 @@ class AislamientoEmpresasIntegracionTest {
         assertThat(procesoService.obtener(empresaA, procesoCreado).getNombre()).isEqualTo("Devoluciones");
         assertThatThrownBy(() -> procesoService.obtener(empresaB, procesoCreado))
                 .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
+    @DisplayName("Un empresaId en el cuerpo se rechaza con 400 y no crea nada en ninguna empresa")
+    void Aislamiento_empresaIdEnElCuerpo_seRechaza() throws Exception {
+        List<Object> empresaBAntes = estadoEmpresaB();
+        Map<String, Object> cuerpo = Map.of("nombre", "Cambios", "descripcion", "Proceso de cambios",
+                "categoria", "Comercial", "empresaId", empresaB);
+
+        mockMvc.perform(post("/api/v1/procesos")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(cuerpo)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.empresaId").value("El campo no existe en esta operación."));
+
+        assertThat(valoresComoEmpresaA("/api/v1/procesos", "nombre")).doesNotContain("Cambios");
+        assertThat(estadoEmpresaB()).isEqualTo(empresaBAntes);
     }
 
     @Test

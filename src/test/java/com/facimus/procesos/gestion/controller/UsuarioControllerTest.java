@@ -96,7 +96,11 @@ class UsuarioControllerTest {
                         .content("""
                                 {"nombre":"","email":"invalido","password":"12","rolAcceso":null}
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.nombre").value("El nombre es obligatorio."))
+                .andExpect(jsonPath("$.errors.email").value("El correo no es valido."))
+                .andExpect(jsonPath("$.errors.password").value("La contrasena debe tener al menos 6 caracteres."))
+                .andExpect(jsonPath("$.errors.rolAcceso").value("Debe seleccionar un rol de acceso."));
     }
 
     @Test

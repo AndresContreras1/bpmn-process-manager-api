@@ -24,6 +24,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -169,7 +171,8 @@ class ProcesoControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.title").isNotEmpty());
+                .andExpect(jsonPath("$.title").isNotEmpty())
+                .andExpect(jsonPath("$.errors.pagina").value("La página no puede ser negativa."));
     }
 
     @Test
@@ -179,7 +182,8 @@ class ProcesoControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.title").isNotEmpty());
+                .andExpect(jsonPath("$.title").isNotEmpty())
+                .andExpect(jsonPath("$.errors.estado").value("Valor no permitido. Valores válidos: BORRADOR, PUBLICADO."));
     }
 
     @Test
@@ -192,7 +196,51 @@ class ProcesoControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.title").isNotEmpty());
+                .andExpect(jsonPath("$.title").value("JSON inválido"))
+                .andExpect(jsonPath("$.errors").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/procesos - un campo que el contrato no tiene, como empresaId, retorna 400")
+    void crear_campoDesconocido_devuelve400() throws Exception {
+        mockMvc.perform(post("/api/v1/procesos")
+                        .with(principal(RolAcceso.EDITOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nombre":"Ventas","descripcion":"Proceso de ventas","categoria":"Comercial",
+                                 "empresaId":2}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("JSON inválido"))
+                .andExpect(jsonPath("$.errors.empresaId").value("El campo no existe en esta operación."));
+
+        verify(procesoService, never()).crear(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/procesos/{id} - un estado que no existe retorna 400 con los valores validos")
+    void cambiarEstado_estadoInexistente_devuelveValoresValidos() throws Exception {
+        mockMvc.perform(patch("/api/v1/procesos/1")
+                        .with(principal(RolAcceso.EDITOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"estado\":\"ARCHIVADO\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.estado").value("Valor no permitido. Valores válidos: BORRADOR, PUBLICADO."));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/procesos - cada campo invalido llega con su mensaje en errors")
+    void crear_camposVacios_devuelveErrorPorCampo() throws Exception {
+        mockMvc.perform(post("/api/v1/procesos")
+                        .with(principal(RolAcceso.EDITOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombre\":\"\",\"descripcion\":\" \",\"categoria\":null}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validación fallida"))
+                .andExpect(jsonPath("$.detail").value("Uno o más campos no son válidos."))
+                .andExpect(jsonPath("$.errors.nombre").value("El nombre es obligatorio."))
+                .andExpect(jsonPath("$.errors.descripcion").value("La descripcion es obligatoria."))
+                .andExpect(jsonPath("$.errors.categoria").value("La categoria es obligatoria."));
     }
 
     private Proceso crearProceso(Long id, String nombre) {
