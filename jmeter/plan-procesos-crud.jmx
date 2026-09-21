@@ -184,7 +184,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{"nombre":"Proceso-${__threadNum}-${IDX}-editado","descripcion":"Editado en prueba de carga","categoria":"Estrategico","estado":"BORRADOR"}</stringProp>
+                <stringProp name="Argument.value">{"nombre":"Proceso-${__threadNum}-${IDX}-editado","descripcion":"Editado en prueba de carga","categoria":"Estrategico"}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>

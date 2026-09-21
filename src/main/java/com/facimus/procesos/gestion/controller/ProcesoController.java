@@ -1,11 +1,12 @@
 package com.facimus.procesos.gestion.controller;
 
+import java.net.URI;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import java.net.URI;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -33,10 +34,16 @@ import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.security.ApiPrincipal;
 
-import lombok.RequiredArgsConstructor;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Min;
+import lombok.RequiredArgsConstructor;
 
 /** HU-04 a HU-07: creacion, edicion, eliminacion logica y consulta de procesos. */
+@Tag(name = "Processes", description = "The store's BPMN processes: drafts, publication, soft delete and change history")
 @RestController
 @RequestMapping("/api/v1/procesos")
 @RequiredArgsConstructor
@@ -47,11 +54,21 @@ public class ProcesoController {
     private final ProcesoService procesoService;
     private final HistorialCambioService historialCambioService;
 
+    @Operation(summary = "List processes",
+            description = "Pages of 10 processes, most recently modified first. The filters are optional and can be "
+                    + "combined.")
+    @ApiResponse(responseCode = "200", description = "One page of processes")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @GetMapping
     public ResponseEntity<PageResponse<ProcesoResponse>> listar(
+            @Parameter(description = "Part of the name, case-insensitive", example = "order")
             @RequestParam(required = false) String nombre,
+            @Parameter(description = "Only processes in this state")
             @RequestParam(required = false) EstadoProceso estado,
+            @Parameter(description = "Exact category", example = "Fulfillment")
             @RequestParam(required = false) String categoria,
+            @Parameter(description = "Page number, starting at 0")
             @RequestParam(defaultValue = "0") @Min(value = 0, message = "La página no puede ser negativa.") int pagina,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
@@ -61,6 +78,14 @@ public class ProcesoController {
         return ResponseEntity.ok(PageResponse.from(procesos));
     }
 
+    @Operation(summary = "Create a process",
+            description = "The process starts as a draft, with a pool for the store itself.")
+    @ApiResponse(responseCode = "201", description = "Process created",
+            headers = @Header(name = HttpHeaders.LOCATION, description = "URL of the new process"))
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PostMapping
     public ResponseEntity<ProcesoResponse> crear(@Validated @RequestBody ProcesoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
@@ -72,6 +97,10 @@ public class ProcesoController {
                 .body(ProcesoResponse.of(proceso));
     }
 
+    @Operation(summary = "Get a process with its change history")
+    @ApiResponse(responseCode = "200", description = "The process and its history")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @GetMapping("/{id}")
     public ResponseEntity<ProcesoDetalleResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
@@ -83,6 +112,14 @@ public class ProcesoController {
         return ResponseEntity.ok(new ProcesoDetalleResponse(ProcesoResponse.of(proceso), historial));
     }
 
+    @Operation(summary = "Edit a process",
+            description = "Replaces the name, description and category, and records the change in the history.")
+    @ApiResponse(responseCode = "200", description = "Process updated")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping("/{id}")
     public ResponseEntity<ProcesoResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarProcesoRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
@@ -93,6 +130,14 @@ public class ProcesoController {
         return ResponseEntity.ok(ProcesoResponse.of(proceso));
     }
 
+    @Operation(summary = "Change the state of a process",
+            description = "Publishes a draft. A published process cannot go back to draft.")
+    @ApiResponse(responseCode = "200", description = "Process in its new state")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PatchMapping("/{id}")
     public ResponseEntity<ProcesoResponse> cambiarEstado(@PathVariable Long id,
             @Validated @RequestBody CambiarEstadoProcesoRequest request,
@@ -103,6 +148,10 @@ public class ProcesoController {
         return ResponseEntity.ok(ProcesoResponse.of(proceso));
     }
 
+    @Operation(summary = "Get the change history of a process", description = "Newest change first.")
+    @ApiResponse(responseCode = "200", description = "History entries")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @GetMapping("/{id}/historial")
     public ResponseEntity<List<HistorialCambioResponse>> historial(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
@@ -113,6 +162,12 @@ public class ProcesoController {
                 .toList());
     }
 
+    @Operation(summary = "Delete a process",
+            description = "Soft delete: the process leaves every query but keeps its history. Administrators only.")
+    @ApiResponse(responseCode = "204", description = "Process deleted")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();

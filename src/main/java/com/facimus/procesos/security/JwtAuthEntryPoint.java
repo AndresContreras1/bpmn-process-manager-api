@@ -3,6 +3,7 @@ package com.facimus.procesos.security;
 import java.io.IOException;
 import java.net.URI;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -14,7 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.json.JsonMapper;
 
-/** 401: la peticion no trae un token valido. */
+/** 401: la peticion no trae un token valido. WWW-Authenticate le dice al cliente que la API espera un Bearer. */
 @Component
 public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
 
@@ -33,6 +34,7 @@ public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
         problem.setInstance(URI.create(request.getRequestURI()));
 
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         jsonMapper.writeValue(response.getOutputStream(), problem);
     }

@@ -3,8 +3,16 @@ package com.facimus.procesos.modelado.controller.dto;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 
-public record PoolResponse(Long id, String nombre, TipoParticipante tipoParticipante, boolean cajaNegra,
-        int orden, Long procesoId) {
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(description = "A participant of the process")
+public record PoolResponse(
+        @Schema(example = "3") Long id,
+        @Schema(example = "Payment gateway") String nombre,
+        @Schema(example = "SISTEMA_EXTERNO") TipoParticipante tipoParticipante,
+        @Schema(example = "true") boolean cajaNegra,
+        @Schema(description = "Position in the process; the store's own pool is 0", example = "2") int orden,
+        @Schema(example = "1") Long procesoId) {
 
     public static PoolResponse of(Pool p) {
         return new PoolResponse(p.getId(), p.getNombre(), p.getTipoParticipante(), p.isCajaNegra(),
