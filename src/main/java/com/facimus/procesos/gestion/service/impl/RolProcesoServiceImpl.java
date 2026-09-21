@@ -1,7 +1,6 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,8 +14,7 @@ import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
 import com.facimus.procesos.gestion.service.RolProcesoService;
-import com.facimus.procesos.modelado.model.Lane;
-import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.gestion.service.UsoDeRoles;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,7 +25,7 @@ public class RolProcesoServiceImpl implements RolProcesoService {
 
     private final RolProcesoRepository rolProcesoRepository;
     private final EmpresaRepository empresaRepository;
-    private final LaneRepository laneRepository;
+    private final UsoDeRoles usoDeRoles;
     private final RolProcesoMapper rolProcesoMapper;
 
     @Override
@@ -75,14 +73,10 @@ public class RolProcesoServiceImpl implements RolProcesoService {
     @Transactional
     public void eliminar(Long empresaId, Long rolId) {
         RolProceso rol = buscarActivo(empresaId, rolId);
-        List<Lane> lanesQueLoUsan = laneRepository.findAllByRolProcesoIdAndEmpresaId(rolId, empresaId);
-        if (!lanesQueLoUsan.isEmpty()) {
-            String procesos = lanesQueLoUsan.stream()
-                    .map(lane -> lane.getPool().getProceso().getNombre())
-                    .distinct()
-                    .collect(Collectors.joining(", "));
+        List<String> procesos = usoDeRoles.procesosQueLoUsan(empresaId, rolId);
+        if (!procesos.isEmpty()) {
             throw new ReglaNegocioException(
-                    "El rol \"" + rol.getNombre() + "\" esta en uso en los procesos: " + procesos
+                    "El rol \"" + rol.getNombre() + "\" esta en uso en los procesos: " + String.join(", ", procesos)
                             + ". No se puede eliminar.");
         }
         rol.setActivo(false);
@@ -90,7 +84,7 @@ public class RolProcesoServiceImpl implements RolProcesoService {
     }
 
     private RolProcesoVistaResponse conUso(Long empresaId, RolProceso rol) {
-        return rolProcesoMapper.toResponse(rol, laneRepository.countByRolProcesoIdAndEmpresaId(rol.getId(), empresaId));
+        return rolProcesoMapper.toResponse(rol, usoDeRoles.contarUsos(empresaId, rol.getId()));
     }
 
     private RolProceso buscarActivo(Long empresaId, Long rolId) {

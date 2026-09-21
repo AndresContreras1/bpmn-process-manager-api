@@ -89,6 +89,16 @@ class EmpaquetadoTest {
     }
 
     @Test
+    @DisplayName("gestion no depende de modelado: la dependencia entre los modulos va en un solo sentido")
+    void gestion_no_depende_de_modelado() {
+        noClasses()
+                .that().resideInAPackage("..gestion..")
+                .should().dependOnClassesThat().resideInAPackage("..modelado..")
+                .because("modelado se apoya en los procesos y roles de gestion; al reves se formaria un ciclo")
+                .check(clases);
+    }
+
+    @Test
     @DisplayName("Los servicios no dependen de controllers")
     void servicios_no_dependen_de_controllers() {
         noClasses()

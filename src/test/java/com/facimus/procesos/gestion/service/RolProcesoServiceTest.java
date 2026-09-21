@@ -4,14 +4,11 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.mapper.RolProcesoMapper;
 import com.facimus.procesos.gestion.model.Empresa;
-import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
+import com.facimus.procesos.gestion.service.UsoDeRoles;
 import com.facimus.procesos.gestion.service.impl.RolProcesoServiceImpl;
-import com.facimus.procesos.modelado.model.Lane;
-import com.facimus.procesos.modelado.model.Pool;
-import com.facimus.procesos.modelado.repository.LaneRepository;
 
 import org.mapstruct.factory.Mappers;
 import org.mockito.Spy;
@@ -39,7 +36,7 @@ class RolProcesoServiceTest {
     @Mock
     private EmpresaRepository empresaRepository;
     @Mock
-    private LaneRepository laneRepository;
+    private UsoDeRoles usoDeRoles;
 
     @Spy
     private RolProcesoMapper rolProcesoMapper = Mappers.getMapper(RolProcesoMapper.class);
@@ -79,13 +76,7 @@ class RolProcesoServiceTest {
     @DisplayName("HU-19: eliminar rol en uso lanza excepcion (regla 13)")
     void eliminar_rol_en_uso() {
         when(rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, 1L)).thenReturn(Optional.of(rol));
-        Proceso proceso = new Proceso();
-        proceso.setNombre("Compras");
-        Pool pool = new Pool();
-        pool.setProceso(proceso);
-        Lane lane = new Lane();
-        lane.setPool(pool);
-        when(laneRepository.findAllByRolProcesoIdAndEmpresaId(5L, 1L)).thenReturn(List.of(lane));
+        when(usoDeRoles.procesosQueLoUsan(1L, 5L)).thenReturn(List.of("Compras"));
 
         assertThrows(ReglaNegocioException.class,
                 () -> rolProcesoService.eliminar(1L, 5L));
@@ -97,7 +88,7 @@ class RolProcesoServiceTest {
     @DisplayName("HU-19: eliminar rol sin uso desactiva correctamente")
     void eliminar_rol_sin_uso() {
         when(rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, 1L)).thenReturn(Optional.of(rol));
-        when(laneRepository.findAllByRolProcesoIdAndEmpresaId(5L, 1L)).thenReturn(Collections.emptyList());
+        when(usoDeRoles.procesosQueLoUsan(1L, 5L)).thenReturn(Collections.emptyList());
         when(rolProcesoRepository.save(any(RolProceso.class))).thenAnswer(inv -> inv.getArgument(0));
 
         rolProcesoService.eliminar(1L, 5L);

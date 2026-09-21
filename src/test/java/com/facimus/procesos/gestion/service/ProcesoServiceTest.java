@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.service;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.event.ProcesoCreado;
 import com.facimus.procesos.gestion.mapper.ProcesoMapper;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.EstadoProceso;
@@ -12,16 +13,14 @@ import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.impl.ProcesoServiceImpl;
-import com.facimus.procesos.modelado.model.Pool;
-import com.facimus.procesos.modelado.repository.PoolRepository;
 
 import org.mapstruct.factory.Mappers;
 import org.mockito.Spy;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -42,7 +41,7 @@ class ProcesoServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
-    private PoolRepository poolRepository;
+    private ApplicationEventPublisher eventos;
     @Mock
     private HistorialCambioService historialCambioService;
 
@@ -75,7 +74,7 @@ class ProcesoServiceTest {
     }
 
     @Test
-    @DisplayName("HU-04: crear proceso en BORRADOR con pool inicial")
+    @DisplayName("HU-04: crear proceso en BORRADOR y anunciarlo para que se cree su pool inicial")
     void crear_exitoso() {
         when(procesoRepository.existsByEmpresaIdAndNombreIgnoreCaseAndActivoTrue(1L, "Compras")).thenReturn(false);
         when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
@@ -85,18 +84,14 @@ class ProcesoServiceTest {
             p.setId(100L);
             return p;
         });
-        when(poolRepository.save(any(Pool.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ProcesoResponse result = procesoService.crear(1L, 10L, "Compras", "Proceso de compras", "Operativo");
 
         assertEquals(EstadoProceso.BORRADOR, result.estado());
         assertTrue(result.activo());
 
-        ArgumentCaptor<Pool> poolCaptor = ArgumentCaptor.forClass(Pool.class);
-        verify(poolRepository).save(poolCaptor.capture());
-        Pool pool = poolCaptor.getValue();
-        assertEquals(empresa.getNombre(), pool.getNombre());
-
+        // El pool inicial lo crea el modulo de modelado al recibir este evento.
+        verify(eventos).publishEvent(new ProcesoCreado(1L, 100L));
         verify(historialCambioService).registrar(argThat(creado -> creado.getId() == 100L), eq(usuario), anyString());
     }
 

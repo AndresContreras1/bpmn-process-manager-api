@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.service.impl;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.event.ProcesoCreado;
 import com.facimus.procesos.gestion.mapper.ProcesoMapper;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.EstadoProceso;
@@ -24,9 +26,6 @@ import com.facimus.procesos.gestion.repository.ProcesoSpecifications;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.ProcesoService;
-import com.facimus.procesos.modelado.model.Pool;
-import com.facimus.procesos.modelado.model.TipoParticipante;
-import com.facimus.procesos.modelado.repository.PoolRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -38,7 +37,7 @@ public class ProcesoServiceImpl implements ProcesoService {
     private final ProcesoRepository procesoRepository;
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
-    private final PoolRepository poolRepository;
+    private final ApplicationEventPublisher eventos;
     private final HistorialCambioService historialCambioService;
     private final ProcesoMapper procesoMapper;
 
@@ -69,13 +68,8 @@ public class ProcesoServiceImpl implements ProcesoService {
                 .fechaModificacion(ahora)
                 .build());
 
-        poolRepository.save(Pool.builder()
-                .empresa(empresa)
-                .proceso(proceso)
-                .nombre(empresa.getNombre())
-                .tipoParticipante(TipoParticipante.EMPRESA)
-                .orden(0)
-                .build());
+        // El modulo de modelado crea el pool de la empresa dentro de esta misma transaccion.
+        eventos.publishEvent(new ProcesoCreado(empresaId, proceso.getId()));
 
         historialCambioService.registrar(proceso, autor, "Proceso creado.");
         return procesoMapper.toResponse(proceso);
