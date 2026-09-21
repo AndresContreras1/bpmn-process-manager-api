@@ -58,8 +58,8 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("HU-02: crear colaborador con email unico")
     void crearColaborador_exitoso() {
-        when(usuarioRepository.existsByEmpresaIdAndEmail(1L, "nuevo@acme.com")).thenReturn(false);
         when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
+        when(usuarioRepository.existsByEmail("nuevo@acme.com")).thenReturn(false);
         when(passwordEncoder.encode("pass")).thenReturn("hashed");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -72,13 +72,40 @@ class UsuarioServiceTest {
     }
 
     @Test
-    @DisplayName("HU-02: email duplicado lanza excepcion")
-    void crearColaborador_email_duplicado() {
-        when(usuarioRepository.existsByEmpresaIdAndEmail(1L, "juan@acme.com")).thenReturn(true);
+    @DisplayName("HU-02: un correo registrado en cualquier empresa no se puede reutilizar")
+    void crearColaborador_correoRegistradoEnOtraEmpresa_lanzaExcepcionSinGuardar() {
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
+        when(usuarioRepository.existsByEmail("juan@acme.com")).thenReturn(true);
 
-        assertThrows(ReglaNegocioException.class,
+        ReglaNegocioException ex = assertThrows(ReglaNegocioException.class,
                 () -> usuarioService.crearColaborador(1L, "Juan", "juan@acme.com", "pass",
                         RolAcceso.EDITOR));
+
+        assertTrue(ex.getMessage().contains("juan@acme.com"));
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("HU-02: el correo se guarda sin espacios y en minusculas")
+    void crearColaborador_correoConMayusculas_seGuardaNormalizado() {
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
+        when(usuarioRepository.existsByEmail("nuevo@acme.com")).thenReturn(false);
+        when(passwordEncoder.encode("pass")).thenReturn("hashed");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Usuario result = usuarioService.crearColaborador(1L, "Nuevo", "  Nuevo@ACME.com ", "pass",
+                RolAcceso.EDITOR);
+
+        assertEquals("nuevo@acme.com", result.getEmail());
+    }
+
+    @Test
+    @DisplayName("HU-03: el login encuentra al usuario aunque el correo llegue con mayusculas")
+    void autenticar_correoConMayusculas_encuentraAlUsuario() {
+        when(usuarioRepository.findByEmail("juan@acme.com")).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
+
+        assertEquals(usuario, usuarioService.autenticar(" Juan@Acme.com", "pass"));
     }
 
     @Test

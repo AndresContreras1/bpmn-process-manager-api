@@ -19,7 +19,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "usuarios", uniqueConstraints = @UniqueConstraint(columnNames = { "empresa_id", "email" }))
+@Table(name = "usuarios", uniqueConstraints = @UniqueConstraint(name = "uk_usuarios_email", columnNames = "email"))
 public class Usuario extends EntidadEmpresa {
 
     @Id
