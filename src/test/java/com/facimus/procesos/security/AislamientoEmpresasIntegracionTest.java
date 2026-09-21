@@ -27,6 +27,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -71,7 +72,8 @@ import com.facimus.procesos.modelado.service.PoolService;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Aislamiento entre empresas: con el token de la empresa A no se alcanza nada de la empresa B (README §10 y §11). */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:aislamiento-it;DB_CLOSE_DELAY=-1")
+@SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AislamientoEmpresasIntegracionTest {

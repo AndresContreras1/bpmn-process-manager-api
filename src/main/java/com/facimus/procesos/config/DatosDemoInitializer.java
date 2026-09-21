@@ -26,12 +26,12 @@ import com.facimus.procesos.modelado.service.PoolService;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Siembra una tienda en linea de demostracion en el primer arranque, unicamente si la base de datos
- * esta vacia y fuera del perfil prod: la empresa, su administrador y dos procesos de e-commerce.
+ * Siembra una tienda en linea de demostracion en el primer arranque, unicamente en el perfil dev y si la base
+ * de datos esta vacia: la empresa, su administrador y dos procesos de e-commerce.
  * Todo pasa por los services, asi los datos demo cumplen las mismas reglas de negocio que la API.
  */
 @Component
-@Profile("!prod")
+@Profile("dev")
 @RequiredArgsConstructor
 public class DatosDemoInitializer implements CommandLineRunner {
 

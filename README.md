@@ -42,8 +42,8 @@ Isolation between stores, role-based access and a change history come built in.
 
 ## Demo: order fulfillment
 
-On first start, outside the `prod` profile, the API seeds **Demo Store** with two processes: a published *Order
-fulfillment* process and a draft *Returns and refunds* process. The seed goes through the same services as the API,
+On first start in the `dev` profile (the default), the API seeds **Demo Store** with two processes: a published
+*Order fulfillment* process and a draft *Returns and refunds* process. The seed goes through the same services as the API,
 so the demo data follows the same business rules. Log in as `admin@demo.com` / `admin123` and explore it from
 Swagger UI.
 
@@ -86,7 +86,7 @@ all of them are correlated by `orderId`.
 - **BPMN consistency rules**: sequence flows never cross pools, message flows only connect different participants,
   and a published process cannot go back to draft.
 - **Architecture rules enforced by tests** with ArchUnit: layering, tenant isolation and no `HttpSession`.
-- **230 automated tests** with 88 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **236 automated tests** with 88 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image.
 
 ## Tech stack
@@ -95,7 +95,7 @@ all of them are correlated by `orderId`.
 |---|---|
 | Language | Java 21 |
 | Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Security 7) |
-| Persistence | Hibernate 7.4 · H2 (development) · PostgreSQL (production) |
+| Persistence | Hibernate 7.4 · H2 (`dev` and tests) · PostgreSQL (`prod`) |
 | Security | JWT (jjwt 0.12.6, HS256) · BCrypt |
 | API docs | springdoc-openapi 3 (OpenAPI 3 + Swagger UI) |
 | Testing | JUnit 5 · Mockito · MockMvc · AssertJ · ArchUnit 1.4 · JaCoCo |
@@ -190,8 +190,8 @@ maps each one to its BPMN meaning. More details:
 | Manage process roles | ✅ | ❌ | ❌ |
 | Manage users | ✅ | ❌ | ❌ |
 
-Public endpoints are limited to store registration, login, the API documentation and, in development, the H2
-console.
+Public endpoints are limited to store registration, login, the API documentation (not published in `prod`) and, in
+`dev`, the H2 console.
 
 ## Multi-tenancy and IDOR prevention
 
@@ -263,8 +263,15 @@ Errors follow RFC 9457:
 ./mvnw spring-boot:run
 ```
 
-The API starts on `http://localhost:8080` with a file-based H2 database under `./data`, seeded with Demo Store. If
+The API starts on `http://localhost:8080` in the `dev` profile: a file-based H2 database under `./data`, seeded with
+Demo Store. The H2 console is at `/h2-console` (JDBC URL `jdbc:h2:file:./data/procesos`, user `sa`, no password). If
 `JWT_SECRET` is not set, a random signing key is generated, so tokens become invalid after a restart.
+
+| Profile | Activated by | Database | Demo Store | H2 console | OpenAPI and Swagger UI | SQL log |
+|---|---|---|:---:|:---:|:---:|:---:|
+| `dev` | Default, when no profile is set | H2 file under `./data` | ✅ | ✅ | ✅ | ✅ |
+| `test` | `@ActiveProfiles("test")` in integration tests | In-memory H2, a new one for each Spring test context | ❌ | ❌ | ✅ | ❌ |
+| `prod` | `SPRING_PROFILES_ACTIVE=prod` | PostgreSQL | ❌ | ❌ | ❌ | ❌ |
 
 **Quick tour:**
 
@@ -298,17 +305,17 @@ docker run -p 8080:8080 \
   bpmn-process-manager-api
 ```
 
-The image is a multi-stage build that runs as a non-root user. This command uses an in-memory database; for
-persistent data, use the `prod` profile with PostgreSQL.
+The image is a multi-stage build that runs as a non-root user. This command starts the `dev` profile on an in-memory
+database, with Demo Store; for persistent data, use the `prod` profile with PostgreSQL.
 
 ### PostgreSQL (`prod` profile)
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `SPRING_PROFILES_ACTIVE` | Set to `prod` to use PostgreSQL; the demo store is not seeded | none |
+| `SPRING_PROFILES_ACTIVE` | Set to `prod` to use PostgreSQL; the demo store and the API documentation are left out | `dev` |
 | `DB_HOST` · `DB_PORT` · `DB_NAME` | Database location | `localhost` · `5432` · `procesos` |
 | `DB_USER` · `DB_PASSWORD` | Database credentials | `procesos` · empty |
-| `JWT_SECRET` | HS256 signing key (required in `prod`, at least 32 bytes) | none |
+| `JWT_SECRET` | HS256 signing key, at least 32 bytes; in `prod` the application does not start without it | none |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime | `1800` |
 | `CORS_ALLOWED_ORIGINS` | Allowed storefront or back-office origins | `http://localhost:4200` |
 
@@ -318,16 +325,16 @@ persistent data, use the `prod` profile with PostgreSQL.
 ./mvnw verify
 ```
 
-The build runs 230 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 236 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
-| Architecture (ArchUnit) | 20 | Layering, packaging, tenant isolation, JPA inheritance, no `HttpSession` |
+| Architecture (ArchUnit) | 21 | Layering, packaging, tenant isolation, JPA inheritance, no `HttpSession`, a declared profile in every `@SpringBootTest` |
 | Controller slices (`@WebMvcTest`) | 91 | Routes, status codes, JSON shape and validation, with the real security rules |
 | Service unit tests (Mockito) | 22 | Business rules of the management module |
 | Security and isolation (`@SpringBootTest`) | 93 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403 |
-| Demo data (`@SpringBootTest`) | 3 | The seeded order fulfillment process, read through the API |
-| Application context | 1 | The full context starts |
+| Profiles and demo data (`@SpringBootTest`) | 7 | What `dev` and `prod` expose, and the seeded order fulfillment process read through the API |
+| Application context | 2 | The full context starts in the `test` profile, with an empty database |
 
 Current coverage: 88 % of lines and 62 % of branches.
 
@@ -337,14 +344,14 @@ Current coverage: 88 % of lines and 62 % of branches.
 src/main/java/com/facimus/procesos
 ├── common/        tenant base entity, tenant-aware repository, business exceptions
 │   └── api/       ApiExceptionHandler (Problem Details), PageResponse
-├── config/        OpenAPI definition, demo store seed
+├── config/        OpenAPI definition, demo store seed (dev profile)
 ├── security/      SecurityConfig, JWT service and filter, ApiPrincipal, 401/403 handlers, CORS
 ├── gestion/       management module: controller (+ dto) · service · repository · model
 └── modelado/      BPMN modeling module: controller (+ dto) · service · repository · model
 
 src/test/java/com/facimus/procesos
 ├── arquitectura/  ArchUnit rules
-├── config/        demo data read through the API
+├── config/        profiles, and the demo data read through the API
 ├── gestion/       controller slices and service unit tests
 ├── modelado/      controller slices
 └── security/      JWT, role matrix and two-tenant isolation tests
@@ -362,6 +369,8 @@ src/test/java/com/facimus/procesos
 - **One error format.** Validation, business and security errors all return Problem Details, so clients handle a
   single shape.
 - **The demo data goes through the services.** The seed cannot create a diagram that the API itself would reject.
+- **Tests never touch the development database.** Every `@SpringBootTest` declares its profile (an ArchUnit rule checks
+  it), and the `test` profile gives each Spring context its own in-memory database, so tests create the data they need.
 
 ## Roadmap
 
@@ -396,7 +405,7 @@ src/test/java/com/facimus/procesos
 **Architecture and quality**
 - [ ] Request/response DTO packages with MapStruct mappers; services exposed as interfaces
 - [ ] Module boundaries between `gestion` and `modelado` enforced by ArchUnit (no dependency cycles)
-- [ ] Complete Spring profiles: `dev` with seed data, `test` with an isolated in-memory database, `prod`
+- [x] Complete Spring profiles: `dev` with seed data, `test` with an isolated in-memory database, `prod`
 - [ ] Repository tests with `@DataJpaTest` and unit tests for every modeling service
 - [ ] Coverage gate per package (services ≥ 70 %, branches included) and a SonarCloud quality gate
 - [ ] Docker Compose with PostgreSQL, Actuator health checks and Testcontainers-based integration tests

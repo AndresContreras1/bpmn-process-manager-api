@@ -17,25 +17,27 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.gestion.controller.dto.LoginRequest;
 import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import tools.jackson.databind.json.JsonMapper;
 
 /** Matriz de permisos por rol de acceso que aplica SecurityConfig, con la aplicacion y los tokens reales. */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:autorizacion-it;DB_CLOSE_DELAY=-1")
+@SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AutorizacionPorRolTest {
 
-    private static final String ADMIN_DEMO = "admin@demo.com";
-    private static final String CLAVE_DEMO = "admin123";
+    private static final String ADMIN = "admin@autorizacion.com";
     private static final String EDITOR = "editor@autorizacion.com";
     private static final String LECTOR = "lector@autorizacion.com";
-    private static final String CLAVE_COLABORADOR = "colaborador123";
+    private static final String CLAVE = "clave12345";
 
     // La autorizacion se decide antes del controller: con un id que no existe, la peticion que pasa
     // la regla llega al service y responde 404; la que no la pasa responde 403.
@@ -48,19 +50,23 @@ class AutorizacionPorRolTest {
     private JsonMapper jsonMapper;
 
     @Autowired
+    private EmpresaService empresaService;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     private final Map<RolAcceso, String> tokens = new EnumMap<>(RolAcceso.class);
 
     @BeforeAll
     void iniciarSesionConCadaRol() throws Exception {
-        Long empresaId = usuarioService.autenticar(ADMIN_DEMO, CLAVE_DEMO).getEmpresa().getId();
-        usuarioService.crearColaborador(empresaId, "Editor", EDITOR, CLAVE_COLABORADOR, RolAcceso.EDITOR);
-        usuarioService.crearColaborador(empresaId, "Lector", LECTOR, CLAVE_COLABORADOR, RolAcceso.SOLO_LECTURA);
+        Long empresaId = empresaService.registrar("Tienda Autorizacion", "900111222-3", "contacto@autorizacion.com",
+                "Administrador", ADMIN, CLAVE).getId();
+        usuarioService.crearColaborador(empresaId, "Editor", EDITOR, CLAVE, RolAcceso.EDITOR);
+        usuarioService.crearColaborador(empresaId, "Lector", LECTOR, CLAVE, RolAcceso.SOLO_LECTURA);
 
-        tokens.put(RolAcceso.ADMINISTRADOR, login(ADMIN_DEMO, CLAVE_DEMO));
-        tokens.put(RolAcceso.EDITOR, login(EDITOR, CLAVE_COLABORADOR));
-        tokens.put(RolAcceso.SOLO_LECTURA, login(LECTOR, CLAVE_COLABORADOR));
+        tokens.put(RolAcceso.ADMINISTRADOR, login(ADMIN, CLAVE));
+        tokens.put(RolAcceso.EDITOR, login(EDITOR, CLAVE));
+        tokens.put(RolAcceso.SOLO_LECTURA, login(LECTOR, CLAVE));
     }
 
     @ParameterizedTest(name = "{0} {1} {2} -> {3}")
