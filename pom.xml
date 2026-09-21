@@ -11,15 +11,15 @@
 	<groupId>com.facimus</groupId>
 	<artifactId>procesos</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>procesos</name>
-	<description>Sistema de Gestion de Procesos multiempresa - API REST (Spring Boot + JPA)</description>
+	<name>bpmn-process-manager-api</name>
+	<description>Multi-tenant REST API for modeling e-commerce operations as BPMN processes</description>
 
 	<properties>
 		<java.version>21</java.version>
-		<!-- SonarCloud -->
-		<sonar.organization>facimus-curiositatem</sonar.organization>
-		<sonar.projectKey>Facimus-Curiositatem_Beta-back</sonar.projectKey>
-		<sonar.projectName>Facimus Procesos Backend</sonar.projectName>
+		<!-- SonarCloud: organizacion y proyecto que crea la importacion automatica del repositorio -->
+		<sonar.organization>andrescontreras1</sonar.organization>
+		<sonar.projectKey>AndresContreras1_bpmn-process-manager-api</sonar.projectKey>
+		<sonar.projectName>BPMN Process Manager API</sonar.projectName>
 		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
 		<sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
 		<sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
