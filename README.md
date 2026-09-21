@@ -86,9 +86,11 @@ all of them are correlated by `orderId`.
   transitions and a pagination envelope.
 - **BPMN consistency rules**: sequence flows never cross pools, message flows only connect different participants,
   and a published process cannot go back to draft.
+- **Schema under version control.** Flyway migrations shared by H2 and PostgreSQL, with engine-specific scripts where
+  they differ. Hibernate only validates the schema, and the database enforces unique names on its own.
 - **Architecture rules enforced by tests** with ArchUnit: layering, tenant isolation and no `HttpSession`.
-- **242 automated tests** with 88 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
-  Docker image.
+- **248 automated tests** with 88 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+  Docker image, then runs it against PostgreSQL.
 
 ## Tech stack
 
@@ -96,7 +98,7 @@ all of them are correlated by `orderId`.
 |---|---|
 | Language | Java 21 |
 | Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Security 7) |
-| Persistence | Hibernate 7.4 · H2 (`dev` and tests) · PostgreSQL (`prod`) |
+| Persistence | Hibernate 7.4 · Flyway 12 · H2 (`dev` and tests) · PostgreSQL (`prod`) |
 | Security | JWT (jjwt 0.12.6, HS256) · BCrypt |
 | API docs | springdoc-openapi 3 (OpenAPI 3 + Swagger UI) |
 | Testing | JUnit 5 · Mockito · MockMvc · AssertJ · ArchUnit 1.4 · JaCoCo |
@@ -169,7 +171,8 @@ maps each one to its BPMN meaning. More details:
 - Sequence flows never cross pools.
 - Messages only connect two different pools.
 - A published process cannot go back to draft.
-- Process and process-role names are unique within a store, and flow-node names are unique within a process.
+- Process and process-role names are unique among a store's active records, ignoring case; the database enforces it
+  too. Flow-node names are unique within a process.
 - A process role that is in use cannot be deleted.
 - User emails are unique across the platform and case-insensitive: the email is the login, and the login
   does not know the store yet.
@@ -289,6 +292,9 @@ The API starts on `http://localhost:8080` in the `dev` profile: a file-based H2 
 Demo Store. The H2 console is at `/h2-console` (JDBC URL `jdbc:h2:file:./data/procesos`, user `sa`, no password). If
 `JWT_SECRET` is not set, a random signing key is generated, so tokens become invalid after a restart.
 
+> **Upgrading from a version before Flyway?** Delete `./data` once. Flyway builds the schema on the next start and does
+> not adopt a schema that Hibernate created.
+
 | Profile | Activated by | Database | Demo Store | H2 console | OpenAPI and Swagger UI | SQL log |
 |---|---|---|:---:|:---:|:---:|:---:|
 | `dev` | Default, when no profile is set | H2 file under `./data` | ✅ | ✅ | ✅ | ✅ |
@@ -341,21 +347,24 @@ database, with Demo Store; for persistent data, use the `prod` profile with Post
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime | `1800` |
 | `CORS_ALLOWED_ORIGINS` | Allowed storefront or back-office origins | `http://localhost:4200` |
 
+On startup, Flyway creates the schema or brings it up to date, so the database must exist and the user needs
+permission to create tables. The CI pipeline starts the image in this profile against PostgreSQL 16.
+
 ## Testing
 
 ```bash
 ./mvnw verify
 ```
 
-The build runs 242 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 248 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | Architecture (ArchUnit) | 21 | Layering, packaging, tenant isolation, JPA inheritance, no `HttpSession`, a declared profile in every `@SpringBootTest` |
-| Controller slices (`@WebMvcTest`) | 94 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Controller slices (`@WebMvcTest`) | 95 | Routes, status codes, JSON shape and validation, with the real security rules |
 | Service unit tests (Mockito) | 22 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 94 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403 |
-| Profiles, API contract and demo data (`@SpringBootTest`) | 9 | What `dev` and `prod` expose, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
+| Security and isolation (`@SpringBootTest`) | 95 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403 |
+| Profiles, schema, API contract and demo data (`@SpringBootTest`) | 13 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
 | Application context | 2 | The full context starts in the `test` profile, with an empty database |
 
 Current coverage: 88 % of lines and 63 % of branches.
@@ -371,9 +380,13 @@ src/main/java/com/facimus/procesos
 ├── gestion/       management module: controller (+ dto) · service · repository · model
 └── modelado/      BPMN modeling module: controller (+ dto) · service · repository · model
 
+src/main/resources
+├── application*.properties   shared settings and the dev and prod profiles
+└── db/migration/             Flyway: common/ runs on every engine; h2/ and postgresql/ hold engine-specific SQL
+
 src/test/java/com/facimus/procesos
 ├── arquitectura/  ArchUnit rules
-├── config/        profiles, the OpenAPI contract, and the demo data read through the API
+├── config/        profiles, migrations, the OpenAPI contract, and the demo data read through the API
 ├── gestion/       controller slices and service unit tests
 ├── modelado/      controller slices
 └── security/      JWT, role matrix and two-tenant isolation tests
@@ -393,6 +406,13 @@ src/test/java/com/facimus/procesos
 - **Unknown fields are errors.** Jackson fails on properties the contract does not define, so a typo or a smuggled
   `empresaId` gets a `400` instead of being silently dropped.
 - **The demo data goes through the services.** The seed cannot create a diagram that the API itself would reject.
+- **The schema belongs to Flyway.** Migrations are the single source of truth and Hibernate only validates them
+  (`ddl-auto=validate`). Portable SQL lives in `db/migration/common`; what only one engine can express, such as
+  PostgreSQL's partial unique indexes, lives in `db/migration/{vendor}`, and H2 gets an equivalent built on a
+  generated column.
+- **Every text column has a length, and so does its request field.** A value that is too long answers `400` before it
+  reaches the database. Passwords stop at 72 characters: BCrypt only reads 72 bytes, and Spring Security
+  rejects longer ones.
 - **Tests never touch the development database.** Every `@SpringBootTest` declares its profile (an ArchUnit rule checks
   it), and the `test` profile gives each Spring context its own in-memory database, so tests create the data they need.
 
@@ -416,7 +436,7 @@ src/test/java/com/facimus/procesos
 - [ ] Rate limiting on login (`429` + `Retry-After`)
 
 **Data and auditability**
-- [ ] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
+- [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
 - [ ] Soft delete and change history for every BPMN element
 - [ ] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
 - [ ] Lazy associations with entity graphs and read-only transactions
