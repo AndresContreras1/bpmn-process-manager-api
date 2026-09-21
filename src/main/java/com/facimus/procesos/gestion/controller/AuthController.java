@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.ReglaNegocioException;
-import com.facimus.procesos.gestion.controller.dto.LoginRequest;
-import com.facimus.procesos.gestion.controller.dto.LoginResponse;
-import com.facimus.procesos.gestion.controller.dto.UsuarioResponse;
+import com.facimus.procesos.gestion.dto.request.LoginRequest;
+import com.facimus.procesos.gestion.dto.response.LoginResponse;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.ApiPrincipal;

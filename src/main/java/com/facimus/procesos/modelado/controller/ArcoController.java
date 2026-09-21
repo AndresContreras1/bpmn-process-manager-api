@@ -16,9 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.modelado.controller.dto.ArcoRequest;
-import com.facimus.procesos.modelado.controller.dto.ArcoResponse;
-import com.facimus.procesos.modelado.controller.dto.EditarArcoRequest;
+import com.facimus.procesos.modelado.dto.request.ArcoRequest;
+import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.request.EditarArcoRequest;
 import com.facimus.procesos.modelado.model.Arco;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.security.ApiPrincipal;

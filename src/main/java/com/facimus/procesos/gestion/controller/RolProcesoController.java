@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.gestion.controller.dto.RolProcesoRequest;
-import com.facimus.procesos.gestion.controller.dto.RolProcesoVistaResponse;
+import com.facimus.procesos.gestion.dto.request.RolProcesoRequest;
+import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.security.ApiPrincipal;

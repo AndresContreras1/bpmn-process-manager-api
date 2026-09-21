@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.modelado.controller.dto.CorrelacionRequest;
-import com.facimus.procesos.modelado.controller.dto.CorrelacionResponse;
+import com.facimus.procesos.modelado.dto.request.CorrelacionRequest;
+import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.model.Correlacion;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.security.ApiPrincipal;

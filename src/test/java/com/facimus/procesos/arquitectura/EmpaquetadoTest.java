@@ -119,13 +119,17 @@ class EmpaquetadoTest {
     }
 
     @Test
-    @DisplayName("Los DTOs viven en controller.dto")
+    @DisplayName("Los DTOs de entrada viven en dto.request y los de salida en dto.response")
     void dtos_en_paquete_dto() {
         classes()
                 .that().haveSimpleNameEndingWith("Request")
-                .or().haveSimpleNameEndingWith("Response")
-                .should().resideInAnyPackage("..controller.dto..", "..common..")
-                .because("Los DTOs de entrada/salida pertenecen a la capa de presentacion o common")
+                .should().resideInAPackage("..dto.request..")
+                .because("los DTOs son el contrato de cada modulo: los usan los controllers y los devuelven los services")
+                .check(clases);
+        classes()
+                .that().haveSimpleNameEndingWith("Response")
+                .should().resideInAnyPackage("..dto.response..", "..common.api..")
+                .because("los DTOs son el contrato de cada modulo: los usan los controllers y los devuelven los services")
                 .check(clases);
     }
 }

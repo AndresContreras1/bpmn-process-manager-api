@@ -22,12 +22,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.api.PageResponse;
-import com.facimus.procesos.gestion.controller.dto.CambiarEstadoProcesoRequest;
-import com.facimus.procesos.gestion.controller.dto.EditarProcesoRequest;
-import com.facimus.procesos.gestion.controller.dto.HistorialCambioResponse;
-import com.facimus.procesos.gestion.controller.dto.ProcesoDetalleResponse;
-import com.facimus.procesos.gestion.controller.dto.ProcesoRequest;
-import com.facimus.procesos.gestion.controller.dto.ProcesoResponse;
+import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
+import com.facimus.procesos.gestion.dto.request.EditarProcesoRequest;
+import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
+import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
+import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
+import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.service.HistorialCambioService;

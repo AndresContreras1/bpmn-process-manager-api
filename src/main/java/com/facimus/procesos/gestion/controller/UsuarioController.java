@@ -16,9 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.gestion.controller.dto.ActualizarUsuarioRequest;
-import com.facimus.procesos.gestion.controller.dto.CrearUsuarioRequest;
-import com.facimus.procesos.gestion.controller.dto.UsuarioResponse;
+import com.facimus.procesos.gestion.dto.request.ActualizarUsuarioRequest;
+import com.facimus.procesos.gestion.dto.request.CrearUsuarioRequest;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.ApiPrincipal;

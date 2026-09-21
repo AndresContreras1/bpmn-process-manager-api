@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.modelado.controller.dto.ActividadRequest;
-import com.facimus.procesos.modelado.controller.dto.ActividadResponse;
+import com.facimus.procesos.modelado.dto.request.ActividadRequest;
+import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.security.ApiPrincipal;

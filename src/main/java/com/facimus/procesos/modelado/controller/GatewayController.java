@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.modelado.controller.dto.GatewayRequest;
-import com.facimus.procesos.modelado.controller.dto.GatewayResponse;
+import com.facimus.procesos.modelado.dto.request.GatewayRequest;
+import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.model.Gateway;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.security.ApiPrincipal;

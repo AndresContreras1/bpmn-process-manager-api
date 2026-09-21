@@ -25,9 +25,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.facimus.procesos.gestion.controller.dto.LoginRequest;
-import com.facimus.procesos.gestion.controller.dto.ProcesoRequest;
-import com.facimus.procesos.gestion.controller.dto.RegistroEmpresaRequest;
+import com.facimus.procesos.gestion.dto.request.LoginRequest;
+import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
+import com.facimus.procesos.gestion.dto.request.RegistroEmpresaRequest;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.service.EmpresaService;

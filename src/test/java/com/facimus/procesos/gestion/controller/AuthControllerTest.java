@@ -17,7 +17,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.common.ReglaNegocioException;
-import com.facimus.procesos.gestion.controller.dto.LoginRequest;
+import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Usuario;

@@ -16,9 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.modelado.controller.dto.EditarMensajeRequest;
-import com.facimus.procesos.modelado.controller.dto.MensajeRequest;
-import com.facimus.procesos.modelado.controller.dto.MensajeResponse;
+import com.facimus.procesos.modelado.dto.request.EditarMensajeRequest;
+import com.facimus.procesos.modelado.dto.request.MensajeRequest;
+import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.model.Mensaje;
 import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.security.ApiPrincipal;

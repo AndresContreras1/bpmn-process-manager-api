@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.gestion.controller.dto.EmpresaResponse;
-import com.facimus.procesos.gestion.controller.dto.RegistroEmpresaRequest;
+import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
+import com.facimus.procesos.gestion.dto.request.RegistroEmpresaRequest;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.service.EmpresaService;
 

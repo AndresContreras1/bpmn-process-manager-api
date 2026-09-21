@@ -16,9 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.modelado.controller.dto.EditarPoolRequest;
-import com.facimus.procesos.modelado.controller.dto.PoolRequest;
-import com.facimus.procesos.modelado.controller.dto.PoolResponse;
+import com.facimus.procesos.modelado.dto.request.EditarPoolRequest;
+import com.facimus.procesos.modelado.dto.request.PoolRequest;
+import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.service.PoolService;
 import com.facimus.procesos.security.ApiPrincipal;
