@@ -129,17 +129,20 @@ jobs:
             -e DB_HOST=db -e DB_PASSWORD=procesos \
             -e JWT_SECRET=ci-only-signing-key-with-at-least-32-characters \
             bpmn-process-manager-api:${{ github.sha }}
-          # Flyway migrates PostgreSQL on startup; registering a store proves the API writes to that schema.
+          # The API answers once Flyway has migrated PostgreSQL and Hibernate has validated the schema. Until then
+          # curl fails, and Actions runs this script with bash -e: curl must stay in a condition (&&, if).
           for intento in $(seq 1 30); do
-            estado=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8081/api/v1/empresas \
-              -H 'Content-Type: application/json' \
-              -d '{"nombreEmpresa":"CI Store","nit":"900000001-1","correoContacto":"ci@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci@store.com","passwordAdmin":"secret123"}')
-            if [ "$estado" = "201" ]; then
-              echo "The prod profile runs on PostgreSQL."
-              exit 0
-            fi
+            curl -s -o /dev/null http://localhost:8081/ && break
             sleep 2
           done
+          # Registering a store proves the API writes to that schema.
+          if curl -sS --fail-with-body -X POST http://localhost:8081/api/v1/empresas \
+            -H 'Content-Type: application/json' \
+            -d '{"nombreEmpresa":"CI Store","nit":"900000001-1","correoContacto":"ci@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci@store.com","passwordAdmin":"secret123"}'; then
+            echo
+            echo "The prod profile runs on PostgreSQL."
+            exit 0
+          fi
           docker logs api-prod
           exit 1
 
