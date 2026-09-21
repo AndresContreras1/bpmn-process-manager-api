@@ -1,7 +1,7 @@
 {
 	"info": {
-		"name": "Facimus Procesos - API REST",
-		"description": "Coleccion completa de la API REST del Sistema de Gestion y Modelado de Procesos BPMN multiempresa.\n\n**Flujo recomendado:**\n1. Registrar empresa (POST /api/v1/empresas)\n2. Iniciar sesion (POST /api/v1/auth/login) — el token JWT se guarda automaticamente\n3. Usar los demas endpoints (el header Authorization: Bearer se envia automaticamente)",
+		"name": "BPMN Process Manager API",
+		"description": "Coleccion completa de BPMN Process Manager API: tiendas en linea que modelan sus operaciones (despacho de pedidos, pagos y devoluciones) como procesos BPMN, cada una aislada de las demas.\n\n**Flujo recomendado:**\n1. Registrar empresa (POST /api/v1/empresas)\n2. Iniciar sesion (POST /api/v1/auth/login) — el token JWT se guarda automaticamente\n3. Usar los demas endpoints (el header Authorization: Bearer se envia automaticamente)",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -32,6 +32,11 @@
 		},
 		{
 			"key": "poolId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "poolTiendaId",
 			"value": "",
 			"type": "string"
 		},
@@ -113,7 +118,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombreEmpresa\": \"Acme Corp\",\n  \"nit\": \"900123456-1\",\n  \"correoContacto\": \"contacto@acme.com\",\n  \"nombreAdmin\": \"Administrador\",\n  \"emailAdmin\": \"admin@acme.com\",\n  \"passwordAdmin\": \"secret123\"\n}"
+							"raw": "{\n  \"nombreEmpresa\": \"Acme Store\",\n  \"nit\": \"901234567-8\",\n  \"correoContacto\": \"contacto@acme.com\",\n  \"nombreAdmin\": \"Administrador\",\n  \"emailAdmin\": \"admin@acme.com\",\n  \"passwordAdmin\": \"secret123\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/empresas",
@@ -343,7 +348,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Proceso de Ventas\",\n  \"descripcion\": \"Flujo completo del proceso de ventas B2B\",\n  \"categoria\": \"Comercial\"\n}"
+							"raw": "{\n  \"nombre\": \"Order fulfillment\",\n  \"descripcion\": \"From checkout to delivery\",\n  \"categoria\": \"Fulfillment\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/procesos",
@@ -394,7 +399,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Proceso de Ventas v2\",\n  \"descripcion\": \"Flujo actualizado\",\n  \"categoria\": \"Comercial\"\n}"
+							"raw": "{\n  \"nombre\": \"Order fulfillment v2\",\n  \"descripcion\": \"Adds fraud screening before the payment\",\n  \"categoria\": \"Fulfillment\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}",
@@ -488,7 +493,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Analista\",\n  \"descripcion\": \"Responsable del analisis de procesos\"\n}"
+							"raw": "{\n  \"nombre\": \"Warehouse operator\",\n  \"descripcion\": \"Picks and packs the orders\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/roles",
@@ -525,7 +530,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Analista Senior\",\n  \"descripcion\": \"Analista con experiencia\"\n}"
+							"raw": "{\n  \"nombre\": \"Warehouse lead\",\n  \"descripcion\": \"Coordinates the warehouse shift\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/roles/{{rolId}}",
@@ -558,6 +563,19 @@
 			"item": [
 				{
 					"name": "Listar pools del proceso",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200 && pm.response.json().length > 0) {",
+									"    pm.collectionVariables.set('poolTiendaId', pm.response.json()[0].id);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -610,7 +628,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Departamento Comercial\",\n  \"tipoParticipante\": \"EMPRESA\",\n  \"cajaNegra\": false\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment partner (3PL)\",\n  \"tipoParticipante\": \"PROVEEDOR\",\n  \"cajaNegra\": false\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/pools",
@@ -633,7 +651,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Departamento Comercial v2\",\n  \"tipoParticipante\": \"EMPRESA\"\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment partner\",\n  \"tipoParticipante\": \"PROVEEDOR\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}",
@@ -718,7 +736,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Recepcion de solicitudes\",\n  \"rolProcesoId\": {{rolId}}\n}"
+							"raw": "{\n  \"nombre\": \"Picking\",\n  \"rolProcesoId\": {{rolId}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}/lanes",
@@ -741,7 +759,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Recepcion v2\",\n  \"rolProcesoId\": {{rolId}}\n}"
+							"raw": "{\n  \"nombre\": \"Picking and packing\",\n  \"rolProcesoId\": {{rolId}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}",
@@ -826,7 +844,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Revisar solicitud\",\n  \"descripcion\": \"Verificar datos del cliente\",\n  \"posicionX\": 200,\n  \"posicionY\": 150\n}"
+							"raw": "{\n  \"nombre\": \"Pick items\",\n  \"descripcion\": \"Collect the ordered items from the shelves\",\n  \"posicionX\": 200,\n  \"posicionY\": 150\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}/actividades",
@@ -849,7 +867,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Revisar solicitud v2\",\n  \"descripcion\": \"Verificar datos actualizados\",\n  \"posicionX\": 250,\n  \"posicionY\": 150\n}"
+							"raw": "{\n  \"nombre\": \"Pick and scan items\",\n  \"descripcion\": \"Collect and scan the ordered items\",\n  \"posicionX\": 250,\n  \"posicionY\": 150\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/actividades/{{actividadId}}",
@@ -934,7 +952,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Aprobacion requerida?\",\n  \"tipoGateway\": \"EXCLUSIVO\",\n  \"posicionX\": 400,\n  \"posicionY\": 150\n}"
+							"raw": "{\n  \"nombre\": \"Items in stock?\",\n  \"tipoGateway\": \"EXCLUSIVO\",\n  \"posicionX\": 400,\n  \"posicionY\": 150\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}/gateways",
@@ -957,7 +975,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Decision de pago\",\n  \"tipoGateway\": \"PARALELO\",\n  \"posicionX\": 400,\n  \"posicionY\": 200\n}"
+							"raw": "{\n  \"nombre\": \"Parallel packing\",\n  \"tipoGateway\": \"PARALELO\",\n  \"posicionX\": 400,\n  \"posicionY\": 200\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/gateways/{{gatewayId}}",
@@ -1042,7 +1060,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"origenId\": {{actividadId}},\n  \"destinoId\": {{gatewayId}},\n  \"etiqueta\": \"completado\",\n  \"condicion\": null\n}"
+							"raw": "{\n  \"origenId\": {{actividadId}},\n  \"destinoId\": {{gatewayId}},\n  \"etiqueta\": \"picked\",\n  \"condicion\": \"Picking finished\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/arcos",
@@ -1065,7 +1083,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"etiqueta\": \"si\",\n  \"condicion\": \"monto > 1000\"\n}"
+							"raw": "{\n  \"etiqueta\": \"in stock\",\n  \"condicion\": \"stock >= quantity\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/arcos/{{arcoId}}",
@@ -1150,7 +1168,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Orden de compra\",\n  \"contenido\": \"Datos del pedido\",\n  \"poolOrigenId\": {{poolId}},\n  \"poolDestinoId\": {{poolId}}\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment request\",\n  \"contenido\": \"Order lines and shipping address\",\n  \"poolOrigenId\": {{poolTiendaId}},\n  \"poolDestinoId\": {{poolId}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/mensajes",
@@ -1173,7 +1191,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Orden actualizada\",\n  \"contenido\": \"Datos del pedido corregidos\"\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment request v2\",\n  \"contenido\": \"Order lines, shipping address and priority\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/mensajes/{{mensajeId}}",

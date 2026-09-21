@@ -17,8 +17,9 @@ public class OpenApiConfig {
         String esquema = "bearerAuth";
         return new OpenAPI()
                 .info(new Info()
-                        .title("Facimus Procesos - API REST")
-                        .description("Sistema de Gestion y Modelado de Procesos BPMN multiempresa.")
+                        .title("BPMN Process Manager API")
+                        .description("Multi-tenant REST API for modeling e-commerce operations (order fulfillment, "
+                                + "payments and returns) as BPMN processes.")
                         .version("1.0.0"))
                 .addSecurityItem(new SecurityRequirement().addList(esquema))
                 .components(new Components().addSecuritySchemes(esquema,
