@@ -80,8 +80,9 @@ all of them are correlated by `orderId`.
 - **Stateless JWT authentication** with a custom Spring Security filter chain and a typed `ApiPrincipal`.
 - **Role-based authorization matrix** (administrator, editor, read-only), defined in one place in the security
   configuration.
-- **RFC 9457 Problem Details** for every error, including `401` and `403` raised by the security layer, with a
-  message for each invalid field. Fields that the contract does not define are rejected, not ignored.
+- **RFC 9457 Problem Details** for every error, including `401` and `403` raised by the security layer and the `400`
+  for URLs its firewall rejects, with a message for each invalid field. Fields that the contract does not define are
+  rejected, not ignored.
 - **Versioned REST contract** under `/api/v1`: `201 Created` with `Location`, `204 No Content`, `PATCH` for state
   transitions and a pagination envelope.
 - **BPMN consistency rules**: sequence flows never cross pools, message flows only connect different participants,
@@ -93,7 +94,7 @@ all of them are correlated by `orderId`.
   replace the calls that used to go the other way.
 - **Architecture rules enforced by tests** with ArchUnit: layering, module boundaries, no package cycles, lazy
   associations, tenant isolation and no `HttpSession`.
-- **263 automated tests** with 90 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **265 automated tests** with 90 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image, then runs it against PostgreSQL.
 
 ## Tech stack
@@ -333,7 +334,8 @@ curl -s -X POST http://localhost:8080/api/v1/empresas -H "Content-Type: applicat
 ```
 
 The [Postman collection](postman/) walks through a second scenario: *Acme Store* models how it hands orders over to a
-third-party logistics (3PL) partner. Run its requests in order.
+third-party logistics (3PL) partner. Run its requests in order, one by one or with the Collection Runner: the last
+folder deletes what the scenario created, children first.
 
 ### Docker
 
@@ -368,14 +370,14 @@ permission to create tables. The CI pipeline starts the image in this profile ag
 ./mvnw verify
 ```
 
-The build runs 263 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 265 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | Architecture (ArchUnit) | 30 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, a declared profile in every `@SpringBootTest` |
 | Controller slices (`@WebMvcTest`) | 95 | Routes, status codes, JSON shape and validation, with the real security rules |
 | Service unit tests (Mockito) | 22 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 95 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403 |
+| Security and isolation (`@SpringBootTest`) | 97 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403, and the 400 for URLs the firewall rejects |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 15 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
 | Module integration (`@SpringBootTest`) | 4 | Process-role usage across modules and the order of pools and lanes |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
