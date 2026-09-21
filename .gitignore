@@ -34,11 +34,3 @@ build/
 
 ### VS Code ###
 .vscode/
-
-### JMeter ###
-jmeter.log
-*.jtl
-reporte-login/
-statistics.json
-
-
