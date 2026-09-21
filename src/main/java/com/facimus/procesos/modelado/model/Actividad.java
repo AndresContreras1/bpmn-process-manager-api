@@ -15,6 +15,6 @@ import lombok.Setter;
 @DiscriminatorValue("ACTIVIDAD")
 public class Actividad extends NodoFlujo {
 
-    @Column
+    @Column(length = 1000)
     private String descripcion;
 }

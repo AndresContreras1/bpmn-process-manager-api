@@ -26,10 +26,11 @@ class ProcesosApplicationTests {
     void contextLoads() {
     }
 
+    // Otros tests con esta misma configuracion comparten el contexto y su base: se busca la tienda demo, no una base vacia.
     @Test
-    @DisplayName("El perfil test arranca con la base vacia: sin tienda demo, cada test crea sus datos")
+    @DisplayName("El perfil test arranca sin la tienda demo: cada test crea sus datos")
     void perfilTest_arrancaSinDatosDemo() {
         assertThat(context.getBeanNamesForType(DatosDemoInitializer.class)).isEmpty();
-        assertThat(empresaRepository.count()).isZero();
+        assertThat(empresaRepository.existsByNit("900123456-1")).isFalse();
     }
 }

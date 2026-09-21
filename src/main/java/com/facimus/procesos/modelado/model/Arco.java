@@ -26,10 +26,10 @@ public class Arco extends EntidadEmpresa {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column
+    @Column(length = 120)
     private String etiqueta;
 
-    @Column
+    @Column(length = 500)
     private String condicion;
 
     @ManyToOne(optional = false)

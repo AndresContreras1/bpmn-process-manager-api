@@ -42,6 +42,6 @@ public class HistorialCambio extends EntidadEmpresa {
     @Column(name = "fecha_cambio", nullable = false)
     private LocalDateTime fechaCambio;
 
-    @Column(name = "descripcion_cambio", nullable = false)
+    @Column(name = "descripcion_cambio", nullable = false, length = 500)
     private String descripcionCambio;
 }

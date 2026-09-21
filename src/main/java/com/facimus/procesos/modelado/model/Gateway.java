@@ -18,8 +18,8 @@ import lombok.Setter;
 public class Gateway extends NodoFlujo {
 
     // Sin nullable = false: con SINGLE_TABLE las actividades comparten esta columna y no tienen tipo.
-    // El tipo del gateway lo exige GatewayRequest con @NotNull.
+    // Que todo gateway tenga tipo lo exigen GatewayRequest (@NotNull) y el check ck_nodos_flujo_gateway_con_tipo.
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_gateway")
+    @Column(name = "tipo_gateway", length = 20)
     private TipoGateway tipoGateway;
 }

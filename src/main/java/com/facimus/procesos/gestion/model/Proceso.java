@@ -11,7 +11,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,18 +27,17 @@ public class Proceso extends EntidadEmpresa {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 120)
     private String nombre;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, length = 4000)
     private String descripcion;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 80)
     private String categoria;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private EstadoProceso estado = EstadoProceso.BORRADOR;
 
     @Column(nullable = false)

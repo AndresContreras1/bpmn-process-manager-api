@@ -34,7 +34,7 @@ public abstract class NodoFlujo extends EntidadEmpresa {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 120)
     private String nombre;
 
     @Column(name = "posicion_x", nullable = false)
