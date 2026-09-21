@@ -334,7 +334,8 @@ curl -s -X POST http://localhost:8080/api/v1/empresas -H "Content-Type: applicat
 ```
 
 The [Postman collection](postman/) walks through a second scenario: *Acme Store* models how it hands orders over to a
-third-party logistics (3PL) partner. Run its requests in order.
+third-party logistics (3PL) partner. Run its requests in order, one by one or with the Collection Runner: the last
+folder deletes what the scenario created, children first.
 
 ### Docker
 
