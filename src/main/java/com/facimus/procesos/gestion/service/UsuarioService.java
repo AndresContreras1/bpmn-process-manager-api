@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.service;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,20 +31,34 @@ public class UsuarioService {
     @Transactional
     public Usuario crearColaborador(Long empresaId, String nombre, String email, String password,
             RolAcceso rolAcceso) {
-        if (usuarioRepository.existsByEmpresaIdAndEmail(empresaId, email)) {
-            throw new ReglaNegocioException("Ya existe un usuario con el correo " + email + " en esta empresa.");
-        }
         Empresa empresa = empresaRepository.findById(empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Empresa no encontrada."));
+        return crearUsuario(empresa, nombre, email, password, rolAcceso);
+    }
+
+    /**
+     * Unico punto que da de alta usuarios, tanto colaboradores como el administrador de una empresa nueva.
+     * El correo es el usuario del login, que todavia no conoce la empresa: tiene que ser unico en todo el sistema.
+     */
+    @Transactional
+    public Usuario crearUsuario(Empresa empresa, String nombre, String email, String password, RolAcceso rolAcceso) {
+        String correo = normalizarCorreo(email);
+        validarCorreoDisponible(correo);
 
         Usuario usuario = new Usuario();
         usuario.setEmpresa(empresa);
         usuario.setNombre(nombre);
-        usuario.setEmail(email);
+        usuario.setEmail(correo);
         usuario.setPasswordHash(passwordEncoder.encode(password));
         usuario.setRolAcceso(rolAcceso);
         usuario.setActivo(true);
         return usuarioRepository.save(usuario);
+    }
+
+    public void validarCorreoDisponible(String email) {
+        if (usuarioRepository.existsByEmail(normalizarCorreo(email))) {
+            throw new ReglaNegocioException("Ya existe un usuario registrado con el correo " + email + ".");
+        }
     }
 
     @Transactional
@@ -71,7 +86,7 @@ public class UsuarioService {
     }
 
     public Usuario autenticar(String email, String password) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
+        Usuario usuario = usuarioRepository.findByEmail(normalizarCorreo(email))
                 .filter(Usuario::isActivo)
                 .orElseThrow(() -> new ReglaNegocioException(CREDENCIALES_INVALIDAS));
         if (!passwordEncoder.matches(password, usuario.getPasswordHash())) {
@@ -87,5 +102,10 @@ public class UsuarioService {
     public Usuario obtener(Long empresaId, Long usuarioId) {
         return usuarioRepository.findByIdAndEmpresaId(usuarioId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
+    }
+
+    /** Ana@Acme.com y ana@acme.com son el mismo usuario: se guarda y se busca siempre en minusculas. */
+    private static String normalizarCorreo(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 }

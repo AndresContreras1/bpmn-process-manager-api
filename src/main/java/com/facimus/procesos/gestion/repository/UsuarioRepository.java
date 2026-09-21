@@ -10,15 +10,14 @@ public interface UsuarioRepository extends RepositorioTenant<Usuario> {
 
     Optional<Usuario> findByEmpresaIdAndEmail(Long empresaId, String email);
 
-    boolean existsByEmpresaIdAndEmail(Long empresaId, String email);
-
     List<Usuario> findAllByEmpresaIdAndActivoTrue(Long empresaId);
 
-    /**
-     * Login-only: el formulario de inicio de sesion no conoce todavia el
-     * empresaId (esa es justamente la informacion que la sesion va a fijar
-     * despues de autenticar), asi que esta unica consulta rompe la regla
-     * general de acotar por tenant.
+    /*
+     * Las dos consultas por correo no se acotan por empresa a proposito: el login todavia no conoce el
+     * empresaId, y por eso el correo es unico en todo el sistema (restriccion uk_usuarios_email).
      */
+
+    boolean existsByEmail(String email);
+
     Optional<Usuario> findByEmail(String email);
 }

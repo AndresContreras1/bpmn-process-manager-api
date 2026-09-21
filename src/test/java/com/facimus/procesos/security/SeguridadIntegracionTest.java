@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -21,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.gestion.controller.dto.LoginRequest;
 import com.facimus.procesos.gestion.controller.dto.ProcesoRequest;
+import com.facimus.procesos.gestion.controller.dto.RegistroEmpresaRequest;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -75,6 +78,27 @@ class SeguridadIntegracionTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN_DEMO, "clave-mala"))))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @ParameterizedTest(name = "emailAdmin = {0}")
+    @CsvSource({ "admin@demo.com, 901000111", "ADMIN@Demo.com, 901000222" })
+    @DisplayName("Registrar una empresa con el correo de otro usuario responde 409 y no le bloquea el login")
+    void Seguridad_registroConCorreoAjeno_devuelve409YElDuenoSigueEntrando(String correoAjeno, String nit)
+            throws Exception {
+        mockMvc.perform(post("/api/v1/empresas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new RegistroEmpresaRequest("Otra Tienda", nit,
+                                "contacto@otra.com", "Otro Admin", correoAjeno, "otra-clave"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Regla de negocio violada"));
+
+        login(ADMIN_DEMO, CLAVE_DEMO);
+        // La empresa rechazada no quedo a medio crear: su NIT sigue libre.
+        mockMvc.perform(post("/api/v1/empresas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new RegistroEmpresaRequest("Otra Tienda", nit,
+                                "contacto@otra.com", "Otro Admin", "admin-" + nit + "@otra.com", "otra-clave"))))
+                .andExpect(status().isCreated());
     }
 
     @Test

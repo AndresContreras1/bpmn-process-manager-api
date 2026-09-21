@@ -86,7 +86,7 @@ all of them are correlated by `orderId`.
 - **BPMN consistency rules**: sequence flows never cross pools, message flows only connect different participants,
   and a published process cannot go back to draft.
 - **Architecture rules enforced by tests** with ArchUnit: layering, tenant isolation and no `HttpSession`.
-- **224 automated tests** with 88 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **230 automated tests** with 88 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image.
 
 ## Tech stack
@@ -170,6 +170,8 @@ maps each one to its BPMN meaning. More details:
 - A published process cannot go back to draft.
 - Process and process-role names are unique within a store, and flow-node names are unique within a process.
 - A process role that is in use cannot be deleted.
+- User emails are unique across the platform and case-insensitive: the email is the login, and the login
+  does not know the store yet.
 - Processes and process roles are soft-deleted, so they keep their traceability.
 
 ## Security model
@@ -316,14 +318,14 @@ persistent data, use the `prod` profile with PostgreSQL.
 ./mvnw verify
 ```
 
-The build runs 224 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 230 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | Architecture (ArchUnit) | 20 | Layering, packaging, tenant isolation, JPA inheritance, no `HttpSession` |
-| Controller slices (`@WebMvcTest`) | 90 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 19 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 91 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403 |
+| Controller slices (`@WebMvcTest`) | 91 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 22 | Business rules of the management module |
+| Security and isolation (`@SpringBootTest`) | 93 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403 |
 | Demo data (`@SpringBootTest`) | 3 | The seeded order fulfillment process, read through the API |
 | Application context | 1 | The full context starts |
 
@@ -375,7 +377,7 @@ src/test/java/com/facimus/procesos
 - [ ] Process versioning: editing a published process opens a new draft version
 
 **Security**
-- [ ] Enforce globally unique user emails, so a new store cannot reuse an existing user's login email
+- [x] Enforce globally unique user emails, so a new store cannot reuse an existing user's login email
 - [ ] Authenticate through `AuthenticationManager` + `UserDetailsService`, without revealing whether an email exists
 - [ ] Short-lived access tokens with refresh tokens
 - [ ] Rate limiting on login (`429` + `Retry-After`)
