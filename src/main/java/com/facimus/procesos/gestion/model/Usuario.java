@@ -26,17 +26,17 @@ public class Usuario extends EntidadEmpresa {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 120)
     private String nombre;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 254)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "rol_acceso", nullable = false)
+    @Column(name = "rol_acceso", nullable = false, length = 20)
     private RolAcceso rolAcceso;
 
     @Column(nullable = false)

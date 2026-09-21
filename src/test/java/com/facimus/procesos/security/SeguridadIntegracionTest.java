@@ -122,6 +122,25 @@ class SeguridadIntegracionTest {
     }
 
     @Test
+    @DisplayName("Una contrasena de mas de 72 caracteres, que BCrypt no acepta, responde 400 y no 500")
+    void Seguridad_contrasenaDeMasDe72Caracteres_devuelve400() throws Exception {
+        String larga = "x".repeat(73);
+
+        mockMvc.perform(post("/api/v1/empresas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new RegistroEmpresaRequest("Tienda Larga", "901000333",
+                                "contacto@larga.com", "Admin Largo", "admin@larga.com", larga))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.passwordAdmin").value("La contrasena no puede superar 72 caracteres."));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, larga))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.password").value("La contrasena no puede superar 72 caracteres."));
+    }
+
+    @Test
     @DisplayName("El token del login real permite consultar los procesos de la empresa")
     void Seguridad_endpointProtegido_tokenDelLogin_devuelve200() throws Exception {
         String token = login(ADMIN, CLAVE);

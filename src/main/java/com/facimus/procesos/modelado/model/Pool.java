@@ -29,11 +29,11 @@ public class Pool extends EntidadEmpresa {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 120)
     private String nombre;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_participante", nullable = false)
+    @Column(name = "tipo_participante", nullable = false, length = 20)
     private TipoParticipante tipoParticipante;
 
     @Column(name = "caja_negra", nullable = false)

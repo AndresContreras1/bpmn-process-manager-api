@@ -243,6 +243,20 @@ class ProcesoControllerTest {
                 .andExpect(jsonPath("$.errors.categoria").value("La categoria es obligatoria."));
     }
 
+    @Test
+    @DisplayName("POST /api/v1/procesos - un nombre mas largo que su columna retorna 400")
+    void crear_nombreDemasiadoLargo_devuelve400() throws Exception {
+        mockMvc.perform(post("/api/v1/procesos")
+                        .with(principal(RolAcceso.EDITOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombre\":\"" + "x".repeat(121)
+                                + "\",\"descripcion\":\"Proceso de ventas\",\"categoria\":\"Comercial\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.nombre").value("El nombre no puede superar 120 caracteres."));
+
+        verify(procesoService, never()).crear(any(), any(), any(), any(), any());
+    }
+
     private Proceso crearProceso(Long id, String nombre) {
         Proceso p = new Proceso();
         p.setId(id);

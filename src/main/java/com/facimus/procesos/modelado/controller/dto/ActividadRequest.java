@@ -2,12 +2,15 @@ package com.facimus.procesos.modelado.controller.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @Schema(description = "An activity (task) inside a lane")
 public record ActividadRequest(
         @Schema(description = "Name, unique among the flow nodes of the process", example = "Pick and pack items")
-        @NotBlank(message = "El nombre es obligatorio.") String nombre,
-        @Schema(example = "Collect the items and prepare the package.") String descripcion,
+        @NotBlank(message = "El nombre es obligatorio.")
+        @Size(max = 120, message = "El nombre no puede superar 120 caracteres.") String nombre,
+        @Schema(example = "Collect the items and prepare the package.")
+        @Size(max = 1000, message = "La descripcion no puede superar 1000 caracteres.") String descripcion,
         @Schema(description = "Horizontal position on the diagram canvas", example = "580") int posicionX,
         @Schema(description = "Vertical position on the diagram canvas", example = "200") int posicionY) {
 }

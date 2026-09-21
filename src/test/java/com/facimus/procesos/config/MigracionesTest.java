@@ -1,0 +1,122 @@
+package com.facimus.procesos.config;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationInfo;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.context.ActiveProfiles;
+
+import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.model.RolProceso;
+import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.repository.ProcesoRepository;
+import com.facimus.procesos.gestion.repository.RolProcesoRepository;
+
+/**
+ * Flyway crea el esquema y la base hace cumplir la unicidad de nombres por su cuenta: los tests guardan con los
+ * repositorios, sin pasar por la validacion de los services.
+ */
+@SpringBootTest
+@ActiveProfiles("test")
+class MigracionesTest {
+
+    @Autowired
+    private Flyway flyway;
+
+    @Autowired
+    private EmpresaRepository empresaRepository;
+
+    @Autowired
+    private ProcesoRepository procesoRepository;
+
+    @Autowired
+    private RolProcesoRepository rolProcesoRepository;
+
+    private Empresa empresa;
+
+    @BeforeEach
+    void registrarEmpresa() {
+        empresa = nuevaEmpresa();
+    }
+
+    @Test
+    @DisplayName("Flyway aplica el esquema comun y la migracion propia del motor")
+    void flyway_aplicaLasMigracionesComunYDelMotor() {
+        assertThat(flyway.info().applied())
+                .extracting(MigrationInfo::getScript)
+                .containsExactly("V1__esquema_inicial.sql", "V2__nombres_unicos_por_empresa.sql");
+    }
+
+    @Test
+    @DisplayName("La base rechaza dos procesos activos de una empresa con el mismo nombre, sin distinguir mayusculas")
+    void procesosActivos_mismoNombre_laBaseLosRechaza() {
+        procesoRepository.saveAndFlush(proceso(empresa, "Order fulfillment", true));
+
+        assertThatThrownBy(() -> procesoRepository.saveAndFlush(proceso(empresa, "ORDER FULFILLMENT", true)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("Un proceso eliminado libera su nombre, y otra empresa puede usarlo")
+    void procesoEliminado_liberaSuNombre() {
+        procesoRepository.saveAndFlush(proceso(empresa, "Returns", false));
+        procesoRepository.saveAndFlush(proceso(empresa, "Returns", true));
+        procesoRepository.saveAndFlush(proceso(nuevaEmpresa(), "Returns", true));
+
+        assertThat(procesoRepository.findAll())
+                .filteredOn(proceso -> proceso.getNombre().equals("Returns"))
+                .hasSize(3);
+    }
+
+    @Test
+    @DisplayName("La base tambien rechaza dos roles de proceso activos con el mismo nombre en una empresa")
+    void rolesActivos_mismoNombre_laBaseLosRechaza() {
+        rolProcesoRepository.saveAndFlush(rol(empresa, "Warehouse", true));
+
+        assertThatThrownBy(() -> rolProcesoRepository.saveAndFlush(rol(empresa, "warehouse", true)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        rolProcesoRepository.saveAndFlush(rol(empresa, "Warehouse", false));
+    }
+
+    private Empresa nuevaEmpresa() {
+        Empresa nueva = new Empresa();
+        nueva.setNombre("Tienda de migraciones");
+        nueva.setNit(UUID.randomUUID().toString().substring(0, 18));
+        nueva.setCorreoContacto("contacto@migraciones.com");
+        nueva.setFechaRegistro(LocalDate.now());
+        return empresaRepository.save(nueva);
+    }
+
+    private static Proceso proceso(Empresa empresa, String nombre, boolean activo) {
+        LocalDateTime ahora = LocalDateTime.now();
+        Proceso proceso = new Proceso();
+        proceso.setEmpresa(empresa);
+        proceso.setNombre(nombre);
+        proceso.setDescripcion("Proceso de prueba");
+        proceso.setCategoria("Pruebas");
+        proceso.setActivo(activo);
+        proceso.setFechaCreacion(ahora);
+        proceso.setFechaModificacion(ahora);
+        return proceso;
+    }
+
+    private static RolProceso rol(Empresa empresa, String nombre, boolean activo) {
+        RolProceso rol = new RolProceso();
+        rol.setEmpresa(empresa);
+        rol.setNombre(nombre);
+        rol.setActivo(activo);
+        return rol;
+    }
+}
