@@ -14,11 +14,13 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /** Division interna de un Pool que agrupa las actividades de un mismo rol responsable. */
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "lanes")
 public class Lane extends EntidadEmpresa {

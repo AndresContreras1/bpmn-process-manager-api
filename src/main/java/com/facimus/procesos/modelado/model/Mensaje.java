@@ -14,11 +14,13 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /** La comunicacion entre pools: un participante envia (throw) y otro recibe (catch). */
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "mensajes")
 public class Mensaje extends EntidadEmpresa {

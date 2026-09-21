@@ -16,6 +16,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Nodo del diagrama BPMN: Actividad o Gateway. SINGLE_TABLE porque solo hay
@@ -24,6 +25,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "nodos_flujo")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)

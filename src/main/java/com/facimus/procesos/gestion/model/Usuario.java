@@ -11,13 +11,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "usuarios", uniqueConstraints = @UniqueConstraint(name = "uk_usuarios_email", columnNames = "email"))
 public class Usuario extends EntidadEmpresa {
@@ -40,5 +43,6 @@ public class Usuario extends EntidadEmpresa {
     private RolAcceso rolAcceso;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean activo = true;
 }

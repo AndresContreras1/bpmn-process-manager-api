@@ -13,11 +13,13 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /** El criterio que indica a que caso concreto del proceso corresponde un mensaje. */
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "correlaciones")
 public class Correlacion extends EntidadEmpresa {

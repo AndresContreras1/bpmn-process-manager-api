@@ -8,9 +8,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Funcion responsable de una actividad (Analista, Supervisor, Auditor...),
@@ -20,6 +22,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "roles_proceso")
 public class RolProceso extends EntidadEmpresa {
@@ -35,5 +38,6 @@ public class RolProceso extends EntidadEmpresa {
     private String descripcion;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean activo = true;
 }

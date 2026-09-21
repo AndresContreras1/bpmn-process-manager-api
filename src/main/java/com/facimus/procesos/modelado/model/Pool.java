@@ -13,14 +13,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /** Un participante del proceso: la empresa duena, un cliente, un proveedor o un sistema externo. */
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "pools")
 public class Pool extends EntidadEmpresa {
@@ -37,6 +40,7 @@ public class Pool extends EntidadEmpresa {
     private TipoParticipante tipoParticipante;
 
     @Column(name = "caja_negra", nullable = false)
+    @Builder.Default
     private boolean cajaNegra = false;
 
     @Column(nullable = false)

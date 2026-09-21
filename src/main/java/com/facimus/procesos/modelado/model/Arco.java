@@ -13,11 +13,13 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /** La secuencia del flujo entre actividades y gateways dentro de un mismo pool. */
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "arcos")
 public class Arco extends EntidadEmpresa {
