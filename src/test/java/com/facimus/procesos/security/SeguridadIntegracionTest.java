@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -81,6 +82,21 @@ class SeguridadIntegracionTest {
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.title").value("No autenticado"))
                 .andExpect(jsonPath("$.instance").value("/api/v1/procesos"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"/api/v1/lanes//actividades", "/api/v1/procesos;jsessionid=abc"})
+    @DisplayName("Una URL que rechaza el firewall de Spring Security responde 400 con ProblemDetail")
+    void Seguridad_urlRechazadaPorElFirewall_devuelve400ConProblemDetail(String url) throws Exception {
+        // MockMvc normaliza "//" al armar la URI, asi que la URL cruda se fija directamente en la peticion
+        mockMvc.perform(get("/").with(peticion -> {
+                    peticion.setRequestURI(url);
+                    return peticion;
+                }))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.title").value("Solicitud rechazada"));
     }
 
     @Test
