@@ -8,9 +8,9 @@ import java.util.List;
  */
 public interface UsoDeRoles {
 
-    /** Cuantas veces se usa el rol en los procesos de la empresa. */
-    long contarUsos(Long empresaId, Long rolId);
+    /** Cuantos procesos activos de la empresa tienen al menos una lane del rol. */
+    long contarProcesos(Long empresaId, Long rolId);
 
-    /** Nombres de los procesos que usan el rol, para explicar por que no se puede eliminar. */
+    /** Nombres de esos procesos, para explicar por que el rol no se puede eliminar. */
     List<String> procesosQueLoUsan(Long empresaId, Long rolId);
 }

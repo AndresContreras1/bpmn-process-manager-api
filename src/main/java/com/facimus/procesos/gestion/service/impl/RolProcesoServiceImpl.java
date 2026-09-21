@@ -84,7 +84,7 @@ public class RolProcesoServiceImpl implements RolProcesoService {
     }
 
     private RolProcesoVistaResponse conUso(Long empresaId, RolProceso rol) {
-        return rolProcesoMapper.toResponse(rol, usoDeRoles.contarUsos(empresaId, rol.getId()));
+        return rolProcesoMapper.toResponse(rol, usoDeRoles.contarProcesos(empresaId, rol.getId()));
     }
 
     private RolProceso buscarActivo(Long empresaId, Long rolId) {

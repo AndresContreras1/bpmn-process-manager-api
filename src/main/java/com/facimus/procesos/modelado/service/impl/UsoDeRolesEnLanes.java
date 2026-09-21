@@ -10,7 +10,7 @@ import com.facimus.procesos.modelado.repository.LaneRepository;
 
 import lombok.RequiredArgsConstructor;
 
-/** Un rol de proceso se usa cuando una lane lo tiene asignado. */
+/** Un rol de proceso se usa cuando una lane de un proceso activo lo tiene asignado; los eliminados ya no cuentan. */
 @Component
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -19,15 +19,12 @@ public class UsoDeRolesEnLanes implements UsoDeRoles {
     private final LaneRepository laneRepository;
 
     @Override
-    public long contarUsos(Long empresaId, Long rolId) {
-        return laneRepository.countByRolProcesoIdAndEmpresaId(rolId, empresaId);
+    public long contarProcesos(Long empresaId, Long rolId) {
+        return laneRepository.contarProcesosActivosDelRol(empresaId, rolId);
     }
 
     @Override
     public List<String> procesosQueLoUsan(Long empresaId, Long rolId) {
-        return laneRepository.findAllByRolProcesoIdAndEmpresaId(rolId, empresaId).stream()
-                .map(lane -> lane.getPool().getProceso().getNombre())
-                .distinct()
-                .toList();
+        return laneRepository.nombresDeProcesosActivosDelRol(empresaId, rolId);
     }
 }
