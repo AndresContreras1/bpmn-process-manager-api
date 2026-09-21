@@ -123,7 +123,7 @@ class ProcesoControllerTest {
     }
 
     @Test
-    @DisplayName("PATCH /api/v1/procesos/{id}/publicar - publicar proceso (200)")
+    @DisplayName("PATCH /api/v1/procesos/{id} - publicar un borrador (200)")
     void publicar_proceso() throws Exception {
         Proceso p = crearProceso(1L, "Ventas");
         p.setEstado(EstadoProceso.PUBLICADO);
