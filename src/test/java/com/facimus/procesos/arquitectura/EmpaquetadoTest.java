@@ -1,145 +1,135 @@
 package com.facimus.procesos.arquitectura;
 
-import com.tngtech.archunit.core.domain.JavaClasses;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
-import com.tngtech.archunit.core.importer.ImportOption;
-
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+
+import org.mapstruct.Mapper;
+import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchRule;
+
+import jakarta.persistence.Entity;
 
 /**
- * ADR-001: empaquetado modular por dominio (gestion + modelado).
- * Cada modulo tiene su propio paquete controller/, service/ y repository/.
- * Los servicios y repositorios viven en su paquete correspondiente.
+ * ADR-001: empaquetado modular por dominio (gestion + modelado), cada modulo en capas:
+ * controller -> service (interfaz) -> service.impl -> repository -> model, con dto y mapper como contrato y traduccion.
  */
+@AnalyzeClasses(packages = "com.facimus.procesos", importOptions = ImportOption.DoNotIncludeTests.class)
 class EmpaquetadoTest {
 
-    private static JavaClasses clases;
+    @ArchTest
+    static final ArchRule controllers_en_paquete_controller = classes()
+            .that().areAnnotatedWith(RestController.class)
+            .should().resideInAPackage("..controller..")
+            .because("ADR-001: cada modulo tiene su propio controller/");
 
-    @BeforeAll
-    static void importar() {
-        clases = new ClassFileImporter()
-                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("com.facimus.procesos");
-    }
+    @ArchTest
+    static final ArchRule services_implementados_en_service_impl = classes()
+            .that().areAnnotatedWith(Service.class)
+            .should().resideInAPackage("..service.impl..")
+            .andShould().haveSimpleNameEndingWith("Impl")
+            .because("cada service se publica como interfaz en service/ y se implementa en service/impl/");
 
-    @Test
-    @DisplayName("Los @RestController viven en un paquete controller")
-    void controllers_en_paquete_controller() {
-        classes()
-                .that().areAnnotatedWith(org.springframework.web.bind.annotation.RestController.class)
-                .should().resideInAPackage("..controller..")
-                .because("ADR-001: cada modulo tiene su propio controller/")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule nadie_depende_de_una_implementacion_de_service = noClasses()
+            .that().resideOutsideOfPackage("..service.impl..")
+            .should().dependOnClassesThat().resideInAPackage("..service.impl..")
+            .because("controllers, seguridad y configuracion trabajan con la interfaz del service");
 
-    @Test
-    @DisplayName("Los @Service viven en un paquete service")
-    void services_en_paquete_service() {
-        classes()
-                .that().areAnnotatedWith(org.springframework.stereotype.Service.class)
-                .should().resideInAPackage("..service..")
-                .because("ADR-001: cada modulo tiene su propio service/")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule repositorios_en_paquete_repository = classes()
+            .that().areAnnotatedWith(Repository.class)
+            .or().areInterfaces().and().haveSimpleNameEndingWith("Repository")
+            .should().resideInAnyPackage("..repository..", "..common..")
+            .because("ADR-001: cada modulo tiene su propio repository/");
 
-    @Test
-    @DisplayName("Los @Repository viven en un paquete repository")
-    void repositorios_en_paquete_repository() {
-        classes()
-                .that().areAnnotatedWith(org.springframework.stereotype.Repository.class)
-                .or().areInterfaces().and().haveSimpleNameEndingWith("Repository")
-                .should().resideInAnyPackage("..repository..", "..common..")
-                .because("ADR-001: cada modulo tiene su propio repository/")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule entidades_en_paquete_model = classes()
+            .that().areAnnotatedWith(Entity.class)
+            .should().resideInAPackage("..model..")
+            .because("ADR-001: las entidades viven en model/");
 
-    @Test
-    @DisplayName("Las @Entity viven en un paquete model")
-    void entidades_en_paquete_model() {
-        classes()
-                .that().areAnnotatedWith(jakarta.persistence.Entity.class)
-                .should().resideInAPackage("..model..")
-                .because("ADR-001: las entidades viven en model/")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule mappers_en_paquete_mapper = classes()
+            .that().areAnnotatedWith(Mapper.class)
+            .should().resideInAPackage("..mapper..")
+            .because("los mappers de MapStruct traducen entidades a DTOs en un solo lugar");
 
-    @Test
-    @DisplayName("Los controllers no acceden directamente a repositorios")
-    void controllers_no_usan_repositorios() {
-        noClasses()
-                .that().resideInAPackage("..controller..")
-                .should().dependOnClassesThat().resideInAPackage("..repository..")
-                .because("Los controllers deben pasar por la capa de servicio")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule solo_las_implementaciones_usan_los_mappers = noClasses()
+            .that().resideOutsideOfPackages("..service.impl..", "..mapper..")
+            .should().dependOnClassesThat().resideInAPackage("..mapper..")
+            .because("los services mapean dentro de su transaccion y entregan DTOs ya armados");
 
-    @Test
-    @DisplayName("El paquete modelado.model no depende de gestion.controller")
-    void modelado_no_depende_de_gestion_controller() {
-        noClasses()
-                .that().resideInAPackage("..modelado..")
-                .should().dependOnClassesThat().resideInAPackage("..gestion.controller..")
-                .because("ADR-001: modelado no debe depender de controllers de gestion")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule controllers_no_usan_repositorios = noClasses()
+            .that().resideInAPackage("..controller..")
+            .should().dependOnClassesThat().resideInAPackage("..repository..")
+            .because("los controllers pasan por la capa de servicio");
 
-    @Test
-    @DisplayName("gestion no depende de modelado: la dependencia entre los modulos va en un solo sentido")
-    void gestion_no_depende_de_modelado() {
-        noClasses()
-                .that().resideInAPackage("..gestion..")
-                .should().dependOnClassesThat().resideInAPackage("..modelado..")
-                .because("modelado se apoya en los procesos y roles de gestion; al reves se formaria un ciclo")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule controllers_no_usan_entidades = noClasses()
+            .that().resideInAPackage("..controller..")
+            .should().dependOnClassesThat().areAnnotatedWith(Entity.class)
+            .because("los controllers solo reciben y devuelven DTOs: una entidad nunca sale de su transaccion");
 
-    @Test
-    @DisplayName("Los servicios no dependen de controllers")
-    void servicios_no_dependen_de_controllers() {
-        noClasses()
-                .that().resideInAPackage("..service..")
-                .should().dependOnClassesThat().resideInAPackage("..controller..")
-                .because("La capa de servicio no debe conocer la capa de presentacion")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule modelado_no_depende_de_gestion_controller = noClasses()
+            .that().resideInAPackage("..modelado..")
+            .should().dependOnClassesThat().resideInAPackage("..gestion.controller..")
+            .because("ADR-001: modelado no depende de los controllers de gestion");
 
-    @Test
-    @DisplayName("Los repositorios no dependen de controllers ni de services")
-    void repositorios_no_dependen_de_capas_superiores() {
-        noClasses()
-                .that().resideInAPackage("..repository..")
-                .should().dependOnClassesThat().resideInAnyPackage("..controller..", "..service..")
-                .because("La capa de persistencia no debe conocer capas superiores")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule gestion_no_depende_de_modelado = noClasses()
+            .that().resideInAPackage("..gestion..")
+            .should().dependOnClassesThat().resideInAPackage("..modelado..")
+            .because("modelado se apoya en los procesos y roles de gestion; al reves se formaria un ciclo");
 
-    @Test
-    @DisplayName("Las clases de modelo no dependen de services ni controllers")
-    void modelo_no_depende_de_capas_superiores() {
-        noClasses()
-                .that().resideInAPackage("..model..")
-                .should().dependOnClassesThat().resideInAnyPackage("..controller..", "..service..")
-                .because("El modelo de dominio debe ser independiente de la infraestructura")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule paquetes_de_cada_modulo_sin_ciclos = slices()
+            .matching("com.facimus.procesos.(*).(*)..")
+            .should().beFreeOfCycles()
+            .because("cada capa de un modulo depende solo de las de abajo");
 
-    @Test
-    @DisplayName("Los DTOs de entrada viven en dto.request y los de salida en dto.response")
-    void dtos_en_paquete_dto() {
-        classes()
-                .that().haveSimpleNameEndingWith("Request")
-                .should().resideInAPackage("..dto.request..")
-                .because("los DTOs son el contrato de cada modulo: los usan los controllers y los devuelven los services")
-                .check(clases);
-        classes()
-                .that().haveSimpleNameEndingWith("Response")
-                .should().resideInAnyPackage("..dto.response..", "..common.api..")
-                .because("los DTOs son el contrato de cada modulo: los usan los controllers y los devuelven los services")
-                .check(clases);
-    }
+    @ArchTest
+    static final ArchRule servicios_no_dependen_de_controllers = noClasses()
+            .that().resideInAPackage("..service..")
+            .should().dependOnClassesThat().resideInAPackage("..controller..")
+            .because("la capa de servicio no conoce la capa de presentacion");
+
+    @ArchTest
+    static final ArchRule repositorios_no_dependen_de_capas_superiores = noClasses()
+            .that().resideInAPackage("..repository..")
+            .should().dependOnClassesThat().resideInAnyPackage("..controller..", "..service..")
+            .because("la capa de persistencia no conoce capas superiores");
+
+    @ArchTest
+    static final ArchRule modelo_no_depende_de_capas_superiores = noClasses()
+            .that().resideInAPackage("..model..")
+            .should().dependOnClassesThat().resideInAnyPackage("..controller..", "..service..")
+            .because("el modelo de dominio es independiente de la infraestructura");
+
+    @ArchTest
+    static final ArchRule dtos_de_entrada_en_dto_request = classes()
+            .that().haveSimpleNameEndingWith("Request")
+            .should().resideInAPackage("..dto.request..")
+            .because("los DTOs son el contrato de cada modulo: los usan los controllers y los devuelven los services");
+
+    @ArchTest
+    static final ArchRule dtos_de_salida_en_dto_response = classes()
+            .that().haveSimpleNameEndingWith("Response")
+            .should().resideInAnyPackage("..dto.response..", "..common.api..")
+            .because("los DTOs son el contrato de cada modulo: los usan los controllers y los devuelven los services");
+
+    @ArchTest
+    static final ArchRule dtos_sin_entidades = noClasses()
+            .that().resideInAPackage("..dto..")
+            .should().dependOnClassesThat().areAnnotatedWith(Entity.class)
+            .because("un DTO es un record plano: la traduccion desde la entidad la hace su mapper");
 }
