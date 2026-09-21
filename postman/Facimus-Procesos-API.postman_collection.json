@@ -1,0 +1,1247 @@
+{
+	"info": {
+		"name": "Facimus Procesos - API REST",
+		"description": "Coleccion completa de la API REST del Sistema de Gestion y Modelado de Procesos BPMN multiempresa.\n\n**Flujo recomendado:**\n1. Registrar empresa (POST /api/v1/empresas)\n2. Iniciar sesion (POST /api/v1/auth/login) — el token JWT se guarda automaticamente\n3. Usar los demas endpoints (el header Authorization: Bearer se envia automaticamente)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "empresaId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "usuarioId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "procesoId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "rolId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "poolId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "laneId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "actividadId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "gatewayId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "arcoId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "mensajeId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Autenticacion",
+			"description": "Registro de empresa, login y logout. Estos endpoints son publicos.",
+			"item": [
+				{
+					"name": "Registrar empresa",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('empresaId', json.id);",
+									"    pm.test('Empresa creada', function () {",
+									"        pm.expect(json.id).to.be.above(0);",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombreEmpresa\": \"Acme Corp\",\n  \"nit\": \"900123456-1\",\n  \"correoContacto\": \"contacto@acme.com\",\n  \"nombreAdmin\": \"Administrador\",\n  \"emailAdmin\": \"admin@acme.com\",\n  \"passwordAdmin\": \"secret123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/empresas",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "empresas"]
+						},
+						"description": "HU-01: Registra una nueva empresa con su administrador inicial. Endpoint publico."
+					},
+					"response": []
+				},
+				{
+					"name": "Iniciar sesion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('empresaId', json.empresaId);",
+									"    pm.collectionVariables.set('usuarioId', json.usuarioId);",
+									"    pm.collectionVariables.set('token', json.accessToken);",
+									"    pm.test('Login exitoso', function () {",
+									"        pm.expect(json.accessToken).to.not.be.empty;",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@acme.com\",\n  \"password\": \"secret123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "HU-03: Inicia sesion. El token JWT se guarda automaticamente en la variable {{token}}."
+					},
+					"response": []
+				},
+				{
+					"name": "Cerrar sesion",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "logout"]
+						},
+						"description": "HU-03: Cierra la sesion activa."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Usuarios",
+			"description": "CRUD de colaboradores de la empresa. Requiere rol ADMINISTRADOR para crear, editar rol y eliminar.",
+			"item": [
+				{
+					"name": "Listar usuarios",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/usuarios",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "usuarios"]
+						},
+						"description": "HU-02: Lista todos los usuarios de la empresa. Solo administrador."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear usuario",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('usuarioId', json.id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Juan Editor\",\n  \"email\": \"juan@acme.com\",\n  \"password\": \"secret123\",\n  \"rolAcceso\": \"EDITOR\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/usuarios",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "usuarios"]
+						},
+						"description": "HU-02: Crea un colaborador. Solo administrador. Roles: ADMINISTRADOR, EDITOR, SOLO_LECTURA."
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener usuario",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "usuarios", "{{usuarioId}}"]
+						},
+						"description": "Obtiene los datos de un usuario por su ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Actualizar rol o estado de usuario",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rolAcceso\": \"ADMINISTRADOR\",\n  \"activo\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "usuarios", "{{usuarioId}}"]
+						},
+						"description": "HU-02: Actualiza el rol y/o estado activo de un usuario. Solo administrador."
+					},
+					"response": []
+				},
+				{
+					"name": "Desactivar usuario",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "usuarios", "{{usuarioId}}"]
+						},
+						"description": "HU-02: Desactiva (eliminacion logica) un usuario. Solo administrador."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Procesos",
+			"description": "CRUD de procesos BPMN. Requiere rol EDITOR o ADMINISTRADOR para crear/editar/publicar. Solo ADMINISTRADOR puede eliminar.",
+			"item": [
+				{
+					"name": "Listar procesos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos?pagina=0",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos"],
+							"query": [
+								{ "key": "pagina", "value": "0" },
+								{ "key": "nombre", "value": "", "disabled": true },
+								{ "key": "estado", "value": "BORRADOR", "disabled": true },
+								{ "key": "categoria", "value": "", "disabled": true }
+							]
+						},
+						"description": "HU-07: Lista procesos con filtros opcionales (nombre, estado, categoria) y paginacion."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear proceso",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('procesoId', json.id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Proceso de Ventas\",\n  \"descripcion\": \"Flujo completo del proceso de ventas B2B\",\n  \"categoria\": \"Comercial\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos"]
+						},
+						"description": "HU-04: Crea un nuevo proceso en estado BORRADOR. Requiere EDITOR o ADMINISTRADOR."
+					},
+					"response": []
+				},
+				{
+					"name": "Detalle del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}"]
+						},
+						"description": "HU-07: Obtiene el detalle del proceso activo."
+					},
+					"response": []
+				},
+				{
+					"name": "Historial del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/historial",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "historial"]
+						},
+						"description": "Consulta la trazabilidad del proceso, validando tenant y proceso activo."
+					},
+					"response": []
+				},
+				{
+					"name": "Editar proceso",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Proceso de Ventas v2\",\n  \"descripcion\": \"Flujo actualizado\",\n  \"categoria\": \"Comercial\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}"]
+						},
+						"description": "HU-05: Edita un proceso existente. Requiere EDITOR o ADMINISTRADOR."
+					},
+					"response": []
+				},
+				{
+					"name": "Publicar proceso",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"estado\": \"PUBLICADO\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}"]
+						},
+						"description": "HU-05: Publica el proceso mediante PATCH con estado=PUBLICADO. Requiere EDITOR o ADMINISTRADOR."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar proceso",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}"]
+						},
+						"description": "HU-06: Eliminacion logica del proceso. Solo ADMINISTRADOR."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Roles de Proceso",
+			"description": "CRUD de roles de proceso (Analista, Supervisor, etc.). Se usan para nombrar Lanes. Solo ADMINISTRADOR puede crear/editar/eliminar.",
+			"item": [
+				{
+					"name": "Listar roles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles"]
+						},
+						"description": "HU-20: Lista todos los roles con informacion de uso."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear rol",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('rolId', json.id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Analista\",\n  \"descripcion\": \"Responsable del analisis de procesos\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles"]
+						},
+						"description": "HU-17: Crea un nuevo rol de proceso. Solo ADMINISTRADOR."
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener rol",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles/{{rolId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles", "{{rolId}}"]
+						},
+						"description": "Obtiene un rol de proceso por su ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Editar rol",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Analista Senior\",\n  \"descripcion\": \"Analista con experiencia\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles/{{rolId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles", "{{rolId}}"]
+						},
+						"description": "HU-18: Edita un rol existente. Solo ADMINISTRADOR."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar rol",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles/{{rolId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles", "{{rolId}}"]
+						},
+						"description": "HU-19: Elimina un rol de proceso. Solo ADMINISTRADOR. Falla si el rol esta en uso."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Pools",
+			"description": "Participantes del proceso BPMN (empresa, cliente, proveedor, sistema externo).",
+			"item": [
+				{
+					"name": "Listar pools del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/pools",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "pools"]
+						},
+						"description": "HU-23: Lista todos los pools de un proceso."
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener pool",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "pools", "{{poolId}}"]
+						},
+						"description": "Obtiene un pool por su ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear pool",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('poolId', json.id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Departamento Comercial\",\n  \"tipoParticipante\": \"EMPRESA\",\n  \"cajaNegra\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/pools",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "pools"]
+						},
+						"description": "HU-21: Crea un pool. Tipos: EMPRESA, CLIENTE, PROVEEDOR, SISTEMA_EXTERNO."
+					},
+					"response": []
+				},
+				{
+					"name": "Editar pool",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Departamento Comercial v2\",\n  \"tipoParticipante\": \"EMPRESA\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "pools", "{{poolId}}"]
+						},
+						"description": "Edita el nombre y tipo de participante de un pool."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar pool",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "pools", "{{poolId}}"]
+						},
+						"description": "Elimina un pool y sus lanes asociados."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Lanes",
+			"description": "Divisiones internas de un pool. Cada lane se asocia a un rol de proceso.",
+			"item": [
+				{
+					"name": "Listar lanes del pool",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}/lanes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "pools", "{{poolId}}", "lanes"]
+						},
+						"description": "HU-24: Lista las lanes de un pool."
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener lane",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "lanes", "{{laneId}}"]
+						},
+						"description": "Obtiene una lane por su ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear lane",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('laneId', json.id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Recepcion de solicitudes\",\n  \"rolProcesoId\": {{rolId}}\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}/lanes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "pools", "{{poolId}}", "lanes"]
+						},
+						"description": "HU-22: Crea una lane dentro de un pool, asociada a un rol de proceso."
+					},
+					"response": []
+				},
+				{
+					"name": "Editar lane",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Recepcion v2\",\n  \"rolProcesoId\": {{rolId}}\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "lanes", "{{laneId}}"]
+						},
+						"description": "Edita el nombre y rol de una lane."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar lane",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "lanes", "{{laneId}}"]
+						},
+						"description": "Elimina una lane."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Actividades",
+			"description": "Tareas del proceso BPMN. Se crean dentro de una lane.",
+			"item": [
+				{
+					"name": "Obtener actividad",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/actividades/{{actividadId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "actividades", "{{actividadId}}"]
+						},
+						"description": "Obtiene una actividad por su ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Listar actividades de la lane",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}/actividades",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "lanes", "{{laneId}}", "actividades"]
+						},
+						"description": "HU-24: Lista las actividades de una lane."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear actividad",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('actividadId', json.id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Revisar solicitud\",\n  \"descripcion\": \"Verificar datos del cliente\",\n  \"posicionX\": 200,\n  \"posicionY\": 150\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}/actividades",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "lanes", "{{laneId}}", "actividades"]
+						},
+						"description": "HU-08: Crea una actividad dentro de una lane."
+					},
+					"response": []
+				},
+				{
+					"name": "Editar actividad",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Revisar solicitud v2\",\n  \"descripcion\": \"Verificar datos actualizados\",\n  \"posicionX\": 250,\n  \"posicionY\": 150\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/actividades/{{actividadId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "actividades", "{{actividadId}}"]
+						},
+						"description": "HU-09: Edita una actividad existente."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar actividad",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/actividades/{{actividadId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "actividades", "{{actividadId}}"]
+						},
+						"description": "HU-10: Elimina una actividad."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Gateways",
+			"description": "Puntos de decision o ramificacion del flujo BPMN.",
+			"item": [
+				{
+					"name": "Obtener gateway",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gateways/{{gatewayId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "gateways", "{{gatewayId}}"]
+						},
+						"description": "Obtiene un gateway por su ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Listar gateways de la lane",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}/gateways",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "lanes", "{{laneId}}", "gateways"]
+						},
+						"description": "Lista los gateways de una lane."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear gateway",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('gatewayId', json.id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Aprobacion requerida?\",\n  \"tipoGateway\": \"EXCLUSIVO\",\n  \"posicionX\": 400,\n  \"posicionY\": 150\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}/gateways",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "lanes", "{{laneId}}", "gateways"]
+						},
+						"description": "HU-14: Crea un gateway. Tipos: EXCLUSIVO, PARALELO, INCLUSIVO."
+					},
+					"response": []
+				},
+				{
+					"name": "Editar gateway",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Decision de pago\",\n  \"tipoGateway\": \"PARALELO\",\n  \"posicionX\": 400,\n  \"posicionY\": 200\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gateways/{{gatewayId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "gateways", "{{gatewayId}}"]
+						},
+						"description": "HU-15: Edita un gateway existente."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar gateway",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gateways/{{gatewayId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "gateways", "{{gatewayId}}"]
+						},
+						"description": "HU-16: Elimina un gateway."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Arcos",
+			"description": "Conexiones de flujo entre nodos (actividades y gateways) dentro de un pool.",
+			"item": [
+				{
+					"name": "Obtener arco",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/arcos/{{arcoId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "arcos", "{{arcoId}}"]
+						},
+						"description": "Obtiene un arco por su ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Listar arcos del pool",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}/arcos",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "pools", "{{poolId}}", "arcos"]
+						},
+						"description": "Lista los arcos de un pool."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear arco",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('arcoId', json.id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"origenId\": {{actividadId}},\n  \"destinoId\": {{gatewayId}},\n  \"etiqueta\": \"completado\",\n  \"condicion\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/arcos",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "arcos"]
+						},
+						"description": "HU-11: Crea un arco (flujo) entre dos nodos del mismo pool."
+					},
+					"response": []
+				},
+				{
+					"name": "Editar arco",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"etiqueta\": \"si\",\n  \"condicion\": \"monto > 1000\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/arcos/{{arcoId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "arcos", "{{arcoId}}"]
+						},
+						"description": "HU-12: Edita la etiqueta y condicion de un arco."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar arco",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/arcos/{{arcoId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "arcos", "{{arcoId}}"]
+						},
+						"description": "HU-13: Elimina un arco."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Mensajes",
+			"description": "Comunicacion entre pools (un participante envia, otro recibe).",
+			"item": [
+				{
+					"name": "Listar mensajes del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/mensajes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "mensajes"]
+						},
+						"description": "HU-27: Lista todos los mensajes de un proceso."
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener mensaje",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mensajes/{{mensajeId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mensajes", "{{mensajeId}}"]
+						},
+						"description": "Obtiene un mensaje por su ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear mensaje",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('mensajeId', json.id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Orden de compra\",\n  \"contenido\": \"Datos del pedido\",\n  \"poolOrigenId\": {{poolId}},\n  \"poolDestinoId\": {{poolId}}\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/mensajes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "mensajes"]
+						},
+						"description": "HU-25: Crea un mensaje entre dos pools."
+					},
+					"response": []
+				},
+				{
+					"name": "Editar mensaje",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Orden actualizada\",\n  \"contenido\": \"Datos del pedido corregidos\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mensajes/{{mensajeId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mensajes", "{{mensajeId}}"]
+						},
+						"description": "HU-26: Edita un mensaje existente."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar mensaje",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mensajes/{{mensajeId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mensajes", "{{mensajeId}}"]
+						},
+						"description": "Elimina un mensaje."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Correlacion",
+			"description": "Criterio que identifica a que instancia del proceso pertenece un mensaje.",
+			"item": [
+				{
+					"name": "Definir correlacion",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"criterio\": \"orderId\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mensajes/{{mensajeId}}/correlacion",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mensajes", "{{mensajeId}}", "correlacion"]
+						},
+						"description": "HU-28: Define o actualiza el criterio de correlacion de un mensaje."
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener correlacion",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mensajes/{{mensajeId}}/correlacion",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mensajes", "{{mensajeId}}", "correlacion"]
+						},
+						"description": "HU-28: Obtiene la correlacion de un mensaje."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
