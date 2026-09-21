@@ -7,8 +7,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.gestion.controller.dto.LoginRequest;
@@ -26,17 +29,20 @@ import com.facimus.procesos.gestion.controller.dto.ProcesoRequest;
 import com.facimus.procesos.gestion.controller.dto.RegistroEmpresaRequest;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import tools.jackson.databind.json.JsonMapper;
 
 /** Escenarios de seguridad con la aplicacion completa: SecurityConfig, filtro JWT y base de datos reales. */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:seguridad-it;DB_CLOSE_DELAY=-1")
+@SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SeguridadIntegracionTest {
 
-    private static final String ADMIN_DEMO = "admin@demo.com";
-    private static final String CLAVE_DEMO = "admin123";
+    private static final String ADMIN = "admin@seguridad.com";
+    private static final String CLAVE = "clave12345";
 
     @Autowired
     private MockMvc mockMvc;
@@ -48,10 +54,21 @@ class SeguridadIntegracionTest {
     private JwtService jwtService;
 
     @Autowired
+    private EmpresaService empresaService;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     @Autowired
     private JwtAccessDeniedHandler jwtAccessDeniedHandler;
+
+    private Long empresaId;
+
+    @BeforeAll
+    void registrarTienda() {
+        empresaId = empresaService.registrar("Tienda Seguridad", "900222333-4", "contacto@seguridad.com",
+                "Administrador", ADMIN, CLAVE).getId();
+    }
 
     @Test
     @DisplayName("Sin token, un endpoint protegido responde 401 con ProblemDetail")
@@ -76,12 +93,12 @@ class SeguridadIntegracionTest {
     void Seguridad_login_claveIncorrecta_devuelve401() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN_DEMO, "clave-mala"))))
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, "clave-mala"))))
                 .andExpect(status().isUnauthorized());
     }
 
     @ParameterizedTest(name = "emailAdmin = {0}")
-    @CsvSource({ "admin@demo.com, 901000111", "ADMIN@Demo.com, 901000222" })
+    @CsvSource({ "admin@seguridad.com, 901000111", "ADMIN@Seguridad.com, 901000222" })
     @DisplayName("Registrar una empresa con el correo de otro usuario responde 409 y no le bloquea el login")
     void Seguridad_registroConCorreoAjeno_devuelve409YElDuenoSigueEntrando(String correoAjeno, String nit)
             throws Exception {
@@ -92,7 +109,7 @@ class SeguridadIntegracionTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Regla de negocio violada"));
 
-        login(ADMIN_DEMO, CLAVE_DEMO);
+        login(ADMIN, CLAVE);
         // La empresa rechazada no quedo a medio crear: su NIT sigue libre.
         mockMvc.perform(post("/api/v1/empresas")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -104,7 +121,7 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("El token del login real permite consultar los procesos de la empresa")
     void Seguridad_endpointProtegido_tokenDelLogin_devuelve200() throws Exception {
-        String token = login(ADMIN_DEMO, CLAVE_DEMO);
+        String token = login(ADMIN, CLAVE);
 
         mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk());
@@ -113,8 +130,8 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("Un usuario de solo lectura no puede crear procesos: 403")
     void Seguridad_crearProceso_soloLectura_devuelve403() throws Exception {
-        crearColaborador("lector@demo.com", "lector123", RolAcceso.SOLO_LECTURA);
-        String token = login("lector@demo.com", "lector123");
+        crearColaborador("lector@seguridad.com", "lector123", RolAcceso.SOLO_LECTURA);
+        String token = login("lector@seguridad.com", "lector123");
 
         mockMvc.perform(post("/api/v1/procesos")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
@@ -127,7 +144,7 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("El token de un usuario desactivado deja de servir: 401")
     void Seguridad_endpointProtegido_usuarioDesactivado_devuelve401() throws Exception {
-        Usuario editor = crearColaborador("editor.baja@demo.com", "editor123", RolAcceso.EDITOR);
+        Usuario editor = crearColaborador("editor.baja@seguridad.com", "editor123", RolAcceso.EDITOR);
         String token = jwtService.generarToken(ApiPrincipal.of(editor));
 
         usuarioService.desactivar(editor.getEmpresa().getId(), editor.getId());
@@ -158,9 +175,7 @@ class SeguridadIntegracionTest {
         return jsonMapper.readTree(respuesta).get("accessToken").asString();
     }
 
-    private Usuario crearColaborador(String email, String password, RolAcceso rol) throws Exception {
-        Long empresaId = jwtService.validar(login(ADMIN_DEMO, CLAVE_DEMO)).orElseThrow()
-                .get(JwtService.CLAIM_EMPRESA_ID, Long.class);
+    private Usuario crearColaborador(String email, String password, RolAcceso rol) {
         return usuarioService.crearColaborador(empresaId, "Colaborador de prueba", email, password, rol);
     }
 }

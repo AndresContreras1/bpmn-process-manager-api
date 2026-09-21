@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -22,8 +23,12 @@ import com.facimus.procesos.gestion.controller.dto.LoginRequest;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Los datos demo vistos a traves de la API, como los ve quien entra a Swagger con la cuenta de demostracion. */
+/**
+ * Los datos demo vistos a traves de la API, como los ve quien entra a Swagger con la cuenta de demostracion.
+ * Corre en dev, el unico perfil que siembra la tienda, pero sobre una H2 en memoria en vez de ./data.
+ */
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:datos-demo;DB_CLOSE_DELAY=-1")
+@ActiveProfiles("dev")
 @AutoConfigureMockMvc
 class DatosDemoInitializerTest {
 
