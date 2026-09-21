@@ -63,9 +63,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "La operacion choca con un dato existente, por ejemplo un valor que debe ser unico.", req);
     }
 
+    /** Login fallido. Como todo 401 (RFC 9110), indica con WWW-Authenticate el esquema que la API espera. */
     @ExceptionHandler(AuthenticationException.class)
-    public ProblemDetail manejarNoAutenticado(AuthenticationException ex, WebRequest req) {
-        return construir(HttpStatus.UNAUTHORIZED, "No autenticado", "Credenciales inválidas o token ausente", req);
+    public ResponseEntity<ProblemDetail> manejarNoAutenticado(AuthenticationException ex, WebRequest req) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(construir(HttpStatus.UNAUTHORIZED, "No autenticado", "Credenciales inválidas o token ausente", req));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

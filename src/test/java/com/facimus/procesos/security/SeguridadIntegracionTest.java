@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -71,10 +72,11 @@ class SeguridadIntegracionTest {
     }
 
     @Test
-    @DisplayName("Sin token, un endpoint protegido responde 401 con ProblemDetail")
+    @DisplayName("Sin token, un endpoint protegido responde 401 con ProblemDetail y WWW-Authenticate: Bearer")
     void Seguridad_endpointProtegido_sinToken_devuelve401() throws Exception {
         mockMvc.perform(get("/api/v1/procesos"))
                 .andExpect(status().isUnauthorized())
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.title").value("No autenticado"))
@@ -89,12 +91,13 @@ class SeguridadIntegracionTest {
     }
 
     @Test
-    @DisplayName("Con clave incorrecta el login responde 401")
+    @DisplayName("Con clave incorrecta el login responde 401 con WWW-Authenticate: Bearer")
     void Seguridad_login_claveIncorrecta_devuelve401() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, "clave-mala"))))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"));
     }
 
     @ParameterizedTest(name = "emailAdmin = {0}")
