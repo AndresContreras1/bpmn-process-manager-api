@@ -3,6 +3,7 @@
 Multi-tenant backend for e-commerce operations. Online stores model, validate and share the workflows that keep
 orders moving (order fulfillment, payments, returns) as BPMN processes, each store in its own isolated workspace.
 
+[![CI](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-007396?logo=openjdk&logoColor=white)
 ![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white)
 ![Spring Security 7](https://img.shields.io/badge/Spring%20Security-7%20%C2%B7%20JWT-6DB33F?logo=springsecurity&logoColor=white)
@@ -98,7 +99,7 @@ all of them are correlated by `orderId`.
 | Security | JWT (jjwt 0.12.6, HS256) · BCrypt |
 | API docs | springdoc-openapi 3 (OpenAPI 3 + Swagger UI) |
 | Testing | JUnit 5 · Mockito · MockMvc · AssertJ · ArchUnit 1.4 · JaCoCo |
-| Tooling | Maven Wrapper · Lombok · Docker · GitHub Actions · SonarQube |
+| Tooling | Maven Wrapper · Lombok · Docker · GitHub Actions · SonarCloud |
 
 ## Architecture
 

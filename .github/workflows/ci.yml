@@ -1,10 +1,18 @@
-name: CI - Build and Test
+name: CI
 
 on:
   push:
-    branches: [main, develop, entrega-1-backend]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -14,6 +22,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout
@@ -27,7 +38,7 @@ jobs:
           cache: maven
 
       - name: Build and verify
-        run: mvn -B clean verify
+        run: ./mvnw -B clean verify
 
       - name: Upload test results
         if: always()
@@ -46,10 +57,6 @@ jobs:
           path: target/site/jacoco/
           retention-days: 7
 
-      - name: Verify JAR exists
-        shell: bash
-        run: ls -la target/*.jar
-
   architecture-guard:
     name: Architecture Rules
     runs-on: ubuntu-latest
@@ -67,7 +74,7 @@ jobs:
           cache: maven
 
       - name: Run ArchUnit tests
-        run: mvn -B test -Dtest="com.facimus.procesos.arquitectura.**" -Dsurefire.failIfNoSpecifiedTests=false
+        run: ./mvnw -B test -Dtest="com.facimus.procesos.arquitectura.**" -Dsurefire.failIfNoSpecifiedTests=false
 
       - name: Architecture tests summary
         if: always()
@@ -88,39 +95,50 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t facimus/procesos-back:${{ github.sha }} .
+        run: docker build -t bpmn-process-manager-api:${{ github.sha }} .
 
-      - name: Verify image runs
+      - name: Verify the API answers from the container
         run: |
-          docker run -d --name test-container -p 8080:8080 facimus/procesos-back:${{ github.sha }}
-          sleep 10
-          docker logs test-container
-          docker stop test-container
+          docker run -d --name api -p 8080:8080 \
+            -e JWT_SECRET=ci-only-signing-key-with-at-least-32-characters \
+            -e SPRING_DATASOURCE_URL=jdbc:h2:mem:ci \
+            bpmn-process-manager-api:${{ github.sha }}
+          for intento in $(seq 1 30); do
+            if curl -fs http://localhost:8080/v3/api-docs > /dev/null; then
+              echo "The API is up."
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs api
+          exit 1
 
-  sonarqube:
-    name: SonarQube Analysis
+  sonarcloud:
+    name: SonarCloud Analysis
     runs-on: ubuntu-latest
     needs: build-and-test
-    if: github.event_name == 'push'
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
+      - name: Skip when SonarCloud is not configured
+        if: env.SONAR_TOKEN == ''
+        run: echo "::notice::SONAR_TOKEN is not set, so the SonarCloud analysis is skipped."
+
       - name: Checkout
+        if: env.SONAR_TOKEN != ''
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup JDK 21
+        if: env.SONAR_TOKEN != ''
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
 
-      - name: Build, test & analyze
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        run: >
-          mvn -B verify sonar:sonar
-          -Dsonar.host.url=$SONAR_HOST_URL
-          -Dsonar.token=$SONAR_TOKEN
+      - name: Build, test and analyze
+        if: env.SONAR_TOKEN != ''
+        run: ./mvnw -B verify sonar:sonar -Dsonar.token=$SONAR_TOKEN
