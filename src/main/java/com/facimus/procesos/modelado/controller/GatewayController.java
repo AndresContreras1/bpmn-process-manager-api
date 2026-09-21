@@ -2,6 +2,8 @@ package com.facimus.procesos.modelado.controller;
 
 import java.net.URI;
 import java.util.List;
+
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -20,9 +22,14 @@ import com.facimus.procesos.modelado.model.Gateway;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.security.ApiPrincipal;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /** HU-14 a HU-16: gateways (puntos de decision). */
+@Tag(name = "Gateways", description = "Decision and split points of the process, placed in a lane")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -30,6 +37,14 @@ public class GatewayController {
 
     private final GatewayService gatewayService;
 
+    @Operation(summary = "Add a gateway to a lane")
+    @ApiResponse(responseCode = "201", description = "Gateway created",
+            headers = @Header(name = HttpHeaders.LOCATION, description = "URL of the new gateway"))
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PostMapping("/lanes/{laneId}/gateways")
     public ResponseEntity<GatewayResponse> crear(@PathVariable Long laneId,
             @Validated @RequestBody GatewayRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
@@ -40,6 +55,10 @@ public class GatewayController {
                 .body(GatewayResponse.of(gateway));
     }
 
+    @Operation(summary = "Get a gateway")
+    @ApiResponse(responseCode = "200", description = "The gateway")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @GetMapping("/gateways/{id}")
     public ResponseEntity<GatewayResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
@@ -48,6 +67,10 @@ public class GatewayController {
         return ResponseEntity.ok(GatewayResponse.of(gateway));
     }
 
+    @Operation(summary = "List the gateways of a lane")
+    @ApiResponse(responseCode = "200", description = "Gateways of the lane")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @GetMapping("/lanes/{laneId}/gateways")
     public ResponseEntity<List<GatewayResponse>> listar(@PathVariable Long laneId,
             @AuthenticationPrincipal ApiPrincipal principal) {
@@ -57,6 +80,12 @@ public class GatewayController {
         return ResponseEntity.ok(gateways);
     }
 
+    @Operation(summary = "Edit a gateway", description = "Replaces its name, type and position.")
+    @ApiResponse(responseCode = "200", description = "Gateway updated")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @PutMapping("/gateways/{id}")
     public ResponseEntity<GatewayResponse> editar(@PathVariable Long id,
             @Validated @RequestBody GatewayRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
@@ -66,6 +95,12 @@ public class GatewayController {
         return ResponseEntity.ok(GatewayResponse.of(gateway));
     }
 
+    @Operation(summary = "Delete a gateway",
+            description = "Also deletes the sequence flows that start or end at it. Administrators only.")
+    @ApiResponse(responseCode = "204", description = "Gateway deleted")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @DeleteMapping("/gateways/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();

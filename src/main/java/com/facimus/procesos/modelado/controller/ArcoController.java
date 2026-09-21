@@ -2,6 +2,8 @@ package com.facimus.procesos.modelado.controller;
 
 import java.net.URI;
 import java.util.List;
+
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -21,9 +23,14 @@ import com.facimus.procesos.modelado.model.Arco;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.security.ApiPrincipal;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /** HU-11 a HU-13: arcos (flujo entre nodos dentro de un pool). */
+@Tag(name = "Sequence flows", description = "Arrows between the activities and gateways of one pool")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -31,6 +38,15 @@ public class ArcoController {
 
     private final ArcoService arcoService;
 
+    @Operation(summary = "Connect two flow nodes",
+            description = "Both nodes must be in the same pool, and a pair of nodes is connected only once.")
+    @ApiResponse(responseCode = "201", description = "Sequence flow created",
+            headers = @Header(name = HttpHeaders.LOCATION, description = "URL of the new sequence flow"))
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PostMapping("/arcos")
     public ResponseEntity<ArcoResponse> crear(@Validated @RequestBody ArcoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
@@ -41,6 +57,10 @@ public class ArcoController {
                 .body(ArcoResponse.of(arco));
     }
 
+    @Operation(summary = "Get a sequence flow")
+    @ApiResponse(responseCode = "200", description = "The sequence flow")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @GetMapping("/arcos/{id}")
     public ResponseEntity<ArcoResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
@@ -49,6 +69,10 @@ public class ArcoController {
         return ResponseEntity.ok(ArcoResponse.of(arco));
     }
 
+    @Operation(summary = "List the sequence flows of a pool")
+    @ApiResponse(responseCode = "200", description = "Sequence flows of the pool")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @GetMapping("/pools/{poolId}/arcos")
     public ResponseEntity<List<ArcoResponse>> listar(@PathVariable Long poolId,
             @AuthenticationPrincipal ApiPrincipal principal) {
@@ -58,6 +82,12 @@ public class ArcoController {
         return ResponseEntity.ok(arcos);
     }
 
+    @Operation(summary = "Edit a sequence flow", description = "Replaces its label and condition.")
+    @ApiResponse(responseCode = "200", description = "Sequence flow updated")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @PutMapping("/arcos/{id}")
     public ResponseEntity<ArcoResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarArcoRequest request,
@@ -67,6 +97,11 @@ public class ArcoController {
         return ResponseEntity.ok(ArcoResponse.of(arco));
     }
 
+    @Operation(summary = "Delete a sequence flow", description = "Administrators only.")
+    @ApiResponse(responseCode = "204", description = "Sequence flow deleted")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
     @DeleteMapping("/arcos/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
