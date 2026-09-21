@@ -8,11 +8,13 @@ import jakarta.persistence.Enumerated;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /** Un punto de decision o ramificacion: exclusiva, paralela o inclusiva. */
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @DiscriminatorValue("GATEWAY")
 public class Gateway extends NodoFlujo {

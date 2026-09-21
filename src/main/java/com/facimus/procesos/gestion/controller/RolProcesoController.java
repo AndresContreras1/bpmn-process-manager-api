@@ -16,9 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.gestion.controller.dto.RolProcesoRequest;
-import com.facimus.procesos.gestion.controller.dto.RolProcesoVistaResponse;
-import com.facimus.procesos.gestion.model.RolProceso;
+import com.facimus.procesos.gestion.dto.request.RolProcesoRequest;
+import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.security.ApiPrincipal;
 
@@ -43,11 +42,7 @@ public class RolProcesoController {
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @GetMapping
     public ResponseEntity<List<RolProcesoVistaResponse>> listar(@AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        List<RolProcesoVistaResponse> roles = rolProcesoService.listarConUso(empresaId).stream()
-                .map(RolProcesoVistaResponse::of)
-                .toList();
-        return ResponseEntity.ok(roles);
+        return ResponseEntity.ok(rolProcesoService.listarConUso(principal.empresaId()));
     }
 
     @Operation(summary = "Create a process role")
@@ -60,10 +55,9 @@ public class RolProcesoController {
     @PostMapping
     public ResponseEntity<RolProcesoVistaResponse> crear(@Validated @RequestBody RolProcesoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        RolProceso rol = rolProcesoService.crear(empresaId, request.nombre(), request.descripcion());
-        return ResponseEntity.created(URI.create("/api/v1/roles/" + rol.getId()))
-                .body(new RolProcesoVistaResponse(rol.getId(), rol.getNombre(), rol.getDescripcion(), 0, false));
+        RolProcesoVistaResponse rol = rolProcesoService.crear(principal.empresaId(), request.nombre(),
+                request.descripcion());
+        return ResponseEntity.created(URI.create("/api/v1/roles/" + rol.id())).body(rol);
     }
 
     @Operation(summary = "Get a process role")
@@ -73,11 +67,7 @@ public class RolProcesoController {
     @GetMapping("/{id}")
     public ResponseEntity<RolProcesoVistaResponse> obtener(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        RolProceso rol = rolProcesoService.obtener(empresaId, id);
-        long usos = rolProcesoService.contarUsos(empresaId, id);
-        return ResponseEntity.ok(new RolProcesoVistaResponse(
-                rol.getId(), rol.getNombre(), rol.getDescripcion(), usos, usos > 0));
+        return ResponseEntity.ok(rolProcesoService.obtener(principal.empresaId(), id));
     }
 
     @Operation(summary = "Edit a process role")
@@ -90,11 +80,8 @@ public class RolProcesoController {
     @PutMapping("/{id}")
     public ResponseEntity<RolProcesoVistaResponse> editar(@PathVariable Long id,
             @Validated @RequestBody RolProcesoRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        RolProceso rol = rolProcesoService.editar(empresaId, id, request.nombre(), request.descripcion());
-        long usos = rolProcesoService.contarUsos(empresaId, id);
-        return ResponseEntity.ok(
-                new RolProcesoVistaResponse(rol.getId(), rol.getNombre(), rol.getDescripcion(), usos, usos > 0));
+        return ResponseEntity.ok(rolProcesoService.editar(principal.empresaId(), id, request.nombre(),
+                request.descripcion()));
     }
 
     @Operation(summary = "Delete a process role",

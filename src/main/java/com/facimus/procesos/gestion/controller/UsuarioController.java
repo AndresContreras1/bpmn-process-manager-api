@@ -16,10 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.gestion.controller.dto.ActualizarUsuarioRequest;
-import com.facimus.procesos.gestion.controller.dto.CrearUsuarioRequest;
-import com.facimus.procesos.gestion.controller.dto.UsuarioResponse;
-import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.dto.request.ActualizarUsuarioRequest;
+import com.facimus.procesos.gestion.dto.request.CrearUsuarioRequest;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.ApiPrincipal;
 
@@ -44,11 +43,7 @@ public class UsuarioController {
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @GetMapping
     public ResponseEntity<List<UsuarioResponse>> listar(@AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        List<UsuarioResponse> usuarios = usuarioService.listarPorEmpresa(empresaId).stream()
-                .map(UsuarioResponse::of)
-                .toList();
-        return ResponseEntity.ok(usuarios);
+        return ResponseEntity.ok(usuarioService.listarPorEmpresa(principal.empresaId()));
     }
 
     @Operation(summary = "Create a user", description = "The email cannot belong to a user of any store.")
@@ -62,10 +57,9 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponse> crear(@Validated @RequestBody CrearUsuarioRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Usuario usuario = usuarioService.crearColaborador(empresaId, request.nombre(), request.email(),
+        UsuarioResponse usuario = usuarioService.crearColaborador(empresaId, request.nombre(), request.email(),
                 request.password(), request.rolAcceso());
-        return ResponseEntity.created(URI.create("/api/v1/usuarios/" + usuario.getId()))
-                .body(UsuarioResponse.of(usuario));
+        return ResponseEntity.created(URI.create("/api/v1/usuarios/" + usuario.id())).body(usuario);
     }
 
     @Operation(summary = "Get a user")
@@ -76,9 +70,7 @@ public class UsuarioController {
     @GetMapping("/{id}")
     public ResponseEntity<UsuarioResponse> obtener(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        Usuario usuario = usuarioService.obtener(empresaId, id);
-        return ResponseEntity.ok(UsuarioResponse.of(usuario));
+        return ResponseEntity.ok(usuarioService.obtener(principal.empresaId(), id));
     }
 
     @Operation(summary = "Change the access role or the status of a user")
@@ -90,9 +82,8 @@ public class UsuarioController {
     @PatchMapping("/{id}")
     public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Long id,
             @Validated @RequestBody ActualizarUsuarioRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        Usuario usuario = usuarioService.actualizar(empresaId, id, request.rolAcceso(), request.activo());
-        return ResponseEntity.ok(UsuarioResponse.of(usuario));
+        return ResponseEntity.ok(usuarioService.actualizar(principal.empresaId(), id, request.rolAcceso(),
+                request.activo()));
     }
 
     @Operation(summary = "Deactivate a user",

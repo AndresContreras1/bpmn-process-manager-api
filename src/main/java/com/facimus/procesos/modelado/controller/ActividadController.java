@@ -16,9 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.modelado.controller.dto.ActividadRequest;
-import com.facimus.procesos.modelado.controller.dto.ActividadResponse;
-import com.facimus.procesos.modelado.model.Actividad;
+import com.facimus.procesos.modelado.dto.request.ActividadRequest;
+import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.security.ApiPrincipal;
 
@@ -49,10 +48,9 @@ public class ActividadController {
     public ResponseEntity<ActividadResponse> crear(@PathVariable Long laneId,
             @Validated @RequestBody ActividadRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Actividad actividad = actividadService.crear(empresaId, laneId, request.nombre(), request.descripcion(),
+        ActividadResponse actividad = actividadService.crear(empresaId, laneId, request.nombre(), request.descripcion(),
                 request.posicionX(), request.posicionY());
-        return ResponseEntity.created(URI.create("/api/v1/actividades/" + actividad.getId()))
-                .body(ActividadResponse.of(actividad));
+        return ResponseEntity.created(URI.create("/api/v1/actividades/" + actividad.id())).body(actividad);
     }
 
     @Operation(summary = "Get an activity")
@@ -63,8 +61,7 @@ public class ActividadController {
     public ResponseEntity<ActividadResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Actividad actividad = actividadService.obtener(empresaId, id);
-        return ResponseEntity.ok(ActividadResponse.of(actividad));
+        return ResponseEntity.ok(actividadService.obtener(empresaId, id));
     }
 
     @Operation(summary = "List the activities of a lane")
@@ -75,9 +72,7 @@ public class ActividadController {
     public ResponseEntity<List<ActividadResponse>> listar(@PathVariable Long laneId,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        List<ActividadResponse> actividades = actividadService.listarPorLane(empresaId, laneId).stream()
-                .map(ActividadResponse::of).toList();
-        return ResponseEntity.ok(actividades);
+        return ResponseEntity.ok(actividadService.listarPorLane(empresaId, laneId));
     }
 
     @Operation(summary = "Edit an activity", description = "Replaces its name, description and position.")
@@ -90,9 +85,8 @@ public class ActividadController {
     public ResponseEntity<ActividadResponse> editar(@PathVariable Long id,
             @Validated @RequestBody ActividadRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Actividad actividad = actividadService.editar(empresaId, id, request.nombre(), request.descripcion(),
-                request.posicionX(), request.posicionY());
-        return ResponseEntity.ok(ActividadResponse.of(actividad));
+        return ResponseEntity.ok(actividadService.editar(empresaId, id, request.nombre(), request.descripcion(),
+                request.posicionX(), request.posicionY()));
     }
 
     @Operation(summary = "Delete an activity",

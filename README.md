@@ -88,8 +88,12 @@ all of them are correlated by `orderId`.
   and a published process cannot go back to draft.
 - **Schema under version control.** Flyway migrations shared by H2 and PostgreSQL, with engine-specific scripts where
   they differ. Hibernate only validates the schema, and the database enforces unique names on its own.
-- **Architecture rules enforced by tests** with ArchUnit: layering, tenant isolation and no `HttpSession`.
-- **248 automated tests** with 88 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **Layered modules with a one-way dependency.** Services are interfaces that return DTOs mapped with MapStruct
+  inside read-only transactions. `modelado` builds on `gestion`, never the reverse: a domain event and a port
+  replace the calls that used to go the other way.
+- **Architecture rules enforced by tests** with ArchUnit: layering, module boundaries, no package cycles, lazy
+  associations, tenant isolation and no `HttpSession`.
+- **263 automated tests** with 90 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image, then runs it against PostgreSQL.
 
 ## Tech stack
@@ -102,7 +106,7 @@ all of them are correlated by `orderId`.
 | Security | JWT (jjwt 0.12.6, HS256) · BCrypt |
 | API docs | springdoc-openapi 3 (OpenAPI 3 + Swagger UI) |
 | Testing | JUnit 5 · Mockito · MockMvc · AssertJ · ArchUnit 1.4 · JaCoCo |
-| Tooling | Maven Wrapper · Lombok · Docker · GitHub Actions · SonarCloud |
+| Tooling | Maven Wrapper · Lombok · MapStruct · Docker · GitHub Actions · SonarCloud |
 
 ## Architecture
 
@@ -113,14 +117,16 @@ flowchart LR
         cors["CORS filter"] --> jwt["JWT authentication filter"]
         jwt --> rules["Role rules<br/>(SecurityConfig)"]
         rules --> ctrl["REST controllers<br/>/api/v1"]
-        ctrl --> svc["Services<br/>business rules · transactions"]
+        ctrl --> svc["Services (interface + impl)<br/>business rules · transactions<br/>DTOs via MapStruct"]
         svc --> repo["Tenant-aware repositories<br/>findByIdAndEmpresaId"]
         ctrl -.-> errors["ApiExceptionHandler<br/>Problem Details"]
     end
     repo --> db[("H2 / PostgreSQL")]
 ```
 
-The code is split into two business modules. Each one is layered as controller → service → repository → model.
+The code is split into two business modules. Each one is layered as controller → service (interface) → service
+implementation → repository → model, with `dto` for the module's contract and `mapper` for the MapStruct
+translations.
 
 | Module | Responsibility |
 |---|---|
@@ -135,6 +141,12 @@ The code is split into two business modules. Each one is layered as controller �
 3. Controllers receive the principal with `@AuthenticationPrincipal` and pass `empresaId` explicitly to the services.
 4. Every lookup by id goes through `findByIdAndEmpresaId`, so a resource from another store does not exist for the
    caller.
+5. The service maps the result to a DTO inside its transaction: entities never reach the controller.
+
+**Module boundaries.** `modelado` builds on the processes and roles of `gestion`, so `gestion` never depends on
+`modelado`. When a process is created, `gestion` publishes a `ProcesoCreado` event and `modelado` creates the store's
+pool in the same transaction. To know whether a process role is in use, `gestion` asks the `UsoDeRoles` port, which
+`modelado` implements on top of its lanes.
 
 ## Domain model
 
@@ -173,7 +185,7 @@ maps each one to its BPMN meaning. More details:
 - A published process cannot go back to draft.
 - Process and process-role names are unique among a store's active records, ignoring case; the database enforces it
   too. Flow-node names are unique within a process.
-- A process role that is in use cannot be deleted.
+- A process role that an active process uses cannot be deleted.
 - User emails are unique across the platform and case-insensitive: the email is the login, and the login
   does not know the store yet.
 - Processes and process roles are soft-deleted, so they keep their traceability.
@@ -356,18 +368,19 @@ permission to create tables. The CI pipeline starts the image in this profile ag
 ./mvnw verify
 ```
 
-The build runs 248 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 263 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
-| Architecture (ArchUnit) | 21 | Layering, packaging, tenant isolation, JPA inheritance, no `HttpSession`, a declared profile in every `@SpringBootTest` |
+| Architecture (ArchUnit) | 30 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, a declared profile in every `@SpringBootTest` |
 | Controller slices (`@WebMvcTest`) | 95 | Routes, status codes, JSON shape and validation, with the real security rules |
 | Service unit tests (Mockito) | 22 | Business rules of the management module |
 | Security and isolation (`@SpringBootTest`) | 95 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403 |
-| Profiles, schema, API contract and demo data (`@SpringBootTest`) | 13 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
-| Application context | 2 | The full context starts in the `test` profile, with an empty database |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 15 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
+| Module integration (`@SpringBootTest`) | 4 | Process-role usage across modules and the order of pools and lanes |
+| Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 88 % of lines and 63 % of branches.
+Current coverage: 90 % of lines and 65 % of branches.
 
 ## Project structure
 
@@ -377,8 +390,8 @@ src/main/java/com/facimus/procesos
 │   └── api/       ApiExceptionHandler (Problem Details), PageResponse
 ├── config/        OpenAPI definition, demo store seed (dev profile)
 ├── security/      SecurityConfig, JWT service and filter, ApiPrincipal, 401/403 handlers, CORS
-├── gestion/       management module: controller (+ dto) · service · repository · model
-└── modelado/      BPMN modeling module: controller (+ dto) · service · repository · model
+├── gestion/       management module: controller · dto · mapper · service (+ impl) · event · repository · model
+└── modelado/      BPMN modeling module: controller · dto · mapper · service (+ impl) · repository · model
 
 src/main/resources
 ├── application*.properties   shared settings and the dev and prod profiles
@@ -388,7 +401,7 @@ src/test/java/com/facimus/procesos
 ├── arquitectura/  ArchUnit rules
 ├── config/        profiles, migrations, the OpenAPI contract, and the demo data read through the API
 ├── gestion/       controller slices and service unit tests
-├── modelado/      controller slices
+├── modelado/      controller slices and module integration tests
 └── security/      JWT, role matrix and two-tenant isolation tests
 ```
 
@@ -406,6 +419,13 @@ src/test/java/com/facimus/procesos
 - **Unknown fields are errors.** Jackson fails on properties the contract does not define, so a typo or a smuggled
   `empresaId` gets a `400` instead of being silently dropped.
 - **The demo data goes through the services.** The seed cannot create a diagram that the API itself would reject.
+- **Services return DTOs.** MapStruct maps inside the service transaction, so `open-in-view` stays off and no lazy
+  association is read after the session closes. Controllers depend on service interfaces, never on their
+  implementations.
+- **Lazy associations, explicit fetching.** Every association is `LAZY`. A list that shows associated data fetches
+  it with an `@EntityGraph`, and a test counts SQL statements so an N+1 query fails the build.
+- **A one-way dependency between modules.** An event and a port let `modelado` react to and answer `gestion`
+  without `gestion` knowing `modelado`, so the modules can grow without a cycle.
 - **The schema belongs to Flyway.** Migrations are the single source of truth and Hibernate only validates them
   (`ddl-auto=validate`). Portable SQL lives in `db/migration/common`; what only one engine can express, such as
   PostgreSQL's partial unique indexes, lives in `db/migration/{vendor}`, and H2 gets an equivalent built on a
@@ -439,7 +459,7 @@ src/test/java/com/facimus/procesos
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
 - [ ] Soft delete and change history for every BPMN element
 - [ ] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
-- [ ] Lazy associations with entity graphs and read-only transactions
+- [x] Lazy associations with entity graphs and read-only transactions
 
 **API contract**
 - [x] Full OpenAPI documentation (`@Tag`, `@Operation`, `@ApiResponse`, `@Schema`), with Swagger UI disabled in production
@@ -447,8 +467,8 @@ src/test/java/com/facimus/procesos
 - [ ] Aggregate endpoint that returns a complete BPMN diagram for the back-office front end
 
 **Architecture and quality**
-- [ ] Request/response DTO packages with MapStruct mappers; services exposed as interfaces
-- [ ] Module boundaries between `gestion` and `modelado` enforced by ArchUnit (no dependency cycles)
+- [x] Request/response DTO packages with MapStruct mappers; services exposed as interfaces
+- [x] Module boundaries between `gestion` and `modelado` enforced by ArchUnit (no dependency cycles)
 - [x] Complete Spring profiles: `dev` with seed data, `test` with an isolated in-memory database, `prod`
 - [ ] Repository tests with `@DataJpaTest` and unit tests for every modeling service
 - [ ] Coverage gate per package (services ≥ 70 %, branches included) and a SonarCloud quality gate

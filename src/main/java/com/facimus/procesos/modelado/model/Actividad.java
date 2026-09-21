@@ -6,11 +6,13 @@ import jakarta.persistence.Entity;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /** Una tarea del proceso. */
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @DiscriminatorValue("ACTIVIDAD")
 public class Actividad extends NodoFlujo {

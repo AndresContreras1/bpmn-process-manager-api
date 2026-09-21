@@ -10,7 +10,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
-import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import io.jsonwebtoken.Claims;
@@ -54,8 +54,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return Optional.empty();
         }
         try {
-            Usuario usuario = usuarioService.obtener(empresaId, usuarioId);
-            return usuario.isActivo() ? Optional.of(ApiPrincipal.of(usuario)) : Optional.empty();
+            UsuarioResponse usuario = usuarioService.obtener(empresaId, usuarioId);
+            return usuario.activo() ? Optional.of(ApiPrincipal.of(usuario)) : Optional.empty();
         } catch (RecursoNoEncontradoException e) {
             return Optional.empty();
         }

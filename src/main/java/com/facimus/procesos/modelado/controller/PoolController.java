@@ -16,9 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.modelado.controller.dto.EditarPoolRequest;
-import com.facimus.procesos.modelado.controller.dto.PoolRequest;
-import com.facimus.procesos.modelado.controller.dto.PoolResponse;
+import com.facimus.procesos.modelado.dto.request.EditarPoolRequest;
+import com.facimus.procesos.modelado.dto.request.PoolRequest;
+import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.service.PoolService;
 import com.facimus.procesos.security.ApiPrincipal;
@@ -47,10 +47,7 @@ public class PoolController {
     public ResponseEntity<List<PoolResponse>> listar(@PathVariable Long procesoId,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        List<PoolResponse> pools = poolService.listarPorProceso(empresaId, procesoId).stream()
-                .map(PoolResponse::of)
-                .toList();
-        return ResponseEntity.ok(pools);
+        return ResponseEntity.ok(poolService.listarPorProceso(empresaId, procesoId));
     }
 
     @Operation(summary = "Get a pool")
@@ -61,8 +58,7 @@ public class PoolController {
     public ResponseEntity<PoolResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Pool pool = poolService.obtener(empresaId, id);
-        return ResponseEntity.ok(PoolResponse.of(pool));
+        return ResponseEntity.ok(poolService.obtener(empresaId, id));
     }
 
     @Operation(summary = "Add a pool to a process", description = "The pool goes after the existing ones.")
@@ -76,10 +72,9 @@ public class PoolController {
     public ResponseEntity<PoolResponse> crear(@PathVariable Long procesoId,
             @Validated @RequestBody PoolRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Pool pool = poolService.crear(empresaId, procesoId, request.nombre(), request.tipoParticipante(),
+        PoolResponse pool = poolService.crear(empresaId, procesoId, request.nombre(), request.tipoParticipante(),
                 request.cajaNegra());
-        return ResponseEntity.created(URI.create("/api/v1/pools/" + pool.getId()))
-                .body(PoolResponse.of(pool));
+        return ResponseEntity.created(URI.create("/api/v1/pools/" + pool.id())).body(pool);
     }
 
     @Operation(summary = "Edit a pool", description = "Replaces its name and participant type.")
@@ -92,8 +87,7 @@ public class PoolController {
     public ResponseEntity<PoolResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarPoolRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Pool pool = poolService.editar(empresaId, id, request.nombre(), request.tipoParticipante());
-        return ResponseEntity.ok(PoolResponse.of(pool));
+        return ResponseEntity.ok(poolService.editar(empresaId, id, request.nombre(), request.tipoParticipante()));
     }
 
     @Operation(summary = "Delete a pool",

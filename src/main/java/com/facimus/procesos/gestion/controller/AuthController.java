@@ -9,10 +9,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.ReglaNegocioException;
-import com.facimus.procesos.gestion.controller.dto.LoginRequest;
-import com.facimus.procesos.gestion.controller.dto.LoginResponse;
-import com.facimus.procesos.gestion.controller.dto.UsuarioResponse;
-import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.dto.request.LoginRequest;
+import com.facimus.procesos.gestion.dto.response.LoginResponse;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.ApiPrincipal;
 import com.facimus.procesos.security.JwtService;
@@ -46,7 +45,7 @@ public class AuthController {
     @SecurityRequirements()
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Validated @RequestBody LoginRequest request) {
-        Usuario usuario;
+        UsuarioResponse usuario;
         try {
             usuario = usuarioService.autenticar(request.email(), request.password());
         } catch (ReglaNegocioException e) {
@@ -54,8 +53,7 @@ public class AuthController {
             throw new BadCredentialsException(e.getMessage());
         }
         String token = jwtService.generarToken(ApiPrincipal.of(usuario));
-        return ResponseEntity.ok(new LoginResponse(token, TIPO_TOKEN, jwtService.getExpirationSeconds(),
-                UsuarioResponse.of(usuario)));
+        return ResponseEntity.ok(new LoginResponse(token, TIPO_TOKEN, jwtService.getExpirationSeconds(), usuario));
     }
 
     /** Sin estado en el servidor: cerrar sesion es que el cliente descarte su token. */

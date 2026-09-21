@@ -9,7 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 import com.facimus.procesos.gestion.service.EmpresaService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -33,12 +33,7 @@ class EmpresaControllerTest {
     @Test
     @DisplayName("POST /api/v1/empresas - registrar empresa exitoso (201)")
     void registrar_exitoso() throws Exception {
-        Empresa empresa = new Empresa();
-        empresa.setId(1L);
-        empresa.setNombre("Acme Corp");
-        empresa.setNit("900123456");
-        empresa.setCorreoContacto("info@acme.com");
-        empresa.setFechaRegistro(LocalDate.now());
+        EmpresaResponse empresa = new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now());
 
         given(empresaService.registrar(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .willReturn(empresa);

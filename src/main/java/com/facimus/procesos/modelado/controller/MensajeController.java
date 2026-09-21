@@ -16,10 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.modelado.controller.dto.EditarMensajeRequest;
-import com.facimus.procesos.modelado.controller.dto.MensajeRequest;
-import com.facimus.procesos.modelado.controller.dto.MensajeResponse;
-import com.facimus.procesos.modelado.model.Mensaje;
+import com.facimus.procesos.modelado.dto.request.EditarMensajeRequest;
+import com.facimus.procesos.modelado.dto.request.MensajeRequest;
+import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.security.ApiPrincipal;
 
@@ -46,10 +45,7 @@ public class MensajeController {
     public ResponseEntity<List<MensajeResponse>> listar(@PathVariable Long procesoId,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        List<MensajeResponse> mensajes = mensajeService.listarPorProceso(empresaId, procesoId).stream()
-                .map(MensajeResponse::of)
-                .toList();
-        return ResponseEntity.ok(mensajes);
+        return ResponseEntity.ok(mensajeService.listarPorProceso(empresaId, procesoId));
     }
 
     @Operation(summary = "Get a message flow")
@@ -60,8 +56,7 @@ public class MensajeController {
     public ResponseEntity<MensajeResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Mensaje mensaje = mensajeService.obtener(empresaId, id);
-        return ResponseEntity.ok(MensajeResponse.of(mensaje));
+        return ResponseEntity.ok(mensajeService.obtener(empresaId, id));
     }
 
     @Operation(summary = "Add a message flow to a process",
@@ -77,10 +72,9 @@ public class MensajeController {
     public ResponseEntity<MensajeResponse> crear(@PathVariable Long procesoId,
             @Validated @RequestBody MensajeRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Mensaje mensaje = mensajeService.crear(empresaId, procesoId, request.nombre(), request.contenido(),
+        MensajeResponse mensaje = mensajeService.crear(empresaId, procesoId, request.nombre(), request.contenido(),
                 request.poolOrigenId(), request.poolDestinoId());
-        return ResponseEntity.created(URI.create("/api/v1/mensajes/" + mensaje.getId()))
-                .body(MensajeResponse.of(mensaje));
+        return ResponseEntity.created(URI.create("/api/v1/mensajes/" + mensaje.id())).body(mensaje);
     }
 
     @Operation(summary = "Edit a message flow", description = "Replaces its name and content.")
@@ -93,8 +87,7 @@ public class MensajeController {
     public ResponseEntity<MensajeResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarMensajeRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Mensaje mensaje = mensajeService.editar(empresaId, id, request.nombre(), request.contenido());
-        return ResponseEntity.ok(MensajeResponse.of(mensaje));
+        return ResponseEntity.ok(mensajeService.editar(empresaId, id, request.nombre(), request.contenido()));
     }
 
     @Operation(summary = "Delete a message flow",

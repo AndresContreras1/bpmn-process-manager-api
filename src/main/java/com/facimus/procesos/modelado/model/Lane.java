@@ -5,6 +5,7 @@ import com.facimus.procesos.gestion.model.RolProceso;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -14,11 +15,13 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /** Division interna de un Pool que agrupa las actividades de un mismo rol responsable. */
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "lanes")
 public class Lane extends EntidadEmpresa {
@@ -33,11 +36,11 @@ public class Lane extends EntidadEmpresa {
     @Column(nullable = false)
     private int orden;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "pool_id", nullable = false)
     private Pool pool;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "rol_proceso_id", nullable = false)
     private RolProceso rolProceso;
 }

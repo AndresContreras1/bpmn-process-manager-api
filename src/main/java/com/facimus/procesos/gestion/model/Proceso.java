@@ -12,13 +12,16 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Getter
 @Setter
 @NoArgsConstructor
+@SuperBuilder
 @Entity
 @Table(name = "procesos")
 public class Proceso extends EntidadEmpresa {
@@ -38,9 +41,11 @@ public class Proceso extends EntidadEmpresa {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private EstadoProceso estado = EstadoProceso.BORRADOR;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean activo = true;
 
     @Column(name = "fecha_creacion", nullable = false)

@@ -20,7 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.facimus.procesos.gestion.controller.dto.LoginRequest;
+import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -60,7 +60,7 @@ class AutorizacionPorRolTest {
     @BeforeAll
     void iniciarSesionConCadaRol() throws Exception {
         Long empresaId = empresaService.registrar("Tienda Autorizacion", "900111222-3", "contacto@autorizacion.com",
-                "Administrador", ADMIN, CLAVE).getId();
+                "Administrador", ADMIN, CLAVE).id();
         usuarioService.crearColaborador(empresaId, "Editor", EDITOR, CLAVE, RolAcceso.EDITOR);
         usuarioService.crearColaborador(empresaId, "Lector", LECTOR, CLAVE, RolAcceso.SOLO_LECTURA);
 

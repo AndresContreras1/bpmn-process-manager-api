@@ -2,6 +2,7 @@ package com.facimus.procesos.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -71,13 +72,18 @@ class MigracionesTest {
     @Test
     @DisplayName("Un proceso eliminado libera su nombre, y otra empresa puede usarlo")
     void procesoEliminado_liberaSuNombre() {
+        Empresa otra = nuevaEmpresa();
         procesoRepository.saveAndFlush(proceso(empresa, "Returns", false));
         procesoRepository.saveAndFlush(proceso(empresa, "Returns", true));
-        procesoRepository.saveAndFlush(proceso(nuevaEmpresa(), "Returns", true));
+        procesoRepository.saveAndFlush(proceso(otra, "Returns", true));
 
-        assertThat(procesoRepository.findAll())
-                .filteredOn(proceso -> proceso.getNombre().equals("Returns"))
-                .hasSize(3);
+        // Otras clases de este contexto guardan en la misma base, y tambien crean "Returns": se cuenta por empresa
+        assertThat(procesoRepository.findAllByEmpresaId(empresa.getId()))
+                .extracting(Proceso::getNombre, Proceso::isActivo)
+                .containsExactlyInAnyOrder(tuple("Returns", false), tuple("Returns", true));
+        assertThat(procesoRepository.findAllByEmpresaId(otra.getId()))
+                .extracting(Proceso::getNombre)
+                .containsExactly("Returns");
     }
 
     @Test

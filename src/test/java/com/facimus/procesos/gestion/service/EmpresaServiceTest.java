@@ -1,10 +1,15 @@
 package com.facimus.procesos.gestion.service;
 
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
+import com.facimus.procesos.gestion.mapper.EmpresaMapper;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.service.impl.EmpresaServiceImpl;
 
+import org.mapstruct.factory.Mappers;
+import org.mockito.Spy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,8 +29,11 @@ class EmpresaServiceTest {
     @Mock
     private UsuarioService usuarioService;
 
+    @Spy
+    private EmpresaMapper empresaMapper = Mappers.getMapper(EmpresaMapper.class);
+
     @InjectMocks
-    private EmpresaService empresaService;
+    private EmpresaServiceImpl empresaService;
 
     @Test
     @DisplayName("HU-01: registrar empresa crea empresa + usuario admin")
@@ -37,13 +45,13 @@ class EmpresaServiceTest {
             return e;
         });
 
-        Empresa resultado = empresaService.registrar("Acme", "900123456", "info@acme.com",
+        EmpresaResponse resultado = empresaService.registrar("Acme", "900123456", "info@acme.com",
                 "Admin", "admin@acme.com", "secret123");
 
         assertNotNull(resultado);
-        assertEquals("Acme", resultado.getNombre());
-        assertEquals("900123456", resultado.getNit());
-        verify(usuarioService).crearUsuario(resultado, "Admin", "admin@acme.com", "secret123",
+        assertEquals("Acme", resultado.nombre());
+        assertEquals("900123456", resultado.nit());
+        verify(usuarioService).crearColaborador(1L, "Admin", "admin@acme.com", "secret123",
                 RolAcceso.ADMINISTRADOR);
     }
 
@@ -72,6 +80,6 @@ class EmpresaServiceTest {
                         "Admin", "admin@acme.com", "secret123"));
 
         verify(empresaRepository, never()).save(any());
-        verify(usuarioService, never()).crearUsuario(any(), any(), any(), any(), any());
+        verify(usuarioService, never()).crearColaborador(any(), any(), any(), any(), any());
     }
 }

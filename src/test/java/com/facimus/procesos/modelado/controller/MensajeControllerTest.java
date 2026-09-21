@@ -10,10 +10,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
-import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.modelado.model.Mensaje;
-import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.service.MensajeService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -38,7 +36,7 @@ class MensajeControllerTest {
     @Test
     @DisplayName("GET /api/v1/procesos/{procesoId}/mensajes - listar mensajes (200)")
     void listar_mensajes() throws Exception {
-        Mensaje m = crearMensaje(1L, "Orden de compra");
+        MensajeResponse m = crearMensaje(1L, "Orden de compra");
         given(mensajeService.listarPorProceso(1L, 10L)).willReturn(List.of(m));
 
         mockMvc.perform(get("/api/v1/procesos/10/mensajes").with(principal(RolAcceso.EDITOR)))
@@ -49,7 +47,7 @@ class MensajeControllerTest {
     @Test
     @DisplayName("GET /api/v1/mensajes/{id} - detalle mensaje (200)")
     void detalle_mensaje() throws Exception {
-        Mensaje m = crearMensaje(1L, "Orden de compra");
+        MensajeResponse m = crearMensaje(1L, "Orden de compra");
         given(mensajeService.obtener(1L, 1L)).willReturn(m);
 
         mockMvc.perform(get("/api/v1/mensajes/1").with(principal(RolAcceso.EDITOR)))
@@ -67,7 +65,7 @@ class MensajeControllerTest {
     @Test
     @DisplayName("POST /api/v1/procesos/{procesoId}/mensajes - crear mensaje (201)")
     void crear_mensaje() throws Exception {
-        Mensaje m = crearMensaje(2L, "Factura");
+        MensajeResponse m = crearMensaje(2L, "Factura");
         given(mensajeService.crear(eq(1L), eq(10L), anyString(), anyString(), anyLong(), anyLong())).willReturn(m);
 
         mockMvc.perform(post("/api/v1/procesos/10/mensajes")
@@ -96,7 +94,7 @@ class MensajeControllerTest {
     @Test
     @DisplayName("PUT /api/v1/mensajes/{id} - editar mensaje (200)")
     void editar_mensaje() throws Exception {
-        Mensaje m = crearMensaje(1L, "Orden actualizada");
+        MensajeResponse m = crearMensaje(1L, "Orden actualizada");
         given(mensajeService.editar(eq(1L), eq(1L), anyString(), anyString())).willReturn(m);
 
         mockMvc.perform(put("/api/v1/mensajes/1")
@@ -118,24 +116,8 @@ class MensajeControllerTest {
                 .andExpect(status().isNoContent());
     }
 
-    private Mensaje crearMensaje(Long id, String nombre) {
-        Pool poolOrigen = new Pool();
-        poolOrigen.setId(1L);
-
-        Pool poolDestino = new Pool();
-        poolDestino.setId(2L);
-
-        Proceso proceso = new Proceso();
-        proceso.setId(10L);
-
-        Mensaje m = new Mensaje();
-        m.setId(id);
-        m.setNombre(nombre);
-        m.setContenido("Contenido test");
-        m.setPoolOrigen(poolOrigen);
-        m.setPoolDestino(poolDestino);
-        m.setProceso(proceso);
-        return m;
+    private MensajeResponse crearMensaje(Long id, String nombre) {
+        return new MensajeResponse(id, nombre, "Contenido test", 1L, 2L, 10L);
     }
 
 }
