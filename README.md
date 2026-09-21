@@ -80,13 +80,14 @@ all of them are correlated by `orderId`.
 - **Stateless JWT authentication** with a custom Spring Security filter chain and a typed `ApiPrincipal`.
 - **Role-based authorization matrix** (administrator, editor, read-only), defined in one place in the security
   configuration.
-- **RFC 9457 Problem Details** for every error, including `401` and `403` raised by the security layer.
+- **RFC 9457 Problem Details** for every error, including `401` and `403` raised by the security layer, with a
+  message for each invalid field. Fields that the contract does not define are rejected, not ignored.
 - **Versioned REST contract** under `/api/v1`: `201 Created` with `Location`, `204 No Content`, `PATCH` for state
   transitions and a pagination envelope.
 - **BPMN consistency rules**: sequence flows never cross pools, message flows only connect different participants,
   and a published process cannot go back to draft.
 - **Architecture rules enforced by tests** with ArchUnit: layering, tenant isolation and no `HttpSession`.
-- **236 automated tests** with 88 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **242 automated tests** with 88 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image.
 
 ## Tech stack
@@ -211,15 +212,17 @@ public interface RepositorioTenant<T extends EntidadEmpresa> extends JpaReposito
   `findById` or `findAll`.
 - **Ids that arrive in a request body are resolved the same way.** A lane cannot point to another store's process
   role, and a sequence flow cannot connect another store's nodes.
-- **No request DTO carries an `empresaId`.** This is an ArchUnit rule too: the client never chooses the tenant.
+- **No request DTO carries an `empresaId`.** This is an ArchUnit rule too: the client never chooses the tenant. A
+  request body that still sends one is rejected with `400`.
 - **Cross-store access answers `404`, not `403`,** so the API does not confirm that the resource exists.
 - **An integration suite tests the tenant boundary.** It creates two stores and has one try to read, change or link
-  the other's resources (47 cases).
+  the other's resources (48 cases).
 
 ## API overview
 
-Interactive documentation is available at `/swagger-ui.html` once the application is running, and the OpenAPI
-document at `/v3/api-docs`.
+In `dev`, interactive documentation is available at `/swagger-ui.html` and the OpenAPI document at `/v3/api-docs`.
+Every operation documents what it does, what it returns and the errors it can answer; a test fails the build when an
+endpoint is left undocumented. The `prod` profile does not publish the documentation.
 
 | Resource | Endpoints |
 |---|---|
@@ -254,6 +257,25 @@ Errors follow RFC 9457:
   "instance": "/api/v1/procesos/99"
 }
 ```
+
+A `400` that points at specific fields adds an `errors` map, so a client can show each message next to its field. It
+covers failed validations, values of the wrong type (for enums, the message lists the valid values) and fields the
+operation does not accept:
+
+```json
+{
+  "title": "Validación fallida",
+  "status": 400,
+  "detail": "Uno o más campos no son válidos.",
+  "instance": "/api/v1/procesos",
+  "errors": {
+    "categoria": "La categoria es obligatoria.",
+    "nombre": "El nombre es obligatorio."
+  }
+}
+```
+
+Every `401` carries `WWW-Authenticate: Bearer`.
 
 ## Getting started
 
@@ -325,18 +347,18 @@ database, with Demo Store; for persistent data, use the `prod` profile with Post
 ./mvnw verify
 ```
 
-The build runs 236 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 242 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | Architecture (ArchUnit) | 21 | Layering, packaging, tenant isolation, JPA inheritance, no `HttpSession`, a declared profile in every `@SpringBootTest` |
-| Controller slices (`@WebMvcTest`) | 91 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Controller slices (`@WebMvcTest`) | 94 | Routes, status codes, JSON shape and validation, with the real security rules |
 | Service unit tests (Mockito) | 22 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 93 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403 |
-| Profiles and demo data (`@SpringBootTest`) | 7 | What `dev` and `prod` expose, and the seeded order fulfillment process read through the API |
+| Security and isolation (`@SpringBootTest`) | 94 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403 |
+| Profiles, API contract and demo data (`@SpringBootTest`) | 9 | What `dev` and `prod` expose, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
 | Application context | 2 | The full context starts in the `test` profile, with an empty database |
 
-Current coverage: 88 % of lines and 62 % of branches.
+Current coverage: 88 % of lines and 63 % of branches.
 
 ## Project structure
 
@@ -351,7 +373,7 @@ src/main/java/com/facimus/procesos
 
 src/test/java/com/facimus/procesos
 ├── arquitectura/  ArchUnit rules
-├── config/        profiles, and the demo data read through the API
+├── config/        profiles, the OpenAPI contract, and the demo data read through the API
 ├── gestion/       controller slices and service unit tests
 ├── modelado/      controller slices
 └── security/      JWT, role matrix and two-tenant isolation tests
@@ -368,6 +390,8 @@ src/test/java/com/facimus/procesos
 - **Soft delete for processes and process roles.** They keep their history, and deleted resources answer `404`.
 - **One error format.** Validation, business and security errors all return Problem Details, so clients handle a
   single shape.
+- **Unknown fields are errors.** Jackson fails on properties the contract does not define, so a typo or a smuggled
+  `empresaId` gets a `400` instead of being silently dropped.
 - **The demo data goes through the services.** The seed cannot create a diagram that the API itself would reject.
 - **Tests never touch the development database.** Every `@SpringBootTest` declares its profile (an ArchUnit rule checks
   it), and the `test` profile gives each Spring context its own in-memory database, so tests create the data they need.
@@ -398,8 +422,8 @@ src/test/java/com/facimus/procesos
 - [ ] Lazy associations with entity graphs and read-only transactions
 
 **API contract**
-- [ ] Full OpenAPI documentation (`@Tag`, `@Operation`, `@ApiResponse`, `@Schema`), with Swagger UI disabled in production
-- [ ] Field-level validation errors in Problem Details
+- [x] Full OpenAPI documentation (`@Tag`, `@Operation`, `@ApiResponse`, `@Schema`), with Swagger UI disabled in production
+- [x] Field-level validation errors in Problem Details
 - [ ] Aggregate endpoint that returns a complete BPMN diagram for the back-office front end
 
 **Architecture and quality**
