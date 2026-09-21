@@ -37,7 +37,7 @@ public class LaneServiceImpl implements LaneService {
         Pool pool = poolRepository.findByIdAndEmpresaId(poolId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pool no encontrado."));
         RolProceso rolProceso = rolProceso(empresaId, rolProcesoId);
-        int orden = laneRepository.findAllByPoolIdAndEmpresaIdOrderByOrdenAsc(poolId, empresaId).size();
+        int orden = laneRepository.siguienteOrden(poolId, empresaId);
 
         Lane lane = laneRepository.save(Lane.builder()
                 .empresa(pool.getEmpresa())

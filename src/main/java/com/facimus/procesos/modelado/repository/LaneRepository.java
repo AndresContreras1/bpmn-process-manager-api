@@ -15,6 +15,13 @@ public interface LaneRepository extends RepositorioTenant<Lane> {
     @EntityGraph(attributePaths = "rolProceso")
     List<Lane> findAllByPoolIdAndEmpresaIdOrderByOrdenAsc(Long poolId, Long empresaId);
 
+    /** Posicion de la proxima lane: despues de la ultima, aunque se haya eliminado alguna del medio. */
+    @Query("""
+            select coalesce(max(l.orden), -1) + 1 from Lane l
+            where l.pool.id = :poolId and l.empresa.id = :empresaId
+            """)
+    int siguienteOrden(@Param("poolId") Long poolId, @Param("empresaId") Long empresaId);
+
     /** Procesos activos con al menos una lane del rol: varias lanes de un proceso cuentan una vez. */
     @Query("""
             select count(distinct p.id) from Lane l join l.pool po join po.proceso p

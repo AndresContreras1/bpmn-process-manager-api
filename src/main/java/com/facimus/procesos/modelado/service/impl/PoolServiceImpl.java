@@ -37,7 +37,7 @@ public class PoolServiceImpl implements PoolService {
             boolean cajaNegra) {
         Proceso proceso = procesoRepository.findByIdAndEmpresaId(procesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
-        int orden = poolRepository.findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId, empresaId).size();
+        int orden = poolRepository.siguienteOrden(procesoId, empresaId);
 
         Pool pool = poolRepository.save(Pool.builder()
                 .empresa(proceso.getEmpresa())
