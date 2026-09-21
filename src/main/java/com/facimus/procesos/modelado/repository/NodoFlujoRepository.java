@@ -1,14 +1,14 @@
 package com.facimus.procesos.modelado.repository;
 
-import java.util.List;
-
 import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.modelado.model.NodoFlujo;
 
-/** Polimorfico: devuelve Actividad y Gateway mezclados (misma tabla, SINGLE_TABLE). */
+/** Actividades y gateways juntos: para los arcos, que unen nodos de cualquier subtipo, y las reglas comunes. */
 public interface NodoFlujoRepository extends RepositorioTenant<NodoFlujo> {
 
-    List<NodoFlujo> findAllByLaneIdAndEmpresaId(Long laneId, Long empresaId);
-
     boolean existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaId(String nombre, Long procesoId, Long empresaId);
+
+    boolean existsByLaneIdAndEmpresaId(Long laneId, Long empresaId);
+
+    boolean existsByLane_Pool_IdAndEmpresaId(Long poolId, Long empresaId);
 }

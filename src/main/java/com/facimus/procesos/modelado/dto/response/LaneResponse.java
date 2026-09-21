@@ -1,7 +1,5 @@
 package com.facimus.procesos.modelado.dto.response;
 
-import com.facimus.procesos.modelado.model.Lane;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "A lane of a pool")
@@ -12,9 +10,4 @@ public record LaneResponse(
         @Schema(example = "1") Long poolId,
         @Schema(example = "2") Long rolProcesoId,
         @Schema(example = "Warehouse") String rolProcesoNombre) {
-
-    public static LaneResponse of(Lane l) {
-        return new LaneResponse(l.getId(), l.getNombre(), l.getOrden(), l.getPool().getId(),
-                l.getRolProceso().getId(), l.getRolProceso().getNombre());
-    }
 }

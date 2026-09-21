@@ -18,9 +18,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
-import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.ApiPrincipal;
 import com.facimus.procesos.security.JwtService;
@@ -46,7 +45,7 @@ class AuthControllerTest {
     @DisplayName("POST /api/v1/auth/login - credenciales validas devuelven el token (200)")
     void AuthController_login_credencialesValidas_devuelveToken() throws Exception {
         // Arrange
-        Usuario usuario = usuario();
+        UsuarioResponse usuario = usuario();
         given(usuarioService.autenticar("juan@acme.com", "secret123")).willReturn(usuario);
         given(jwtService.generarToken(any(ApiPrincipal.class))).willReturn("token-de-prueba");
         given(jwtService.getExpirationSeconds()).willReturn(1800L);
@@ -63,8 +62,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.usuario.rolAcceso").value("ADMINISTRADOR"));
 
         then(jwtService).should()
-                .generarToken(new ApiPrincipal(usuario.getId(), usuario.getEmpresa().getId(), RolAcceso.ADMINISTRADOR,
-                        "juan@acme.com"));
+                .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com"));
     }
 
     @Test
@@ -107,18 +105,7 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    private Usuario usuario() {
-        Empresa empresa = new Empresa();
-        empresa.setId(1L);
-        empresa.setNombre("Acme Corp");
-
-        Usuario usuario = new Usuario();
-        usuario.setId(10L);
-        usuario.setNombre("Juan");
-        usuario.setEmail("juan@acme.com");
-        usuario.setRolAcceso(RolAcceso.ADMINISTRADOR);
-        usuario.setActivo(true);
-        usuario.setEmpresa(empresa);
-        return usuario;
+    private UsuarioResponse usuario() {
+        return new UsuarioResponse(10L, "Juan", "juan@acme.com", RolAcceso.ADMINISTRADOR, true, 1L);
     }
 }

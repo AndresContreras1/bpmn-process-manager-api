@@ -10,9 +10,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
-import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.PoolService;
 
@@ -38,7 +37,7 @@ class PoolControllerTest {
     @Test
     @DisplayName("GET /api/v1/procesos/{procesoId}/pools - listar pools (200)")
     void listar_pools() throws Exception {
-        Pool pool = crearPool(1L, "Cliente");
+        PoolResponse pool = crearPool(1L, "Cliente");
         given(poolService.listarPorProceso(1L, 10L)).willReturn(List.of(pool));
 
         mockMvc.perform(get("/api/v1/procesos/10/pools").with(principal(RolAcceso.EDITOR)))
@@ -56,7 +55,7 @@ class PoolControllerTest {
     @Test
     @DisplayName("GET /api/v1/pools/{id} - detalle pool (200)")
     void detalle_pool() throws Exception {
-        Pool pool = crearPool(1L, "Cliente");
+        PoolResponse pool = crearPool(1L, "Cliente");
         given(poolService.obtener(1L, 1L)).willReturn(pool);
 
         mockMvc.perform(get("/api/v1/pools/1").with(principal(RolAcceso.EDITOR)))
@@ -74,7 +73,7 @@ class PoolControllerTest {
     @Test
     @DisplayName("POST /api/v1/procesos/{procesoId}/pools - crear pool (201)")
     void crear_pool() throws Exception {
-        Pool pool = crearPool(2L, "Proveedor");
+        PoolResponse pool = crearPool(2L, "Proveedor");
         given(poolService.crear(eq(1L), eq(10L), anyString(), any(), anyBoolean())).willReturn(pool);
 
         mockMvc.perform(post("/api/v1/procesos/10/pools")
@@ -103,7 +102,7 @@ class PoolControllerTest {
     @Test
     @DisplayName("PUT /api/v1/pools/{id} - editar pool (200)")
     void editar_pool() throws Exception {
-        Pool pool = crearPool(1L, "Cliente VIP");
+        PoolResponse pool = crearPool(1L, "Cliente VIP");
         given(poolService.editar(eq(1L), eq(1L), anyString(), any())).willReturn(pool);
 
         mockMvc.perform(put("/api/v1/pools/1")
@@ -125,18 +124,8 @@ class PoolControllerTest {
                 .andExpect(status().isNoContent());
     }
 
-    private Pool crearPool(Long id, String nombre) {
-        Proceso proceso = new Proceso();
-        proceso.setId(10L);
-
-        Pool pool = new Pool();
-        pool.setId(id);
-        pool.setNombre(nombre);
-        pool.setTipoParticipante(TipoParticipante.CLIENTE);
-        pool.setCajaNegra(false);
-        pool.setOrden(0);
-        pool.setProceso(proceso);
-        return pool;
+    private PoolResponse crearPool(Long id, String nombre) {
+        return new PoolResponse(id, nombre, TipoParticipante.CLIENTE, false, 0, 10L);
     }
 
 }

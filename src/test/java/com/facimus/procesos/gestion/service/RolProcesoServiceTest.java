@@ -1,15 +1,20 @@
 package com.facimus.procesos.gestion.service;
 
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
+import com.facimus.procesos.gestion.mapper.RolProcesoMapper;
 import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
-import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.service.impl.RolProcesoServiceImpl;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 
+import org.mapstruct.factory.Mappers;
+import org.mockito.Spy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,8 +41,11 @@ class RolProcesoServiceTest {
     @Mock
     private LaneRepository laneRepository;
 
+    @Spy
+    private RolProcesoMapper rolProcesoMapper = Mappers.getMapper(RolProcesoMapper.class);
+
     @InjectMocks
-    private RolProcesoService rolProcesoService;
+    private RolProcesoServiceImpl rolProcesoService;
 
     private Empresa empresa;
     private RolProceso rol;
@@ -57,14 +65,14 @@ class RolProcesoServiceTest {
     @Test
     @DisplayName("HU-17: crear rol con nombre unico")
     void crear_exitoso() {
-        when(rolProcesoRepository.findAllByEmpresaIdAndActivoTrue(1L)).thenReturn(Collections.emptyList());
+        when(rolProcesoRepository.existsByEmpresaIdAndNombreIgnoreCaseAndActivoTrue(1L, "Auditor")).thenReturn(false);
         when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
         when(rolProcesoRepository.save(any(RolProceso.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        RolProceso result = rolProcesoService.crear(1L, "Auditor", "Revisa procesos");
+        RolProcesoVistaResponse result = rolProcesoService.crear(1L, "Auditor", "Revisa procesos");
 
-        assertEquals("Auditor", result.getNombre());
-        assertTrue(result.isActivo());
+        assertEquals("Auditor", result.nombre());
+        assertFalse(result.enUso());
     }
 
     @Test

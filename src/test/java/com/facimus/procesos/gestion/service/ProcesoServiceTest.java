@@ -1,7 +1,9 @@
 package com.facimus.procesos.gestion.service;
 
-import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.mapper.ProcesoMapper;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.Proceso;
@@ -9,9 +11,12 @@ import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.impl.ProcesoServiceImpl;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.repository.PoolRepository;
 
+import org.mapstruct.factory.Mappers;
+import org.mockito.Spy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,8 +46,11 @@ class ProcesoServiceTest {
     @Mock
     private HistorialCambioService historialCambioService;
 
+    @Spy
+    private ProcesoMapper procesoMapper = Mappers.getMapper(ProcesoMapper.class);
+
     @InjectMocks
-    private ProcesoService procesoService;
+    private ProcesoServiceImpl procesoService;
 
     private Empresa empresa;
     private Usuario usuario;
@@ -79,17 +87,17 @@ class ProcesoServiceTest {
         });
         when(poolRepository.save(any(Pool.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Proceso result = procesoService.crear(1L, 10L, "Compras", "Proceso de compras", "Operativo");
+        ProcesoResponse result = procesoService.crear(1L, 10L, "Compras", "Proceso de compras", "Operativo");
 
-        assertEquals(EstadoProceso.BORRADOR, result.getEstado());
-        assertTrue(result.isActivo());
+        assertEquals(EstadoProceso.BORRADOR, result.estado());
+        assertTrue(result.activo());
 
         ArgumentCaptor<Pool> poolCaptor = ArgumentCaptor.forClass(Pool.class);
         verify(poolRepository).save(poolCaptor.capture());
         Pool pool = poolCaptor.getValue();
         assertEquals(empresa.getNombre(), pool.getNombre());
 
-        verify(historialCambioService).registrar(eq(result), eq(usuario), anyString());
+        verify(historialCambioService).registrar(argThat(creado -> creado.getId() == 100L), eq(usuario), anyString());
     }
 
     @Test
@@ -110,10 +118,10 @@ class ProcesoServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(procesoRepository.save(any(Proceso.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Proceso result = procesoService.cambiarEstado(1L, 100L, 10L, EstadoProceso.PUBLICADO);
+        ProcesoResponse result = procesoService.cambiarEstado(1L, 100L, 10L, EstadoProceso.PUBLICADO);
 
-        assertEquals(EstadoProceso.PUBLICADO, result.getEstado());
-        verify(historialCambioService).registrar(eq(result), eq(usuario), contains("publicado"));
+        assertEquals(EstadoProceso.PUBLICADO, result.estado());
+        verify(historialCambioService).registrar(eq(proceso), eq(usuario), contains("publicado"));
     }
 
     @Test

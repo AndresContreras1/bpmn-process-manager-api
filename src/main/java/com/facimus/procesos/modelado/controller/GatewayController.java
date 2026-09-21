@@ -49,10 +49,9 @@ public class GatewayController {
     public ResponseEntity<GatewayResponse> crear(@PathVariable Long laneId,
             @Validated @RequestBody GatewayRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Gateway gateway = gatewayService.crear(empresaId, laneId, request.nombre(), request.tipoGateway(),
+        GatewayResponse gateway = gatewayService.crear(empresaId, laneId, request.nombre(), request.tipoGateway(),
                 request.posicionX(), request.posicionY());
-        return ResponseEntity.created(URI.create("/api/v1/gateways/" + gateway.getId()))
-                .body(GatewayResponse.of(gateway));
+        return ResponseEntity.created(URI.create("/api/v1/gateways/" + gateway.id())).body(gateway);
     }
 
     @Operation(summary = "Get a gateway")
@@ -63,8 +62,7 @@ public class GatewayController {
     public ResponseEntity<GatewayResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Gateway gateway = gatewayService.obtener(empresaId, id);
-        return ResponseEntity.ok(GatewayResponse.of(gateway));
+        return ResponseEntity.ok(gatewayService.obtener(empresaId, id));
     }
 
     @Operation(summary = "List the gateways of a lane")
@@ -75,9 +73,7 @@ public class GatewayController {
     public ResponseEntity<List<GatewayResponse>> listar(@PathVariable Long laneId,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        List<GatewayResponse> gateways = gatewayService.listarPorLane(empresaId, laneId).stream()
-                .map(GatewayResponse::of).toList();
-        return ResponseEntity.ok(gateways);
+        return ResponseEntity.ok(gatewayService.listarPorLane(empresaId, laneId));
     }
 
     @Operation(summary = "Edit a gateway", description = "Replaces its name, type and position.")
@@ -90,9 +86,8 @@ public class GatewayController {
     public ResponseEntity<GatewayResponse> editar(@PathVariable Long id,
             @Validated @RequestBody GatewayRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Gateway gateway = gatewayService.editar(empresaId, id, request.nombre(), request.tipoGateway(),
-                request.posicionX(), request.posicionY());
-        return ResponseEntity.ok(GatewayResponse.of(gateway));
+        return ResponseEntity.ok(gatewayService.editar(empresaId, id, request.nombre(), request.tipoGateway(),
+                request.posicionX(), request.posicionY()));
     }
 
     @Operation(summary = "Delete a gateway",

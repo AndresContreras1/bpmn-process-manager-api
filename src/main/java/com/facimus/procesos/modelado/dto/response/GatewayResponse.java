@@ -1,6 +1,5 @@
 package com.facimus.procesos.modelado.dto.response;
 
-import com.facimus.procesos.modelado.model.Gateway;
 import com.facimus.procesos.modelado.model.TipoGateway;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -13,9 +12,4 @@ public record GatewayResponse(
         @Schema(example = "420") int posicionX,
         @Schema(example = "80") int posicionY,
         @Schema(example = "3") Long laneId) {
-
-    public static GatewayResponse of(Gateway g) {
-        return new GatewayResponse(g.getId(), g.getNombre(), g.getTipoGateway(), g.getPosicionX(),
-                g.getPosicionY(), g.getLane().getId());
-    }
 }

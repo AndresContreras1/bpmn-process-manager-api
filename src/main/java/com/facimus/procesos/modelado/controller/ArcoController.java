@@ -17,9 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.modelado.dto.request.ArcoRequest;
-import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.request.EditarArcoRequest;
-import com.facimus.procesos.modelado.model.Arco;
+import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.security.ApiPrincipal;
 
@@ -51,10 +50,9 @@ public class ArcoController {
     public ResponseEntity<ArcoResponse> crear(@Validated @RequestBody ArcoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Arco arco = arcoService.crear(empresaId, request.origenId(), request.destinoId(), request.etiqueta(),
+        ArcoResponse arco = arcoService.crear(empresaId, request.origenId(), request.destinoId(), request.etiqueta(),
                 request.condicion());
-        return ResponseEntity.created(URI.create("/api/v1/arcos/" + arco.getId()))
-                .body(ArcoResponse.of(arco));
+        return ResponseEntity.created(URI.create("/api/v1/arcos/" + arco.id())).body(arco);
     }
 
     @Operation(summary = "Get a sequence flow")
@@ -65,8 +63,7 @@ public class ArcoController {
     public ResponseEntity<ArcoResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Arco arco = arcoService.obtener(empresaId, id);
-        return ResponseEntity.ok(ArcoResponse.of(arco));
+        return ResponseEntity.ok(arcoService.obtener(empresaId, id));
     }
 
     @Operation(summary = "List the sequence flows of a pool")
@@ -77,9 +74,7 @@ public class ArcoController {
     public ResponseEntity<List<ArcoResponse>> listar(@PathVariable Long poolId,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        List<ArcoResponse> arcos = arcoService.listarPorPool(empresaId, poolId).stream()
-                .map(ArcoResponse::of).toList();
-        return ResponseEntity.ok(arcos);
+        return ResponseEntity.ok(arcoService.listarPorPool(empresaId, poolId));
     }
 
     @Operation(summary = "Edit a sequence flow", description = "Replaces its label and condition.")
@@ -93,8 +88,7 @@ public class ArcoController {
             @Validated @RequestBody EditarArcoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Arco arco = arcoService.editar(empresaId, id, request.etiqueta(), request.condicion());
-        return ResponseEntity.ok(ArcoResponse.of(arco));
+        return ResponseEntity.ok(arcoService.editar(empresaId, id, request.etiqueta(), request.condicion()));
     }
 
     @Operation(summary = "Delete a sequence flow", description = "Administrators only.")

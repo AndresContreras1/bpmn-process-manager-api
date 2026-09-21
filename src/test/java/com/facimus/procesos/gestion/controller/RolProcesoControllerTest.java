@@ -9,10 +9,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.service.RolProcesoService;
-import com.facimus.procesos.gestion.service.dto.RolProcesoVista;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
@@ -38,9 +37,7 @@ class RolProcesoControllerTest {
     @Test
     @DisplayName("GET /api/v1/roles - listar roles (200)")
     void listar_roles() throws Exception {
-        RolProceso rol = crearRol(1L, "Analista", "Analiza procesos");
-        RolProcesoVista vista = new RolProcesoVista(rol, 3, true);
-        given(rolProcesoService.listarConUso(1L)).willReturn(List.of(vista));
+        given(rolProcesoService.listarConUso(1L)).willReturn(List.of(crearRol(1L, "Analista", "Analiza procesos", 3)));
 
         mockMvc.perform(get("/api/v1/roles").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isOk())
@@ -58,9 +55,7 @@ class RolProcesoControllerTest {
     @Test
     @DisplayName("GET /api/v1/roles/{id} - detalle rol (200)")
     void detalle_rol() throws Exception {
-        RolProceso rol = crearRol(1L, "Analista", "Analiza procesos");
-        given(rolProcesoService.obtener(1L, 1L)).willReturn(rol);
-        given(rolProcesoService.contarUsos(1L, 1L)).willReturn(3L);
+        given(rolProcesoService.obtener(1L, 1L)).willReturn(crearRol(1L, "Analista", "Analiza procesos", 3));
 
         mockMvc.perform(get("/api/v1/roles/1").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isOk())
@@ -78,7 +73,7 @@ class RolProcesoControllerTest {
     @Test
     @DisplayName("POST /api/v1/roles - crear rol como admin (201)")
     void crear_rol() throws Exception {
-        RolProceso rol = crearRol(2L, "Supervisor", "Supervisa");
+        RolProcesoVistaResponse rol = crearRol(2L, "Supervisor", "Supervisa", 0);
         given(rolProcesoService.crear(eq(1L), anyString(), anyString())).willReturn(rol);
 
         mockMvc.perform(post("/api/v1/roles")
@@ -107,7 +102,7 @@ class RolProcesoControllerTest {
     @Test
     @DisplayName("PUT /api/v1/roles/{id} - editar rol (200)")
     void editar_rol() throws Exception {
-        RolProceso rol = crearRol(1L, "Analista Sr", "Senior");
+        RolProcesoVistaResponse rol = crearRol(1L, "Analista Sr", "Senior", 0);
         given(rolProcesoService.editar(eq(1L), eq(1L), anyString(), anyString())).willReturn(rol);
 
         mockMvc.perform(put("/api/v1/roles/1")
@@ -141,13 +136,8 @@ class RolProcesoControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    private RolProceso crearRol(Long id, String nombre, String descripcion) {
-        RolProceso rol = new RolProceso();
-        rol.setId(id);
-        rol.setNombre(nombre);
-        rol.setDescripcion(descripcion);
-        rol.setActivo(true);
-        return rol;
+    private RolProcesoVistaResponse crearRol(Long id, String nombre, String descripcion, long procesos) {
+        return new RolProcesoVistaResponse(id, nombre, descripcion, procesos, procesos > 0);
     }
 
 }

@@ -11,9 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.gestion.model.RolProceso;
-import com.facimus.procesos.modelado.model.Lane;
-import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.service.LaneService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -38,7 +36,7 @@ class LaneControllerTest {
     @Test
     @DisplayName("GET /api/v1/pools/{poolId}/lanes - listar lanes (200)")
     void listar_lanes() throws Exception {
-        Lane lane = crearLane(1L, "Recepcion");
+        LaneResponse lane = crearLane(1L, "Recepcion");
         given(laneService.listarPorPool(1L, 5L)).willReturn(List.of(lane));
 
         mockMvc.perform(get("/api/v1/pools/5/lanes").with(principal(RolAcceso.EDITOR)))
@@ -49,7 +47,7 @@ class LaneControllerTest {
     @Test
     @DisplayName("GET /api/v1/lanes/{id} - detalle lane (200)")
     void detalle_lane() throws Exception {
-        Lane lane = crearLane(1L, "Recepcion");
+        LaneResponse lane = crearLane(1L, "Recepcion");
         given(laneService.obtener(1L, 1L)).willReturn(lane);
 
         mockMvc.perform(get("/api/v1/lanes/1").with(principal(RolAcceso.EDITOR)))
@@ -67,7 +65,7 @@ class LaneControllerTest {
     @Test
     @DisplayName("POST /api/v1/pools/{poolId}/lanes - crear lane (201)")
     void crear_lane() throws Exception {
-        Lane lane = crearLane(2L, "Analisis");
+        LaneResponse lane = crearLane(2L, "Analisis");
         given(laneService.crear(eq(1L), eq(5L), anyString(), anyLong())).willReturn(lane);
 
         mockMvc.perform(post("/api/v1/pools/5/lanes")
@@ -96,7 +94,7 @@ class LaneControllerTest {
     @Test
     @DisplayName("PUT /api/v1/lanes/{id} - editar lane (200)")
     void editar_lane() throws Exception {
-        Lane lane = crearLane(1L, "Recepcion v2");
+        LaneResponse lane = crearLane(1L, "Recepcion v2");
         given(laneService.editar(eq(1L), eq(1L), anyString(), anyLong())).willReturn(lane);
 
         mockMvc.perform(put("/api/v1/lanes/1")
@@ -118,21 +116,8 @@ class LaneControllerTest {
                 .andExpect(status().isNoContent());
     }
 
-    private Lane crearLane(Long id, String nombre) {
-        Pool pool = new Pool();
-        pool.setId(5L);
-
-        RolProceso rol = new RolProceso();
-        rol.setId(1L);
-        rol.setNombre("Analista");
-
-        Lane lane = new Lane();
-        lane.setId(id);
-        lane.setNombre(nombre);
-        lane.setOrden(0);
-        lane.setPool(pool);
-        lane.setRolProceso(rol);
-        return lane;
+    private LaneResponse crearLane(Long id, String nombre) {
+        return new LaneResponse(id, nombre, 0, 5L, 1L, "Analista");
     }
 
 }

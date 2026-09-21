@@ -3,7 +3,6 @@ package com.facimus.procesos.gestion.controller;
 import java.net.URI;
 import java.util.List;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
@@ -24,13 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.EditarProcesoRequest;
+import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
-import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
-import com.facimus.procesos.gestion.model.Proceso;
-import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.security.ApiPrincipal;
 
@@ -52,7 +49,6 @@ public class ProcesoController {
     private static final int TAMANO_PAGINA = 10;
 
     private final ProcesoService procesoService;
-    private final HistorialCambioService historialCambioService;
 
     @Operation(summary = "List processes",
             description = "Pages of 10 processes, most recently modified first. The filters are optional and can be "
@@ -72,10 +68,8 @@ public class ProcesoController {
             @RequestParam(defaultValue = "0") @Min(value = 0, message = "La página no puede ser negativa.") int pagina,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Page<ProcesoResponse> procesos = procesoService.buscar(empresaId, nombre, estado, categoria,
-                        PageRequest.of(pagina, TAMANO_PAGINA, Sort.by("fechaModificacion").descending()))
-                .map(ProcesoResponse::of);
-        return ResponseEntity.ok(PageResponse.from(procesos));
+        return ResponseEntity.ok(procesoService.buscar(empresaId, nombre, estado, categoria,
+                PageRequest.of(pagina, TAMANO_PAGINA, Sort.by("fechaModificacion").descending())));
     }
 
     @Operation(summary = "Create a process",
@@ -91,10 +85,9 @@ public class ProcesoController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         Long usuarioId = principal.usuarioId();
-        Proceso proceso = procesoService.crear(empresaId, usuarioId, request.nombre(), request.descripcion(),
-                request.categoria());
-        return ResponseEntity.created(URI.create("/api/v1/procesos/" + proceso.getId()))
-                .body(ProcesoResponse.of(proceso));
+        ProcesoResponse proceso = procesoService.crear(empresaId, usuarioId, request.nombre(),
+                request.descripcion(), request.categoria());
+        return ResponseEntity.created(URI.create("/api/v1/procesos/" + proceso.id())).body(proceso);
     }
 
     @Operation(summary = "Get a process with its change history")
@@ -104,12 +97,7 @@ public class ProcesoController {
     @GetMapping("/{id}")
     public ResponseEntity<ProcesoDetalleResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        Proceso proceso = procesoService.obtener(empresaId, id);
-        List<HistorialCambioResponse> historial = historialCambioService.listarPorProceso(empresaId, id).stream()
-                .map(HistorialCambioResponse::of)
-                .toList();
-        return ResponseEntity.ok(new ProcesoDetalleResponse(ProcesoResponse.of(proceso), historial));
+        return ResponseEntity.ok(procesoService.obtenerDetalle(principal.empresaId(), id));
     }
 
     @Operation(summary = "Edit a process",
@@ -125,9 +113,8 @@ public class ProcesoController {
             @Validated @RequestBody EditarProcesoRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         Long usuarioId = principal.usuarioId();
-        Proceso proceso = procesoService.editarDatos(empresaId, id, usuarioId, request.nombre(), request.descripcion(),
-                request.categoria());
-        return ResponseEntity.ok(ProcesoResponse.of(proceso));
+        return ResponseEntity.ok(procesoService.editarDatos(empresaId, id, usuarioId, request.nombre(),
+                request.descripcion(), request.categoria()));
     }
 
     @Operation(summary = "Change the state of a process",
@@ -144,8 +131,7 @@ public class ProcesoController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         Long usuarioId = principal.usuarioId();
-        Proceso proceso = procesoService.cambiarEstado(empresaId, id, usuarioId, request.estado());
-        return ResponseEntity.ok(ProcesoResponse.of(proceso));
+        return ResponseEntity.ok(procesoService.cambiarEstado(empresaId, id, usuarioId, request.estado()));
     }
 
     @Operation(summary = "Get the change history of a process", description = "Newest change first.")
@@ -155,11 +141,7 @@ public class ProcesoController {
     @GetMapping("/{id}/historial")
     public ResponseEntity<List<HistorialCambioResponse>> historial(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        procesoService.obtener(empresaId, id);
-        return ResponseEntity.ok(historialCambioService.listarPorProceso(empresaId, id).stream()
-                .map(HistorialCambioResponse::of)
-                .toList());
+        return ResponseEntity.ok(procesoService.listarHistorial(principal.empresaId(), id));
     }
 
     @Operation(summary = "Delete a process",

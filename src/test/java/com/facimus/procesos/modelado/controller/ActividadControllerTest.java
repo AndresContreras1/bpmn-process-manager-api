@@ -11,8 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.modelado.model.Actividad;
-import com.facimus.procesos.modelado.model.Lane;
+import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.service.ActividadService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -37,7 +36,7 @@ class ActividadControllerTest {
     @Test
     @DisplayName("POST /api/v1/lanes/{laneId}/actividades - crear actividad (201)")
     void crear_actividad() throws Exception {
-        Actividad a = crearActividad(1L, "Revisar solicitud");
+        ActividadResponse a = crearActividad(1L, "Revisar solicitud");
         given(actividadService.crear(eq(1L), eq(3L), anyString(), anyString(), anyInt(), anyInt())).willReturn(a);
 
         mockMvc.perform(post("/api/v1/lanes/3/actividades")
@@ -78,7 +77,7 @@ class ActividadControllerTest {
     @Test
     @DisplayName("GET /api/v1/actividades/{id} - detalle actividad (200)")
     void detalle_actividad() throws Exception {
-        Actividad a = crearActividad(1L, "Revisar solicitud");
+        ActividadResponse a = crearActividad(1L, "Revisar solicitud");
         given(actividadService.obtener(1L, 1L)).willReturn(a);
 
         mockMvc.perform(get("/api/v1/actividades/1").with(principal(RolAcceso.EDITOR)))
@@ -96,7 +95,7 @@ class ActividadControllerTest {
     @Test
     @DisplayName("GET /api/v1/lanes/{laneId}/actividades - listar actividades (200)")
     void listar_actividades() throws Exception {
-        Actividad a = crearActividad(1L, "Revisar solicitud");
+        ActividadResponse a = crearActividad(1L, "Revisar solicitud");
         given(actividadService.listarPorLane(1L, 3L)).willReturn(List.of(a));
 
         mockMvc.perform(get("/api/v1/lanes/3/actividades").with(principal(RolAcceso.EDITOR)))
@@ -114,7 +113,7 @@ class ActividadControllerTest {
     @Test
     @DisplayName("PUT /api/v1/actividades/{id} - editar actividad (200)")
     void editar_actividad() throws Exception {
-        Actividad a = crearActividad(1L, "Revisar v2");
+        ActividadResponse a = crearActividad(1L, "Revisar v2");
         given(actividadService.editar(eq(1L), eq(1L), anyString(), anyString(), anyInt(), anyInt())).willReturn(a);
 
         mockMvc.perform(put("/api/v1/actividades/1")
@@ -135,18 +134,8 @@ class ActividadControllerTest {
                 .andExpect(status().isNoContent());
     }
 
-    private Actividad crearActividad(Long id, String nombre) {
-        Lane lane = new Lane();
-        lane.setId(3L);
-
-        Actividad a = new Actividad();
-        a.setId(id);
-        a.setNombre(nombre);
-        a.setDescripcion("Desc");
-        a.setPosicionX(100);
-        a.setPosicionY(200);
-        a.setLane(lane);
-        return a;
+    private ActividadResponse crearActividad(Long id, String nombre) {
+        return new ActividadResponse(id, nombre, "Desc", 100, 200, 3L);
     }
 
 }

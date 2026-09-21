@@ -1,13 +1,18 @@
 package com.facimus.procesos.gestion.service;
 
-import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.impl.UsuarioServiceImpl;
 
+import org.mapstruct.factory.Mappers;
+import org.mockito.Spy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,8 +38,11 @@ class UsuarioServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Spy
+    private UsuarioMapper usuarioMapper = Mappers.getMapper(UsuarioMapper.class);
+
     @InjectMocks
-    private UsuarioService usuarioService;
+    private UsuarioServiceImpl usuarioService;
 
     private Empresa empresa;
     private Usuario usuario;
@@ -63,12 +71,13 @@ class UsuarioServiceTest {
         when(passwordEncoder.encode("pass")).thenReturn("hashed");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Usuario result = usuarioService.crearColaborador(1L, "Nuevo", "nuevo@acme.com", "pass",
+        UsuarioResponse result = usuarioService.crearColaborador(1L, "Nuevo", "nuevo@acme.com", "pass",
                 RolAcceso.SOLO_LECTURA);
 
-        assertEquals("Nuevo", result.getNombre());
-        assertEquals(RolAcceso.SOLO_LECTURA, result.getRolAcceso());
-        assertTrue(result.isActivo());
+        assertEquals("Nuevo", result.nombre());
+        assertEquals(RolAcceso.SOLO_LECTURA, result.rolAcceso());
+        assertTrue(result.activo());
+        assertEquals(1L, result.empresaId());
     }
 
     @Test
@@ -93,10 +102,10 @@ class UsuarioServiceTest {
         when(passwordEncoder.encode("pass")).thenReturn("hashed");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Usuario result = usuarioService.crearColaborador(1L, "Nuevo", "  Nuevo@ACME.com ", "pass",
+        UsuarioResponse result = usuarioService.crearColaborador(1L, "Nuevo", "  Nuevo@ACME.com ", "pass",
                 RolAcceso.EDITOR);
 
-        assertEquals("nuevo@acme.com", result.getEmail());
+        assertEquals("nuevo@acme.com", result.email());
     }
 
     @Test
@@ -105,7 +114,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByEmail("juan@acme.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
 
-        assertEquals(usuario, usuarioService.autenticar(" Juan@Acme.com", "pass"));
+        assertEquals(usuario.getId(), usuarioService.autenticar(" Juan@Acme.com", "pass").id());
     }
 
     @Test
@@ -114,9 +123,9 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByEmail("juan@acme.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
 
-        Usuario result = usuarioService.autenticar("juan@acme.com", "pass");
+        UsuarioResponse result = usuarioService.autenticar("juan@acme.com", "pass");
 
-        assertEquals(usuario.getId(), result.getId());
+        assertEquals(usuario.getId(), result.id());
     }
 
     @Test
@@ -159,10 +168,10 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.save(usuario)).thenReturn(usuario);
 
-        Usuario actualizado = usuarioService.actualizar(1L, 10L, RolAcceso.ADMINISTRADOR, false);
+        UsuarioResponse actualizado = usuarioService.actualizar(1L, 10L, RolAcceso.ADMINISTRADOR, false);
 
-        assertEquals(RolAcceso.ADMINISTRADOR, actualizado.getRolAcceso());
-        assertFalse(actualizado.isActivo());
+        assertEquals(RolAcceso.ADMINISTRADOR, actualizado.rolAcceso());
+        assertFalse(actualizado.activo());
     }
 
     @Test

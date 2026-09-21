@@ -2,8 +2,6 @@ package com.facimus.procesos.gestion.dto.response;
 
 import java.time.LocalDate;
 
-import com.facimus.procesos.gestion.model.Empresa;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "A registered store")
@@ -13,8 +11,4 @@ public record EmpresaResponse(
         @Schema(description = "Colombian tax id (NIT)", example = "901234567-8") String nit,
         @Schema(example = "contact@acme.com") String correoContacto,
         @Schema(example = "2026-09-21") LocalDate fechaRegistro) {
-
-    public static EmpresaResponse of(Empresa e) {
-        return new EmpresaResponse(e.getId(), e.getNombre(), e.getNit(), e.getCorreoContacto(), e.getFechaRegistro());
-    }
 }

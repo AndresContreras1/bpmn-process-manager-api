@@ -28,8 +28,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.RegistroEmpresaRequest;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
@@ -68,7 +68,7 @@ class SeguridadIntegracionTest {
     @BeforeAll
     void registrarTienda() {
         empresaId = empresaService.registrar("Tienda Seguridad", "900222333-4", "contacto@seguridad.com",
-                "Administrador", ADMIN, CLAVE).getId();
+                "Administrador", ADMIN, CLAVE).id();
     }
 
     @Test
@@ -166,10 +166,10 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("El token de un usuario desactivado deja de servir: 401")
     void Seguridad_endpointProtegido_usuarioDesactivado_devuelve401() throws Exception {
-        Usuario editor = crearColaborador("editor.baja@seguridad.com", "editor123", RolAcceso.EDITOR);
+        UsuarioResponse editor = crearColaborador("editor.baja@seguridad.com", "editor123", RolAcceso.EDITOR);
         String token = jwtService.generarToken(ApiPrincipal.of(editor));
 
-        usuarioService.desactivar(editor.getEmpresa().getId(), editor.getId());
+        usuarioService.desactivar(editor.empresaId(), editor.id());
 
         mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isUnauthorized());
@@ -197,7 +197,7 @@ class SeguridadIntegracionTest {
         return jsonMapper.readTree(respuesta).get("accessToken").asString();
     }
 
-    private Usuario crearColaborador(String email, String password, RolAcceso rol) {
+    private UsuarioResponse crearColaborador(String email, String password, RolAcceso rol) {
         return usuarioService.crearColaborador(empresaId, "Colaborador de prueba", email, password, rol);
     }
 }

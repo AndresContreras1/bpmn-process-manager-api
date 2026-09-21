@@ -45,10 +45,7 @@ public class LaneController {
     public ResponseEntity<List<LaneResponse>> listar(@PathVariable Long poolId,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        List<LaneResponse> lanes = laneService.listarPorPool(empresaId, poolId).stream()
-                .map(LaneResponse::of)
-                .toList();
-        return ResponseEntity.ok(lanes);
+        return ResponseEntity.ok(laneService.listarPorPool(empresaId, poolId));
     }
 
     @Operation(summary = "Get a lane")
@@ -59,8 +56,7 @@ public class LaneController {
     public ResponseEntity<LaneResponse> detalle(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Lane lane = laneService.obtener(empresaId, id);
-        return ResponseEntity.ok(LaneResponse.of(lane));
+        return ResponseEntity.ok(laneService.obtener(empresaId, id));
     }
 
     @Operation(summary = "Add a lane to a pool", description = "The lane goes after the existing ones.")
@@ -74,9 +70,8 @@ public class LaneController {
     public ResponseEntity<LaneResponse> crear(@PathVariable Long poolId,
             @Validated @RequestBody LaneRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Lane lane = laneService.crear(empresaId, poolId, request.nombre(), request.rolProcesoId());
-        return ResponseEntity.created(URI.create("/api/v1/lanes/" + lane.getId()))
-                .body(LaneResponse.of(lane));
+        LaneResponse lane = laneService.crear(empresaId, poolId, request.nombre(), request.rolProcesoId());
+        return ResponseEntity.created(URI.create("/api/v1/lanes/" + lane.id())).body(lane);
     }
 
     @Operation(summary = "Edit a lane", description = "Replaces its name and process role.")
@@ -89,8 +84,7 @@ public class LaneController {
     public ResponseEntity<LaneResponse> editar(@PathVariable Long id,
             @Validated @RequestBody LaneRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        Lane lane = laneService.editar(empresaId, id, request.nombre(), request.rolProcesoId());
-        return ResponseEntity.ok(LaneResponse.of(lane));
+        return ResponseEntity.ok(laneService.editar(empresaId, id, request.nombre(), request.rolProcesoId()));
     }
 
     @Operation(summary = "Delete a lane",

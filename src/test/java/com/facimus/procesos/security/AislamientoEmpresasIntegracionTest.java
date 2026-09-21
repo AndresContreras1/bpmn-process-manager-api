@@ -32,17 +32,17 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
-import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.ActualizarUsuarioRequest;
+import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.EditarProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.RolProcesoRequest;
+import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
-import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.gestion.model.RolProceso;
-import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
@@ -57,9 +57,9 @@ import com.facimus.procesos.modelado.dto.request.GatewayRequest;
 import com.facimus.procesos.modelado.dto.request.LaneRequest;
 import com.facimus.procesos.modelado.dto.request.MensajeRequest;
 import com.facimus.procesos.modelado.dto.request.PoolRequest;
-import com.facimus.procesos.modelado.model.Lane;
-import com.facimus.procesos.modelado.model.Mensaje;
-import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.dto.response.LaneResponse;
+import com.facimus.procesos.modelado.dto.response.MensajeResponse;
+import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
@@ -148,34 +148,34 @@ class AislamientoEmpresasIntegracionTest {
     @BeforeAll
     void crearDosEmpresas() throws Exception {
         empresaA = empresaService
-                .registrar("Empresa A", "900100200", "contacto@empresa-a.com", "Admin A", ADMIN_A, CLAVE).getId();
-        Long adminA = usuarioService.autenticar(ADMIN_A, CLAVE).getId();
-        procesoA = procesoService.crear(empresaA, adminA, "Ventas", "Proceso de ventas", "Comercial").getId();
-        poolA = poolService.listarPorProceso(empresaA, procesoA).getFirst().getId();
-        rolA = rolProcesoService.crear(empresaA, "Vendedor", "Atiende a los clientes").getId();
-        laneA = laneService.crear(empresaA, poolA, "Ventas", rolA).getId();
-        gatewayA = gatewayService.crear(empresaA, laneA, "Revisar venta", TipoGateway.PARALELO, 100, 100).getId();
+                .registrar("Empresa A", "900100200", "contacto@empresa-a.com", "Admin A", ADMIN_A, CLAVE).id();
+        Long adminA = usuarioService.autenticar(ADMIN_A, CLAVE).id();
+        procesoA = procesoService.crear(empresaA, adminA, "Ventas", "Proceso de ventas", "Comercial").id();
+        poolA = poolService.listarPorProceso(empresaA, procesoA).getFirst().id();
+        rolA = rolProcesoService.crear(empresaA, "Vendedor", "Atiende a los clientes").id();
+        laneA = laneService.crear(empresaA, poolA, "Ventas", rolA).id();
+        gatewayA = gatewayService.crear(empresaA, laneA, "Revisar venta", TipoGateway.PARALELO, 100, 100).id();
         // Quien ataca tiene un usuarioId distinto del empresaId de su empresa: si un controller
         // confundiera los dos ids, estas pruebas lo notarian.
         Long auditorA = usuarioService
-                .crearColaborador(empresaA, "Auditor A", AUDITOR_A, CLAVE, RolAcceso.ADMINISTRADOR).getId();
+                .crearColaborador(empresaA, "Auditor A", AUDITOR_A, CLAVE, RolAcceso.ADMINISTRADOR).id();
         assertThat(auditorA).isNotEqualTo(empresaA);
 
         empresaB = empresaService
-                .registrar("Empresa B", "900300400", "contacto@empresa-b.com", "Admin B", ADMIN_B, CLAVE).getId();
-        adminB = usuarioService.autenticar(ADMIN_B, CLAVE).getId();
-        procesoB = procesoService.crear(empresaB, adminB, "Compras", "Proceso de compras", "Logistica").getId();
-        poolB = poolService.listarPorProceso(empresaB, procesoB).getFirst().getId();
+                .registrar("Empresa B", "900300400", "contacto@empresa-b.com", "Admin B", ADMIN_B, CLAVE).id();
+        adminB = usuarioService.autenticar(ADMIN_B, CLAVE).id();
+        procesoB = procesoService.crear(empresaB, adminB, "Compras", "Proceso de compras", "Logistica").id();
+        poolB = poolService.listarPorProceso(empresaB, procesoB).getFirst().id();
         Long poolProveedorB = poolService
-                .crear(empresaB, procesoB, "Proveedor", TipoParticipante.PROVEEDOR, true).getId();
-        rolB = rolProcesoService.crear(empresaB, "Comprador", "Gestiona las compras").getId();
-        laneB = laneService.crear(empresaB, poolB, "Compras", rolB).getId();
-        actividadB = actividadService.crear(empresaB, laneB, "Solicitar cotizacion", "Pide precios", 100, 300).getId();
-        gatewayB =gatewayService.crear(empresaB, laneB, "Aprobar compra", TipoGateway.PARALELO, 100, 100).getId();
+                .crear(empresaB, procesoB, "Proveedor", TipoParticipante.PROVEEDOR, true).id();
+        rolB = rolProcesoService.crear(empresaB, "Comprador", "Gestiona las compras").id();
+        laneB = laneService.crear(empresaB, poolB, "Compras", rolB).id();
+        actividadB = actividadService.crear(empresaB, laneB, "Solicitar cotizacion", "Pide precios", 100, 300).id();
+        gatewayB =gatewayService.crear(empresaB, laneB, "Aprobar compra", TipoGateway.PARALELO, 100, 100).id();
         gatewayCierreB = gatewayService
-                .crear(empresaB, laneB, "Cerrar compra", TipoGateway.PARALELO, 300, 100).getId();
-        arcoB = arcoService.crear(empresaB, gatewayB, gatewayCierreB, "Continuar", null).getId();
-        mensajeB = mensajeService.crear(empresaB, procesoB, "Orden de compra", "Pedido", poolB, poolProveedorB).getId();
+                .crear(empresaB, laneB, "Cerrar compra", TipoGateway.PARALELO, 300, 100).id();
+        arcoB = arcoService.crear(empresaB, gatewayB, gatewayCierreB, "Continuar", null).id();
+        mensajeB = mensajeService.crear(empresaB, procesoB, "Orden de compra", "Pedido", poolB, poolProveedorB).id();
         correlacionService.definir(empresaB, mensajeB, "numeroPedido");
 
         tokenA = login(AUDITOR_A);
@@ -309,7 +309,7 @@ class AislamientoEmpresasIntegracionTest {
                 .andReturn().getResponse().getContentAsString();
         Long procesoCreado = jsonMapper.readTree(respuesta).get("id").asLong();
 
-        assertThat(procesoService.obtener(empresaA, procesoCreado).getNombre()).isEqualTo("Devoluciones");
+        assertThat(procesoService.obtener(empresaA, procesoCreado).nombre()).isEqualTo("Devoluciones");
         assertThatThrownBy(() -> procesoService.obtener(empresaB, procesoCreado))
                 .isInstanceOf(RecursoNoEncontradoException.class);
     }
@@ -357,21 +357,21 @@ class AislamientoEmpresasIntegracionTest {
     // Lo que la empresa B tiene, leido con su propia empresa: si una peticion de la empresa A cambia algo, esta
     // lista cambia.
     private List<Object> estadoEmpresaB() {
-        Proceso proceso = procesoService.obtener(empresaB, procesoB);
-        RolProceso rol = rolProcesoService.obtener(empresaB, rolB);
-        Usuario admin = usuarioService.obtener(empresaB, adminB);
+        ProcesoResponse proceso = procesoService.obtener(empresaB, procesoB);
+        RolProcesoVistaResponse rol = rolProcesoService.obtener(empresaB, rolB);
+        UsuarioResponse admin = usuarioService.obtener(empresaB, adminB);
         return List.of(
-                proceso.getNombre(), proceso.getEstado(), proceso.isActivo(),
-                rol.getNombre(), rol.isActivo(),
-                admin.getRolAcceso(), admin.isActivo(),
-                poolService.listarPorProceso(empresaB, procesoB).stream().map(Pool::getNombre).toList(),
-                laneService.listarPorPool(empresaB, poolB).stream().map(Lane::getNombre).toList(),
-                actividadService.obtener(empresaB, actividadB).getNombre(),
-                gatewayService.obtener(empresaB, gatewayB).getNombre(),
-                gatewayService.obtener(empresaB, gatewayCierreB).getNombre(),
-                arcoService.obtener(empresaB, arcoB).getEtiqueta(),
-                mensajeService.listarPorProceso(empresaB, procesoB).stream().map(Mensaje::getNombre).toList(),
-                correlacionService.obtener(empresaB, mensajeB).getCriterio());
+                proceso.nombre(), proceso.estado(), proceso.activo(),
+                rol.nombre(), rol.descripcion(),
+                admin.rolAcceso(), admin.activo(),
+                poolService.listarPorProceso(empresaB, procesoB).stream().map(PoolResponse::nombre).toList(),
+                laneService.listarPorPool(empresaB, poolB).stream().map(LaneResponse::nombre).toList(),
+                actividadService.obtener(empresaB, actividadB).nombre(),
+                gatewayService.obtener(empresaB, gatewayB).nombre(),
+                gatewayService.obtener(empresaB, gatewayCierreB).nombre(),
+                arcoService.obtener(empresaB, arcoB).etiqueta(),
+                mensajeService.listarPorProceso(empresaB, procesoB).stream().map(MensajeResponse::nombre).toList(),
+                correlacionService.obtener(empresaB, mensajeB).criterio());
     }
 
     private List<String> valoresComoEmpresaA(String ruta, String campo) throws Exception {

@@ -9,8 +9,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.modelado.model.Correlacion;
-import com.facimus.procesos.modelado.model.Mensaje;
+import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -35,7 +34,7 @@ class CorrelacionControllerTest {
     @Test
     @DisplayName("PUT /api/v1/mensajes/{mensajeId}/correlacion - definir correlacion (200)")
     void definir_correlacion() throws Exception {
-        Correlacion c = crearCorrelacion(1L, "orderId");
+        CorrelacionResponse c = crearCorrelacion(1L, "orderId");
         given(correlacionService.definir(eq(1L), eq(5L), anyString())).willReturn(c);
 
         mockMvc.perform(put("/api/v1/mensajes/5/correlacion")
@@ -64,7 +63,7 @@ class CorrelacionControllerTest {
     @Test
     @DisplayName("GET /api/v1/mensajes/{mensajeId}/correlacion - obtener correlacion (200)")
     void obtener_correlacion() throws Exception {
-        Correlacion c = crearCorrelacion(1L, "customerId");
+        CorrelacionResponse c = crearCorrelacion(1L, "customerId");
         given(correlacionService.obtener(1L, 5L)).willReturn(c);
 
         mockMvc.perform(get("/api/v1/mensajes/5/correlacion").with(principal(RolAcceso.EDITOR)))
@@ -79,15 +78,8 @@ class CorrelacionControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    private Correlacion crearCorrelacion(Long id, String criterio) {
-        Mensaje mensaje = new Mensaje();
-        mensaje.setId(5L);
-
-        Correlacion c = new Correlacion();
-        c.setId(id);
-        c.setCriterio(criterio);
-        c.setMensaje(mensaje);
-        return c;
+    private CorrelacionResponse crearCorrelacion(Long id, String criterio) {
+        return new CorrelacionResponse(id, criterio, 5L);
     }
 
 }

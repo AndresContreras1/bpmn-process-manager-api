@@ -10,8 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -42,7 +42,7 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("GET /api/v1/usuarios - listar como admin (200)")
     void listar_como_admin() throws Exception {
-        Usuario u = crearUsuario(1L, "Ana", "ana@acme.com", RolAcceso.EDITOR);
+        UsuarioResponse u = crearUsuario(1L, "Ana", "ana@acme.com", RolAcceso.EDITOR);
         given(usuarioService.listarPorEmpresa(1L)).willReturn(List.of(u));
 
         mockMvc.perform(get("/api/v1/usuarios").with(principal(RolAcceso.ADMINISTRADOR)))
@@ -67,7 +67,7 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("POST /api/v1/usuarios - crear colaborador como admin (201)")
     void crear_colaborador() throws Exception {
-        Usuario u = crearUsuario(2L, "Pedro", "pedro@acme.com", RolAcceso.EDITOR);
+        UsuarioResponse u = crearUsuario(2L, "Pedro", "pedro@acme.com", RolAcceso.EDITOR);
         given(usuarioService.crearColaborador(eq(1L), anyString(), anyString(), anyString(), any()))
                 .willReturn(u);
 
@@ -123,7 +123,7 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("GET /api/v1/usuarios/{id} - obtener usuario (200)")
     void obtener_usuario() throws Exception {
-        Usuario u = crearUsuario(5L, "Laura", "laura@acme.com", RolAcceso.EDITOR);
+        UsuarioResponse u = crearUsuario(5L, "Laura", "laura@acme.com", RolAcceso.EDITOR);
         given(usuarioService.obtener(1L, 5L)).willReturn(u);
 
         mockMvc.perform(get("/api/v1/usuarios/5").with(principal(RolAcceso.ADMINISTRADOR)))
@@ -134,7 +134,7 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("PATCH /api/v1/usuarios/{id} - cambiar rol (200)")
     void cambiar_rol() throws Exception {
-        Usuario u = crearUsuario(5L, "Laura", "laura@acme.com", RolAcceso.ADMINISTRADOR);
+        UsuarioResponse u = crearUsuario(5L, "Laura", "laura@acme.com", RolAcceso.ADMINISTRADOR);
         given(usuarioService.actualizar(1L, 5L, RolAcceso.ADMINISTRADOR, null)).willReturn(u);
 
         mockMvc.perform(patch("/api/v1/usuarios/5")
@@ -149,8 +149,7 @@ class UsuarioControllerTest {
 
     @Test
     void actualizar_estado_y_rechazar_patch_vacio() throws Exception {
-        Usuario u = crearUsuario(5L, "Laura", "laura@acme.com", RolAcceso.ADMINISTRADOR);
-        u.setActivo(false);
+        UsuarioResponse u = new UsuarioResponse(5L, "Laura", "laura@acme.com", RolAcceso.ADMINISTRADOR, false, 1L);
         given(usuarioService.actualizar(1L, 5L, RolAcceso.ADMINISTRADOR, false)).willReturn(u);
 
         mockMvc.perform(patch("/api/v1/usuarios/5").with(principal(RolAcceso.ADMINISTRADOR))
@@ -173,14 +172,8 @@ class UsuarioControllerTest {
                 .andExpect(status().isNoContent());
     }
 
-    private Usuario crearUsuario(Long id, String nombre, String email, RolAcceso rol) {
-        Usuario u = new Usuario();
-        u.setId(id);
-        u.setNombre(nombre);
-        u.setEmail(email);
-        u.setRolAcceso(rol);
-        u.setActivo(true);
-        return u;
+    private UsuarioResponse crearUsuario(Long id, String nombre, String email, RolAcceso rol) {
+        return new UsuarioResponse(id, nombre, email, rol, true, 1L);
     }
 
 }

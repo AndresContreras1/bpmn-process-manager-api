@@ -1,6 +1,5 @@
 package com.facimus.procesos.modelado.dto.response;
 
-import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -13,9 +12,4 @@ public record PoolResponse(
         @Schema(example = "true") boolean cajaNegra,
         @Schema(description = "Position in the process; the store's own pool is 0", example = "2") int orden,
         @Schema(example = "1") Long procesoId) {
-
-    public static PoolResponse of(Pool p) {
-        return new PoolResponse(p.getId(), p.getNombre(), p.getTipoParticipante(), p.isCajaNegra(),
-                p.getOrden(), p.getProceso().getId());
-    }
 }
