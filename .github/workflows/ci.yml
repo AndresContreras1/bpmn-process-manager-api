@@ -113,6 +113,36 @@ jobs:
           docker logs api
           exit 1
 
+      - name: Verify the prod profile on PostgreSQL
+        run: |
+          docker network create smoke
+          docker run -d --name db --network smoke \
+            -e POSTGRES_DB=procesos -e POSTGRES_USER=procesos -e POSTGRES_PASSWORD=procesos \
+            postgres:16
+          # By TCP only the final server answers, not the temporary one that runs the image's init scripts.
+          for intento in $(seq 1 30); do
+            docker exec db pg_isready -h localhost -U procesos -d procesos > /dev/null && break
+            sleep 1
+          done
+          docker run -d --name api-prod --network smoke -p 8081:8080 \
+            -e SPRING_PROFILES_ACTIVE=prod \
+            -e DB_HOST=db -e DB_PASSWORD=procesos \
+            -e JWT_SECRET=ci-only-signing-key-with-at-least-32-characters \
+            bpmn-process-manager-api:${{ github.sha }}
+          # Flyway migrates PostgreSQL on startup; registering a store proves the API writes to that schema.
+          for intento in $(seq 1 30); do
+            estado=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8081/api/v1/empresas \
+              -H 'Content-Type: application/json' \
+              -d '{"nombreEmpresa":"CI Store","nit":"900000001-1","correoContacto":"ci@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci@store.com","passwordAdmin":"secret123"}')
+            if [ "$estado" = "201" ]; then
+              echo "The prod profile runs on PostgreSQL."
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs api-prod
+          exit 1
+
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
