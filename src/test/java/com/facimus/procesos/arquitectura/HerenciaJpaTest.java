@@ -2,6 +2,7 @@ package com.facimus.procesos.arquitectura;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchCondition;
@@ -12,14 +13,18 @@ import com.facimus.procesos.modelado.model.NodoFlujo;
 
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 
 /**
  * Decisiones de herencia JPA y mapeo de enums del consolidado de arquitectura.
@@ -66,6 +71,31 @@ class HerenciaJpaTest {
                 .should(usarEnumTypeString())
                 .because("Consolidado: enums siempre STRING para evitar corrupcion por reordenamiento")
                 .check(clases);
+    }
+
+    @Test
+    @DisplayName("Toda relacion @ManyToOne y @OneToOne se carga de forma perezosa (LAZY)")
+    void relaciones_perezosas() {
+        fields()
+                .that().areAnnotatedWith(ManyToOne.class)
+                .or().areAnnotatedWith(OneToOne.class)
+                .should(cargarsePerezosamente())
+                .because("con EAGER cada consulta arrastra sus asociaciones; cada consulta pide lo que necesita")
+                .check(clases);
+    }
+
+    private static ArchCondition<JavaField> cargarsePerezosamente() {
+        return new ArchCondition<>("cargarse con fetch = LAZY") {
+            @Override
+            public void check(JavaField campo, ConditionEvents events) {
+                FetchType fetch = campo.tryGetAnnotationOfType(ManyToOne.class).map(ManyToOne::fetch)
+                        .or(() -> campo.tryGetAnnotationOfType(OneToOne.class).map(OneToOne::fetch))
+                        .orElseThrow();
+                if (fetch != FetchType.LAZY) {
+                    events.add(SimpleConditionEvent.violated(campo, campo.getFullName() + " usa fetch = " + fetch));
+                }
+            }
+        };
     }
 
     private static ArchCondition<JavaClass> tenerInheritanceSingleTable() {

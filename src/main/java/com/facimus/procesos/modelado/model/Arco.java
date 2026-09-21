@@ -4,6 +4,7 @@ import com.facimus.procesos.common.EntidadEmpresa;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -34,16 +35,16 @@ public class Arco extends EntidadEmpresa {
     @Column(length = 500)
     private String condicion;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "origen_id", nullable = false)
     private NodoFlujo origen;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "destino_id", nullable = false)
     private NodoFlujo destino;
 
     /** Redundante respecto a origen/destino: sirve para validar que ambos comparten el mismo pool. */
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "pool_id", nullable = false)
     private Pool pool;
 }

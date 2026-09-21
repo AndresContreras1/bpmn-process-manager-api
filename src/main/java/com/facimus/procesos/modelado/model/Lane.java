@@ -5,6 +5,7 @@ import com.facimus.procesos.gestion.model.RolProceso;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -35,11 +36,11 @@ public class Lane extends EntidadEmpresa {
     @Column(nullable = false)
     private int orden;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "pool_id", nullable = false)
     private Pool pool;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "rol_proceso_id", nullable = false)
     private RolProceso rolProceso;
 }

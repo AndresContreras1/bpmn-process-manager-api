@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.repository;
 
 import java.util.List;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -10,6 +11,8 @@ import com.facimus.procesos.modelado.model.Lane;
 
 public interface LaneRepository extends RepositorioTenant<Lane> {
 
+    /** Trae el rol de cada lane en la misma consulta: el listado muestra su nombre. */
+    @EntityGraph(attributePaths = "rolProceso")
     List<Lane> findAllByPoolIdAndEmpresaIdOrderByOrdenAsc(Long poolId, Long empresaId);
 
     /** Procesos activos con al menos una lane del rol: varias lanes de un proceso cuentan una vez. */
