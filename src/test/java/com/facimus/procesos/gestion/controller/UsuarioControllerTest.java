@@ -5,6 +5,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -16,6 +17,8 @@ import com.facimus.procesos.gestion.service.UsuarioService;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -94,6 +97,23 @@ class UsuarioControllerTest {
                                 {"nombre":"","email":"invalido","password":"12","rolAcceso":null}
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/usuarios - si la base rechaza el correo duplicado responde 409 sin detalles de SQL")
+    void crear_restriccionDeLaBase_devuelve409() throws Exception {
+        given(usuarioService.crearColaborador(eq(1L), anyString(), anyString(), anyString(), any()))
+                .willThrow(new DataIntegrityViolationException("Unique index violation: UK_USUARIOS_EMAIL"));
+
+        mockMvc.perform(post("/api/v1/usuarios")
+                        .with(principal(RolAcceso.ADMINISTRADOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nombre":"Pedro","email":"pedro@acme.com","password":"secret123","rolAcceso":"EDITOR"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflicto de datos"))
+                .andExpect(jsonPath("$.detail").value(not(containsString("UK_USUARIOS_EMAIL"))));
     }
 
     @Test

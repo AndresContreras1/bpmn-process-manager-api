@@ -2,6 +2,7 @@ package com.facimus.procesos.common.api;
 
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -34,6 +35,17 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler{
     @ExceptionHandler(ReglaNegocioException.class)
     public ProblemDetail manejarReglaNegocio(ReglaNegocioException ex, WebRequest req) {
         return construir(HttpStatus.CONFLICT, "Regla de negocio violada", ex.getMessage(), req);
+    }
+
+    /**
+     * Ultima barrera de las restricciones de la base (por ejemplo el correo unico): dos peticiones simultaneas
+     * pueden pasar la validacion del service antes de guardar. El detalle de la base queda en el log, no en la respuesta.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail manejarConflictoDeDatos(DataIntegrityViolationException ex, WebRequest req) {
+        log.warn("Restriccion de datos violada en {}: {}", req.getDescription(false), ex.getMostSpecificCause().getMessage());
+        return construir(HttpStatus.CONFLICT, "Conflicto de datos",
+                "La operacion choca con un dato existente, por ejemplo un valor que debe ser unico.", req);
     }
 
     @ExceptionHandler(AuthenticationException.class)
