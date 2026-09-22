@@ -49,8 +49,8 @@ public class ActividadController {
     public ResponseEntity<ActividadResponse> crear(@PathVariable Long laneId,
             @Validated @RequestBody ActividadRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        ActividadResponse actividad = actividadService.crear(empresaId, laneId, request.nombre(), request.descripcion(),
-                request.posicionX(), request.posicionY());
+        ActividadResponse actividad = actividadService.crear(empresaId, principal.usuarioId(), laneId, request.nombre(),
+                request.descripcion(), request.posicionX(), request.posicionY());
         return ResponseEntity.created(URI.create("/api/v1/actividades/" + actividad.id())).body(actividad);
     }
 
@@ -87,8 +87,8 @@ public class ActividadController {
     public ResponseEntity<ActividadResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarActividadRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(actividadService.editar(empresaId, id, request.nombre(), request.descripcion(),
-                request.posicionX(), request.posicionY(), request.version()));
+        return ResponseEntity.ok(actividadService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
+                request.descripcion(), request.posicionX(), request.posicionY(), request.version()));
     }
 
     @Operation(summary = "Delete an activity",
@@ -100,7 +100,7 @@ public class ActividadController {
     @DeleteMapping("/actividades/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        actividadService.eliminar(empresaId, id);
+        actividadService.eliminar(empresaId, principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 }

@@ -72,8 +72,8 @@ public class PoolController {
     public ResponseEntity<PoolResponse> crear(@PathVariable Long procesoId,
             @Validated @RequestBody PoolRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        PoolResponse pool = poolService.crear(empresaId, procesoId, request.nombre(), request.tipoParticipante(),
-                request.cajaNegra());
+        PoolResponse pool = poolService.crear(empresaId, principal.usuarioId(), procesoId, request.nombre(),
+                request.tipoParticipante(), request.cajaNegra());
         return ResponseEntity.created(URI.create("/api/v1/pools/" + pool.id())).body(pool);
     }
 
@@ -88,8 +88,8 @@ public class PoolController {
     public ResponseEntity<PoolResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarPoolRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(poolService.editar(empresaId, id, request.nombre(), request.tipoParticipante(),
-                request.version()));
+        return ResponseEntity.ok(poolService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
+                request.tipoParticipante(), request.version()));
     }
 
     @Operation(summary = "Delete a pool",
@@ -103,7 +103,7 @@ public class PoolController {
     @DeleteMapping("/pools/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        poolService.eliminar(empresaId, id);
+        poolService.eliminar(empresaId, principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 }

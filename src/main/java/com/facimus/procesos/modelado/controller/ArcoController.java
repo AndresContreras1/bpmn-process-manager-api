@@ -50,8 +50,8 @@ public class ArcoController {
     public ResponseEntity<ArcoResponse> crear(@Validated @RequestBody ArcoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        ArcoResponse arco = arcoService.crear(empresaId, request.origenId(), request.destinoId(), request.etiqueta(),
-                request.condicion());
+        ArcoResponse arco = arcoService.crear(empresaId, principal.usuarioId(), request.origenId(), request.destinoId(),
+                request.etiqueta(), request.condicion());
         return ResponseEntity.created(URI.create("/api/v1/arcos/" + arco.id())).body(arco);
     }
 
@@ -89,8 +89,8 @@ public class ArcoController {
             @Validated @RequestBody EditarArcoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(arcoService.editar(empresaId, id, request.etiqueta(), request.condicion(),
-                request.version()));
+        return ResponseEntity.ok(arcoService.editar(empresaId, principal.usuarioId(), id, request.etiqueta(),
+                request.condicion(), request.version()));
     }
 
     @Operation(summary = "Delete a sequence flow", description = "Administrators only.")
@@ -101,7 +101,7 @@ public class ArcoController {
     @DeleteMapping("/arcos/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        arcoService.eliminar(empresaId, id);
+        arcoService.eliminar(empresaId, principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 }

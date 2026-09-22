@@ -66,7 +66,8 @@ class MensajeControllerTest {
     @DisplayName("POST /api/v1/procesos/{procesoId}/mensajes - crear mensaje (201)")
     void crear_mensaje() throws Exception {
         MensajeResponse m = crearMensaje(2L, "Factura");
-        given(mensajeService.crear(eq(1L), eq(10L), anyString(), anyString(), anyLong(), anyLong())).willReturn(m);
+        given(mensajeService.crear(eq(1L), eq(1L), eq(10L), anyString(), anyString(), anyLong(),
+                anyLong())).willReturn(m);
 
         mockMvc.perform(post("/api/v1/procesos/10/mensajes")
                         .with(principal(RolAcceso.EDITOR))
@@ -95,7 +96,7 @@ class MensajeControllerTest {
     @DisplayName("PUT /api/v1/mensajes/{id} - editar mensaje (200)")
     void editar_mensaje() throws Exception {
         MensajeResponse m = crearMensaje(1L, "Orden actualizada");
-        given(mensajeService.editar(eq(1L), eq(1L), anyString(), anyString(), eq(3L))).willReturn(m);
+        given(mensajeService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyString(), eq(3L))).willReturn(m);
 
         mockMvc.perform(put("/api/v1/mensajes/1")
                         .with(principal(RolAcceso.EDITOR))
@@ -110,7 +111,7 @@ class MensajeControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/mensajes/{id} - eliminar mensaje (204)")
     void eliminar_mensaje() throws Exception {
-        doNothing().when(mensajeService).eliminar(1L, 1L);
+        doNothing().when(mensajeService).eliminar(1L, 1L, 1L);
 
         mockMvc.perform(delete("/api/v1/mensajes/1").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isNoContent());

@@ -8,12 +8,13 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 /** HU-14 a HU-16: gateways (puntos de decision). */
 public interface GatewayService {
 
-    GatewayResponse crear(Long empresaId, Long laneId, String nombre, TipoGateway tipoGateway, int posX, int posY);
+    GatewayResponse crear(Long empresaId, Long usuarioId, Long laneId, String nombre, TipoGateway tipoGateway, int posX,
+            int posY);
 
-    GatewayResponse editar(Long empresaId, Long gatewayId, String nombre, TipoGateway tipoGateway, int posX,
-            int posY, Long version);
+    GatewayResponse editar(Long empresaId, Long usuarioId, Long gatewayId, String nombre, TipoGateway tipoGateway,
+            int posX, int posY, Long version);
 
-    void eliminar(Long empresaId, Long gatewayId);
+    void eliminar(Long empresaId, Long usuarioId, Long gatewayId);
 
     GatewayResponse obtener(Long empresaId, Long gatewayId);
 

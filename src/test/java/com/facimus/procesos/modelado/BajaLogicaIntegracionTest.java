@@ -116,7 +116,7 @@ class BajaLogicaIntegracionTest {
                 "Fulfillment").id();
         tiendaId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
         rolId = rolProcesoService.crear(empresaId, "Warehouse", null).id();
-        laneId = laneService.crear(empresaId, tiendaId, "Warehouse", rolId).id();
+        laneId = laneService.crear(empresaId, adminId, tiendaId, "Warehouse", rolId).id();
         String login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, CLAVE))))
@@ -128,12 +128,13 @@ class BajaLogicaIntegracionTest {
     @Test
     @DisplayName("Eliminar un pool con mensajes da de baja sus mensajes y sus claves de correlacion")
     void poolConMensajes_alEliminarse_daDeBajaSusMensajes() throws Exception {
-        Long transportadora = poolService.crear(empresaId, procesoId, "Carrier", TipoParticipante.PROVEEDOR, true).id();
-        Long pedido = mensajeService.crear(empresaId, procesoId, "Shipment request", "Package and address", tiendaId,
-                transportadora).id();
-        Long confirmacion = mensajeService.crear(empresaId, procesoId, "Shipment confirmed", "Tracking number",
+        Long transportadora = poolService.crear(empresaId, adminId, procesoId, "Carrier", TipoParticipante.PROVEEDOR,
+                true).id();
+        Long pedido = mensajeService.crear(empresaId, adminId, procesoId, "Shipment request", "Package and address",
+                tiendaId, transportadora).id();
+        Long confirmacion = mensajeService.crear(empresaId, adminId, procesoId, "Shipment confirmed", "Tracking number",
                 transportadora, tiendaId).id();
-        correlacionService.definir(empresaId, pedido, "orderId", null);
+        correlacionService.definir(empresaId, adminId, pedido, "orderId", null);
 
         pedir(delete("/api/v1/pools/{id}", transportadora)).andExpect(status().isNoContent());
 
@@ -149,19 +150,20 @@ class BajaLogicaIntegracionTest {
     Stream<Arguments> elementos() {
         return Stream.of(
                 elemento("pool", "pools", "/api/v1/pools/{id}", () -> poolService
-                        .crear(empresaId, procesoId, "Supplier", TipoParticipante.PROVEEDOR, true).id()),
+                        .crear(empresaId, adminId, procesoId, "Supplier", TipoParticipante.PROVEEDOR, true).id()),
                 elemento("lane", "lanes", "/api/v1/lanes/{id}", () -> laneService
-                        .crear(empresaId, tiendaId, "Returns desk", rolId).id()),
+                        .crear(empresaId, adminId, tiendaId, "Returns desk", rolId).id()),
                 elemento("actividad", "nodos_flujo", "/api/v1/actividades/{id}", () -> actividadService
-                        .crear(empresaId, laneId, "Label package", null, 100, 100).id()),
+                        .crear(empresaId, adminId, laneId, "Label package", null, 100, 100).id()),
                 elemento("gateway", "nodos_flujo", "/api/v1/gateways/{id}", () -> gatewayService
-                        .crear(empresaId, laneId, "Fragile?", TipoGateway.PARALELO, 200, 100).id()),
-                elemento("arco", "arcos", "/api/v1/arcos/{id}", () -> arcoService.crear(empresaId,
-                        actividadService.crear(empresaId, laneId, "Weigh package", null, 300, 100).id(),
-                        actividadService.crear(empresaId, laneId, "Print label", null, 400, 100).id(), null, null)
+                        .crear(empresaId, adminId, laneId, "Fragile?", TipoGateway.PARALELO, 200, 100).id()),
+                elemento("arco", "arcos", "/api/v1/arcos/{id}", () -> arcoService.crear(empresaId, adminId,
+                        actividadService.crear(empresaId, adminId, laneId, "Weigh package", null, 300, 100).id(),
+                        actividadService.crear(empresaId, adminId, laneId, "Print label", null, 400, 100).id(), null,
+                                null)
                         .id()),
-                elemento("mensaje", "mensajes", "/api/v1/mensajes/{id}", () -> mensajeService.crear(empresaId,
-                        procesoId, "Invoice", "Order total", tiendaId, poolService.crear(empresaId, procesoId,
+                elemento("mensaje", "mensajes", "/api/v1/mensajes/{id}", () -> mensajeService.crear(empresaId, adminId,
+                        procesoId, "Invoice", "Order total", tiendaId, poolService.crear(empresaId, adminId, procesoId,
                                 "Accounting", TipoParticipante.SISTEMA_EXTERNO, true).id()).id()));
     }
 
@@ -182,8 +184,8 @@ class BajaLogicaIntegracionTest {
     @Test
     @DisplayName("Un arco eliminado libera su par de nodos: se puede volver a trazar entre los mismos")
     void arcoEliminado_liberaSuParDeNodos() throws Exception {
-        Long empacar = actividadService.crear(empresaId, laneId, "Pack items", null, 100, 300).id();
-        Long enviar = actividadService.crear(empresaId, laneId, "Ship items", null, 300, 300).id();
+        Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack items", null, 100, 300).id();
+        Long enviar = actividadService.crear(empresaId, adminId, laneId, "Ship items", null, 300, 300).id();
         Map<String, Object> arco = Map.of("origenId", empacar, "destinoId", enviar);
         Long primero = jsonMapper.readTree(pedir(post("/api/v1/arcos"), arco)
                 .andExpect(status().isCreated())
@@ -199,14 +201,16 @@ class BajaLogicaIntegracionTest {
     void procesoEliminado_retiraSuModelo() throws Exception {
         Long devoluciones = procesoService.crear(empresaId, adminId, "Returns", "Return to refund", "After-sales").id();
         Long tienda = poolService.listarPorProceso(empresaId, devoluciones).getFirst().id();
-        Long cliente = poolService.crear(empresaId, devoluciones, "Customer", TipoParticipante.CLIENTE, true).id();
-        Long mostrador = laneService.crear(empresaId, tienda, "Returns desk", rolId).id();
-        Long recibir = actividadService.crear(empresaId, mostrador, "Receive item", null, 100, 100).id();
-        Long revisar = gatewayService.crear(empresaId, mostrador, "Damaged?", TipoGateway.PARALELO, 200, 100).id();
-        Long arco = arcoService.crear(empresaId, recibir, revisar, null, null).id();
-        Long solicitud = mensajeService.crear(empresaId, devoluciones, "Return request", "Order and reason", cliente,
-                tienda).id();
-        correlacionService.definir(empresaId, solicitud, "orderId", null);
+        Long cliente = poolService.crear(empresaId, adminId, devoluciones, "Customer", TipoParticipante.CLIENTE,
+                true).id();
+        Long mostrador = laneService.crear(empresaId, adminId, tienda, "Returns desk", rolId).id();
+        Long recibir = actividadService.crear(empresaId, adminId, mostrador, "Receive item", null, 100, 100).id();
+        Long revisar = gatewayService.crear(empresaId, adminId, mostrador, "Damaged?", TipoGateway.PARALELO, 200,
+                100).id();
+        Long arco = arcoService.crear(empresaId, adminId, recibir, revisar, null, null).id();
+        Long solicitud = mensajeService.crear(empresaId, adminId, devoluciones, "Return request", "Order and reason",
+                cliente, tienda).id();
+        correlacionService.definir(empresaId, adminId, solicitud, "orderId", null);
 
         pedir(delete("/api/v1/procesos/{id}", devoluciones)).andExpect(status().isNoContent());
 

@@ -10,6 +10,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.mapper.PoolMapper;
 import com.facimus.procesos.modelado.model.Pool;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class PoolServiceImpl implements PoolService {
 
+    private final HistorialCambioService historialCambioService;
     private final PoolRepository poolRepository;
     private final ProcesoRepository procesoRepository;
     private final LaneRepository laneRepository;
@@ -38,8 +40,8 @@ public class PoolServiceImpl implements PoolService {
 
     @Override
     @Transactional
-    public PoolResponse crear(Long empresaId, Long procesoId, String nombre, TipoParticipante tipoParticipante,
-            boolean cajaNegra) {
+    public PoolResponse crear(Long empresaId, Long usuarioId, Long procesoId, String nombre,
+            TipoParticipante tipoParticipante, boolean cajaNegra) {
         Proceso proceso = procesoRepository.findByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
         int orden = poolRepository.siguienteOrden(procesoId, empresaId);
@@ -52,23 +54,25 @@ public class PoolServiceImpl implements PoolService {
                 .cajaNegra(cajaNegra)
                 .orden(orden)
                 .build());
+        historialCambioService.registrar(empresaId, usuarioId, proceso, "Pool \"" + nombre + "\" agregado.");
         return poolMapper.toResponse(pool);
     }
 
     @Override
     @Transactional
-    public PoolResponse editar(Long empresaId, Long poolId, String nombre, TipoParticipante tipoParticipante,
-            Long version) {
+    public PoolResponse editar(Long empresaId, Long usuarioId, Long poolId, String nombre,
+            TipoParticipante tipoParticipante, Long version) {
         Pool pool = buscar(empresaId, poolId);
         pool.verificarVersion(version);
         pool.setNombre(nombre);
         pool.setTipoParticipante(tipoParticipante);
+        historialCambioService.registrar(empresaId, usuarioId, pool.getProceso(), "Pool \"" + nombre + "\" editado.");
         return poolMapper.toResponse(poolRepository.saveAndFlush(pool));
     }
 
     @Override
     @Transactional
-    public void eliminar(Long empresaId, Long poolId) {
+    public void eliminar(Long empresaId, Long usuarioId, Long poolId) {
         Pool pool = buscar(empresaId, poolId);
         if (nodoFlujoRepository.existsByLane_Pool_IdAndEmpresaId(poolId, empresaId)) {
             throw new ReglaNegocioException("El pool \"" + pool.getNombre() + "\" tiene lanes con actividades; no se puede eliminar.");
@@ -83,6 +87,8 @@ public class PoolServiceImpl implements PoolService {
                 });
         laneRepository.deleteAll(laneRepository.findAllByPoolIdAndEmpresaIdOrderByOrdenAsc(poolId, empresaId));
         poolRepository.delete(pool);
+        historialCambioService.registrar(empresaId, usuarioId, pool.getProceso(),
+                "Pool \"" + pool.getNombre() + "\" eliminado.");
     }
 
     @Override
@@ -90,7 +96,8 @@ public class PoolServiceImpl implements PoolService {
         if (!procesoRepository.existsByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)) {
             throw new RecursoNoEncontradoException("Proceso no encontrado.");
         }
-        return poolMapper.toResponses(poolRepository.findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId, empresaId));
+        return poolMapper.toResponses(poolRepository.findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId,
+                empresaId));
     }
 
     @Override

@@ -50,8 +50,8 @@ public class GatewayController {
     public ResponseEntity<GatewayResponse> crear(@PathVariable Long laneId,
             @Validated @RequestBody GatewayRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        GatewayResponse gateway = gatewayService.crear(empresaId, laneId, request.nombre(), request.tipoGateway(),
-                request.posicionX(), request.posicionY());
+        GatewayResponse gateway = gatewayService.crear(empresaId, principal.usuarioId(), laneId, request.nombre(),
+                request.tipoGateway(), request.posicionX(), request.posicionY());
         return ResponseEntity.created(URI.create("/api/v1/gateways/" + gateway.id())).body(gateway);
     }
 
@@ -88,8 +88,8 @@ public class GatewayController {
     public ResponseEntity<GatewayResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarGatewayRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(gatewayService.editar(empresaId, id, request.nombre(), request.tipoGateway(),
-                request.posicionX(), request.posicionY(), request.version()));
+        return ResponseEntity.ok(gatewayService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
+                request.tipoGateway(), request.posicionX(), request.posicionY(), request.version()));
     }
 
     @Operation(summary = "Delete a gateway",
@@ -101,7 +101,7 @@ public class GatewayController {
     @DeleteMapping("/gateways/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        gatewayService.eliminar(empresaId, id);
+        gatewayService.eliminar(empresaId, principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 }

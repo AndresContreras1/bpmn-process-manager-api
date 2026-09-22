@@ -38,7 +38,7 @@ class GatewayControllerTest {
     @DisplayName("POST /api/v1/lanes/{laneId}/gateways - crear gateway (201)")
     void crear_gateway() throws Exception {
         GatewayResponse gw = crearGateway(1L, "Decision pago");
-        given(gatewayService.crear(eq(1L), eq(3L), anyString(), any(), anyInt(), anyInt())).willReturn(gw);
+        given(gatewayService.crear(eq(1L), eq(1L), eq(3L), anyString(), any(), anyInt(), anyInt())).willReturn(gw);
 
         mockMvc.perform(post("/api/v1/lanes/3/gateways")
                         .with(principal(RolAcceso.EDITOR))
@@ -105,7 +105,8 @@ class GatewayControllerTest {
     void editar_gateway() throws Exception {
         GatewayResponse gw = new GatewayResponse(1L, "Decision envio", TipoGateway.PARALELO, 300, 150, 3L, 0L, null,
                 null, null, null);
-        given(gatewayService.editar(eq(1L), eq(1L), anyString(), any(), anyInt(), anyInt(), eq(3L))).willReturn(gw);
+        given(gatewayService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), anyInt(), anyInt(),
+                eq(3L))).willReturn(gw);
 
         mockMvc.perform(put("/api/v1/gateways/1")
                         .with(principal(RolAcceso.EDITOR))
@@ -121,7 +122,7 @@ class GatewayControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/gateways/{id} - eliminar gateway (204)")
     void eliminar_gateway() throws Exception {
-        doNothing().when(gatewayService).eliminar(1L, 1L);
+        doNothing().when(gatewayService).eliminar(1L, 1L, 1L);
         mockMvc.perform(delete("/api/v1/gateways/1").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isNoContent());
     }

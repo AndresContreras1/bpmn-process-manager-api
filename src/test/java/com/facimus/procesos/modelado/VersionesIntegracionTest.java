@@ -111,6 +111,7 @@ class VersionesIntegracionTest {
 
     private String token;
     private Long empresaId;
+    private Long adminId;
     private Long procesoId;
     private Long rolId;
     private Long colaboradorId;
@@ -126,7 +127,7 @@ class VersionesIntegracionTest {
     void modelarUnProceso() throws Exception {
         empresaId = empresaService.registrar("Tienda de versiones", "900888999-0", "contacto@versiones.com",
                 "Administradora", ADMIN, CLAVE).id();
-        Long adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
+        adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
         colaboradorId = usuarioService.crearColaborador(empresaId, "Editora", "editora@versiones.com", CLAVE,
                 RolAcceso.EDITOR).id();
 
@@ -134,17 +135,19 @@ class VersionesIntegracionTest {
                 "Fulfillment").id();
         rolId = rolProcesoService.crear(empresaId, "Warehouse", "Picks and packs").id();
         Long tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        poolId = poolService.crear(empresaId, procesoId, "Customer", TipoParticipante.CLIENTE, true).id();
-        laneId = laneService.crear(empresaId, tienda, "Warehouse", rolId).id();
-        actividadId = actividadService.crear(empresaId, laneId, "Pick items", "From the shelves", 100, 80).id();
-        Long empacar = actividadService.crear(empresaId, laneId, "Pack items", "Into the box", 260, 80).id();
-        gatewayId = gatewayService.crear(empresaId, laneId, "Split", TipoGateway.PARALELO, 420, 80).id();
-        arcoId = arcoService.crear(empresaId, actividadId, empacar, null, null).id();
-        mensajeId = mensajeService.crear(empresaId, procesoId, "Order placed", "Cart and address", poolId, tienda)
+        poolId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE, true).id();
+        laneId = laneService.crear(empresaId, adminId, tienda, "Warehouse", rolId).id();
+        actividadId = actividadService.crear(empresaId, adminId, laneId, "Pick items", "From the shelves", 100,
+                80).id();
+        Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack items", "Into the box", 260, 80).id();
+        gatewayId = gatewayService.crear(empresaId, adminId, laneId, "Split", TipoGateway.PARALELO, 420, 80).id();
+        arcoId = arcoService.crear(empresaId, adminId, actividadId, empacar, null, null).id();
+        mensajeId = mensajeService.crear(empresaId, adminId, procesoId, "Order placed", "Cart and address", poolId,
+                tienda)
                 .id();
-        mensajeSinClaveId = mensajeService.crear(empresaId, procesoId, "Order status", "Tracking number", tienda,
-                poolId).id();
-        correlacionService.definir(empresaId, mensajeId, "orderId", null);
+        mensajeSinClaveId = mensajeService.crear(empresaId, adminId, procesoId, "Order status", "Tracking number",
+                tienda, poolId).id();
+        correlacionService.definir(empresaId, adminId, mensajeId, "orderId", null);
 
         String login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -238,7 +241,7 @@ class VersionesIntegracionTest {
     @DisplayName("Si dos ediciones de la misma version pasan la comprobacion a la vez, la base rechaza la segunda")
     void copiaVieja_alGuardarLaRechazaLaBase() {
         Pool copiaVieja = poolRepository.findByIdAndEmpresaId(poolId, empresaId).orElseThrow();
-        poolService.editar(empresaId, poolId, "Buyer", TipoParticipante.CLIENTE, copiaVieja.getVersion());
+        poolService.editar(empresaId, adminId, poolId, "Buyer", TipoParticipante.CLIENTE, copiaVieja.getVersion());
 
         copiaVieja.setNombre("Guest");
 

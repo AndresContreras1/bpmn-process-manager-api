@@ -37,7 +37,7 @@ class ArcoControllerTest {
     @DisplayName("POST /api/v1/arcos - crear arco (201)")
     void crear_arco() throws Exception {
         ArcoResponse arco = crearArco(1L);
-        given(arcoService.crear(eq(1L), anyLong(), anyLong(), anyString(), anyString())).willReturn(arco);
+        given(arcoService.crear(eq(1L), eq(1L), anyLong(), anyLong(), anyString(), anyString())).willReturn(arco);
 
         mockMvc.perform(post("/api/v1/arcos")
                         .with(principal(RolAcceso.EDITOR))
@@ -114,7 +114,7 @@ class ArcoControllerTest {
     @DisplayName("PUT /api/v1/arcos/{id} - editar arco (200)")
     void editar_arco() throws Exception {
         ArcoResponse arco = new ArcoResponse(1L, "no", "aprobado", 10L, 20L, 5L, 0L, null, null, null, null);
-        given(arcoService.editar(eq(1L), eq(1L), anyString(), anyString(), eq(3L))).willReturn(arco);
+        given(arcoService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyString(), eq(3L))).willReturn(arco);
 
         mockMvc.perform(put("/api/v1/arcos/1")
                         .with(principal(RolAcceso.EDITOR))
@@ -129,7 +129,7 @@ class ArcoControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/arcos/{id} - eliminar arco (204)")
     void eliminar_arco() throws Exception {
-        doNothing().when(arcoService).eliminar(1L, 1L);
+        doNothing().when(arcoService).eliminar(1L, 1L, 1L);
         mockMvc.perform(delete("/api/v1/arcos/1").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isNoContent());
     }

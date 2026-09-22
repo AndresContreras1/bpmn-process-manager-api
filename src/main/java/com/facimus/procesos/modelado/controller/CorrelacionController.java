@@ -42,8 +42,8 @@ public class CorrelacionController {
     public ResponseEntity<CorrelacionResponse> definir(@PathVariable Long mensajeId,
             @Validated @RequestBody CorrelacionRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(correlacionService.definir(empresaId, mensajeId, request.criterio(),
-                request.version()));
+        return ResponseEntity.ok(correlacionService.definir(empresaId, principal.usuarioId(), mensajeId,
+                request.criterio(), request.version()));
     }
 
     @Operation(summary = "Get the correlation key of a message")

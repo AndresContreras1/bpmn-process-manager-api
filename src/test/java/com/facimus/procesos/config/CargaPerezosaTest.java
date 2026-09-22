@@ -135,7 +135,7 @@ class CargaPerezosaTest {
                 "Fulfillment", 0L);
         poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
         for (String rol : new String[] {"Sales", "Warehouse", "Shipping"}) {
-            laneService.crear(empresaId, poolId, rol, rolProcesoService.crear(empresaId, rol, null).id());
+            laneService.crear(empresaId, adminId, poolId, rol, rolProcesoService.crear(empresaId, rol, null).id());
         }
     }
 
@@ -156,9 +156,11 @@ class CargaPerezosaTest {
     void historialDeUnProceso_seListaConSusAutoresEnUnaConsulta() {
         estadisticas.clear();
 
+        // La creacion y las lanes son del administrador, y la edicion de la editora
         assertThat(procesoService.listarHistorial(empresaId, procesoId))
+                .hasSize(5)
                 .extracting(HistorialCambioResponse::autorNombre)
-                .containsExactlyInAnyOrder("Administrador", "Editora");
+                .containsOnly("Administrador", "Editora");
         // Una para el proceso y otra para el historial con sus autores.
         assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(2);
     }
@@ -235,7 +237,8 @@ class CargaPerezosaTest {
         Long devoluciones = procesoService.crear(empresaId, adminId, "Returns and refunds", "Return to refund",
                 "After-sales").id();
         Long tienda = poolService.listarPorProceso(empresaId, devoluciones).getFirst().id();
-        Long cliente = poolService.crear(empresaId, devoluciones, "Customer", TipoParticipante.CLIENTE, true).id();
+        Long cliente = poolService.crear(empresaId, adminId, devoluciones, "Customer", TipoParticipante.CLIENTE,
+                true).id();
         Long rol = rolProcesoService.crear(empresaId, "After-sales", null).id();
         agregarUnaLaneConSuFlujo(devoluciones, tienda, cliente, rol, "Customer service");
 
@@ -258,15 +261,16 @@ class CargaPerezosaTest {
 
     /** Una lane con dos actividades y un gateway unidos por arcos, y un mensaje correlacionado desde el cliente. */
     private void agregarUnaLaneConSuFlujo(Long procesoId, Long tiendaId, Long clienteId, Long rolId, String lane) {
-        Long laneId = laneService.crear(empresaId, tiendaId, lane, rolId).id();
-        Long recibir = actividadService.crear(empresaId, laneId, lane + ": receive", null, 100, 80).id();
-        Long decidir = gatewayService.crear(empresaId, laneId, lane + ": approved?", TipoGateway.EXCLUSIVO, 260, 80)
+        Long laneId = laneService.crear(empresaId, adminId, tiendaId, lane, rolId).id();
+        Long recibir = actividadService.crear(empresaId, adminId, laneId, lane + ": receive", null, 100, 80).id();
+        Long decidir = gatewayService.crear(empresaId, adminId, laneId, lane + ": approved?", TipoGateway.EXCLUSIVO,
+                260, 80)
                 .id();
-        Long reembolsar = actividadService.crear(empresaId, laneId, lane + ": refund", null, 420, 80).id();
-        arcoService.crear(empresaId, recibir, decidir, null, "Return received");
-        arcoService.crear(empresaId, decidir, reembolsar, "Approved", "return.status == APPROVED");
-        Long mensajeId = mensajeService.crear(empresaId, procesoId, lane + ": return request", "Order and items",
-                clienteId, tiendaId).id();
-        correlacionService.definir(empresaId, mensajeId, "orderId", null);
+        Long reembolsar = actividadService.crear(empresaId, adminId, laneId, lane + ": refund", null, 420, 80).id();
+        arcoService.crear(empresaId, adminId, recibir, decidir, null, "Return received");
+        arcoService.crear(empresaId, adminId, decidir, reembolsar, "Approved", "return.status == APPROVED");
+        Long mensajeId = mensajeService.crear(empresaId, adminId, procesoId, lane + ": return request",
+                "Order and items", clienteId, tiendaId).id();
+        correlacionService.definir(empresaId, adminId, mensajeId, "orderId", null);
     }
 }

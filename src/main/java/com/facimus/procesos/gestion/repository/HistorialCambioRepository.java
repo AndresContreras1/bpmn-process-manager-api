@@ -11,5 +11,5 @@ public interface HistorialCambioRepository extends RepositorioTenant<HistorialCa
 
     /** Trae el autor de cada cambio en la misma consulta: el historial muestra su nombre. */
     @EntityGraph(attributePaths = "autor")
-    List<HistorialCambio> findAllByProcesoIdAndEmpresaIdOrderByFechaCambioDesc(Long procesoId, Long empresaId);
+    List<HistorialCambio> findAllByProcesoIdAndEmpresaIdOrderByFechaCambioDescIdDesc(Long procesoId, Long empresaId);
 }

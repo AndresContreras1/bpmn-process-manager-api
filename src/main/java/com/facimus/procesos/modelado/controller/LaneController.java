@@ -71,7 +71,8 @@ public class LaneController {
     public ResponseEntity<LaneResponse> crear(@PathVariable Long poolId,
             @Validated @RequestBody LaneRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        LaneResponse lane = laneService.crear(empresaId, poolId, request.nombre(), request.rolProcesoId());
+        LaneResponse lane = laneService.crear(empresaId, principal.usuarioId(), poolId, request.nombre(),
+                request.rolProcesoId());
         return ResponseEntity.created(URI.create("/api/v1/lanes/" + lane.id())).body(lane);
     }
 
@@ -86,8 +87,8 @@ public class LaneController {
     public ResponseEntity<LaneResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarLaneRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(laneService.editar(empresaId, id, request.nombre(), request.rolProcesoId(),
-                request.version()));
+        return ResponseEntity.ok(laneService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
+                request.rolProcesoId(), request.version()));
     }
 
     @Operation(summary = "Delete a lane",
@@ -100,7 +101,7 @@ public class LaneController {
     @DeleteMapping("/lanes/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        laneService.eliminar(empresaId, id);
+        laneService.eliminar(empresaId, principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 }

@@ -6,7 +6,7 @@ import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 public interface CorrelacionService {
 
     /** Crea la clave del mensaje, o la reemplaza si ya tiene una y el cliente manda la version que leyo. */
-    CorrelacionResponse definir(Long empresaId, Long mensajeId, String criterio, Long version);
+    CorrelacionResponse definir(Long empresaId, Long usuarioId, Long mensajeId, String criterio, Long version);
 
     CorrelacionResponse obtener(Long empresaId, Long mensajeId);
 }

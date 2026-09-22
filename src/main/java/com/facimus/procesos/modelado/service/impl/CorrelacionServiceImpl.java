@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.mapper.CorrelacionMapper;
 import com.facimus.procesos.modelado.model.Correlacion;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class CorrelacionServiceImpl implements CorrelacionService {
 
+    private final HistorialCambioService historialCambioService;
     private final CorrelacionRepository correlacionRepository;
     private final MensajeRepository mensajeRepository;
     private final CorrelacionMapper correlacionMapper;
@@ -28,7 +30,7 @@ public class CorrelacionServiceImpl implements CorrelacionService {
     /** Crea el criterio de correlacion del mensaje, o lo reemplaza si ya tenia uno. */
     @Override
     @Transactional
-    public CorrelacionResponse definir(Long empresaId, Long mensajeId, String criterio, Long version) {
+    public CorrelacionResponse definir(Long empresaId, Long usuarioId, Long mensajeId, String criterio, Long version) {
         Mensaje mensaje = mensajeRepository.findByIdAndEmpresaId(mensajeId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Mensaje no encontrado."));
 
@@ -40,6 +42,8 @@ public class CorrelacionServiceImpl implements CorrelacionService {
                 .mensaje(mensaje)
                 .build());
         correlacion.setCriterio(criterio);
+        historialCambioService.registrar(empresaId, usuarioId, mensaje.getProceso(),
+                "Clave de correlación \"" + criterio + "\" definida para el mensaje \"" + mensaje.getNombre() + "\".");
         return correlacionMapper.toResponse(correlacionRepository.saveAndFlush(correlacion));
     }
 

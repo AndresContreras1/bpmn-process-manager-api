@@ -7,12 +7,13 @@ import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 /** HU-08 a HU-10: actividades (tareas del proceso). */
 public interface ActividadService {
 
-    ActividadResponse crear(Long empresaId, Long laneId, String nombre, String descripcion, int posX, int posY);
+    ActividadResponse crear(Long empresaId, Long usuarioId, Long laneId, String nombre, String descripcion, int posX,
+            int posY);
 
-    ActividadResponse editar(Long empresaId, Long actividadId, String nombre, String descripcion, int posX,
-            int posY, Long version);
+    ActividadResponse editar(Long empresaId, Long usuarioId, Long actividadId, String nombre, String descripcion,
+            int posX, int posY, Long version);
 
-    void eliminar(Long empresaId, Long actividadId);
+    void eliminar(Long empresaId, Long usuarioId, Long actividadId);
 
     ActividadResponse obtener(Long empresaId, Long actividadId);
 
