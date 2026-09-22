@@ -117,7 +117,7 @@ class MensajeControllerTest {
     }
 
     private MensajeResponse crearMensaje(Long id, String nombre) {
-        return new MensajeResponse(id, nombre, "Contenido test", 1L, 2L, 10L, 0L);
+        return new MensajeResponse(id, nombre, "Contenido test", 1L, 2L, 10L, 0L, null, null, null, null);
     }
 
 }

@@ -137,7 +137,7 @@ class ActividadControllerTest {
     }
 
     private ActividadResponse crearActividad(Long id, String nombre) {
-        return new ActividadResponse(id, nombre, "Desc", 100, 200, 3L, 0L);
+        return new ActividadResponse(id, nombre, "Desc", 100, 200, 3L, 0L, null, null, null, null);
     }
 
 }

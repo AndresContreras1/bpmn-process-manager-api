@@ -79,7 +79,8 @@ class MigracionesTest {
         assertThat(flyway.info().applied())
                 .extracting(MigrationInfo::getScript)
                 .containsExactly("V1__esquema_inicial.sql", "V2__nombres_unicos_por_empresa.sql",
-                        "V3__procesos_compartidos.sql", "V4__sesiones.sql", "V5__versiones.sql");
+                        "V3__procesos_compartidos.sql", "V4__sesiones.sql", "V5__versiones.sql",
+                        "V6__auditoria.sql");
     }
 
     @Test
@@ -190,15 +191,12 @@ class MigracionesTest {
     }
 
     private static Proceso proceso(Empresa empresa, String nombre, boolean activo) {
-        LocalDateTime ahora = LocalDateTime.now();
         Proceso proceso = new Proceso();
         proceso.setEmpresa(empresa);
         proceso.setNombre(nombre);
         proceso.setDescripcion("Proceso de prueba");
         proceso.setCategoria("Pruebas");
         proceso.setActivo(activo);
-        proceso.setFechaCreacion(ahora);
-        proceso.setFechaModificacion(ahora);
         return proceso;
     }
 

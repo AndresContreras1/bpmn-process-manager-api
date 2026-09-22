@@ -165,7 +165,7 @@ class PoolControllerTest {
     }
 
     private PoolResponse crearPool(Long id, String nombre) {
-        return new PoolResponse(id, nombre, TipoParticipante.CLIENTE, false, 0, 10L, 0L);
+        return new PoolResponse(id, nombre, TipoParticipante.CLIENTE, false, 0, 10L, 0L, null, null, null, null);
     }
 
 }

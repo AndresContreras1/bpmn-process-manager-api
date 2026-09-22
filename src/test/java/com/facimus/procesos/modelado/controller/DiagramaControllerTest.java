@@ -80,15 +80,19 @@ class DiagramaControllerTest {
         LocalDateTime creado = LocalDateTime.of(2026, 9, 21, 10, 0);
         return new DiagramaResponse(
                 new ProcesoResponse(10L, "Order fulfillment", "Checkout to delivery", "Fulfillment",
-                        EstadoProceso.PUBLICADO, true, creado, creado, 0L),
+                        EstadoProceso.PUBLICADO, true, creado, creado, 0L, null, null),
                 false,
-                List.of(new PoolResponse(1L, "Demo Store", TipoParticipante.EMPRESA, false, 0, 10L, 0L),
-                        new PoolResponse(2L, "Customer", TipoParticipante.CLIENTE, true, 1, 10L, 0L)),
-                List.of(new LaneResponse(3L, "Sales", 0, 1L, 4L, "Sales", 0L)),
-                List.of(new ActividadResponse(5L, "Receive order", "Validate the cart", 100, 80, 3L, 0L)),
-                List.of(new GatewayResponse(6L, "Payment approved?", TipoGateway.EXCLUSIVO, 260, 80, 3L, 0L)),
-                List.of(new ArcoResponse(7L, null, null, 5L, 6L, 1L, 0L)),
-                List.of(new MensajeResponse(8L, "Order placed", "Cart items", 2L, 1L, 10L, 0L)),
-                List.of(new CorrelacionResponse(9L, "orderId", 8L, 0L)));
+                List.of(new PoolResponse(1L, "Demo Store", TipoParticipante.EMPRESA, false, 0, 10L, 0L, null, null,
+                        null, null),
+                        new PoolResponse(2L, "Customer", TipoParticipante.CLIENTE, true, 1, 10L, 0L, null, null, null,
+                                null)),
+                List.of(new LaneResponse(3L, "Sales", 0, 1L, 4L, "Sales", 0L, null, null, null, null)),
+                List.of(new ActividadResponse(5L, "Receive order", "Validate the cart", 100, 80, 3L, 0L, null, null,
+                        null, null)),
+                List.of(new GatewayResponse(6L, "Payment approved?", TipoGateway.EXCLUSIVO, 260, 80, 3L, 0L, null, null,
+                        null, null)),
+                List.of(new ArcoResponse(7L, null, null, 5L, 6L, 1L, 0L, null, null, null, null)),
+                List.of(new MensajeResponse(8L, "Order placed", "Cart items", 2L, 1L, 10L, 0L, null, null, null, null)),
+                List.of(new CorrelacionResponse(9L, "orderId", 8L, 0L, null, null, null, null)));
     }
 }

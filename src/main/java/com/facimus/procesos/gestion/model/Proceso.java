@@ -1,7 +1,5 @@
 package com.facimus.procesos.gestion.model;
 
-import java.time.LocalDateTime;
-
 import com.facimus.procesos.common.EntidadEditable;
 
 import jakarta.persistence.Column;
@@ -47,10 +45,4 @@ public class Proceso extends EntidadEditable {
     @Column(nullable = false)
     @Builder.Default
     private boolean activo = true;
-
-    @Column(name = "fecha_creacion", nullable = false)
-    private LocalDateTime fechaCreacion;
-
-    @Column(name = "fecha_modificacion", nullable = false)
-    private LocalDateTime fechaModificacion;
 }

@@ -80,7 +80,7 @@ class CorrelacionControllerTest {
     }
 
     private CorrelacionResponse crearCorrelacion(Long id, String criterio) {
-        return new CorrelacionResponse(id, criterio, 5L, 0L);
+        return new CorrelacionResponse(id, criterio, 5L, 0L, null, null, null, null);
     }
 
 }

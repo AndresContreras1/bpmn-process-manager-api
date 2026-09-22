@@ -171,7 +171,7 @@ class RolProcesoControllerTest {
     }
 
     private RolProcesoVistaResponse crearRol(Long id, String nombre, String descripcion, long procesos) {
-        return new RolProcesoVistaResponse(id, nombre, descripcion, procesos, procesos > 0, 0L);
+        return new RolProcesoVistaResponse(id, nombre, descripcion, procesos, procesos > 0, 0L, null, null, null, null);
     }
 
 }

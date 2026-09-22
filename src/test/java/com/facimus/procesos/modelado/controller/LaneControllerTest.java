@@ -117,7 +117,7 @@ class LaneControllerTest {
     }
 
     private LaneResponse crearLane(Long id, String nombre) {
-        return new LaneResponse(id, nombre, 0, 5L, 1L, "Analista", 0L);
+        return new LaneResponse(id, nombre, 0, 5L, 1L, "Analista", 0L, null, null, null, null);
     }
 
 }

@@ -28,7 +28,7 @@ import com.facimus.procesos.gestion.model.RolAcceso;
 class LoginAuthenticatorTest {
 
     private static final UsuarioResponse ANA =
-            new UsuarioResponse(10L, "Ana", "ana@acme.com", RolAcceso.EDITOR, true, 1L, 0L);
+            new UsuarioResponse(10L, "Ana", "ana@acme.com", RolAcceso.EDITOR, true, 1L, 0L, null, null, null, null);
 
     @Mock
     private AuthenticationManager authenticationManager;
