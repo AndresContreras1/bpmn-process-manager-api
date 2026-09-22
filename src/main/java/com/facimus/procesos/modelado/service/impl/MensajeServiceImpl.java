@@ -78,7 +78,7 @@ public class MensajeServiceImpl implements MensajeService {
         if (!procesoRepository.existsByIdAndEmpresaId(procesoId, empresaId)) {
             throw new RecursoNoEncontradoException("Proceso no encontrado.");
         }
-        return mensajeMapper.toResponses(mensajeRepository.findAllByProcesoIdAndEmpresaId(procesoId, empresaId));
+        return mensajeMapper.toResponses(mensajeRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));
     }
 
     @Override

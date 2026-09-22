@@ -9,4 +9,6 @@ import com.facimus.procesos.modelado.model.Actividad;
 public interface ActividadRepository extends RepositorioTenant<Actividad> {
 
     List<Actividad> findAllByLaneIdAndEmpresaId(Long laneId, Long empresaId);
+
+    List<Actividad> findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(Long procesoId, Long empresaId);
 }
