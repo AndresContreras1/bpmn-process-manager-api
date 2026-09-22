@@ -76,15 +76,16 @@ all of them are correlated by `orderId`.
 ## Highlights
 
 - **Store isolation by design.** The tenant comes from the token, never from the request. Repositories are
-  tenant-aware, and cross-store access answers `404`, which prevents IDOR.
+  tenant-aware, and cross-store access answers `404`, which prevents IDOR. The one declared exception, read-only
+  process sharing (HU-23), goes through a separate read door that no change can use.
 - **Stateless JWT authentication** with a custom Spring Security filter chain and a typed `ApiPrincipal`.
 - **Role-based authorization matrix** (administrator, editor, read-only), defined in one place in the security
   configuration.
 - **RFC 9457 Problem Details** for every error, including `401` and `403` raised by the security layer and the `400`
   for URLs its firewall rejects, with a message for each invalid field. Fields that the contract does not define are
   rejected, not ignored.
-- **Versioned REST contract** under `/api/v1`: `201 Created` with `Location`, `204 No Content`, `PATCH` for state
-  transitions and a pagination envelope.
+- **Versioned REST contract** under `/api/v1`: `201 Created` with a `Location` that resolves, `204 No Content`,
+  `PATCH` for state transitions, and paged lists with an allowlisted sort and a stable order.
 - **BPMN consistency rules**: sequence flows never cross pools, message flows only connect different participants,
   and a published process cannot go back to draft.
 - **Schema under version control.** Flyway migrations shared by H2 and PostgreSQL, with engine-specific scripts where
@@ -94,7 +95,7 @@ all of them are correlated by `orderId`.
   replace the calls that used to go the other way.
 - **Architecture rules enforced by tests** with ArchUnit: layering, module boundaries, no package cycles, lazy
   associations, tenant isolation and no `HttpSession`.
-- **275 automated tests** with 90 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **306 automated tests** with 90 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image, then runs it against PostgreSQL.
 
 ## Tech stack
@@ -206,6 +207,7 @@ maps each one to its BPMN meaning. More details:
 | Delete processes and BPMN elements | ✅ | ❌ | ❌ |
 | Manage process roles | ✅ | ❌ | ❌ |
 | Manage users | ✅ | ❌ | ❌ |
+| Share a process with another store (HU-23) | ✅ | ❌ | ❌ |
 
 Public endpoints are limited to store registration, login, the API documentation (not published in `prod`) and, in
 `dev`, the H2 console.
@@ -232,7 +234,14 @@ public interface RepositorioTenant<T extends EntidadEmpresa> extends JpaReposito
   request body that still sends one is rejected with `400`.
 - **Cross-store access answers `404`, not `403`,** so the API does not confirm that the resource exists.
 - **An integration suite tests the tenant boundary.** It creates two stores and has one try to read, change or link
-  the other's resources (48 cases).
+  the other's resources (50 cases).
+
+**The one declared exception: read-only sharing (HU-23).** A store's administrator can share a process with another
+store by its NIT. A process then has two doors: the write door finds only the store's own processes, and the read door
+also finds the ones shared with it. The whole diagram is the only endpoint behind the read door, marked
+`compartido: true` for the guest. The detail, the history and every modeling endpoint stay private to the owner, and
+any change from the guest answers `404`. The guest lists what it received in `GET /api/v1/procesos/compartidos-conmigo`,
+and the owner's process history records when a process was shared and when it stopped.
 
 ## API overview
 
@@ -242,7 +251,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 
 | Resource | Endpoints |
 |---|---|
-| Stores | `POST /api/v1/empresas` |
+| Stores | `POST /api/v1/empresas` · `GET /api/v1/empresas/actual` · `GET /api/v1/empresas/{id}` |
 | Authentication | `POST /api/v1/auth/login` · `POST /api/v1/auth/logout` |
 | Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` |
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |
@@ -255,12 +264,16 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
 | Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
+| Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 
 `GET /api/v1/procesos/{id}/diagrama` returns everything a client needs to draw a process in one response: the
 process and flat lists of pools, lanes, activities, gateways, sequence flows, message flows and correlation keys,
 linked by id. It takes one query per element type, however large the diagram grows.
 
-The process list accepts `nombre`, `estado`, `categoria` and `pagina`, and returns a pagination envelope:
+Lists that can grow (processes, process roles, users and shared processes) take `pagina`, `tamano` (1 to 50, 10 by
+default) and `orden`, a field from each list's allowlist with `asc` or `desc`, such as `orden=nombre,asc`. The id breaks
+ties, so no row repeats or goes missing between pages. Processes also filter by `nombre`, `estado` and `categoria`, and
+process roles by `nombre` (HU-20). They all answer the same envelope:
 
 ```json
 { "content": [ ... ], "page": 0, "size": 10, "totalElements": 2, "totalPages": 1 }
@@ -374,15 +387,15 @@ permission to create tables. The CI pipeline starts the image in this profile ag
 ./mvnw verify
 ```
 
-The build runs 275 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 306 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | Architecture (ArchUnit) | 30 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, a declared profile in every `@SpringBootTest` |
-| Controller slices (`@WebMvcTest`) | 98 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 22 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 99 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403, and the 400 for URLs the firewall rejects |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 17 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
+| Controller slices (`@WebMvcTest`) | 107 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 24 | Business rules of the management module |
+| Security and isolation (`@SpringBootTest`) | 116 | Two-store IDOR suite, read-only process sharing (HU-23), role matrix, JWT tampering and expiry, end-to-end 401/403 and the 400 for URLs the firewall rejects |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 20 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
 | Module integration (`@SpringBootTest`) | 7 | Process-role usage across modules, the order of pools and lanes, and the whole diagram of a process |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
@@ -448,7 +461,7 @@ src/test/java/com/facimus/procesos
 - [ ] k6 load tests that simulate a sales peak, with thresholds in CI
 - [ ] Connection-pool and thread-pool sizing based on those measurements
 - [ ] Second-level cache for published processes, which are read often and change rarely
-- [ ] `Pageable`-based pagination with stable sorting for every collection that can grow
+- [x] `Pageable`-based pagination with stable sorting for every collection that can grow
 
 **Consistency under concurrency**
 - [ ] Optimistic locking with `@Version`, so two editors cannot overwrite each other (`409 Conflict`)
@@ -457,6 +470,7 @@ src/test/java/com/facimus/procesos
 
 **Security**
 - [x] Enforce globally unique user emails, so a new store cannot reuse an existing user's login email
+- [x] Read-only process sharing between stores (HU-23), through a read door that no change can use
 - [ ] Authenticate through `AuthenticationManager` + `UserDetailsService`, without revealing whether an email exists
 - [ ] Short-lived access tokens with refresh tokens
 - [ ] Rate limiting on login (`429` + `Retry-After`)
