@@ -96,6 +96,14 @@ class AutorizacionPorRolTest {
             ADMINISTRADOR | DELETE | /api/v1/procesos/{id}          | 404
             EDITOR        | DELETE | /api/v1/procesos/{id}          | 403
 
+            # Compartir procesos: solo el administrador comparte y deja de compartir (HU-23)
+            EDITOR        | POST   | /api/v1/procesos/{id}/compartidos        | 403
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/compartidos        | 403
+            ADMINISTRADOR | DELETE | /api/v1/procesos/{id}/compartidos/424242 | 404
+            EDITOR        | DELETE | /api/v1/procesos/{id}/compartidos/424242 | 403
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/compartidos        | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/compartidos-conmigo     | 200
+
             # Modelado: solo el administrador elimina pools, lanes y mensajes (HU-21, HU-22, HU-25)
             ADMINISTRADOR | DELETE | /api/v1/pools/{id}             | 404
             ADMINISTRADOR | DELETE | /api/v1/lanes/{id}             | 404

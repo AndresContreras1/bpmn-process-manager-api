@@ -13,6 +13,7 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
+import com.facimus.procesos.gestion.dto.response.ProcesoLectura;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.event.ProcesoCreado;
 import com.facimus.procesos.gestion.mapper.ProcesoMapper;
@@ -78,6 +79,14 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Override
     public ProcesoResponse obtener(Long empresaId, Long procesoId) {
         return procesoMapper.toResponse(buscarActivo(empresaId, procesoId));
+    }
+
+    @Override
+    public ProcesoLectura obtenerParaLectura(Long empresaId, Long procesoId) {
+        Proceso proceso = procesoRepository.paraLectura(procesoId, empresaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
+        Long duena = proceso.getEmpresa().getId();
+        return new ProcesoLectura(procesoMapper.toResponse(proceso), duena, !duena.equals(empresaId));
     }
 
     @Override

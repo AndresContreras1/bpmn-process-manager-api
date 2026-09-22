@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
+import com.facimus.procesos.gestion.dto.response.ProcesoLectura;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 
@@ -19,6 +20,9 @@ public interface ProcesoService {
     ProcesoResponse crear(Long empresaId, Long usuarioId, String nombre, String descripcion, String categoria);
 
     ProcesoResponse obtener(Long empresaId, Long procesoId);
+
+    /** La puerta de lectura (HU-23): el proceso propio o el que otra empresa le comparte a esta, nunca para cambiarlo. */
+    ProcesoLectura obtenerParaLectura(Long empresaId, Long procesoId);
 
     ProcesoDetalleResponse obtenerDetalle(Long empresaId, Long procesoId);
 

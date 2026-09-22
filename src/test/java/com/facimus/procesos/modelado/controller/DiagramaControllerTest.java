@@ -49,6 +49,7 @@ class DiagramaControllerTest {
         mockMvc.perform(get("/api/v1/procesos/10/diagrama").with(principal(RolAcceso.SOLO_LECTURA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.proceso.nombre").value("Order fulfillment"))
+                .andExpect(jsonPath("$.compartido").value(false))
                 .andExpect(jsonPath("$.pools[1].tipoParticipante").value("CLIENTE"))
                 .andExpect(jsonPath("$.lanes[0].rolProcesoNombre").value("Sales"))
                 .andExpect(jsonPath("$.actividades[0].laneId").value(3))
@@ -80,6 +81,7 @@ class DiagramaControllerTest {
         return new DiagramaResponse(
                 new ProcesoResponse(10L, "Order fulfillment", "Checkout to delivery", "Fulfillment",
                         EstadoProceso.PUBLICADO, true, creado, creado),
+                false,
                 List.of(new PoolResponse(1L, "Demo Store", TipoParticipante.EMPRESA, false, 0, 10L),
                         new PoolResponse(2L, "Customer", TipoParticipante.CLIENTE, true, 1, 10L)),
                 List.of(new LaneResponse(3L, "Sales", 0, 1L, 4L, "Sales")),

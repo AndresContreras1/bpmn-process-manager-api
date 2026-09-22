@@ -119,6 +119,7 @@ class DiagramaIntegracionTest {
         DiagramaResponse diagrama = diagramaService.obtener(empresaId, procesoId);
 
         assertThat(diagrama.proceso().nombre()).isEqualTo("Order fulfillment");
+        assertThat(diagrama.compartido()).isFalse();
         assertThat(diagrama.lanes()).extracting(LaneResponse::rolProcesoNombre).containsExactly("Sales", "Warehouse");
         Set<Long> pools = ids(diagrama.pools(), PoolResponse::id);
         Set<Long> lanes = ids(diagrama.lanes(), LaneResponse::id);

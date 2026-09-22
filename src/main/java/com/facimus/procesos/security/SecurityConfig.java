@@ -56,12 +56,14 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                 "/error").permitAll()
                         // Matriz de permisos de las HU: cualquier rol consulta, administrador y editor modifican,
-                        // y el administrador se reserva usuarios (HU-02), roles (HU-17 a HU-19) y los borrados
-                        // de procesos (HU-06), actividades (HU-10), arcos (HU-13) y gateways (HU-16).
+                        // y el administrador se reserva usuarios (HU-02), roles (HU-17 a HU-19), compartir procesos
+                        // (HU-23) y los borrados de procesos (HU-06), actividades (HU-10), arcos (HU-13) y gateways
+                        // (HU-16).
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").authenticated()
                         .requestMatchers("/api/v1/roles/**").hasAuthority(ADMINISTRADOR)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/compartidos").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/procesos/**", "/api/v1/actividades/**",
                                 "/api/v1/arcos/**", "/api/v1/gateways/**", "/api/v1/pools/**",
                                 "/api/v1/lanes/**", "/api/v1/mensajes/**").hasAuthority(ADMINISTRADOR)

@@ -20,8 +20,10 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.model.ProcesoCompartido;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.repository.ProcesoCompartidoRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
 
@@ -45,6 +47,9 @@ class MigracionesTest {
     @Autowired
     private RolProcesoRepository rolProcesoRepository;
 
+    @Autowired
+    private ProcesoCompartidoRepository procesoCompartidoRepository;
+
     private Empresa empresa;
 
     @BeforeEach
@@ -57,7 +62,8 @@ class MigracionesTest {
     void flyway_aplicaLasMigracionesComunYDelMotor() {
         assertThat(flyway.info().applied())
                 .extracting(MigrationInfo::getScript)
-                .containsExactly("V1__esquema_inicial.sql", "V2__nombres_unicos_por_empresa.sql");
+                .containsExactly("V1__esquema_inicial.sql", "V2__nombres_unicos_por_empresa.sql",
+                        "V3__procesos_compartidos.sql");
     }
 
     @Test
@@ -94,6 +100,28 @@ class MigracionesTest {
         assertThatThrownBy(() -> rolProcesoRepository.saveAndFlush(rol(empresa, "warehouse", true)))
                 .isInstanceOf(DataIntegrityViolationException.class);
         rolProcesoRepository.saveAndFlush(rol(empresa, "Warehouse", false));
+    }
+
+    @Test
+    @DisplayName("La base no deja compartir dos veces un proceso con la misma empresa, ni con su propia empresa")
+    void procesosCompartidos_laBaseRechazaDuplicadosYLaPropiaEmpresa() {
+        Proceso compartido = procesoRepository.saveAndFlush(proceso(empresa, "Shared catalog", true));
+        Empresa invitada = nuevaEmpresa();
+        procesoCompartidoRepository.saveAndFlush(comparticion(compartido, invitada));
+
+        assertThatThrownBy(() -> procesoCompartidoRepository.saveAndFlush(comparticion(compartido, invitada)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> procesoCompartidoRepository.saveAndFlush(comparticion(compartido, empresa)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private static ProcesoCompartido comparticion(Proceso proceso, Empresa invitada) {
+        return ProcesoCompartido.builder()
+                .empresa(proceso.getEmpresa())
+                .proceso(proceso)
+                .empresaInvitada(invitada)
+                .fechaCompartido(LocalDateTime.now())
+                .build();
     }
 
     private Empresa nuevaEmpresa() {
