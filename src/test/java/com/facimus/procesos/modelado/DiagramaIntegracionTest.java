@@ -18,10 +18,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
-import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
@@ -48,7 +48,7 @@ class DiagramaIntegracionTest {
     private EmpresaService empresaService;
 
     @Autowired
-    private UsuarioService usuarioService;
+    private UsuarioRepository usuarioRepository;
 
     @Autowired
     private ProcesoService procesoService;
@@ -88,7 +88,7 @@ class DiagramaIntegracionTest {
     void modelarElDespachoDeUnPedido() {
         empresaId = empresaService.registrar("Tienda del diagrama", "900777888-9", "contacto@diagrama.com",
                 "Administrador", "admin@diagrama.com", "clave12345").id();
-        adminId = usuarioService.autenticar("admin@diagrama.com", "clave12345").id();
+        adminId = usuarioRepository.findByEmail("admin@diagrama.com").orElseThrow().getId();
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         Long tiendaId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();

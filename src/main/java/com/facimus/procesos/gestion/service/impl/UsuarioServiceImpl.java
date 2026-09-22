@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.util.Locale;
+import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.Empresa;
@@ -25,8 +27,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UsuarioServiceImpl implements UsuarioService {
-
-    private static final String CREDENCIALES_INVALIDAS = "Correo o contrasena incorrectos.";
 
     private final UsuarioRepository usuarioRepository;
     private final EmpresaRepository empresaRepository;
@@ -81,14 +81,10 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
-    public UsuarioResponse autenticar(String email, String password) {
-        Usuario usuario = usuarioRepository.findByEmail(normalizarCorreo(email))
+    public Optional<CredencialesUsuario> buscarCredenciales(String email) {
+        return usuarioRepository.findByEmail(normalizarCorreo(email))
                 .filter(Usuario::isActivo)
-                .orElseThrow(() -> new ReglaNegocioException(CREDENCIALES_INVALIDAS));
-        if (!passwordEncoder.matches(password, usuario.getPasswordHash())) {
-            throw new ReglaNegocioException(CREDENCIALES_INVALIDAS);
-        }
-        return usuarioMapper.toResponse(usuario);
+                .map(usuario -> new CredencialesUsuario(usuarioMapper.toResponse(usuario), usuario.getPasswordHash()));
     }
 
     @Override

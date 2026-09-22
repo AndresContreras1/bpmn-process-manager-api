@@ -1,8 +1,11 @@
 package com.facimus.procesos.gestion.service;
 
+import java.util.Optional;
+
 import org.springframework.data.domain.Pageable;
 
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
 
@@ -22,7 +25,8 @@ public interface UsuarioService {
 
     void desactivar(Long empresaId, Long usuarioId);
 
-    UsuarioResponse autenticar(String email, String password);
+    /** HU-03: las credenciales de un usuario activo para el login; vacio si el correo no existe o esta desactivado. */
+    Optional<CredencialesUsuario> buscarCredenciales(String email);
 
     PageResponse<UsuarioResponse> buscar(Long empresaId, Pageable pageable);
 

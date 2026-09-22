@@ -116,6 +116,18 @@ class SeguridadIntegracionTest {
                 .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"));
     }
 
+    @Test
+    @DisplayName("HU-03: un correo desconocido, un usuario desactivado y una clave mala reciben el mismo 401")
+    void Seguridad_login_cualquierFallo_respondeLoMismo() throws Exception {
+        UsuarioResponse baja = crearColaborador("baja.login@seguridad.com", "baja12345", RolAcceso.EDITOR);
+        usuarioService.desactivar(baja.empresaId(), baja.id());
+
+        String claveMala = loginFallido(ADMIN, "clave-mala");
+
+        assertThat(loginFallido("nadie@seguridad.com", CLAVE)).isEqualTo(claveMala);
+        assertThat(loginFallido("baja.login@seguridad.com", "baja12345")).isEqualTo(claveMala);
+    }
+
     @ParameterizedTest(name = "emailAdmin = {0}")
     @CsvSource({ "admin@seguridad.com, 901000111", "ADMIN@Seguridad.com, 901000222" })
     @DisplayName("Registrar una empresa con el correo de otro usuario responde 409 y no le bloquea el login")
@@ -237,6 +249,16 @@ class SeguridadIntegracionTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         return jsonMapper.readTree(respuesta).get("accessToken").asString();
+    }
+
+    /** El cuerpo del 401, que no puede cambiar segun el motivo del fallo. */
+    private String loginFallido(String email, String password) throws Exception {
+        return mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(email, password))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
+                .andReturn().getResponse().getContentAsString();
     }
 
     private UsuarioResponse crearColaborador(String email, String password, RolAcceso rol) {

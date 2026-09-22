@@ -10,10 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
-import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.TipoParticipante;
@@ -30,7 +30,7 @@ class OrdenIntegracionTest {
     private EmpresaService empresaService;
 
     @Autowired
-    private UsuarioService usuarioService;
+    private UsuarioRepository usuarioRepository;
 
     @Autowired
     private ProcesoService procesoService;
@@ -51,7 +51,7 @@ class OrdenIntegracionTest {
     void registrarTienda() {
         empresaId = empresaService.registrar("Tienda de orden", "900888999-0", "contacto@orden.com",
                 "Administrador", "admin@orden.com", "clave12345").id();
-        adminId = usuarioService.autenticar("admin@orden.com", "clave12345").id();
+        adminId = usuarioRepository.findByEmail("admin@orden.com").orElseThrow().getId();
     }
 
     @Test

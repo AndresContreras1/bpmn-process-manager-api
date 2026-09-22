@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
@@ -12,17 +13,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.ApiPrincipal;
 import com.facimus.procesos.security.JwtService;
+import com.facimus.procesos.security.LoginAuthenticator;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -36,7 +38,7 @@ class AuthControllerTest {
     private JsonMapper jsonMapper;
 
     @MockitoBean
-    private UsuarioService usuarioService;
+    private LoginAuthenticator loginAuthenticator;
 
     @MockitoBean
     private JwtService jwtService;
@@ -46,7 +48,7 @@ class AuthControllerTest {
     void AuthController_login_credencialesValidas_devuelveToken() throws Exception {
         // Arrange
         UsuarioResponse usuario = usuario();
-        given(usuarioService.autenticar("juan@acme.com", "secret123")).willReturn(usuario);
+        given(loginAuthenticator.autenticar("juan@acme.com", "secret123")).willReturn(usuario);
         given(jwtService.generarToken(any(ApiPrincipal.class))).willReturn("token-de-prueba");
         given(jwtService.getExpirationSeconds()).willReturn(1800L);
 
@@ -66,18 +68,20 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/login - credenciales invalidas devuelven 401 sin generar token")
+    @DisplayName("POST /api/v1/auth/login - credenciales invalidas devuelven 401 generico sin generar token")
     void AuthController_login_credencialesInvalidas_devuelve401() throws Exception {
         // Arrange
-        given(usuarioService.autenticar("juan@acme.com", "mala"))
-                .willThrow(new ReglaNegocioException("Correo o contrasena incorrectos."));
+        given(loginAuthenticator.autenticar("juan@acme.com", "mala"))
+                .willThrow(new BadCredentialsException("Bad credentials"));
 
         // Act + Assert
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest("juan@acme.com", "mala"))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.status").value(401));
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.detail").value("Credenciales inválidas o token ausente"));
 
         then(jwtService).shouldHaveNoInteractions();
     }

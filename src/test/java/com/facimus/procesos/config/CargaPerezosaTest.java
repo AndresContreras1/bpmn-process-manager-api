@@ -18,6 +18,7 @@ import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoRecibidoResponse;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoCompartidoService;
 import com.facimus.procesos.gestion.service.ProcesoService;
@@ -56,6 +57,9 @@ class CargaPerezosaTest {
 
     @Autowired
     private UsuarioService usuarioService;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     @Autowired
     private ProcesoService procesoService;
@@ -101,7 +105,7 @@ class CargaPerezosaTest {
         estadisticas = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         empresaId = empresaService.registrar("Tienda de consultas", "900666777-8", "contacto@consultas.com",
                 "Administrador", "admin@consultas.com", "clave12345").id();
-        adminId = usuarioService.autenticar("admin@consultas.com", "clave12345").id();
+        adminId = usuarioRepository.findByEmail("admin@consultas.com").orElseThrow().getId();
         Long editorId = usuarioService.crearColaborador(empresaId, "Editora", "editora@consultas.com", "clave12345",
                 RolAcceso.EDITOR).id();
 
