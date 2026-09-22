@@ -82,7 +82,8 @@ all of them are correlated by `orderId`.
   `AuthenticationManager`, the filter authenticates from the token's claims without a query, a reused refresh token
   closes its session, and failed logins are rate-limited with `429` and `Retry-After`.
 - **Role-based authorization matrix** (administrator, editor, read-only), defined in one place in the security
-  configuration.
+  configuration. A store always keeps an active administrator, even when two administrators change their roles at the
+  same moment.
 - **RFC 9457 Problem Details** for every error, including `401` and `403` raised by the security layer and the `400`
   for URLs its firewall rejects, with a message for each invalid field. Fields that the contract does not define are
   rejected, not ignored.
@@ -91,8 +92,9 @@ all of them are correlated by `orderId`.
 - **Safe under concurrency and retries.** Every edit sends the `version` it read and answers `409` if someone saved a
   change since, instead of overwriting it. A create retried with the same `Idempotency-Key` gets the first response
   back instead of a duplicate. Every editable resource records who created it and who changed it last, and when.
-- **BPMN consistency rules**: sequence flows never cross pools, message flows only connect different participants,
-  and a published process cannot go back to draft.
+- **BPMN consistency rules**, checked on every create and every edit: sequence flows never cross pools, message
+  flows only connect participants of their own process, the flows that leave an exclusive or inclusive gateway carry
+  its conditions, node names are unique within a process, and a published process cannot go back to draft.
 - **Schema under version control.** Flyway migrations shared by H2 and PostgreSQL, with engine-specific scripts where
   they differ. Hibernate only validates the schema, and the database enforces unique names on its own.
 - **Layered modules with a one-way dependency.** Services are interfaces that return DTOs mapped with MapStruct
@@ -100,7 +102,7 @@ all of them are correlated by `orderId`.
   replace the calls that used to go the other way.
 - **Architecture rules enforced by tests** with ArchUnit: layering, module boundaries, no package cycles, lazy
   associations, tenant isolation and no `HttpSession`.
-- **382 automated tests** with 95 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **392 automated tests** with 95 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image, then runs it against PostgreSQL.
 
 ## Tech stack
@@ -189,13 +191,19 @@ maps each one to its BPMN meaning. More details:
 
 **Business rules:**
 - Sequence flows never cross pools.
-- Messages only connect two different pools.
+- A sequence flow that leaves an exclusive or inclusive gateway carries a condition, because the gateway picks its
+  path by those conditions; the flows that enter the gateway need none. A gateway only becomes exclusive or inclusive
+  when every flow that leaves it has a condition.
+- Message flows only connect two different pools, and both have to be participants of the message's process.
 - A published process cannot go back to draft.
 - Process and process-role names are unique among a store's active records, ignoring case; the database enforces it
-  too. Flow-node names are unique within a process.
+  too. Flow-node names are unique within a process, also when a node is renamed.
 - A process role that an active process uses cannot be deleted.
 - User emails are unique across the platform and case-insensitive: the email is the login, and the login
   does not know the store yet.
+- A store always keeps an active administrator: the last one cannot give up the role, and nobody can deactivate their
+  own account. When two administrators remove each other's role at the same moment, the second change waits on a lock
+  of the store's row, sees the first one and is refused with `409`.
 - Everything is soft-deleted, from processes and process roles to every BPMN element, so it keeps its
   traceability: a deleted resource answers `404` but stays in the database. Deleting a pool retires the message flows
   that enter or leave it, and deleting a process (HU-06) retires its whole model.
@@ -451,19 +459,19 @@ arrive in small pull requests; [frontend/README.md](frontend/README.md) describe
 ./mvnw verify
 ```
 
-The build runs 382 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 392 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | Architecture (ArchUnit) | 30 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, a declared profile in every `@SpringBootTest` |
 | Controller slices (`@WebMvcTest`) | 114 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 28 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 151 | Two-store IDOR suite, read-only process sharing (HU-23), role matrix, JWT tampering and expiry, sessions (refresh rotation, reuse, logout, deactivation and role change), the login limit, idempotency keys, end-to-end 401/403/429 and the 400 for URLs the firewall rejects |
+| Service unit tests (Mockito) | 31 | Business rules of the management module |
+| Security and isolation (`@SpringBootTest`) | 154 | Two-store IDOR suite, read-only process sharing (HU-23), role matrix, JWT tampering and expiry, sessions (refresh rotation, reuse, logout, deactivation and role change), the login limit, idempotency keys, the last active administrator (also under concurrent changes), end-to-end 401/403/429 and the 400 for URLs the firewall rejects |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 23 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries and prove the JWT filter runs no SQL, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
-| Module integration (`@SpringBootTest`) | 34 | Process-role usage across modules, the order of pools and lanes, the whole diagram of a process, optimistic locking on every edit, auditing, soft delete of every BPMN element and the modeling history |
+| Module integration (`@SpringBootTest`) | 38 | Process-role usage across modules, the order of pools and lanes, the whole diagram of a process, optimistic locking on every edit, auditing, soft delete of every BPMN element, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 95 % of lines and 72 % of branches.
+Current coverage: 95 % of lines and 75 % of branches.
 
 ## Project structure
 
