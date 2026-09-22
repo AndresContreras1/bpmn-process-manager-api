@@ -15,6 +15,7 @@ import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoLectura;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.event.ProcesoCreado;
+import com.facimus.procesos.gestion.event.ProcesoEliminado;
 import com.facimus.procesos.gestion.mapper.ProcesoMapper;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.EstadoProceso;
@@ -149,6 +150,8 @@ public class ProcesoServiceImpl implements ProcesoService {
 
         proceso.setActivo(false);
         procesoRepository.save(proceso);
+        // El modulo de modelado da de baja el modelo del proceso dentro de esta misma transaccion.
+        eventos.publishEvent(new ProcesoEliminado(empresaId, procesoId));
 
         historialCambioService.registrar(proceso, autor, "Proceso eliminado (baja logica).");
     }

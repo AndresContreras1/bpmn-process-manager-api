@@ -38,7 +38,7 @@ public class MensajeServiceImpl implements MensajeService {
         if (poolOrigenId.equals(poolDestinoId)) {
             throw new ReglaNegocioException("Un mensaje debe conectar dos pools diferentes.");
         }
-        Proceso proceso = procesoRepository.findByIdAndEmpresaId(procesoId, empresaId)
+        Proceso proceso = procesoRepository.findByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
         Pool poolOrigen = poolRepository.findByIdAndEmpresaId(poolOrigenId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pool de origen no encontrado."));
@@ -76,7 +76,7 @@ public class MensajeServiceImpl implements MensajeService {
 
     @Override
     public List<MensajeResponse> listarPorProceso(Long empresaId, Long procesoId) {
-        if (!procesoRepository.existsByIdAndEmpresaId(procesoId, empresaId)) {
+        if (!procesoRepository.existsByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)) {
             throw new RecursoNoEncontradoException("Proceso no encontrado.");
         }
         return mensajeMapper.toResponses(mensajeRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));

@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -99,6 +101,7 @@ class BajaLogicaIntegracionTest {
 
     private String token;
     private Long empresaId;
+    private Long adminId;
     private Long procesoId;
     private Long tiendaId;
     private Long rolId;
@@ -108,7 +111,7 @@ class BajaLogicaIntegracionTest {
     void modelarUnProceso() throws Exception {
         empresaId = empresaService.registrar("Tienda de bajas", "900121212-3", "contacto@bajas.com", "Administradora",
                 ADMIN, CLAVE).id();
-        Long adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
+        adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         tiendaId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
@@ -189,6 +192,52 @@ class BajaLogicaIntegracionTest {
         pedir(delete("/api/v1/arcos/{id}", primero)).andExpect(status().isNoContent());
 
         pedir(post("/api/v1/arcos"), arco).andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("HU-06: eliminar un proceso da de baja todo su modelo, que ya no se ve ni acepta cambios")
+    void procesoEliminado_retiraSuModelo() throws Exception {
+        Long devoluciones = procesoService.crear(empresaId, adminId, "Returns", "Return to refund", "After-sales").id();
+        Long tienda = poolService.listarPorProceso(empresaId, devoluciones).getFirst().id();
+        Long cliente = poolService.crear(empresaId, devoluciones, "Customer", TipoParticipante.CLIENTE, true).id();
+        Long mostrador = laneService.crear(empresaId, tienda, "Returns desk", rolId).id();
+        Long recibir = actividadService.crear(empresaId, mostrador, "Receive item", null, 100, 100).id();
+        Long revisar = gatewayService.crear(empresaId, mostrador, "Damaged?", TipoGateway.PARALELO, 200, 100).id();
+        Long arco = arcoService.crear(empresaId, recibir, revisar, null, null).id();
+        Long solicitud = mensajeService.crear(empresaId, devoluciones, "Return request", "Order and reason", cliente,
+                tienda).id();
+        correlacionService.definir(empresaId, solicitud, "orderId", null);
+
+        pedir(delete("/api/v1/procesos/{id}", devoluciones)).andExpect(status().isNoContent());
+
+        for (String ruta : List.of("/api/v1/pools/" + cliente, "/api/v1/lanes/" + mostrador,
+                "/api/v1/actividades/" + recibir, "/api/v1/gateways/" + revisar, "/api/v1/arcos/" + arco,
+                "/api/v1/mensajes/" + solicitud, "/api/v1/mensajes/" + solicitud + "/correlacion",
+                "/api/v1/procesos/" + devoluciones + "/pools", "/api/v1/procesos/" + devoluciones + "/mensajes")) {
+            pedir(get(ruta)).andExpect(status().isNotFound());
+        }
+        pedir(post("/api/v1/procesos/{id}/pools", devoluciones),
+                Map.of("nombre", "Carrier", "tipoParticipante", "PROVEEDOR", "cajaNegra", true))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Proceso no encontrado."));
+        pedir(post("/api/v1/procesos/{id}/mensajes", devoluciones), Map.of("nombre", "Refund notice",
+                "contenido", "Amount", "poolOrigenId", tienda, "poolDestinoId", cliente))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Proceso no encontrado."));
+        assertThat(List.of(activo("pools", tienda), activo("pools", cliente), activo("lanes", mostrador),
+                activo("nodos_flujo", recibir), activo("nodos_flujo", revisar), activo("arcos", arco),
+                activo("mensajes", solicitud))).containsOnly(false);
+    }
+
+    @Test
+    @DisplayName("Una lane no acepta un rol de proceso eliminado")
+    void lane_conRolEliminado_devuelve404() throws Exception {
+        Long temporada = rolProcesoService.crear(empresaId, "Seasonal staff", null).id();
+        rolProcesoService.eliminar(empresaId, temporada);
+
+        pedir(post("/api/v1/pools/{id}/lanes", tiendaId), Map.of("nombre", "Holiday rush", "rolProcesoId", temporada))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Rol de proceso no encontrado."));
     }
 
     private static Arguments elemento(String elemento, String tabla, String ruta, Supplier<Long> crear) {

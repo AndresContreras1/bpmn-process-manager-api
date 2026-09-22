@@ -88,7 +88,8 @@ public class LaneServiceImpl implements LaneService {
     }
 
     private RolProceso rolProceso(Long empresaId, Long rolProcesoId) {
-        return rolProcesoRepository.findByIdAndEmpresaId(rolProcesoId, empresaId)
+        // Un rol eliminado ya no se asigna: para las lanes no existe.
+        return rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(rolProcesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Rol de proceso no encontrado."));
     }
 }

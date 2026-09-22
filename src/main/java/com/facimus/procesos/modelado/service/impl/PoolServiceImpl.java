@@ -40,7 +40,7 @@ public class PoolServiceImpl implements PoolService {
     @Transactional
     public PoolResponse crear(Long empresaId, Long procesoId, String nombre, TipoParticipante tipoParticipante,
             boolean cajaNegra) {
-        Proceso proceso = procesoRepository.findByIdAndEmpresaId(procesoId, empresaId)
+        Proceso proceso = procesoRepository.findByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
         int orden = poolRepository.siguienteOrden(procesoId, empresaId);
 
@@ -87,7 +87,7 @@ public class PoolServiceImpl implements PoolService {
 
     @Override
     public List<PoolResponse> listarPorProceso(Long empresaId, Long procesoId) {
-        if (!procesoRepository.existsByIdAndEmpresaId(procesoId, empresaId)) {
+        if (!procesoRepository.existsByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)) {
             throw new RecursoNoEncontradoException("Proceso no encontrado.");
         }
         return poolMapper.toResponses(poolRepository.findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId, empresaId));
