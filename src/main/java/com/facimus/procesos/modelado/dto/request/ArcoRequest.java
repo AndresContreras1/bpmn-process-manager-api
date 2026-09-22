@@ -12,7 +12,7 @@ public record ArcoRequest(
         @NotNull(message = "El nodo de destino es obligatorio.") Long destinoId,
         @Schema(example = "Approved")
         @Size(max = 120, message = "La etiqueta no puede superar 120 caracteres.") String etiqueta,
-        @Schema(description = "Required when the target is an exclusive or inclusive gateway",
+        @Schema(description = "Required when the source is an exclusive or inclusive gateway",
                 example = "payment.status == APPROVED")
         @Size(max = 500, message = "La condicion no puede superar 500 caracteres.") String condicion) {
 }

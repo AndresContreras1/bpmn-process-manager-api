@@ -12,10 +12,8 @@ import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
 import com.facimus.procesos.modelado.model.Arco;
-import com.facimus.procesos.modelado.model.Gateway;
 import com.facimus.procesos.modelado.model.NodoFlujo;
 import com.facimus.procesos.modelado.model.Pool;
-import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.repository.PoolRepository;
@@ -54,12 +52,7 @@ public class ArcoServiceImpl implements ArcoService {
         if (arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(origenId, destinoId, empresaId)) {
             throw new ReglaNegocioException("Ya existe un arco entre estos dos nodos.");
         }
-        if (destino instanceof Gateway gatewayDestino
-                && (gatewayDestino.getTipoGateway() == TipoGateway.EXCLUSIVO
-                        || gatewayDestino.getTipoGateway() == TipoGateway.INCLUSIVO)
-                && !StringUtils.hasText(condicion)) {
-            throw new ReglaNegocioException("Un arco hacia un gateway exclusivo o inclusivo requiere condicion.");
-        }
+        exigirCondicion(origen, condicion);
 
         Arco arco = arcoRepository.save(Arco.builder()
                 .empresa(origen.getEmpresa())
@@ -80,6 +73,7 @@ public class ArcoServiceImpl implements ArcoService {
             Long version) {
         Arco arco = buscar(empresaId, arcoId);
         arco.verificarVersion(version);
+        exigirCondicion(arco.getOrigen(), condicion);
         arco.setEtiqueta(etiqueta);
         arco.setCondicion(condicion);
         historialCambioService.registrar(empresaId, usuarioId, arco.getPool().getProceso(),
@@ -94,6 +88,13 @@ public class ArcoServiceImpl implements ArcoService {
         arcoRepository.delete(arco);
         historialCambioService.registrar(empresaId, usuarioId, arco.getPool().getProceso(),
                 "Flujo " + tramo(arco) + " eliminado.");
+    }
+
+    /** En BPMN, un gateway exclusivo o inclusivo elige por condicion los arcos que salen de el, no los que entran. */
+    private static void exigirCondicion(NodoFlujo origen, String condicion) {
+        if (origen.exigeCondicionAlSalir() && !StringUtils.hasText(condicion)) {
+            throw new ReglaNegocioException("Un arco que sale de un gateway exclusivo o inclusivo requiere condicion.");
+        }
     }
 
     private static String tramo(Arco arco) {

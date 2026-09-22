@@ -28,4 +28,9 @@ public class Gateway extends NodoFlujo {
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_gateway", length = 20)
     private TipoGateway tipoGateway;
+
+    @Override
+    public boolean exigeCondicionAlSalir() {
+        return tipoGateway.eligePorCondicion();
+    }
 }

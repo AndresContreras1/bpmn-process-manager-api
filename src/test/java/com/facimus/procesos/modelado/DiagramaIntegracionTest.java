@@ -103,7 +103,7 @@ class DiagramaIntegracionTest {
                 80)
                 .id();
         Long empacar = actividadService.crear(empresaId, adminId, bodega, "Pick and pack items", null, 420, 200).id();
-        arcoService.crear(empresaId, adminId, recibir, pagado, null, "Authorization response received");
+        arcoService.crear(empresaId, adminId, recibir, pagado, null, null);
         arcoService.crear(empresaId, adminId, pagado, empacar, "Approved", "payment.status == APPROVED");
         Long pedido = mensajeService.crear(empresaId, adminId, procesoId, "Order placed", "Cart items", clienteId,
                 tiendaId)

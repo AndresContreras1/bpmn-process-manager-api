@@ -8,7 +8,8 @@ import jakarta.validation.constraints.Size;
 public record EditarArcoRequest(
         @Schema(example = "Declined")
         @Size(max = 120, message = "La etiqueta no puede superar 120 caracteres.") String etiqueta,
-        @Schema(example = "payment.status == DECLINED")
+        @Schema(description = "Required when the source is an exclusive or inclusive gateway",
+                example = "payment.status == DECLINED")
         @Size(max = 500, message = "La condicion no puede superar 500 caracteres.") String condicion,
         @Schema(description = "Version read with the last GET; if someone saved a change since, the edit answers 409",
                 example = "0")

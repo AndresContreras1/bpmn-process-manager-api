@@ -80,11 +80,13 @@ class SeguridadIntegracionTest {
     private JdbcTemplate jdbcTemplate;
 
     private Long empresaId;
+    private Long adminId;
 
     @BeforeAll
     void registrarTienda() {
         empresaId = empresaService.registrar("Tienda Seguridad", "900222333-4", "contacto@seguridad.com",
                 "Administrador", ADMIN, CLAVE).id();
+        adminId = usuarioService.buscarCredenciales(ADMIN).orElseThrow().usuario().id();
     }
 
     @Test
@@ -135,7 +137,7 @@ class SeguridadIntegracionTest {
     @DisplayName("HU-03: un correo desconocido, un usuario desactivado y una clave mala reciben el mismo 401")
     void Seguridad_login_cualquierFallo_respondeLoMismo() throws Exception {
         UsuarioResponse baja = crearColaborador("baja.login@seguridad.com", "baja12345", RolAcceso.EDITOR);
-        usuarioService.desactivar(baja.empresaId(), baja.id());
+        usuarioService.desactivar(baja.empresaId(), adminId, baja.id());
 
         String claveMala = loginFallido(ADMIN, "clave-mala");
 
@@ -212,7 +214,7 @@ class SeguridadIntegracionTest {
         UsuarioResponse editor = crearColaborador("editor.baja@seguridad.com", "editor123", RolAcceso.EDITOR);
         Tokens sesion = sesion("editor.baja@seguridad.com", "editor123");
 
-        usuarioService.desactivar(editor.empresaId(), editor.id());
+        usuarioService.desactivar(editor.empresaId(), adminId, editor.id());
 
         mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(sesion.access())))
                 .andExpect(status().isUnauthorized());
@@ -225,7 +227,8 @@ class SeguridadIntegracionTest {
         UsuarioResponse editor = crearColaborador("editor.rol@seguridad.com", "editor123", RolAcceso.EDITOR);
         Tokens antes = sesion("editor.rol@seguridad.com", "editor123");
 
-        usuarioService.actualizar(editor.empresaId(), editor.id(), RolAcceso.SOLO_LECTURA, null, editor.version());
+        usuarioService.actualizar(editor.empresaId(), adminId, editor.id(), RolAcceso.SOLO_LECTURA, null,
+                editor.version());
 
         mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(antes.access())))
                 .andExpect(status().isUnauthorized());

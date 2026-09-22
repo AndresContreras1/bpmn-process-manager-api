@@ -63,6 +63,11 @@ public class ActividadServiceImpl implements ActividadService {
             int posX, int posY, Long version) {
         Actividad actividad = buscar(empresaId, actividadId);
         actividad.verificarVersion(version);
+        Long procesoId = actividad.getLane().getPool().getProceso().getId();
+        if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
+                empresaId, actividadId)) {
+            throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
+        }
         actividad.setNombre(nombre);
         actividad.setDescripcion(descripcion);
         actividad.setPosicionX(posX);

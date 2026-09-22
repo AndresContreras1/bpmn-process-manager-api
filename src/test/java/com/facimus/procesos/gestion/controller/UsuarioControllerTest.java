@@ -153,7 +153,7 @@ class UsuarioControllerTest {
     @DisplayName("PATCH /api/v1/usuarios/{id} - cambiar rol (200)")
     void cambiar_rol() throws Exception {
         UsuarioResponse u = crearUsuario(5L, "Laura", "laura@acme.com", RolAcceso.ADMINISTRADOR);
-        given(usuarioService.actualizar(1L, 5L, RolAcceso.ADMINISTRADOR, null, 3L)).willReturn(u);
+        given(usuarioService.actualizar(1L, 1L, 5L, RolAcceso.ADMINISTRADOR, null, 3L)).willReturn(u);
 
         mockMvc.perform(patch("/api/v1/usuarios/5")
                         .with(principal(RolAcceso.ADMINISTRADOR))
@@ -169,7 +169,7 @@ class UsuarioControllerTest {
     void actualizar_estado_y_rechazar_patch_vacio() throws Exception {
         UsuarioResponse u = new UsuarioResponse(5L, "Laura", "laura@acme.com", RolAcceso.ADMINISTRADOR, false, 1L, 0L,
                 null, null, null, null);
-        given(usuarioService.actualizar(1L, 5L, RolAcceso.ADMINISTRADOR, false, 3L)).willReturn(u);
+        given(usuarioService.actualizar(1L, 1L, 5L, RolAcceso.ADMINISTRADOR, false, 3L)).willReturn(u);
 
         mockMvc.perform(patch("/api/v1/usuarios/5").with(principal(RolAcceso.ADMINISTRADOR))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -185,7 +185,7 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/usuarios/{id} - desactivar usuario (204)")
     void desactivar_usuario() throws Exception {
-        doNothing().when(usuarioService).desactivar(1L, 5L);
+        doNothing().when(usuarioService).desactivar(1L, 1L, 5L);
 
         mockMvc.perform(delete("/api/v1/usuarios/5").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isNoContent());

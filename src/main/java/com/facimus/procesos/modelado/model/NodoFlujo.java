@@ -53,4 +53,12 @@ public abstract class NodoFlujo extends EntidadEditable {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "lane_id", nullable = false)
     private Lane lane;
+
+    /**
+     * Si cada arco que sale de este nodo necesita condicion. Es un metodo y no un instanceof porque el origen de un
+     * arco llega como proxy perezoso de NodoFlujo, y el proxy delega el metodo en el nodo real.
+     */
+    public boolean exigeCondicionAlSalir() {
+        return false;
+    }
 }
