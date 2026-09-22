@@ -2,6 +2,7 @@ package com.facimus.procesos.gestion.service;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.Empresa;
@@ -37,6 +38,8 @@ class UsuarioServiceTest {
     private EmpresaRepository empresaRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private SesionService sesionService;
 
     @Spy
     private UsuarioMapper usuarioMapper = Mappers.getMapper(UsuarioMapper.class);
@@ -110,45 +113,39 @@ class UsuarioServiceTest {
 
     @Test
     @DisplayName("HU-03: el login encuentra al usuario aunque el correo llegue con mayusculas")
-    void autenticar_correoConMayusculas_encuentraAlUsuario() {
+    void buscarCredenciales_correoConMayusculas_encuentraAlUsuario() {
         when(usuarioRepository.findByEmail("juan@acme.com")).thenReturn(Optional.of(usuario));
-        when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
 
-        assertEquals(usuario.getId(), usuarioService.autenticar(" Juan@Acme.com", "pass").id());
+        assertEquals(usuario.getId(), usuarioService.buscarCredenciales(" Juan@Acme.com").orElseThrow().usuario().id());
     }
 
     @Test
-    @DisplayName("HU-03: autenticar con credenciales validas retorna usuario")
-    void autenticar_exitoso() {
+    @DisplayName("HU-03: las credenciales de un usuario activo traen su perfil y el hash de la clave, sin imprimirlo")
+    void buscarCredenciales_usuarioActivo_devuelvePerfilYHash() {
         when(usuarioRepository.findByEmail("juan@acme.com")).thenReturn(Optional.of(usuario));
-        when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
 
-        UsuarioResponse result = usuarioService.autenticar("juan@acme.com", "pass");
+        CredencialesUsuario credenciales = usuarioService.buscarCredenciales("juan@acme.com").orElseThrow();
 
-        assertEquals(usuario.getId(), result.id());
+        assertEquals("juan@acme.com", credenciales.usuario().email());
+        assertEquals("hashed", credenciales.claveHash());
+        assertFalse(credenciales.toString().contains("hashed"));
     }
 
     @Test
-    @DisplayName("HU-03: autenticar con password incorrecta lanza excepcion")
-    void autenticar_password_incorrecta() {
-        when(usuarioRepository.findByEmail("juan@acme.com")).thenReturn(Optional.of(usuario));
-        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
-
-        ReglaNegocioException ex = assertThrows(ReglaNegocioException.class,
-                () -> usuarioService.autenticar("juan@acme.com", "wrong"));
-
-        assertTrue(ex.getMessage().toLowerCase().contains("correo") ||
-                   ex.getMessage().toLowerCase().contains("contrasena"));
-    }
-
-    @Test
-    @DisplayName("HU-03: autenticar usuario inactivo lanza excepcion")
-    void autenticar_usuario_inactivo() {
+    @DisplayName("HU-03: un usuario desactivado no tiene credenciales para el login")
+    void buscarCredenciales_usuarioInactivo_devuelveVacio() {
         usuario.setActivo(false);
         when(usuarioRepository.findByEmail("juan@acme.com")).thenReturn(Optional.of(usuario));
 
-        assertThrows(ReglaNegocioException.class,
-                () -> usuarioService.autenticar("juan@acme.com", "pass"));
+        assertTrue(usuarioService.buscarCredenciales("juan@acme.com").isEmpty());
+    }
+
+    @Test
+    @DisplayName("HU-03: un correo sin usuario no tiene credenciales")
+    void buscarCredenciales_correoDesconocido_devuelveVacio() {
+        when(usuarioRepository.findByEmail("nadie@acme.com")).thenReturn(Optional.empty());
+
+        assertTrue(usuarioService.buscarCredenciales("nadie@acme.com").isEmpty());
     }
 
     @Test
@@ -161,6 +158,40 @@ class UsuarioServiceTest {
 
         assertFalse(usuario.isActivo());
         verify(usuarioRepository).save(usuario);
+        verify(sesionService).cerrarTodas(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("Cambiar el rol cierra las sesiones del usuario: sus tokens llevan el rol de antes")
+    void actualizar_cambiaElRol_cierraSusSesiones() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, 10L, RolAcceso.SOLO_LECTURA, null);
+
+        verify(sesionService).cerrarTodas(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("Desactivar con PATCH tambien cierra las sesiones del usuario")
+    void actualizar_desactiva_cierraSusSesiones() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, 10L, null, false);
+
+        verify(sesionService).cerrarTodas(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("Repetir el mismo rol con el usuario activo no cierra sus sesiones")
+    void actualizar_sinCambioDeAcceso_noCierraSesiones() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, 10L, RolAcceso.EDITOR, true);
+
+        verify(sesionService, never()).cerrarTodas(anyLong(), anyLong());
     }
 
     @Test

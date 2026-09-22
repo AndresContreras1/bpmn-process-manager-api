@@ -12,10 +12,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
+import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
-import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.PoolService;
 
@@ -29,7 +29,7 @@ class UsoDeRolesIntegracionTest {
     private EmpresaService empresaService;
 
     @Autowired
-    private UsuarioService usuarioService;
+    private UsuarioRepository usuarioRepository;
 
     @Autowired
     private ProcesoService procesoService;
@@ -50,7 +50,7 @@ class UsoDeRolesIntegracionTest {
     void registrarTienda() {
         empresaId = empresaService.registrar("Tienda de roles", "900444555-6", "contacto@roles.com",
                 "Administrador", "admin@roles.com", "clave12345").id();
-        adminId = usuarioService.autenticar("admin@roles.com", "clave12345").id();
+        adminId = usuarioRepository.findByEmail("admin@roles.com").orElseThrow().getId();
     }
 
     @Test

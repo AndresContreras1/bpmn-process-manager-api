@@ -21,11 +21,18 @@ import org.springframework.test.context.ActiveProfiles;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.ProcesoCompartido;
+import com.facimus.procesos.gestion.model.RefreshToken;
+import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.RolProceso;
+import com.facimus.procesos.gestion.model.Sesion;
+import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoCompartidoRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
+import com.facimus.procesos.gestion.repository.RefreshTokenRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
+import com.facimus.procesos.gestion.repository.SesionRepository;
+import com.facimus.procesos.gestion.repository.UsuarioRepository;
 
 /**
  * Flyway crea el esquema y la base hace cumplir la unicidad de nombres por su cuenta: los tests guardan con los
@@ -50,6 +57,15 @@ class MigracionesTest {
     @Autowired
     private ProcesoCompartidoRepository procesoCompartidoRepository;
 
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private SesionRepository sesionRepository;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
     private Empresa empresa;
 
     @BeforeEach
@@ -63,7 +79,7 @@ class MigracionesTest {
         assertThat(flyway.info().applied())
                 .extracting(MigrationInfo::getScript)
                 .containsExactly("V1__esquema_inicial.sql", "V2__nombres_unicos_por_empresa.sql",
-                        "V3__procesos_compartidos.sql");
+                        "V3__procesos_compartidos.sql", "V4__sesiones.sql");
     }
 
     @Test
@@ -113,6 +129,46 @@ class MigracionesTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> procesoCompartidoRepository.saveAndFlush(comparticion(compartido, empresa)))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("La base no deja repetir el codigo de una sesion ni el hash de un refresh token")
+    void sesiones_laBaseRechazaCodigosYHashesRepetidos() {
+        Usuario usuario = usuarioRepository.saveAndFlush(Usuario.builder()
+                .empresa(empresa)
+                .nombre("Usuaria de migraciones")
+                .email(UUID.randomUUID() + "@migraciones.com")
+                .passwordHash("hash-de-la-clave")
+                .rolAcceso(RolAcceso.EDITOR)
+                .build());
+        Sesion sesion = sesionRepository.saveAndFlush(sesion(usuario, UUID.randomUUID().toString()));
+        String hash = UUID.randomUUID().toString();
+        refreshTokenRepository.saveAndFlush(refreshToken(sesion, hash));
+
+        assertThatThrownBy(() -> sesionRepository.saveAndFlush(sesion(usuario, sesion.getCodigo())))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> refreshTokenRepository.saveAndFlush(refreshToken(sesion, hash)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private static Sesion sesion(Usuario usuario, String codigo) {
+        return Sesion.builder()
+                .empresa(usuario.getEmpresa())
+                .usuario(usuario)
+                .codigo(codigo)
+                .fechaInicio(LocalDateTime.now())
+                .build();
+    }
+
+    private static RefreshToken refreshToken(Sesion sesion, String hash) {
+        LocalDateTime ahora = LocalDateTime.now();
+        return RefreshToken.builder()
+                .empresa(sesion.getEmpresa())
+                .sesion(sesion)
+                .tokenHash(hash)
+                .fechaEmision(ahora)
+                .fechaExpiracion(ahora.plusDays(7))
+                .build();
     }
 
     private static ProcesoCompartido comparticion(Proceso proceso, Empresa invitada) {

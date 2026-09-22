@@ -24,8 +24,9 @@ public class CorsConfig {
         config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, HttpHeaders.ACCEPT));
         config.setAllowedMethods(List.of(HttpMethod.GET.name(), HttpMethod.POST.name(), HttpMethod.PUT.name(),
                 HttpMethod.PATCH.name(), HttpMethod.DELETE.name()));
-        // Un 201 dice en Location donde quedo el recurso: sin exponerla, el navegador no deja que el frontend la lea.
-        config.setExposedHeaders(List.of(HttpHeaders.LOCATION));
+        // Un 201 dice en Location donde quedo el recurso y un 429 en Retry-After cuanto esperar: sin exponerlas, el
+        // navegador no deja que el frontend las lea.
+        config.setExposedHeaders(List.of(HttpHeaders.LOCATION, HttpHeaders.RETRY_AFTER));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

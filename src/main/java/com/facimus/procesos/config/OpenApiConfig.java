@@ -60,7 +60,12 @@ public class OpenApiConfig {
                         .addResponses("NotFound", respuestaDeError("The resource does not exist, or it belongs to "
                                 + "another store."))
                         .addResponses("Conflict", respuestaDeError("A business rule rejects the operation, for "
-                                + "example a duplicated name.")));
+                                + "example a duplicated name."))
+                        .addResponses("TooManyRequests", respuestaDeError("Too many failed logins for this email from "
+                                + "this address. Retry-After says how many seconds to wait.")
+                                .addHeaderObject(HttpHeaders.RETRY_AFTER, new Header()
+                                        .description("Seconds until the login can be tried again")
+                                        .schema(new IntegerSchema().example(900)))));
     }
 
     /** Forma de todos los errores (RFC 9457); errors solo viaja en los 400 que senalan campos concretos. */

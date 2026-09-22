@@ -55,6 +55,8 @@ class AutorizacionPorRolTest {
     @Autowired
     private UsuarioService usuarioService;
 
+    private final Map<RolAcceso, String> correos = Map.of(RolAcceso.ADMINISTRADOR, ADMIN, RolAcceso.EDITOR, EDITOR,
+            RolAcceso.SOLO_LECTURA, LECTOR);
     private final Map<RolAcceso, String> tokens = new EnumMap<>(RolAcceso.class);
 
     @BeforeAll
@@ -64,9 +66,9 @@ class AutorizacionPorRolTest {
         usuarioService.crearColaborador(empresaId, "Editor", EDITOR, CLAVE, RolAcceso.EDITOR);
         usuarioService.crearColaborador(empresaId, "Lector", LECTOR, CLAVE, RolAcceso.SOLO_LECTURA);
 
-        tokens.put(RolAcceso.ADMINISTRADOR, login(ADMIN, CLAVE));
-        tokens.put(RolAcceso.EDITOR, login(EDITOR, CLAVE));
-        tokens.put(RolAcceso.SOLO_LECTURA, login(LECTOR, CLAVE));
+        for (RolAcceso rol : RolAcceso.values()) {
+            tokens.put(rol, login(correos.get(rol), CLAVE));
+        }
     }
 
     @ParameterizedTest(name = "{0} {1} {2} -> {3}")
@@ -129,8 +131,10 @@ class AutorizacionPorRolTest {
             """)
     void Autorizacion_peticionSegunRol_devuelveEstadoDeLaMatriz(RolAcceso rol, HttpMethod metodo, String ruta,
             int estadoEsperado) throws Exception {
+        // El logout cierra la sesion de su token: ese caso abre una propia para no cerrar la que comparten los demas.
+        String token = ruta.equals("/api/v1/auth/logout") ? login(correos.get(rol), CLAVE) : tokens.get(rol);
         var peticion = request(metodo, ruta, ID_INEXISTENTE)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokens.get(rol));
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
         if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"PUBLICADO\"}");
         }

@@ -43,6 +43,7 @@ import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
@@ -97,6 +98,9 @@ class AislamientoEmpresasIntegracionTest {
     private UsuarioService usuarioService;
 
     @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
     private ProcesoService procesoService;
 
     @Autowired
@@ -149,7 +153,7 @@ class AislamientoEmpresasIntegracionTest {
     void crearDosEmpresas() throws Exception {
         empresaA = empresaService
                 .registrar("Empresa A", "900100200", "contacto@empresa-a.com", "Admin A", ADMIN_A, CLAVE).id();
-        Long adminA = usuarioService.autenticar(ADMIN_A, CLAVE).id();
+        Long adminA = usuarioRepository.findByEmail(ADMIN_A).orElseThrow().getId();
         procesoA = procesoService.crear(empresaA, adminA, "Ventas", "Proceso de ventas", "Comercial").id();
         poolA = poolService.listarPorProceso(empresaA, procesoA).getFirst().id();
         rolA = rolProcesoService.crear(empresaA, "Vendedor", "Atiende a los clientes").id();
@@ -163,7 +167,7 @@ class AislamientoEmpresasIntegracionTest {
 
         empresaB = empresaService
                 .registrar("Empresa B", "900300400", "contacto@empresa-b.com", "Admin B", ADMIN_B, CLAVE).id();
-        adminB = usuarioService.autenticar(ADMIN_B, CLAVE).id();
+        adminB = usuarioRepository.findByEmail(ADMIN_B).orElseThrow().getId();
         procesoB = procesoService.crear(empresaB, adminB, "Compras", "Proceso de compras", "Logistica").id();
         poolB = poolService.listarPorProceso(empresaB, procesoB).getFirst().id();
         Long poolProveedorB = poolService

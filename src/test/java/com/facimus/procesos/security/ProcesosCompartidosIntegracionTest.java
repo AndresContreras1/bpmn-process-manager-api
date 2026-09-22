@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import com.facimus.procesos.gestion.dto.request.CompartirProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -61,6 +62,9 @@ class ProcesosCompartidosIntegracionTest {
     private UsuarioService usuarioService;
 
     @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
     private ProcesoService procesoService;
 
     private Long duenaId;
@@ -79,7 +83,7 @@ class ProcesosCompartidosIntegracionTest {
                 "Administrador", "admin@invitada.com", CLAVE).id();
         empresaService.registrar("Tienda ajena", NIT_AJENA, "contacto@ajena.com", "Administrador", "admin@ajena.com",
                 CLAVE);
-        adminDuenaId = usuarioService.autenticar("admin@duena.com", CLAVE).id();
+        adminDuenaId = usuarioRepository.findByEmail("admin@duena.com").orElseThrow().getId();
         usuarioService.crearColaborador(duenaId, "Editora", "editora@duena.com", CLAVE, RolAcceso.EDITOR);
 
         tokenDuena = login("admin@duena.com");

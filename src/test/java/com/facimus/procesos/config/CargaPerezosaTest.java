@@ -1,6 +1,8 @@
 package com.facimus.procesos.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
@@ -10,18 +12,25 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoRecibidoResponse;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoCompartidoService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
+import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
@@ -35,6 +44,8 @@ import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.modelado.service.PoolService;
+import com.facimus.procesos.security.ApiPrincipal;
+import com.facimus.procesos.security.JwtService;
 
 import jakarta.persistence.EntityManagerFactory;
 
@@ -45,8 +56,18 @@ import jakarta.persistence.EntityManagerFactory;
  */
 @SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @ActiveProfiles("test")
+@AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CargaPerezosaTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private SesionService sesionService;
 
     @Autowired
     private EntityManagerFactory entityManagerFactory;
@@ -56,6 +77,9 @@ class CargaPerezosaTest {
 
     @Autowired
     private UsuarioService usuarioService;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     @Autowired
     private ProcesoService procesoService;
@@ -101,7 +125,7 @@ class CargaPerezosaTest {
         estadisticas = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         empresaId = empresaService.registrar("Tienda de consultas", "900666777-8", "contacto@consultas.com",
                 "Administrador", "admin@consultas.com", "clave12345").id();
-        adminId = usuarioService.autenticar("admin@consultas.com", "clave12345").id();
+        adminId = usuarioRepository.findByEmail("admin@consultas.com").orElseThrow().getId();
         Long editorId = usuarioService.crearColaborador(empresaId, "Editora", "editora@consultas.com", "clave12345",
                 RolAcceso.EDITOR).id();
 
@@ -172,6 +196,36 @@ class CargaPerezosaTest {
                 .containsExactly("Tienda de consultas", "Tienda de consultas");
         // Una sola: la pagina no se llena, asi que no hace falta contar, y la duena llega con el @EntityGraph.
         assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("El filtro JWT autentica sin consultar la base: una peticion que la autorizacion rechaza no corre SQL")
+    void filtroJwt_autenticaSinConsultarLaBase() throws Exception {
+        UsuarioResponse lectora = usuarioService.crearColaborador(empresaId, "Lectora", "lectora@consultas.com",
+                "clave12345", RolAcceso.SOLO_LECTURA);
+        String token = jwtService.generarToken(
+                ApiPrincipal.of(lectora, sesionService.iniciar(empresaId, lectora.id()).sesion()));
+
+        estadisticas.clear();
+        mockMvc.perform(post("/api/v1/procesos")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+
+        // El rol y la tienda salen de los claims, y las sesiones cerradas se miran en memoria.
+        assertThat(estadisticas.getPrepareStatementCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("Renovar cuesta tres sentencias: leer el token con su sesion y su usuario, usarlo y emitir otro")
+    void renovarSesion_cuestaTresSentencias() {
+        String refreshToken = sesionService.iniciar(empresaId, adminId).refreshToken();
+
+        estadisticas.clear();
+        sesionService.renovar(refreshToken);
+
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(3);
     }
 
     @Test

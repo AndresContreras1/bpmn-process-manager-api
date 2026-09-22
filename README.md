@@ -78,7 +78,9 @@ all of them are correlated by `orderId`.
 - **Store isolation by design.** The tenant comes from the token, never from the request. Repositories are
   tenant-aware, and cross-store access answers `404`, which prevents IDOR. The one declared exception, read-only
   process sharing (HU-23), goes through a separate read door that no change can use.
-- **Stateless JWT authentication** with a custom Spring Security filter chain and a typed `ApiPrincipal`.
+- **Short-lived JWT access tokens and single-use refresh tokens.** The login goes through Spring Security's
+  `AuthenticationManager`, the filter authenticates from the token's claims without a query, a reused refresh token
+  closes its session, and failed logins are rate-limited with `429` and `Retry-After`.
 - **Role-based authorization matrix** (administrator, editor, read-only), defined in one place in the security
   configuration.
 - **RFC 9457 Problem Details** for every error, including `401` and `403` raised by the security layer and the `400`
@@ -95,7 +97,7 @@ all of them are correlated by `orderId`.
   replace the calls that used to go the other way.
 - **Architecture rules enforced by tests** with ArchUnit: layering, module boundaries, no package cycles, lazy
   associations, tenant isolation and no `HttpSession`.
-- **306 automated tests** with 90 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **345 automated tests** with 91 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image, then runs it against PostgreSQL.
 
 ## Tech stack
@@ -105,7 +107,7 @@ all of them are correlated by `orderId`.
 | Language | Java 21 |
 | Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Security 7) |
 | Persistence | Hibernate 7.4 · Flyway 12 · H2 (`dev` and tests) · PostgreSQL (`prod`) |
-| Security | JWT (jjwt 0.12.6, HS256) · BCrypt |
+| Security | Spring Security `AuthenticationManager` · JWT (jjwt 0.12.6, HS256) · BCrypt · SHA-256-hashed refresh tokens |
 | API docs | springdoc-openapi 3 (OpenAPI 3 + Swagger UI) |
 | Testing | JUnit 5 · Mockito · MockMvc · AssertJ · ArchUnit 1.4 · JaCoCo |
 | Tooling | Maven Wrapper · Lombok · MapStruct · Docker · GitHub Actions · SonarCloud |
@@ -132,13 +134,14 @@ translations.
 
 | Module | Responsibility |
 |---|---|
-| `security` | Filter chain, JWT issuing and validation, `ApiPrincipal`, 401/403 handlers, CORS |
+| `security` | Filter chain, login and its rate limit, JWT issuing and validation, closed sessions, `ApiPrincipal`, 401/403 handlers, CORS |
 | `common` | Tenant base entity, tenant-aware repository contract, business exceptions, Problem Details, pagination |
-| `gestion` | Management: stores, users, processes, process roles and change history |
+| `gestion` | Management: stores, users and their sessions, processes, process roles and change history |
 | `modelado` | BPMN modeling: pools, lanes, activities, gateways, sequence flows, message flows, correlation keys |
 
 **Request lifecycle:**
-1. The JWT filter validates the token and loads an `ApiPrincipal` (`usuarioId`, `empresaId`, role).
+1. The JWT filter validates the token and builds an `ApiPrincipal` (`usuarioId`, `empresaId`, role, session) from its
+   claims, without a database query. A token whose session was closed is rejected.
 2. The role rules decide `401` or `403` before any controller runs.
 3. Controllers receive the principal with `@AuthenticationPrincipal` and pass `empresaId` explicitly to the services.
 4. Every lookup by id goes through `findByIdAndEmpresaId`, so a resource from another store does not exist for the
@@ -195,10 +198,18 @@ maps each one to its BPMN meaning. More details:
 ## Security model
 
 1. `POST /api/v1/empresas` registers a store together with its first administrator.
-2. `POST /api/v1/auth/login` returns an access token. Its claims are the email, `usuarioId`, `empresaId` and the
-   role. It expires after 30 minutes by default and is signed with `JWT_SECRET`.
-3. Clients send `Authorization: Bearer <token>`. The filter reloads the user on each request, so a deactivated user
-   loses access immediately.
+2. `POST /api/v1/auth/login` checks the credentials through Spring Security's `AuthenticationManager` and opens a
+   session with two tokens:
+   - The **access token** is a JWT signed with `JWT_SECRET` that expires after 15 minutes. Its claims are the email,
+     `usuarioId`, `empresaId`, the role and the session (`sid`).
+   - The **refresh token** is 256 random bits. The database stores only its SHA-256 hash, so a copy of the database
+     cannot open a session.
+3. Clients send `Authorization: Bearer <access token>`. The filter builds the principal from the claims, without a
+   database query, and rejects the tokens of a closed session.
+4. `POST /api/v1/auth/refresh` trades the refresh token for a new pair of the same session. Each refresh token works
+   once: sending one that was already used means a copy is going around, so the whole session is closed.
+5. `POST /api/v1/auth/logout` closes the session. Deactivating a user or changing their role closes every session
+   they have, so the old role stops working at once and the user logs in again.
 
 | Operation | `ADMINISTRADOR` | `EDITOR` | `SOLO_LECTURA` |
 |---|:---:|:---:|:---:|
@@ -209,8 +220,17 @@ maps each one to its BPMN meaning. More details:
 | Manage users | ✅ | ❌ | ❌ |
 | Share a process with another store (HU-23) | ✅ | ❌ | ❌ |
 
-Public endpoints are limited to store registration, login, the API documentation (not published in `prod`) and, in
-`dev`, the H2 console.
+Public endpoints are limited to store registration, login, token renewal, the API documentation (not published in
+`prod`) and, in `dev`, the H2 console.
+
+**Login protection.** An unknown email, a deactivated user and a wrong password get the same `401`, and
+`DaoAuthenticationProvider` spends the time of a BCrypt comparison even when the email does not exist. After 5 failed
+attempts for an email from the same address within 15 minutes, the login answers `429` with `Retry-After` and stops
+checking passwords until the oldest attempt leaves the window. Counting per email and address means an attacker
+elsewhere cannot lock the real user out.
+
+**One instance.** Closed sessions and failed attempts live in memory, and closed sessions are reloaded from the
+database on startup. With several instances, both would move to a shared store such as Redis.
 
 ## Multi-tenancy and IDOR prevention
 
@@ -252,7 +272,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Resource | Endpoints |
 |---|---|
 | Stores | `POST /api/v1/empresas` · `GET /api/v1/empresas/actual` · `GET /api/v1/empresas/{id}` |
-| Authentication | `POST /api/v1/auth/login` · `POST /api/v1/auth/logout` |
+| Authentication | `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` |
 | Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` |
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
@@ -321,7 +341,8 @@ Every `401` carries `WWW-Authenticate: Bearer`.
 
 The API starts on `http://localhost:8080` in the `dev` profile: a file-based H2 database under `./data`, seeded with
 Demo Store. The H2 console is at `/h2-console` (JDBC URL `jdbc:h2:file:./data/procesos`, user `sa`, no password). If
-`JWT_SECRET` is not set, a random signing key is generated, so tokens become invalid after a restart.
+`JWT_SECRET` is not set, a random signing key is generated, so access tokens become invalid after a restart; the
+refresh token, which lives in the database, still renews them.
 
 > **Upgrading from a version before Flyway?** Delete `./data` once. Flyway builds the schema on the next start and does
 > not adopt a schema that Hibernate created.
@@ -350,6 +371,9 @@ curl -s -X POST http://localhost:8080/api/v1/empresas -H "Content-Type: applicat
   -d '{"nombreEmpresa":"Acme Store","nit":"901234567-8","correoContacto":"contact@acme.com","nombreAdmin":"Ana","emailAdmin":"ana@acme.com","passwordAdmin":"secret123"}'
 ```
 
+The login also returns a `refreshToken`. Before the access token expires, trade it for a new pair with
+`POST /api/v1/auth/refresh` and the body `{"refreshToken": "..."}`.
+
 The [Postman collection](postman/) walks through a second scenario: *Acme Store* models how it hands orders over to a
 third-party logistics (3PL) partner. Run its requests in order, one by one or with the Collection Runner: the last
 folder deletes what the scenario created, children first.
@@ -375,7 +399,9 @@ database, with Demo Store; for persistent data, use the `prod` profile with Post
 | `DB_HOST` · `DB_PORT` · `DB_NAME` | Database location | `localhost` · `5432` · `procesos` |
 | `DB_USER` · `DB_PASSWORD` | Database credentials | `procesos` · empty |
 | `JWT_SECRET` | HS256 signing key, at least 32 bytes; in `prod` the application does not start without it | none |
-| `JWT_EXPIRATION_SECONDS` | Access token lifetime | `1800` |
+| `JWT_EXPIRATION_SECONDS` | Access token lifetime | `900` |
+| `JWT_REFRESH_EXPIRATION_SECONDS` | Refresh token lifetime; every renewal issues a new one | `604800` (7 days) |
+| `LOGIN_MAX_FAILED_ATTEMPTS` · `LOGIN_FAILED_ATTEMPTS_WINDOW` | Failed logins of an email from one address that answer `429`, and the window that counts them | `5` · `15m` |
 | `CORS_ALLOWED_ORIGINS` | Allowed storefront or back-office origins | `http://localhost:4200` |
 
 On startup, Flyway creates the schema or brings it up to date, so the database must exist and the user needs
@@ -403,19 +429,19 @@ conventions.
 ./mvnw verify
 ```
 
-The build runs 306 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 345 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | Architecture (ArchUnit) | 30 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, a declared profile in every `@SpringBootTest` |
-| Controller slices (`@WebMvcTest`) | 107 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 24 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 116 | Two-store IDOR suite, read-only process sharing (HU-23), role matrix, JWT tampering and expiry, end-to-end 401/403 and the 400 for URLs the firewall rejects |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 20 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
+| Controller slices (`@WebMvcTest`) | 112 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 27 | Business rules of the management module |
+| Security and isolation (`@SpringBootTest`) | 144 | Two-store IDOR suite, read-only process sharing (HU-23), role matrix, JWT tampering and expiry, sessions (refresh rotation, reuse, logout, deactivation and role change), the login limit, end-to-end 401/403/429 and the 400 for URLs the firewall rejects |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 23 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries and prove the JWT filter runs no SQL, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
 | Module integration (`@SpringBootTest`) | 7 | Process-role usage across modules, the order of pools and lanes, and the whole diagram of a process |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 90 % of lines and 65 % of branches.
+Current coverage: 91 % of lines and 70 % of branches.
 
 ## Project structure
 
@@ -424,7 +450,8 @@ src/main/java/com/facimus/procesos
 ├── common/        tenant base entity, tenant-aware repository, business exceptions
 │   └── api/       ApiExceptionHandler (Problem Details), PageResponse
 ├── config/        OpenAPI definition, demo store seed (dev profile)
-├── security/      SecurityConfig, JWT service and filter, ApiPrincipal, 401/403 handlers, CORS
+├── security/      SecurityConfig, login and its rate limit, JWT service and filter, closed sessions, ApiPrincipal,
+│                  401/403 handlers, CORS
 ├── gestion/       management module: controller · dto · mapper · service (+ impl) · event · repository · model
 └── modelado/      BPMN modeling module: controller · dto · mapper · service (+ impl) · repository · model
 
@@ -437,15 +464,20 @@ src/test/java/com/facimus/procesos
 ├── config/        profiles, migrations, the OpenAPI contract, and the demo data read through the API
 ├── gestion/       controller slices and service unit tests
 ├── modelado/      controller slices and module integration tests
-└── security/      JWT, role matrix and two-tenant isolation tests
+└── security/      JWT, sessions and login limits, role matrix and two-tenant isolation tests
 ```
 
 ## Design decisions
 
 - **`404` instead of `403` across stores.** Answering "forbidden" would confirm that another store's resource exists.
 - **The tenant comes only from the token.** Request DTOs cannot carry an `empresaId`, and ArchUnit enforces it.
-- **The user is reloaded on every request.** Deactivating an employee takes effect immediately, at the cost of one
-  indexed query per request. Pure claim-based tokens would need a short lifetime plus refresh tokens instead.
+- **Claims instead of a query per request.** The filter trusts the signed claims, so authenticating a request costs
+  no SQL. What a signed token cannot know, that its session was closed, comes from an in-memory list filled by the
+  logout, a reused refresh token, a deactivation or a role change. Access tokens last 15 minutes, so the list only
+  remembers a session that long.
+- **Refresh tokens rotate and work once.** A stolen refresh token either fails, because its owner already used it, or
+  closes the session as soon as the owner uses theirs. The database keeps SHA-256 hashes: the tokens are already
+  random, so BCrypt adds nothing, and the hash has to be searchable.
 - **Single-table inheritance for flow nodes.** Activities and gateways share one table and one identity, so sequence
   flows can point to either of them.
 - **Soft delete for processes and process roles.** They keep their history, and deleted resources answer `404`.
@@ -487,9 +519,10 @@ src/test/java/com/facimus/procesos
 **Security**
 - [x] Enforce globally unique user emails, so a new store cannot reuse an existing user's login email
 - [x] Read-only process sharing between stores (HU-23), through a read door that no change can use
-- [ ] Authenticate through `AuthenticationManager` + `UserDetailsService`, without revealing whether an email exists
-- [ ] Short-lived access tokens with refresh tokens
-- [ ] Rate limiting on login (`429` + `Retry-After`)
+- [x] Authenticate through `AuthenticationManager` + `UserDetailsService`, without revealing whether an email exists
+- [x] Short-lived access tokens with refresh tokens
+- [x] Rate limiting on login (`429` + `Retry-After`)
+- [ ] Purge expired sessions and refresh tokens on a schedule
 
 **Data and auditability**
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes

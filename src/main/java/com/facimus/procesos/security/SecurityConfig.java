@@ -1,19 +1,26 @@
 package com.facimus.procesos.security;
 
+import java.time.Clock;
+import java.time.Duration;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.gestion.service.UsuarioService;
 
 @Configuration
 @EnableWebSecurity
@@ -21,6 +28,8 @@ public class SecurityConfig {
 
     private static final String ADMINISTRADOR = RolAcceso.ADMINISTRADOR.name();
     private static final String EDITOR = RolAcceso.EDITOR.name();
+    /** Cuantas combinaciones de correo e IP recuerda el limite del login; las que menos se usan se olvidan primero. */
+    private static final int CLAVES_DE_LOGIN = 10_000;
 
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
@@ -31,14 +40,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, UsuarioService usuarioService)
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, RevokedSessions revokedSessions)
             throws Exception {
         reglasComunes(http)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthEntryPoint)
                         .accessDeniedHandler(jwtAccessDeniedHandler))
                 // Sin @Bean a proposito: como bean, Spring Boot tambien lo registraria como filtro del servlet.
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService, usuarioService),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtService, revokedSessions),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -51,7 +60,7 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/empresas").permitAll()
                         .requestMatchers("/h2-console/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                 "/error").permitAll()
@@ -71,8 +80,34 @@ public class SecurityConfig {
                         .anyRequest().authenticated());
     }
 
+    /** El reloj del sistema, como bean para que los tests unitarios puedan mover el tiempo. */
+    @Bean
+    public Clock reloj() {
+        return Clock.systemUTC();
+    }
+
+    /** HU-03: los intentos fallidos del login se cuentan por correo e IP, en una ventana deslizante. */
+    @Bean
+    public AttemptLimiter limitadorDeLogin(@Value("${login.max-failed-attempts}") int maximo,
+            @Value("${login.failed-attempts-window}") Duration ventana, Clock reloj) {
+        return new AttemptLimiter(maximo, ventana, CLAVES_DE_LOGIN, reloj);
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * HU-03: DaoAuthenticationProvider compara la clave con BCrypt. Si el correo no existe igual gasta el tiempo de una
+     * comparacion, y responde el mismo BadCredentialsException: ni la respuesta ni su demora delatan que correos
+     * estan registrados.
+     */
+    @Bean
+    public AuthenticationManager authenticationManager(UserDetailsService userDetailsService,
+            PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider proveedor = new DaoAuthenticationProvider(userDetailsService);
+        proveedor.setPasswordEncoder(passwordEncoder);
+        return new ProviderManager(proveedor);
     }
 }
