@@ -1,0 +1,57 @@
+<div class="container py-5" id="login">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+          <h1 class="h3 fw-bold mb-1" id="login-titulo">Sign in</h1>
+          <p class="text-body-secondary mb-4">Use the account of your store.</p>
+
+          @if (sesionVencida) {
+            <div class="alert alert-warning" role="alert" id="login-sesion-vencida">
+              Your session expired. Please sign in again.
+            </div>
+          }
+          @if (error) {
+            <div class="alert alert-danger" role="alert" id="login-error">{{ error }}</div>
+          }
+
+          <form [formGroup]="loginForm" (ngSubmit)="iniciarSesion()" novalidate>
+            <div class="form-floating mb-3">
+              <input type="email" class="form-control" id="login-email" formControlName="email"
+                     placeholder="name@store.com" autocomplete="email">
+              <label for="login-email">Email</label>
+              <app-error-campo [control]="loginForm.get('email')" />
+            </div>
+
+            <div class="form-floating mb-4">
+              <input type="password" class="form-control" id="login-password" formControlName="password"
+                     placeholder="Password" autocomplete="current-password">
+              <label for="login-password">Password</label>
+              <app-error-campo [control]="loginForm.get('password')" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2" id="login-enviar"
+                    [disabled]="loginForm.invalid || enviando">
+              @if (enviando) {
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+              }
+              Sign in
+            </button>
+          </form>
+
+          <div class="border rounded-3 p-3 mt-4 bg-body-tertiary small" id="login-demo">
+            <div class="fw-semibold mb-1"><i class="fa-solid fa-store" aria-hidden="true"></i> Demo store</div>
+            <p class="text-body-secondary mb-2">admin&#64;demo.com · admin123 · administrator</p>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="login-usar-demo" (click)="usarCuentaDemo()">
+              Use the demo account
+            </button>
+          </div>
+
+          <p class="text-center small mt-4 mb-0">
+            No store yet? <a routerLink="/registro" id="login-ir-registro">Create one</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
