@@ -11,14 +11,46 @@
     </button>
 
     <div class="collapse navbar-collapse" id="navbar-menu">
-      <ul class="navbar-nav ms-auto">
+      <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
         <li class="nav-item">
           <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
              id="navbar-inicio">Home</a>
         </li>
+
+        @if (usuario$ | async; as usuario) {
+          <li class="nav-item dropdown">
+            <button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                    id="navbar-usuario">
+              <i class="fa-solid fa-circle-user" aria-hidden="true"></i> {{ usuario.nombre }}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><h6 class="dropdown-header">{{ nombreRol[usuario.rolAcceso] }} · store {{ usuario.empresaId }}</h6></li>
+              <li>
+                <a class="dropdown-item" routerLink="/cuenta" id="navbar-cuenta">
+                  <i class="fa-solid fa-id-badge" aria-hidden="true"></i> My account
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <button type="button" class="dropdown-item" id="navbar-salir" (click)="cerrarSesion()">
+                  <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign out
+                </button>
+              </li>
+            </ul>
+          </li>
+        } @else {
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/login" routerLinkActive="active" id="navbar-login">Sign in</a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-outline-light btn-sm" routerLink="/registro" id="navbar-registro">Create a store</a>
+          </li>
+        }
+
         <li class="nav-item">
-          <a class="nav-link" [href]="repositorio" target="_blank" rel="noopener" id="navbar-github">
-            <i class="fa-brands fa-github" aria-hidden="true"></i> GitHub
+          <a class="nav-link" [href]="repositorio" target="_blank" rel="noopener" id="navbar-github"
+             aria-label="Source on GitHub">
+            <i class="fa-brands fa-github" aria-hidden="true"></i><span class="d-lg-none"> GitHub</span>
           </a>
         </li>
       </ul>

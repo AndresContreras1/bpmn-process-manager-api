@@ -1,4 +1,10 @@
-import { Component } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { Observable } from 'rxjs';
+
+import { Usuario } from '../../models/usuario.model';
+import { AuthService } from '../../service/auth.service';
 
 /** Tarjeta de la portada: algo que se puede hacer con la aplicacion. */
 interface Caracteristica {
@@ -9,11 +15,13 @@ interface Caracteristica {
 
 @Component({
   selector: 'app-inicio',
-  imports: [],
+  imports: [AsyncPipe, RouterLink],
   templateUrl: './inicio.component.html',
   styleUrl: './inicio.component.scss',
 })
 export class InicioComponent {
+  readonly usuario$: Observable<Usuario | null> = inject(AuthService).usuario$;
+
   readonly caracteristicas: Caracteristica[] = [
     {
       icono: 'fa-list-check',

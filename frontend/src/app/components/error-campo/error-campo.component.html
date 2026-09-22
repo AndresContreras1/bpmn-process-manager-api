@@ -1,0 +1,15 @@
+@if (control()?.invalid && (control()?.touched || control()?.errors?.['servidor'])) {
+  <div class="invalid-feedback d-block" data-testid="error-campo">
+    @if (control()?.errors?.['required']) {
+      This field is required.
+    } @else if (control()?.errors?.['email']) {
+      Enter a valid email address.
+    } @else if (control()?.errors?.['minlength']) {
+      Use at least {{ control()?.errors?.['minlength'].requiredLength }} characters.
+    } @else if (control()?.errors?.['maxlength']) {
+      Use at most {{ control()?.errors?.['maxlength'].requiredLength }} characters.
+    } @else if (control()?.errors?.['servidor']) {
+      {{ control()?.errors?.['servidor'] }}
+    }
+  </div>
+}

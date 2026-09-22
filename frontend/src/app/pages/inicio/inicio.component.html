@@ -8,7 +8,17 @@
           Each online store documents its operations, from order fulfillment to returns, as BPMN processes.
           Its data never reaches another store.
         </p>
-        <p class="text-body-secondary mb-0">The demo store comes with a published order fulfillment process.</p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          @if (usuario$ | async) {
+            <a class="btn btn-primary btn-lg" routerLink="/cuenta" id="inicio-ir-cuenta">Go to my account</a>
+          } @else {
+            <a class="btn btn-primary btn-lg" routerLink="/login" id="inicio-login">Sign in</a>
+            <a class="btn btn-outline-primary btn-lg" routerLink="/registro" id="inicio-registro">Create your store</a>
+          }
+        </div>
+        <p class="text-body-secondary small mb-0" id="inicio-demo">
+          The demo store comes with a published order fulfillment process: sign in with admin&#64;demo.com and admin123.
+        </p>
       </div>
 
       <div class="col-lg-6">

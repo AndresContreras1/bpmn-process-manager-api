@@ -1,0 +1,87 @@
+<div class="container py-5" id="registro">
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-7">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+          <h1 class="h3 fw-bold mb-1" id="registro-titulo">Create your store</h1>
+          <p class="text-body-secondary mb-4">
+            Your store gets its own space: its processes, users and roles stay invisible to every other store.
+          </p>
+
+          @if (error) {
+            <div class="alert alert-danger" role="alert" id="registro-error">{{ error }}</div>
+          }
+
+          <form [formGroup]="registroForm" (ngSubmit)="registrar()" novalidate>
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Store</h2>
+            <div class="row g-3 mb-4">
+              <div class="col-12">
+                <div class="form-floating">
+                  <input type="text" class="form-control" id="registro-nombre-empresa" formControlName="nombreEmpresa"
+                         placeholder="Store name" autocomplete="organization">
+                  <label for="registro-nombre-empresa">Store name</label>
+                  <app-error-campo [control]="registroForm.get('nombreEmpresa')" />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-floating">
+                  <input type="text" class="form-control" id="registro-nit" formControlName="nit" placeholder="Tax ID">
+                  <label for="registro-nit">Tax ID (NIT)</label>
+                  <app-error-campo [control]="registroForm.get('nit')" />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-floating">
+                  <input type="email" class="form-control" id="registro-correo-contacto" formControlName="correoContacto"
+                         placeholder="contact@store.com">
+                  <label for="registro-correo-contacto">Contact email</label>
+                  <app-error-campo [control]="registroForm.get('correoContacto')" />
+                </div>
+              </div>
+            </div>
+
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Administrator</h2>
+            <div class="row g-3 mb-4">
+              <div class="col-12">
+                <div class="form-floating">
+                  <input type="text" class="form-control" id="registro-nombre-admin" formControlName="nombreAdmin"
+                         placeholder="Full name" autocomplete="name">
+                  <label for="registro-nombre-admin">Full name</label>
+                  <app-error-campo [control]="registroForm.get('nombreAdmin')" />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-floating">
+                  <input type="email" class="form-control" id="registro-email-admin" formControlName="emailAdmin"
+                         placeholder="you@store.com" autocomplete="email">
+                  <label for="registro-email-admin">Email (your login)</label>
+                  <app-error-campo [control]="registroForm.get('emailAdmin')" />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-floating">
+                  <input type="password" class="form-control" id="registro-password-admin" formControlName="passwordAdmin"
+                         placeholder="Password" autocomplete="new-password">
+                  <label for="registro-password-admin">Password (6 to 72 characters)</label>
+                  <app-error-campo [control]="registroForm.get('passwordAdmin')" />
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2" id="registro-enviar"
+                    [disabled]="registroForm.invalid || enviando">
+              @if (enviando) {
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+              }
+              Create store
+            </button>
+          </form>
+
+          <p class="text-center small mt-4 mb-0">
+            Already have an account? <a routerLink="/login" id="registro-ir-login">Sign in</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
