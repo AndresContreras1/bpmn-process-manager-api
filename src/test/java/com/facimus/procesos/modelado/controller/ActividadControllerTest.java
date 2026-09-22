@@ -37,7 +37,8 @@ class ActividadControllerTest {
     @DisplayName("POST /api/v1/lanes/{laneId}/actividades - crear actividad (201)")
     void crear_actividad() throws Exception {
         ActividadResponse a = crearActividad(1L, "Revisar solicitud");
-        given(actividadService.crear(eq(1L), eq(3L), anyString(), anyString(), anyInt(), anyInt())).willReturn(a);
+        given(actividadService.crear(eq(1L), eq(1L), eq(3L), anyString(), anyString(), anyInt(),
+                anyInt())).willReturn(a);
 
         mockMvc.perform(post("/api/v1/lanes/3/actividades")
                         .with(principal(RolAcceso.EDITOR))
@@ -114,7 +115,7 @@ class ActividadControllerTest {
     @DisplayName("PUT /api/v1/actividades/{id} - editar actividad (200)")
     void editar_actividad() throws Exception {
         ActividadResponse a = crearActividad(1L, "Revisar v2");
-        given(actividadService.editar(eq(1L), eq(1L), anyString(), anyString(), anyInt(), anyInt(), eq(3L)))
+        given(actividadService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyString(), anyInt(), anyInt(), eq(3L)))
                 .willReturn(a);
 
         mockMvc.perform(put("/api/v1/actividades/1")
@@ -131,7 +132,7 @@ class ActividadControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/actividades/{id} - eliminar actividad (204)")
     void eliminar_actividad() throws Exception {
-        doNothing().when(actividadService).eliminar(1L, 1L);
+        doNothing().when(actividadService).eliminar(1L, 1L, 1L);
         mockMvc.perform(delete("/api/v1/actividades/1").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isNoContent());
     }

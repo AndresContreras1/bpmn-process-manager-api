@@ -76,46 +76,49 @@ public class DatosDemoInitializer implements CommandLineRunner {
 
         // El proceso nace con el pool de la tienda; los demas participantes se modelan como cajas negras.
         PoolResponse tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst();
-        PoolResponse cliente = poolService.crear(empresaId, procesoId, "Customer", TipoParticipante.CLIENTE, true);
-        PoolResponse pasarela = poolService.crear(empresaId, procesoId, "Payment gateway",
-                TipoParticipante.SISTEMA_EXTERNO, true);
-        PoolResponse transportadora = poolService.crear(empresaId, procesoId, "Carrier", TipoParticipante.PROVEEDOR,
+        PoolResponse cliente = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE,
                 true);
+        PoolResponse pasarela = poolService.crear(empresaId, adminId, procesoId, "Payment gateway",
+                TipoParticipante.SISTEMA_EXTERNO, true);
+        PoolResponse transportadora = poolService.crear(empresaId, adminId, procesoId, "Carrier",
+                TipoParticipante.PROVEEDOR, true);
 
-        Long ventas = laneService.crear(empresaId, tienda.id(), "Sales", rolProcesoService
+        Long ventas = laneService.crear(empresaId, adminId, tienda.id(), "Sales", rolProcesoService
                 .crear(empresaId, "Sales", "Receives orders and coordinates the payment.").id()).id();
-        Long bodega = laneService.crear(empresaId, tienda.id(), "Warehouse", rolProcesoService
+        Long bodega = laneService.crear(empresaId, adminId, tienda.id(), "Warehouse", rolProcesoService
                 .crear(empresaId, "Warehouse", "Picks, packs and ships the orders.").id()).id();
 
-        Long recibir = actividadService.crear(empresaId, ventas, "Receive order",
+        Long recibir = actividadService.crear(empresaId, adminId, ventas, "Receive order",
                 "Validate the cart, the stock and the shipping address.", 100, 80).id();
-        Long autorizar = actividadService.crear(empresaId, ventas, "Request payment authorization",
+        Long autorizar = actividadService.crear(empresaId, adminId, ventas, "Request payment authorization",
                 "Send the order total to the payment gateway.", 260, 80).id();
-        Long pagoAprobado = gatewayService.crear(empresaId, ventas, "Payment approved?", TipoGateway.EXCLUSIVO,
+        Long pagoAprobado = gatewayService.crear(empresaId, adminId, ventas, "Payment approved?", TipoGateway.EXCLUSIVO,
                 420, 80).id();
-        Long cancelar = actividadService.crear(empresaId, ventas, "Cancel order",
+        Long cancelar = actividadService.crear(empresaId, adminId, ventas, "Cancel order",
                 "Release the reserved stock and notify the customer.", 580, 40).id();
-        Long empacar = actividadService.crear(empresaId, bodega, "Pick and pack items",
+        Long empacar = actividadService.crear(empresaId, adminId, bodega, "Pick and pack items",
                 "Collect the items and prepare the package.", 580, 200).id();
-        Long enviar = actividadService.crear(empresaId, bodega, "Ship order",
+        Long enviar = actividadService.crear(empresaId, adminId, bodega, "Ship order",
                 "Hand the package over to the carrier.", 740, 200).id();
 
-        arcoService.crear(empresaId, recibir, autorizar, null, null);
+        arcoService.crear(empresaId, adminId, recibir, autorizar, null, null);
         // Todo arco que entra a un gateway exclusivo lleva condicion (regla de ArcoService).
-        arcoService.crear(empresaId, autorizar, pagoAprobado, null, "Authorization response received");
-        arcoService.crear(empresaId, pagoAprobado, empacar, "Approved", "payment.status == APPROVED");
-        arcoService.crear(empresaId, pagoAprobado, cancelar, "Declined", "payment.status == DECLINED");
-        arcoService.crear(empresaId, empacar, enviar, null, null);
+        arcoService.crear(empresaId, adminId, autorizar, pagoAprobado, null, "Authorization response received");
+        arcoService.crear(empresaId, adminId, pagoAprobado, empacar, "Approved", "payment.status == APPROVED");
+        arcoService.crear(empresaId, adminId, pagoAprobado, cancelar, "Declined", "payment.status == DECLINED");
+        arcoService.crear(empresaId, adminId, empacar, enviar, null, null);
 
-        correlacionar(empresaId, mensajeService.crear(empresaId, procesoId, "Order placed",
+        correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId, "Order placed",
                 "Cart items, shipping address and payment method.", cliente.id(), tienda.id()));
-        correlacionar(empresaId, mensajeService.crear(empresaId, procesoId, "Payment authorization request",
-                "Order total and tokenized card.", tienda.id(), pasarela.id()));
-        correlacionar(empresaId, mensajeService.crear(empresaId, procesoId, "Payment authorization result",
+        correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId,
+                "Payment authorization request", "Order total and tokenized card.", tienda.id(), pasarela.id()));
+        correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId,
+                "Payment authorization result",
                 "Approved or declined, with the transaction id.", pasarela.id(), tienda.id()));
-        correlacionar(empresaId, mensajeService.crear(empresaId, procesoId, "Shipment request",
+        correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId, "Shipment request",
                 "Package size, weight and delivery address.", tienda.id(), transportadora.id()));
-        correlacionar(empresaId, mensajeService.crear(empresaId, procesoId, "Order status notification",
+        correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId,
+                "Order status notification",
                 "Confirmation with the tracking number, or the cancellation notice.", tienda.id(),
                 cliente.id()));
 
@@ -123,7 +126,7 @@ public class DatosDemoInitializer implements CommandLineRunner {
     }
 
     /** Todos los mensajes del pedido se correlacionan por su numero de orden. */
-    private void correlacionar(Long empresaId, MensajeResponse mensaje) {
-        correlacionService.definir(empresaId, mensaje.id(), CLAVE_DE_CORRELACION, null);
+    private void correlacionar(Long empresaId, Long adminId, MensajeResponse mensaje) {
+        correlacionService.definir(empresaId, adminId, mensaje.id(), CLAVE_DE_CORRELACION, null);
     }
 }

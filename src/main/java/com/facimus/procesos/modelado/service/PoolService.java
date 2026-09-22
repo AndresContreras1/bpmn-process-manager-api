@@ -8,13 +8,13 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
 /** HU-21 y HU-23: pools (participantes del proceso). */
 public interface PoolService {
 
-    PoolResponse crear(Long empresaId, Long procesoId, String nombre, TipoParticipante tipoParticipante,
+    PoolResponse crear(Long empresaId, Long usuarioId, Long procesoId, String nombre, TipoParticipante tipoParticipante,
             boolean cajaNegra);
 
-    PoolResponse editar(Long empresaId, Long poolId, String nombre, TipoParticipante tipoParticipante,
+    PoolResponse editar(Long empresaId, Long usuarioId, Long poolId, String nombre, TipoParticipante tipoParticipante,
             Long version);
 
-    void eliminar(Long empresaId, Long poolId);
+    void eliminar(Long empresaId, Long usuarioId, Long poolId);
 
     List<PoolResponse> listarPorProceso(Long empresaId, Long procesoId);
 

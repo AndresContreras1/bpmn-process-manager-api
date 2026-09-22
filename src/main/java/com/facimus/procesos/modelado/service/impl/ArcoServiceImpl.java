@@ -8,6 +8,7 @@ import org.springframework.util.StringUtils;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
 import com.facimus.procesos.modelado.model.Arco;
@@ -27,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ArcoServiceImpl implements ArcoService {
 
+    private final HistorialCambioService historialCambioService;
     private final ArcoRepository arcoRepository;
     private final NodoFlujoRepository nodoFlujoRepository;
     private final PoolRepository poolRepository;
@@ -34,7 +36,8 @@ public class ArcoServiceImpl implements ArcoService {
 
     @Override
     @Transactional
-    public ArcoResponse crear(Long empresaId, Long origenId, Long destinoId, String etiqueta, String condicion) {
+    public ArcoResponse crear(Long empresaId, Long usuarioId, Long origenId, Long destinoId, String etiqueta,
+            String condicion) {
         if (origenId.equals(destinoId)) {
             throw new ReglaNegocioException("Un arco no puede tener el mismo nodo como origen y destino.");
         }
@@ -66,23 +69,35 @@ public class ArcoServiceImpl implements ArcoService {
                 .etiqueta(etiqueta)
                 .condicion(condicion)
                 .build());
+        historialCambioService.registrar(empresaId, usuarioId, poolOrigen.getProceso(),
+                "Flujo " + tramo(arco) + " agregado.");
         return arcoMapper.toResponse(arco);
     }
 
     @Override
     @Transactional
-    public ArcoResponse editar(Long empresaId, Long arcoId, String etiqueta, String condicion, Long version) {
+    public ArcoResponse editar(Long empresaId, Long usuarioId, Long arcoId, String etiqueta, String condicion,
+            Long version) {
         Arco arco = buscar(empresaId, arcoId);
         arco.verificarVersion(version);
         arco.setEtiqueta(etiqueta);
         arco.setCondicion(condicion);
+        historialCambioService.registrar(empresaId, usuarioId, arco.getPool().getProceso(),
+                "Flujo " + tramo(arco) + " editado.");
         return arcoMapper.toResponse(arcoRepository.saveAndFlush(arco));
     }
 
     @Override
     @Transactional
-    public void eliminar(Long empresaId, Long arcoId) {
-        arcoRepository.delete(buscar(empresaId, arcoId));
+    public void eliminar(Long empresaId, Long usuarioId, Long arcoId) {
+        Arco arco = buscar(empresaId, arcoId);
+        arcoRepository.delete(arco);
+        historialCambioService.registrar(empresaId, usuarioId, arco.getPool().getProceso(),
+                "Flujo " + tramo(arco) + " eliminado.");
+    }
+
+    private static String tramo(Arco arco) {
+        return "de \"" + arco.getOrigen().getNombre() + "\" a \"" + arco.getDestino().getNombre() + "\"";
     }
 
     @Override

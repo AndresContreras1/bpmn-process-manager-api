@@ -60,8 +60,8 @@ class UsoDeRolesIntegracionTest {
         Long procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        laneService.crear(empresaId, poolId, "Picking", rolId);
-        laneService.crear(empresaId, poolId, "Packing", rolId);
+        laneService.crear(empresaId, adminId, poolId, "Picking", rolId);
+        laneService.crear(empresaId, adminId, poolId, "Packing", rolId);
 
         RolProcesoVistaResponse rol = rolProcesoService.obtener(empresaId, rolId);
 
@@ -76,7 +76,7 @@ class UsoDeRolesIntegracionTest {
         Long procesoId = procesoService.crear(empresaId, adminId, "Returns", "Return request to refund",
                 "After-sales").id();
         Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        laneService.crear(empresaId, poolId, "Returns desk", rolId);
+        laneService.crear(empresaId, adminId, poolId, "Returns desk", rolId);
 
         procesoService.eliminarLogico(empresaId, procesoId, adminId);
 

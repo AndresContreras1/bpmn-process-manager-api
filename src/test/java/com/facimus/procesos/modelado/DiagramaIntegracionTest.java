@@ -92,25 +92,28 @@ class DiagramaIntegracionTest {
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         Long tiendaId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        Long clienteId = poolService.crear(empresaId, procesoId, "Customer", TipoParticipante.CLIENTE, true).id();
-        Long ventas = laneService.crear(empresaId, tiendaId, "Sales",
+        Long clienteId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE,
+                true).id();
+        Long ventas = laneService.crear(empresaId, adminId, tiendaId, "Sales",
                 rolProcesoService.crear(empresaId, "Sales", null).id()).id();
-        Long bodega = laneService.crear(empresaId, tiendaId, "Warehouse",
+        Long bodega = laneService.crear(empresaId, adminId, tiendaId, "Warehouse",
                 rolProcesoService.crear(empresaId, "Warehouse", null).id()).id();
-        Long recibir = actividadService.crear(empresaId, ventas, "Receive order", null, 100, 80).id();
-        Long pagado = gatewayService.crear(empresaId, ventas, "Payment approved?", TipoGateway.EXCLUSIVO, 260, 80)
+        Long recibir = actividadService.crear(empresaId, adminId, ventas, "Receive order", null, 100, 80).id();
+        Long pagado = gatewayService.crear(empresaId, adminId, ventas, "Payment approved?", TipoGateway.EXCLUSIVO, 260,
+                80)
                 .id();
-        Long empacar = actividadService.crear(empresaId, bodega, "Pick and pack items", null, 420, 200).id();
-        arcoService.crear(empresaId, recibir, pagado, null, "Authorization response received");
-        arcoService.crear(empresaId, pagado, empacar, "Approved", "payment.status == APPROVED");
-        Long pedido = mensajeService.crear(empresaId, procesoId, "Order placed", "Cart items", clienteId, tiendaId)
+        Long empacar = actividadService.crear(empresaId, adminId, bodega, "Pick and pack items", null, 420, 200).id();
+        arcoService.crear(empresaId, adminId, recibir, pagado, null, "Authorization response received");
+        arcoService.crear(empresaId, adminId, pagado, empacar, "Approved", "payment.status == APPROVED");
+        Long pedido = mensajeService.crear(empresaId, adminId, procesoId, "Order placed", "Cart items", clienteId,
+                tiendaId)
                 .id();
-        correlacionService.definir(empresaId, pedido, "orderId", null);
+        correlacionService.definir(empresaId, adminId, pedido, "orderId", null);
 
         // Otro proceso de la misma tienda, con un participante propio que no pertenece al diagrama anterior.
         Long devoluciones = procesoService.crear(empresaId, adminId, "Returns and refunds", "Return to refund",
                 "After-sales").id();
-        poolService.crear(empresaId, devoluciones, "Carrier", TipoParticipante.PROVEEDOR, true);
+        poolService.crear(empresaId, adminId, devoluciones, "Carrier", TipoParticipante.PROVEEDOR, true);
     }
 
     @Test

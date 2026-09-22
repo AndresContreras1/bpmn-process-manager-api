@@ -11,5 +11,8 @@ public interface HistorialCambioService {
 
     void registrar(Proceso proceso, Usuario autor, String descripcion);
 
+    /** Anota un cambio que hizo un usuario de la empresa, que se busca por su id. */
+    void registrar(Long empresaId, Long usuarioId, Proceso proceso, String descripcion);
+
     List<HistorialCambioResponse> listarPorProceso(Long empresaId, Long procesoId);
 }

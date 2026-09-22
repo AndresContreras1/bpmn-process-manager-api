@@ -59,11 +59,12 @@ class OrdenIntegracionTest {
     void poolNuevo_trasEliminarUnoDelMedio_noRepitePosicion() {
         Long procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
-        Long clienteId = poolService.crear(empresaId, procesoId, "Customer", TipoParticipante.CLIENTE, true).id();
-        poolService.crear(empresaId, procesoId, "Carrier", TipoParticipante.PROVEEDOR, true);
-        poolService.eliminar(empresaId, clienteId);
+        Long clienteId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE,
+                true).id();
+        poolService.crear(empresaId, adminId, procesoId, "Carrier", TipoParticipante.PROVEEDOR, true);
+        poolService.eliminar(empresaId, adminId, clienteId);
 
-        PoolResponse nuevo = poolService.crear(empresaId, procesoId, "Payment gateway",
+        PoolResponse nuevo = poolService.crear(empresaId, adminId, procesoId, "Payment gateway",
                 TipoParticipante.SISTEMA_EXTERNO, true);
 
         assertThat(nuevo.orden()).isEqualTo(3);
@@ -79,11 +80,11 @@ class OrdenIntegracionTest {
                 "After-sales").id();
         Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
         Long rolId = rolProcesoService.crear(empresaId, "Returns desk", null).id();
-        Long primeraId = laneService.crear(empresaId, poolId, "Reception", rolId).id();
-        laneService.crear(empresaId, poolId, "Inspection", rolId);
-        laneService.eliminar(empresaId, primeraId);
+        Long primeraId = laneService.crear(empresaId, adminId, poolId, "Reception", rolId).id();
+        laneService.crear(empresaId, adminId, poolId, "Inspection", rolId);
+        laneService.eliminar(empresaId, adminId, primeraId);
 
-        LaneResponse nueva = laneService.crear(empresaId, poolId, "Refunds", rolId);
+        LaneResponse nueva = laneService.crear(empresaId, adminId, poolId, "Refunds", rolId);
 
         assertThat(nueva.orden()).isEqualTo(2);
         assertThat(laneService.listarPorPool(empresaId, poolId))

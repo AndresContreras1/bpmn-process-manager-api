@@ -7,11 +7,11 @@ import com.facimus.procesos.modelado.dto.response.LaneResponse;
 /** HU-22 y HU-24: lanes (divisiones internas de un pool). */
 public interface LaneService {
 
-    LaneResponse crear(Long empresaId, Long poolId, String nombre, Long rolProcesoId);
+    LaneResponse crear(Long empresaId, Long usuarioId, Long poolId, String nombre, Long rolProcesoId);
 
-    LaneResponse editar(Long empresaId, Long laneId, String nombre, Long rolProcesoId, Long version);
+    LaneResponse editar(Long empresaId, Long usuarioId, Long laneId, String nombre, Long rolProcesoId, Long version);
 
-    void eliminar(Long empresaId, Long laneId);
+    void eliminar(Long empresaId, Long usuarioId, Long laneId);
 
     List<LaneResponse> listarPorPool(Long empresaId, Long poolId);
 

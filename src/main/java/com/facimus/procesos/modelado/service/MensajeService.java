@@ -7,12 +7,13 @@ import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 /** HU-25 a HU-27: mensajes (comunicacion entre pools). */
 public interface MensajeService {
 
-    MensajeResponse crear(Long empresaId, Long procesoId, String nombre, String contenido, Long poolOrigenId,
-            Long poolDestinoId);
+    MensajeResponse crear(Long empresaId, Long usuarioId, Long procesoId, String nombre, String contenido,
+            Long poolOrigenId, Long poolDestinoId);
 
-    MensajeResponse editar(Long empresaId, Long mensajeId, String nombre, String contenido, Long version);
+    MensajeResponse editar(Long empresaId, Long usuarioId, Long mensajeId, String nombre, String contenido,
+            Long version);
 
-    void eliminar(Long empresaId, Long mensajeId);
+    void eliminar(Long empresaId, Long usuarioId, Long mensajeId);
 
     List<MensajeResponse> listarPorProceso(Long empresaId, Long procesoId);
 

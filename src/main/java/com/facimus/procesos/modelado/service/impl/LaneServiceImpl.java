@@ -9,6 +9,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.mapper.LaneMapper;
 import com.facimus.procesos.modelado.model.Lane;
@@ -25,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class LaneServiceImpl implements LaneService {
 
+    private final HistorialCambioService historialCambioService;
     private final LaneRepository laneRepository;
     private final PoolRepository poolRepository;
     private final RolProcesoRepository rolProcesoRepository;
@@ -33,7 +35,7 @@ public class LaneServiceImpl implements LaneService {
 
     @Override
     @Transactional
-    public LaneResponse crear(Long empresaId, Long poolId, String nombre, Long rolProcesoId) {
+    public LaneResponse crear(Long empresaId, Long usuarioId, Long poolId, String nombre, Long rolProcesoId) {
         Pool pool = poolRepository.findByIdAndEmpresaId(poolId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pool no encontrado."));
         RolProceso rolProceso = rolProceso(empresaId, rolProcesoId);
@@ -46,27 +48,34 @@ public class LaneServiceImpl implements LaneService {
                 .rolProceso(rolProceso)
                 .orden(orden)
                 .build());
+        historialCambioService.registrar(empresaId, usuarioId, pool.getProceso(),
+                "Lane \"" + nombre + "\" agregada al pool \"" + pool.getNombre() + "\".");
         return laneMapper.toResponse(lane);
     }
 
     @Override
     @Transactional
-    public LaneResponse editar(Long empresaId, Long laneId, String nombre, Long rolProcesoId, Long version) {
+    public LaneResponse editar(Long empresaId, Long usuarioId, Long laneId, String nombre, Long rolProcesoId,
+            Long version) {
         Lane lane = buscar(empresaId, laneId);
         lane.verificarVersion(version);
         lane.setNombre(nombre);
         lane.setRolProceso(rolProceso(empresaId, rolProcesoId));
+        historialCambioService.registrar(empresaId, usuarioId, lane.getPool().getProceso(),
+                "Lane \"" + nombre + "\" editada.");
         return laneMapper.toResponse(laneRepository.saveAndFlush(lane));
     }
 
     @Override
     @Transactional
-    public void eliminar(Long empresaId, Long laneId) {
+    public void eliminar(Long empresaId, Long usuarioId, Long laneId) {
         Lane lane = buscar(empresaId, laneId);
         if (nodoFlujoRepository.existsByLaneIdAndEmpresaId(laneId, empresaId)) {
             throw new ReglaNegocioException("La lane \"" + lane.getNombre() + "\" contiene actividades; no se puede eliminar.");
         }
         laneRepository.delete(lane);
+        historialCambioService.registrar(empresaId, usuarioId, lane.getPool().getProceso(),
+                "Lane \"" + lane.getNombre() + "\" eliminada.");
     }
 
     @Override
@@ -88,7 +97,8 @@ public class LaneServiceImpl implements LaneService {
     }
 
     private RolProceso rolProceso(Long empresaId, Long rolProcesoId) {
-        return rolProcesoRepository.findByIdAndEmpresaId(rolProcesoId, empresaId)
+        // Un rol eliminado ya no se asigna: para las lanes no existe.
+        return rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(rolProcesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Rol de proceso no encontrado."));
     }
 }

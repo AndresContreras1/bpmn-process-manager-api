@@ -72,8 +72,8 @@ public class MensajeController {
     public ResponseEntity<MensajeResponse> crear(@PathVariable Long procesoId,
             @Validated @RequestBody MensajeRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        MensajeResponse mensaje = mensajeService.crear(empresaId, procesoId, request.nombre(), request.contenido(),
-                request.poolOrigenId(), request.poolDestinoId());
+        MensajeResponse mensaje = mensajeService.crear(empresaId, principal.usuarioId(), procesoId, request.nombre(),
+                request.contenido(), request.poolOrigenId(), request.poolDestinoId());
         return ResponseEntity.created(URI.create("/api/v1/mensajes/" + mensaje.id())).body(mensaje);
     }
 
@@ -88,8 +88,8 @@ public class MensajeController {
     public ResponseEntity<MensajeResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarMensajeRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(mensajeService.editar(empresaId, id, request.nombre(), request.contenido(),
-                request.version()));
+        return ResponseEntity.ok(mensajeService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
+                request.contenido(), request.version()));
     }
 
     @Operation(summary = "Delete a message flow",
@@ -101,7 +101,7 @@ public class MensajeController {
     @DeleteMapping("/mensajes/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        mensajeService.eliminar(empresaId, id);
+        mensajeService.eliminar(empresaId, principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 }

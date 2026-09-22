@@ -161,8 +161,8 @@ class AislamientoEmpresasIntegracionTest {
         procesoA = procesoService.crear(empresaA, adminA, "Ventas", "Proceso de ventas", "Comercial").id();
         poolA = poolService.listarPorProceso(empresaA, procesoA).getFirst().id();
         rolA = rolProcesoService.crear(empresaA, "Vendedor", "Atiende a los clientes").id();
-        laneA = laneService.crear(empresaA, poolA, "Ventas", rolA).id();
-        gatewayA = gatewayService.crear(empresaA, laneA, "Revisar venta", TipoGateway.PARALELO, 100, 100).id();
+        laneA = laneService.crear(empresaA, adminA, poolA, "Ventas", rolA).id();
+        gatewayA = gatewayService.crear(empresaA, adminA, laneA, "Revisar venta", TipoGateway.PARALELO, 100, 100).id();
         // Quien ataca tiene un usuarioId distinto del empresaId de su empresa: si un controller
         // confundiera los dos ids, estas pruebas lo notarian.
         Long auditorA = usuarioService
@@ -175,16 +175,18 @@ class AislamientoEmpresasIntegracionTest {
         procesoB = procesoService.crear(empresaB, adminB, "Compras", "Proceso de compras", "Logistica").id();
         poolB = poolService.listarPorProceso(empresaB, procesoB).getFirst().id();
         Long poolProveedorB = poolService
-                .crear(empresaB, procesoB, "Proveedor", TipoParticipante.PROVEEDOR, true).id();
+                .crear(empresaB, adminB, procesoB, "Proveedor", TipoParticipante.PROVEEDOR, true).id();
         rolB = rolProcesoService.crear(empresaB, "Comprador", "Gestiona las compras").id();
-        laneB = laneService.crear(empresaB, poolB, "Compras", rolB).id();
-        actividadB = actividadService.crear(empresaB, laneB, "Solicitar cotizacion", "Pide precios", 100, 300).id();
-        gatewayB =gatewayService.crear(empresaB, laneB, "Aprobar compra", TipoGateway.PARALELO, 100, 100).id();
+        laneB = laneService.crear(empresaB, adminB, poolB, "Compras", rolB).id();
+        actividadB = actividadService.crear(empresaB, adminB, laneB, "Solicitar cotizacion", "Pide precios", 100,
+                300).id();
+        gatewayB =gatewayService.crear(empresaB, adminB, laneB, "Aprobar compra", TipoGateway.PARALELO, 100, 100).id();
         gatewayCierreB = gatewayService
-                .crear(empresaB, laneB, "Cerrar compra", TipoGateway.PARALELO, 300, 100).id();
-        arcoB = arcoService.crear(empresaB, gatewayB, gatewayCierreB, "Continuar", null).id();
-        mensajeB = mensajeService.crear(empresaB, procesoB, "Orden de compra", "Pedido", poolB, poolProveedorB).id();
-        correlacionService.definir(empresaB, mensajeB, "numeroPedido", null);
+                .crear(empresaB, adminB, laneB, "Cerrar compra", TipoGateway.PARALELO, 300, 100).id();
+        arcoB = arcoService.crear(empresaB, adminB, gatewayB, gatewayCierreB, "Continuar", null).id();
+        mensajeB = mensajeService.crear(empresaB, adminB, procesoB, "Orden de compra", "Pedido", poolB,
+                poolProveedorB).id();
+        correlacionService.definir(empresaB, adminB, mensajeB, "numeroPedido", null);
 
         tokenA = login(AUDITOR_A);
         tokenB = login(ADMIN_B);
@@ -253,7 +255,8 @@ class AislamientoEmpresasIntegracionTest {
                 Arguments.of(HttpMethod.PUT, "/api/v1/actividades/{id}", actividadB,
                         new EditarActividadRequest("Intrusa", "Desde la empresa A", 0, 0, 0L),
                         "Actividad no encontrada"),
-                Arguments.of(HttpMethod.DELETE, "/api/v1/actividades/{id}", actividadB, null, "Actividad no encontrada"),
+                Arguments.of(HttpMethod.DELETE, "/api/v1/actividades/{id}", actividadB, null,
+                        "Actividad no encontrada"),
                 Arguments.of(HttpMethod.POST, "/api/v1/lanes/{id}/gateways", laneB, gateway, "Lane no encontrada"),
                 Arguments.of(HttpMethod.GET, "/api/v1/gateways/{id}", gatewayB, null, "Gateway no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/gateways/{id}", gatewayB,

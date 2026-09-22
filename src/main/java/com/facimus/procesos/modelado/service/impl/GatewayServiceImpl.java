@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.mapper.GatewayMapper;
 import com.facimus.procesos.modelado.model.Gateway;
@@ -25,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class GatewayServiceImpl implements GatewayService {
 
+    private final HistorialCambioService historialCambioService;
     private final GatewayRepository gatewayRepository;
     private final NodoFlujoRepository nodoFlujoRepository;
     private final LaneRepository laneRepository;
@@ -33,12 +35,13 @@ public class GatewayServiceImpl implements GatewayService {
 
     @Override
     @Transactional
-    public GatewayResponse crear(Long empresaId, Long laneId, String nombre, TipoGateway tipoGateway, int posX,
-            int posY) {
+    public GatewayResponse crear(Long empresaId, Long usuarioId, Long laneId, String nombre, TipoGateway tipoGateway,
+            int posX, int posY) {
         Lane lane = laneRepository.findByIdAndEmpresaId(laneId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Lane no encontrada."));
         Long procesoId = lane.getPool().getProceso().getId();
-        if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaId(nombre, procesoId, empresaId)) {
+        if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaId(nombre, procesoId,
+                empresaId)) {
             throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
         }
 
@@ -50,29 +53,35 @@ public class GatewayServiceImpl implements GatewayService {
                 .posicionX(posX)
                 .posicionY(posY)
                 .build());
+        historialCambioService.registrar(empresaId, usuarioId, lane.getPool().getProceso(),
+                "Gateway \"" + nombre + "\" agregado.");
         return gatewayMapper.toResponse(gateway);
     }
 
     @Override
     @Transactional
-    public GatewayResponse editar(Long empresaId, Long gatewayId, String nombre, TipoGateway tipoGateway, int posX,
-            int posY, Long version) {
+    public GatewayResponse editar(Long empresaId, Long usuarioId, Long gatewayId, String nombre,
+            TipoGateway tipoGateway, int posX, int posY, Long version) {
         Gateway gateway = buscar(empresaId, gatewayId);
         gateway.verificarVersion(version);
         gateway.setNombre(nombre);
         gateway.setTipoGateway(tipoGateway);
         gateway.setPosicionX(posX);
         gateway.setPosicionY(posY);
+        historialCambioService.registrar(empresaId, usuarioId, gateway.getLane().getPool().getProceso(),
+                "Gateway \"" + nombre + "\" editado.");
         return gatewayMapper.toResponse(gatewayRepository.saveAndFlush(gateway));
     }
 
     @Override
     @Transactional
-    public void eliminar(Long empresaId, Long gatewayId) {
+    public void eliminar(Long empresaId, Long usuarioId, Long gatewayId) {
         Gateway gateway = buscar(empresaId, gatewayId);
         arcoRepository.deleteAll(arcoRepository.findAllByOrigenIdAndEmpresaId(gatewayId, empresaId));
         arcoRepository.deleteAll(arcoRepository.findAllByDestinoIdAndEmpresaId(gatewayId, empresaId));
         gatewayRepository.delete(gateway);
+        historialCambioService.registrar(empresaId, usuarioId, gateway.getLane().getPool().getProceso(),
+                "Gateway \"" + gateway.getNombre() + "\" eliminado.");
     }
 
     @Override

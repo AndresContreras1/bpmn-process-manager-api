@@ -1,5 +1,8 @@
 package com.facimus.procesos.modelado.model;
 
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
+
 import com.facimus.procesos.common.EntidadEditable;
 import com.facimus.procesos.gestion.model.Proceso;
 
@@ -24,6 +27,9 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @Entity
 @Table(name = "mensajes")
+// Baja logica: borrar marca la fila como inactiva, y ninguna consulta ve las filas inactivas.
+@SQLDelete(sql = "update mensajes set activo = false where id = ? and version = ?")
+@SQLRestriction("activo = true")
 public class Mensaje extends EntidadEditable {
 
     @Id

@@ -36,7 +36,7 @@ class CorrelacionControllerTest {
     @DisplayName("PUT /api/v1/mensajes/{mensajeId}/correlacion - la primera clave se define sin version (200)")
     void definir_correlacion() throws Exception {
         CorrelacionResponse c = crearCorrelacion(1L, "orderId");
-        given(correlacionService.definir(eq(1L), eq(5L), anyString(), isNull())).willReturn(c);
+        given(correlacionService.definir(eq(1L), eq(1L), eq(5L), anyString(), isNull())).willReturn(c);
 
         mockMvc.perform(put("/api/v1/mensajes/5/correlacion")
                         .with(principal(RolAcceso.EDITOR))

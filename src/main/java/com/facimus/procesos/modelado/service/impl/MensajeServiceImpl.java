@@ -9,6 +9,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.mapper.MensajeMapper;
 import com.facimus.procesos.modelado.model.Mensaje;
@@ -25,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class MensajeServiceImpl implements MensajeService {
 
+    private final HistorialCambioService historialCambioService;
     private final MensajeRepository mensajeRepository;
     private final PoolRepository poolRepository;
     private final ProcesoRepository procesoRepository;
@@ -33,12 +35,12 @@ public class MensajeServiceImpl implements MensajeService {
 
     @Override
     @Transactional
-    public MensajeResponse crear(Long empresaId, Long procesoId, String nombre, String contenido, Long poolOrigenId,
-            Long poolDestinoId) {
+    public MensajeResponse crear(Long empresaId, Long usuarioId, Long procesoId, String nombre, String contenido,
+            Long poolOrigenId, Long poolDestinoId) {
         if (poolOrigenId.equals(poolDestinoId)) {
             throw new ReglaNegocioException("Un mensaje debe conectar dos pools diferentes.");
         }
-        Proceso proceso = procesoRepository.findByIdAndEmpresaId(procesoId, empresaId)
+        Proceso proceso = procesoRepository.findByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
         Pool poolOrigen = poolRepository.findByIdAndEmpresaId(poolOrigenId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pool de origen no encontrado."));
@@ -53,33 +55,41 @@ public class MensajeServiceImpl implements MensajeService {
                 .poolOrigen(poolOrigen)
                 .poolDestino(poolDestino)
                 .build());
+        historialCambioService.registrar(empresaId, usuarioId, proceso, "Mensaje \"" + nombre + "\" agregado.");
         return mensajeMapper.toResponse(mensaje);
     }
 
     @Override
     @Transactional
-    public MensajeResponse editar(Long empresaId, Long mensajeId, String nombre, String contenido, Long version) {
+    public MensajeResponse editar(Long empresaId, Long usuarioId, Long mensajeId, String nombre, String contenido,
+            Long version) {
         Mensaje mensaje = buscar(empresaId, mensajeId);
         mensaje.verificarVersion(version);
         mensaje.setNombre(nombre);
         mensaje.setContenido(contenido);
+        historialCambioService.registrar(empresaId, usuarioId, mensaje.getProceso(),
+                "Mensaje \"" + nombre + "\" editado.");
         return mensajeMapper.toResponse(mensajeRepository.saveAndFlush(mensaje));
     }
 
     @Override
     @Transactional
-    public void eliminar(Long empresaId, Long mensajeId) {
+    public void eliminar(Long empresaId, Long usuarioId, Long mensajeId) {
         Mensaje mensaje = buscar(empresaId, mensajeId);
-        correlacionRepository.findByMensajeIdAndEmpresaId(mensajeId, empresaId).ifPresent(correlacionRepository::delete);
+        correlacionRepository.findByMensajeIdAndEmpresaId(mensajeId,
+                empresaId).ifPresent(correlacionRepository::delete);
         mensajeRepository.delete(mensaje);
+        historialCambioService.registrar(empresaId, usuarioId, mensaje.getProceso(),
+                "Mensaje \"" + mensaje.getNombre() + "\" eliminado.");
     }
 
     @Override
     public List<MensajeResponse> listarPorProceso(Long empresaId, Long procesoId) {
-        if (!procesoRepository.existsByIdAndEmpresaId(procesoId, empresaId)) {
+        if (!procesoRepository.existsByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)) {
             throw new RecursoNoEncontradoException("Proceso no encontrado.");
         }
-        return mensajeMapper.toResponses(mensajeRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));
+        return mensajeMapper.toResponses(mensajeRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId,
+                empresaId));
     }
 
     @Override

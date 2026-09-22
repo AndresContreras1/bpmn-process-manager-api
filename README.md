@@ -100,7 +100,7 @@ all of them are correlated by `orderId`.
   replace the calls that used to go the other way.
 - **Architecture rules enforced by tests** with ArchUnit: layering, module boundaries, no package cycles, lazy
   associations, tenant isolation and no `HttpSession`.
-- **371 automated tests** with 94 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **382 automated tests** with 95 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image, then runs it against PostgreSQL.
 
 ## Tech stack
@@ -196,7 +196,11 @@ maps each one to its BPMN meaning. More details:
 - A process role that an active process uses cannot be deleted.
 - User emails are unique across the platform and case-insensitive: the email is the login, and the login
   does not know the store yet.
-- Processes and process roles are soft-deleted, so they keep their traceability.
+- Everything is soft-deleted, from processes and process roles to every BPMN element, so it keeps its
+  traceability: a deleted resource answers `404` but stays in the database. Deleting a pool retires the message flows
+  that enter or leave it, and deleting a process (HU-06) retires its whole model.
+- Every change to a process or its model lands in the process history with its author, from creating a pool to
+  editing an activity or deleting a sequence flow.
 
 ## Security model
 
@@ -448,7 +452,7 @@ conventions.
 ./mvnw verify
 ```
 
-The build runs 371 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 382 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
@@ -457,10 +461,10 @@ The build runs 371 tests and a JaCoCo coverage check. The HTML report is written
 | Service unit tests (Mockito) | 28 | Business rules of the management module |
 | Security and isolation (`@SpringBootTest`) | 151 | Two-store IDOR suite, read-only process sharing (HU-23), role matrix, JWT tampering and expiry, sessions (refresh rotation, reuse, logout, deactivation and role change), the login limit, idempotency keys, end-to-end 401/403/429 and the 400 for URLs the firewall rejects |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 23 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries and prove the JWT filter runs no SQL, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
-| Module integration (`@SpringBootTest`) | 23 | Process-role usage across modules, the order of pools and lanes, the whole diagram of a process, optimistic locking on every edit and auditing |
+| Module integration (`@SpringBootTest`) | 34 | Process-role usage across modules, the order of pools and lanes, the whole diagram of a process, optimistic locking on every edit, auditing, soft delete of every BPMN element and the modeling history |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 94 % of lines and 72 % of branches.
+Current coverage: 95 % of lines and 72 % of branches.
 
 ## Project structure
 
@@ -502,7 +506,11 @@ src/test/java/com/facimus/procesos
   still refuses an edit without it.
 - **Single-table inheritance for flow nodes.** Activities and gateways share one table and one identity, so sequence
   flows can point to either of them.
-- **Soft delete for processes and process roles.** They keep their history, and deleted resources answer `404`.
+- **Soft delete everywhere.** Processes and process roles carry their own `activo` flag. BPMN elements use Hibernate's
+  `@SQLDelete` and `@SQLRestriction`, so a delete becomes an update and no query sees retired rows. Hibernate's
+  `@SoftDelete` would have forced eager to-one associations, against the project's lazy-loading rule. A unique
+  constraint that a retired row would still hold, like the pair of nodes of a sequence flow, only counts active
+  rows.
 - **One error format.** Validation, business and security errors all return Problem Details, so clients handle a
   single shape.
 - **Unknown fields are errors.** Jackson fails on properties the contract does not define, so a typo or a smuggled
@@ -548,7 +556,7 @@ src/test/java/com/facimus/procesos
 
 **Data and auditability**
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
-- [ ] Soft delete and change history for every BPMN element
+- [x] Soft delete and change history for every BPMN element
 - [x] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
 - [x] Lazy associations with entity graphs and read-only transactions
 

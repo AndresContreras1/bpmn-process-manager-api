@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
 import com.facimus.procesos.modelado.model.Actividad;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ActividadServiceImpl implements ActividadService {
 
+    private final HistorialCambioService historialCambioService;
     private final ActividadRepository actividadRepository;
     private final NodoFlujoRepository nodoFlujoRepository;
     private final LaneRepository laneRepository;
@@ -32,12 +34,13 @@ public class ActividadServiceImpl implements ActividadService {
 
     @Override
     @Transactional
-    public ActividadResponse crear(Long empresaId, Long laneId, String nombre, String descripcion, int posX,
-            int posY) {
+    public ActividadResponse crear(Long empresaId, Long usuarioId, Long laneId, String nombre, String descripcion,
+            int posX, int posY) {
         Lane lane = laneRepository.findByIdAndEmpresaId(laneId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Lane no encontrada."));
         Long procesoId = lane.getPool().getProceso().getId();
-        if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaId(nombre, procesoId, empresaId)) {
+        if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaId(nombre, procesoId,
+                empresaId)) {
             throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
         }
 
@@ -49,29 +52,35 @@ public class ActividadServiceImpl implements ActividadService {
                 .posicionX(posX)
                 .posicionY(posY)
                 .build());
+        historialCambioService.registrar(empresaId, usuarioId, lane.getPool().getProceso(),
+                "Actividad \"" + nombre + "\" agregada.");
         return actividadMapper.toResponse(actividad);
     }
 
     @Override
     @Transactional
-    public ActividadResponse editar(Long empresaId, Long actividadId, String nombre, String descripcion, int posX,
-            int posY, Long version) {
+    public ActividadResponse editar(Long empresaId, Long usuarioId, Long actividadId, String nombre, String descripcion,
+            int posX, int posY, Long version) {
         Actividad actividad = buscar(empresaId, actividadId);
         actividad.verificarVersion(version);
         actividad.setNombre(nombre);
         actividad.setDescripcion(descripcion);
         actividad.setPosicionX(posX);
         actividad.setPosicionY(posY);
+        historialCambioService.registrar(empresaId, usuarioId, actividad.getLane().getPool().getProceso(),
+                "Actividad \"" + nombre + "\" editada.");
         return actividadMapper.toResponse(actividadRepository.saveAndFlush(actividad));
     }
 
     @Override
     @Transactional
-    public void eliminar(Long empresaId, Long actividadId) {
+    public void eliminar(Long empresaId, Long usuarioId, Long actividadId) {
         Actividad actividad = buscar(empresaId, actividadId);
         arcoRepository.deleteAll(arcoRepository.findAllByOrigenIdAndEmpresaId(actividadId, empresaId));
         arcoRepository.deleteAll(arcoRepository.findAllByDestinoIdAndEmpresaId(actividadId, empresaId));
         actividadRepository.delete(actividad);
+        historialCambioService.registrar(empresaId, usuarioId, actividad.getLane().getPool().getProceso(),
+                "Actividad \"" + actividad.getNombre() + "\" eliminada.");
     }
 
     @Override

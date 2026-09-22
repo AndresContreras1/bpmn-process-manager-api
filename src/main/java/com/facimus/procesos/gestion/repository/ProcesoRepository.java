@@ -18,6 +18,8 @@ public interface ProcesoRepository extends RepositorioTenant<Proceso>, JpaSpecif
 
     Optional<Proceso> findByIdAndEmpresaIdAndActivoTrue(Long id, Long empresaId);
 
+    boolean existsByIdAndEmpresaIdAndActivoTrue(Long id, Long empresaId);
+
     /**
      * La puerta de lectura (HU-23): el proceso activo si es de la empresa o si su duena se lo compartio. Ningun cambio
      * pasa por aqui: para escribir se usa findByIdAndEmpresaIdAndActivoTrue, que solo encuentra los propios.

@@ -66,7 +66,7 @@ class LaneControllerTest {
     @DisplayName("POST /api/v1/pools/{poolId}/lanes - crear lane (201)")
     void crear_lane() throws Exception {
         LaneResponse lane = crearLane(2L, "Analisis");
-        given(laneService.crear(eq(1L), eq(5L), anyString(), anyLong())).willReturn(lane);
+        given(laneService.crear(eq(1L), eq(1L), eq(5L), anyString(), anyLong())).willReturn(lane);
 
         mockMvc.perform(post("/api/v1/pools/5/lanes")
                         .with(principal(RolAcceso.EDITOR))
@@ -95,7 +95,7 @@ class LaneControllerTest {
     @DisplayName("PUT /api/v1/lanes/{id} - editar lane (200)")
     void editar_lane() throws Exception {
         LaneResponse lane = crearLane(1L, "Recepcion v2");
-        given(laneService.editar(eq(1L), eq(1L), anyString(), anyLong(), eq(3L))).willReturn(lane);
+        given(laneService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyLong(), eq(3L))).willReturn(lane);
 
         mockMvc.perform(put("/api/v1/lanes/1")
                         .with(principal(RolAcceso.EDITOR))
@@ -110,7 +110,7 @@ class LaneControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/lanes/{id} - eliminar lane (204)")
     void eliminar_lane() throws Exception {
-        doNothing().when(laneService).eliminar(1L, 1L);
+        doNothing().when(laneService).eliminar(1L, 1L, 1L);
 
         mockMvc.perform(delete("/api/v1/lanes/1").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isNoContent());
