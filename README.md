@@ -94,7 +94,7 @@ all of them are correlated by `orderId`.
   replace the calls that used to go the other way.
 - **Architecture rules enforced by tests** with ArchUnit: layering, module boundaries, no package cycles, lazy
   associations, tenant isolation and no `HttpSession`.
-- **265 automated tests** with 90 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **275 automated tests** with 90 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image, then runs it against PostgreSQL.
 
 ## Tech stack
@@ -254,6 +254,11 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Sequence flows | `POST /api/v1/arcos` · `GET /api/v1/pools/{poolId}/arcos` · `GET, PUT, DELETE /api/v1/arcos/{id}` |
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
+| Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
+
+`GET /api/v1/procesos/{id}/diagrama` returns everything a client needs to draw a process in one response: the
+process and flat lists of pools, lanes, activities, gateways, sequence flows, message flows and correlation keys,
+linked by id. It takes one query per element type, however large the diagram grows.
 
 The process list accepts `nombre`, `estado`, `categoria` and `pagina`, and returns a pagination envelope:
 
@@ -324,9 +329,8 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type
 # 2. List the store's processes: Order fulfillment (published) and Returns and refunds (draft)
 curl -s http://localhost:8080/api/v1/procesos -H "Authorization: Bearer $TOKEN"
 
-# 3. Explore a process: participants, then the messages exchanged with them
-curl -s http://localhost:8080/api/v1/procesos/{id}/pools -H "Authorization: Bearer $TOKEN"
-curl -s http://localhost:8080/api/v1/procesos/{id}/mensajes -H "Authorization: Bearer $TOKEN"
+# 3. Explore a process: participants, lanes, steps, flows and messages in one call
+curl -s http://localhost:8080/api/v1/procesos/{id}/diagrama -H "Authorization: Bearer $TOKEN"
 
 # 4. Register your own store: its processes are invisible to Demo Store, and the other way around
 curl -s -X POST http://localhost:8080/api/v1/empresas -H "Content-Type: application/json" \
@@ -370,16 +374,16 @@ permission to create tables. The CI pipeline starts the image in this profile ag
 ./mvnw verify
 ```
 
-The build runs 265 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 275 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | Architecture (ArchUnit) | 30 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, a declared profile in every `@SpringBootTest` |
-| Controller slices (`@WebMvcTest`) | 95 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Controller slices (`@WebMvcTest`) | 98 | Routes, status codes, JSON shape and validation, with the real security rules |
 | Service unit tests (Mockito) | 22 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 97 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403, and the 400 for URLs the firewall rejects |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 15 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
-| Module integration (`@SpringBootTest`) | 4 | Process-role usage across modules and the order of pools and lanes |
+| Security and isolation (`@SpringBootTest`) | 99 | Two-store IDOR suite, role matrix, JWT tampering and expiry, end-to-end 401/403, and the 400 for URLs the firewall rejects |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 17 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
+| Module integration (`@SpringBootTest`) | 7 | Process-role usage across modules, the order of pools and lanes, and the whole diagram of a process |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
 Current coverage: 90 % of lines and 65 % of branches.
@@ -466,7 +470,7 @@ src/test/java/com/facimus/procesos
 **API contract**
 - [x] Full OpenAPI documentation (`@Tag`, `@Operation`, `@ApiResponse`, `@Schema`), with Swagger UI disabled in production
 - [x] Field-level validation errors in Problem Details
-- [ ] Aggregate endpoint that returns a complete BPMN diagram for the back-office front end
+- [x] Aggregate endpoint that returns a complete BPMN diagram for the back-office front end
 
 **Architecture and quality**
 - [x] Request/response DTO packages with MapStruct mappers; services exposed as interfaces

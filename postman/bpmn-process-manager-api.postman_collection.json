@@ -1122,6 +1122,26 @@
 			]
 		},
 		{
+			"name": "Diagrama",
+			"description": "El diagrama completo en una sola peticion: todo lo que un frontend necesita para dibujarlo.",
+			"item": [
+				{
+					"name": "Diagrama completo del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/diagrama",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "diagrama"]
+						},
+						"description": "El proceso con sus pools, lanes, actividades, gateways, arcos, mensajes y correlaciones, en listas planas enlazadas por id. Cualquier rol lo puede leer."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "Limpieza",
 			"description": "Borra lo que creo el recorrido, de hijos a padres, y cierra la sesion.",
 			"item": [
