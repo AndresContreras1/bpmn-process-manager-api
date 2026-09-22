@@ -11,5 +11,7 @@ public record PoolResponse(
         @Schema(example = "SISTEMA_EXTERNO") TipoParticipante tipoParticipante,
         @Schema(example = "true") boolean cajaNegra,
         @Schema(description = "Position in the process; the store's own pool is 0", example = "2") int orden,
-        @Schema(example = "1") Long procesoId) {
+        @Schema(example = "1") Long procesoId,
+        @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
+        Long version) {
 }

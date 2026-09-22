@@ -63,8 +63,10 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional
-    public UsuarioResponse actualizar(Long empresaId, Long usuarioId, RolAcceso rolAcceso, Boolean activo) {
+    public UsuarioResponse actualizar(Long empresaId, Long usuarioId, RolAcceso rolAcceso, Boolean activo,
+            Long version) {
         Usuario usuario = buscar(empresaId, usuarioId);
+        usuario.verificarVersion(version);
         boolean cambiaElRol = rolAcceso != null && rolAcceso != usuario.getRolAcceso();
         if (rolAcceso != null) {
             usuario.setRolAcceso(rolAcceso);
@@ -72,7 +74,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         if (activo != null) {
             usuario.setActivo(activo);
         }
-        UsuarioResponse actualizado = usuarioMapper.toResponse(usuarioRepository.save(usuario));
+        UsuarioResponse actualizado = usuarioMapper.toResponse(usuarioRepository.saveAndFlush(usuario));
         if (cambiaElRol || !usuario.isActivo()) {
             // Los tokens ya emitidos llevan el rol y el estado de antes: el usuario vuelve a entrar con los nuevos.
             sesionService.cerrarTodas(empresaId, usuarioId);

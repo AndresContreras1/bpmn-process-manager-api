@@ -99,11 +99,12 @@ public class UsuarioController {
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PatchMapping("/{id}")
     public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Long id,
             @Validated @RequestBody ActualizarUsuarioRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(usuarioService.actualizar(principal.empresaId(), id, request.rolAcceso(),
-                request.activo()));
+                request.activo(), request.version()));
     }
 
     @Operation(summary = "Deactivate a user",

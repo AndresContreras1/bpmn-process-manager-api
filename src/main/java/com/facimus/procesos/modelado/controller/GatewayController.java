@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.modelado.dto.request.EditarGatewayRequest;
 import com.facimus.procesos.modelado.dto.request.GatewayRequest;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.model.Gateway;
@@ -82,12 +83,13 @@ public class GatewayController {
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping("/gateways/{id}")
     public ResponseEntity<GatewayResponse> editar(@PathVariable Long id,
-            @Validated @RequestBody GatewayRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
+            @Validated @RequestBody EditarGatewayRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(gatewayService.editar(empresaId, id, request.nombre(), request.tipoGateway(),
-                request.posicionX(), request.posicionY()));
+                request.posicionX(), request.posicionY(), request.version()));
     }
 
     @Operation(summary = "Delete a gateway",

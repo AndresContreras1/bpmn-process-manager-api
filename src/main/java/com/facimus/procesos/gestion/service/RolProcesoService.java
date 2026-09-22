@@ -14,7 +14,7 @@ public interface RolProcesoService {
 
     RolProcesoVistaResponse obtener(Long empresaId, Long rolId);
 
-    RolProcesoVistaResponse editar(Long empresaId, Long rolId, String nombre, String descripcion);
+    RolProcesoVistaResponse editar(Long empresaId, Long rolId, String nombre, String descripcion, Long version);
 
     void eliminar(Long empresaId, Long rolId);
 }

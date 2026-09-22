@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.service;
 
+import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
@@ -22,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -165,9 +167,9 @@ class UsuarioServiceTest {
     @DisplayName("Cambiar el rol cierra las sesiones del usuario: sus tokens llevan el rol de antes")
     void actualizar_cambiaElRol_cierraSusSesiones() {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
-        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, 10L, RolAcceso.SOLO_LECTURA, null);
+        usuarioService.actualizar(1L, 10L, RolAcceso.SOLO_LECTURA, null, usuario.getVersion());
 
         verify(sesionService).cerrarTodas(1L, 10L);
     }
@@ -176,20 +178,34 @@ class UsuarioServiceTest {
     @DisplayName("Desactivar con PATCH tambien cierra las sesiones del usuario")
     void actualizar_desactiva_cierraSusSesiones() {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
-        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, 10L, null, false);
+        usuarioService.actualizar(1L, 10L, null, false, usuario.getVersion());
 
         verify(sesionService).cerrarTodas(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("Con una version vieja no cambia al usuario ni cierra sus sesiones")
+    void actualizar_versionVieja_lanzaConflictoSinGuardar() {
+        ReflectionTestUtils.setField(usuario, "version", 3L);
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+
+        assertThrows(ConflictoDeVersionException.class,
+                () -> usuarioService.actualizar(1L, 10L, RolAcceso.SOLO_LECTURA, null, 2L));
+
+        assertEquals(RolAcceso.EDITOR, usuario.getRolAcceso());
+        verify(usuarioRepository, never()).saveAndFlush(any());
+        verify(sesionService, never()).cerrarTodas(anyLong(), anyLong());
     }
 
     @Test
     @DisplayName("Repetir el mismo rol con el usuario activo no cierra sus sesiones")
     void actualizar_sinCambioDeAcceso_noCierraSesiones() {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
-        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, 10L, RolAcceso.EDITOR, true);
+        usuarioService.actualizar(1L, 10L, RolAcceso.EDITOR, true, usuario.getVersion());
 
         verify(sesionService, never()).cerrarTodas(anyLong(), anyLong());
     }
@@ -197,9 +213,10 @@ class UsuarioServiceTest {
     @Test
     void actualizar_rol_y_estado() {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
-        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        UsuarioResponse actualizado = usuarioService.actualizar(1L, 10L, RolAcceso.ADMINISTRADOR, false);
+        UsuarioResponse actualizado = usuarioService.actualizar(1L, 10L, RolAcceso.ADMINISTRADOR, false,
+                usuario.getVersion());
 
         assertEquals(RolAcceso.ADMINISTRADOR, actualizado.rolAcceso());
         assertFalse(actualizado.activo());

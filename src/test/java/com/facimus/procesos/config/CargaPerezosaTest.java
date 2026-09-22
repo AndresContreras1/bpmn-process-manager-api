@@ -132,7 +132,7 @@ class CargaPerezosaTest {
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         procesoService.editarDatos(empresaId, procesoId, editorId, "Order fulfillment", "Checkout to delivery, v2",
-                "Fulfillment");
+                "Fulfillment", 0L);
         poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
         for (String rol : new String[] {"Sales", "Warehouse", "Shipping"}) {
             laneService.crear(empresaId, poolId, rol, rolProcesoService.crear(empresaId, rol, null).id());
@@ -267,6 +267,6 @@ class CargaPerezosaTest {
         arcoService.crear(empresaId, decidir, reembolsar, "Approved", "return.status == APPROVED");
         Long mensajeId = mensajeService.crear(empresaId, procesoId, lane + ": return request", "Order and items",
                 clienteId, tiendaId).id();
-        correlacionService.definir(empresaId, mensajeId, "orderId");
+        correlacionService.definir(empresaId, mensajeId, "orderId", null);
     }
 }

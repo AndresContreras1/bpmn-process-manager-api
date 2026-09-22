@@ -137,13 +137,13 @@ class RolProcesoControllerTest {
     @DisplayName("PUT /api/v1/roles/{id} - editar rol (200)")
     void editar_rol() throws Exception {
         RolProcesoVistaResponse rol = crearRol(1L, "Analista Sr", "Senior", 0);
-        given(rolProcesoService.editar(eq(1L), eq(1L), anyString(), anyString())).willReturn(rol);
+        given(rolProcesoService.editar(eq(1L), eq(1L), anyString(), anyString(), eq(3L))).willReturn(rol);
 
         mockMvc.perform(put("/api/v1/roles/1")
                         .with(principal(RolAcceso.ADMINISTRADOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"nombre":"Analista Sr","descripcion":"Senior"}
+                                {"nombre":"Analista Sr","descripcion":"Senior","version":3}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombre").value("Analista Sr"));
@@ -171,7 +171,7 @@ class RolProcesoControllerTest {
     }
 
     private RolProcesoVistaResponse crearRol(Long id, String nombre, String descripcion, long procesos) {
-        return new RolProcesoVistaResponse(id, nombre, descripcion, procesos, procesos > 0);
+        return new RolProcesoVistaResponse(id, nombre, descripcion, procesos, procesos > 0, 0L);
     }
 
 }

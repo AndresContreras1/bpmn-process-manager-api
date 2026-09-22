@@ -111,9 +111,10 @@ class ProcesoServiceTest {
     void publicar_exitoso() {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 1L)).thenReturn(Optional.of(proceso));
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
-        when(procesoRepository.save(any(Proceso.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(procesoRepository.saveAndFlush(any(Proceso.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ProcesoResponse result = procesoService.cambiarEstado(1L, 100L, 10L, EstadoProceso.PUBLICADO);
+        ProcesoResponse result = procesoService.cambiarEstado(1L, 100L, 10L, EstadoProceso.PUBLICADO,
+                proceso.getVersion());
 
         assertEquals(EstadoProceso.PUBLICADO, result.estado());
         verify(historialCambioService).registrar(eq(proceso), eq(usuario), contains("publicado"));
@@ -149,6 +150,6 @@ class ProcesoServiceTest {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 1L)).thenReturn(Optional.of(proceso));
 
         assertThrows(ReglaNegocioException.class,
-                () -> procesoService.cambiarEstado(1L, 100L, 10L, EstadoProceso.BORRADOR));
+                () -> procesoService.cambiarEstado(1L, 100L, 10L, EstadoProceso.BORRADOR, proceso.getVersion()));
     }
 }

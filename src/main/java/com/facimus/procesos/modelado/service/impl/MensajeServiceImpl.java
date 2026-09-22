@@ -58,11 +58,12 @@ public class MensajeServiceImpl implements MensajeService {
 
     @Override
     @Transactional
-    public MensajeResponse editar(Long empresaId, Long mensajeId, String nombre, String contenido) {
+    public MensajeResponse editar(Long empresaId, Long mensajeId, String nombre, String contenido, Long version) {
         Mensaje mensaje = buscar(empresaId, mensajeId);
+        mensaje.verificarVersion(version);
         mensaje.setNombre(nombre);
         mensaje.setContenido(contenido);
-        return mensajeMapper.toResponse(mensajeRepository.save(mensaje));
+        return mensajeMapper.toResponse(mensajeRepository.saveAndFlush(mensaje));
     }
 
     @Override

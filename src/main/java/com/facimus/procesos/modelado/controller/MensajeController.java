@@ -83,11 +83,13 @@ public class MensajeController {
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping("/mensajes/{id}")
     public ResponseEntity<MensajeResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarMensajeRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(mensajeService.editar(empresaId, id, request.nombre(), request.contenido()));
+        return ResponseEntity.ok(mensajeService.editar(empresaId, id, request.nombre(), request.contenido(),
+                request.version()));
     }
 
     @Operation(summary = "Delete a message flow",

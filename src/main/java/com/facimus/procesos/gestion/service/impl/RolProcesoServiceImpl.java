@@ -68,14 +68,16 @@ public class RolProcesoServiceImpl implements RolProcesoService {
 
     @Override
     @Transactional
-    public RolProcesoVistaResponse editar(Long empresaId, Long rolId, String nombre, String descripcion) {
+    public RolProcesoVistaResponse editar(Long empresaId, Long rolId, String nombre, String descripcion,
+            Long version) {
         RolProceso rol = buscarActivo(empresaId, rolId);
+        rol.verificarVersion(version);
         if (rolProcesoRepository.existsByEmpresaIdAndNombreIgnoreCaseAndActivoTrueAndIdNot(empresaId, nombre, rolId)) {
             throw nombreRepetido(nombre);
         }
         rol.setNombre(nombre);
         rol.setDescripcion(descripcion);
-        return conUso(empresaId, rolProcesoRepository.save(rol));
+        return conUso(empresaId, rolProcesoRepository.saveAndFlush(rol));
     }
 
     @Override

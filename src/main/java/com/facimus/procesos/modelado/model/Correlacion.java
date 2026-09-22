@@ -1,6 +1,6 @@
 package com.facimus.procesos.modelado.model;
 
-import com.facimus.procesos.common.EntidadEmpresa;
+import com.facimus.procesos.common.EntidadEditable;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,7 +23,7 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @Entity
 @Table(name = "correlaciones")
-public class Correlacion extends EntidadEmpresa {
+public class Correlacion extends EntidadEditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

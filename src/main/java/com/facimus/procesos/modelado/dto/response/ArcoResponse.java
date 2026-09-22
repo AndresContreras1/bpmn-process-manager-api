@@ -9,5 +9,7 @@ public record ArcoResponse(
         @Schema(example = "payment.status == APPROVED") String condicion,
         @Schema(example = "12") Long origenId,
         @Schema(example = "10") Long destinoId,
-        @Schema(description = "Pool that contains both nodes", example = "1") Long poolId) {
+        @Schema(description = "Pool that contains both nodes", example = "1") Long poolId,
+        @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
+        Long version) {
 }

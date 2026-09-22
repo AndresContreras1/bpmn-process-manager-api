@@ -10,7 +10,7 @@ public interface ActividadService {
     ActividadResponse crear(Long empresaId, Long laneId, String nombre, String descripcion, int posX, int posY);
 
     ActividadResponse editar(Long empresaId, Long actividadId, String nombre, String descripcion, int posX,
-            int posY);
+            int posY, Long version);
 
     void eliminar(Long empresaId, Long actividadId);
 

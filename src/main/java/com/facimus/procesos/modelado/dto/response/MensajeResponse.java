@@ -9,5 +9,7 @@ public record MensajeResponse(
         @Schema(example = "Order total and tokenized card.") String contenido,
         @Schema(example = "1") Long poolOrigenId,
         @Schema(example = "3") Long poolDestinoId,
-        @Schema(example = "1") Long procesoId) {
+        @Schema(example = "1") Long procesoId,
+        @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
+        Long version) {
 }

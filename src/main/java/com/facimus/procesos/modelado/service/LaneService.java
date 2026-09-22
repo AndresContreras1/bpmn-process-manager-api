@@ -9,7 +9,7 @@ public interface LaneService {
 
     LaneResponse crear(Long empresaId, Long poolId, String nombre, Long rolProcesoId);
 
-    LaneResponse editar(Long empresaId, Long laneId, String nombre, Long rolProcesoId);
+    LaneResponse editar(Long empresaId, Long laneId, String nombre, Long rolProcesoId, Long version);
 
     void eliminar(Long empresaId, Long laneId);
 

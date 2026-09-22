@@ -10,7 +10,7 @@ public interface MensajeService {
     MensajeResponse crear(Long empresaId, Long procesoId, String nombre, String contenido, Long poolOrigenId,
             Long poolDestinoId);
 
-    MensajeResponse editar(Long empresaId, Long mensajeId, String nombre, String contenido);
+    MensajeResponse editar(Long empresaId, Long mensajeId, String nombre, String contenido, Long version);
 
     void eliminar(Long empresaId, Long mensajeId);
 

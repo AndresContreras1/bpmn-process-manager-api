@@ -95,13 +95,13 @@ class LaneControllerTest {
     @DisplayName("PUT /api/v1/lanes/{id} - editar lane (200)")
     void editar_lane() throws Exception {
         LaneResponse lane = crearLane(1L, "Recepcion v2");
-        given(laneService.editar(eq(1L), eq(1L), anyString(), anyLong())).willReturn(lane);
+        given(laneService.editar(eq(1L), eq(1L), anyString(), anyLong(), eq(3L))).willReturn(lane);
 
         mockMvc.perform(put("/api/v1/lanes/1")
                         .with(principal(RolAcceso.EDITOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"nombre":"Recepcion v2","rolProcesoId":1}
+                                {"nombre":"Recepcion v2","rolProcesoId":1,"version":3}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombre").value("Recepcion v2"));
@@ -117,7 +117,7 @@ class LaneControllerTest {
     }
 
     private LaneResponse crearLane(Long id, String nombre) {
-        return new LaneResponse(id, nombre, 0, 5L, 1L, "Analista");
+        return new LaneResponse(id, nombre, 0, 5L, 1L, "Analista", 0L);
     }
 
 }

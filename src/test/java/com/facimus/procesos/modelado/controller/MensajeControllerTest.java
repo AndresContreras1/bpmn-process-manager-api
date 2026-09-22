@@ -95,13 +95,13 @@ class MensajeControllerTest {
     @DisplayName("PUT /api/v1/mensajes/{id} - editar mensaje (200)")
     void editar_mensaje() throws Exception {
         MensajeResponse m = crearMensaje(1L, "Orden actualizada");
-        given(mensajeService.editar(eq(1L), eq(1L), anyString(), anyString())).willReturn(m);
+        given(mensajeService.editar(eq(1L), eq(1L), anyString(), anyString(), eq(3L))).willReturn(m);
 
         mockMvc.perform(put("/api/v1/mensajes/1")
                         .with(principal(RolAcceso.EDITOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"nombre":"Orden actualizada","contenido":"Nuevo contenido"}
+                                {"nombre":"Orden actualizada","contenido":"Nuevo contenido","version":3}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombre").value("Orden actualizada"));
@@ -117,7 +117,7 @@ class MensajeControllerTest {
     }
 
     private MensajeResponse crearMensaje(Long id, String nombre) {
-        return new MensajeResponse(id, nombre, "Contenido test", 1L, 2L, 10L);
+        return new MensajeResponse(id, nombre, "Contenido test", 1L, 2L, 10L, 0L);
     }
 
 }

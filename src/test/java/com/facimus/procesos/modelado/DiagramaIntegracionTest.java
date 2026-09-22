@@ -105,7 +105,7 @@ class DiagramaIntegracionTest {
         arcoService.crear(empresaId, pagado, empacar, "Approved", "payment.status == APPROVED");
         Long pedido = mensajeService.crear(empresaId, procesoId, "Order placed", "Cart items", clienteId, tiendaId)
                 .id();
-        correlacionService.definir(empresaId, pedido, "orderId");
+        correlacionService.definir(empresaId, pedido, "orderId", null);
 
         // Otro proceso de la misma tienda, con un participante propio que no pertenece al diagrama anterior.
         Long devoluciones = procesoService.crear(empresaId, adminId, "Returns and refunds", "Return to refund",

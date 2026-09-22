@@ -11,5 +11,7 @@ public record UsuarioResponse(
         @Schema(example = "luis@acme.com") String email,
         @Schema(example = "EDITOR") RolAcceso rolAcceso,
         @Schema(example = "true") boolean activo,
-        @Schema(description = "Store the user belongs to", example = "1") Long empresaId) {
+        @Schema(description = "Store the user belongs to", example = "1") Long empresaId,
+        @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
+        Long version) {
 }

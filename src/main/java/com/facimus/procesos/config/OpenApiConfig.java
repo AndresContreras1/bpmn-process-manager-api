@@ -60,7 +60,8 @@ public class OpenApiConfig {
                         .addResponses("NotFound", respuestaDeError("The resource does not exist, or it belongs to "
                                 + "another store."))
                         .addResponses("Conflict", respuestaDeError("A business rule rejects the operation, for "
-                                + "example a duplicated name."))
+                                + "example a duplicated name, or someone saved a change after the version that was "
+                                + "read."))
                         .addResponses("TooManyRequests", respuestaDeError("Too many failed logins for this email from "
                                 + "this address. Retry-After says how many seconds to wait.")
                                 .addHeaderObject(HttpHeaders.RETRY_AFTER, new Header()

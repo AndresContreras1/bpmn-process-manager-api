@@ -21,7 +21,7 @@ public interface UsuarioService {
 
     void validarCorreoDisponible(String email);
 
-    UsuarioResponse actualizar(Long empresaId, Long usuarioId, RolAcceso rolAcceso, Boolean activo);
+    UsuarioResponse actualizar(Long empresaId, Long usuarioId, RolAcceso rolAcceso, Boolean activo, Long version);
 
     void desactivar(Long empresaId, Long usuarioId);
 

@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -26,6 +27,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.DemasiadosIntentosException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
@@ -52,6 +54,19 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ReglaNegocioException.class)
     public ProblemDetail manejarReglaNegocio(ReglaNegocioException ex, WebRequest req) {
         return construir(HttpStatus.CONFLICT, "Regla de negocio violada", ex.getMessage(), req);
+    }
+
+    /** Edicion sobre una version vieja: el cliente recarga el recurso y decide de nuevo. */
+    @ExceptionHandler(ConflictoDeVersionException.class)
+    public ProblemDetail manejarConflictoDeVersion(ConflictoDeVersionException ex, WebRequest req) {
+        return construir(HttpStatus.CONFLICT, "Conflicto de versión", ex.getMessage(), req);
+    }
+
+    /** Dos ediciones de la misma version a la vez: las dos pasan la comprobacion y la base rechaza la segunda. */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ProblemDetail manejarEdicionSimultanea(ObjectOptimisticLockingFailureException ex, WebRequest req) {
+        return construir(HttpStatus.CONFLICT, "Conflicto de versión",
+                "Otra persona guardó un cambio en este recurso al mismo tiempo. Recarga y vuelve a intentar.", req);
     }
 
     /**

@@ -9,7 +9,7 @@ public interface ArcoService {
 
     ArcoResponse crear(Long empresaId, Long origenId, Long destinoId, String etiqueta, String condicion);
 
-    ArcoResponse editar(Long empresaId, Long arcoId, String etiqueta, String condicion);
+    ArcoResponse editar(Long empresaId, Long arcoId, String etiqueta, String condicion, Long version);
 
     void eliminar(Long empresaId, Long arcoId);
 

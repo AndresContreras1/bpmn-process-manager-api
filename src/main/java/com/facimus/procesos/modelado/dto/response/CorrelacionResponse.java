@@ -6,5 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record CorrelacionResponse(
         @Schema(example = "3") Long id,
         @Schema(example = "orderId") String criterio,
-        @Schema(example = "5") Long mensajeId) {
+        @Schema(example = "5") Long mensajeId,
+        @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
+        Long version) {
 }

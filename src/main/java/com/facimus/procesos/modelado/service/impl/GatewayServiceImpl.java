@@ -56,13 +56,14 @@ public class GatewayServiceImpl implements GatewayService {
     @Override
     @Transactional
     public GatewayResponse editar(Long empresaId, Long gatewayId, String nombre, TipoGateway tipoGateway, int posX,
-            int posY) {
+            int posY, Long version) {
         Gateway gateway = buscar(empresaId, gatewayId);
+        gateway.verificarVersion(version);
         gateway.setNombre(nombre);
         gateway.setTipoGateway(tipoGateway);
         gateway.setPosicionX(posX);
         gateway.setPosicionY(posY);
-        return gatewayMapper.toResponse(gatewayRepository.save(gateway));
+        return gatewayMapper.toResponse(gatewayRepository.saveAndFlush(gateway));
     }
 
     @Override

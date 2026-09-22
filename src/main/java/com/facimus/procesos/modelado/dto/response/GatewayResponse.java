@@ -11,5 +11,7 @@ public record GatewayResponse(
         @Schema(example = "EXCLUSIVO") TipoGateway tipoGateway,
         @Schema(example = "420") int posicionX,
         @Schema(example = "80") int posicionY,
-        @Schema(example = "3") Long laneId) {
+        @Schema(example = "3") Long laneId,
+        @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
+        Long version) {
 }

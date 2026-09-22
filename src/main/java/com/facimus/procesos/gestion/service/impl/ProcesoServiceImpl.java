@@ -105,8 +105,9 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Override
     @Transactional
     public ProcesoResponse editarDatos(Long empresaId, Long procesoId, Long usuarioId, String nombre,
-            String descripcion, String categoria) {
+            String descripcion, String categoria, Long version) {
         Proceso proceso = buscarActivo(empresaId, procesoId);
+        proceso.verificarVersion(version);
         Usuario autor = autor(empresaId, usuarioId);
         if (!proceso.getNombre().equalsIgnoreCase(nombre)) {
             validarNombreLibre(empresaId, nombre);
@@ -116,7 +117,8 @@ public class ProcesoServiceImpl implements ProcesoService {
         proceso.setDescripcion(descripcion);
         proceso.setCategoria(categoria);
         proceso.setFechaModificacion(LocalDateTime.now());
-        proceso = procesoRepository.save(proceso);
+        // Con flush la version nueva ya esta en la entidad al armar la respuesta.
+        proceso = procesoRepository.saveAndFlush(proceso);
 
         historialCambioService.registrar(proceso, autor, "Proceso editado.");
         return procesoMapper.toResponse(proceso);
@@ -125,8 +127,9 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Override
     @Transactional
     public ProcesoResponse cambiarEstado(Long empresaId, Long procesoId, Long usuarioId,
-            EstadoProceso nuevoEstado) {
+            EstadoProceso nuevoEstado, Long version) {
         Proceso proceso = buscarActivo(empresaId, procesoId);
+        proceso.verificarVersion(version);
         if (proceso.getEstado() == nuevoEstado) {
             return procesoMapper.toResponse(proceso);
         }
@@ -137,7 +140,7 @@ public class ProcesoServiceImpl implements ProcesoService {
 
         proceso.setEstado(nuevoEstado);
         proceso.setFechaModificacion(LocalDateTime.now());
-        proceso = procesoRepository.save(proceso);
+        proceso = procesoRepository.saveAndFlush(proceso);
 
         historialCambioService.registrar(proceso, autor,
                 nuevoEstado == EstadoProceso.PUBLICADO ? "Proceso publicado." : "Estado del proceso actualizado.");

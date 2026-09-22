@@ -35,6 +35,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.gestion.dto.request.ActualizarUsuarioRequest;
 import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.EditarProcesoRequest;
+import com.facimus.procesos.gestion.dto.request.EditarRolProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.RolProcesoRequest;
@@ -51,7 +52,10 @@ import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.dto.request.ActividadRequest;
 import com.facimus.procesos.modelado.dto.request.ArcoRequest;
 import com.facimus.procesos.modelado.dto.request.CorrelacionRequest;
+import com.facimus.procesos.modelado.dto.request.EditarActividadRequest;
 import com.facimus.procesos.modelado.dto.request.EditarArcoRequest;
+import com.facimus.procesos.modelado.dto.request.EditarGatewayRequest;
+import com.facimus.procesos.modelado.dto.request.EditarLaneRequest;
 import com.facimus.procesos.modelado.dto.request.EditarMensajeRequest;
 import com.facimus.procesos.modelado.dto.request.EditarPoolRequest;
 import com.facimus.procesos.modelado.dto.request.GatewayRequest;
@@ -180,7 +184,7 @@ class AislamientoEmpresasIntegracionTest {
                 .crear(empresaB, laneB, "Cerrar compra", TipoGateway.PARALELO, 300, 100).id();
         arcoB = arcoService.crear(empresaB, gatewayB, gatewayCierreB, "Continuar", null).id();
         mensajeB = mensajeService.crear(empresaB, procesoB, "Orden de compra", "Pedido", poolB, poolProveedorB).id();
-        correlacionService.definir(empresaB, mensajeB, "numeroPedido");
+        correlacionService.definir(empresaB, mensajeB, "numeroPedido", null);
 
         tokenA = login(AUDITOR_A);
         tokenB = login(ADMIN_B);
@@ -215,56 +219,60 @@ class AislamientoEmpresasIntegracionTest {
         ActividadRequest actividad = new ActividadRequest("Intrusa", "Desde la empresa A", 0, 0);
         GatewayRequest gateway = new GatewayRequest("Intruso", TipoGateway.PARALELO, 0, 0);
         LaneRequest lane = new LaneRequest("Intrusa", rolA);
+        EditarLaneRequest edicionLane = new EditarLaneRequest("Intrusa", rolA, 0L);
         return Stream.of(
                 Arguments.of(HttpMethod.GET, "/api/v1/usuarios/{id}", adminB, null, "Usuario no encontrado"),
                 Arguments.of(HttpMethod.PATCH, "/api/v1/usuarios/{id}", adminB,
-                        new ActualizarUsuarioRequest(RolAcceso.SOLO_LECTURA, null), "Usuario no encontrado"),
+                        new ActualizarUsuarioRequest(RolAcceso.SOLO_LECTURA, null, 0L), "Usuario no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/usuarios/{id}", adminB, null, "Usuario no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/empresas/{id}", empresaB, null, "Empresa no encontrada"),
                 Arguments.of(HttpMethod.GET, "/api/v1/procesos/{id}", procesoB, null, "Proceso no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/procesos/{id}", procesoB,
-                        new EditarProcesoRequest("Intruso", "Desde la empresa A", "Otra"),
+                        new EditarProcesoRequest("Intruso", "Desde la empresa A", "Otra", 0L),
                         "Proceso no encontrado"),
                 Arguments.of(HttpMethod.PATCH, "/api/v1/procesos/{id}", procesoB,
-                        new CambiarEstadoProcesoRequest(EstadoProceso.PUBLICADO), "Proceso no encontrado"),
+                        new CambiarEstadoProcesoRequest(EstadoProceso.PUBLICADO, 0L), "Proceso no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/procesos/{id}", procesoB, null, "Proceso no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/roles/{id}", rolB, null, "Rol de proceso no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/roles/{id}", rolB,
-                        new RolProcesoRequest("Intruso", "Desde la empresa A"), "Rol de proceso no encontrado"),
+                        new EditarRolProcesoRequest("Intruso", "Desde la empresa A", 0L),
+                        "Rol de proceso no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/roles/{id}", rolB, null, "Rol de proceso no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/pools", procesoB,
                         new PoolRequest("Intruso", TipoParticipante.CLIENTE, false), "Proceso no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/pools/{id}", poolB, null, "Pool no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/pools/{id}", poolB,
-                        new EditarPoolRequest("Intruso", TipoParticipante.CLIENTE), "Pool no encontrado"),
+                        new EditarPoolRequest("Intruso", TipoParticipante.CLIENTE, 0L), "Pool no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/pools/{id}", poolB, null, "Pool no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/pools/{id}/lanes", poolB, lane, "Pool no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/lanes/{id}", laneB, null, "Lane no encontrada"),
-                Arguments.of(HttpMethod.PUT, "/api/v1/lanes/{id}", laneB, lane, "Lane no encontrada"),
+                Arguments.of(HttpMethod.PUT, "/api/v1/lanes/{id}", laneB, edicionLane, "Lane no encontrada"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/lanes/{id}", laneB, null, "Lane no encontrada"),
                 Arguments.of(HttpMethod.POST, "/api/v1/lanes/{id}/actividades", laneB, actividad, "Lane no encontrada"),
                 Arguments.of(HttpMethod.GET, "/api/v1/actividades/{id}", actividadB, null, "Actividad no encontrada"),
-                Arguments.of(HttpMethod.PUT, "/api/v1/actividades/{id}", actividadB, actividad,
+                Arguments.of(HttpMethod.PUT, "/api/v1/actividades/{id}", actividadB,
+                        new EditarActividadRequest("Intrusa", "Desde la empresa A", 0, 0, 0L),
                         "Actividad no encontrada"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/actividades/{id}", actividadB, null, "Actividad no encontrada"),
                 Arguments.of(HttpMethod.POST, "/api/v1/lanes/{id}/gateways", laneB, gateway, "Lane no encontrada"),
                 Arguments.of(HttpMethod.GET, "/api/v1/gateways/{id}", gatewayB, null, "Gateway no encontrado"),
-                Arguments.of(HttpMethod.PUT, "/api/v1/gateways/{id}", gatewayB, gateway, "Gateway no encontrado"),
+                Arguments.of(HttpMethod.PUT, "/api/v1/gateways/{id}", gatewayB,
+                        new EditarGatewayRequest("Intruso", TipoGateway.PARALELO, 0, 0, 0L), "Gateway no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/gateways/{id}", gatewayB, null, "Gateway no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
-                Arguments.of(HttpMethod.PUT, "/api/v1/arcos/{id}", arcoB, new EditarArcoRequest("Intruso", null),
+                Arguments.of(HttpMethod.PUT, "/api/v1/arcos/{id}", arcoB, new EditarArcoRequest("Intruso", null, 0L),
                         "Arco no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/mensajes", procesoB,
                         new MensajeRequest("Intruso", "Desde la empresa A", poolA, poolB), "Proceso no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/mensajes/{id}", mensajeB, null, "Mensaje no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/mensajes/{id}", mensajeB,
-                        new EditarMensajeRequest("Intruso", "Desde la empresa A"), "Mensaje no encontrado"),
+                        new EditarMensajeRequest("Intruso", "Desde la empresa A", 0L), "Mensaje no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/mensajes/{id}", mensajeB, null, "Mensaje no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/mensajes/{id}/correlacion", mensajeB, null,
                         "no tiene correlacion"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/mensajes/{id}/correlacion", mensajeB,
-                        new CorrelacionRequest("Intruso"), "Mensaje no encontrado"));
+                        new CorrelacionRequest("Intruso", null), "Mensaje no encontrado"));
     }
 
     @ParameterizedTest(name = "{0} {1} -> 404 {4}")
@@ -283,7 +291,7 @@ class AislamientoEmpresasIntegracionTest {
         return Stream.of(
                 Arguments.of(HttpMethod.POST, "/api/v1/pools/{id}/lanes", poolA, new LaneRequest("Mixta", rolB),
                         "Rol de proceso no encontrado"),
-                Arguments.of(HttpMethod.PUT, "/api/v1/lanes/{id}", laneA, new LaneRequest("Mixta", rolB),
+                Arguments.of(HttpMethod.PUT, "/api/v1/lanes/{id}", laneA, new EditarLaneRequest("Mixta", rolB, 0L),
                         "Rol de proceso no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/arcos", null, new ArcoRequest(gatewayA, gatewayB, null, null),
                         "Nodo de destino no encontrado"),

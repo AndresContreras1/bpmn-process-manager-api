@@ -2,7 +2,7 @@ package com.facimus.procesos.gestion.model;
 
 import java.time.LocalDateTime;
 
-import com.facimus.procesos.common.EntidadEmpresa;
+import com.facimus.procesos.common.EntidadEditable;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,7 +24,7 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @Entity
 @Table(name = "procesos")
-public class Proceso extends EntidadEmpresa {
+public class Proceso extends EntidadEditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,5 +1,7 @@
 package com.facimus.procesos.modelado.service.impl;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,17 +28,19 @@ public class CorrelacionServiceImpl implements CorrelacionService {
     /** Crea el criterio de correlacion del mensaje, o lo reemplaza si ya tenia uno. */
     @Override
     @Transactional
-    public CorrelacionResponse definir(Long empresaId, Long mensajeId, String criterio) {
+    public CorrelacionResponse definir(Long empresaId, Long mensajeId, String criterio, Long version) {
         Mensaje mensaje = mensajeRepository.findByIdAndEmpresaId(mensajeId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Mensaje no encontrado."));
 
-        Correlacion correlacion = correlacionRepository.findByMensajeIdAndEmpresaId(mensajeId, empresaId)
-                .orElseGet(() -> Correlacion.builder()
-                        .empresa(mensaje.getEmpresa())
-                        .mensaje(mensaje)
-                        .build());
+        Optional<Correlacion> actual = correlacionRepository.findByMensajeIdAndEmpresaId(mensajeId, empresaId);
+        // Reemplazar exige la version leida; la primera clave del mensaje se crea sin version.
+        actual.ifPresent(existente -> existente.verificarVersion(version));
+        Correlacion correlacion = actual.orElseGet(() -> Correlacion.builder()
+                .empresa(mensaje.getEmpresa())
+                .mensaje(mensaje)
+                .build());
         correlacion.setCriterio(criterio);
-        return correlacionMapper.toResponse(correlacionRepository.save(correlacion));
+        return correlacionMapper.toResponse(correlacionRepository.saveAndFlush(correlacion));
     }
 
     @Override

@@ -136,7 +136,7 @@ class AutorizacionPorRolTest {
         var peticion = request(metodo, ruta, ID_INEXISTENTE)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
         if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}")) {
-            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"PUBLICADO\"}");
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"PUBLICADO\",\"version\":0}");
         }
         mockMvc.perform(peticion)
                 .andExpect(status().is(estadoEsperado));

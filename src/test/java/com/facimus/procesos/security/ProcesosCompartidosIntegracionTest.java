@@ -130,7 +130,8 @@ class ProcesosCompartidosIntegracionTest {
                 get("/api/v1/procesos/{id}/pools", procesoId),
                 get("/api/v1/procesos/{id}/compartidos", procesoId),
                 put("/api/v1/procesos/{id}", procesoId).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nombre\":\"Cambiado\",\"descripcion\":\"Desde la invitada\",\"categoria\":\"X\"}"),
+                        .content("{\"nombre\":\"Cambiado\",\"descripcion\":\"Desde la invitada\",\"categoria\":\"X\","
+                                + "\"version\":0}"),
                 post("/api/v1/procesos/{id}/pools", procesoId).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nombre\":\"Intruso\",\"tipoParticipante\":\"PROVEEDOR\",\"cajaNegra\":true}"),
                 delete("/api/v1/procesos/{id}/compartidos/{invitada}", procesoId, invitadaId));

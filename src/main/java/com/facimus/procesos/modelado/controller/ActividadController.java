@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.modelado.dto.request.ActividadRequest;
+import com.facimus.procesos.modelado.dto.request.EditarActividadRequest;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.security.ApiPrincipal;
@@ -81,12 +82,13 @@ public class ActividadController {
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping("/actividades/{id}")
     public ResponseEntity<ActividadResponse> editar(@PathVariable Long id,
-            @Validated @RequestBody ActividadRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
+            @Validated @RequestBody EditarActividadRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(actividadService.editar(empresaId, id, request.nombre(), request.descripcion(),
-                request.posicionX(), request.posicionY()));
+                request.posicionX(), request.posicionY(), request.version()));
     }
 
     @Operation(summary = "Delete an activity",

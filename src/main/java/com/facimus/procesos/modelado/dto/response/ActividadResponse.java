@@ -9,5 +9,7 @@ public record ActividadResponse(
         @Schema(example = "Collect the items and prepare the package.") String descripcion,
         @Schema(example = "580") int posicionX,
         @Schema(example = "200") int posicionY,
-        @Schema(example = "4") Long laneId) {
+        @Schema(example = "4") Long laneId,
+        @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
+        Long version) {
 }

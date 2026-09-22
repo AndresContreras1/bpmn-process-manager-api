@@ -8,5 +8,7 @@ import jakarta.validation.constraints.Size;
 public record CorrelacionRequest(
         @Schema(description = "Data that links the messages of one conversation", example = "orderId")
         @NotBlank(message = "El criterio es obligatorio.")
-        @Size(max = 120, message = "El criterio no puede superar 120 caracteres.") String criterio) {
+        @Size(max = 120, message = "El criterio no puede superar 120 caracteres.") String criterio,
+        @Schema(description = "Version of the current key, read with the last GET. Leave it out to create the first "
+                + "one; if it does not match the saved key, the change answers 409", example = "0") Long version) {
 }

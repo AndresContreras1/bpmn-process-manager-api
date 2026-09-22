@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.modelado.dto.request.EditarLaneRequest;
 import com.facimus.procesos.modelado.dto.request.LaneRequest;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.model.Lane;
@@ -80,11 +81,13 @@ public class LaneController {
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping("/lanes/{id}")
     public ResponseEntity<LaneResponse> editar(@PathVariable Long id,
-            @Validated @RequestBody LaneRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
+            @Validated @RequestBody EditarLaneRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(laneService.editar(empresaId, id, request.nombre(), request.rolProcesoId()));
+        return ResponseEntity.ok(laneService.editar(empresaId, id, request.nombre(), request.rolProcesoId(),
+                request.version()));
     }
 
     @Operation(summary = "Delete a lane",

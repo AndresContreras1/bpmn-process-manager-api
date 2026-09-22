@@ -9,5 +9,7 @@ public record LaneResponse(
         @Schema(description = "Position inside the pool, starting at 0", example = "1") int orden,
         @Schema(example = "1") Long poolId,
         @Schema(example = "2") Long rolProcesoId,
-        @Schema(example = "Warehouse") String rolProcesoNombre) {
+        @Schema(example = "Warehouse") String rolProcesoNombre,
+        @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
+        Long version) {
 }

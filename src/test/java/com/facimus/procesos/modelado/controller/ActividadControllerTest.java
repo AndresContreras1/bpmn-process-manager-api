@@ -114,13 +114,15 @@ class ActividadControllerTest {
     @DisplayName("PUT /api/v1/actividades/{id} - editar actividad (200)")
     void editar_actividad() throws Exception {
         ActividadResponse a = crearActividad(1L, "Revisar v2");
-        given(actividadService.editar(eq(1L), eq(1L), anyString(), anyString(), anyInt(), anyInt())).willReturn(a);
+        given(actividadService.editar(eq(1L), eq(1L), anyString(), anyString(), anyInt(), anyInt(), eq(3L)))
+                .willReturn(a);
 
         mockMvc.perform(put("/api/v1/actividades/1")
                         .with(principal(RolAcceso.EDITOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"nombre":"Revisar v2","descripcion":"Actualizada","posicionX":150,"posicionY":250}
+                                {"nombre":"Revisar v2","descripcion":"Actualizada","posicionX":150,"posicionY":250,
+                                 "version":3}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombre").value("Revisar v2"));
@@ -135,7 +137,7 @@ class ActividadControllerTest {
     }
 
     private ActividadResponse crearActividad(Long id, String nombre) {
-        return new ActividadResponse(id, nombre, "Desc", 100, 200, 3L);
+        return new ActividadResponse(id, nombre, "Desc", 100, 200, 3L, 0L);
     }
 
 }
