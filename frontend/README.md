@@ -1,8 +1,8 @@
 # BPMN Process Manager web
 
 The Angular front end of the [BPMN Process Manager API](../README.md). Each online store signs in, manages its
-processes and views their BPMN diagrams. Screens arrive in small pull requests; so far the app has its layout and the
-home page.
+processes and views their BPMN diagrams. Screens arrive in small pull requests; so far the app has the home page, sign
+in, store registration and the account page.
 
 ## Stack
 
@@ -28,6 +28,16 @@ A production build goes to `dist/bpmn-process-manager-web/browser/`:
 ```bash
 npm run build
 ```
+
+## Session
+
+- Signing in stores the JWT and the user it belongs to in `localStorage`, behind a `TokenService`. The demo store
+  signs in with `admin@demo.com` / `admin123`.
+- An HTTP interceptor adds `Authorization: Bearer <token>` to every call except sign in and store registration.
+  When the API answers `401`, it clears the session and goes back to the sign-in page.
+- A route guard keeps private pages behind a valid session and remembers the page the user asked for.
+- `AuthService` publishes the current user through a `BehaviorSubject`, so the navbar and the pages react to sign in
+  and sign out.
 
 ## Where things go
 
