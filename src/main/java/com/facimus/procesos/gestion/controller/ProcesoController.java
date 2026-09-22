@@ -3,8 +3,6 @@ package com.facimus.procesos.gestion.controller;
 import java.net.URI;
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.EditarProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
@@ -36,7 +35,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 
 /** HU-04 a HU-07: creacion, edicion, eliminacion logica y consulta de procesos. */
@@ -46,13 +47,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProcesoController {
 
-    private static final int TAMANO_PAGINA = 10;
+    private static final String ORDEN = "(nombre|categoria|estado|fechaCreacion|fechaModificacion)(,(asc|desc))?";
 
     private final ProcesoService procesoService;
 
     @Operation(summary = "List processes",
-            description = "Pages of 10 processes, most recently modified first. The filters are optional and can be "
-                    + "combined.")
+            description = "Pages of up to 50 processes, 10 by default, most recently modified first unless orden "
+                    + "says otherwise. The filters are optional and can be combined.")
     @ApiResponse(responseCode = "200", description = "One page of processes")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -65,11 +66,19 @@ public class ProcesoController {
             @Parameter(description = "Exact category", example = "Fulfillment")
             @RequestParam(required = false) String categoria,
             @Parameter(description = "Page number, starting at 0")
-            @RequestParam(defaultValue = "0") @Min(value = 0, message = "La página no puede ser negativa.") int pagina,
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = Paginacion.PAGINA_INVALIDA) int pagina,
+            @Parameter(description = "Items per page, from 1 to 50")
+            @RequestParam(defaultValue = "10") @Min(value = 1, message = Paginacion.TAMANO_INVALIDO)
+            @Max(value = Paginacion.TAMANO_MAXIMO, message = Paginacion.TAMANO_INVALIDO) int tamano,
+            @Parameter(description = "Field and direction: nombre, categoria, estado, fechaCreacion or "
+                    + "fechaModificacion, then asc or desc", example = "nombre,asc")
+            @RequestParam(defaultValue = "fechaModificacion,desc") @Pattern(regexp = ORDEN,
+                    message = "Orden no permitido. Use nombre, categoria, estado, fechaCreacion o fechaModificacion, "
+                            + "con ,asc o ,desc.") String orden,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(procesoService.buscar(empresaId, nombre, estado, categoria,
-                PageRequest.of(pagina, TAMANO_PAGINA, Sort.by("fechaModificacion").descending())));
+                Paginacion.de(pagina, tamano, orden)));
     }
 
     @Operation(summary = "Create a process",

@@ -1,5 +1,6 @@
 package com.facimus.procesos.modelado.repository;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -44,4 +45,14 @@ public interface LaneRepository extends RepositorioTenant<Lane> {
             order by p.nombre
             """)
     List<String> nombresDeProcesosActivosDelRol(@Param("empresaId") Long empresaId, @Param("rolId") Long rolId);
+
+    /** El mismo conteo para varios roles a la vez; un rol sin procesos activos no aparece. */
+    @Query("""
+            select new com.facimus.procesos.modelado.repository.ProcesosDelRol(l.rolProceso.id, count(distinct p.id))
+            from Lane l join l.pool po join po.proceso p
+            where l.rolProceso.id in :rolIds and l.empresa.id = :empresaId and p.activo = true
+            group by l.rolProceso.id
+            """)
+    List<ProcesosDelRol> contarProcesosActivosPorRol(@Param("empresaId") Long empresaId,
+            @Param("rolIds") Collection<Long> rolIds);
 }

@@ -1,12 +1,17 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.mapper.RolProcesoMapper;
 import com.facimus.procesos.gestion.model.Empresa;
@@ -29,10 +34,14 @@ public class RolProcesoServiceImpl implements RolProcesoService {
     private final RolProcesoMapper rolProcesoMapper;
 
     @Override
-    public List<RolProcesoVistaResponse> listarConUso(Long empresaId) {
-        return rolProcesoRepository.findAllByEmpresaIdAndActivoTrue(empresaId).stream()
-                .map(rol -> conUso(empresaId, rol))
-                .toList();
+    public PageResponse<RolProcesoVistaResponse> buscar(Long empresaId, String nombre, Pageable pageable) {
+        Page<RolProceso> roles = StringUtils.hasText(nombre)
+                ? rolProcesoRepository.findAllByEmpresaIdAndActivoTrueAndNombreContainingIgnoreCase(empresaId, nombre,
+                        pageable)
+                : rolProcesoRepository.findAllByEmpresaIdAndActivoTrue(empresaId, pageable);
+        // El uso de todos los roles de la pagina en una sola consulta, no una por rol.
+        Map<Long, Long> usos = usoDeRoles.contarProcesosPorRol(empresaId, roles.map(RolProceso::getId).getContent());
+        return PageResponse.from(roles.map(rol -> rolProcesoMapper.toResponse(rol, usos.getOrDefault(rol.getId(), 0L))));
     }
 
     @Override

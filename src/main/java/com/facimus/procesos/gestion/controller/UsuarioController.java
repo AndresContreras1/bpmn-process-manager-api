@@ -14,8 +14,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.gestion.dto.request.ActualizarUsuarioRequest;
 import com.facimus.procesos.gestion.dto.request.CrearUsuarioRequest;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
@@ -23,9 +26,13 @@ import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.ApiPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 
 /** HU-02: administracion de colaboradores de la empresa (solo administrador). */
@@ -35,15 +42,28 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UsuarioController {
 
+    private static final String ORDEN = "(nombre|email|rolAcceso)(,(asc|desc))?";
+
     private final UsuarioService usuarioService;
 
-    @Operation(summary = "List active users")
-    @ApiResponse(responseCode = "200", description = "The store's active users")
+    @Operation(summary = "List active users", description = "Pages of the store's active users, by name by default.")
+    @ApiResponse(responseCode = "200", description = "One page of the store's active users")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @GetMapping
-    public ResponseEntity<List<UsuarioResponse>> listar(@AuthenticationPrincipal ApiPrincipal principal) {
-        return ResponseEntity.ok(usuarioService.listarPorEmpresa(principal.empresaId()));
+    public ResponseEntity<PageResponse<UsuarioResponse>> listar(
+            @Parameter(description = "Page number, starting at 0")
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = Paginacion.PAGINA_INVALIDA) int pagina,
+            @Parameter(description = "Items per page, from 1 to 50")
+            @RequestParam(defaultValue = "10") @Min(value = 1, message = Paginacion.TAMANO_INVALIDO)
+            @Max(value = Paginacion.TAMANO_MAXIMO, message = Paginacion.TAMANO_INVALIDO) int tamano,
+            @Parameter(description = "Field and direction: nombre, email or rolAcceso, then asc or desc",
+                    example = "email,asc")
+            @RequestParam(defaultValue = "nombre,asc") @Pattern(regexp = ORDEN,
+                    message = "Orden no permitido. Use nombre, email o rolAcceso, con ,asc o ,desc.") String orden,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(usuarioService.buscar(principal.empresaId(), Paginacion.de(pagina, tamano, orden)));
     }
 
     @Operation(summary = "Create a user", description = "The email cannot belong to a user of any store.")

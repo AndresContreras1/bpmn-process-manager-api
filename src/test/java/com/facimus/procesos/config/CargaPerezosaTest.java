@@ -12,7 +12,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
+import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
@@ -129,6 +132,23 @@ class CargaPerezosaTest {
                 .containsExactlyInAnyOrder("Administrador", "Editora");
         // Una para el proceso y otra para el historial con sus autores.
         assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Una pagina de roles trae el uso de todos sus roles en una sola consulta, y se busca por nombre")
+    void paginaDeRoles_traeElUsoDeTodosEnUnaConsulta() {
+        estadisticas.clear();
+
+        PageResponse<RolProcesoVistaResponse> roles = rolProcesoService.buscar(empresaId, null,
+                Paginacion.de(0, 10, "nombre,asc"));
+
+        assertThat(roles.content()).hasSizeGreaterThanOrEqualTo(3).allMatch(rol -> rol.procesosQueLoUsan() == 1);
+        // Una para la pagina y otra para el uso de sus roles; la pagina no se llena, asi que no hace falta contar.
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(2);
+        // HU-20: parte del nombre, sin distinguir mayusculas.
+        assertThat(rolProcesoService.buscar(empresaId, "WARE", Paginacion.de(0, 10, "nombre,asc")).content())
+                .extracting(RolProcesoVistaResponse::nombre)
+                .containsExactly("Warehouse");
     }
 
     @Test

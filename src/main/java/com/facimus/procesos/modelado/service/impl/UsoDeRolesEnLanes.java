@@ -1,12 +1,16 @@
 package com.facimus.procesos.modelado.service.impl;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.gestion.service.UsoDeRoles;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.ProcesosDelRol;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,5 +30,14 @@ public class UsoDeRolesEnLanes implements UsoDeRoles {
     @Override
     public List<String> procesosQueLoUsan(Long empresaId, Long rolId) {
         return laneRepository.nombresDeProcesosActivosDelRol(empresaId, rolId);
+    }
+
+    @Override
+    public Map<Long, Long> contarProcesosPorRol(Long empresaId, Collection<Long> rolIds) {
+        if (rolIds.isEmpty()) {
+            return Map.of();
+        }
+        return laneRepository.contarProcesosActivosPorRol(empresaId, rolIds).stream()
+                .collect(Collectors.toMap(ProcesosDelRol::rolId, ProcesosDelRol::procesos));
     }
 }

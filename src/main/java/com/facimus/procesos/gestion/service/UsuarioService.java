@@ -1,7 +1,8 @@
 package com.facimus.procesos.gestion.service;
 
-import java.util.List;
+import org.springframework.data.domain.Pageable;
 
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
 
@@ -23,7 +24,7 @@ public interface UsuarioService {
 
     UsuarioResponse autenticar(String email, String password);
 
-    List<UsuarioResponse> listarPorEmpresa(Long empresaId);
+    PageResponse<UsuarioResponse> buscar(Long empresaId, Pageable pageable);
 
     UsuarioResponse obtener(Long empresaId, Long usuarioId);
 }
