@@ -9,4 +9,6 @@ import com.facimus.procesos.modelado.model.Gateway;
 public interface GatewayRepository extends RepositorioTenant<Gateway> {
 
     List<Gateway> findAllByLaneIdAndEmpresaId(Long laneId, Long empresaId);
+
+    List<Gateway> findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(Long procesoId, Long empresaId);
 }

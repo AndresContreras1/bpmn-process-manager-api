@@ -185,6 +185,7 @@ class AislamientoEmpresasIntegracionTest {
     Stream<Arguments> listadosPorRecursoPadre() {
         return Stream.of(
                 Arguments.of("/api/v1/procesos/{id}/pools", procesoB),
+                Arguments.of("/api/v1/procesos/{id}/diagrama", procesoB),
                 Arguments.of("/api/v1/procesos/{id}/mensajes", procesoB),
                 Arguments.of("/api/v1/pools/{id}/lanes", poolB),
                 Arguments.of("/api/v1/lanes/{id}/actividades", laneB),

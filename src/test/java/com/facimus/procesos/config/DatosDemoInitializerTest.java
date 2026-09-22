@@ -87,6 +87,25 @@ class DatosDemoInitializerTest {
         }
     }
 
+    @Test
+    @DisplayName("El diagrama del proceso de pedidos llega completo en una sola peticion")
+    void DatosDemo_diagramaDePedidos_llegaCompletoEnUnaPeticion() throws Exception {
+        JsonNode diagrama = leer(get("/api/v1/procesos/{id}/diagrama", idDelProceso("Order fulfillment")));
+
+        assertThat(diagrama.get("proceso").get("estado").asString()).isEqualTo("PUBLICADO");
+        assertThat(diagrama.get("pools")).extracting(pool -> pool.get("tipoParticipante").asString())
+                .containsExactly("EMPRESA", "CLIENTE", "SISTEMA_EXTERNO", "PROVEEDOR");
+        assertThat(diagrama.get("lanes")).extracting(lane -> lane.get("rolProcesoNombre").asString())
+                .containsExactly("Sales", "Warehouse");
+        assertThat(diagrama.get("actividades")).hasSize(5);
+        assertThat(diagrama.get("gateways")).hasSize(1);
+        assertThat(diagrama.get("arcos")).hasSize(5);
+        assertThat(diagrama.get("mensajes")).hasSize(5);
+        assertThat(diagrama.get("correlaciones")).extracting(correlacion -> correlacion.get("criterio").asString())
+                .hasSize(5)
+                .containsOnly("orderId");
+    }
+
     private long idDelProceso(String nombre) throws Exception {
         for (JsonNode proceso : leer(get("/api/v1/procesos")).get("content")) {
             if (proceso.get("nombre").asString().equals(nombre)) {
