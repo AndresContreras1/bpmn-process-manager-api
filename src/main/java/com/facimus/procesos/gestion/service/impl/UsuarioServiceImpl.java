@@ -19,6 +19,7 @@ import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final EmpresaRepository empresaRepository;
     private final PasswordEncoder passwordEncoder;
     private final UsuarioMapper usuarioMapper;
+    private final SesionService sesionService;
 
     @Override
     @Transactional
@@ -63,13 +65,19 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Transactional
     public UsuarioResponse actualizar(Long empresaId, Long usuarioId, RolAcceso rolAcceso, Boolean activo) {
         Usuario usuario = buscar(empresaId, usuarioId);
+        boolean cambiaElRol = rolAcceso != null && rolAcceso != usuario.getRolAcceso();
         if (rolAcceso != null) {
             usuario.setRolAcceso(rolAcceso);
         }
         if (activo != null) {
             usuario.setActivo(activo);
         }
-        return usuarioMapper.toResponse(usuarioRepository.save(usuario));
+        UsuarioResponse actualizado = usuarioMapper.toResponse(usuarioRepository.save(usuario));
+        if (cambiaElRol || !usuario.isActivo()) {
+            // Los tokens ya emitidos llevan el rol y el estado de antes: el usuario vuelve a entrar con los nuevos.
+            sesionService.cerrarTodas(empresaId, usuarioId);
+        }
+        return actualizado;
     }
 
     @Override
@@ -78,6 +86,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         Usuario usuario = buscar(empresaId, usuarioId);
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
+        sesionService.cerrarTodas(empresaId, usuarioId);
     }
 
     @Override

@@ -1,5 +1,7 @@
 package com.facimus.procesos.security;
 
+import java.time.Clock;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -17,7 +19,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.facimus.procesos.gestion.model.RolAcceso;
-import com.facimus.procesos.gestion.service.UsuarioService;
 
 @Configuration
 @EnableWebSecurity
@@ -35,14 +36,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, UsuarioService usuarioService)
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, RevokedSessions revokedSessions)
             throws Exception {
         reglasComunes(http)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthEntryPoint)
                         .accessDeniedHandler(jwtAccessDeniedHandler))
                 // Sin @Bean a proposito: como bean, Spring Boot tambien lo registraria como filtro del servlet.
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService, usuarioService),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtService, revokedSessions),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -55,7 +56,7 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/empresas").permitAll()
                         .requestMatchers("/h2-console/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                 "/error").permitAll()
@@ -73,6 +74,12 @@ public class SecurityConfig {
                                 "/api/v1/lanes/**", "/api/v1/mensajes/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers("/api/v1/**").hasAnyAuthority(ADMINISTRADOR, EDITOR)
                         .anyRequest().authenticated());
+    }
+
+    /** El reloj del sistema, como bean para que los tests unitarios puedan mover el tiempo. */
+    @Bean
+    public Clock reloj() {
+        return Clock.systemUTC();
     }
 
     @Bean

@@ -8,6 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.LocalDateTime;
+import java.util.HexFormat;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,20 +25,25 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
+import com.facimus.procesos.gestion.dto.request.CerrarSesionRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.RegistroEmpresaRequest;
+import com.facimus.procesos.gestion.dto.request.RenovarTokenRequest;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Escenarios de seguridad con la aplicacion completa: SecurityConfig, filtro JWT y base de datos reales. */
@@ -63,6 +73,9 @@ class SeguridadIntegracionTest {
 
     @Autowired
     private JwtAccessDeniedHandler jwtAccessDeniedHandler;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private Long empresaId;
 
@@ -192,15 +205,126 @@ class SeguridadIntegracionTest {
     }
 
     @Test
-    @DisplayName("El token de un usuario desactivado deja de servir: 401")
+    @DisplayName("Desactivar a un usuario cierra sus sesiones: su access token y su refresh token dejan de servir")
     void Seguridad_endpointProtegido_usuarioDesactivado_devuelve401() throws Exception {
         UsuarioResponse editor = crearColaborador("editor.baja@seguridad.com", "editor123", RolAcceso.EDITOR);
-        String token = jwtService.generarToken(ApiPrincipal.of(editor));
+        Tokens sesion = sesion("editor.baja@seguridad.com", "editor123");
 
         usuarioService.desactivar(editor.empresaId(), editor.id());
 
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(sesion.access())))
                 .andExpect(status().isUnauthorized());
+        renovar(sesion.refresh()).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Cambiar el rol cierra las sesiones del usuario, que vuelve a entrar con el rol nuevo")
+    void Seguridad_cambioDeRol_cierraSesionesYElNuevoLoginTraeElRolNuevo() throws Exception {
+        UsuarioResponse editor = crearColaborador("editor.rol@seguridad.com", "editor123", RolAcceso.EDITOR);
+        Tokens antes = sesion("editor.rol@seguridad.com", "editor123");
+
+        usuarioService.actualizar(editor.empresaId(), editor.id(), RolAcceso.SOLO_LECTURA, null);
+
+        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(antes.access())))
+                .andExpect(status().isUnauthorized());
+        renovar(antes.refresh()).andExpect(status().isUnauthorized());
+        Tokens despues = sesion("editor.rol@seguridad.com", "editor123");
+        mockMvc.perform(post("/api/v1/procesos")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(despues.access()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(
+                                new ProcesoRequest("Devoluciones", "Cambios y devoluciones", "Posventa"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Renovar entrega tokens nuevos de la misma sesion, y el refresh token nuevo vuelve a renovar")
+    void Seguridad_refresh_rotaLosTokensDeLaMismaSesion() throws Exception {
+        Tokens login = sesion(ADMIN, CLAVE);
+
+        Tokens renovados = tokens(renovar(login.refresh())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(900))
+                .andExpect(jsonPath("$.usuario.email").value(ADMIN)));
+
+        assertThat(renovados.refresh()).isNotEqualTo(login.refresh());
+        assertThat(sesionDe(renovados.access())).isEqualTo(sesionDe(login.access()));
+        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(renovados.access())))
+                .andExpect(status().isOk());
+        renovar(renovados.refresh()).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Reusar un refresh token ya usado cierra la sesion: ya no sirven el refresh token nuevo ni el access")
+    void Seguridad_refreshReutilizado_cierraLaSesion() throws Exception {
+        Tokens login = sesion(ADMIN, CLAVE);
+        Tokens renovados = tokens(renovar(login.refresh()).andExpect(status().isOk()));
+
+        renovar(login.refresh())
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
+                .andExpect(jsonPath("$.title").value("Sesión no válida"));
+
+        renovar(renovados.refresh()).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(renovados.access())))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Cerrar sesion invalida al instante sus tokens y no toca las otras sesiones del usuario")
+    void Seguridad_logout_cierraSoloEsaSesion() throws Exception {
+        Tokens celular = sesion(ADMIN, CLAVE);
+        Tokens portatil = sesion(ADMIN, CLAVE);
+
+        mockMvc.perform(post("/api/v1/auth/logout").header(HttpHeaders.AUTHORIZATION, bearer(celular.access())))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(celular.access())))
+                .andExpect(status().isUnauthorized());
+        renovar(celular.refresh()).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(portatil.access())))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Un refresh token en el cuerpo del logout cierra su sesion solo si es del mismo usuario")
+    void Seguridad_logoutConRefreshToken_soloCierraLasSesionesPropias() throws Exception {
+        crearColaborador("editor.ajeno@seguridad.com", "editor123", RolAcceso.EDITOR);
+        Tokens ajena = sesion("editor.ajeno@seguridad.com", "editor123");
+        Tokens actual = sesion(ADMIN, CLAVE);
+        Tokens otraPropia = sesion(ADMIN, CLAVE);
+
+        cerrarSesion(sesion(ADMIN, CLAVE).access(), ajena.refresh()).andExpect(status().isNoContent());
+        cerrarSesion(actual.access(), otraPropia.refresh()).andExpect(status().isNoContent());
+
+        renovar(ajena.refresh()).andExpect(status().isOk());
+        renovar(otraPropia.refresh()).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Un refresh token vencido no renueva, y la base guarda solo su hash SHA-256")
+    void Seguridad_refreshVencido_devuelve401() throws Exception {
+        Tokens login = sesion(ADMIN, CLAVE);
+        assertThat(filasConHash(login.refresh())).isZero();
+        assertThat(filasConHash(sha256(login.refresh()))).isOne();
+
+        jdbcTemplate.update("update refresh_tokens set fecha_expiracion = ? where token_hash = ?",
+                LocalDateTime.now().minusMinutes(1), sha256(login.refresh()));
+
+        renovar(login.refresh()).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Defensa en profundidad: un usuario inactivo no renueva aunque su sesion haya quedado abierta")
+    void Seguridad_refreshDeUsuarioInactivo_devuelve401() throws Exception {
+        crearColaborador("editor.inactivo@seguridad.com", "editor123", RolAcceso.EDITOR);
+        Tokens sesion = sesion("editor.inactivo@seguridad.com", "editor123");
+
+        // Directo en la base, sin pasar por el service que cierra sus sesiones
+        jdbcTemplate.update("update usuarios set activo = false where email = ?", "editor.inactivo@seguridad.com");
+
+        renovar(sesion.refresh()).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -243,12 +367,54 @@ class SeguridadIntegracionTest {
     }
 
     private String login(String email, String password) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return sesion(email, password).access();
+    }
+
+    /** Los dos tokens de una sesion recien abierta con el login real. */
+    private Tokens sesion(String email, String password) throws Exception {
+        return tokens(mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, password))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
+    }
+
+    private ResultActions renovar(String refreshToken) throws Exception {
+        return mockMvc.perform(post("/api/v1/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(new RenovarTokenRequest(refreshToken))));
+    }
+
+    private ResultActions cerrarSesion(String accessToken, String refreshToken) throws Exception {
+        return mockMvc.perform(post("/api/v1/auth/logout")
+                .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(new CerrarSesionRequest(refreshToken))));
+    }
+
+    private Tokens tokens(ResultActions respuesta) throws Exception {
+        JsonNode json = jsonMapper.readTree(respuesta.andReturn().getResponse().getContentAsString());
+        return new Tokens(json.get("accessToken").asString(), json.get("refreshToken").asString());
+    }
+
+    private String sesionDe(String accessToken) {
+        return jwtService.validar(accessToken).orElseThrow().sesion();
+    }
+
+    private int filasConHash(String tokenHash) {
+        return jdbcTemplate.queryForObject("select count(*) from refresh_tokens where token_hash = ?", Integer.class,
+                tokenHash);
+    }
+
+    private static String sha256(String texto) throws Exception {
+        return HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(texto.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private static String bearer(String token) {
+        return "Bearer " + token;
+    }
+
+    private record Tokens(String access, String refresh) {
     }
 
     /** El cuerpo del 401, que no puede cambiar segun el motivo del fallo. */

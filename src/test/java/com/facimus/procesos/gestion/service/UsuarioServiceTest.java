@@ -38,6 +38,8 @@ class UsuarioServiceTest {
     private EmpresaRepository empresaRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private SesionService sesionService;
 
     @Spy
     private UsuarioMapper usuarioMapper = Mappers.getMapper(UsuarioMapper.class);
@@ -118,7 +120,7 @@ class UsuarioServiceTest {
     }
 
     @Test
-    @DisplayName("HU-03: las credenciales de un usuario activo traen su perfil y el hash de su clave, que no se imprime")
+    @DisplayName("HU-03: las credenciales de un usuario activo traen su perfil y el hash de la clave, sin imprimirlo")
     void buscarCredenciales_usuarioActivo_devuelvePerfilYHash() {
         when(usuarioRepository.findByEmail("juan@acme.com")).thenReturn(Optional.of(usuario));
 
@@ -156,6 +158,40 @@ class UsuarioServiceTest {
 
         assertFalse(usuario.isActivo());
         verify(usuarioRepository).save(usuario);
+        verify(sesionService).cerrarTodas(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("Cambiar el rol cierra las sesiones del usuario: sus tokens llevan el rol de antes")
+    void actualizar_cambiaElRol_cierraSusSesiones() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, 10L, RolAcceso.SOLO_LECTURA, null);
+
+        verify(sesionService).cerrarTodas(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("Desactivar con PATCH tambien cierra las sesiones del usuario")
+    void actualizar_desactiva_cierraSusSesiones() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, 10L, null, false);
+
+        verify(sesionService).cerrarTodas(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("Repetir el mismo rol con el usuario activo no cierra sus sesiones")
+    void actualizar_sinCambioDeAcceso_noCierraSesiones() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, 10L, RolAcceso.EDITOR, true);
+
+        verify(sesionService, never()).cerrarTodas(anyLong(), anyLong());
     }
 
     @Test

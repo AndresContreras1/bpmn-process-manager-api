@@ -28,6 +28,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.SesionInvalidaException;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DatabindException;
@@ -69,6 +70,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
                 .body(construir(HttpStatus.UNAUTHORIZED, "No autenticado", "Credenciales inválidas o token ausente", req));
+    }
+
+    /** Renovacion rechazada. Como todo 401, dice con WWW-Authenticate el esquema que la API espera. */
+    @ExceptionHandler(SesionInvalidaException.class)
+    public ResponseEntity<ProblemDetail> manejarSesionInvalida(SesionInvalidaException ex, WebRequest req) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(construir(HttpStatus.UNAUTHORIZED, "Sesión no válida", ex.getMessage(), req));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
