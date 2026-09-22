@@ -4,6 +4,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
@@ -69,9 +70,9 @@ public class DatosDemoInitializer implements CommandLineRunner {
 
     /** Proceso publicado que usa todos los elementos BPMN: pools, lanes, actividades, gateway, arcos y mensajes. */
     private void sembrarDespachoDePedidos(Long empresaId, Long adminId) {
-        Long procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment",
-                "From checkout to delivery: payment authorization, picking, packing and shipment.", "Fulfillment")
-                .id();
+        ProcesoResponse proceso = procesoService.crear(empresaId, adminId, "Order fulfillment",
+                "From checkout to delivery: payment authorization, picking, packing and shipment.", "Fulfillment");
+        Long procesoId = proceso.id();
 
         // El proceso nace con el pool de la tienda; los demas participantes se modelan como cajas negras.
         PoolResponse tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst();
@@ -118,11 +119,11 @@ public class DatosDemoInitializer implements CommandLineRunner {
                 "Confirmation with the tracking number, or the cancellation notice.", tienda.id(),
                 cliente.id()));
 
-        procesoService.cambiarEstado(empresaId, procesoId, adminId, EstadoProceso.PUBLICADO);
+        procesoService.cambiarEstado(empresaId, procesoId, adminId, EstadoProceso.PUBLICADO, proceso.version());
     }
 
     /** Todos los mensajes del pedido se correlacionan por su numero de orden. */
     private void correlacionar(Long empresaId, MensajeResponse mensaje) {
-        correlacionService.definir(empresaId, mensaje.id(), CLAVE_DE_CORRELACION);
+        correlacionService.definir(empresaId, mensaje.id(), CLAVE_DE_CORRELACION, null);
     }
 }

@@ -83,11 +83,13 @@ public class PoolController {
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping("/pools/{id}")
     public ResponseEntity<PoolResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarPoolRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(poolService.editar(empresaId, id, request.nombre(), request.tipoParticipante()));
+        return ResponseEntity.ok(poolService.editar(empresaId, id, request.nombre(), request.tipoParticipante(),
+                request.version()));
     }
 
     @Operation(summary = "Delete a pool",

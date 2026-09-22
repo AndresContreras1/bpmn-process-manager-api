@@ -11,7 +11,7 @@ public interface GatewayService {
     GatewayResponse crear(Long empresaId, Long laneId, String nombre, TipoGateway tipoGateway, int posX, int posY);
 
     GatewayResponse editar(Long empresaId, Long gatewayId, String nombre, TipoGateway tipoGateway, int posX,
-            int posY);
+            int posY, Long version);
 
     void eliminar(Long empresaId, Long gatewayId);
 

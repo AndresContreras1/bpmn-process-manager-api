@@ -51,11 +51,12 @@ public class LaneServiceImpl implements LaneService {
 
     @Override
     @Transactional
-    public LaneResponse editar(Long empresaId, Long laneId, String nombre, Long rolProcesoId) {
+    public LaneResponse editar(Long empresaId, Long laneId, String nombre, Long rolProcesoId, Long version) {
         Lane lane = buscar(empresaId, laneId);
+        lane.verificarVersion(version);
         lane.setNombre(nombre);
         lane.setRolProceso(rolProceso(empresaId, rolProcesoId));
-        return laneMapper.toResponse(laneRepository.save(lane));
+        return laneMapper.toResponse(laneRepository.saveAndFlush(lane));
     }
 
     @Override

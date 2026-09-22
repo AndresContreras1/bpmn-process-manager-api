@@ -21,12 +21,13 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
         config.setAllowedOrigins(Arrays.asList(allowedOrigins));
-        config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, HttpHeaders.ACCEPT));
+        config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, HttpHeaders.ACCEPT,
+                IdempotencyFilter.CABECERA));
         config.setAllowedMethods(List.of(HttpMethod.GET.name(), HttpMethod.POST.name(), HttpMethod.PUT.name(),
                 HttpMethod.PATCH.name(), HttpMethod.DELETE.name()));
-        // Un 201 dice en Location donde quedo el recurso y un 429 en Retry-After cuanto esperar: sin exponerlas, el
-        // navegador no deja que el frontend las lea.
-        config.setExposedHeaders(List.of(HttpHeaders.LOCATION, HttpHeaders.RETRY_AFTER));
+        // Un 201 dice en Location donde quedo el recurso, un 429 en Retry-After cuanto esperar e Idempotent-Replayed
+        // si la respuesta es la guardada de un reintento: sin exponerlas, el navegador no deja que el frontend las lea.
+        config.setExposedHeaders(List.of(HttpHeaders.LOCATION, HttpHeaders.RETRY_AFTER, IdempotencyFilter.REPETIDA));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

@@ -29,9 +29,10 @@ public interface ProcesoService {
     List<HistorialCambioResponse> listarHistorial(Long empresaId, Long procesoId);
 
     ProcesoResponse editarDatos(Long empresaId, Long procesoId, Long usuarioId, String nombre, String descripcion,
-            String categoria);
+            String categoria, Long version);
 
-    ProcesoResponse cambiarEstado(Long empresaId, Long procesoId, Long usuarioId, EstadoProceso nuevoEstado);
+    ProcesoResponse cambiarEstado(Long empresaId, Long procesoId, Long usuarioId, EstadoProceso nuevoEstado,
+            Long version);
 
     void eliminarLogico(Long empresaId, Long procesoId, Long usuarioId);
 }

@@ -71,11 +71,12 @@ public class ArcoServiceImpl implements ArcoService {
 
     @Override
     @Transactional
-    public ArcoResponse editar(Long empresaId, Long arcoId, String etiqueta, String condicion) {
+    public ArcoResponse editar(Long empresaId, Long arcoId, String etiqueta, String condicion, Long version) {
         Arco arco = buscar(empresaId, arcoId);
+        arco.verificarVersion(version);
         arco.setEtiqueta(etiqueta);
         arco.setCondicion(condicion);
-        return arcoMapper.toResponse(arcoRepository.save(arco));
+        return arcoMapper.toResponse(arcoRepository.saveAndFlush(arco));
     }
 
     @Override

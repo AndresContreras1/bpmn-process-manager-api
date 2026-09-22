@@ -1,6 +1,6 @@
 package com.facimus.procesos.modelado.model;
 
-import com.facimus.procesos.common.EntidadEmpresa;
+import com.facimus.procesos.common.EntidadEditable;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
@@ -31,7 +31,7 @@ import lombok.experimental.SuperBuilder;
 @Table(name = "nodos_flujo")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "tipo_nodo")
-public abstract class NodoFlujo extends EntidadEmpresa {
+public abstract class NodoFlujo extends EntidadEditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

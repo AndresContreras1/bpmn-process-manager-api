@@ -1,6 +1,6 @@
 package com.facimus.procesos.modelado.model;
 
-import com.facimus.procesos.common.EntidadEmpresa;
+import com.facimus.procesos.common.EntidadEditable;
 import com.facimus.procesos.gestion.model.RolProceso;
 
 import jakarta.persistence.Column;
@@ -24,7 +24,7 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @Entity
 @Table(name = "lanes")
-public class Lane extends EntidadEmpresa {
+public class Lane extends EntidadEditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

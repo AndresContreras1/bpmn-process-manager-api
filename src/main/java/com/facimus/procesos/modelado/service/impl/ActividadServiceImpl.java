@@ -55,13 +55,14 @@ public class ActividadServiceImpl implements ActividadService {
     @Override
     @Transactional
     public ActividadResponse editar(Long empresaId, Long actividadId, String nombre, String descripcion, int posX,
-            int posY) {
+            int posY, Long version) {
         Actividad actividad = buscar(empresaId, actividadId);
+        actividad.verificarVersion(version);
         actividad.setNombre(nombre);
         actividad.setDescripcion(descripcion);
         actividad.setPosicionX(posX);
         actividad.setPosicionY(posY);
-        return actividadMapper.toResponse(actividadRepository.save(actividad));
+        return actividadMapper.toResponse(actividadRepository.saveAndFlush(actividad));
     }
 
     @Override

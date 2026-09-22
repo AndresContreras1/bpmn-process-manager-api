@@ -8,5 +8,8 @@ import jakarta.validation.constraints.NotNull;
 @Schema(description = "State transition of a process")
 public record CambiarEstadoProcesoRequest(
         @Schema(description = "Target state; a published process cannot go back to draft", example = "PUBLICADO")
-        @NotNull(message = "El estado es obligatorio.") EstadoProceso estado) {
+        @NotNull(message = "El estado es obligatorio.") EstadoProceso estado,
+        @Schema(description = "Version read with the last GET; if someone saved a change since, the edit answers 409",
+                example = "0")
+        @NotNull(message = "La versión es obligatoria.") Long version) {
 }

@@ -1,7 +1,7 @@
 {
 	"info": {
 		"name": "BPMN Process Manager API",
-		"description": "Coleccion completa de BPMN Process Manager API: tiendas en linea que modelan sus operaciones (despacho de pedidos, pagos y devoluciones) como procesos BPMN, cada una aislada de las demas.\n\n**Flujo recomendado:**\n1. Registrar empresa (POST /api/v1/empresas)\n2. Iniciar sesion (POST /api/v1/auth/login) — el access token y el refresh token se guardan automaticamente; Renovar token (POST /api/v1/auth/refresh) los cambia por un par nuevo\n3. Usar los demas endpoints (el header Authorization: Bearer se envia automaticamente)\n4. Limpieza: borra lo que creo el recorrido, de hijos a padres, y cierra la sesion\n\nLa coleccion corre completa y en orden con el Collection Runner.",
+		"description": "Coleccion completa de BPMN Process Manager API: tiendas en linea que modelan sus operaciones (despacho de pedidos, pagos y devoluciones) como procesos BPMN, cada una aislada de las demas.\n\n**Flujo recomendado:**\n1. Registrar empresa (POST /api/v1/empresas)\n2. Iniciar sesion (POST /api/v1/auth/login) — el access token y el refresh token se guardan automaticamente; Renovar token (POST /api/v1/auth/refresh) los cambia por un par nuevo\n3. Usar los demas endpoints (el header Authorization: Bearer se envia automaticamente). Cada GET guarda la version del recurso en {{version}} y el PUT o PATCH que le sigue la manda\n4. Limpieza: borra lo que creo el recorrido, de hijos a padres, y cierra la sesion\n\nLa coleccion corre completa y en orden con el Collection Runner.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -67,6 +67,11 @@
 		},
 		{
 			"key": "empresaInvitadaId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "version",
 			"value": "",
 			"type": "string"
 		},
@@ -305,6 +310,20 @@
 				},
 				{
 					"name": "Obtener usuario",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -329,14 +348,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"rolAcceso\": \"ADMINISTRADOR\",\n  \"activo\": true\n}"
+							"raw": "{\n  \"rolAcceso\": \"ADMINISTRADOR\",\n  \"activo\": true,\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "usuarios", "{{usuarioId}}"]
 						},
-						"description": "HU-02: Actualiza el rol y/o estado activo de un usuario. Solo administrador."
+						"description": "HU-02: Actualiza el rol y/o estado activo de un usuario. Solo administrador. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -407,6 +426,20 @@
 				},
 				{
 					"name": "Detalle del proceso",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.proceso.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -435,6 +468,20 @@
 				},
 				{
 					"name": "Editar proceso",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "PUT",
 						"header": [
@@ -445,14 +492,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Order fulfillment v2\",\n  \"descripcion\": \"Adds fraud screening before the payment\",\n  \"categoria\": \"Fulfillment\"\n}"
+							"raw": "{\n  \"nombre\": \"Order fulfillment v2\",\n  \"descripcion\": \"Adds fraud screening before the payment\",\n  \"categoria\": \"Fulfillment\",\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "procesos", "{{procesoId}}"]
 						},
-						"description": "HU-05: Edita un proceso existente. Requiere EDITOR o ADMINISTRADOR."
+						"description": "HU-05: Edita un proceso existente. Requiere EDITOR o ADMINISTRADOR. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				},
@@ -468,14 +515,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"estado\": \"PUBLICADO\"\n}"
+							"raw": "{\n  \"estado\": \"PUBLICADO\",\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "procesos", "{{procesoId}}"]
 						},
-						"description": "HU-05: Publica el proceso mediante PATCH con estado=PUBLICADO. Requiere EDITOR o ADMINISTRADOR."
+						"description": "HU-05: Publica el proceso mediante PATCH con estado=PUBLICADO. Requiere EDITOR o ADMINISTRADOR. Manda la version que devolvio la edicion anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -542,6 +589,20 @@
 				},
 				{
 					"name": "Obtener rol",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -566,14 +627,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Warehouse lead\",\n  \"descripcion\": \"Coordinates the warehouse shift\"\n}"
+							"raw": "{\n  \"nombre\": \"Warehouse lead\",\n  \"descripcion\": \"Coordinates the warehouse shift\",\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/roles/{{rolId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles", "{{rolId}}"]
 						},
-						"description": "HU-18: Edita un rol existente. Solo ADMINISTRADOR."
+						"description": "HU-18: Edita un rol existente. Solo ADMINISTRADOR. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -649,6 +710,20 @@
 				},
 				{
 					"name": "Obtener pool",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -673,14 +748,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Fulfillment partner\",\n  \"tipoParticipante\": \"PROVEEDOR\"\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment partner\",\n  \"tipoParticipante\": \"PROVEEDOR\",\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "pools", "{{poolId}}"]
 						},
-						"description": "Edita el nombre y tipo de participante de un pool."
+						"description": "Edita el nombre y tipo de participante de un pool. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -743,6 +818,20 @@
 				},
 				{
 					"name": "Obtener lane",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -767,14 +856,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Picking and packing\",\n  \"rolProcesoId\": {{rolId}}\n}"
+							"raw": "{\n  \"nombre\": \"Picking and packing\",\n  \"rolProcesoId\": {{rolId}},\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "lanes", "{{laneId}}"]
 						},
-						"description": "Edita el nombre y rol de una lane."
+						"description": "Edita el nombre y rol de una lane. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -837,6 +926,20 @@
 				},
 				{
 					"name": "Obtener actividad",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -861,14 +964,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Pick and scan items\",\n  \"descripcion\": \"Collect and scan the ordered items\",\n  \"posicionX\": 250,\n  \"posicionY\": 150\n}"
+							"raw": "{\n  \"nombre\": \"Pick and scan items\",\n  \"descripcion\": \"Collect and scan the ordered items\",\n  \"posicionX\": 250,\n  \"posicionY\": 150,\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/actividades/{{actividadId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "actividades", "{{actividadId}}"]
 						},
-						"description": "HU-09: Edita una actividad existente."
+						"description": "HU-09: Edita una actividad existente. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -931,6 +1034,20 @@
 				},
 				{
 					"name": "Obtener gateway",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -955,14 +1072,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Parallel packing\",\n  \"tipoGateway\": \"PARALELO\",\n  \"posicionX\": 400,\n  \"posicionY\": 200\n}"
+							"raw": "{\n  \"nombre\": \"Parallel packing\",\n  \"tipoGateway\": \"PARALELO\",\n  \"posicionX\": 400,\n  \"posicionY\": 200,\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/gateways/{{gatewayId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "gateways", "{{gatewayId}}"]
 						},
-						"description": "HU-15: Edita un gateway existente."
+						"description": "HU-15: Edita un gateway existente. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -1025,6 +1142,20 @@
 				},
 				{
 					"name": "Obtener arco",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -1049,14 +1180,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"etiqueta\": \"in stock\",\n  \"condicion\": \"stock >= quantity\"\n}"
+							"raw": "{\n  \"etiqueta\": \"in stock\",\n  \"condicion\": \"stock >= quantity\",\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/arcos/{{arcoId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "arcos", "{{arcoId}}"]
 						},
-						"description": "HU-12: Edita la etiqueta y condicion de un arco."
+						"description": "HU-12: Edita la etiqueta y condicion de un arco. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -1119,6 +1250,20 @@
 				},
 				{
 					"name": "Obtener mensaje",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('version', json.version);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -1143,14 +1288,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Fulfillment request v2\",\n  \"contenido\": \"Order lines, shipping address and priority\"\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment request v2\",\n  \"contenido\": \"Order lines, shipping address and priority\",\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/mensajes/{{mensajeId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "mensajes", "{{mensajeId}}"]
 						},
-						"description": "HU-26: Edita un mensaje existente."
+						"description": "HU-26: Edita un mensaje existente. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -1179,7 +1324,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "mensajes", "{{mensajeId}}", "correlacion"]
 						},
-						"description": "HU-28: Define o actualiza el criterio de correlacion de un mensaje."
+						"description": "HU-28: Define o actualiza el criterio de correlacion de un mensaje. La primera clave se define sin version; para reemplazarla se manda la que devolvio el GET."
 					},
 					"response": []
 				},

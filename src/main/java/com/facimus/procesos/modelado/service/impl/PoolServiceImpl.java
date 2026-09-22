@@ -52,11 +52,13 @@ public class PoolServiceImpl implements PoolService {
 
     @Override
     @Transactional
-    public PoolResponse editar(Long empresaId, Long poolId, String nombre, TipoParticipante tipoParticipante) {
+    public PoolResponse editar(Long empresaId, Long poolId, String nombre, TipoParticipante tipoParticipante,
+            Long version) {
         Pool pool = buscar(empresaId, poolId);
+        pool.verificarVersion(version);
         pool.setNombre(nombre);
         pool.setTipoParticipante(tipoParticipante);
-        return poolMapper.toResponse(poolRepository.save(pool));
+        return poolMapper.toResponse(poolRepository.saveAndFlush(pool));
     }
 
     @Override

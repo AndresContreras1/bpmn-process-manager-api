@@ -103,14 +103,16 @@ class GatewayControllerTest {
     @Test
     @DisplayName("PUT /api/v1/gateways/{id} - editar gateway (200)")
     void editar_gateway() throws Exception {
-        GatewayResponse gw = new GatewayResponse(1L, "Decision envio", TipoGateway.PARALELO, 300, 150, 3L);
-        given(gatewayService.editar(eq(1L), eq(1L), anyString(), any(), anyInt(), anyInt())).willReturn(gw);
+        GatewayResponse gw = new GatewayResponse(1L, "Decision envio", TipoGateway.PARALELO, 300, 150, 3L, 0L, null,
+                null, null, null);
+        given(gatewayService.editar(eq(1L), eq(1L), anyString(), any(), anyInt(), anyInt(), eq(3L))).willReturn(gw);
 
         mockMvc.perform(put("/api/v1/gateways/1")
                         .with(principal(RolAcceso.EDITOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"nombre":"Decision envio","tipoGateway":"PARALELO","posicionX":300,"posicionY":150}
+                                {"nombre":"Decision envio","tipoGateway":"PARALELO","posicionX":300,"posicionY":150,
+                                 "version":3}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tipoGateway").value("PARALELO"));
@@ -125,7 +127,7 @@ class GatewayControllerTest {
     }
 
     private GatewayResponse crearGateway(Long id, String nombre) {
-        return new GatewayResponse(id, nombre, TipoGateway.EXCLUSIVO, 300, 150, 3L);
+        return new GatewayResponse(id, nombre, TipoGateway.EXCLUSIVO, 300, 150, 3L, 0L, null, null, null, null);
     }
 
 }

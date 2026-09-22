@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
+import com.facimus.procesos.gestion.dto.request.EditarRolProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.RolProcesoRequest;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.service.RolProcesoService;
@@ -103,9 +104,9 @@ public class RolProcesoController {
     @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping("/{id}")
     public ResponseEntity<RolProcesoVistaResponse> editar(@PathVariable Long id,
-            @Validated @RequestBody RolProcesoRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
+            @Validated @RequestBody EditarRolProcesoRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(rolProcesoService.editar(principal.empresaId(), id, request.nombre(),
-                request.descripcion()));
+                request.descripcion(), request.version()));
     }
 
     @Operation(summary = "Delete a process role",

@@ -123,7 +123,7 @@ public class ProcesoController {
         Long empresaId = principal.empresaId();
         Long usuarioId = principal.usuarioId();
         return ResponseEntity.ok(procesoService.editarDatos(empresaId, id, usuarioId, request.nombre(),
-                request.descripcion(), request.categoria()));
+                request.descripcion(), request.categoria(), request.version()));
     }
 
     @Operation(summary = "Change the state of a process",
@@ -140,7 +140,8 @@ public class ProcesoController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         Long usuarioId = principal.usuarioId();
-        return ResponseEntity.ok(procesoService.cambiarEstado(empresaId, id, usuarioId, request.estado()));
+        return ResponseEntity.ok(procesoService.cambiarEstado(empresaId, id, usuarioId, request.estado(),
+                request.version()));
     }
 
     @Operation(summary = "Get the change history of a process", description = "Newest change first.")

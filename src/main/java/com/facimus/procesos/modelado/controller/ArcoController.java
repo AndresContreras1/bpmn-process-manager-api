@@ -83,12 +83,14 @@ public class ArcoController {
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping("/arcos/{id}")
     public ResponseEntity<ArcoResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarArcoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(arcoService.editar(empresaId, id, request.etiqueta(), request.condicion()));
+        return ResponseEntity.ok(arcoService.editar(empresaId, id, request.etiqueta(), request.condicion(),
+                request.version()));
     }
 
     @Operation(summary = "Delete a sequence flow", description = "Administrators only.")

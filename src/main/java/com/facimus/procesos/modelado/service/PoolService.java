@@ -11,7 +11,8 @@ public interface PoolService {
     PoolResponse crear(Long empresaId, Long procesoId, String nombre, TipoParticipante tipoParticipante,
             boolean cajaNegra);
 
-    PoolResponse editar(Long empresaId, Long poolId, String nombre, TipoParticipante tipoParticipante);
+    PoolResponse editar(Long empresaId, Long poolId, String nombre, TipoParticipante tipoParticipante,
+            Long version);
 
     void eliminar(Long empresaId, Long poolId);
 

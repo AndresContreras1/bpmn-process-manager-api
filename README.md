@@ -88,6 +88,9 @@ all of them are correlated by `orderId`.
   rejected, not ignored.
 - **Versioned REST contract** under `/api/v1`: `201 Created` with a `Location` that resolves, `204 No Content`,
   `PATCH` for state transitions, and paged lists with an allowlisted sort and a stable order.
+- **Safe under concurrency and retries.** Every edit sends the `version` it read and answers `409` if someone saved a
+  change since, instead of overwriting it. A create retried with the same `Idempotency-Key` gets the first response
+  back instead of a duplicate. Every editable resource records who created it and who changed it last, and when.
 - **BPMN consistency rules**: sequence flows never cross pools, message flows only connect different participants,
   and a published process cannot go back to draft.
 - **Schema under version control.** Flyway migrations shared by H2 and PostgreSQL, with engine-specific scripts where
@@ -97,7 +100,7 @@ all of them are correlated by `orderId`.
   replace the calls that used to go the other way.
 - **Architecture rules enforced by tests** with ArchUnit: layering, module boundaries, no package cycles, lazy
   associations, tenant isolation and no `HttpSession`.
-- **345 automated tests** with 91 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
+- **371 automated tests** with 94 % line coverage, plus a GitHub Actions pipeline that builds, tests and packages a
   Docker image, then runs it against PostgreSQL.
 
 ## Tech stack
@@ -299,7 +302,23 @@ process roles by `nombre` (HU-20). They all answer the same envelope:
 { "content": [ ... ], "page": 0, "size": 10, "totalElements": 2, "totalPages": 1 }
 ```
 
-State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO" }`.
+State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO", "version": 3 }`.
+
+**Concurrent edits (optimistic locking).** Every editable resource answers a `version` that goes up with each saved
+change. A `PUT` or `PATCH` sends back the version it read; if someone saved a change since, it answers `409` and
+changes nothing, so the client reloads and decides again. If two edits of the same version arrive at once, both pass
+that check and the database rejects the second through JPA's `@Version`. The correlation key of a message is the one
+upsert: the first one is created without a version.
+
+**Retries (idempotency keys).** An authenticated `POST` accepts an `Idempotency-Key` header, any unique value such as
+a UUID. A retry with the same key gets the first response back, marked with `Idempotent-Replayed: true`, instead of
+creating the resource again. The same key with another request answers `422`, and while the first one is still
+running, `409`. Only successful responses are kept, so after an error the client can fix the request and retry with
+the same key. Keys belong to each user.
+
+**Auditing.** Every editable resource answers `creadoPor`, `fechaCreacion`, `modificadoPor` and `fechaModificacion`,
+filled by Spring Data auditing from the authenticated user. What the system creates without a token, such as the
+first administrator of a store, has no author.
 
 Errors follow RFC 9457:
 
@@ -429,19 +448,19 @@ conventions.
 ./mvnw verify
 ```
 
-The build runs 345 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 371 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | Architecture (ArchUnit) | 30 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, a declared profile in every `@SpringBootTest` |
-| Controller slices (`@WebMvcTest`) | 112 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 27 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 144 | Two-store IDOR suite, read-only process sharing (HU-23), role matrix, JWT tampering and expiry, sessions (refresh rotation, reuse, logout, deactivation and role change), the login limit, end-to-end 401/403/429 and the 400 for URLs the firewall rejects |
+| Controller slices (`@WebMvcTest`) | 114 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 28 | Business rules of the management module |
+| Security and isolation (`@SpringBootTest`) | 151 | Two-store IDOR suite, read-only process sharing (HU-23), role matrix, JWT tampering and expiry, sessions (refresh rotation, reuse, logout, deactivation and role change), the login limit, idempotency keys, end-to-end 401/403/429 and the 400 for URLs the firewall rejects |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 23 | What `dev` and `prod` expose, the Flyway migrations and the unique indexes, SQL statement counts that catch N+1 queries and prove the JWT filter runs no SQL, an OpenAPI contract with no undocumented endpoint, and the seeded order fulfillment process read through the API |
-| Module integration (`@SpringBootTest`) | 7 | Process-role usage across modules, the order of pools and lanes, and the whole diagram of a process |
+| Module integration (`@SpringBootTest`) | 23 | Process-role usage across modules, the order of pools and lanes, the whole diagram of a process, optimistic locking on every edit and auditing |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 91 % of lines and 70 % of branches.
+Current coverage: 94 % of lines and 72 % of branches.
 
 ## Project structure
 
@@ -478,6 +497,9 @@ src/test/java/com/facimus/procesos
 - **Refresh tokens rotate and work once.** A stolen refresh token either fails, because its owner already used it, or
   closes the session as soon as the owner uses theirs. The database keeps SHA-256 hashes: the tokens are already
   random, so BCrypt adds nothing, and the hash has to be searchable.
+- **The version travels in the body.** A single-page app edits a resource through a form, so sending the `version`
+  back with the other fields is simpler than `ETag` and `If-Match` headers, the HTTP-native alternative. The API
+  still refuses an edit without it.
 - **Single-table inheritance for flow nodes.** Activities and gateways share one table and one identity, so sequence
   flows can point to either of them.
 - **Soft delete for processes and process roles.** They keep their history, and deleted resources answer `404`.
@@ -512,8 +534,8 @@ src/test/java/com/facimus/procesos
 - [x] `Pageable`-based pagination with stable sorting for every collection that can grow
 
 **Consistency under concurrency**
-- [ ] Optimistic locking with `@Version`, so two editors cannot overwrite each other (`409 Conflict`)
-- [ ] Idempotency keys on create requests, so a retried call does not duplicate a process
+- [x] Optimistic locking with `@Version`, so two editors cannot overwrite each other (`409 Conflict`)
+- [x] Idempotency keys on create requests, so a retried call does not duplicate a process
 - [ ] Process versioning: editing a published process opens a new draft version
 
 **Security**
@@ -522,12 +544,12 @@ src/test/java/com/facimus/procesos
 - [x] Authenticate through `AuthenticationManager` + `UserDetailsService`, without revealing whether an email exists
 - [x] Short-lived access tokens with refresh tokens
 - [x] Rate limiting on login (`429` + `Retry-After`)
-- [ ] Purge expired sessions and refresh tokens on a schedule
+- [ ] Purge expired sessions, refresh tokens and old idempotency keys on a schedule
 
 **Data and auditability**
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
 - [ ] Soft delete and change history for every BPMN element
-- [ ] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
+- [x] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
 - [x] Lazy associations with entity graphs and read-only transactions
 
 **API contract**

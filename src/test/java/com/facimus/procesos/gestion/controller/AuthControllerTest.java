@@ -215,6 +215,7 @@ class AuthControllerTest {
     }
 
     private UsuarioResponse usuario() {
-        return new UsuarioResponse(10L, "Juan", "juan@acme.com", RolAcceso.ADMINISTRADOR, true, 1L);
+        return new UsuarioResponse(10L, "Juan", "juan@acme.com", RolAcceso.ADMINISTRADOR, true, 1L, 0L, null, null,
+                null, null);
     }
 }

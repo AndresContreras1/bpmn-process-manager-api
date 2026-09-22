@@ -150,14 +150,14 @@ class ProcesoControllerTest {
     @DisplayName("PUT /api/v1/procesos/{id} - editar proceso (200)")
     void editar_proceso() throws Exception {
         ProcesoResponse p = crearProceso(1L, "Ventas v2");
-        given(procesoService.editarDatos(eq(1L), eq(1L), eq(1L), anyString(), anyString(), anyString()))
+        given(procesoService.editarDatos(eq(1L), eq(1L), eq(1L), anyString(), anyString(), anyString(), eq(3L)))
                 .willReturn(p);
 
         mockMvc.perform(put("/api/v1/procesos/1")
                         .with(principal(RolAcceso.EDITOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"nombre":"Ventas v2","descripcion":"Desc","categoria":"Op"}
+                                {"nombre":"Ventas v2","descripcion":"Desc","categoria":"Op","version":3}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombre").value("Ventas v2"));
@@ -167,12 +167,12 @@ class ProcesoControllerTest {
     @DisplayName("PATCH /api/v1/procesos/{id} - publicar un borrador (200)")
     void publicar_proceso() throws Exception {
         ProcesoResponse p = crearProceso(1L, "Ventas", EstadoProceso.PUBLICADO);
-        given(procesoService.cambiarEstado(1L, 1L, 1L, EstadoProceso.PUBLICADO)).willReturn(p);
+        given(procesoService.cambiarEstado(1L, 1L, 1L, EstadoProceso.PUBLICADO, 3L)).willReturn(p);
         mockMvc.perform(patch("/api/v1/procesos/1")
                 .with(principal(RolAcceso.EDITOR))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"estado":"PUBLICADO"}
+                        {"estado":"PUBLICADO","version":3}
                         """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("PUBLICADO"));
@@ -302,7 +302,7 @@ class ProcesoControllerTest {
 
     private ProcesoResponse crearProceso(Long id, String nombre, EstadoProceso estado) {
         LocalDateTime ahora = LocalDateTime.now();
-        return new ProcesoResponse(id, nombre, "Descripcion", "Operativo", estado, true, ahora, ahora);
+        return new ProcesoResponse(id, nombre, "Descripcion", "Operativo", estado, true, ahora, ahora, 0L, null, null);
     }
 
 }

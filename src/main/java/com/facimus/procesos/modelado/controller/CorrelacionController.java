@@ -30,17 +30,20 @@ public class CorrelacionController {
     private final CorrelacionService correlacionService;
 
     @Operation(summary = "Set the correlation key of a message",
-            description = "Creates the key, or replaces it if the message already has one.")
+            description = "Creates the key, or replaces it if the message already has one. Replacing it takes "
+                    + "the version that was read.")
     @ApiResponse(responseCode = "200", description = "The message's correlation key")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping
     public ResponseEntity<CorrelacionResponse> definir(@PathVariable Long mensajeId,
             @Validated @RequestBody CorrelacionRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(correlacionService.definir(empresaId, mensajeId, request.criterio()));
+        return ResponseEntity.ok(correlacionService.definir(empresaId, mensajeId, request.criterio(),
+                request.version()));
     }
 
     @Operation(summary = "Get the correlation key of a message")

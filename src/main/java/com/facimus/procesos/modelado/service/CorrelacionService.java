@@ -5,7 +5,8 @@ import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 /** HU-28: correlacion de mensajes. */
 public interface CorrelacionService {
 
-    CorrelacionResponse definir(Long empresaId, Long mensajeId, String criterio);
+    /** Crea la clave del mensaje, o la reemplaza si ya tiene una y el cliente manda la version que leyo. */
+    CorrelacionResponse definir(Long empresaId, Long mensajeId, String criterio, Long version);
 
     CorrelacionResponse obtener(Long empresaId, Long mensajeId);
 }

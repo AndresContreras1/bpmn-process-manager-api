@@ -225,7 +225,7 @@ class SeguridadIntegracionTest {
         UsuarioResponse editor = crearColaborador("editor.rol@seguridad.com", "editor123", RolAcceso.EDITOR);
         Tokens antes = sesion("editor.rol@seguridad.com", "editor123");
 
-        usuarioService.actualizar(editor.empresaId(), editor.id(), RolAcceso.SOLO_LECTURA, null);
+        usuarioService.actualizar(editor.empresaId(), editor.id(), RolAcceso.SOLO_LECTURA, null, editor.version());
 
         mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(antes.access())))
                 .andExpect(status().isUnauthorized());
@@ -359,13 +359,14 @@ class SeguridadIntegracionTest {
     }
 
     @Test
-    @DisplayName("CORS deja que el frontend lea el Location y el Retry-After de las respuestas")
-    void Seguridad_cors_exponeLocationYRetryAfter() throws Exception {
+    @DisplayName("CORS deja que el frontend lea el Location, el Retry-After y el Idempotent-Replayed de las respuestas")
+    void Seguridad_cors_exponeLasCabecerasDeLaApi() throws Exception {
         mockMvc.perform(get("/api/v1/empresas/actual")
                         .header(HttpHeaders.ORIGIN, "http://localhost:4200")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(ADMIN, CLAVE)))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "Location, Retry-After"));
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        "Location, Retry-After, Idempotent-Replayed"));
     }
 
     @Test

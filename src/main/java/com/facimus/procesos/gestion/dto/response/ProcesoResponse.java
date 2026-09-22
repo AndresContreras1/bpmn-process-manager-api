@@ -16,5 +16,10 @@ public record ProcesoResponse(
         @Schema(example = "PUBLICADO") EstadoProceso estado,
         @Schema(description = "false once the process is deleted", example = "true") boolean activo,
         @Schema(example = "2026-09-21T15:00:00") LocalDateTime fechaCreacion,
-        @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion) {
+        @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,
+        @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
+        Long version,
+        @Schema(description = "Id of the user who created it; empty when the system did, like the store registration",
+                example = "2") Long creadoPor,
+        @Schema(description = "Id of the user who saved the last change", example = "5") Long modificadoPor) {
 }

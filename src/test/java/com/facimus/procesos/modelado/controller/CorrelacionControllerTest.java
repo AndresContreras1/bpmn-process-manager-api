@@ -16,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -32,10 +33,10 @@ class CorrelacionControllerTest {
     private CorrelacionService correlacionService;
 
     @Test
-    @DisplayName("PUT /api/v1/mensajes/{mensajeId}/correlacion - definir correlacion (200)")
+    @DisplayName("PUT /api/v1/mensajes/{mensajeId}/correlacion - la primera clave se define sin version (200)")
     void definir_correlacion() throws Exception {
         CorrelacionResponse c = crearCorrelacion(1L, "orderId");
-        given(correlacionService.definir(eq(1L), eq(5L), anyString())).willReturn(c);
+        given(correlacionService.definir(eq(1L), eq(5L), anyString(), isNull())).willReturn(c);
 
         mockMvc.perform(put("/api/v1/mensajes/5/correlacion")
                         .with(principal(RolAcceso.EDITOR))
@@ -79,7 +80,7 @@ class CorrelacionControllerTest {
     }
 
     private CorrelacionResponse crearCorrelacion(Long id, String criterio) {
-        return new CorrelacionResponse(id, criterio, 5L);
+        return new CorrelacionResponse(id, criterio, 5L, 0L, null, null, null, null);
     }
 
 }

@@ -1,6 +1,5 @@
 package com.facimus.procesos.gestion.service.impl;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.context.ApplicationEventPublisher;
@@ -59,14 +58,11 @@ public class ProcesoServiceImpl implements ProcesoService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Empresa no encontrada."));
         Usuario autor = autor(empresaId, usuarioId);
 
-        LocalDateTime ahora = LocalDateTime.now();
         Proceso proceso = procesoRepository.save(Proceso.builder()
                 .empresa(empresa)
                 .nombre(nombre)
                 .descripcion(descripcion)
                 .categoria(categoria)
-                .fechaCreacion(ahora)
-                .fechaModificacion(ahora)
                 .build());
 
         // El modulo de modelado crea el pool de la empresa dentro de esta misma transaccion.
@@ -105,8 +101,9 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Override
     @Transactional
     public ProcesoResponse editarDatos(Long empresaId, Long procesoId, Long usuarioId, String nombre,
-            String descripcion, String categoria) {
+            String descripcion, String categoria, Long version) {
         Proceso proceso = buscarActivo(empresaId, procesoId);
+        proceso.verificarVersion(version);
         Usuario autor = autor(empresaId, usuarioId);
         if (!proceso.getNombre().equalsIgnoreCase(nombre)) {
             validarNombreLibre(empresaId, nombre);
@@ -115,8 +112,8 @@ public class ProcesoServiceImpl implements ProcesoService {
         proceso.setNombre(nombre);
         proceso.setDescripcion(descripcion);
         proceso.setCategoria(categoria);
-        proceso.setFechaModificacion(LocalDateTime.now());
-        proceso = procesoRepository.save(proceso);
+        // Con flush la version nueva ya esta en la entidad al armar la respuesta.
+        proceso = procesoRepository.saveAndFlush(proceso);
 
         historialCambioService.registrar(proceso, autor, "Proceso editado.");
         return procesoMapper.toResponse(proceso);
@@ -125,8 +122,9 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Override
     @Transactional
     public ProcesoResponse cambiarEstado(Long empresaId, Long procesoId, Long usuarioId,
-            EstadoProceso nuevoEstado) {
+            EstadoProceso nuevoEstado, Long version) {
         Proceso proceso = buscarActivo(empresaId, procesoId);
+        proceso.verificarVersion(version);
         if (proceso.getEstado() == nuevoEstado) {
             return procesoMapper.toResponse(proceso);
         }
@@ -136,8 +134,7 @@ public class ProcesoServiceImpl implements ProcesoService {
         Usuario autor = autor(empresaId, usuarioId);
 
         proceso.setEstado(nuevoEstado);
-        proceso.setFechaModificacion(LocalDateTime.now());
-        proceso = procesoRepository.save(proceso);
+        proceso = procesoRepository.saveAndFlush(proceso);
 
         historialCambioService.registrar(proceso, autor,
                 nuevoEstado == EstadoProceso.PUBLICADO ? "Proceso publicado." : "Estado del proceso actualizado.");
@@ -151,7 +148,6 @@ public class ProcesoServiceImpl implements ProcesoService {
         Usuario autor = autor(empresaId, usuarioId);
 
         proceso.setActivo(false);
-        proceso.setFechaModificacion(LocalDateTime.now());
         procesoRepository.save(proceso);
 
         historialCambioService.registrar(proceso, autor, "Proceso eliminado (baja logica).");
