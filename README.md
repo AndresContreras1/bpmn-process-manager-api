@@ -393,8 +393,9 @@ npm ci
 npm start
 ```
 
-It opens on http://localhost:4200 and calls the backend on port 8080, which already allows that origin. The screens
-arrive in small pull requests; [frontend/README.md](frontend/README.md) describes the structure and conventions.
+It opens on http://localhost:4200, and the Angular dev server forwards the `/api` calls to the backend on port 8080.
+The screens arrive in small pull requests; [frontend/README.md](frontend/README.md) describes the structure and
+conventions.
 
 ## Testing
 

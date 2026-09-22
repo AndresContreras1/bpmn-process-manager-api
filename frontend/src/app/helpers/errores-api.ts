@@ -8,6 +8,9 @@ export function mensajeDeError(error: HttpErrorResponse): string {
   if (error.status === 0) {
     return 'The server cannot be reached. Check that the backend is running.';
   }
+  if (error.status === 403) {
+    return 'Your role does not allow this action.';
+  }
   const problema: ProblemDetail | null = error.error as ProblemDetail | null;
   return problema?.detail ?? 'Something went wrong. Please try again.';
 }

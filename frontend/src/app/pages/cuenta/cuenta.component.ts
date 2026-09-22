@@ -1,6 +1,6 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 
 import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
@@ -14,7 +14,7 @@ interface Permiso {
 
 @Component({
   selector: 'app-cuenta',
-  imports: [AsyncPipe],
+  imports: [AsyncPipe, RouterLink],
   templateUrl: './cuenta.component.html',
   styleUrl: './cuenta.component.scss',
 })

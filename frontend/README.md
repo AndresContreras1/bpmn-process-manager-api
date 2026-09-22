@@ -2,7 +2,7 @@
 
 The Angular front end of the [BPMN Process Manager API](../README.md). Each online store signs in, manages its
 processes and views their BPMN diagrams. Screens arrive in small pull requests; so far the app has the home page, sign
-in, store registration and the account page.
+in, store registration, the account page and the process screens.
 
 ## Stack
 
@@ -20,8 +20,15 @@ npm ci
 npm start
 ```
 
-The app opens on http://localhost:4200. It calls the backend URL set in `src/environments/environment.development.ts`,
-and the backend's CORS configuration already allows that origin.
+The app opens on http://localhost:4200. In development it calls the API with relative URLs, and the Angular dev server
+forwards every `/api` request to http://localhost:8080 (`proxy.conf.json`). The browser only talks to one origin, so
+the app works on any port without touching the backend's CORS configuration. If port 4200 is taken, pick another one:
+
+```bash
+npm start -- --port 4201
+```
+
+On Windows PowerShell, if running scripts is disabled, call `npm.cmd` instead of `npm`.
 
 A production build goes to `dist/bpmn-process-manager-web/browser/`:
 
@@ -38,6 +45,21 @@ npm run build
 - A route guard keeps private pages behind a valid session and remembers the page the user asked for.
 - `AuthService` publishes the current user through a `BehaviorSubject`, so the navbar and the pages react to sign in
   and sign out.
+
+## Processes
+
+- The list shows the pages of 10 processes the API returns, the most recently changed first. Clicking a column title
+  sorts by it (the `orden` parameter), and clicking it again reverses the order. The search box waits until the user
+  stops typing and cancels the previous request (`debounceTime` and `switchMap`); the state and category filters work
+  the same way, and clicking a category filters by it.
+- The API records the change history in Spanish, so the detail page shows each known entry in English and falls back
+  to the original text for any other.
+- Creating and editing share one reactive form. With an `id` in the route it loads the process and fills the form with
+  `patchValue`; a name already used by another active process of the store shows up under the field (`409`).
+- The detail page shows the process and its change history. Publishing and deleting ask first in a Bootstrap modal,
+  and the page changes only with the API's answer. A published process cannot go back to draft.
+- Buttons follow the user's role: administrators and editors create, edit and publish, only administrators delete,
+  and read-only users just browse. The API enforces the same rules and answers `403` otherwise.
 
 ## Where things go
 

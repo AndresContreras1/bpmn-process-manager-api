@@ -5,6 +5,9 @@ import { CuentaComponent } from './pages/cuenta/cuenta.component';
 import { InicioComponent } from './pages/inicio/inicio.component';
 import { LoginComponent } from './pages/login/login.component';
 import { NoEncontradaComponent } from './pages/no-encontrada/no-encontrada.component';
+import { ProcesoDetalleComponent } from './pages/proceso-detalle/proceso-detalle.component';
+import { ProcesoFormComponent } from './pages/proceso-form/proceso-form.component';
+import { ProcesosComponent } from './pages/procesos/procesos.component';
 import { RegistroComponent } from './pages/registro/registro.component';
 
 // Angular evalua las rutas de arriba hacia abajo: las especificas van primero y el comodin al final
@@ -13,5 +16,25 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent, title: 'Sign in · BPMN Process Manager' },
   { path: 'registro', component: RegistroComponent, title: 'Create a store · BPMN Process Manager' },
   { path: 'cuenta', component: CuentaComponent, canActivate: [authGuard], title: 'My account · BPMN Process Manager' },
+  { path: 'procesos', component: ProcesosComponent, canActivate: [authGuard], title: 'Processes · BPMN Process Manager' },
+  // nuevo va antes de :id, o Angular tomaria "nuevo" como el id de un proceso
+  {
+    path: 'procesos/nuevo',
+    component: ProcesoFormComponent,
+    canActivate: [authGuard],
+    title: 'New process · BPMN Process Manager',
+  },
+  {
+    path: 'procesos/:id/editar',
+    component: ProcesoFormComponent,
+    canActivate: [authGuard],
+    title: 'Edit process · BPMN Process Manager',
+  },
+  {
+    path: 'procesos/:id',
+    component: ProcesoDetalleComponent,
+    canActivate: [authGuard],
+    title: 'Process · BPMN Process Manager',
+  },
   { path: '**', component: NoEncontradaComponent, title: 'Page not found · BPMN Process Manager' },
 ];

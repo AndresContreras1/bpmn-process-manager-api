@@ -1,0 +1,91 @@
+<div class="container py-5" id="proceso-form">
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-7">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+          <li class="breadcrumb-item"><a routerLink="/procesos" id="proceso-form-ir-procesos">Processes</a></li>
+          @if (procesoId !== null && !noEncontrado) {
+            <li class="breadcrumb-item"><a [routerLink]="['/procesos', procesoId]">Process</a></li>
+          }
+          <li class="breadcrumb-item active" aria-current="page">{{ isEdit ? 'Edit' : 'New' }}</li>
+        </ol>
+      </nav>
+
+      @if (noEncontrado) {
+        <div class="alert alert-warning" role="alert" id="proceso-form-no-encontrado">
+          This process does not exist in your store.
+          <a routerLink="/procesos" class="alert-link">Back to processes</a>
+        </div>
+      } @else {
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-4 p-md-5">
+            <h1 class="h3 fw-bold mb-1" id="proceso-form-titulo">{{ isEdit ? 'Edit process' : 'New process' }}</h1>
+            <p class="text-body-secondary mb-4">
+              @if (isEdit) {
+                The change is recorded in the history of the process.
+              } @else {
+                It starts as a draft, with a pool for your store, and you can publish it when it is ready.
+              }
+            </p>
+
+            @if (!puedeEditar) {
+              <div class="alert alert-info" role="alert" id="proceso-form-solo-lectura">
+                Your role can view processes but not change them.
+              </div>
+            }
+            @if (error) {
+              <div class="alert alert-danger" role="alert" id="proceso-form-error">{{ error }}</div>
+            }
+
+            @if (cargando) {
+              <div class="text-center text-body-secondary py-5" id="proceso-form-cargando">
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading the process…
+              </div>
+            } @else {
+              <form [formGroup]="procesoForm" (ngSubmit)="guardar()" novalidate>
+                <div class="form-floating mb-3">
+                  <input type="text" class="form-control" id="proceso-form-nombre" formControlName="nombre"
+                         placeholder="Name" autocomplete="off">
+                  <label for="proceso-form-nombre">Name</label>
+                  <app-error-campo [control]="procesoForm.get('nombre')" />
+                </div>
+
+                <div class="form-floating mb-3">
+                  <input type="text" class="form-control" id="proceso-form-categoria" formControlName="categoria"
+                         placeholder="Category" autocomplete="off" aria-describedby="proceso-form-ayuda-categoria">
+                  <label for="proceso-form-categoria">Category</label>
+                  <div class="form-text" id="proceso-form-ayuda-categoria">
+                    Free text, such as Fulfillment, Returns or Payments. The process list filters by it.
+                  </div>
+                  <app-error-campo [control]="procesoForm.get('categoria')" />
+                </div>
+
+                <div class="form-floating">
+                  <textarea class="form-control descripcion" id="proceso-form-descripcion" formControlName="descripcion"
+                            placeholder="Description"></textarea>
+                  <label for="proceso-form-descripcion">Description</label>
+                  <app-error-campo [control]="procesoForm.get('descripcion')" />
+                </div>
+                <div class="form-text text-end mb-4" id="proceso-form-contador">
+                  {{ procesoForm.value.descripcion?.length ?? 0 }} / 4000
+                </div>
+
+                <div class="d-flex flex-wrap justify-content-end gap-2">
+                  <a class="btn btn-outline-secondary" id="proceso-form-cancelar"
+                     [routerLink]="procesoId === null ? '/procesos' : ['/procesos', procesoId]">Cancel</a>
+                  <button type="submit" class="btn btn-primary" id="proceso-form-guardar"
+                          [disabled]="procesoForm.invalid || procesoForm.pristine || enviando || !puedeEditar">
+                    @if (enviando) {
+                      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                    }
+                    {{ isEdit ? 'Save changes' : 'Create process' }}
+                  </button>
+                </div>
+              </form>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

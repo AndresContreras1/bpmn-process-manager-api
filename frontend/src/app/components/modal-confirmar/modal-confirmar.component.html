@@ -1,0 +1,22 @@
+<div class="modal fade" [id]="idModal()" tabindex="-1" [attr.aria-labelledby]="idModal() + '-titulo'" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header">
+        <h2 class="modal-title fs-5" [id]="idModal() + '-titulo'">{{ titulo() }}</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0" [id]="idModal() + '-mensaje'">{{ mensaje() }}</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" [id]="idModal() + '-cancelar'">
+          Cancel
+        </button>
+        <button type="button" class="btn" [class.btn-danger]="peligro()" [class.btn-primary]="!peligro()"
+                data-bs-dismiss="modal" [id]="idModal() + '-confirmar'" (click)="confirmar.emit()">
+          {{ textoBoton() }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
