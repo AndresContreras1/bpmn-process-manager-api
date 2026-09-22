@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,6 +34,9 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UsuarioServiceTest {
+
+    /** El administrador que hace los cambios, distinto del usuario 10 que los recibe. */
+    private static final Long AUTOR = 2L;
 
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -156,7 +160,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        usuarioService.desactivar(1L, 10L);
+        usuarioService.desactivar(1L, AUTOR, 10L);
 
         assertFalse(usuario.isActivo());
         verify(usuarioRepository).save(usuario);
@@ -169,7 +173,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, 10L, RolAcceso.SOLO_LECTURA, null, usuario.getVersion());
+        usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.SOLO_LECTURA, null, usuario.getVersion());
 
         verify(sesionService).cerrarTodas(1L, 10L);
     }
@@ -180,7 +184,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, 10L, null, false, usuario.getVersion());
+        usuarioService.actualizar(1L, AUTOR, 10L, null, false, usuario.getVersion());
 
         verify(sesionService).cerrarTodas(1L, 10L);
     }
@@ -192,7 +196,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
 
         assertThrows(ConflictoDeVersionException.class,
-                () -> usuarioService.actualizar(1L, 10L, RolAcceso.SOLO_LECTURA, null, 2L));
+                () -> usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.SOLO_LECTURA, null, 2L));
 
         assertEquals(RolAcceso.EDITOR, usuario.getRolAcceso());
         verify(usuarioRepository, never()).saveAndFlush(any());
@@ -205,7 +209,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, 10L, RolAcceso.EDITOR, true, usuario.getVersion());
+        usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.EDITOR, true, usuario.getVersion());
 
         verify(sesionService, never()).cerrarTodas(anyLong(), anyLong());
     }
@@ -215,11 +219,57 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        UsuarioResponse actualizado = usuarioService.actualizar(1L, 10L, RolAcceso.ADMINISTRADOR, false,
+        UsuarioResponse actualizado = usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.ADMINISTRADOR, false,
                 usuario.getVersion());
 
         assertEquals(RolAcceso.ADMINISTRADOR, actualizado.rolAcceso());
         assertFalse(actualizado.activo());
+    }
+
+    @Test
+    @DisplayName("Nadie desactiva al ultimo administrador activo; se cuenta con la tienda bloqueada")
+    void desactivar_ultimoAdministrador_lanzaReglaNegocio() {
+        usuario.setRolAcceso(RolAcceso.ADMINISTRADOR);
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.countByEmpresaIdAndRolAccesoAndActivoTrue(1L, RolAcceso.ADMINISTRADOR)).thenReturn(1L);
+
+        assertThrows(ReglaNegocioException.class, () -> usuarioService.desactivar(1L, AUTOR, 10L));
+
+        InOrder orden = inOrder(empresaRepository, usuarioRepository);
+        orden.verify(empresaRepository).bloquear(1L);
+        orden.verify(usuarioRepository).countByEmpresaIdAndRolAccesoAndActivoTrue(1L, RolAcceso.ADMINISTRADOR);
+        assertTrue(usuario.isActivo());
+        verify(usuarioRepository, never()).save(any());
+        verify(sesionService, never()).cerrarTodas(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("Desactivar con PATCH al ultimo administrador activo tampoco procede")
+    void actualizar_desactivaAlUltimoAdministrador_lanzaReglaNegocio() {
+        usuario.setRolAcceso(RolAcceso.ADMINISTRADOR);
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.countByEmpresaIdAndRolAccesoAndActivoTrue(1L, RolAcceso.ADMINISTRADOR)).thenReturn(1L);
+
+        assertThrows(ReglaNegocioException.class,
+                () -> usuarioService.actualizar(1L, AUTOR, 10L, null, false, usuario.getVersion()));
+
+        assertTrue(usuario.isActivo());
+        verify(usuarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("Un administrador inactivo cambia de rol sin contar administradores: no es de los activos")
+    void actualizar_administradorInactivo_noCuentaAdministradores() {
+        usuario.setRolAcceso(RolAcceso.ADMINISTRADOR);
+        usuario.setActivo(false);
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.EDITOR, null, usuario.getVersion());
+
+        assertEquals(RolAcceso.EDITOR, usuario.getRolAcceso());
+        verify(empresaRepository, never()).bloquear(anyLong());
+        verify(usuarioRepository, never()).countByEmpresaIdAndRolAccesoAndActivoTrue(anyLong(), any());
     }
 
     @Test

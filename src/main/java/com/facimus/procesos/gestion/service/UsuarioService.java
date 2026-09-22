@@ -21,9 +21,11 @@ public interface UsuarioService {
 
     void validarCorreoDisponible(String email);
 
-    UsuarioResponse actualizar(Long empresaId, Long usuarioId, RolAcceso rolAcceso, Boolean activo, Long version);
+    /** El autor es el administrador que hace el cambio: nadie puede desactivar su propia cuenta. */
+    UsuarioResponse actualizar(Long empresaId, Long autorId, Long usuarioId, RolAcceso rolAcceso, Boolean activo,
+            Long version);
 
-    void desactivar(Long empresaId, Long usuarioId);
+    void desactivar(Long empresaId, Long autorId, Long usuarioId);
 
     /** HU-03: las credenciales de un usuario activo para el login; vacio si el correo no existe o esta desactivado. */
     Optional<CredencialesUsuario> buscarCredenciales(String email);

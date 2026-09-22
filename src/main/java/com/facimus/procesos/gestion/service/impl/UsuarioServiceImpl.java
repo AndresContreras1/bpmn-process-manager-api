@@ -63,10 +63,17 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional
-    public UsuarioResponse actualizar(Long empresaId, Long usuarioId, RolAcceso rolAcceso, Boolean activo,
-            Long version) {
+    public UsuarioResponse actualizar(Long empresaId, Long autorId, Long usuarioId, RolAcceso rolAcceso,
+            Boolean activo, Long version) {
         Usuario usuario = buscar(empresaId, usuarioId);
         usuario.verificarVersion(version);
+        boolean desactiva = Boolean.FALSE.equals(activo);
+        if (desactiva) {
+            impedirQueSeDesactive(autorId, usuarioId);
+        }
+        if (desactiva || (rolAcceso != null && rolAcceso != RolAcceso.ADMINISTRADOR)) {
+            conservarUnAdministrador(empresaId, usuario);
+        }
         boolean cambiaElRol = rolAcceso != null && rolAcceso != usuario.getRolAcceso();
         if (rolAcceso != null) {
             usuario.setRolAcceso(rolAcceso);
@@ -84,8 +91,10 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional
-    public void desactivar(Long empresaId, Long usuarioId) {
+    public void desactivar(Long empresaId, Long autorId, Long usuarioId) {
         Usuario usuario = buscar(empresaId, usuarioId);
+        impedirQueSeDesactive(autorId, usuarioId);
+        conservarUnAdministrador(empresaId, usuario);
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
         sesionService.cerrarTodas(empresaId, usuarioId);
@@ -107,6 +116,25 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     public UsuarioResponse obtener(Long empresaId, Long usuarioId) {
         return usuarioMapper.toResponse(buscar(empresaId, usuarioId));
+    }
+
+    private static void impedirQueSeDesactive(Long autorId, Long usuarioId) {
+        if (usuarioId.equals(autorId)) {
+            throw new ReglaNegocioException("No puede desactivar su propia cuenta.");
+        }
+    }
+
+    /** Antes de que el usuario deje de ser administrador activo: si es el ultimo de la tienda, el cambio no procede. */
+    private void conservarUnAdministrador(Long empresaId, Usuario usuario) {
+        if (!usuario.isActivo() || usuario.getRolAcceso() != RolAcceso.ADMINISTRADOR) {
+            return;
+        }
+        // Con la tienda bloqueada, dos administradores que se quitan el rol a la vez no cuentan al mismo tiempo: el
+        // segundo espera al primero y ya ve su cambio.
+        empresaRepository.bloquear(empresaId);
+        if (usuarioRepository.countByEmpresaIdAndRolAccesoAndActivoTrue(empresaId, RolAcceso.ADMINISTRADOR) <= 1) {
+            throw new ReglaNegocioException("La tienda tiene que conservar al menos un administrador activo.");
+        }
     }
 
     private Usuario buscar(Long empresaId, Long usuarioId) {

@@ -93,7 +93,9 @@ public class UsuarioController {
         return ResponseEntity.ok(usuarioService.obtener(principal.empresaId(), id));
     }
 
-    @Operation(summary = "Change the access role or the status of a user")
+    @Operation(summary = "Change the access role or the status of a user",
+            description = "A store always keeps an active administrator, and nobody can deactivate their own "
+                    + "account.")
     @ApiResponse(responseCode = "200", description = "User updated")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -103,20 +105,21 @@ public class UsuarioController {
     @PatchMapping("/{id}")
     public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Long id,
             @Validated @RequestBody ActualizarUsuarioRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
-        return ResponseEntity.ok(usuarioService.actualizar(principal.empresaId(), id, request.rolAcceso(),
-                request.activo(), request.version()));
+        return ResponseEntity.ok(usuarioService.actualizar(principal.empresaId(), principal.usuarioId(), id,
+                request.rolAcceso(), request.activo(), request.version()));
     }
 
     @Operation(summary = "Deactivate a user",
-            description = "The user can no longer log in, and the tokens already issued stop working.")
+            description = "The user can no longer log in, and the tokens already issued stop working. Nobody can "
+                    + "deactivate their own account.")
     @ApiResponse(responseCode = "204", description = "User deactivated")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> desactivar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
-        Long empresaId = principal.empresaId();
-        usuarioService.desactivar(empresaId, id);
+        usuarioService.desactivar(principal.empresaId(), principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 }
