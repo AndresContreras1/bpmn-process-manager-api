@@ -3,23 +3,35 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
-import { EMPTY, catchError, finalize, map, switchMap, tap } from 'rxjs';
+import { EMPTY, Observable, catchError, finalize, forkJoin, map, of, switchMap, tap } from 'rxjs';
 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { mensajeDeError } from '../../helpers/errores-api';
+import { Diagrama } from '../../models/diagrama.model';
 import { EstadoProceso, NOMBRE_ESTADO, Proceso, ProcesoDetalle, cambioEnIngles } from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
+import { DiagramaService } from '../../service/diagrama.service';
 import { ProcesoService } from '../../service/proceso.service';
+import { DetalleNodo, detallarNodo } from './components/diagrama-bpmn/detalle-nodo';
+import { DiagramaBpmnComponent } from './components/diagrama-bpmn/diagrama-bpmn.component';
+import { Lienzo, dibujarDiagrama } from './components/diagrama-bpmn/lienzo';
 
-/** Un proceso con sus datos y su historial de cambios, y las acciones que permite el rol del usuario. */
+/** Lo que la pagina pide al abrir un proceso: sus datos con el historial y su diagrama. */
+interface Carga {
+  detalle: ProcesoDetalle;
+  diagrama: Diagrama | null;
+}
+
+/** Un proceso con sus datos, su diagrama y su historial de cambios, y las acciones que permite el rol del usuario. */
 @Component({
   selector: 'app-proceso-detalle',
-  imports: [DatePipe, RouterLink, ModalConfirmarComponent],
+  imports: [DatePipe, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent],
   templateUrl: './proceso-detalle.component.html',
   styleUrl: './proceso-detalle.component.scss',
 })
 export class ProcesoDetalleComponent implements OnInit {
   private readonly procesoService: ProcesoService = inject(ProcesoService);
+  private readonly diagramaService: DiagramaService = inject(DiagramaService);
   private readonly authService: AuthService = inject(AuthService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
@@ -31,6 +43,9 @@ export class ProcesoDetalleComponent implements OnInit {
   readonly esAdministrador: boolean = this.authService.esAdministrador();
 
   detalle: ProcesoDetalle | null = null;
+  diagrama: Diagrama | null = null;
+  lienzo: Lienzo | null = null;
+  nodoElegido: DetalleNodo | null = null;
   cargando: boolean = true;
   noEncontrado: boolean = false;
   enviando: boolean = false;
@@ -54,7 +69,7 @@ export class ProcesoDetalleComponent implements OnInit {
           this.error = null;
         }),
         switchMap((id: number) =>
-          this.procesoService.obtener(id).pipe(
+          this.cargar(id).pipe(
             catchError((error: HttpErrorResponse) => {
               this.cargando = false;
               // 404: el proceso es de otra tienda o ya se borro. 400: el id de la ruta no es un numero
@@ -69,10 +84,18 @@ export class ProcesoDetalleComponent implements OnInit {
         ),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((detalle: ProcesoDetalle) => {
-        this.detalle = detalle;
+      .subscribe((carga: Carga) => {
+        this.detalle = carga.detalle;
+        this.diagrama = carga.diagrama;
+        this.lienzo = carga.diagrama ? dibujarDiagrama(carga.diagrama) : null;
+        this.nodoElegido = null;
         this.cargando = false;
       });
+  }
+
+  /** Muestra el detalle de la tarea o el gateway elegido; elegirlo otra vez lo cierra. */
+  elegirNodo(id: number): void {
+    this.nodoElegido = this.diagrama && this.nodoElegido?.id !== id ? detallarNodo(this.diagrama, id) : null;
   }
 
   publicar(): void {
@@ -113,5 +136,16 @@ export class ProcesoDetalleComponent implements OnInit {
         next: () => this.router.navigate(['/procesos'], { queryParams: { eliminado: 1 } }),
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
+  }
+
+  /**
+   * Pide en paralelo los datos del proceso y su diagrama. Si solo falla el diagrama, la pagina se muestra igual y
+   * avisa en su lugar; si falla el proceso, el error sigue hacia ngOnInit.
+   */
+  private cargar(id: number): Observable<Carga> {
+    return forkJoin({
+      detalle: this.procesoService.obtener(id),
+      diagrama: this.diagramaService.obtener(id).pipe(catchError(() => of(null))),
+    });
   }
 }

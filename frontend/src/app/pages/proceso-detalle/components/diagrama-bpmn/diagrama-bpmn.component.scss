@@ -1,0 +1,140 @@
+// En pantallas angostas el diagrama no se encoge mas alla de su ancho minimo: se desplaza de lado
+.lienzo {
+  overflow-x: auto;
+}
+
+.diagrama {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-size: 12px;
+}
+
+.pool {
+  fill: #fff;
+  stroke: #adb5bd;
+  stroke-width: 1.5;
+}
+
+.pool.caja-negra {
+  fill: var(--bs-tertiary-bg);
+}
+
+.lane {
+  fill: none;
+  stroke: #ced4da;
+}
+
+.franja {
+  fill: var(--bs-tertiary-bg);
+  stroke: #ced4da;
+}
+
+.etiqueta-pool,
+.nombre-caja-negra {
+  font-weight: 600;
+  fill: var(--bs-body-color);
+}
+
+.etiqueta-lane,
+.tipo-participante,
+.vacio {
+  font-weight: 400;
+  fill: var(--bs-secondary-color);
+}
+
+.vacio {
+  font-style: italic;
+}
+
+.tarea {
+  fill: var(--bs-primary-bg-subtle);
+  stroke: var(--bs-primary);
+  stroke-width: 1.5;
+}
+
+.gateway {
+  fill: var(--bs-warning-bg-subtle);
+  stroke: var(--bs-warning-text-emphasis);
+  stroke-width: 1.5;
+}
+
+.marca {
+  fill: none;
+  stroke: var(--bs-warning-text-emphasis);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.texto-nodo {
+  fill: var(--bs-body-color);
+}
+
+// El nombre del gateway lleva el mismo borde blanco, por si una salida pasa cerca
+.texto-gateway {
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+}
+
+.arco {
+  fill: none;
+  stroke: #495057;
+  stroke-width: 1.5;
+}
+
+.punta {
+  fill: #495057;
+}
+
+// Un borde blanco detras del texto lo separa de las lineas que cruza
+.etiqueta-arco {
+  font-size: 11px;
+  fill: var(--bs-secondary-color);
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+}
+
+.linea-mensaje {
+  stroke: #6c757d;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.punta-mensaje,
+.inicio-mensaje {
+  fill: #fff;
+  stroke: #6c757d;
+  stroke-width: 1.5;
+}
+
+.numero-mensaje {
+  fill: var(--bs-primary);
+}
+
+.texto-numero {
+  font-size: 11px;
+  font-weight: 600;
+  fill: #fff;
+}
+
+.nodo {
+  cursor: pointer;
+  outline: none;
+}
+
+.nodo:hover .tarea,
+.nodo:hover .gateway,
+.nodo:focus-visible .tarea,
+.nodo:focus-visible .gateway {
+  stroke-width: 3;
+}
+
+.nodo.seleccionado .tarea,
+.nodo.seleccionado .gateway {
+  stroke: var(--bs-warning);
+  stroke-width: 3.5;
+}
+
