@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.service;
 
+import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 import com.facimus.procesos.gestion.mapper.EmpresaMapper;
@@ -53,6 +54,23 @@ class EmpresaServiceTest {
         assertEquals("900123456", resultado.nit());
         verify(usuarioService).crearColaborador(1L, "Admin", "admin@acme.com", "secret123",
                 RolAcceso.ADMINISTRADOR);
+    }
+
+    @Test
+    @DisplayName("La empresa propia se entrega con sus datos")
+    void obtener_empresaPropia_laDevuelve() {
+        Empresa acme = Empresa.builder().nombre("Acme").nit("900123456").correoContacto("info@acme.com").build();
+        acme.setId(1L);
+        when(empresaRepository.findById(1L)).thenReturn(java.util.Optional.of(acme));
+
+        assertEquals("900123456", empresaService.obtener(1L, 1L).nit());
+    }
+
+    @Test
+    @DisplayName("Otra empresa no existe para quien pregunta: ni siquiera se busca")
+    void obtener_otraEmpresa_lanzaNoEncontradaSinConsultar() {
+        assertThrows(RecursoNoEncontradoException.class, () -> empresaService.obtener(1L, 2L));
+        verifyNoInteractions(empresaRepository);
     }
 
     @Test

@@ -75,6 +75,8 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/procesos               | 200
             SOLO_LECTURA  | GET    | /api/v1/roles                  | 200
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/diagrama | 404
+            SOLO_LECTURA  | GET    | /api/v1/empresas/actual        | 200
+            SOLO_LECTURA  | GET    | /api/v1/empresas/{id}          | 404
 
             # Usuarios: solo el administrador (HU-02)
             ADMINISTRADOR | GET    | /api/v1/usuarios               | 200
