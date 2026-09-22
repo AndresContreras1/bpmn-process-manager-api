@@ -1,0 +1,56 @@
+.icono {
+  width: 3rem;
+  height: 3rem;
+  font-size: 1.25rem;
+  color: var(--bs-primary);
+  background-color: var(--bs-primary-bg-subtle);
+}
+
+// Colores del diagrama con las variables CSS de Bootstrap, asi siguen al tema
+#inicio-diagrama {
+  .pool {
+    fill: var(--bs-body-bg);
+    stroke: var(--bs-border-color);
+  }
+
+  .division {
+    stroke: var(--bs-border-color);
+  }
+
+  .etiqueta {
+    font-size: 12px;
+    font-weight: 600;
+    fill: var(--bs-secondary-color);
+  }
+
+  .tarea rect {
+    fill: var(--bs-primary-bg-subtle);
+    stroke: var(--bs-primary);
+  }
+
+  .tarea text,
+  .decision text {
+    font-size: 11px;
+    text-anchor: middle;
+    fill: var(--bs-primary-text-emphasis);
+  }
+
+  .decision polygon {
+    fill: var(--bs-warning-bg-subtle);
+    stroke: var(--bs-warning);
+  }
+
+  .decision text {
+    font-weight: 700;
+    fill: var(--bs-warning-text-emphasis);
+  }
+
+  .flujo {
+    stroke: var(--bs-secondary-color);
+    stroke-width: 1.5;
+  }
+
+  .punta {
+    fill: var(--bs-secondary-color);
+  }
+}

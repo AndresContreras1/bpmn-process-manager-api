@@ -1,0 +1,14 @@
+// Bootstrap se personaliza con Sass: primero se sobrescriben sus variables y despues se importa.
+// Los estilos propios van al final para que tengan prioridad sobre los de Bootstrap.
+$primary: #0f6e56;
+$body-bg: #f5f6f8;
+$border-radius: 0.5rem;
+$border-radius-lg: 0.75rem;
+$link-decoration: none;
+$font-family-sans-serif: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+@import "../node_modules/bootstrap/scss/bootstrap";
+
+.navbar-brand i {
+  font-size: 1.25rem;
+}

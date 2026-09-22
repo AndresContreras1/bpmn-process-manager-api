@@ -1,0 +1,16 @@
+<div class="d-flex flex-column min-vh-100">
+  <app-navbar />
+
+  <main class="flex-grow-1" id="contenido">
+    <router-outlet />
+  </main>
+
+  <footer class="border-top bg-white py-3" id="pie">
+    <div class="container d-flex flex-wrap justify-content-between gap-2 small text-body-secondary">
+      <span>BPMN Process Manager · Angular and Spring Boot</span>
+      <a [href]="repositorio" target="_blank" rel="noopener" id="pie-repositorio">
+        <i class="fa-brands fa-github" aria-hidden="true"></i> Source on GitHub
+      </a>
+    </div>
+  </footer>
+</div>
