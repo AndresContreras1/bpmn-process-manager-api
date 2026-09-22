@@ -1,7 +1,7 @@
 {
 	"info": {
 		"name": "BPMN Process Manager API",
-		"description": "Coleccion completa de BPMN Process Manager API: tiendas en linea que modelan sus operaciones (despacho de pedidos, pagos y devoluciones) como procesos BPMN, cada una aislada de las demas.\n\n**Flujo recomendado:**\n1. Registrar empresa (POST /api/v1/empresas)\n2. Iniciar sesion (POST /api/v1/auth/login) — el token JWT se guarda automaticamente\n3. Usar los demas endpoints (el header Authorization: Bearer se envia automaticamente)\n4. Limpieza: borra lo que creo el recorrido, de hijos a padres, y cierra la sesion\n\nLa coleccion corre completa y en orden con el Collection Runner.",
+		"description": "Coleccion completa de BPMN Process Manager API: tiendas en linea que modelan sus operaciones (despacho de pedidos, pagos y devoluciones) como procesos BPMN, cada una aislada de las demas.\n\n**Flujo recomendado:**\n1. Registrar empresa (POST /api/v1/empresas)\n2. Iniciar sesion (POST /api/v1/auth/login) — el access token y el refresh token se guardan automaticamente; Renovar token (POST /api/v1/auth/refresh) los cambia por un par nuevo\n3. Usar los demas endpoints (el header Authorization: Bearer se envia automaticamente)\n4. Limpieza: borra lo que creo el recorrido, de hijos a padres, y cierra la sesion\n\nLa coleccion corre completa y en orden con el Collection Runner.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -74,6 +74,11 @@
 			"key": "token",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -89,7 +94,7 @@
 	"item": [
 		{
 			"name": "Autenticacion",
-			"description": "Registro de empresa y login. Estos endpoints son publicos.",
+			"description": "Registro de empresa, login y renovacion del token, que son publicos, y la tienda de la sesion.",
 			"item": [
 				{
 					"name": "Registrar empresa",
@@ -147,6 +152,7 @@
 									"    pm.collectionVariables.set('empresaId', json.usuario.empresaId);",
 									"    pm.collectionVariables.set('usuarioId', json.usuario.id);",
 									"    pm.collectionVariables.set('token', json.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', json.refreshToken);",
 									"    pm.test('Login exitoso', function () {",
 									"        pm.expect(json.accessToken).to.not.be.empty;",
 									"    });",
@@ -175,7 +181,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "login"]
 						},
-						"description": "HU-03: Inicia sesion. El token JWT se guarda automaticamente en la variable {{token}}."
+						"description": "HU-03: Inicia sesion. El access token (15 minutos) queda en {{token}} y el refresh token en {{refreshToken}}."
 					},
 					"response": []
 				},
@@ -190,6 +196,50 @@
 							"path": ["api", "v1", "empresas", "actual"]
 						},
 						"description": "La tienda del usuario del token, sin conocer su id."
+					},
+					"response": []
+				},
+				{
+					"name": "Renovar token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('token', json.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', json.refreshToken);",
+									"    pm.test('Tokens renovados', function () {",
+									"        pm.expect(json.refreshToken).to.not.be.empty;",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "refresh"]
+						},
+						"description": "Cambia el refresh token por un access token y un refresh token nuevos de la misma sesion, sin pedir la clave otra vez. Cada refresh token sirve una sola vez: mandar uno ya usado cierra la sesion."
 					},
 					"response": []
 				}
@@ -1388,13 +1438,22 @@
 					"name": "Cerrar sesion",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/logout",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "logout"]
 						},
-						"description": "HU-03: Cierra la sesion activa."
+						"description": "HU-03: Cierra la sesion: el access token y el refresh token dejan de servir al instante. Va de ultima porque despues ningun request de la coleccion tiene sesion."
 					},
 					"response": []
 				}
