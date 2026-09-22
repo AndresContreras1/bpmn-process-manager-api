@@ -1,0 +1,30 @@
+// La descripcion conserva los saltos de linea con los que se escribio
+.descripcion {
+  white-space: pre-line;
+}
+
+// Linea de tiempo del historial: un punto por cambio y una linea que baja hasta el punto siguiente
+.historial li {
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.historial li:last-child {
+  padding-bottom: 0;
+}
+
+.historial li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: calc(0.375rem - 1px);
+  top: 1.05rem;
+  bottom: -0.3rem;
+  border-left: 2px solid var(--bs-border-color);
+}
+
+.historial .punto {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-top: 0.3rem;
+  background-color: var(--bs-primary);
+}

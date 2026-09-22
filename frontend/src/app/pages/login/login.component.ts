@@ -27,7 +27,7 @@ export class LoginComponent implements OnInit {
   enviando: boolean = false;
   error: string | null = null;
   sesionVencida: boolean = false;
-  private volver: string = '/cuenta';
+  private volver: string = '/procesos';
 
   ngOnInit(): void {
     const parametros: ParamMap = this.route.snapshot.queryParamMap;

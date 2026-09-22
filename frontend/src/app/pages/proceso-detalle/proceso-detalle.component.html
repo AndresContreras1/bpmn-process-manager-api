@@ -1,0 +1,134 @@
+<div class="container py-5" id="proceso-detalle">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+      <li class="breadcrumb-item"><a routerLink="/procesos" id="proceso-detalle-ir-procesos">Processes</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ detalle?.proceso?.nombre ?? 'Process' }}</li>
+    </ol>
+  </nav>
+
+  @if (aviso) {
+    <div class="alert alert-success alert-dismissible" role="status" id="proceso-detalle-aviso">
+      <i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ aviso }}
+      <button type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
+    </div>
+  }
+  @if (error) {
+    <div class="alert alert-danger" role="alert" id="proceso-detalle-error">{{ error }}</div>
+  }
+
+  @if (noEncontrado) {
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-5 text-center" id="proceso-detalle-no-encontrado">
+        <i class="fa-solid fa-circle-question fa-2x text-body-tertiary mb-3" aria-hidden="true"></i>
+        <h1 class="h4 fw-bold">Process not found</h1>
+        <p class="text-body-secondary">This process does not exist in your store, or it was deleted.</p>
+        <a class="btn btn-primary" routerLink="/procesos">Back to processes</a>
+      </div>
+    </div>
+  } @else if (detalle) {
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+      <div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+          <h1 class="h3 fw-bold mb-0" id="proceso-detalle-nombre">{{ detalle.proceso.nombre }}</h1>
+          <span class="badge" id="proceso-detalle-estado"
+                [class.text-bg-success]="detalle.proceso.estado === 'PUBLICADO'"
+                [class.text-bg-secondary]="detalle.proceso.estado === 'BORRADOR'">
+            {{ nombreEstado[detalle.proceso.estado] }}
+          </span>
+        </div>
+        <span class="text-body-secondary" id="proceso-detalle-categoria">
+          <i class="fa-solid fa-tag" aria-hidden="true"></i> {{ detalle.proceso.categoria }}
+        </span>
+      </div>
+
+      @if (puedeEditar) {
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-outline-secondary" [routerLink]="['/procesos', detalle.proceso.id, 'editar']"
+             id="proceso-detalle-editar">
+            <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+          </a>
+          @if (detalle.proceso.estado === 'BORRADOR') {
+            <button type="button" class="btn btn-success" id="proceso-detalle-publicar" [disabled]="enviando"
+                    data-bs-toggle="modal" data-bs-target="#modal-publicar">
+              <i class="fa-solid fa-rocket" aria-hidden="true"></i> Publish
+            </button>
+          }
+          @if (esAdministrador) {
+            <button type="button" class="btn btn-outline-danger" id="proceso-detalle-eliminar" [disabled]="enviando"
+                    data-bs-toggle="modal" data-bs-target="#modal-eliminar">
+              <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <section class="card border-0 shadow-sm h-100">
+          <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Description</h2>
+            <p class="descripcion mb-0" id="proceso-detalle-descripcion">{{ detalle.proceso.descripcion }}</p>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-lg-4">
+        <section class="card border-0 shadow-sm h-100">
+          <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Details</h2>
+            <dl class="row small mb-0">
+              <dt class="col-5 fw-normal text-body-secondary">State</dt>
+              <dd class="col-7">{{ nombreEstado[detalle.proceso.estado] }}</dd>
+              <dt class="col-5 fw-normal text-body-secondary">Category</dt>
+              <dd class="col-7">{{ detalle.proceso.categoria }}</dd>
+              <dt class="col-5 fw-normal text-body-secondary">Created</dt>
+              <dd class="col-7" id="proceso-detalle-creado">{{ detalle.proceso.fechaCreacion | date: 'medium' }}</dd>
+              <dt class="col-5 fw-normal text-body-secondary">Last change</dt>
+              <dd class="col-7 mb-0" id="proceso-detalle-modificado">
+                {{ detalle.proceso.fechaModificacion | date: 'medium' }}
+              </dd>
+            </dl>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12">
+        <section class="card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Change history</h2>
+            @if (detalle.historial.length === 0) {
+              <p class="text-body-secondary mb-0" id="proceso-detalle-sin-historial">No changes recorded yet.</p>
+            } @else {
+              <ol class="historial list-unstyled mb-0" id="proceso-detalle-historial">
+                @for (cambio of detalle.historial; track cambio.id) {
+                  <li class="d-flex gap-3" data-testid="historial-cambio">
+                    <span class="punto rounded-circle flex-shrink-0" aria-hidden="true"></span>
+                    <div>
+                      <div class="fw-semibold">{{ cambioEnIngles(cambio.descripcionCambio) }}</div>
+                      <div class="small text-body-secondary">
+                        {{ cambio.autorNombre }} · {{ cambio.fechaCambio | date: 'medium' }}
+                      </div>
+                    </div>
+                  </li>
+                }
+              </ol>
+            }
+          </div>
+        </section>
+      </div>
+    </div>
+  } @else if (cargando) {
+    <div class="text-center text-body-secondary py-5" id="proceso-detalle-cargando">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading the process…
+    </div>
+  }
+</div>
+
+<app-modal-confirmar idModal="modal-publicar" titulo="Publish this process?" textoBoton="Publish"
+                     [mensaje]="'“' + (detalle?.proceso?.nombre ?? '') + '” will be published. A published process cannot go back to draft.'"
+                     (confirmar)="publicar()" />
+
+<app-modal-confirmar idModal="modal-eliminar" titulo="Delete this process?" textoBoton="Delete" [peligro]="true"
+                     [mensaje]="'“' + (detalle?.proceso?.nombre ?? '') + '” will leave every list. Its change history is kept.'"
+                     (confirmar)="eliminar()" />

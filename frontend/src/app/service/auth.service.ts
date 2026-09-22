@@ -47,6 +47,16 @@ export class AuthService {
     return usuario !== null && roles.includes(usuario.rolAcceso);
   }
 
+  /** Administradores y editores crean, editan y publican; el rol de solo lectura solo consulta. */
+  puedeEditar(): boolean {
+    return this.tieneRol('ADMINISTRADOR', 'EDITOR');
+  }
+
+  /** Solo el administrador borra procesos y elementos del diagrama. */
+  esAdministrador(): boolean {
+    return this.tieneRol('ADMINISTRADOR');
+  }
+
   private usuarioGuardado(): Usuario | null {
     return this.tokenService.tokenVigente() ? this.tokenService.obtenerUsuario() : null;
   }

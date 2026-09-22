@@ -1,0 +1,180 @@
+<div class="container py-5" id="procesos">
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
+    <div>
+      <h1 class="h3 fw-bold mb-1" id="procesos-titulo">Processes</h1>
+      <p class="text-body-secondary mb-0">The BPMN processes of your store. Click a column title to sort them.</p>
+    </div>
+    @if (puedeEditar) {
+      <a class="btn btn-primary" routerLink="/procesos/nuevo" id="procesos-nuevo">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> New process
+      </a>
+    }
+  </div>
+
+  @if (aviso) {
+    <div class="alert alert-success alert-dismissible" role="status" id="procesos-aviso">
+      <i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ aviso }}
+      <button type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
+    </div>
+  }
+  @if (error) {
+    <div class="alert alert-danger" role="alert" id="procesos-error">{{ error }}</div>
+  }
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-3 p-md-4">
+      <form class="row g-2 mb-3" role="search">
+        <div class="col-md-8">
+          <div class="input-group">
+            <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
+            <input type="search" class="form-control" id="procesos-buscar" name="nombre" placeholder="Search by name"
+                   aria-label="Search by name" autocomplete="off" [(ngModel)]="filtros.nombre" (ngModelChange)="filtrar()">
+          </div>
+        </div>
+        <div class="col-md-4">
+          <select class="form-select" id="procesos-estado" name="estado" aria-label="Filter by state"
+                  [(ngModel)]="filtros.estado" (ngModelChange)="filtrar()">
+            <option value="">All states</option>
+            <option value="BORRADOR">{{ nombreEstado['BORRADOR'] }}</option>
+            <option value="PUBLICADO">{{ nombreEstado['PUBLICADO'] }}</option>
+          </select>
+        </div>
+      </form>
+
+      @if (filtros.categoria) {
+        <div class="mb-3">
+          <span class="badge rounded-pill text-bg-light border fw-normal d-inline-flex align-items-center gap-2"
+                id="procesos-filtro-categoria">
+            Category: {{ filtros.categoria }}
+            <button type="button" class="btn-close" aria-label="Show every category" id="procesos-quitar-categoria"
+                    (click)="filtrarPorCategoria('')"></button>
+          </span>
+        </div>
+      }
+
+      @if (!pagina) {
+        @if (cargando) {
+          <div class="text-center text-body-secondary py-5" id="procesos-cargando">
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading processes…
+          </div>
+        }
+      } @else if (pagina.content.length === 0) {
+        <div class="text-center py-5" id="procesos-vacio">
+          <i class="fa-regular fa-folder-open fa-2x text-body-tertiary mb-3" aria-hidden="true"></i>
+          @if (hayFiltros()) {
+            <p class="text-body-secondary mb-0">No process matches these filters.</p>
+          } @else if (puedeEditar) {
+            <p class="fw-semibold mb-1">Your store has no processes yet.</p>
+            <p class="text-body-secondary mb-0">Create the first one with New process.</p>
+          } @else {
+            <p class="fw-semibold mb-1">Your store has no processes yet.</p>
+            <p class="text-body-secondary mb-0">An administrator or an editor can create them.</p>
+          }
+        </div>
+      } @else {
+        <div class="table-responsive" [class.opacity-50]="cargando" [attr.aria-busy]="cargando">
+          <table class="table table-hover align-middle mb-0" id="procesos-tabla">
+            <thead>
+              <tr>
+                @for (columna of columnas; track columna.campo) {
+                  <th scope="col" [class]="columna.clase" [attr.aria-sort]="ariaOrden(columna.campo)">
+                    <button type="button" class="btn btn-link btn-orden" [id]="'procesos-orden-' + columna.campo"
+                            (click)="ordenarPor(columna.campo)">
+                      {{ columna.titulo }} <i class="fa-solid" [class]="iconoOrden(columna.campo)" aria-hidden="true"></i>
+                    </button>
+                  </th>
+                }
+                @if (puedeEditar) {
+                  <th scope="col" class="text-end"><span class="visually-hidden">Actions</span></th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (proceso of pagina.content; track proceso.id) {
+                <tr data-testid="proceso-fila">
+                  <td>
+                    <a class="fw-semibold" [routerLink]="['/procesos', proceso.id]" data-testid="proceso-nombre">
+                      {{ proceso.nombre }}
+                    </a>
+                  </td>
+                  <td class="d-none d-sm-table-cell">
+                    <button type="button" class="btn btn-link btn-sm p-0 text-body-secondary text-start"
+                            data-testid="proceso-categoria" [title]="'Show only ' + proceso.categoria"
+                            (click)="filtrarPorCategoria(proceso.categoria)">
+                      {{ proceso.categoria }}
+                    </button>
+                  </td>
+                  <td>
+                    <span class="badge" data-testid="proceso-estado"
+                          [class.text-bg-success]="proceso.estado === 'PUBLICADO'"
+                          [class.text-bg-secondary]="proceso.estado === 'BORRADOR'">
+                      {{ nombreEstado[proceso.estado] }}
+                    </span>
+                  </td>
+                  <td class="d-none d-md-table-cell text-body-secondary small">
+                    {{ proceso.fechaModificacion | date: 'medium' }}
+                  </td>
+                  @if (puedeEditar) {
+                    <td class="text-end text-nowrap">
+                      <div class="btn-group btn-group-sm" role="group" [attr.aria-label]="'Actions for ' + proceso.nombre">
+                        <a class="btn btn-outline-secondary" [routerLink]="['/procesos', proceso.id, 'editar']"
+                           data-testid="proceso-editar" title="Edit" [attr.aria-label]="'Edit ' + proceso.nombre">
+                          <i class="fa-solid fa-pen" aria-hidden="true"></i><span class="d-none d-lg-inline ms-1">Edit</span>
+                        </a>
+                        @if (proceso.estado === 'BORRADOR') {
+                          <button type="button" class="btn btn-outline-success" data-testid="proceso-publicar"
+                                  title="Publish" [attr.aria-label]="'Publish ' + proceso.nombre"
+                                  data-bs-toggle="modal" data-bs-target="#modal-publicar" (click)="seleccionado = proceso">
+                            <i class="fa-solid fa-rocket" aria-hidden="true"></i><span class="d-none d-lg-inline ms-1">Publish</span>
+                          </button>
+                        }
+                        @if (esAdministrador) {
+                          <button type="button" class="btn btn-outline-danger" data-testid="proceso-eliminar"
+                                  title="Delete" [attr.aria-label]="'Delete ' + proceso.nombre"
+                                  data-bs-toggle="modal" data-bs-target="#modal-eliminar" (click)="seleccionado = proceso">
+                            <i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="d-none d-lg-inline ms-1">Delete</span>
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+          <span class="small text-body-secondary" id="procesos-total">
+            {{ pagina.totalElements }} {{ pagina.totalElements === 1 ? 'process' : 'processes' }}
+          </span>
+          @if (pagina.totalPages > 1) {
+            <nav aria-label="Process pages">
+              <ul class="pagination pagination-sm mb-0" id="procesos-paginacion">
+                <li class="page-item" [class.disabled]="pagina.page === 0">
+                  <button type="button" class="page-link" id="procesos-anterior" [disabled]="pagina.page === 0"
+                          (click)="irAPagina(pagina.page - 1)">Previous</button>
+                </li>
+                <li class="page-item active" aria-current="page">
+                  <span class="page-link" id="procesos-pagina-actual">Page {{ pagina.page + 1 }} of {{ pagina.totalPages }}</span>
+                </li>
+                <li class="page-item" [class.disabled]="pagina.page + 1 >= pagina.totalPages">
+                  <button type="button" class="page-link" id="procesos-siguiente"
+                          [disabled]="pagina.page + 1 >= pagina.totalPages" (click)="irAPagina(pagina.page + 1)">Next</button>
+                </li>
+              </ul>
+            </nav>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<app-modal-confirmar idModal="modal-publicar" titulo="Publish this process?" textoBoton="Publish"
+                     [mensaje]="'“' + (seleccionado?.nombre ?? '') + '” will be published. A published process cannot go back to draft.'"
+                     (confirmar)="confirmarPublicacion()" />
+
+<app-modal-confirmar idModal="modal-eliminar" titulo="Delete this process?" textoBoton="Delete" [peligro]="true"
+                     [mensaje]="'“' + (seleccionado?.nombre ?? '') + '” will leave every list. Its change history is kept.'"
+                     (confirmar)="confirmarEliminacion()" />
