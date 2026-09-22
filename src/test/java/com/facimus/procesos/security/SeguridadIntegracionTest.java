@@ -32,6 +32,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.facimus.procesos.gestion.dto.request.CerrarSesionRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
@@ -55,6 +56,7 @@ class SeguridadIntegracionTest {
 
     private static final String ADMIN = "admin@seguridad.com";
     private static final String CLAVE = "clave12345";
+    private static final String BLOQUEADO = "bloqueo@seguridad.com";
 
     @Autowired
     private MockMvc mockMvc;
@@ -357,13 +359,41 @@ class SeguridadIntegracionTest {
     }
 
     @Test
-    @DisplayName("CORS deja que el frontend lea el Location de las respuestas")
-    void Seguridad_cors_exponeLocation() throws Exception {
+    @DisplayName("CORS deja que el frontend lea el Location y el Retry-After de las respuestas")
+    void Seguridad_cors_exponeLocationYRetryAfter() throws Exception {
         mockMvc.perform(get("/api/v1/empresas/actual")
                         .header(HttpHeaders.ORIGIN, "http://localhost:4200")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(ADMIN, CLAVE)))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.LOCATION));
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "Location, Retry-After"));
+    }
+
+    @Test
+    @DisplayName("5 fallos de un correo desde una IP dejan su login en 429 aun con la clave buena; desde otra IP no")
+    void Seguridad_loginConDemasiadosFallos_devuelve429ConRetryAfter() throws Exception {
+        crearColaborador(BLOQUEADO, "bloqueo123", RolAcceso.EDITOR);
+        for (String correo : new String[] {"bloqueo@seguridad.com", "BLOQUEO@seguridad.com", " Bloqueo@Seguridad.com",
+                "bloqueo@seguridad.com", "bloqueo@SEGURIDAD.com"}) {
+            loginFallido(correo, "clave-mala");
+        }
+
+        String retryAfter = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "bloqueo123"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Demasiados intentos"))
+                .andExpect(jsonPath("$.detail")
+                        .value("Demasiados intentos fallidos de inicio de sesión. Intenta de nuevo en 15 minutos."))
+                .andReturn().getResponse().getHeader(HttpHeaders.RETRY_AFTER);
+
+        // Los cinco fallos llegaron hace menos de un minuto: la espera es casi toda la ventana
+        assertThat(Long.parseLong(retryAfter)).isBetween(840L, 900L);
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .with(desdeLaIp("10.0.0.2"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "bloqueo123"))))
+                .andExpect(status().isOk());
     }
 
     private String login(String email, String password) throws Exception {
@@ -408,6 +438,13 @@ class SeguridadIntegracionTest {
     private static String sha256(String texto) throws Exception {
         return HexFormat.of().formatHex(
                 MessageDigest.getInstance("SHA-256").digest(texto.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private static RequestPostProcessor desdeLaIp(String ip) {
+        return peticion -> {
+            peticion.setRemoteAddr(ip);
+            return peticion;
+        };
     }
 
     private static String bearer(String token) {

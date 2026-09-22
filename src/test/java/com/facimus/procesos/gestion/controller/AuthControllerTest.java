@@ -13,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.SESION;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 
+import java.time.Duration;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.facimus.procesos.common.DemasiadosIntentosException;
 import com.facimus.procesos.common.SesionInvalidaException;
 import com.facimus.procesos.gestion.dto.request.CerrarSesionRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
@@ -60,7 +63,7 @@ class AuthControllerTest {
     void AuthController_login_credencialesValidas_devuelveLosTokens() throws Exception {
         // Arrange
         UsuarioResponse usuario = usuario();
-        given(loginAuthenticator.autenticar("juan@acme.com", "secret123")).willReturn(usuario);
+        given(loginAuthenticator.autenticar("juan@acme.com", "secret123", "127.0.0.1")).willReturn(usuario);
         given(sesionService.iniciar(1L, 10L)).willReturn(new SesionIniciada("refresh-de-prueba", "sesion-1", usuario));
         given(jwtService.generarToken(any(ApiPrincipal.class))).willReturn("token-de-prueba");
         given(jwtService.getExpirationSeconds()).willReturn(900L);
@@ -85,7 +88,7 @@ class AuthControllerTest {
     @DisplayName("POST /api/v1/auth/login - credenciales invalidas devuelven 401 generico sin abrir sesion")
     void AuthController_login_credencialesInvalidas_devuelve401() throws Exception {
         // Arrange
-        given(loginAuthenticator.autenticar("juan@acme.com", "mala"))
+        given(loginAuthenticator.autenticar("juan@acme.com", "mala", "127.0.0.1"))
                 .willThrow(new BadCredentialsException("Bad credentials"));
 
         // Act + Assert
@@ -99,6 +102,24 @@ class AuthControllerTest {
 
         then(sesionService).shouldHaveNoInteractions();
         then(jwtService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/login - un correo bloqueado por fallos devuelve 429 con Retry-After")
+    void AuthController_login_bloqueadoPorFallos_devuelve429() throws Exception {
+        given(loginAuthenticator.autenticar("juan@acme.com", "secret123", "127.0.0.1"))
+                .willThrow(new DemasiadosIntentosException(Duration.ofSeconds(90)));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new LoginRequest("juan@acme.com", "secret123"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string(HttpHeaders.RETRY_AFTER, "90"))
+                .andExpect(jsonPath("$.title").value("Demasiados intentos"))
+                .andExpect(jsonPath("$.detail")
+                        .value("Demasiados intentos fallidos de inicio de sesión. Intenta de nuevo en 2 minutos."));
+
+        then(sesionService).shouldHaveNoInteractions();
     }
 
     @Test

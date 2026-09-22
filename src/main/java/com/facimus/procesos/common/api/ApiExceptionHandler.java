@@ -26,6 +26,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.facimus.procesos.common.DemasiadosIntentosException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SesionInvalidaException;
@@ -78,6 +79,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
                 .body(construir(HttpStatus.UNAUTHORIZED, "Sesión no válida", ex.getMessage(), req));
+    }
+
+    /** Login bloqueado por intentos fallidos: Retry-After dice en cuantos segundos se puede volver a intentar. */
+    @ExceptionHandler(DemasiadosIntentosException.class)
+    public ResponseEntity<ProblemDetail> manejarDemasiadosIntentos(DemasiadosIntentosException ex, WebRequest req) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getSegundosDeEspera()))
+                .body(construir(HttpStatus.TOO_MANY_REQUESTS, "Demasiados intentos", ex.getMessage(), req));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

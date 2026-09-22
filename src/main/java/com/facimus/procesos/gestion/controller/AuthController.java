@@ -23,6 +23,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 
 /** HU-03: inicio, renovacion y cierre de sesion con un access token corto y un refresh token que rota. */
 @Tag(name = "Authentication", description = "Login, token renewal and logout: short-lived JWT access tokens and "
@@ -45,15 +46,19 @@ public class AuthController {
 
     @Operation(summary = "Log in", description = "Checks the email and password and opens a session: a signed access "
             + "token that lasts 15 minutes and a refresh token that renews it. A wrong password and an unknown email "
-            + "get the same answer.")
+            + "get the same answer. After 5 failed attempts for an email from the same address within 15 minutes, "
+            + "the login answers 429 until the oldest attempt leaves that window.")
     @ApiResponse(responseCode = "200", description = "The tokens of the new session and the user's profile")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "429", ref = "TooManyRequests")
     @SecurityRequirements()
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Validated @RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@Validated @RequestBody LoginRequest request,
+            HttpServletRequest peticion) {
         // Si falla, ApiExceptionHandler responde 401 con el mismo mensaje generico, exista o no el correo (HU-03).
-        UsuarioResponse usuario = loginAuthenticator.autenticar(request.email(), request.password());
+        UsuarioResponse usuario = loginAuthenticator.autenticar(request.email(), request.password(),
+                peticion.getRemoteAddr());
         return ResponseEntity.ok(tokens(sesionService.iniciar(usuario.empresaId(), usuario.id())));
     }
 

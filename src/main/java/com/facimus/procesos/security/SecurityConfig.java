@@ -1,7 +1,9 @@
 package com.facimus.procesos.security;
 
 import java.time.Clock;
+import java.time.Duration;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -26,6 +28,8 @@ public class SecurityConfig {
 
     private static final String ADMINISTRADOR = RolAcceso.ADMINISTRADOR.name();
     private static final String EDITOR = RolAcceso.EDITOR.name();
+    /** Cuantas combinaciones de correo e IP recuerda el limite del login; las que menos se usan se olvidan primero. */
+    private static final int CLAVES_DE_LOGIN = 10_000;
 
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
@@ -80,6 +84,13 @@ public class SecurityConfig {
     @Bean
     public Clock reloj() {
         return Clock.systemUTC();
+    }
+
+    /** HU-03: los intentos fallidos del login se cuentan por correo e IP, en una ventana deslizante. */
+    @Bean
+    public AttemptLimiter limitadorDeLogin(@Value("${login.max-failed-attempts}") int maximo,
+            @Value("${login.failed-attempts-window}") Duration ventana, Clock reloj) {
+        return new AttemptLimiter(maximo, ventana, CLAVES_DE_LOGIN, reloj);
     }
 
     @Bean
