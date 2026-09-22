@@ -1,6 +1,7 @@
 package com.facimus.procesos.modelado.service.impl;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,7 +14,9 @@ import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.mapper.PoolMapper;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.repository.CorrelacionRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.repository.PoolRepository;
 import com.facimus.procesos.modelado.service.PoolService;
@@ -29,6 +32,8 @@ public class PoolServiceImpl implements PoolService {
     private final ProcesoRepository procesoRepository;
     private final LaneRepository laneRepository;
     private final NodoFlujoRepository nodoFlujoRepository;
+    private final MensajeRepository mensajeRepository;
+    private final CorrelacionRepository correlacionRepository;
     private final PoolMapper poolMapper;
 
     @Override
@@ -68,6 +73,14 @@ public class PoolServiceImpl implements PoolService {
         if (nodoFlujoRepository.existsByLane_Pool_IdAndEmpresaId(poolId, empresaId)) {
             throw new ReglaNegocioException("El pool \"" + pool.getNombre() + "\" tiene lanes con actividades; no se puede eliminar.");
         }
+        // Los mensajes que entran o salen del pool se van con el, y cada uno con su clave de correlacion.
+        Stream.concat(mensajeRepository.findAllByPoolOrigenIdAndEmpresaId(poolId, empresaId).stream(),
+                        mensajeRepository.findAllByPoolDestinoIdAndEmpresaId(poolId, empresaId).stream())
+                .forEach(mensaje -> {
+                    correlacionRepository.findByMensajeIdAndEmpresaId(mensaje.getId(), empresaId)
+                            .ifPresent(correlacionRepository::delete);
+                    mensajeRepository.delete(mensaje);
+                });
         laneRepository.deleteAll(laneRepository.findAllByPoolIdAndEmpresaIdOrderByOrdenAsc(poolId, empresaId));
         poolRepository.delete(pool);
     }

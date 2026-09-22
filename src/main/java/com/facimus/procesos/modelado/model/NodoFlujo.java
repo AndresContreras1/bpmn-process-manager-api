@@ -1,5 +1,7 @@
 package com.facimus.procesos.modelado.model;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import com.facimus.procesos.common.EntidadEditable;
 
 import jakarta.persistence.Column;
@@ -29,6 +31,8 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @Entity
 @Table(name = "nodos_flujo")
+// Baja logica: ninguna consulta ve los nodos inactivos. Cada tipo de nodo (Actividad, Gateway) declara su borrado.
+@SQLRestriction("activo = true")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "tipo_nodo")
 public abstract class NodoFlujo extends EntidadEditable {
