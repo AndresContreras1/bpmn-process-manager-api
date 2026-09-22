@@ -66,6 +66,11 @@
 			"type": "string"
 		},
 		{
+			"key": "empresaInvitadaId",
+			"value": "",
+			"type": "string"
+		},
+		{
 			"key": "token",
 			"value": "",
 			"type": "string"
@@ -173,6 +178,20 @@
 						"description": "HU-03: Inicia sesion. El token JWT se guarda automaticamente en la variable {{token}}."
 					},
 					"response": []
+				},
+				{
+					"name": "Tienda de la sesion",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/empresas/actual",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "empresas", "actual"]
+						},
+						"description": "La tienda del usuario del token, sin conocer su id."
+					},
+					"response": []
 				}
 			]
 		},
@@ -188,7 +207,10 @@
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/usuarios",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "usuarios"]
+							"path": ["api", "v1", "usuarios"],
+							"query": [
+								{ "key": "orden", "value": "email,asc", "disabled": true }
+							]
 						},
 						"description": "HU-02: Lista todos los usuarios de la empresa. Solo administrador."
 					},
@@ -287,7 +309,9 @@
 								{ "key": "pagina", "value": "0" },
 								{ "key": "nombre", "value": "", "disabled": true },
 								{ "key": "estado", "value": "BORRADOR", "disabled": true },
-								{ "key": "categoria", "value": "", "disabled": true }
+								{ "key": "categoria", "value": "", "disabled": true },
+								{ "key": "tamano", "value": "10", "disabled": true },
+								{ "key": "orden", "value": "nombre,asc", "disabled": true }
 							]
 						},
 						"description": "HU-07: Lista procesos con filtros opcionales (nombre, estado, categoria) y paginacion."
@@ -419,7 +443,11 @@
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/roles",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "roles"]
+							"path": ["api", "v1", "roles"],
+							"query": [
+								{ "key": "nombre", "value": "ware", "disabled": true },
+								{ "key": "orden", "value": "nombre,desc", "disabled": true }
+							]
 						},
 						"description": "HU-20: Lista todos los roles con informacion de uso."
 					},
@@ -1142,6 +1170,77 @@
 			]
 		},
 		{
+			"name": "Compartir",
+			"description": "HU-23: procesos compartidos en solo lectura con otras tiendas, la unica excepcion al aislamiento.",
+			"item": [
+				{
+					"name": "Compartir el proceso con otra tienda",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('empresaInvitadaId', json.empresaId);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nit\": \"900123456-1\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/compartidos",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "compartidos"]
+						},
+						"description": "HU-23: la otra tienda, encontrada por su NIT, puede leer el diagrama pero nunca cambiarlo. Solo el administrador comparte. En el perfil dev se comparte con Demo Store."
+					},
+					"response": []
+				},
+				{
+					"name": "Tiendas con acceso al proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/compartidos",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "compartidos"]
+						},
+						"description": "Con quien comparte el proceso la tienda, y desde cuando."
+					},
+					"response": []
+				},
+				{
+					"name": "Procesos compartidos con mi tienda",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/compartidos-conmigo",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "compartidos-conmigo"]
+						},
+						"description": "Los procesos que otras tiendas le comparten a esta, para abrirlos con el diagrama."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "Limpieza",
 			"description": "Borra lo que creo el recorrido, de hijos a padres, y cierra la sesion.",
 			"item": [
@@ -1240,6 +1339,20 @@
 							"path": ["api", "v1", "roles", "{{rolId}}"]
 						},
 						"description": "HU-19: Elimina un rol de proceso. Solo ADMINISTRADOR. Falla si el rol esta en uso."
+					},
+					"response": []
+				},
+				{
+					"name": "Dejar de compartir el proceso",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/compartidos/{{empresaInvitadaId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "compartidos", "{{empresaInvitadaId}}"]
+						},
+						"description": "La otra tienda deja de ver el proceso; la bitacora guarda cuando se compartio y cuando se dejo de compartir."
 					},
 					"response": []
 				},

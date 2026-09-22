@@ -204,6 +204,32 @@ class SeguridadIntegracionTest {
         assertThat(response.getContentAsString()).contains("\"title\":\"Sin permisos\"", "\"status\":403");
     }
 
+    @Test
+    @DisplayName("El Location del registro lleva a la tienda creada, que su administrador puede consultar")
+    void Seguridad_locationDelRegistro_llevaALaTiendaCreada() throws Exception {
+        String location = mockMvc.perform(post("/api/v1/empresas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new RegistroEmpresaRequest("Tienda del Location",
+                                "900333444-5", "contacto@location.com", "Administradora", "admin@location.com",
+                                CLAVE))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getHeader(HttpHeaders.LOCATION);
+
+        mockMvc.perform(get(location).header(HttpHeaders.AUTHORIZATION, "Bearer " + login("admin@location.com", CLAVE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nit").value("900333444-5"));
+    }
+
+    @Test
+    @DisplayName("CORS deja que el frontend lea el Location de las respuestas")
+    void Seguridad_cors_exponeLocation() throws Exception {
+        mockMvc.perform(get("/api/v1/empresas/actual")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:4200")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(ADMIN, CLAVE)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.LOCATION));
+    }
+
     private String login(String email, String password) throws Exception {
         String respuesta = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

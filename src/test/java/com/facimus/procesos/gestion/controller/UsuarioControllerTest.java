@@ -2,14 +2,19 @@ package com.facimus.procesos.gestion.controller;
 
 import java.util.List;
 
+import org.mockito.ArgumentCaptor;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -17,6 +22,7 @@ import com.facimus.procesos.gestion.service.UsuarioService;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,14 +46,26 @@ class UsuarioControllerTest {
     private UsuarioService usuarioService;
 
     @Test
-    @DisplayName("GET /api/v1/usuarios - listar como admin (200)")
+    @DisplayName("GET /api/v1/usuarios - listar como admin: una pagina ordenada por nombre (200)")
     void listar_como_admin() throws Exception {
         UsuarioResponse u = crearUsuario(1L, "Ana", "ana@acme.com", RolAcceso.EDITOR);
-        given(usuarioService.listarPorEmpresa(1L)).willReturn(List.of(u));
+        ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
+        given(usuarioService.buscar(eq(1L), pagina.capture())).willReturn(new PageResponse<>(List.of(u), 0, 10, 1, 1));
 
         mockMvc.perform(get("/api/v1/usuarios").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].nombre").value("Ana"));
+                .andExpect(jsonPath("$.content[0].nombre").value("Ana"));
+
+        assertThat(pagina.getValue().getPageSize()).isEqualTo(10);
+        assertThat(pagina.getValue().getSort()).containsExactly(Sort.Order.asc("nombre"), Sort.Order.asc("id"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/usuarios?tamano=51 - mas de 50 por pagina responde 400")
+    void listar_tamanoDemasiadoGrande() throws Exception {
+        mockMvc.perform(get("/api/v1/usuarios").param("tamano", "51").with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.tamano").value("El tamaño de página va de 1 a 50."));
     }
 
     @Test

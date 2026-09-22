@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 import com.facimus.procesos.gestion.mapper.EmpresaMapper;
@@ -45,5 +46,14 @@ public class EmpresaServiceImpl implements EmpresaService {
         usuarioService.crearColaborador(empresa.getId(), nombreAdmin, emailAdmin, passwordAdmin,
                 RolAcceso.ADMINISTRADOR);
         return empresaMapper.toResponse(empresa);
+    }
+
+    @Override
+    public EmpresaResponse obtener(Long empresaId, Long id) {
+        if (!empresaId.equals(id)) {
+            throw new RecursoNoEncontradoException("Empresa no encontrada.");
+        }
+        return empresaMapper.toResponse(empresaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Empresa no encontrada.")));
     }
 }

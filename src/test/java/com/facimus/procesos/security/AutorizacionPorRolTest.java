@@ -75,6 +75,8 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/procesos               | 200
             SOLO_LECTURA  | GET    | /api/v1/roles                  | 200
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/diagrama | 404
+            SOLO_LECTURA  | GET    | /api/v1/empresas/actual        | 200
+            SOLO_LECTURA  | GET    | /api/v1/empresas/{id}          | 404
 
             # Usuarios: solo el administrador (HU-02)
             ADMINISTRADOR | GET    | /api/v1/usuarios               | 200
@@ -93,6 +95,14 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | PATCH  | /api/v1/procesos/{id}          | 403
             ADMINISTRADOR | DELETE | /api/v1/procesos/{id}          | 404
             EDITOR        | DELETE | /api/v1/procesos/{id}          | 403
+
+            # Compartir procesos: solo el administrador comparte y deja de compartir (HU-23)
+            EDITOR        | POST   | /api/v1/procesos/{id}/compartidos        | 403
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/compartidos        | 403
+            ADMINISTRADOR | DELETE | /api/v1/procesos/{id}/compartidos/424242 | 404
+            EDITOR        | DELETE | /api/v1/procesos/{id}/compartidos/424242 | 403
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/compartidos        | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/compartidos-conmigo     | 200
 
             # Modelado: solo el administrador elimina pools, lanes y mensajes (HU-21, HU-22, HU-25)
             ADMINISTRADOR | DELETE | /api/v1/pools/{id}             | 404

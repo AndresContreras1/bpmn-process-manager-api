@@ -3,9 +3,13 @@ package com.facimus.procesos.gestion.controller;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.mockito.ArgumentCaptor;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -20,6 +24,7 @@ import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.pri
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
@@ -49,6 +54,48 @@ class ProcesoControllerTest {
         mockMvc.perform(get("/api/v1/procesos").with(principal(RolAcceso.EDITOR)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].nombre").value("Ventas"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/procesos - por defecto 10 por pagina, los modificados mas recientes primero y el id desempata")
+    void listar_procesos_ordenPorDefecto() throws Exception {
+        ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
+        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), pagina.capture()))
+                .willReturn(new PageResponse<>(List.of(), 0, 10, 0, 0));
+
+        mockMvc.perform(get("/api/v1/procesos").with(principal(RolAcceso.SOLO_LECTURA)))
+                .andExpect(status().isOk());
+
+        assertThat(pagina.getValue().getPageNumber()).isZero();
+        assertThat(pagina.getValue().getPageSize()).isEqualTo(10);
+        assertThat(pagina.getValue().getSort())
+                .containsExactly(Sort.Order.desc("fechaModificacion"), Sort.Order.asc("id"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/procesos?pagina=2&tamano=25&orden=nombre,asc - el cliente elige tamano y orden")
+    void listar_procesos_tamanoYOrdenElegidos() throws Exception {
+        ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
+        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), pagina.capture()))
+                .willReturn(new PageResponse<>(List.of(), 2, 25, 0, 0));
+
+        mockMvc.perform(get("/api/v1/procesos").param("pagina", "2").param("tamano", "25")
+                        .param("orden", "nombre,asc").with(principal(RolAcceso.EDITOR)))
+                .andExpect(status().isOk());
+
+        assertThat(pagina.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(pagina.getValue().getPageSize()).isEqualTo(25);
+        assertThat(pagina.getValue().getSort()).containsExactly(Sort.Order.asc("nombre"), Sort.Order.asc("id"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/procesos?orden=descripcion&tamano=0 - fuera de la lista blanca o del rango responde 400")
+    void listar_procesos_parametrosInvalidos() throws Exception {
+        mockMvc.perform(get("/api/v1/procesos").param("orden", "descripcion").param("tamano", "0")
+                        .with(principal(RolAcceso.EDITOR)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.orden").exists())
+                .andExpect(jsonPath("$.errors.tamano").value("El tamaño de página va de 1 a 50."));
     }
 
     @Test

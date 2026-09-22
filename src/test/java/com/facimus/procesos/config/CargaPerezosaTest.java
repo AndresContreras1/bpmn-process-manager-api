@@ -12,9 +12,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
+import com.facimus.procesos.gestion.dto.response.ProcesoRecibidoResponse;
+import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.gestion.service.ProcesoCompartidoService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -82,6 +87,9 @@ class CargaPerezosaTest {
     @Autowired
     private DiagramaService diagramaService;
 
+    @Autowired
+    private ProcesoCompartidoService procesoCompartidoService;
+
     private Statistics estadisticas;
     private Long empresaId;
     private Long adminId;
@@ -129,6 +137,41 @@ class CargaPerezosaTest {
                 .containsExactlyInAnyOrder("Administrador", "Editora");
         // Una para el proceso y otra para el historial con sus autores.
         assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Una pagina de roles trae el uso de todos sus roles en una sola consulta, y se busca por nombre")
+    void paginaDeRoles_traeElUsoDeTodosEnUnaConsulta() {
+        estadisticas.clear();
+
+        PageResponse<RolProcesoVistaResponse> roles = rolProcesoService.buscar(empresaId, null,
+                Paginacion.de(0, 10, "nombre,asc"));
+
+        assertThat(roles.content()).hasSizeGreaterThanOrEqualTo(3).allMatch(rol -> rol.procesosQueLoUsan() == 1);
+        // Una para la pagina y otra para el uso de sus roles; la pagina no se llena, asi que no hace falta contar.
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(2);
+        // HU-20: parte del nombre, sin distinguir mayusculas.
+        assertThat(rolProcesoService.buscar(empresaId, "WARE", Paginacion.de(0, 10, "nombre,asc")).content())
+                .extracting(RolProcesoVistaResponse::nombre)
+                .containsExactly("Warehouse");
+    }
+
+    @Test
+    @DisplayName("Los procesos compartidos con una tienda traen a su duena en la misma consulta (HU-23)")
+    void procesosCompartidos_traenASuDuenaEnLaMismaConsulta() {
+        Long aliadaId = empresaService.registrar("Tienda aliada", "900666999-1", "contacto@aliada.com",
+                "Administrador", "admin@aliada.com", "clave12345").id();
+        for (String nombre : new String[] {"Payments", "Inventory count"}) {
+            Long compartido = procesoService.crear(empresaId, adminId, nombre, "Shared process", "Operations").id();
+            procesoCompartidoService.compartir(empresaId, compartido, adminId, "900666999-1");
+        }
+        estadisticas.clear();
+
+        assertThat(procesoCompartidoService.buscarRecibidos(aliadaId, Paginacion.de(0, 10, "nombre,asc")).content())
+                .extracting(ProcesoRecibidoResponse::empresaPropietariaNombre)
+                .containsExactly("Tienda de consultas", "Tienda de consultas");
+        // Una sola: la pagina no se llena, asi que no hace falta contar, y la duena llega con el @EntityGraph.
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(1);
     }
 
     @Test

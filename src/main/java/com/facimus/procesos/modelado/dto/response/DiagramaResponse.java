@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
         + "single-resource endpoints")
 public record DiagramaResponse(
         ProcesoResponse proceso,
+        @Schema(description = "True when another store owns the process and shares it read-only (HU-23)")
+        boolean compartido,
         @Schema(description = "In diagram order; the store's own pool first") List<PoolResponse> pools,
         @Schema(description = "Ordered by pool and by position inside the pool") List<LaneResponse> lanes,
         @Schema(description = "Linked to their lane by laneId") List<ActividadResponse> actividades,

@@ -3,7 +3,7 @@ package com.facimus.procesos.modelado.service.impl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.dto.response.ProcesoLectura;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * Una consulta por tipo de elemento, filtrada por proceso y empresa: el numero de sentencias no crece con el tamano
  * del diagrama. Los DTO llevan los id de sus padres, que Hibernate lee de la llave foranea sin cargar la relacion.
+ * El proceso entra por la puerta de lectura, asi que tambien se dibuja uno compartido por otra empresa (HU-23).
  */
 @Service
 @RequiredArgsConstructor
@@ -51,21 +52,23 @@ public class DiagramaServiceImpl implements DiagramaService {
 
     @Override
     public DiagramaResponse obtener(Long empresaId, Long procesoId) {
-        // Responde 404 si el proceso no es de la empresa o esta eliminado.
-        ProcesoResponse proceso = procesoService.obtener(empresaId, procesoId);
-        return new DiagramaResponse(proceso,
+        // Responde 404 si el proceso esta eliminado, o si no es de la empresa ni se lo compartieron.
+        ProcesoLectura lectura = procesoService.obtenerParaLectura(empresaId, procesoId);
+        // Los elementos son de la empresa duena, que en un proceso compartido no es la del usuario.
+        Long duena = lectura.empresaPropietariaId();
+        return new DiagramaResponse(lectura.proceso(), lectura.compartido(),
                 poolMapper.toResponses(poolRepository
-                        .findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId, empresaId)),
-                laneMapper.toResponses(laneRepository.delProcesoEnOrden(procesoId, empresaId)),
+                        .findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId, duena)),
+                laneMapper.toResponses(laneRepository.delProcesoEnOrden(procesoId, duena)),
                 actividadMapper.toResponses(actividadRepository
-                        .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId)),
+                        .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
                 gatewayMapper.toResponses(gatewayRepository
-                        .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId)),
+                        .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
                 arcoMapper.toResponses(arcoRepository
-                        .findAllByPool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId)),
+                        .findAllByPool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
                 mensajeMapper.toResponses(mensajeRepository
-                        .findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId)),
+                        .findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
                 correlacionMapper.toResponses(correlacionRepository
-                        .findAllByMensaje_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId)));
+                        .findAllByMensaje_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)));
     }
 }

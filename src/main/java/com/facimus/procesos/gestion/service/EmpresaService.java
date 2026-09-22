@@ -7,4 +7,7 @@ public interface EmpresaService {
 
     EmpresaResponse registrar(String nombre, String nit, String correoContacto,
             String nombreAdmin, String emailAdmin, String passwordAdmin);
+
+    /** Para quien la pide solo existe su propia empresa: cualquier otro id responde 404. */
+    EmpresaResponse obtener(Long empresaId, Long id);
 }

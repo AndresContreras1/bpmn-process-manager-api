@@ -1,14 +1,15 @@
 package com.facimus.procesos.gestion.service.impl;
 
-import java.util.List;
 import java.util.Locale;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.Empresa;
@@ -91,8 +92,9 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
-    public List<UsuarioResponse> listarPorEmpresa(Long empresaId) {
-        return usuarioMapper.toResponses(usuarioRepository.findAllByEmpresaIdAndActivoTrue(empresaId));
+    public PageResponse<UsuarioResponse> buscar(Long empresaId, Pageable pageable) {
+        return PageResponse.from(usuarioRepository.findAllByEmpresaIdAndActivoTrue(empresaId, pageable)
+                .map(usuarioMapper::toResponse));
     }
 
     @Override
