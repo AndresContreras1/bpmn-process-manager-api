@@ -2,9 +2,13 @@ package com.facimus.procesos.config;
 
 import java.util.Map;
 
+import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.web.bind.annotation.PostMapping;
+
+import com.facimus.procesos.security.IdempotencyFilter;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -17,6 +21,7 @@ import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
+import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
@@ -67,6 +72,26 @@ public class OpenApiConfig {
                                 .addHeaderObject(HttpHeaders.RETRY_AFTER, new Header()
                                         .description("Seconds until the login can be tried again")
                                         .schema(new IntegerSchema().example(900)))));
+    }
+
+    /** Todo POST autenticado acepta una Idempotency-Key; los publicos, como el login, no la usan. */
+    @Bean
+    public OperationCustomizer claveDeIdempotencia() {
+        return (operacion, metodo) -> {
+            boolean publica = operacion.getSecurity() != null && operacion.getSecurity().isEmpty();
+            if (metodo.hasMethodAnnotation(PostMapping.class) && !publica) {
+                operacion.addParametersItem(new Parameter()
+                        .in("header")
+                        .name(IdempotencyFilter.CABECERA)
+                        .required(false)
+                        .description("Any unique value, such as a UUID. A retry with the same key gets the first "
+                                + "response back, marked with Idempotent-Replayed, instead of creating the resource "
+                                + "again. The same key with another request answers 422, and while the first one is "
+                                + "still running, 409.")
+                        .schema(new StringSchema().maxLength(100).example("3f6c2a8e-5d1b-4f7a-9c0e-2b8d4a6e1f93")));
+            }
+            return operacion;
+        };
     }
 
     /** Forma de todos los errores (RFC 9457); errors solo viaja en los 400 que senalan campos concretos. */
