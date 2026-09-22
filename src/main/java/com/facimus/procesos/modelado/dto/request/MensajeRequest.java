@@ -13,7 +13,7 @@ public record MensajeRequest(
         @Schema(example = "Order total and tokenized card.")
         @NotBlank(message = "El contenido es obligatorio.")
         @Size(max = 2000, message = "El contenido no puede superar 2000 caracteres.") String contenido,
-        @Schema(description = "Sending pool", example = "1")
+        @Schema(description = "Sending pool, a participant of the same process", example = "1")
         @NotNull(message = "El pool de origen es obligatorio.") Long poolOrigenId,
         @Schema(description = "Receiving pool, different from the sender", example = "3")
         @NotNull(message = "El pool de destino es obligatorio.") Long poolDestinoId) {

@@ -46,6 +46,9 @@ public class MensajeServiceImpl implements MensajeService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pool de origen no encontrado."));
         Pool poolDestino = poolRepository.findByIdAndEmpresaId(poolDestinoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pool de destino no encontrado."));
+        if (!participaEn(poolOrigen, proceso) || !participaEn(poolDestino, proceso)) {
+            throw new ReglaNegocioException("Los dos pools de un mensaje tienen que ser participantes de su proceso.");
+        }
 
         Mensaje mensaje = mensajeRepository.save(Mensaje.builder()
                 .empresa(proceso.getEmpresa())
@@ -95,6 +98,11 @@ public class MensajeServiceImpl implements MensajeService {
     @Override
     public MensajeResponse obtener(Long empresaId, Long mensajeId) {
         return mensajeMapper.toResponse(buscar(empresaId, mensajeId));
+    }
+
+    /** Un pool de otro proceso de la misma tienda existe, pero no es participante de este. */
+    private static boolean participaEn(Pool pool, Proceso proceso) {
+        return pool.getProceso().getId().equals(proceso.getId());
     }
 
     private Mensaje buscar(Long empresaId, Long mensajeId) {

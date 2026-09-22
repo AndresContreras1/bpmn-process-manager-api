@@ -64,6 +64,11 @@ public class GatewayServiceImpl implements GatewayService {
             TipoGateway tipoGateway, int posX, int posY, Long version) {
         Gateway gateway = buscar(empresaId, gatewayId);
         gateway.verificarVersion(version);
+        Long procesoId = gateway.getLane().getPool().getProceso().getId();
+        if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
+                empresaId, gatewayId)) {
+            throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
+        }
         gateway.setNombre(nombre);
         gateway.setTipoGateway(tipoGateway);
         gateway.setPosicionX(posX);
