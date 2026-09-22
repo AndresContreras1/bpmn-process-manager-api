@@ -28,3 +28,16 @@
   margin-top: 0.3rem;
   background-color: var(--bs-primary);
 }
+
+// El numero de cada mensaje, igual al que lleva su linea en el diagrama
+.mensajes .numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: var(--bs-primary);
+}

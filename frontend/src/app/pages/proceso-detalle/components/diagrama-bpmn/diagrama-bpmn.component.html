@@ -1,0 +1,129 @@
+<div class="lienzo" id="diagrama-lienzo">
+  <svg class="diagrama" id="diagrama-bpmn" role="img" aria-labelledby="diagrama-bpmn-titulo"
+       [attr.viewBox]="'0 0 ' + lienzo().ancho + ' ' + lienzo().alto"
+       [style.max-width.px]="lienzo().ancho" [style.min-width.px]="lienzo().anchoMinimo">
+    <title id="diagrama-bpmn-titulo">{{ titulo() }}</title>
+    <defs>
+      <marker id="diagrama-flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+              orient="auto-start-reverse">
+        <path class="punta" d="M 0 0 L 10 5 L 0 10 z" />
+      </marker>
+      <marker id="diagrama-flecha-mensaje" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8"
+              orient="auto-start-reverse">
+        <path class="punta-mensaje" d="M 1 1 L 9 5 L 1 9 z" />
+      </marker>
+    </defs>
+
+    @for (pool of lienzo().pools; track pool.id) {
+      <g data-testid="pool">
+        <rect class="pool" [class.caja-negra]="pool.cajaNegra" [attr.x]="pool.x" [attr.y]="pool.y"
+              [attr.width]="pool.ancho" [attr.height]="pool.alto" />
+        @if (pool.cajaNegra) {
+          <text class="nombre-caja-negra" text-anchor="middle" [attr.x]="pool.x + pool.ancho / 2"
+                [attr.y]="pool.y + pool.alto / 2 + 5">
+            {{ pool.nombre }}@if (pool.tipo) {<tspan class="tipo-participante"> · {{ pool.tipo }}</tspan>}
+            <title>{{ pool.titulo }}</title>
+          </text>
+        } @else {
+          <rect class="franja" [attr.x]="pool.x" [attr.y]="pool.y" width="30" [attr.height]="pool.alto" />
+          <text class="etiqueta-pool" text-anchor="middle" [attr.x]="pool.x + 19" [attr.y]="pool.y + pool.alto / 2"
+                [attr.transform]="'rotate(-90 ' + (pool.x + 19) + ' ' + (pool.y + pool.alto / 2) + ')'">
+            {{ pool.etiqueta }}<title>{{ pool.titulo }}</title>
+          </text>
+          @if (pool.sinLanes) {
+            <text class="vacio" text-anchor="middle" [attr.x]="pool.x + pool.ancho / 2" [attr.y]="pool.y + pool.alto / 2 + 4">
+              No lanes yet
+            </text>
+          }
+        }
+      </g>
+    }
+
+    @for (lane of lienzo().lanes; track lane.id) {
+      <g data-testid="lane">
+        <rect class="lane" [attr.x]="lane.x" [attr.y]="lane.y" [attr.width]="lane.ancho" [attr.height]="lane.alto" />
+        <rect class="franja" [attr.x]="lane.x" [attr.y]="lane.y" width="30" [attr.height]="lane.alto" />
+        <text class="etiqueta-lane" text-anchor="middle" [attr.x]="lane.x + 19" [attr.y]="lane.y + lane.alto / 2"
+              [attr.transform]="'rotate(-90 ' + (lane.x + 19) + ' ' + (lane.y + lane.alto / 2) + ')'">
+          {{ lane.etiqueta }}<title>{{ lane.nombre }} · role: {{ lane.rol }}</title>
+        </text>
+      </g>
+    }
+
+    @for (arco of lienzo().arcos; track arco.id) {
+      <g data-testid="arco">
+        <path class="arco" [attr.d]="arco.ruta" marker-end="url(#diagrama-flecha)" />
+        @if (arco.etiqueta) {
+          <text class="etiqueta-arco" [attr.x]="arco.etiquetaX" [attr.y]="arco.etiquetaY" [attr.text-anchor]="arco.anclaje">
+            {{ arco.etiqueta }}
+          </text>
+        }
+      </g>
+    }
+
+    @for (actividad of lienzo().actividades; track actividad.id) {
+      <g class="nodo" data-testid="nodo-actividad" tabindex="0" role="button"
+         [class.seleccionado]="actividad.id === seleccionadoId()" [attr.aria-pressed]="actividad.id === seleccionadoId()"
+         [attr.aria-label]="'Task: ' + actividad.nombre" (click)="elegir(actividad.id)"
+         (keydown.enter)="elegir(actividad.id, $event)" (keydown.space)="elegir(actividad.id, $event)">
+        <rect class="tarea" rx="10" [attr.x]="actividad.x" [attr.y]="actividad.y" [attr.width]="actividad.ancho"
+              [attr.height]="actividad.alto" />
+        <text class="texto-nodo" text-anchor="middle">
+          @for (linea of actividad.texto.lineas; track $index) {
+            <tspan [attr.x]="actividad.texto.x" [attr.y]="actividad.texto.y + $index * 14">{{ linea }}</tspan>
+          }
+        </text>
+        <title>{{ actividad.nombre }}</title>
+      </g>
+    }
+
+    @for (gateway of lienzo().gateways; track gateway.id) {
+      <g class="nodo" data-testid="nodo-gateway" tabindex="0" role="button"
+         [class.seleccionado]="gateway.id === seleccionadoId()" [attr.aria-pressed]="gateway.id === seleccionadoId()"
+         [attr.aria-label]="'Gateway: ' + gateway.nombre" (click)="elegir(gateway.id)"
+         (keydown.enter)="elegir(gateway.id, $event)" (keydown.space)="elegir(gateway.id, $event)">
+        <polygon class="gateway" [attr.points]="gateway.puntos" />
+        <path class="marca" [attr.d]="gateway.marca" />
+        <text class="texto-nodo texto-gateway" text-anchor="end">
+          @for (linea of gateway.texto.lineas; track $index) {
+            <tspan [attr.x]="gateway.texto.x" [attr.y]="gateway.texto.y + $index * 14">{{ linea }}</tspan>
+          }
+        </text>
+        <title>{{ gateway.nombre }}</title>
+      </g>
+    }
+
+    @for (mensaje of lienzo().mensajes; track mensaje.id) {
+      <g data-testid="mensaje">
+        <line class="linea-mensaje" [attr.x1]="mensaje.x" [attr.y1]="mensaje.y1" [attr.x2]="mensaje.x"
+              [attr.y2]="mensaje.y2" marker-end="url(#diagrama-flecha-mensaje)" />
+        <circle class="inicio-mensaje" r="4" [attr.cx]="mensaje.x" [attr.cy]="mensaje.y1" />
+        <circle class="numero-mensaje" r="10" [attr.cx]="mensaje.x" [attr.cy]="mensaje.numeroY" />
+        <text class="texto-numero" text-anchor="middle" [attr.x]="mensaje.x" [attr.y]="mensaje.numeroY + 4">
+          {{ mensaje.numero }}
+        </text>
+        <title>{{ mensaje.numero }}. {{ mensaje.nombre }}: {{ mensaje.origen }} → {{ mensaje.destino }}</title>
+      </g>
+    }
+  </svg>
+</div>
+
+<div class="d-flex flex-wrap gap-3 small text-body-secondary mt-3" id="diagrama-leyenda">
+  <span class="d-inline-flex align-items-center gap-1">
+    <svg width="26" height="16" aria-hidden="true"><rect class="tarea" x="1" y="2" width="24" height="12" rx="3" /></svg>
+    Task
+  </span>
+  <span class="d-inline-flex align-items-center gap-1">
+    <svg width="18" height="18" aria-hidden="true"><polygon class="gateway" points="9,1 17,9 9,17 1,9" /></svg>
+    Gateway
+  </span>
+  <span class="d-inline-flex align-items-center gap-1">
+    <svg width="30" height="10" aria-hidden="true"><line class="arco" x1="0" y1="5" x2="30" y2="5" /></svg>
+    Sequence flow
+  </span>
+  <span class="d-inline-flex align-items-center gap-1">
+    <svg width="30" height="10" aria-hidden="true"><line class="linea-mensaje" x1="0" y1="5" x2="30" y2="5" /></svg>
+    Message flow
+  </span>
+</div>
+
