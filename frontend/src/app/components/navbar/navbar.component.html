@@ -1,0 +1,27 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary" id="navbar">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold" routerLink="/" id="navbar-marca">
+      <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
+      BPMN Process Manager
+    </a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu"
+            aria-controls="navbar-menu" aria-expanded="false" aria-label="Toggle navigation" id="navbar-boton-menu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbar-menu">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
+             id="navbar-inicio">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" [href]="repositorio" target="_blank" rel="noopener" id="navbar-github">
+            <i class="fa-brands fa-github" aria-hidden="true"></i> GitHub
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
