@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
@@ -69,6 +70,10 @@ public class GatewayServiceImpl implements GatewayService {
                 empresaId, gatewayId)) {
             throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
         }
+        if (tipoGateway.eligePorCondicion() && tieneSalidasSinCondicion(empresaId, gatewayId)) {
+            throw new ReglaNegocioException(
+                    "Todos los arcos que salen de un gateway exclusivo o inclusivo requieren condicion.");
+        }
         gateway.setNombre(nombre);
         gateway.setTipoGateway(tipoGateway);
         gateway.setPosicionX(posX);
@@ -100,6 +105,11 @@ public class GatewayServiceImpl implements GatewayService {
             throw new RecursoNoEncontradoException("Lane no encontrada.");
         }
         return gatewayMapper.toResponses(gatewayRepository.findAllByLaneIdAndEmpresaId(laneId, empresaId));
+    }
+
+    private boolean tieneSalidasSinCondicion(Long empresaId, Long gatewayId) {
+        return arcoRepository.findAllByOrigenIdAndEmpresaId(gatewayId, empresaId).stream()
+                .anyMatch(arco -> !StringUtils.hasText(arco.getCondicion()));
     }
 
     private Gateway buscar(Long empresaId, Long gatewayId) {

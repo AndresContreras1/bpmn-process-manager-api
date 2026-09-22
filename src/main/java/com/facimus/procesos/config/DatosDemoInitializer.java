@@ -102,8 +102,8 @@ public class DatosDemoInitializer implements CommandLineRunner {
                 "Hand the package over to the carrier.", 740, 200).id();
 
         arcoService.crear(empresaId, adminId, recibir, autorizar, null, null);
-        // Todo arco que entra a un gateway exclusivo lleva condicion (regla de ArcoService).
-        arcoService.crear(empresaId, adminId, autorizar, pagoAprobado, null, "Authorization response received");
+        arcoService.crear(empresaId, adminId, autorizar, pagoAprobado, null, null);
+        // Los arcos que salen de un gateway exclusivo llevan condicion (regla de ArcoService).
         arcoService.crear(empresaId, adminId, pagoAprobado, empacar, "Approved", "payment.status == APPROVED");
         arcoService.crear(empresaId, adminId, pagoAprobado, cancelar, "Declined", "payment.status == DECLINED");
         arcoService.crear(empresaId, adminId, empacar, enviar, null, null);

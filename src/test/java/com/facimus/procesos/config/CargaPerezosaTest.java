@@ -267,7 +267,7 @@ class CargaPerezosaTest {
                 260, 80)
                 .id();
         Long reembolsar = actividadService.crear(empresaId, adminId, laneId, lane + ": refund", null, 420, 80).id();
-        arcoService.crear(empresaId, adminId, recibir, decidir, null, "Return received");
+        arcoService.crear(empresaId, adminId, recibir, decidir, null, null);
         arcoService.crear(empresaId, adminId, decidir, reembolsar, "Approved", "return.status == APPROVED");
         Long mensajeId = mensajeService.crear(empresaId, adminId, procesoId, lane + ": return request",
                 "Order and items", clienteId, tiendaId).id();

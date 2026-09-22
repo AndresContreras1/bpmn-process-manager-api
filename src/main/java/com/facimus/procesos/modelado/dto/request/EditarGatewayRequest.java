@@ -12,7 +12,8 @@ public record EditarGatewayRequest(
         @Schema(description = "Name, unique among the flow nodes of the process", example = "Payment approved?")
         @NotBlank(message = "El nombre es obligatorio.")
         @Size(max = 120, message = "El nombre no puede superar 120 caracteres.") String nombre,
-        @Schema(example = "EXCLUSIVO")
+        @Schema(description = "EXCLUSIVO and INCLUSIVO need a condition on every sequence flow that leaves the gateway",
+                example = "EXCLUSIVO")
         @NotNull(message = "El tipo de gateway es obligatorio.") TipoGateway tipoGateway,
         @Schema(description = "Horizontal position on the diagram canvas", example = "420") int posicionX,
         @Schema(description = "Vertical position on the diagram canvas", example = "80") int posicionY,

@@ -29,6 +29,7 @@ import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
+import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.PoolService;
@@ -74,6 +75,9 @@ class ConsistenciaBpmnIntegracionTest {
 
     @Autowired
     private GatewayService gatewayService;
+
+    @Autowired
+    private ArcoService arcoService;
 
     private String token;
     private Long empresaId;
@@ -140,6 +144,63 @@ class ConsistenciaBpmnIntegracionTest {
         pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "Pack Items", "posicionX", 300,
                 "posicionY", 80, "version", 0))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Los arcos que salen de un gateway exclusivo o inclusivo llevan condicion; los que entran, no")
+    void arco_queSaleDeUnGatewayQueDecide_exigeCondicion() throws Exception {
+        Long revisar = actividadService.crear(empresaId, adminId, laneId, "Review return", null, 100, 240).id();
+        Long aprobada = gatewayService.crear(empresaId, adminId, laneId, "Return approved?", TipoGateway.EXCLUSIVO,
+                260, 240).id();
+        Long reembolsar = actividadService.crear(empresaId, adminId, laneId, "Refund", null, 420, 240).id();
+        Long avisar = gatewayService.crear(empresaId, adminId, laneId, "Notify?", TipoGateway.INCLUSIVO, 580, 240).id();
+        Long repartir = gatewayService.crear(empresaId, adminId, laneId, "Fork", TipoGateway.PARALELO, 740, 240).id();
+
+        pedir(post("/api/v1/arcos"), Map.of("origenId", revisar, "destinoId", aprobada))
+                .andExpect(status().isCreated());
+        pedir(post("/api/v1/arcos"), Map.of("origenId", aprobada, "destinoId", reembolsar, "etiqueta", "Yes"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail")
+                        .value("Un arco que sale de un gateway exclusivo o inclusivo requiere condicion."));
+        pedir(post("/api/v1/arcos"), Map.of("origenId", avisar, "destinoId", reembolsar, "condicion", "  "))
+                .andExpect(status().isConflict());
+        pedir(post("/api/v1/arcos"), Map.of("origenId", repartir, "destinoId", reembolsar))
+                .andExpect(status().isCreated());
+        String creado = pedir(post("/api/v1/arcos"), Map.of("origenId", aprobada, "destinoId", reembolsar,
+                "etiqueta", "Yes", "condicion", "return.approved"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long arcoId = jsonMapper.readTree(creado).get("id").asLong();
+
+        pedir(put("/api/v1/arcos/{id}", arcoId), Map.of("etiqueta", "Yes", "version", 0))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail")
+                        .value("Un arco que sale de un gateway exclusivo o inclusivo requiere condicion."));
+        pedir(put("/api/v1/arcos/{id}", arcoId), Map.of("etiqueta", "Yes", "condicion", "return.ok", "version", 0))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Un gateway pasa a exclusivo o inclusivo solo cuando todos sus arcos de salida llevan condicion")
+    void gateway_quePasaADecidirConSalidasSinCondicion_devuelve409() throws Exception {
+        Long repartir = gatewayService.crear(empresaId, adminId, laneId, "Ship boxes", TipoGateway.PARALELO, 100, 400)
+                .id();
+        Long cajaA = actividadService.crear(empresaId, adminId, laneId, "Ship box A", null, 260, 360).id();
+        Long cajaB = actividadService.crear(empresaId, adminId, laneId, "Ship box B", null, 260, 440).id();
+        Long haciaA = arcoService.crear(empresaId, adminId, repartir, cajaA, null, null).id();
+        arcoService.crear(empresaId, adminId, repartir, cajaB, null, "order.hasBoxB");
+
+        pedir(put("/api/v1/gateways/{id}", repartir), Map.of("nombre", "Ship boxes", "tipoGateway", "INCLUSIVO",
+                "posicionX", 100, "posicionY", 400, "version", 0))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail")
+                        .value("Todos los arcos que salen de un gateway exclusivo o inclusivo requieren condicion."));
+        pedir(put("/api/v1/arcos/{id}", haciaA), Map.of("condicion", "order.hasBoxA", "version", 0))
+                .andExpect(status().isOk());
+        pedir(put("/api/v1/gateways/{id}", repartir), Map.of("nombre", "Ship boxes", "tipoGateway", "INCLUSIVO",
+                "posicionX", 100, "posicionY", 400, "version", 0))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tipoGateway").value("INCLUSIVO"));
     }
 
     private ResultActions pedir(MockHttpServletRequestBuilder peticion, Map<String, Object> cuerpo) throws Exception {
