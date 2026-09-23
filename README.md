@@ -540,19 +540,22 @@ a process role is in use, `gestion` asks the `UsoDeRoles` port, which `modelado`
 ./mvnw verify
 ```
 
-The build runs 392 tests and a JaCoCo coverage check. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 460 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
-| Architecture (ArchUnit) | 30 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` |
+| Architecture (ArchUnit) | 31 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
 | Controller slices (`@WebMvcTest`) | 114 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 31 | Business rules of the management module |
-| Security and isolation (`@SpringBootTest`) | 154 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Service unit tests (Mockito) | 72 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along |
+| Repository slices (`@DataJpaTest`) | 23 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete and the partial unique indexes |
+| Security and isolation (`@SpringBootTest`) | 157 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 23 | What `dev` and `prod` expose, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, and the demo data read through the API |
 | Module integration (`@SpringBootTest`) | 38 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 95 % of lines and 75 % of branches.
+Current coverage: 96 % of lines and 78 % of branches. The build fails below 85 % of lines or 70 % of
+branches overall, and below 90 % and 80 % in the service packages, where the business rules live. The gate
+leaves out DTOs and Spring configuration: they are records and wiring, and counting them only inflates the number.
 
 Every push to `main` and every pull request runs the GitHub Actions pipeline:
 
@@ -607,8 +610,10 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - **Every text column has a length, and so does its request field.** A value that is too long answers `400` before it
   reaches the database. Passwords stop at 72 characters, because BCrypt only reads 72 bytes and Spring Security
   rejects longer ones.
-- **Tests never touch the development database.** Every `@SpringBootTest` declares its profile, which an ArchUnit
-  rule checks, and the `test` profile gives each Spring context its own in-memory database.
+- **Tests never touch the development database.** Every `@SpringBootTest` and every `@DataJpaTest` declares its
+  profile, which an ArchUnit rule checks, and the `test` profile gives each Spring context its own in-memory
+  database. The persistence slices keep that database rather than the one the slice would substitute, so they run
+  against the schema Flyway creates, check constraints included.
 
 ## Roadmap
 
@@ -646,8 +651,9 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] Request and response DTO packages with MapStruct mappers, and services exposed as interfaces
 - [x] Module boundaries between `gestion` and `modelado` enforced by ArchUnit, with no dependency cycles
 - [x] Complete Spring profiles: `dev` with seed data, `test` with an isolated in-memory database, and `prod`
-- [ ] Repository tests with `@DataJpaTest` and unit tests for every modeling service
-- [ ] Coverage gate per package (services at 70 % or more, branches included) and a SonarCloud quality gate
+- [x] Repository tests with `@DataJpaTest` and unit tests for every modeling service
+- [x] Coverage gate per package, branches included
+- [ ] A SonarCloud quality gate on top of it
 - [ ] Docker Compose with PostgreSQL, Actuator health checks and Testcontainers-based integration tests
 
 ## Credits
