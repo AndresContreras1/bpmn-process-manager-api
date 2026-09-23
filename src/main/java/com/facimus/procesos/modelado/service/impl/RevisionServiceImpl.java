@@ -1,17 +1,21 @@
 package com.facimus.procesos.modelado.service.impl;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.facimus.procesos.common.DemasiadosIntentosException;
 import com.facimus.procesos.common.IntegracionNoConfiguradaException;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
@@ -26,8 +30,7 @@ import com.facimus.procesos.modelado.service.DiagramaService;
 import com.facimus.procesos.modelado.service.Dictamen;
 import com.facimus.procesos.modelado.service.RevisionService;
 import com.facimus.procesos.modelado.service.RevisorDeDiagramas;
-
-import lombok.RequiredArgsConstructor;
+import com.facimus.procesos.security.AttemptLimiter;
 
 /**
  * El diagrama entra por la puerta de lectura, asi que un proceso ajeno o eliminado responde 404 antes de gastar una
@@ -35,24 +38,61 @@ import lombok.RequiredArgsConstructor;
  * ruido y no expone ids internos.
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class RevisionServiceImpl implements RevisionService {
+
+    /** Cuantos procesos recuerdan su ultima revision. Lo que sobra se suelta empezando por lo menos consultado. */
+    private static final int PROCESOS_RECORDADOS = 500;
 
     private final DiagramaService diagramaService;
     private final RevisorDeDiagramas revisor;
     private final Clock reloj;
+    private final AttemptLimiter limite;
+    private final UltimasRevisiones ultimas = new UltimasRevisiones(PROCESOS_RECORDADOS);
+
+    public RevisionServiceImpl(DiagramaService diagramaService, RevisorDeDiagramas revisor, Clock reloj,
+            @Value("${revision.max-reviews}") int maximo,
+            @Value("${revision.window}") Duration ventana) {
+        this.diagramaService = diagramaService;
+        this.revisor = revisor;
+        this.reloj = reloj;
+        this.limite = new AttemptLimiter(maximo, ventana, PROCESOS_RECORDADOS, reloj);
+    }
 
     @Override
     public RevisionResponse revisar(Long empresaId, Long procesoId) {
         DiagramaResponse diagrama = diagramaService.obtener(empresaId, procesoId);
+        String descripcion = describir(diagrama);
+        String clave = empresaId + ":" + procesoId;
+
+        // Pedir dos veces la revision de un diagrama que no cambio no gasta ni una llamada ni parte del limite.
+        Optional<RevisionResponse> guardada = ultimas.buscar(clave, descripcion);
+        if (guardada.isPresent()) {
+            RevisionResponse revision = guardada.get();
+            return new RevisionResponse(procesoId, revision.resumen(), revision.hallazgos(), true, revision.fecha());
+        }
         if (!revisor.estaConfigurado()) {
             throw new IntegracionNoConfiguradaException(
                     "La revisión con IA no está configurada en esta instalación.");
         }
-        Dictamen dictamen = revisor.revisar(describir(diagrama));
-        return new RevisionResponse(procesoId, dictamen.resumen(), dictamen.hallazgos(), false,
+        // El limite es por tienda, no por usuario: la cuenta la paga la tienda.
+        limite.espera(empresaId.toString()).ifPresent(espera -> {
+            throw new DemasiadosIntentosException(
+                    "Esta tienda ya usó sus revisiones con IA por ahora. Intenta de nuevo en "
+                            + minutos(espera) + ".", espera);
+        });
+        limite.registrar(empresaId.toString());
+
+        Dictamen dictamen = revisor.revisar(descripcion);
+        RevisionResponse revision = new RevisionResponse(procesoId, dictamen.resumen(), dictamen.hallazgos(), false,
                 LocalDateTime.now(reloj));
+        ultimas.guardar(clave, descripcion, revision);
+        return revision;
+    }
+
+    private static String minutos(Duration espera) {
+        long minutos = Math.max(1, (espera.toSeconds() + 59) / 60);
+        return minutos == 1 ? "1 minuto" : minutos + " minutos";
     }
 
     /** El diagrama contado como lo leeria una persona: participantes, quien hace que, el flujo y los mensajes. */
