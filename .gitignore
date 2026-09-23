@@ -4,6 +4,9 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+### Variables de entorno de Docker Compose ###
+.env
+
 ### Base de datos local H2 ###
 /data/
 

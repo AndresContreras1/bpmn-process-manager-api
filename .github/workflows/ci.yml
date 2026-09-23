@@ -113,37 +113,31 @@ jobs:
           docker logs api
           exit 1
 
-      - name: Verify the prod profile on PostgreSQL
+      - name: Verify the prod profile with Docker Compose
         run: |
-          docker network create smoke
-          docker run -d --name db --network smoke \
-            -e POSTGRES_DB=procesos -e POSTGRES_USER=procesos -e POSTGRES_PASSWORD=procesos \
-            postgres:16
-          # By TCP only the final server answers, not the temporary one that runs the image's init scripts.
-          for intento in $(seq 1 30); do
-            docker exec db pg_isready -h localhost -U procesos -d procesos > /dev/null && break
-            sleep 1
-          done
-          docker run -d --name api-prod --network smoke -p 8081:8080 \
-            -e SPRING_PROFILES_ACTIVE=prod \
-            -e DB_HOST=db -e DB_PASSWORD=procesos \
-            -e JWT_SECRET=ci-only-signing-key-with-at-least-32-characters \
-            bpmn-process-manager-api:${{ github.sha }}
-          # The API answers once Flyway has migrated PostgreSQL and Hibernate has validated the schema. Until then
-          # curl fails, and Actions runs this script with bash -e: curl must stay in a condition (&&, if).
-          for intento in $(seq 1 30); do
+          # compose.yaml declares this tag, so it reuses the image built above instead of building it again.
+          docker tag bpmn-process-manager-api:${{ github.sha }} bpmn-process-manager-api:latest
+          cp .env.example .env
+          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ci-only-password/" .env
+          sed -i "s/^JWT_SECRET=.*/JWT_SECRET=ci-only-signing-key-with-at-least-32-characters/" .env
+          sed -i "s/^API_PORT=.*/API_PORT=8081/" .env
+          docker compose up -d
+          # The API answers once PostgreSQL is healthy, Flyway has migrated it and Hibernate has validated the
+          # schema. Until then curl fails, and Actions runs this script with bash -e: it must stay in a condition.
+          for intento in $(seq 1 40); do
             curl -s -o /dev/null http://localhost:8081/ && break
             sleep 2
           done
-          # Registering a store proves the API writes to that schema.
+          # Registering a store proves the API writes to the database of the stack.
           if curl -sS --fail-with-body -X POST http://localhost:8081/api/v1/empresas \
             -H 'Content-Type: application/json' \
             -d '{"nombreEmpresa":"CI Store","nit":"900000001-1","correoContacto":"ci@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci@store.com","passwordAdmin":"secret123"}'; then
             echo
-            echo "The prod profile runs on PostgreSQL."
+            echo "The prod profile runs on PostgreSQL through Docker Compose."
+            docker compose down -v
             exit 0
           fi
-          docker logs api-prod
+          docker compose logs
           exit 1
 
   sonarcloud:
