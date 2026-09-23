@@ -34,6 +34,7 @@ import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Arco;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
@@ -77,7 +78,8 @@ class ActividadServiceTest {
         lane = Lane.builder().id(7L).empresa(empresa).pool(pool)
                 .rolProceso(RolProceso.builder().id(20L).empresa(empresa).nombre("Warehouse").build())
                 .nombre("Picking").build();
-        actividad = Actividad.builder().id(30L).empresa(empresa).lane(lane).nombre("Pick items").build();
+        actividad = Actividad.builder().id(30L).empresa(empresa).lane(lane).nombre("Pick items")
+                .tipoActividad(TipoActividad.USUARIO).build();
     }
 
     @Test
@@ -88,11 +90,27 @@ class ActividadServiceTest {
                 EMPRESA)).thenReturn(false);
         when(actividadRepository.save(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ActividadResponse respuesta = actividadService.crear(EMPRESA, AUTOR, 7L, "Pack order", "Empacar", 40, 50);
+        ActividadResponse respuesta = actividadService.crear(EMPRESA, AUTOR, 7L, "Pack order", "Empacar",
+                TipoActividad.ENVIO, 40, 50);
 
         assertThat(respuesta.laneId()).isEqualTo(7L);
+        assertThat(respuesta.tipoActividad()).isEqualTo(TipoActividad.ENVIO);
         assertThat(respuesta.posicionX()).isEqualTo(40);
         verify(historialCambioService).registrar(eq(EMPRESA), eq(AUTOR), eq(proceso), contains("Pack order"));
+    }
+
+    @Test
+    @DisplayName("Una actividad creada sin tipo es trabajo de una persona del rol de su lane")
+    void crear_sinTipo_quedaComoActividadDeUsuario() {
+        when(laneRepository.findByIdAndEmpresaId(7L, EMPRESA)).thenReturn(Optional.of(lane));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaId("Pack order", 100L,
+                EMPRESA)).thenReturn(false);
+        when(actividadRepository.save(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ActividadResponse respuesta = actividadService.crear(EMPRESA, AUTOR, 7L, "Pack order", "Empacar", null,
+                40, 50);
+
+        assertThat(respuesta.tipoActividad()).isEqualTo(TipoActividad.USUARIO);
     }
 
     @Test
@@ -102,7 +120,8 @@ class ActividadServiceTest {
         when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaId("Pick items", 100L,
                 EMPRESA)).thenReturn(true);
 
-        assertThatThrownBy(() -> actividadService.crear(EMPRESA, AUTOR, 7L, "Pick items", "Recoger", 0, 0))
+        assertThatThrownBy(() -> actividadService.crear(EMPRESA, AUTOR, 7L, "Pick items", "Recoger",
+                TipoActividad.USUARIO, 0, 0))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("Pick items");
         verify(actividadRepository, never()).save(any());
@@ -116,9 +135,11 @@ class ActividadServiceTest {
                 EMPRESA, 30L)).thenReturn(false);
         when(actividadRepository.saveAndFlush(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ActividadResponse respuesta = actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", "Otra", 1, 2, null);
+        ActividadResponse respuesta = actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", "Otra",
+                TipoActividad.SERVICIO, 1, 2, null);
 
         assertThat(respuesta.descripcion()).isEqualTo("Otra");
+        assertThat(actividad.getTipoActividad()).isEqualTo(TipoActividad.SERVICIO);
         assertThat(actividad.getPosicionY()).isEqualTo(2);
     }
 

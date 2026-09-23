@@ -124,6 +124,14 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | DELETE | /api/v1/mensajes/{id}          | 403
             SOLO_LECTURA  | PUT    | /api/v1/mensajes/{id}/correlacion | 403
 
+            # Eventos: administrador y editor los modelan; solo el administrador elimina (HU-04)
+            SOLO_LECTURA  | GET    | /api/v1/eventos/{id}           | 404
+            EDITOR        | POST   | /api/v1/lanes/{id}/eventos     | 404
+            SOLO_LECTURA  | POST   | /api/v1/lanes/{id}/eventos     | 403
+            ADMINISTRADOR | DELETE | /api/v1/eventos/{id}           | 404
+            EDITOR        | DELETE | /api/v1/eventos/{id}           | 403
+            SOLO_LECTURA  | DELETE | /api/v1/eventos/{id}           | 403
+
             # Actividades, arcos y gateways: solo el administrador elimina (HU-10, HU-13, HU-16)
             ADMINISTRADOR | DELETE | /api/v1/actividades/{id}       | 404
             ADMINISTRADOR | DELETE | /api/v1/arcos/{id}             | 404
@@ -143,6 +151,10 @@ class AutorizacionPorRolTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
         if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"PUBLICADO\",\"version\":0}");
+        } else if (ruta.equals("/api/v1/lanes/{id}/eventos")) {
+            // La autorizacion decide antes de validar el cuerpo: el editor pasa y no encuentra la lane.
+            peticion.contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"nombre\":\"Order received\",\"tipoEvento\":\"INICIO\",\"posicionX\":0,\"posicionY\":0}");
         }
         var resultado = mockMvc.perform(peticion).andExpect(status().is(estadoEsperado));
         // El titulo distingue de donde viene la respuesta: un 404 del service, no de una ruta que ya no existe;

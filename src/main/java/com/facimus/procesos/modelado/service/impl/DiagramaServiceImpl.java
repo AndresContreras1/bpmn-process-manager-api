@@ -9,6 +9,7 @@ import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
 import com.facimus.procesos.modelado.mapper.CorrelacionMapper;
+import com.facimus.procesos.modelado.mapper.EventoMapper;
 import com.facimus.procesos.modelado.mapper.GatewayMapper;
 import com.facimus.procesos.modelado.mapper.LaneMapper;
 import com.facimus.procesos.modelado.mapper.MensajeMapper;
@@ -16,6 +17,7 @@ import com.facimus.procesos.modelado.mapper.PoolMapper;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
+import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
@@ -39,6 +41,7 @@ public class DiagramaServiceImpl implements DiagramaService {
     private final LaneRepository laneRepository;
     private final ActividadRepository actividadRepository;
     private final GatewayRepository gatewayRepository;
+    private final EventoRepository eventoRepository;
     private final ArcoRepository arcoRepository;
     private final MensajeRepository mensajeRepository;
     private final CorrelacionRepository correlacionRepository;
@@ -46,6 +49,7 @@ public class DiagramaServiceImpl implements DiagramaService {
     private final LaneMapper laneMapper;
     private final ActividadMapper actividadMapper;
     private final GatewayMapper gatewayMapper;
+    private final EventoMapper eventoMapper;
     private final ArcoMapper arcoMapper;
     private final MensajeMapper mensajeMapper;
     private final CorrelacionMapper correlacionMapper;
@@ -63,6 +67,8 @@ public class DiagramaServiceImpl implements DiagramaService {
                 actividadMapper.toResponses(actividadRepository
                         .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
                 gatewayMapper.toResponses(gatewayRepository
+                        .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
+                eventoMapper.toResponses(eventoRepository
                         .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
                 arcoMapper.toResponses(arcoRepository
                         .findAllByPool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),

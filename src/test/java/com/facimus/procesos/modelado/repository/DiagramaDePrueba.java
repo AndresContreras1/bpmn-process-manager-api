@@ -10,11 +10,14 @@ import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Arco;
 import com.facimus.procesos.modelado.model.Correlacion;
+import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Gateway;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Mensaje;
 import com.facimus.procesos.modelado.model.NodoFlujo;
 import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 
@@ -83,14 +86,35 @@ class DiagramaDePrueba {
     }
 
     Actividad actividad(Lane lane, String nombre) {
+        return actividad(lane, nombre, TipoActividad.USUARIO);
+    }
+
+    Actividad actividad(Lane lane, String nombre, TipoActividad tipo) {
         return em.persistFlushFind(Actividad.builder()
                 .empresa(empresa)
                 .lane(lane)
                 .nombre(nombre)
                 .descripcion("Tarea de prueba")
+                .tipoActividad(tipo)
                 .posicionX(10)
                 .posicionY(20)
                 .build());
+    }
+
+    Evento evento(Lane lane, String nombre, TipoEvento tipo) {
+        return em.persistFlushFind(eventoSinGuardar(lane, nombre, tipo));
+    }
+
+    /** Sin guardar, para las pruebas que esperan que la base rechace el evento. */
+    Evento eventoSinGuardar(Lane lane, String nombre, TipoEvento tipo) {
+        return Evento.builder()
+                .empresa(empresa)
+                .lane(lane)
+                .nombre(nombre)
+                .tipoEvento(tipo)
+                .posicionX(50)
+                .posicionY(60)
+                .build();
     }
 
     Gateway gateway(Lane lane, String nombre, TipoGateway tipo) {

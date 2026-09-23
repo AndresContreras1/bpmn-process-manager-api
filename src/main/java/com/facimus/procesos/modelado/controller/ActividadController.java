@@ -50,7 +50,7 @@ public class ActividadController {
             @Validated @RequestBody ActividadRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         ActividadResponse actividad = actividadService.crear(empresaId, principal.usuarioId(), laneId, request.nombre(),
-                request.descripcion(), request.posicionX(), request.posicionY());
+                request.descripcion(), request.tipoActividad(), request.posicionX(), request.posicionY());
         return ResponseEntity.created(URI.create("/api/v1/actividades/" + actividad.id())).body(actividad);
     }
 
@@ -88,7 +88,8 @@ public class ActividadController {
             @Validated @RequestBody EditarActividadRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(actividadService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
-                request.descripcion(), request.posicionX(), request.posicionY(), request.version()));
+                request.descripcion(), request.tipoActividad(), request.posicionX(), request.posicionY(),
+                request.version()));
     }
 
     @Operation(summary = "Delete an activity",

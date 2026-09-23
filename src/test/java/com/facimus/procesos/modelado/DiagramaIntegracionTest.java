@@ -24,15 +24,19 @@ import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.DiagramaService;
+import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
@@ -80,6 +84,9 @@ class DiagramaIntegracionTest {
     @Autowired
     private DiagramaService diagramaService;
 
+    @Autowired
+    private EventoService eventoService;
+
     private Long empresaId;
     private Long adminId;
     private Long procesoId;
@@ -98,13 +105,21 @@ class DiagramaIntegracionTest {
                 rolProcesoService.crear(empresaId, "Sales", null).id()).id();
         Long bodega = laneService.crear(empresaId, adminId, tiendaId, "Warehouse",
                 rolProcesoService.crear(empresaId, "Warehouse", null).id()).id();
-        Long recibir = actividadService.crear(empresaId, adminId, ventas, "Receive order", null, 100, 80).id();
+        Long pedidoRecibido = eventoService.crear(empresaId, adminId, ventas, "Order received",
+                TipoEvento.MENSAJE_INICIO, 20, 80).id();
+        Long recibir = actividadService.crear(empresaId, adminId, ventas, "Receive order", null, TipoActividad.USUARIO,
+                100, 80).id();
         Long pagado = gatewayService.crear(empresaId, adminId, ventas, "Payment approved?", TipoGateway.EXCLUSIVO, 260,
                 80)
                 .id();
-        Long empacar = actividadService.crear(empresaId, adminId, bodega, "Pick and pack items", null, 420, 200).id();
+        Long empacar = actividadService.crear(empresaId, adminId, bodega, "Pick and pack items", null,
+                TipoActividad.USUARIO, 420, 200).id();
+        Long pedidoEnviado = eventoService.crear(empresaId, adminId, bodega, "Order shipped", TipoEvento.FIN,
+                580, 200).id();
+        arcoService.crear(empresaId, adminId, pedidoRecibido, recibir, null, null);
         arcoService.crear(empresaId, adminId, recibir, pagado, null, null);
         arcoService.crear(empresaId, adminId, pagado, empacar, "Approved", "payment.status == APPROVED");
+        arcoService.crear(empresaId, adminId, empacar, pedidoEnviado, null, null);
         Long pedido = mensajeService.crear(empresaId, adminId, procesoId, "Order placed", "Cart items", clienteId,
                 tiendaId)
                 .id();
@@ -128,11 +143,15 @@ class DiagramaIntegracionTest {
         Set<Long> lanes = ids(diagrama.lanes(), LaneResponse::id);
         Set<Long> nodos = new HashSet<>(ids(diagrama.actividades(), ActividadResponse::id));
         nodos.addAll(ids(diagrama.gateways(), GatewayResponse::id));
+        nodos.addAll(ids(diagrama.eventos(), EventoResponse::id));
 
         assertThat(diagrama.lanes()).allMatch(lane -> pools.contains(lane.poolId()));
         assertThat(diagrama.actividades()).hasSize(2).allMatch(actividad -> lanes.contains(actividad.laneId()));
         assertThat(diagrama.gateways()).hasSize(1).allMatch(gateway -> lanes.contains(gateway.laneId()));
-        assertThat(diagrama.arcos()).hasSize(2)
+        assertThat(diagrama.eventos()).hasSize(2).allMatch(evento -> lanes.contains(evento.laneId()))
+                .extracting(EventoResponse::tipoEvento)
+                .containsExactly(TipoEvento.MENSAJE_INICIO, TipoEvento.FIN);
+        assertThat(diagrama.arcos()).hasSize(4)
                 .allMatch(arco -> nodos.contains(arco.origenId()) && nodos.contains(arco.destinoId()));
         assertThat(diagrama.mensajes()).singleElement()
                 .satisfies(mensaje -> assertThat(pools).contains(mensaje.poolOrigenId(), mensaje.poolDestinoId()));

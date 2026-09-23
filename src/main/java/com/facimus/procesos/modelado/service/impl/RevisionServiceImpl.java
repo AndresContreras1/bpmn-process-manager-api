@@ -21,6 +21,7 @@ import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
@@ -106,10 +107,12 @@ public class RevisionServiceImpl implements RevisionService {
         Map<Long, List<ActividadResponse>> actividadesPorLane = agrupar(diagrama.actividades(),
                 ActividadResponse::laneId);
         Map<Long, List<GatewayResponse>> gatewaysPorLane = agrupar(diagrama.gateways(), GatewayResponse::laneId);
+        Map<Long, List<EventoResponse>> eventosPorLane = agrupar(diagrama.eventos(), EventoResponse::laneId);
         Map<Long, String> nombresDePool = nombres(diagrama.pools(), PoolResponse::id, PoolResponse::nombre);
         Map<Long, String> nombresDeNodo = nombres(diagrama.actividades(), ActividadResponse::id,
                 ActividadResponse::nombre);
         nombresDeNodo.putAll(nombres(diagrama.gateways(), GatewayResponse::id, GatewayResponse::nombre));
+        nombresDeNodo.putAll(nombres(diagrama.eventos(), EventoResponse::id, EventoResponse::nombre));
 
         texto.append("\nParticipantes:\n");
         for (PoolResponse pool : diagrama.pools()) {
@@ -118,8 +121,13 @@ public class RevisionServiceImpl implements RevisionService {
             for (LaneResponse lane : lanesPorPool.getOrDefault(pool.id(), List.of())) {
                 texto.append("  Lane ").append(lane.nombre())
                         .append(" (rol ").append(lane.rolProcesoNombre()).append(")\n");
+                for (EventoResponse evento : eventosPorLane.getOrDefault(lane.id(), List.of())) {
+                    texto.append("    Evento ").append(evento.tipoEvento())
+                            .append(": ").append(evento.nombre()).append('\n');
+                }
                 for (ActividadResponse actividad : actividadesPorLane.getOrDefault(lane.id(), List.of())) {
-                    texto.append("    Actividad: ").append(actividad.nombre());
+                    texto.append("    Actividad ").append(actividad.tipoActividad())
+                            .append(": ").append(actividad.nombre());
                     if (StringUtils.hasText(actividad.descripcion())) {
                         texto.append(" - ").append(actividad.descripcion());
                     }

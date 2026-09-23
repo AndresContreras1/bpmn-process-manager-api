@@ -22,8 +22,8 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * Nodo del diagrama BPMN: Actividad o Gateway. SINGLE_TABLE porque solo hay
- * dos subtipos con pocos campos propios; evita joins innecesarios.
+ * Nodo del diagrama BPMN: Actividad, Gateway o Evento. SINGLE_TABLE porque son
+ * tres subtipos con pocos campos propios; evita joins innecesarios.
  */
 @Getter
 @Setter
@@ -60,5 +60,18 @@ public abstract class NodoFlujo extends EntidadEditable {
      */
     public boolean exigeCondicionAlSalir() {
         return false;
+    }
+
+    /**
+     * Si un arco puede terminar en este nodo. Como exigeCondicionAlSalir, es un metodo y no un instanceof:
+     * el destino de un arco llega como proxy perezoso de NodoFlujo y el proxy delega en el nodo real.
+     */
+    public boolean aceptaArcosEntrantes() {
+        return true;
+    }
+
+    /** Si un arco puede salir de este nodo. */
+    public boolean aceptaArcosSalientes() {
+        return true;
     }
 }

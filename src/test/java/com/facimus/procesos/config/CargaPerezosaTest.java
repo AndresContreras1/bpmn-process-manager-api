@@ -34,6 +34,7 @@ import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
+import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
@@ -254,19 +255,22 @@ class CargaPerezosaTest {
         assertThat(grande.actividades()).hasSize(2 * pequeno.actividades().size());
         assertThat(grande.arcos()).hasSize(2 * pequeno.arcos().size());
         assertThat(grande.correlaciones()).hasSize(2 * pequeno.correlaciones().size());
-        // El proceso, y una por pools, lanes con sus roles, actividades, gateways, arcos, mensajes y correlaciones.
-        assertThat(sentenciasDelPequeno).isEqualTo(8);
-        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(8);
+        // El proceso, y una por pools, lanes con sus roles, actividades, gateways, eventos, arcos,
+        // mensajes y correlaciones.
+        assertThat(sentenciasDelPequeno).isEqualTo(9);
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(9);
     }
 
     /** Una lane con dos actividades y un gateway unidos por arcos, y un mensaje correlacionado desde el cliente. */
     private void agregarUnaLaneConSuFlujo(Long procesoId, Long tiendaId, Long clienteId, Long rolId, String lane) {
         Long laneId = laneService.crear(empresaId, adminId, tiendaId, lane, rolId).id();
-        Long recibir = actividadService.crear(empresaId, adminId, laneId, lane + ": receive", null, 100, 80).id();
+        Long recibir = actividadService.crear(empresaId, adminId, laneId, lane + ": receive", null,
+                TipoActividad.USUARIO, 100, 80).id();
         Long decidir = gatewayService.crear(empresaId, adminId, laneId, lane + ": approved?", TipoGateway.EXCLUSIVO,
                 260, 80)
                 .id();
-        Long reembolsar = actividadService.crear(empresaId, adminId, laneId, lane + ": refund", null, 420, 80).id();
+        Long reembolsar = actividadService.crear(empresaId, adminId, laneId, lane + ": refund", null,
+                TipoActividad.USUARIO, 420, 80).id();
         arcoService.crear(empresaId, adminId, recibir, decidir, null, null);
         arcoService.crear(empresaId, adminId, decidir, reembolsar, "Approved", "return.status == APPROVED");
         Long mensajeId = mensajeService.crear(empresaId, adminId, procesoId, lane + ": return request",

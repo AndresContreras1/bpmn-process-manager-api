@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
+import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.service.ActividadService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -37,19 +38,34 @@ class ActividadControllerTest {
     @DisplayName("POST /api/v1/lanes/{laneId}/actividades - crear actividad (201)")
     void crear_actividad() throws Exception {
         ActividadResponse a = crearActividad(1L, "Revisar solicitud");
-        given(actividadService.crear(eq(1L), eq(1L), eq(3L), anyString(), anyString(), anyInt(),
-                anyInt())).willReturn(a);
+        given(actividadService.crear(eq(1L), eq(1L), eq(3L), anyString(), anyString(),
+                eq(TipoActividad.ENVIO), anyInt(), anyInt())).willReturn(a);
 
         mockMvc.perform(post("/api/v1/lanes/3/actividades")
                         .with(principal(RolAcceso.EDITOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"nombre":"Revisar solicitud","descripcion":"Verifica datos","posicionX":100,"posicionY":200}
+                                {"nombre":"Revisar solicitud","descripcion":"Verifica datos",
+                                 "tipoActividad":"ENVIO","posicionX":100,"posicionY":200}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/v1/actividades/1"))
                 .andExpect(jsonPath("$.nombre").value("Revisar solicitud"))
+                .andExpect(jsonPath("$.tipoActividad").value("ENVIO"))
                 .andExpect(jsonPath("$.posicionX").value(100));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/lanes/{laneId}/actividades - tipo de actividad desconocido (400)")
+    void crear_tipoDeActividadDesconocido() throws Exception {
+        mockMvc.perform(post("/api/v1/lanes/3/actividades")
+                        .with(principal(RolAcceso.EDITOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nombre":"Revisar solicitud","tipoActividad":"MANUAL","posicionX":1,
+                                 "posicionY":2}
+                                """))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -115,8 +131,8 @@ class ActividadControllerTest {
     @DisplayName("PUT /api/v1/actividades/{id} - editar actividad (200)")
     void editar_actividad() throws Exception {
         ActividadResponse a = crearActividad(1L, "Revisar v2");
-        given(actividadService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyString(), anyInt(), anyInt(), eq(3L)))
-                .willReturn(a);
+        given(actividadService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyString(), any(), anyInt(),
+                anyInt(), eq(3L))).willReturn(a);
 
         mockMvc.perform(put("/api/v1/actividades/1")
                         .with(principal(RolAcceso.EDITOR))
@@ -138,7 +154,8 @@ class ActividadControllerTest {
     }
 
     private ActividadResponse crearActividad(Long id, String nombre) {
-        return new ActividadResponse(id, nombre, "Desc", 100, 200, 3L, 0L, null, null, null, null);
+        return new ActividadResponse(id, nombre, "Desc", TipoActividad.ENVIO, 100, 200, 3L, 0L, null, null,
+                null, null);
     }
 
 }

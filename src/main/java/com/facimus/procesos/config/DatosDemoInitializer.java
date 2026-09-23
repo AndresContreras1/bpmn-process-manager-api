@@ -13,6 +13,7 @@ import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
+import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
@@ -89,17 +90,18 @@ public class DatosDemoInitializer implements CommandLineRunner {
                 .crear(empresaId, "Warehouse", "Picks, packs and ships the orders.").id()).id();
 
         Long recibir = actividadService.crear(empresaId, adminId, ventas, "Receive order",
-                "Validate the cart, the stock and the shipping address.", 100, 80).id();
+                "Validate the cart, the stock and the shipping address.", TipoActividad.USUARIO,
+                100, 80).id();
         Long autorizar = actividadService.crear(empresaId, adminId, ventas, "Request payment authorization",
-                "Send the order total to the payment gateway.", 260, 80).id();
+                "Send the order total to the payment gateway.", TipoActividad.ENVIO, 260, 80).id();
         Long pagoAprobado = gatewayService.crear(empresaId, adminId, ventas, "Payment approved?", TipoGateway.EXCLUSIVO,
                 420, 80).id();
         Long cancelar = actividadService.crear(empresaId, adminId, ventas, "Cancel order",
-                "Release the reserved stock and notify the customer.", 580, 40).id();
+                "Release the reserved stock and notify the customer.", TipoActividad.SERVICIO, 580, 40).id();
         Long empacar = actividadService.crear(empresaId, adminId, bodega, "Pick and pack items",
-                "Collect the items and prepare the package.", 580, 200).id();
+                "Collect the items and prepare the package.", TipoActividad.USUARIO, 580, 200).id();
         Long enviar = actividadService.crear(empresaId, adminId, bodega, "Ship order",
-                "Hand the package over to the carrier.", 740, 200).id();
+                "Hand the package over to the carrier.", TipoActividad.ENVIO, 740, 200).id();
 
         arcoService.crear(empresaId, adminId, recibir, autorizar, null, null);
         arcoService.crear(empresaId, adminId, autorizar, pagoAprobado, null, null);

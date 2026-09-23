@@ -24,6 +24,7 @@ import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
 import com.facimus.procesos.modelado.mapper.CorrelacionMapper;
+import com.facimus.procesos.modelado.mapper.EventoMapper;
 import com.facimus.procesos.modelado.mapper.GatewayMapper;
 import com.facimus.procesos.modelado.mapper.LaneMapper;
 import com.facimus.procesos.modelado.mapper.MensajeMapper;
@@ -31,6 +32,7 @@ import com.facimus.procesos.modelado.mapper.PoolMapper;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
+import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
@@ -56,6 +58,8 @@ class DiagramaServiceTest {
     @Mock
     private GatewayRepository gatewayRepository;
     @Mock
+    private EventoRepository eventoRepository;
+    @Mock
     private ArcoRepository arcoRepository;
     @Mock
     private MensajeRepository mensajeRepository;
@@ -70,6 +74,8 @@ class DiagramaServiceTest {
     private ActividadMapper actividadMapper = Mappers.getMapper(ActividadMapper.class);
     @Spy
     private GatewayMapper gatewayMapper = Mappers.getMapper(GatewayMapper.class);
+    @Spy
+    private EventoMapper eventoMapper = Mappers.getMapper(EventoMapper.class);
     @Spy
     private ArcoMapper arcoMapper = Mappers.getMapper(ArcoMapper.class);
     @Spy
@@ -93,6 +99,7 @@ class DiagramaServiceTest {
         verify(laneRepository).delProcesoEnOrden(PROCESO, DUENA);
         verify(actividadRepository).findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
         verify(gatewayRepository).findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
+        verify(eventoRepository).findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
         verify(arcoRepository).findAllByPool_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
         verify(mensajeRepository).findAllByProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
         verify(correlacionRepository).findAllByMensaje_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
