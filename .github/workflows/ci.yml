@@ -86,7 +86,7 @@ jobs:
           fail-on-error: true
 
   docker-build:
-    name: Docker Image
+    name: Docker Image & Load Test
     runs-on: ubuntu-latest
     needs: [build-and-test, architecture-guard]
 
@@ -125,16 +125,25 @@ jobs:
           # the rest of the step.
           docker compose up -d --wait
           # Registering a store proves the API writes to the database of the stack.
-          if curl -sS --fail-with-body -X POST http://localhost:8081/api/v1/empresas \
+          curl -sS --fail-with-body -X POST http://localhost:8081/api/v1/empresas \
             -H 'Content-Type: application/json' \
-            -d '{"nombreEmpresa":"CI Store","nit":"900000001-1","correoContacto":"ci@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci@store.com","passwordAdmin":"secret123"}'; then
-            echo
-            echo "The prod profile runs on PostgreSQL through Docker Compose."
-            docker compose down -v
-            exit 0
-          fi
-          docker compose logs
-          exit 1
+            -d '{"nombreEmpresa":"CI Store","nit":"900000001-1","correoContacto":"ci@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci@store.com","passwordAdmin":"secret123"}'
+          echo
+          echo "The prod profile runs on PostgreSQL through Docker Compose."
+
+      - name: Run the load test against the stack
+        run: |
+          # k6 fails the step by itself when a threshold is not met, so the numbers are a gate and not a report.
+          docker run --rm -i --network host -e BASE_URL=http://localhost:8081 \
+            grafana/k6:0.54.0 run - < k6/pico-de-ventas.js
+
+      - name: Show the stack logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
 
   sonarcloud:
     name: SonarCloud Analysis
