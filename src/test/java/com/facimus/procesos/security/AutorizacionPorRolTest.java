@@ -108,6 +108,10 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/compartidos        | 404
             SOLO_LECTURA  | GET    | /api/v1/procesos/compartidos-conmigo     | 200
 
+            # Revision con IA: la piden administrador y editor, porque cada una cuesta una llamada
+            EDITOR        | POST   | /api/v1/procesos/{id}/revision           | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/revision           | 403
+
             # Modelado: solo el administrador elimina pools, lanes y mensajes (HU-21, HU-22, HU-25)
             ADMINISTRADOR | DELETE | /api/v1/pools/{id}             | 404
             ADMINISTRADOR | DELETE | /api/v1/lanes/{id}             | 404

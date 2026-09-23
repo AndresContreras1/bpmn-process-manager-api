@@ -68,10 +68,15 @@ public class OpenApiConfig {
                                 + "example a duplicated name, or someone saved a change after the version that was "
                                 + "read."))
                         .addResponses("TooManyRequests", respuestaDeError("Too many failed logins for this email from "
-                                + "this address. Retry-After says how many seconds to wait.")
+                                + "this address, or too many reviews for this store. Retry-After says how many "
+                                + "seconds to wait.")
                                 .addHeaderObject(HttpHeaders.RETRY_AFTER, new Header()
-                                        .description("Seconds until the login can be tried again")
-                                        .schema(new IntegerSchema().example(900)))));
+                                        .description("Seconds until the request can be tried again")
+                                        .schema(new IntegerSchema().example(900))))
+                        .addResponses("BadGateway", respuestaDeError("A service this API depends on did not answer, "
+                                + "or answered something it cannot use. Nothing was changed."))
+                        .addResponses("ServiceUnavailable", respuestaDeError("The operation exists but is switched "
+                                + "off in this installation, because it has no configuration.")));
     }
 
     /** Todo POST autenticado acepta una Idempotency-Key; los publicos, como el login, no la usan. */
