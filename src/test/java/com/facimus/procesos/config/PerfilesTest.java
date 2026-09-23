@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.tomcat.autoconfigure.TomcatServerProperties;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
@@ -19,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.zaxxer.hikari.HikariDataSource;
 
 /** Lo que cambia entre dev y prod, verificado con la aplicacion completa de cada perfil. */
 class PerfilesTest {
@@ -74,6 +76,20 @@ class PerfilesTest {
         void prod_noPublicaLaDocumentacion() throws Exception {
             mockMvc.perform(get("/v3/api-docs")).andExpect(status().isNotFound());
             mockMvc.perform(get("/swagger-ui.html")).andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("prod fija el tamano del pool de conexiones y de los hilos que atienden peticiones")
+        void prod_fijaLaConcurrencia() {
+            HikariDataSource pool = context.getBean(HikariDataSource.class);
+            TomcatServerProperties tomcat = context.getBean(TomcatServerProperties.class);
+
+            // Pool de tamano fijo: el minimo igual al maximo, para no abrir y cerrar conexiones bajo carga.
+            assertThat(pool.getMaximumPoolSize()).isEqualTo(10);
+            assertThat(pool.getMinimumIdle()).isEqualTo(pool.getMaximumPoolSize());
+            assertThat(pool.getConnectionTimeout()).isEqualTo(3000);
+            assertThat(tomcat.getThreads().getMax()).isEqualTo(200);
+            assertThat(tomcat.getAcceptCount()).isEqualTo(200);
         }
 
         @Test
