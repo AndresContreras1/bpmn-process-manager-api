@@ -121,13 +121,9 @@ jobs:
           sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ci-only-password/" .env
           sed -i "s/^JWT_SECRET=.*/JWT_SECRET=ci-only-signing-key-with-at-least-32-characters/" .env
           sed -i "s/^API_PORT=.*/API_PORT=8081/" .env
-          docker compose up -d
-          # The API answers once PostgreSQL is healthy, Flyway has migrated it and Hibernate has validated the
-          # schema. Until then curl fails, and Actions runs this script with bash -e: it must stay in a condition.
-          for intento in $(seq 1 40); do
-            curl -s -o /dev/null http://localhost:8081/ && break
-            sleep 2
-          done
+          # --wait returns when every service reports healthy, so the readiness probe of the API is what gates
+          # the rest of the step.
+          docker compose up -d --wait
           # Registering a store proves the API writes to the database of the stack.
           if curl -sS --fail-with-body -X POST http://localhost:8081/api/v1/empresas \
             -H 'Content-Type: application/json' \
