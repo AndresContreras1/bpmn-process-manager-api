@@ -123,6 +123,12 @@
 			<artifactId>spring-boot-starter-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Slices de persistencia: @DataJpaTest levanta solo JPA, Flyway y los repositorios -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>com.tngtech.archunit</groupId>
 			<artifactId>archunit-junit5</artifactId>
@@ -231,6 +237,11 @@
 							<goal>check</goal>
 						</goals>
 						<configuration>
+							<!-- Los DTO son records planos y config es cableado de Spring: no miden nada util -->
+							<excludes>
+								<exclude>**/dto/**</exclude>
+								<exclude>**/config/**</exclude>
+							</excludes>
 							<rules>
 								<rule>
 									<element>BUNDLE</element>
@@ -238,7 +249,31 @@
 										<limit>
 											<counter>LINE</counter>
 											<value>COVEREDRATIO</value>
-											<minimum>0.50</minimum>
+											<minimum>0.85</minimum>
+										</limit>
+										<limit>
+											<counter>BRANCH</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.70</minimum>
+										</limit>
+									</limits>
+								</rule>
+								<!-- Las reglas de negocio viven en los services: se les exige mas, y por ramas -->
+								<rule>
+									<element>PACKAGE</element>
+									<includes>
+										<include>*.service.impl</include>
+									</includes>
+									<limits>
+										<limit>
+											<counter>LINE</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.90</minimum>
+										</limit>
+										<limit>
+											<counter>BRANCH</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.80</minimum>
 										</limit>
 									</limits>
 								</rule>

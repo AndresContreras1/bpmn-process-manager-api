@@ -2,6 +2,7 @@ package com.facimus.procesos.security;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.EnumMap;
@@ -16,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -138,8 +140,14 @@ class AutorizacionPorRolTest {
         if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"PUBLICADO\",\"version\":0}");
         }
-        mockMvc.perform(peticion)
-                .andExpect(status().is(estadoEsperado));
+        var resultado = mockMvc.perform(peticion).andExpect(status().is(estadoEsperado));
+        // El titulo distingue de donde viene la respuesta: un 404 del service, no de una ruta que ya no existe;
+        // un 403 de la regla de roles, no de otra barrera que tambien responda 403.
+        if (estadoEsperado == HttpStatus.NOT_FOUND.value()) {
+            resultado.andExpect(jsonPath("$.title").value("Recurso no encontrado"));
+        } else if (estadoEsperado == HttpStatus.FORBIDDEN.value()) {
+            resultado.andExpect(jsonPath("$.title").value("Sin permisos"));
+        }
     }
 
     private String login(String email, String password) throws Exception {
