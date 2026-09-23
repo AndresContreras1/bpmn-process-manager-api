@@ -245,6 +245,32 @@ docker run -p 8080:8080 \
 The image is a multi-stage build that runs as a non-root user. This command starts the `dev` profile on an in-memory
 database with Demo Store. For persistent data, use the `prod` profile with PostgreSQL.
 
+### The whole stack with Docker Compose
+
+```bash
+cp .env.example .env     # fill in DB_PASSWORD and JWT_SECRET
+docker compose up -d --build
+```
+
+This brings up PostgreSQL 16 and the API in the `prod` profile, on `http://localhost:8080`. The database keeps its
+data in a named volume, so `docker compose down` does not lose it; `docker compose down -v` does. The API waits for
+the database to answer, and reports itself as up only once Flyway has migrated the schema, which
+`docker compose up --wait` and the container health check both rely on.
+
+`.env` is not committed. The two values without a default, `DB_PASSWORD` and `JWT_SECRET`, stop the stack until they
+are set.
+
+### Operations endpoints
+
+| Endpoint | Who can call it | What it answers |
+|---|---|---|
+| `GET /actuator/health` | Anyone | `UP` or `DOWN`, with no detail of what runs behind it |
+| `GET /actuator/health/liveness` · `/readiness` | Anyone | The probes a container or an orchestrator polls; readiness covers the database |
+| `GET /actuator/info` | Anyone | The name and version of the running build |
+| `GET /actuator/metrics` | Administrator | JVM, pool and HTTP metrics, one by one |
+
+Nothing else is exposed: any other Actuator endpoint answers `404`.
+
 ## Configuration
 
 ### Profiles
@@ -267,6 +293,8 @@ database with Demo Store. For persistent data, use the `prod` profile with Postg
 | `JWT_REFRESH_EXPIRATION_SECONDS` | Refresh token lifetime. Every renewal issues a new refresh token. | `604800` (7 days) |
 | `LOGIN_MAX_FAILED_ATTEMPTS` · `LOGIN_FAILED_ATTEMPTS_WINDOW` | Failed logins for an email from one address before `429`, and the window that counts them | `5` · `15m` |
 | `CORS_ALLOWED_ORIGINS` | Allowed storefront or back-office origins | `http://localhost:4200` |
+| `DB_POOL_SIZE` | Connections to PostgreSQL, the real ceiling of concurrent work (`prod`) | `10` |
+| `SERVER_THREADS` | Threads that serve requests; the rest queue up (`prod`) | `200` |
 
 On startup, Flyway creates the schema or brings it up to date. The database must exist, and its user needs permission
 to create tables.
@@ -540,7 +568,7 @@ a process role is in use, `gestion` asks the `UsoDeRoles` port, which `modelado`
 ./mvnw verify
 ```
 
-The build runs 460 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 466 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
@@ -549,7 +577,7 @@ The build runs 460 tests and a JaCoCo coverage gate. The HTML report is written 
 | Service unit tests (Mockito) | 72 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along |
 | Repository slices (`@DataJpaTest`) | 23 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete and the partial unique indexes |
 | Security and isolation (`@SpringBootTest`) | 157 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 23 | What `dev` and `prod` expose, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, and the demo data read through the API |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 29 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
 | Module integration (`@SpringBootTest`) | 38 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
@@ -563,7 +591,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 |---|---|
 | Build & Test | `./mvnw verify` on Ubuntu and Windows. The test results appear as a check, and the coverage report is kept as an artifact. |
 | Architecture Rules | The ArchUnit suite on its own, with a summary |
-| Docker Image | Builds the image, checks that the API answers from the container, and starts it in the `prod` profile against PostgreSQL 16 |
+| Docker Image & Load Test | Builds the image, checks that the API answers from the container, brings up the Compose stack in the `prod` profile against PostgreSQL 16, and runs the k6 load test against it |
 | SonarCloud Analysis | Static analysis, skipped when SonarCloud is not configured |
 | Frontend Build | `npm ci` and a production build of the web app |
 
@@ -618,9 +646,9 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 ## Roadmap
 
 **Peak-traffic readiness**
-- [ ] k6 load tests that simulate a sales peak, with thresholds in CI
-- [ ] Connection-pool and thread-pool sizing based on those measurements
-- [ ] Second-level cache for published processes, which are read often and change rarely
+- [x] k6 load tests that simulate a sales peak, with thresholds in CI
+- [x] Connection-pool and thread-pool sizing, moved by environment variables
+- [ ] Second-level cache for published processes, once the load test says where the time goes
 - [x] `Pageable`-based pagination with stable sorting for every collection that can grow
 
 **Consistency under concurrency**
@@ -654,7 +682,8 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] Repository tests with `@DataJpaTest` and unit tests for every modeling service
 - [x] Coverage gate per package, branches included
 - [ ] A SonarCloud quality gate on top of it
-- [ ] Docker Compose with PostgreSQL, Actuator health checks and Testcontainers-based integration tests
+- [x] Docker Compose with PostgreSQL and Actuator health checks
+- [ ] Testcontainers-based integration tests against a real PostgreSQL
 
 ## Credits
 

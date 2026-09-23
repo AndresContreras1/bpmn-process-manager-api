@@ -6,6 +6,8 @@ COPY src/ src/
 RUN mvn -B clean package && cp target/*.jar app.jar
 
 FROM eclipse-temurin:21-jre
+# curl es para el health check del contenedor, que consulta la sonda de Actuator.
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 RUN useradd -r -u 1001 appuser
 USER appuser
 WORKDIR /app

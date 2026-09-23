@@ -5,4 +5,7 @@
 *.iml
 target/
 data/
+.env
+compose.yaml
+k6/
 *.md
