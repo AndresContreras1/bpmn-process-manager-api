@@ -163,6 +163,7 @@ user's access level or deactivating them takes effect at once: their open sessio
 | No duplicates on retries | A create request that is retried with the same idempotency key, for example after a network failure, creates the item only once. |
 | Always-valid models | The modeling rules are checked on every change, not only when a process is published. |
 | Complete history | Every change keeps its author and date, and deleted items stay on record. |
+| A second opinion | A model can review a diagram and point out what is missing, such as a decision with no alternative path. It only advises: nothing is changed without a person. |
 
 The [technical documentation](#getting-started) explains how each guarantee is built.
 
@@ -295,6 +296,9 @@ Nothing else is exposed: any other Actuator endpoint answers `404`.
 | `CORS_ALLOWED_ORIGINS` | Allowed storefront or back-office origins | `http://localhost:4200` |
 | `DB_POOL_SIZE` | Connections to PostgreSQL, the real ceiling of concurrent work (`prod`) | `10` |
 | `SERVER_THREADS` | Threads that serve requests; the rest queue up (`prod`) | `200` |
+| `GEMINI_API_KEY` | Key for the AI review. Without it the review answers `503` and nothing else changes. | None |
+| `GEMINI_MODEL` · `GEMINI_BASE_URL` · `GEMINI_TIMEOUT` | Model, address and how long to wait for it | `gemini-3.8-flash` · Google endpoint · `20s` |
+| `REVISION_MAX_REVIEWS` · `REVISION_WINDOW` | Reviews a store can ask for, and the window that counts them | `10` · `1h` |
 
 On startup, Flyway creates the schema or brings it up to date. The database must exist, and its user needs permission
 to create tables.
@@ -437,6 +441,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
 | Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
+| AI review | `POST /api/v1/procesos/{id}/revision` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 
 `GET /api/v1/procesos/{id}/diagrama` returns everything a client needs to draw a process: the process and flat lists
@@ -444,6 +449,29 @@ of pools, lanes, activities, gateways, sequence flows, message flows and correla
 query per element type, however large the diagram grows.
 
 State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO", "version": 3 }`.
+
+### AI review
+
+`POST /api/v1/procesos/{id}/revision` sends the diagram to a language model and answers with findings: a
+severity, the element each one is about, what is wrong and what to do. Administrators and editors can ask for
+it, because every review costs a call.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/procesos/1/revision -H "Authorization: Bearer $TOKEN"
+```
+
+What the endpoint does not do is as important as what it does:
+
+- **It answers in a shape, not in prose.** The request declares the schema the model must answer in, so the
+  reply is read as data. Anything outside it answers `502` instead of becoming an invented review.
+- **It never changes the model.** The findings are advice. A person decides what to do with them.
+- **It sends the diagram in words, not the JSON of the endpoint.** Same content, no internal ids.
+- **A diagram that has not changed is not reviewed twice.** The previous review comes back marked
+  `reutilizada`, without a call and without spending part of the limit.
+- **The limit is per store.** Beyond `REVISION_MAX_REVIEWS` in `REVISION_WINDOW`, the answer is `429` with
+  `Retry-After`.
+- **Without `GEMINI_API_KEY` it stays off.** The endpoint answers `503` and the rest of the API runs exactly
+  as before, which is also how the test suite runs: no test makes a network call.
 
 ### Pagination
 
@@ -568,15 +596,15 @@ a process role is in use, `gestion` asks the `UsoDeRoles` port, which `modelado`
 ./mvnw verify
 ```
 
-The build runs 466 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 484 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
 | Architecture (ArchUnit) | 31 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
 | Controller slices (`@WebMvcTest`) | 114 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 72 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along |
+| Service unit tests (Mockito) | 88 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along, and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
 | Repository slices (`@DataJpaTest`) | 23 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete and the partial unique indexes |
-| Security and isolation (`@SpringBootTest`) | 157 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Security and isolation (`@SpringBootTest`) | 159 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 29 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
 | Module integration (`@SpringBootTest`) | 38 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
@@ -674,6 +702,10 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] Full OpenAPI documentation (`@Tag`, `@Operation`, `@ApiResponse`, `@Schema`), not published in production
 - [x] Field-level validation errors in Problem Details
 - [x] Aggregate endpoint that returns a complete BPMN diagram for the back-office web app
+
+**Beyond the model**
+- [x] AI review of a diagram, with the answer validated against a schema and limited per store
+- [ ] Review of a change instead of the whole diagram, so the model only reads what moved
 
 **Architecture and quality**
 - [x] Request and response DTO packages with MapStruct mappers, and services exposed as interfaces

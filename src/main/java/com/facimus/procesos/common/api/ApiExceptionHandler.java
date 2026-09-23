@@ -29,6 +29,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.DemasiadosIntentosException;
+import com.facimus.procesos.common.IntegracionFallidaException;
+import com.facimus.procesos.common.IntegracionNoConfiguradaException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SesionInvalidaException;
@@ -102,6 +104,19 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getSegundosDeEspera()))
                 .body(construir(HttpStatus.TOO_MANY_REQUESTS, "Demasiados intentos", ex.getMessage(), req));
+    }
+
+    /** El servicio externo no contesto, o contesto algo que esta API no puede usar. */
+    @ExceptionHandler(IntegracionFallidaException.class)
+    public ProblemDetail manejarIntegracionFallida(IntegracionFallidaException ex, WebRequest req) {
+        log.warn("Servicio externo fallido en {}: {}", req.getDescription(false), ex.toString());
+        return construir(HttpStatus.BAD_GATEWAY, "Servicio externo no disponible", ex.getMessage(), req);
+    }
+
+    /** La funcion existe, pero esta instalacion no tiene con que usarla. */
+    @ExceptionHandler(IntegracionNoConfiguradaException.class)
+    public ProblemDetail manejarIntegracionNoConfigurada(IntegracionNoConfiguradaException ex, WebRequest req) {
+        return construir(HttpStatus.SERVICE_UNAVAILABLE, "Función no configurada", ex.getMessage(), req);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

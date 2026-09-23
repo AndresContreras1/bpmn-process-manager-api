@@ -8,13 +8,19 @@ public class DemasiadosIntentosException extends RuntimeException {
     private final long segundosDeEspera;
 
     public DemasiadosIntentosException(Duration espera) {
-        this(Math.max(1, (espera.toMillis() + 999) / 1000));
+        this("Demasiados intentos fallidos de inicio de sesión. Intenta de nuevo en "
+                + minutos(segundos(espera)) + ".", espera);
     }
 
-    private DemasiadosIntentosException(long segundosDeEspera) {
-        super("Demasiados intentos fallidos de inicio de sesión. Intenta de nuevo en " + minutos(segundosDeEspera)
-                + ".");
-        this.segundosDeEspera = segundosDeEspera;
+    /** El mismo 429 para otra cosa que se limita, con su propio mensaje. */
+    public DemasiadosIntentosException(String mensaje, Duration espera) {
+        super(mensaje);
+        this.segundosDeEspera = segundos(espera);
+    }
+
+    /** Segundos enteros, redondeados hacia arriba: nunca invita a reintentar antes de tiempo. */
+    private static long segundos(Duration espera) {
+        return Math.max(1, (espera.toMillis() + 999) / 1000);
     }
 
     /** Segundos enteros, redondeados hacia arriba: nunca invita a reintentar antes de tiempo. */
