@@ -71,7 +71,7 @@ class DatosDemoInitializerTest {
         assertThat(leer(get("/api/v1/pools/{id}/lanes", tiendaId)))
                 .extracting(lane -> lane.get("nombre").asString())
                 .containsExactly("Sales", "Warehouse");
-        assertThat(leer(get("/api/v1/pools/{id}/arcos", tiendaId))).hasSize(5);
+        assertThat(leer(get("/api/v1/pools/{id}/arcos", tiendaId))).hasSize(10);
     }
 
     @Test
@@ -97,9 +97,14 @@ class DatosDemoInitializerTest {
                 .containsExactly("EMPRESA", "CLIENTE", "SISTEMA_EXTERNO", "PROVEEDOR");
         assertThat(diagrama.get("lanes")).extracting(lane -> lane.get("rolProcesoNombre").asString())
                 .containsExactly("Sales", "Warehouse");
-        assertThat(diagrama.get("actividades")).hasSize(5);
+        assertThat(diagrama.get("actividades"))
+                .extracting(actividad -> actividad.get("tipoActividad").asString())
+                .containsExactly("USUARIO", "ENVIO", "SERVICIO", "USUARIO", "ENVIO");
         assertThat(diagrama.get("gateways")).hasSize(1);
-        assertThat(diagrama.get("arcos")).hasSize(5);
+        assertThat(diagrama.get("eventos"))
+                .extracting(evento -> evento.get("tipoEvento").asString())
+                .containsExactly("MENSAJE_INICIO", "MENSAJE_INTERMEDIO", "FIN", "MENSAJE_INTERMEDIO", "FIN");
+        assertThat(diagrama.get("arcos")).hasSize(10);
         assertThat(diagrama.get("mensajes")).hasSize(5);
         assertThat(diagrama.get("correlaciones")).extracting(correlacion -> correlacion.get("criterio").asString())
                 .hasSize(5)

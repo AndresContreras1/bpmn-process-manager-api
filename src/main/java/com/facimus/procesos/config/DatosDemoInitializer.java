@@ -14,11 +14,13 @@ import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
@@ -50,6 +52,7 @@ public class DatosDemoInitializer implements CommandLineRunner {
     private final LaneService laneService;
     private final ActividadService actividadService;
     private final GatewayService gatewayService;
+    private final EventoService eventoService;
     private final ArcoService arcoService;
     private final MensajeService mensajeService;
     private final CorrelacionService correlacionService;
@@ -69,7 +72,10 @@ public class DatosDemoInitializer implements CommandLineRunner {
                 "Return request, item inspection and refund to the original payment method.", "After-sales");
     }
 
-    /** Proceso publicado que usa todos los elementos BPMN: pools, lanes, actividades, gateway, arcos y mensajes. */
+    /**
+     * Proceso publicado que usa todos los elementos BPMN: pools, lanes, eventos, actividades de cada tipo,
+     * gateway, arcos y mensajes.
+     */
     private void sembrarDespachoDePedidos(Long empresaId, Long adminId) {
         ProcesoResponse proceso = procesoService.crear(empresaId, adminId, "Order fulfillment",
                 "From checkout to delivery: payment authorization, picking, packing and shipment.", "Fulfillment");
@@ -89,26 +95,41 @@ public class DatosDemoInitializer implements CommandLineRunner {
         Long bodega = laneService.crear(empresaId, adminId, tienda.id(), "Warehouse", rolProcesoService
                 .crear(empresaId, "Warehouse", "Picks, packs and ships the orders.").id()).id();
 
+        // El pedido entra por un evento de mensaje y cada camino termina en un evento de fin.
+        Long pedidoRecibido = eventoService.crear(empresaId, adminId, ventas, "Order received",
+                TipoEvento.MENSAJE_INICIO, 20, 80).id();
         Long recibir = actividadService.crear(empresaId, adminId, ventas, "Receive order",
-                "Validate the cart, the stock and the shipping address.", TipoActividad.USUARIO,
-                100, 80).id();
+                "Validate the cart, the stock and the shipping address.", TipoActividad.USUARIO, 120, 80).id();
         Long autorizar = actividadService.crear(empresaId, adminId, ventas, "Request payment authorization",
-                "Send the order total to the payment gateway.", TipoActividad.ENVIO, 260, 80).id();
+                "Send the order total to the payment gateway.", TipoActividad.ENVIO, 280, 80).id();
+        Long respuestaDelPago = eventoService.crear(empresaId, adminId, ventas, "Payment result received",
+                TipoEvento.MENSAJE_INTERMEDIO, 440, 80).id();
         Long pagoAprobado = gatewayService.crear(empresaId, adminId, ventas, "Payment approved?", TipoGateway.EXCLUSIVO,
-                420, 80).id();
+                580, 80).id();
         Long cancelar = actividadService.crear(empresaId, adminId, ventas, "Cancel order",
-                "Release the reserved stock and notify the customer.", TipoActividad.SERVICIO, 580, 40).id();
+                "Release the reserved stock and notify the customer.", TipoActividad.SERVICIO, 740, 20).id();
+        Long pedidoCancelado = eventoService.crear(empresaId, adminId, ventas, "Order cancelled", TipoEvento.FIN,
+                900, 20).id();
         Long empacar = actividadService.crear(empresaId, adminId, bodega, "Pick and pack items",
-                "Collect the items and prepare the package.", TipoActividad.USUARIO, 580, 200).id();
+                "Collect the items and prepare the package.", TipoActividad.USUARIO, 740, 200).id();
         Long enviar = actividadService.crear(empresaId, adminId, bodega, "Ship order",
-                "Hand the package over to the carrier.", TipoActividad.ENVIO, 740, 200).id();
+                "Hand the package over to the carrier.", TipoActividad.ENVIO, 900, 200).id();
+        Long envioConfirmado = eventoService.crear(empresaId, adminId, bodega, "Shipment confirmed",
+                TipoEvento.MENSAJE_INTERMEDIO, 1040, 200).id();
+        Long pedidoEnviado = eventoService.crear(empresaId, adminId, bodega, "Order shipped", TipoEvento.FIN,
+                1180, 200).id();
 
+        arcoService.crear(empresaId, adminId, pedidoRecibido, recibir, null, null);
         arcoService.crear(empresaId, adminId, recibir, autorizar, null, null);
-        arcoService.crear(empresaId, adminId, autorizar, pagoAprobado, null, null);
+        arcoService.crear(empresaId, adminId, autorizar, respuestaDelPago, null, null);
+        arcoService.crear(empresaId, adminId, respuestaDelPago, pagoAprobado, null, null);
         // Los arcos que salen de un gateway exclusivo llevan condicion (regla de ArcoService).
         arcoService.crear(empresaId, adminId, pagoAprobado, empacar, "Approved", "payment.status == APPROVED");
         arcoService.crear(empresaId, adminId, pagoAprobado, cancelar, "Declined", "payment.status == DECLINED");
+        arcoService.crear(empresaId, adminId, cancelar, pedidoCancelado, null, null);
         arcoService.crear(empresaId, adminId, empacar, enviar, null, null);
+        arcoService.crear(empresaId, adminId, enviar, envioConfirmado, null, null);
+        arcoService.crear(empresaId, adminId, envioConfirmado, pedidoEnviado, null, null);
 
         correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId, "Order placed",
                 "Cart items, shipping address and payment method.", cliente.id(), tienda.id()));
