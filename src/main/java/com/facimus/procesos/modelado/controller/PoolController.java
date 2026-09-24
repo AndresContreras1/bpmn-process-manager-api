@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.modelado.dto.request.EditarPoolRequest;
+import com.facimus.procesos.modelado.dto.request.OrdenRequest;
 import com.facimus.procesos.modelado.dto.request.PoolRequest;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.Pool;
@@ -90,7 +91,24 @@ public class PoolController {
             @Validated @RequestBody EditarPoolRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(poolService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
-                request.tipoParticipante(), request.integracion(), request.version()));
+                request.tipoParticipante(), Boolean.TRUE.equals(request.cajaNegra()), request.integracion(),
+                request.version()));
+    }
+
+    @Operation(summary = "Reorder the participants of a process",
+            description = "The body carries every pool of the process, exactly once, in the order they should be "
+                    + "drawn.")
+    @ApiResponse(responseCode = "200", description = "Pools of the process, in their new order")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PutMapping("/procesos/{procesoId}/pools/orden")
+    public ResponseEntity<List<PoolResponse>> reordenar(@PathVariable Long procesoId,
+            @Validated @RequestBody OrdenRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
+        Long empresaId = principal.empresaId();
+        return ResponseEntity.ok(poolService.reordenar(empresaId, principal.usuarioId(), procesoId, request.ids()));
     }
 
     @Operation(summary = "Delete a pool",

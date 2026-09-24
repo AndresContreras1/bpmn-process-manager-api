@@ -3,6 +3,7 @@ package com.facimus.procesos.modelado.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -30,10 +31,12 @@ import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Arco;
+import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Gateway;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.NodoFlujo;
 import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
@@ -87,7 +90,7 @@ class ArcoServiceTest {
         when(arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(30L, 31L, EMPRESA)).thenReturn(false);
         when(arcoRepository.save(any(Arco.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ArcoResponse respuesta = arcoService.crear(EMPRESA, AUTOR, 30L, 31L, "Listo", null, false, 0);
+        ArcoResponse respuesta = arcoService.crear(EMPRESA, AUTOR, new DatosDeArco(30L, 31L, "Listo", null, false, 0));
 
         assertThat(respuesta.origenId()).isEqualTo(30L);
         assertThat(respuesta.destinoId()).isEqualTo(31L);
@@ -97,7 +100,7 @@ class ArcoServiceTest {
     @Test
     @DisplayName("Un arco no puede salir y llegar al mismo nodo")
     void crear_mismoNodo_lanzaReglaNegocio() {
-        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, 30L, 30L, null, null, false, 0))
+        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, DatosDeArco.entre(30L, 30L)))
                 .isInstanceOf(ReglaNegocioException.class);
         verifyNoInteractions(nodoFlujoRepository, arcoRepository);
     }
@@ -110,7 +113,7 @@ class ArcoServiceTest {
         Actividad ajena = Actividad.builder().id(32L).empresa(empresa).lane(otraLane).nombre("Route").build();
         preparar(recoger, ajena);
 
-        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, 30L, 32L, null, null, false, 0))
+        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, DatosDeArco.entre(30L, 32L)))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("mismo pool");
         verify(arcoRepository, never()).save(any());
@@ -122,7 +125,7 @@ class ArcoServiceTest {
         preparar(recoger, empacar);
         when(arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(30L, 31L, EMPRESA)).thenReturn(true);
 
-        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, 30L, 31L, null, null, false, 0))
+        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, DatosDeArco.entre(30L, 31L)))
                 .isInstanceOf(ReglaNegocioException.class);
         verify(arcoRepository, never()).save(any());
     }
@@ -135,7 +138,7 @@ class ArcoServiceTest {
         preparar(decision, empacar);
         when(arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(33L, 31L, EMPRESA)).thenReturn(false);
 
-        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, 33L, 31L, "Si", "  ", false, 0))
+        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, new DatosDeArco(33L, 31L, "Si", "  ", false, 0)))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("sale de un gateway");
         verify(arcoRepository, never()).save(any());
@@ -150,7 +153,7 @@ class ArcoServiceTest {
         when(arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(34L, 31L, EMPRESA)).thenReturn(false);
         when(arcoRepository.save(any(Arco.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ArcoResponse respuesta = arcoService.crear(EMPRESA, AUTOR, 34L, 31L, "Rama", null, false, 0);
+        ArcoResponse respuesta = arcoService.crear(EMPRESA, AUTOR, new DatosDeArco(34L, 31L, "Rama", null, false, 0));
 
         assertThat(respuesta.condicion()).isNull();
     }
@@ -164,7 +167,8 @@ class ArcoServiceTest {
                 .condicion("stock > 0").build();
         when(arcoRepository.findByIdAndEmpresaId(50L, EMPRESA)).thenReturn(Optional.of(arco));
 
-        assertThatThrownBy(() -> arcoService.editar(EMPRESA, AUTOR, 50L, "Si", null, false, 0, null))
+        assertThatThrownBy(() -> arcoService.editar(EMPRESA, AUTOR, 50L, new DatosDeArco(null, null, "Si", null, false,
+                0), null))
                 .isInstanceOf(ReglaNegocioException.class);
         assertThat(arco.getCondicion()).isEqualTo("stock > 0");
         verify(arcoRepository, never()).saveAndFlush(any());
@@ -180,7 +184,7 @@ class ArcoServiceTest {
         when(arcoRepository.findAllByOrigenIdAndEmpresaId(33L, EMPRESA)).thenReturn(List.of());
         when(arcoRepository.save(any(Arco.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ArcoResponse respuesta = arcoService.crear(EMPRESA, AUTOR, 33L, 31L, "Si no", null, true, 2);
+        ArcoResponse respuesta = arcoService.crear(EMPRESA, AUTOR, new DatosDeArco(33L, 31L, "Si no", null, true, 2));
 
         assertThat(respuesta.porDefecto()).isTrue();
         assertThat(respuesta.orden()).isEqualTo(2);
@@ -194,7 +198,8 @@ class ArcoServiceTest {
         preparar(decision, empacar);
         when(arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(33L, 31L, EMPRESA)).thenReturn(false);
 
-        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, 33L, 31L, "Si no", "stock > 0", true, 0))
+        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, new DatosDeArco(33L, 31L, "Si no", "stock > 0", true,
+                0)))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("no lleva condicion");
         verify(arcoRepository, never()).save(any());
@@ -210,7 +215,7 @@ class ArcoServiceTest {
         when(arcoRepository.findAllByOrigenIdAndEmpresaId(33L, EMPRESA)).thenReturn(List.of(Arco.builder()
                 .id(51L).empresa(empresa).pool(pool).origen(decision).destino(recoger).porDefecto(true).build()));
 
-        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, 33L, 31L, "Si no", null, true, 0))
+        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, new DatosDeArco(33L, 31L, "Si no", null, true, 0)))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("una salida por defecto");
         verify(arcoRepository, never()).save(any());
@@ -222,7 +227,7 @@ class ArcoServiceTest {
         preparar(recoger, empacar);
         when(arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(30L, 31L, EMPRESA)).thenReturn(false);
 
-        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, 30L, 31L, "Listo", null, true, 0))
+        assertThatThrownBy(() -> arcoService.crear(EMPRESA, AUTOR, new DatosDeArco(30L, 31L, "Listo", null, true, 0)))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("Solo un gateway");
         verify(arcoRepository, never()).save(any());
@@ -239,10 +244,83 @@ class ArcoServiceTest {
         when(arcoRepository.findAllByOrigenIdAndEmpresaId(33L, EMPRESA)).thenReturn(List.of(arco));
         when(arcoRepository.saveAndFlush(any(Arco.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ArcoResponse respuesta = arcoService.editar(EMPRESA, AUTOR, 50L, "Si no", null, true, 5, null);
+        ArcoResponse respuesta = arcoService.editar(EMPRESA, AUTOR, 50L, new DatosDeArco(null, null, "Si no", null,
+                true, 5), null);
 
         assertThat(respuesta.porDefecto()).isTrue();
         assertThat(respuesta.orden()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("R-42: el arco se mueve a otro destino y el historial cuenta de donde a donde")
+    void editar_cambiandoElDestino_loMueve() {
+        Actividad enviar = Actividad.builder().id(32L).empresa(empresa).lane(lane).nombre("Ship order").build();
+        Arco arco = Arco.builder().id(50L).empresa(empresa).pool(pool).origen(recoger).destino(empacar).build();
+        when(arcoRepository.findByIdAndEmpresaId(50L, EMPRESA)).thenReturn(Optional.of(arco));
+        when(nodoFlujoRepository.findByIdAndEmpresaId(32L, EMPRESA)).thenReturn(Optional.of(enviar));
+        when(arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaIdAndIdNot(30L, 32L, EMPRESA, 50L))
+                .thenReturn(false);
+        when(arcoRepository.saveAndFlush(any(Arco.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ArcoResponse respuesta = arcoService.editar(EMPRESA, AUTOR, 50L,
+                new DatosDeArco(null, 32L, "Listo", null, false, 0), null);
+
+        assertThat(respuesta.destinoId()).isEqualTo(32L);
+        assertThat(respuesta.origenId()).isEqualTo(30L);
+        verify(historialCambioService).registrar(any(), any(), any(), contains("movido a"));
+    }
+
+    @Test
+    @DisplayName("R-42: al mover un extremo sigue valiendo que los dos nodos son del mismo pool")
+    void editar_haciaUnNodoDeOtroPool_lanzaReglaNegocio() {
+        Pool otroPool = Pool.builder().id(6L).empresa(empresa).proceso(pool.getProceso()).nombre("Carrier").build();
+        Lane otraLane = Lane.builder().id(8L).empresa(empresa).pool(otroPool).nombre("Routing").build();
+        Actividad ajena = Actividad.builder().id(33L).empresa(empresa).lane(otraLane).nombre("Route").build();
+        Arco arco = Arco.builder().id(50L).empresa(empresa).pool(pool).origen(recoger).destino(empacar).build();
+        when(arcoRepository.findByIdAndEmpresaId(50L, EMPRESA)).thenReturn(Optional.of(arco));
+        when(nodoFlujoRepository.findByIdAndEmpresaId(33L, EMPRESA)).thenReturn(Optional.of(ajena));
+
+        assertThatThrownBy(() -> arcoService.editar(EMPRESA, AUTOR, 50L,
+                new DatosDeArco(null, 33L, null, null, false, 0), null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("mismo pool");
+        assertThat(arco.getDestino().getId()).isEqualTo(31L);
+        verify(arcoRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("R-42: mover un arco encima de otro que ya une esos dos nodos se rechaza")
+    void editar_haciaUnTramoQueYaExiste_lanzaReglaNegocio() {
+        Actividad enviar = Actividad.builder().id(32L).empresa(empresa).lane(lane).nombre("Ship order").build();
+        Arco arco = Arco.builder().id(50L).empresa(empresa).pool(pool).origen(recoger).destino(empacar).build();
+        when(arcoRepository.findByIdAndEmpresaId(50L, EMPRESA)).thenReturn(Optional.of(arco));
+        when(nodoFlujoRepository.findByIdAndEmpresaId(32L, EMPRESA)).thenReturn(Optional.of(enviar));
+        when(arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaIdAndIdNot(30L, 32L, EMPRESA, 50L))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> arcoService.editar(EMPRESA, AUTOR, 50L,
+                new DatosDeArco(null, 32L, null, null, false, 0), null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("Ya existe un arco");
+        verify(arcoRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("R-42: tampoco se mueve el arco para que termine en un evento de inicio")
+    void editar_haciaUnEventoDeInicio_lanzaReglaNegocio() {
+        Evento inicio = Evento.builder().id(34L).empresa(empresa).lane(lane).nombre("Order received")
+                .tipoEvento(TipoEvento.MENSAJE_INICIO).build();
+        Arco arco = Arco.builder().id(50L).empresa(empresa).pool(pool).origen(recoger).destino(empacar).build();
+        when(arcoRepository.findByIdAndEmpresaId(50L, EMPRESA)).thenReturn(Optional.of(arco));
+        when(nodoFlujoRepository.findByIdAndEmpresaId(34L, EMPRESA)).thenReturn(Optional.of(inicio));
+        when(arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaIdAndIdNot(30L, 34L, EMPRESA, 50L))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> arcoService.editar(EMPRESA, AUTOR, 50L,
+                new DatosDeArco(null, 34L, null, null, false, 0), null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("Un evento de inicio no puede tener arcos entrantes.");
+        verify(arcoRepository, never()).saveAndFlush(any());
     }
 
     private void preparar(NodoFlujo origen, NodoFlujo destino) {

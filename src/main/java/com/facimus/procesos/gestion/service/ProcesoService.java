@@ -15,16 +15,16 @@ import com.facimus.procesos.gestion.model.EstadoProceso;
 public interface ProcesoService {
 
     PageResponse<ProcesoResponse> buscar(Long empresaId, String nombre, EstadoProceso estado, String categoria,
-            Pageable pageable);
+            boolean incluirInactivos, Pageable pageable);
 
     ProcesoResponse crear(Long empresaId, Long usuarioId, String nombre, String descripcion, String categoria);
 
-    ProcesoResponse obtener(Long empresaId, Long procesoId);
+    ProcesoResponse obtener(Long empresaId, Long procesoId, boolean incluirInactivos);
 
     /** La puerta de lectura (HU-23): el proceso propio o el que otra empresa le comparte a esta, nunca para cambiarlo. */
     ProcesoLectura obtenerParaLectura(Long empresaId, Long procesoId);
 
-    ProcesoDetalleResponse obtenerDetalle(Long empresaId, Long procesoId);
+    ProcesoDetalleResponse obtenerDetalle(Long empresaId, Long procesoId, boolean incluirInactivos);
 
     List<HistorialCambioResponse> listarHistorial(Long empresaId, Long procesoId);
 

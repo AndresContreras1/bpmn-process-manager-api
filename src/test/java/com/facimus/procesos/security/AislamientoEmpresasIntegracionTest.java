@@ -74,6 +74,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.EventoService;
@@ -198,7 +199,8 @@ class AislamientoEmpresasIntegracionTest {
         gatewayB =gatewayService.crear(empresaB, adminB, laneB, "Aprobar compra", TipoGateway.PARALELO, 100, 100).id();
         gatewayCierreB = gatewayService
                 .crear(empresaB, adminB, laneB, "Cerrar compra", TipoGateway.PARALELO, 300, 100).id();
-        arcoB = arcoService.crear(empresaB, adminB, gatewayB, gatewayCierreB, "Continuar", null, false, 0).id();
+        arcoB = arcoService.crear(empresaB, adminB, new DatosDeArco(gatewayB, gatewayCierreB, "Continuar", null, false,
+                0)).id();
         eventoB = eventoService.crear(empresaB, adminB, laneB, "Compra recibida", TipoEvento.INICIO,
                 20, 300).id();
         mensajeB = mensajeService.crear(empresaB, adminB, procesoB, DatosDeMensaje.basico("Orden de compra", "Pedido",
@@ -266,7 +268,7 @@ class AislamientoEmpresasIntegracionTest {
                         "Proceso no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/pools/{id}", poolB, null, "Pool no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/pools/{id}", poolB,
-                        new EditarPoolRequest("Intruso", TipoParticipante.CLIENTE, null, 0L),
+                        new EditarPoolRequest("Intruso", TipoParticipante.CLIENTE, null, null, 0L),
                         "Pool no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/pools/{id}", poolB, null, "Pool no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/pools/{id}/lanes", poolB, lane, "Pool no encontrado"),
@@ -277,24 +279,25 @@ class AislamientoEmpresasIntegracionTest {
                 Arguments.of(HttpMethod.GET, "/api/v1/actividades/{id}", actividadB, null, "Actividad no encontrada"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/actividades/{id}", actividadB,
                         new EditarActividadRequest("Intrusa", "Desde la empresa A", TipoActividad.USUARIO,
-                                0, 0, 0L),
+                                null, 0, 0, 0L),
                         "Actividad no encontrada"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/actividades/{id}", actividadB, null,
                         "Actividad no encontrada"),
                 Arguments.of(HttpMethod.POST, "/api/v1/lanes/{id}/gateways", laneB, gateway, "Lane no encontrada"),
                 Arguments.of(HttpMethod.GET, "/api/v1/gateways/{id}", gatewayB, null, "Gateway no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/gateways/{id}", gatewayB,
-                        new EditarGatewayRequest("Intruso", TipoGateway.PARALELO, 0, 0, 0L), "Gateway no encontrado"),
+                        new EditarGatewayRequest("Intruso", TipoGateway.PARALELO, null, 0, 0, 0L),
+                        "Gateway no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/gateways/{id}", gatewayB, null, "Gateway no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/lanes/{id}/eventos", laneB, evento, "Lane no encontrada"),
                 Arguments.of(HttpMethod.GET, "/api/v1/eventos/{id}", eventoB, null, "Evento no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/eventos/{id}", eventoB,
-                        new EditarEventoRequest("Intruso", TipoEvento.INICIO, 0, 0, 0L),
+                        new EditarEventoRequest("Intruso", TipoEvento.INICIO, null, 0, 0, 0L),
                         "Evento no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/eventos/{id}", eventoB, null, "Evento no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/arcos/{id}", arcoB,
-                        new EditarArcoRequest("Intruso", null, null, null, 0L),
+                        new EditarArcoRequest(null, null, "Intruso", null, null, null, 0L),
                         "Arco no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/mensajes", procesoB,
@@ -332,6 +335,10 @@ class AislamientoEmpresasIntegracionTest {
                 Arguments.of(HttpMethod.POST, "/api/v1/arcos", null,
                         new ArcoRequest(gatewayA, gatewayB, null, null, null, null),
                         "Nodo de destino no encontrado"),
+                // Mudar un nodo propio a una lane de la otra tienda: esa lane no existe para esta empresa.
+                Arguments.of(HttpMethod.PUT, "/api/v1/gateways/{id}", gatewayA,
+                        new EditarGatewayRequest("Revisar venta", TipoGateway.PARALELO, laneB, 100, 100, 0L),
+                        "Lane no encontrada"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/mensajes", procesoA,
                         mensaje("Mixto", poolA, poolB), "Pool de destino no encontrado"),
                 // El anclaje tambien entra por id: un nodo de la empresa B no existe para la A.
@@ -375,8 +382,8 @@ class AislamientoEmpresasIntegracionTest {
                 .andReturn().getResponse().getContentAsString();
         Long procesoCreado = jsonMapper.readTree(respuesta).get("id").asLong();
 
-        assertThat(procesoService.obtener(empresaA, procesoCreado).nombre()).isEqualTo("Devoluciones");
-        assertThatThrownBy(() -> procesoService.obtener(empresaB, procesoCreado))
+        assertThat(procesoService.obtener(empresaA, procesoCreado, false).nombre()).isEqualTo("Devoluciones");
+        assertThatThrownBy(() -> procesoService.obtener(empresaB, procesoCreado, false))
                 .isInstanceOf(RecursoNoEncontradoException.class);
     }
 
@@ -423,7 +430,7 @@ class AislamientoEmpresasIntegracionTest {
     // Lo que la empresa B tiene, leido con su propia empresa: si una peticion de la empresa A cambia algo, esta
     // lista cambia.
     private List<Object> estadoEmpresaB() {
-        ProcesoResponse proceso = procesoService.obtener(empresaB, procesoB);
+        ProcesoResponse proceso = procesoService.obtener(empresaB, procesoB, false);
         RolProcesoVistaResponse rol = rolProcesoService.obtener(empresaB, rolB);
         UsuarioResponse admin = usuarioService.obtener(empresaB, adminB);
         return List.of(

@@ -34,6 +34,7 @@ import com.facimus.procesos.common.IntegracionNoConfiguradaException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SesionInvalidaException;
+import com.facimus.procesos.common.SolicitudInvalidaException;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DatabindException;
@@ -51,6 +52,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(RecursoNoEncontradoException.class)
     public ProblemDetail manejarNoEncontrado(RecursoNoEncontradoException ex, WebRequest req) {
         return construir(HttpStatus.NOT_FOUND, "Recurso no encontrado", ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(SolicitudInvalidaException.class)
+    public ProblemDetail manejarSolicitudInvalida(SolicitudInvalidaException ex, WebRequest req) {
+        return construir(HttpStatus.BAD_REQUEST, "Solicitud inválida", ex.getMessage(), req);
     }
 
     @ExceptionHandler(ReglaNegocioException.class)

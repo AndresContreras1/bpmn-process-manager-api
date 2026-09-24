@@ -12,7 +12,7 @@ public interface GatewayService {
             int posY);
 
     GatewayResponse editar(Long empresaId, Long usuarioId, Long gatewayId, String nombre, TipoGateway tipoGateway,
-            int posX, int posY, Long version);
+            Long laneId, int posX, int posY, Long version);
 
     void eliminar(Long empresaId, Long usuarioId, Long gatewayId);
 

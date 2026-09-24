@@ -36,6 +36,7 @@ import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.service.impl.EventoServiceImpl;
 
@@ -50,6 +51,8 @@ class EventoServiceTest {
     private HistorialCambioService historialCambioService;
     @Mock
     private EventoRepository eventoRepository;
+    @Mock
+    private MensajeRepository mensajeRepository;
     @Mock
     private NodoFlujoRepository nodoFlujoRepository;
     @Mock
@@ -129,7 +132,7 @@ class EventoServiceTest {
                 .thenReturn(List.of(Arco.builder().id(50L).empresa(empresa).build()));
 
         assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Payment result received",
-                TipoEvento.MENSAJE_INICIO, 0, 0, null))
+                TipoEvento.MENSAJE_INICIO, null, 0, 0, null))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("Un evento de inicio no puede tener arcos entrantes.");
         assertThat(evento.getTipoEvento()).isEqualTo(TipoEvento.MENSAJE_INTERMEDIO);
@@ -145,8 +148,8 @@ class EventoServiceTest {
         when(arcoRepository.findAllByOrigenIdAndEmpresaId(40L, EMPRESA))
                 .thenReturn(List.of(Arco.builder().id(51L).empresa(empresa).build()));
 
-        assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Payment result received", TipoEvento.FIN,
-                0, 0, null))
+        assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Payment result received",
+                TipoEvento.FIN, null, 0, 0, null))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("Un evento de fin no puede tener arcos salientes.");
         assertThat(evento.getTipoEvento()).isEqualTo(TipoEvento.MENSAJE_INTERMEDIO);
@@ -161,7 +164,7 @@ class EventoServiceTest {
         when(eventoRepository.saveAndFlush(any(Evento.class))).thenAnswer(inv -> inv.getArgument(0));
 
         EventoResponse respuesta = eventoService.editar(EMPRESA, AUTOR, 40L, "Payment result",
-                TipoEvento.MENSAJE_INTERMEDIO, 440, 80, null);
+                TipoEvento.MENSAJE_INTERMEDIO, null, 440, 80, null);
 
         assertThat(respuesta.nombre()).isEqualTo("Payment result");
         assertThat(respuesta.posicionX()).isEqualTo(440);

@@ -89,7 +89,8 @@ public class GatewayController {
             @Validated @RequestBody EditarGatewayRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(gatewayService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
-                request.tipoGateway(), request.posicionX(), request.posicionY(), request.version()));
+                request.tipoGateway(), request.laneId(), request.posicionX(), request.posicionY(),
+                request.version()));
     }
 
     @Operation(summary = "Delete a gateway",

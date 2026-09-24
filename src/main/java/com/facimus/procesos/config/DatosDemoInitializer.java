@@ -26,6 +26,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.EventoService;
@@ -127,19 +128,19 @@ public class DatosDemoInitializer implements CommandLineRunner {
         Long pedidoEnviado = eventoService.crear(empresaId, adminId, bodega, "Order shipped", TipoEvento.FIN,
                 1180, 200).id();
 
-        arcoService.crear(empresaId, adminId, pedidoRecibido, recibir, null, null, false, 0);
-        arcoService.crear(empresaId, adminId, recibir, autorizar, null, null, false, 0);
-        arcoService.crear(empresaId, adminId, autorizar, respuestaDelPago, null, null, false, 0);
-        arcoService.crear(empresaId, adminId, respuestaDelPago, pagoAprobado, null, null, false, 0);
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(pedidoRecibido, recibir));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(recibir, autorizar));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(autorizar, respuestaDelPago));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(respuestaDelPago, pagoAprobado));
         // Los arcos que salen de un gateway exclusivo llevan condicion (regla de ArcoService).
-        arcoService.crear(empresaId, adminId, pagoAprobado, empacar, "Approved",
-                "payment.status == APPROVED", false, 0);
-        arcoService.crear(empresaId, adminId, pagoAprobado, cancelar, "Declined",
-                "payment.status == DECLINED", false, 0);
-        arcoService.crear(empresaId, adminId, cancelar, pedidoCancelado, null, null, false, 0);
-        arcoService.crear(empresaId, adminId, empacar, enviar, null, null, false, 0);
-        arcoService.crear(empresaId, adminId, enviar, envioConfirmado, null, null, false, 0);
-        arcoService.crear(empresaId, adminId, envioConfirmado, pedidoEnviado, null, null, false, 0);
+        arcoService.crear(empresaId, adminId, new DatosDeArco(pagoAprobado, empacar, "Approved",
+                "payment.status == APPROVED", false, 0));
+        arcoService.crear(empresaId, adminId, new DatosDeArco(pagoAprobado, cancelar, "Declined",
+                "payment.status == DECLINED", false, 0));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(cancelar, pedidoCancelado));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(empacar, enviar));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(enviar, envioConfirmado));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(envioConfirmado, pedidoEnviado));
 
         // Cada mensaje se ancla al nodo que lo manda o lo espera. Las respuestas se crean antes que su peticion,
         // porque la peticion las nombra.

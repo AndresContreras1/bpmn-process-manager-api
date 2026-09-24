@@ -300,6 +300,7 @@ class DiagnosticoServiceTest {
     @DisplayName("E-13: entre dos participantes modelados por dentro el mensaje dice por donde sale y por donde entra")
     void mensajeEntreDosPoolsModeladosSinAnclar_E13() {
         DiagramaArmado armado = DiagramaArmado.demo();
+        armado.dejaDeSerCajaNegra("Customer");
         armado.lane("Customer", "Purchasing");
         armado.actividad("Purchasing", "Place order", TipoActividad.USUARIO);
 

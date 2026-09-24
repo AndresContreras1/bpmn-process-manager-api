@@ -35,6 +35,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.DiagramaService;
@@ -118,10 +119,11 @@ class DiagramaIntegracionTest {
                 TipoActividad.USUARIO, 420, 200).id();
         Long pedidoEnviado = eventoService.crear(empresaId, adminId, bodega, "Order shipped", TipoEvento.FIN,
                 580, 200).id();
-        arcoService.crear(empresaId, adminId, pedidoRecibido, recibir, null, null, false, 0);
-        arcoService.crear(empresaId, adminId, recibir, pagado, null, null, false, 0);
-        arcoService.crear(empresaId, adminId, pagado, empacar, "Approved", "payment.status == APPROVED", false, 0);
-        arcoService.crear(empresaId, adminId, empacar, pedidoEnviado, null, null, false, 0);
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(pedidoRecibido, recibir));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(recibir, pagado));
+        arcoService.crear(empresaId, adminId, new DatosDeArco(pagado, empacar, "Approved", "payment.status == APPROVED",
+                false, 0));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(empacar, pedidoEnviado));
         Long pedido = mensajeService.crear(empresaId, adminId, procesoId, DatosDeMensaje.basico("Order placed",
                 "Cart items", clienteId,
                 tiendaId))

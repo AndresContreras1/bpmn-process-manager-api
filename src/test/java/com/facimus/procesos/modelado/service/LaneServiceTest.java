@@ -78,6 +78,18 @@ class LaneServiceTest {
     }
 
     @Test
+    @DisplayName("R-33: una caja negra no se modela por dentro, asi que no admite lanes")
+    void crear_dentroDeUnPoolDeCajaNegra_lanzaReglaNegocio() {
+        pool.setCajaNegra(true);
+        when(poolRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(pool));
+
+        assertThatThrownBy(() -> laneService.crear(EMPRESA, AUTOR, 5L, "Routing", 20L))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("Un pool de caja negra no puede tener lanes.");
+        verify(laneRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("HU-22: la lane nueva va al final del pool, con su rol y su anotacion en el historial")
     void crear_vaAlFinalDelPoolConSuRol() {
         when(poolRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(pool));

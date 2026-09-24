@@ -16,6 +16,7 @@ import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.service.EventoService;
 
@@ -31,6 +32,7 @@ public class EventoServiceImpl implements EventoService {
     private final NodoFlujoRepository nodoFlujoRepository;
     private final LaneRepository laneRepository;
     private final ArcoRepository arcoRepository;
+    private final MensajeRepository mensajeRepository;
     private final EventoMapper eventoMapper;
 
     @Override
@@ -61,7 +63,7 @@ public class EventoServiceImpl implements EventoService {
     @Override
     @Transactional
     public EventoResponse editar(Long empresaId, Long usuarioId, Long eventoId, String nombre, TipoEvento tipoEvento,
-            int posX, int posY, Long version) {
+            Long laneId, int posX, int posY, Long version) {
         Evento evento = buscar(empresaId, eventoId);
         evento.verificarVersion(version);
         Long procesoId = evento.getLane().getPool().getProceso().getId();
@@ -78,6 +80,8 @@ public class EventoServiceImpl implements EventoService {
                 .isEmpty()) {
             throw new ReglaNegocioException(ReglasDeEventos.SIN_SALIENTES);
         }
+        evento.setLane(ReglasDeNodos.mudanza(empresaId, evento, laneId, laneRepository, arcoRepository,
+                mensajeRepository));
         evento.setNombre(nombre);
         evento.setTipoEvento(tipoEvento);
         evento.setPosicionX(posX);

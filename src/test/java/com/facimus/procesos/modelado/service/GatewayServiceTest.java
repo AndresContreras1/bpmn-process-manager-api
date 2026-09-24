@@ -3,6 +3,7 @@ package com.facimus.procesos.modelado.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +36,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.service.impl.GatewayServiceImpl;
 
@@ -49,6 +51,8 @@ class GatewayServiceTest {
     private HistorialCambioService historialCambioService;
     @Mock
     private GatewayRepository gatewayRepository;
+    @Mock
+    private MensajeRepository mensajeRepository;
     @Mock
     private NodoFlujoRepository nodoFlujoRepository;
     @Mock
@@ -115,8 +119,8 @@ class GatewayServiceTest {
         when(arcoRepository.findAllByOrigenIdAndEmpresaId(31L, EMPRESA))
                 .thenReturn(List.of(conCondicion, sinCondicion));
 
-        assertThatThrownBy(() -> gatewayService.editar(EMPRESA, AUTOR, 31L, "Stock available?", TipoGateway.EXCLUSIVO,
-                0, 0, null))
+        assertThatThrownBy(() -> gatewayService.editar(EMPRESA, AUTOR, 31L, "Stock available?",
+                TipoGateway.EXCLUSIVO, null, 0, 0, null))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("condicion");
         assertThat(gateway.getTipoGateway()).isEqualTo(TipoGateway.PARALELO);
@@ -133,10 +137,47 @@ class GatewayServiceTest {
         when(gatewayRepository.saveAndFlush(any(Gateway.class))).thenAnswer(inv -> inv.getArgument(0));
 
         GatewayResponse respuesta = gatewayService.editar(EMPRESA, AUTOR, 31L, "Stock available?",
-                TipoGateway.PARALELO, 0, 0, null);
+                TipoGateway.PARALELO, null, 0, 0, null);
 
         assertThat(respuesta.tipoGateway()).isEqualTo(TipoGateway.PARALELO);
-        verify(arcoRepository, never()).findAllByOrigenIdAndEmpresaId(any(), any());
+        // Sus salidas no llevaban condicion, asi que no hay nada que retirar ni nada que reprochar.
+        verify(arcoRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("R-34: al pasar a paralelo se retiran las condiciones de sus salidas y queda en el historial")
+    void editar_pasandoAParalelo_retiraLasCondiciones() {
+        Arco conCondicion = Arco.builder().id(50L).empresa(empresa).origen(gateway).condicion("stock > 0").build();
+        Arco porDefecto = Arco.builder().id(51L).empresa(empresa).origen(gateway).porDefecto(true).build();
+        when(gatewayRepository.findByIdAndEmpresaId(31L, EMPRESA)).thenReturn(Optional.of(gateway));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Split", 100L,
+                EMPRESA, 31L)).thenReturn(false);
+        when(arcoRepository.findAllByOrigenIdAndEmpresaId(31L, EMPRESA))
+                .thenReturn(List.of(conCondicion, porDefecto));
+        when(gatewayRepository.saveAndFlush(any(Gateway.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        GatewayResponse respuesta = gatewayService.editar(EMPRESA, AUTOR, 31L, "Split", TipoGateway.PARALELO, null,
+                0, 0, null);
+
+        assertThat(respuesta.tipoGateway()).isEqualTo(TipoGateway.PARALELO);
+        assertThat(conCondicion.getCondicion()).isNull();
+        assertThat(porDefecto.isPorDefecto()).isFalse();
+        verify(arcoRepository).saveAll(List.of(conCondicion, porDefecto));
+        verify(historialCambioService).registrar(any(), any(), any(), contains("se retiraron 2 condiciones"));
+    }
+
+    @Test
+    @DisplayName("R-34: un gateway que ya era paralelo se edita sin anunciar condiciones que no existen")
+    void editar_paraleloSinCondiciones_seAnotaComoEdicion() {
+        when(gatewayRepository.findByIdAndEmpresaId(31L, EMPRESA)).thenReturn(Optional.of(gateway));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Split", 100L,
+                EMPRESA, 31L)).thenReturn(false);
+        when(arcoRepository.findAllByOrigenIdAndEmpresaId(31L, EMPRESA)).thenReturn(List.of());
+        when(gatewayRepository.saveAndFlush(any(Gateway.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        gatewayService.editar(EMPRESA, AUTOR, 31L, "Split", TipoGateway.PARALELO, null, 0, 0, null);
+
+        verify(historialCambioService).registrar(any(), any(), any(), contains("editado"));
     }
 
     @Test

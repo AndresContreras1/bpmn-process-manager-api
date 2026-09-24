@@ -141,8 +141,30 @@ class ProcesoRepositoryTest {
                 .isFalse();
     }
 
+    @Test
+    @DisplayName("HU-06.3: los procesos eliminados no salen por defecto, y con el filtro si")
+    void conFiltros_incluirInactivos_traeLosEliminados() {
+        Proceso retirado = em.persistFlushFind(Proceso.builder()
+                .empresa(tienda)
+                .nombre("Gift cards")
+                .descripcion("Retirado")
+                .categoria("After-sales")
+                .estado(EstadoProceso.BORRADOR)
+                .activo(false)
+                .build());
+
+        assertThat(buscar(null, null, null)).doesNotContain(retirado.getNombre());
+        assertThat(buscar(null, null, null, true)).contains(retirado.getNombre());
+        assertThat(buscar("gift", null, null, true)).containsExactly("Gift cards");
+    }
+
     private List<String> buscar(String nombre, EstadoProceso estado, String categoria) {
-        return procesoRepository.findAll(ProcesoSpecifications.conFiltros(tienda.getId(), nombre, estado, categoria))
+        return buscar(nombre, estado, categoria, false);
+    }
+
+    private List<String> buscar(String nombre, EstadoProceso estado, String categoria, boolean incluirInactivos) {
+        return procesoRepository.findAll(ProcesoSpecifications.conFiltros(tienda.getId(), nombre, estado, categoria,
+                        incluirInactivos))
                 .stream()
                 .map(Proceso::getNombre)
                 .toList();

@@ -20,6 +20,7 @@ import com.facimus.procesos.modelado.dto.request.ArcoRequest;
 import com.facimus.procesos.modelado.dto.request.EditarArcoRequest;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.security.ApiPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,9 +51,9 @@ public class ArcoController {
     public ResponseEntity<ArcoResponse> crear(@Validated @RequestBody ArcoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        ArcoResponse arco = arcoService.crear(empresaId, principal.usuarioId(), request.origenId(),
-                request.destinoId(), request.etiqueta(), request.condicion(),
-                Boolean.TRUE.equals(request.porDefecto()), orden(request.orden()));
+        ArcoResponse arco = arcoService.crear(empresaId, principal.usuarioId(),
+                new DatosDeArco(request.origenId(), request.destinoId(), request.etiqueta(), request.condicion(),
+                        Boolean.TRUE.equals(request.porDefecto()), orden(request.orden())));
         return ResponseEntity.created(URI.create("/api/v1/arcos/" + arco.id())).body(arco);
     }
 
@@ -79,8 +80,9 @@ public class ArcoController {
     }
 
     @Operation(summary = "Edit a sequence flow",
-            description = "Replaces its label, its condition, whether it is the default flow of its gateway and the "
-                    + "order in which the gateway evaluates it. Its nodes cannot change.")
+            description = "Replaces its label, its condition, whether it is the default flow of its gateway and "
+                    + "the order in which the gateway evaluates it. Moving one of its nodes goes through the same "
+                    + "rules as connecting them for the first time.")
     @ApiResponse(responseCode = "200", description = "Sequence flow updated")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -92,8 +94,9 @@ public class ArcoController {
             @Validated @RequestBody EditarArcoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(arcoService.editar(empresaId, principal.usuarioId(), id, request.etiqueta(),
-                request.condicion(), Boolean.TRUE.equals(request.porDefecto()), orden(request.orden()),
+        return ResponseEntity.ok(arcoService.editar(empresaId, principal.usuarioId(), id,
+                new DatosDeArco(request.origenId(), request.destinoId(), request.etiqueta(), request.condicion(),
+                        Boolean.TRUE.equals(request.porDefecto()), orden(request.orden())),
                 request.version()));
     }
 

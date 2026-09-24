@@ -11,12 +11,14 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.mapper.GatewayMapper;
+import com.facimus.procesos.modelado.model.Arco;
 import com.facimus.procesos.modelado.model.Gateway;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.service.GatewayService;
 
@@ -32,6 +34,7 @@ public class GatewayServiceImpl implements GatewayService {
     private final NodoFlujoRepository nodoFlujoRepository;
     private final LaneRepository laneRepository;
     private final ArcoRepository arcoRepository;
+    private final MensajeRepository mensajeRepository;
     private final GatewayMapper gatewayMapper;
 
     @Override
@@ -62,7 +65,7 @@ public class GatewayServiceImpl implements GatewayService {
     @Override
     @Transactional
     public GatewayResponse editar(Long empresaId, Long usuarioId, Long gatewayId, String nombre,
-            TipoGateway tipoGateway, int posX, int posY, Long version) {
+            TipoGateway tipoGateway, Long laneId, int posX, int posY, Long version) {
         Gateway gateway = buscar(empresaId, gatewayId);
         gateway.verificarVersion(version);
         Long procesoId = gateway.getLane().getPool().getProceso().getId();
@@ -73,12 +76,15 @@ public class GatewayServiceImpl implements GatewayService {
         if (tipoGateway.eligePorCondicion() && tieneSalidasSinCondicion(empresaId, gatewayId)) {
             throw new ReglaNegocioException(ReglasDeGateways.SALIDAS_SIN_CONDICION);
         }
+        gateway.setLane(ReglasDeNodos.mudanza(empresaId, gateway, laneId, laneRepository, arcoRepository,
+                mensajeRepository));
+        int retiradas = tipoGateway == TipoGateway.PARALELO ? retirarCondiciones(empresaId, gatewayId) : 0;
         gateway.setNombre(nombre);
         gateway.setTipoGateway(tipoGateway);
         gateway.setPosicionX(posX);
         gateway.setPosicionY(posY);
         historialCambioService.registrar(empresaId, usuarioId, gateway.getLane().getPool().getProceso(),
-                "Gateway \"" + nombre + "\" editado.");
+                "Gateway \"" + nombre + "\"" + queLePaso(retiradas));
         return gatewayMapper.toResponse(gatewayRepository.saveAndFlush(gateway));
     }
 
@@ -104,6 +110,36 @@ public class GatewayServiceImpl implements GatewayService {
             throw new RecursoNoEncontradoException("Lane no encontrada.");
         }
         return gatewayMapper.toResponses(gatewayRepository.findAllByLaneIdAndEmpresaId(laneId, empresaId));
+    }
+
+    /**
+     * R-34: un gateway paralelo sigue todas sus salidas a la vez, asi que las condiciones que tenian dejan de
+     * querer decir nada. Se retiran al cambiar el tipo, y no despues: un arco sin condicion en un paralelo es
+     * correcto, y el mismo arco en un exclusivo no lo seria.
+     */
+    private int retirarCondiciones(Long empresaId, Long gatewayId) {
+        List<Arco> conCondicion = arcoRepository.findAllByOrigenIdAndEmpresaId(gatewayId, empresaId).stream()
+                .filter(arco -> StringUtils.hasText(arco.getCondicion()) || arco.isPorDefecto())
+                .toList();
+        if (conCondicion.isEmpty()) {
+            return 0;
+        }
+        conCondicion.forEach(arco -> {
+            arco.setCondicion(null);
+            arco.setPorDefecto(false);
+        });
+        arcoRepository.saveAll(conCondicion);
+        return conCondicion.size();
+    }
+
+    /** Lo que el historial cuenta del cambio: retirar condiciones no es un detalle, cambia el flujo. */
+    private static String queLePaso(int retiradas) {
+        if (retiradas == 0) {
+            return " editado.";
+        }
+        return retiradas == 1
+                ? " pasa a paralelo; se retiro 1 condicion."
+                : " pasa a paralelo; se retiraron " + retiradas + " condiciones.";
     }
 
     /** R-36: la salida por defecto no necesita condicion, porque es la que se toma cuando ninguna se cumple. */

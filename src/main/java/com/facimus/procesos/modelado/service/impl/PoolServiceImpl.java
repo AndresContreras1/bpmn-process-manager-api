@@ -1,6 +1,7 @@
 package com.facimus.procesos.modelado.service.impl;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
@@ -63,14 +64,36 @@ public class PoolServiceImpl implements PoolService {
     @Override
     @Transactional
     public PoolResponse editar(Long empresaId, Long usuarioId, Long poolId, String nombre,
-            TipoParticipante tipoParticipante, Integracion integracion, Long version) {
+            TipoParticipante tipoParticipante, boolean cajaNegra, Integracion integracion, Long version) {
         Pool pool = buscar(empresaId, poolId);
         pool.verificarVersion(version);
+        // R-33: una caja negra no se modela por dentro, asi que las lanes que ya tiene contradicen la marca.
+        if (cajaNegra && laneRepository.existsByPoolIdAndEmpresaId(poolId, empresaId)) {
+            throw new ReglaNegocioException(ReglasDePools.CAJA_NEGRA_SIN_LANES);
+        }
+        pool.setCajaNegra(cajaNegra);
         pool.setNombre(nombre);
         pool.setTipoParticipante(tipoParticipante);
         pool.setIntegracion(ninguna(integracion));
         historialCambioService.registrar(empresaId, usuarioId, pool.getProceso(), "Pool \"" + nombre + "\" editado.");
         return poolMapper.toResponse(poolRepository.saveAndFlush(pool));
+    }
+
+    @Override
+    @Transactional
+    public List<PoolResponse> reordenar(Long empresaId, Long usuarioId, Long procesoId, List<Long> ids) {
+        Proceso proceso = procesoRepository.findByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
+        List<Pool> pools = poolRepository.findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId, empresaId);
+        Map<Long, Pool> porId = ReglasDeOrden.exigirLaListaCompleta(ids, pools, Pool::getId,
+                "La lista de orden debe contener exactamente los pools del proceso.");
+
+        for (int puesto = 0; puesto < ids.size(); puesto++) {
+            porId.get(ids.get(puesto)).setOrden(puesto);
+        }
+        poolRepository.saveAll(pools);
+        historialCambioService.registrar(empresaId, usuarioId, proceso, "Participantes reordenados.");
+        return poolMapper.toResponses(ids.stream().map(porId::get).toList());
     }
 
     @Override

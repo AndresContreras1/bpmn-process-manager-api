@@ -16,6 +16,7 @@ import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.service.ActividadService;
 
@@ -31,6 +32,7 @@ public class ActividadServiceImpl implements ActividadService {
     private final NodoFlujoRepository nodoFlujoRepository;
     private final LaneRepository laneRepository;
     private final ArcoRepository arcoRepository;
+    private final MensajeRepository mensajeRepository;
     private final ActividadMapper actividadMapper;
 
     @Override
@@ -61,8 +63,8 @@ public class ActividadServiceImpl implements ActividadService {
 
     @Override
     @Transactional
-    public ActividadResponse editar(Long empresaId, Long usuarioId, Long actividadId, String nombre, String descripcion,
-            TipoActividad tipoActividad, int posX, int posY, Long version) {
+    public ActividadResponse editar(Long empresaId, Long usuarioId, Long actividadId, String nombre,
+            String descripcion, TipoActividad tipoActividad, Long laneId, int posX, int posY, Long version) {
         Actividad actividad = buscar(empresaId, actividadId);
         actividad.verificarVersion(version);
         Long procesoId = actividad.getLane().getPool().getProceso().getId();
@@ -70,6 +72,8 @@ public class ActividadServiceImpl implements ActividadService {
                 empresaId, actividadId)) {
             throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
         }
+        actividad.setLane(ReglasDeNodos.mudanza(empresaId, actividad, laneId, laneRepository, arcoRepository,
+                mensajeRepository));
         actividad.setNombre(nombre);
         actividad.setDescripcion(descripcion);
         actividad.setTipoActividad(deUsuarioSiFalta(tipoActividad));

@@ -12,7 +12,7 @@ public interface EventoService {
             int posY);
 
     EventoResponse editar(Long empresaId, Long usuarioId, Long eventoId, String nombre, TipoEvento tipoEvento,
-            int posX, int posY, Long version);
+            Long laneId, int posX, int posY, Long version);
 
     void eliminar(Long empresaId, Long usuarioId, Long eventoId);
 

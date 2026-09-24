@@ -80,6 +80,9 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/roles                  | 200
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/diagrama | 404
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/diagnostico | 404
+            SOLO_LECTURA  | PUT    | /api/v1/pools/{id}/lanes/orden | 403
+            EDITOR        | GET    | /api/v1/procesos?incluirInactivos=true | 400
+            ADMINISTRADOR | GET    | /api/v1/procesos?incluirInactivos=true | 200
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual        | 200
             SOLO_LECTURA  | GET    | /api/v1/empresas/{id}          | 404
 

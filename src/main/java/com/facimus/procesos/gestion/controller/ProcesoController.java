@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
@@ -26,6 +27,7 @@ import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.security.ApiPrincipal;
@@ -65,6 +67,8 @@ public class ProcesoController {
             @RequestParam(required = false) EstadoProceso estado,
             @Parameter(description = "Exact category", example = "Fulfillment")
             @RequestParam(required = false) String categoria,
+            @Parameter(description = "Also list the deleted processes; administrators only")
+            @RequestParam(defaultValue = "false") boolean incluirInactivos,
             @Parameter(description = "Page number, starting at 0")
             @RequestParam(defaultValue = "0") @Min(value = 0, message = Paginacion.PAGINA_INVALIDA) int pagina,
             @Parameter(description = "Items per page, from 1 to 50")
@@ -78,6 +82,7 @@ public class ProcesoController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(procesoService.buscar(empresaId, nombre, estado, categoria,
+                soloElAdministradorMiraLoEliminado(incluirInactivos, principal),
                 Paginacion.de(pagina, tamano, orden)));
     }
 
@@ -105,8 +110,22 @@ public class ProcesoController {
     @ApiResponse(responseCode = "404", ref = "NotFound")
     @GetMapping("/{id}")
     public ResponseEntity<ProcesoDetalleResponse> detalle(@PathVariable Long id,
+            @Parameter(description = "Also read it when it is deleted; administrators only")
+            @RequestParam(defaultValue = "false") boolean incluirInactivos,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        return ResponseEntity.ok(procesoService.obtenerDetalle(principal.empresaId(), id));
+        return ResponseEntity.ok(procesoService.obtenerDetalle(principal.empresaId(), id,
+                soloElAdministradorMiraLoEliminado(incluirInactivos, principal)));
+    }
+
+    /**
+     * HU-06.3: lo eliminado sigue en la base y el administrador puede consultarlo. A los demas no se les responde
+     * 403, porque el endpoint si es suyo: lo que no pueden pedir es ese parametro.
+     */
+    private static boolean soloElAdministradorMiraLoEliminado(boolean pedido, ApiPrincipal principal) {
+        if (pedido && principal.rol() != RolAcceso.ADMINISTRADOR) {
+            throw new SolicitudInvalidaException("Solo un administrador puede consultar los procesos eliminados.");
+        }
+        return pedido;
     }
 
     @Operation(summary = "Edit a process",

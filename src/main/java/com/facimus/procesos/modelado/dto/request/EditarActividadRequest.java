@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-@Schema(description = "New name, description and position of an activity, with the version that was read")
+@Schema(description = "New name, description, lane and position of an activity, with the version that was read")
 public record EditarActividadRequest(
         @Schema(description = "Name, unique among the flow nodes of the process", example = "Pick and pack items")
         @NotBlank(message = "El nombre es obligatorio.")
@@ -17,6 +17,8 @@ public record EditarActividadRequest(
         @Schema(description = "Who does the work: USUARIO a person of the lane's role, SERVICIO the store itself, "
                 + "ENVIO sends a message to another participant and RECEPCION waits for one. Optional for now: "
                 + "when it is missing the activity is USUARIO.", example = "USUARIO") TipoActividad tipoActividad,
+        @Schema(description = "Lane the node moves to; without it the node stays where it is", example = "4")
+        Long laneId,
         @Schema(description = "Horizontal position on the diagram canvas", example = "580") int posicionX,
         @Schema(description = "Vertical position on the diagram canvas", example = "200") int posicionY,
         @Schema(description = "Version read with the last GET; if someone saved a change since, the edit answers 409",

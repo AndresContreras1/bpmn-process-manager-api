@@ -1,5 +1,9 @@
 package com.facimus.procesos.modelado;
 
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,6 +37,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
@@ -238,6 +243,65 @@ class ConsistenciaBpmnIntegracionTest {
     }
 
     @Test
+    @DisplayName("R-42: el arco se reengancha a otro nodo sin borrarlo y volverlo a crear")
+    void arco_cambiaDeExtremoConLasMismasReglas() throws Exception {
+        Long recibir = actividadService.crear(empresaId, adminId, laneId, "Receive parcel", null,
+                TipoActividad.USUARIO, 100, 800).id();
+        Long revisar = actividadService.crear(empresaId, adminId, laneId, "Inspect parcel", null,
+                TipoActividad.USUARIO, 260, 800).id();
+        Long archivar = actividadService.crear(empresaId, adminId, laneId, "File parcel", null,
+                TipoActividad.USUARIO, 420, 800).id();
+        Long arcoId = arcoService.crear(empresaId, adminId, DatosDeArco.entre(recibir, revisar)).id();
+
+        pedir(put("/api/v1/arcos/{id}", arcoId), Map.of("destinoId", archivar, "version", 0))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.destinoId").value(archivar))
+                .andExpect(jsonPath("$.origenId").value(recibir));
+        // El tramo nuevo pasa por las mismas reglas: un nodo no se conecta consigo mismo.
+        pedir(put("/api/v1/arcos/{id}", arcoId), Map.of("origenId", archivar, "version", 1))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail")
+                        .value("Un arco no puede tener el mismo nodo como origen y destino."));
+    }
+
+    @Test
+    @DisplayName("R-41: un nodo se arrastra a otra lane, y con arcos no se sale de su pool")
+    void nodo_seMueveDeLaneYNoCruzaDePoolConArcos() throws Exception {
+        Long rolId = rolProcesoService.crear(empresaId, "Dispatch", null).id();
+        Long otraLane = laneService.crear(empresaId, adminId, tiendaId, "Shipping", rolId).id();
+        Long externo = poolService.crear(empresaId, adminId, procesoId, "Courier", TipoParticipante.PROVEEDOR,
+                false, Integracion.TRANSPORTE).id();
+        Long laneExterna = laneService.crear(empresaId, adminId, externo, "Dispatch", rolId).id();
+        Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack refund", null,
+                TipoActividad.USUARIO, 100, 700).id();
+        Long despachar = actividadService.crear(empresaId, adminId, laneId, "Dispatch refund", null,
+                TipoActividad.USUARIO, 260, 700).id();
+
+        // Suelta, la actividad se muda a donde sea, incluso a otro participante del mismo proceso.
+        pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "Pack refund", "laneId", laneExterna,
+                "posicionX", 20, "posicionY", 30, "version", 0))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.laneId").value(laneExterna))
+                .andExpect(jsonPath("$.posicionX").value(20));
+        pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "Pack refund", "laneId", otraLane,
+                "posicionX", 20, "posicionY", 30, "version", 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.laneId").value(otraLane));
+
+        // Con un arco, ya solo se mueve dentro de su pool.
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(empacar, despachar));
+        pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "Pack refund", "laneId", laneExterna,
+                "posicionX", 20, "posicionY", 30, "version", 2))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail")
+                        .value("El nodo tiene arcos y solo puede moverse a una lane del mismo pool."));
+        pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "Pack refund", "laneId", laneId,
+                "posicionX", 20, "posicionY", 30, "version", 2))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.laneId").value(laneId));
+    }
+
+    @Test
     @DisplayName("R-35: la salida por defecto de un gateway es una sola y no lleva condicion")
     void arco_salidaPorDefecto_esUnicaYSinCondicion() throws Exception {
         Long decidir = gatewayService.crear(empresaId, adminId, laneId, "Discount?", TipoGateway.EXCLUSIVO, 100, 560)
@@ -267,8 +331,19 @@ class ConsistenciaBpmnIntegracionTest {
                 .andExpect(jsonPath("$.detail").value("Un gateway solo puede tener una salida por defecto."));
         // R-36: el gateway se sigue editando aunque una de sus salidas no lleve condicion, porque es la por defecto.
         pedir(put("/api/v1/gateways/{id}", decidir), Map.of("nombre", "Discount?", "tipoGateway", "EXCLUSIVO",
-                "posicionX", 100, "posicionY", 560, "version", 0))
+                "posicionX", 100, "posicionY", 580, "version", 0))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1));
+        // R-34: un paralelo sigue todas sus salidas, asi que las condiciones y la salida por defecto se retiran.
+        pedir(put("/api/v1/gateways/{id}", decidir), Map.of("nombre", "Discount?", "tipoGateway", "PARALELO",
+                "posicionX", 100, "posicionY", 560, "version", 1))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/pools/{id}/arcos", tiendaId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.origenId == " + decidir + ")].condicion").value(everyItem(nullValue())))
+                .andExpect(jsonPath("$[?(@.origenId == " + decidir + ")].porDefecto")
+                        .value(everyItem(is(false))));
     }
 
     @Test
@@ -280,8 +355,8 @@ class ConsistenciaBpmnIntegracionTest {
                 360).id();
         Long cajaB = actividadService.crear(empresaId, adminId, laneId, "Ship box B", null, TipoActividad.USUARIO, 260,
                 440).id();
-        Long haciaA = arcoService.crear(empresaId, adminId, repartir, cajaA, null, null, false, 0).id();
-        arcoService.crear(empresaId, adminId, repartir, cajaB, null, "order.hasBoxB", false, 0);
+        Long haciaA = arcoService.crear(empresaId, adminId, DatosDeArco.entre(repartir, cajaA)).id();
+        arcoService.crear(empresaId, adminId, new DatosDeArco(repartir, cajaB, null, "order.hasBoxB", false, 0));
 
         pedir(put("/api/v1/gateways/{id}", repartir), Map.of("nombre", "Ship boxes", "tipoGateway", "INCLUSIVO",
                 "posicionX", 100, "posicionY", 400, "version", 0))
@@ -333,7 +408,7 @@ class ConsistenciaBpmnIntegracionTest {
                 TipoEvento.MENSAJE_INTERMEDIO, 480, 500).id();
         Long pagar = actividadService.crear(empresaId, adminId, laneId, "Refund the customer", null,
                 TipoActividad.SERVICIO, 640, 500).id();
-        arcoService.crear(empresaId, adminId, intermedio, pagar, null, null, false, 0);
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(intermedio, pagar));
 
         pedir(put("/api/v1/eventos/{id}", intermedio), Map.of("nombre", "Refund confirmed", "tipoEvento", "FIN",
                 "posicionX", 480, "posicionY", 500, "version", 0))

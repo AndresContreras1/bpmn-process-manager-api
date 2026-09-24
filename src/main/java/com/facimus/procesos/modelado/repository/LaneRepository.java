@@ -12,6 +12,8 @@ import com.facimus.procesos.modelado.model.Lane;
 
 public interface LaneRepository extends RepositorioTenant<Lane> {
 
+    boolean existsByPoolIdAndEmpresaId(Long poolId, Long empresaId);
+
     /** Trae el rol de cada lane en la misma consulta: el listado muestra su nombre. */
     @EntityGraph(attributePaths = "rolProceso")
     List<Lane> findAllByPoolIdAndEmpresaIdOrderByOrdenAsc(Long poolId, Long empresaId);
