@@ -80,6 +80,7 @@ can read them.
 | Sequence flow | The order of the steps inside a participant, with an optional condition | Payment approved? → Pick and pack items |
 | Message flow | Information exchanged between two participants, sent from one step and awaited at another, with the fields it carries | Payment authorization request |
 | Correlation key | The value that ties together the messages of one case | `orderId` |
+| Diagnosis | What a diagram gets wrong against the modeling rules: errors and warnings, each one pointing at an element | *Nothing leads to "Pick and pack items"* |
 
 ## How it works
 
@@ -94,11 +95,15 @@ can read them.
 5. **Validate as you go.** Every change is checked against the modeling rules: a step that cannot send a message
    does not get one, and a message that may fail says what the process does then. A change that would break a rule
    is rejected with the reason, so a model never ends up in an invalid state.
-6. **Publish.** When the process is ready, it moves from draft to published. A published process cannot go back to
+6. **Ask what is missing.** At any moment the diagram can be checked against the whole catalogue of rules: what
+   is unreachable, what has nowhere to go, which decision has no alternative path, which message nobody sends. The
+   same question answers what would be left if an element were deleted, so a deletion can be confirmed knowing what
+   it takes with it.
+7. **Publish.** When the process is ready, it moves from draft to published. A published process cannot go back to
    draft.
-7. **Share.** An administrator can give a partner company on the platform read-only access to a process, for example
+8. **Share.** An administrator can give a partner company on the platform read-only access to a process, for example
    a logistics provider that needs to see how orders are handed over.
-8. **Keep track.** Every change is recorded in the process history with its author and date. Deleted items are
+9. **Keep track.** Every change is recorded in the process history with its author and date. Deleted items are
    retired, not erased, so the record stays complete.
 
 The web app in [`frontend/`](frontend/) covers signing in, store registration, the account page, the process list,
@@ -150,6 +155,10 @@ element of the notation, and a draft *Returns and refunds* process that is ready
 The payment result arrives as `payment`, so the gateway of step 5 reads `payment.status`. Only *Order placed*
 opens a case: the rest are matched to one that is already open.
 
+The [diagnosis](#diagnosis) of this process answers no errors and one warning on purpose: neither branch of step 5
+is marked as the default one, so an answer that is neither approved nor declined would leave the order with no
+path. Marking the rejection as the default flow clears it, and it is there to be seen.
+
 ## Roles and permissions
 
 | Capability | Administrator | Editor | Read-only |
@@ -175,6 +184,7 @@ user's access level or deactivating them takes effect at once: their open sessio
 | No duplicates on retries | A create request that is retried with the same idempotency key, for example after a network failure, creates the item only once. |
 | Always-valid models | The modeling rules are checked on every change, not only when a process is published. |
 | Complete history | Every change keeps its author and date, and deleted items stay on record. |
+| Nothing breaks by surprise | A diagram can be checked against the rules at any moment, and before deleting anything it says what would go with it and what would be left without a path. |
 | A second opinion | A model can review a diagram and point out what is missing, such as a decision with no alternative path. It only advises: nothing is changed without a person. |
 
 The [technical documentation](#getting-started) explains how each guarantee is built.
@@ -345,8 +355,10 @@ any of them. The database makes each subtype fill its own type column and leaves
 - A process starts at a start event and ends at an end event: no sequence flow arrives at a start event, and none
   leaves an end event. An event that already has flows cannot be turned into a type those flows forbid.
 - A sequence flow that leaves an exclusive or inclusive gateway carries a condition, because the gateway picks its
-  path by those conditions. Flows that enter a gateway need none, and a gateway only becomes exclusive or inclusive
-  when every flow that leaves it has a condition.
+  path by those conditions. The exception is its default flow, the one it takes when no condition holds: a gateway
+  has at most one, it carries no condition, and only a gateway that decides has one. Flows that enter a gateway need
+  no condition, and a gateway only becomes exclusive or inclusive when every flow that leaves it has one or is the
+  default.
 - A message flow connects two different pools, and both must be participants of the message's process.
 - A message is anchored to the node that sends it and to the node that waits for it, each one in the pool of its
   side. Only a step that can do it: a message end event or an activity that sends or serves, on one side; a message
@@ -464,6 +476,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
 | Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
+| Diagnosis | `GET /api/v1/procesos/{id}/diagnostico[?sinElemento=TYPE:id]` |
 | AI review | `POST /api/v1/procesos/{id}/revision` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 
@@ -472,6 +485,49 @@ of pools, lanes, activities, gateways, events, sequence flows, message flows and
 It runs one query per element type, however large the diagram grows.
 
 State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO", "version": 3 }`.
+
+### Diagnosis
+
+`GET /api/v1/procesos/{id}/diagnostico` answers what a diagram gets wrong, checked against the modeling rules.
+Unlike the [AI review](#ai-review) it is deterministic, costs nothing and needs no external service: the same
+diagram always answers the same findings, in the same order. Any role can ask for it, including a store a process
+was shared with.
+
+Each finding carries a code of the catalogue, a severity, the element it is about and what to do:
+
+```json
+{
+  "procesoId": 1,
+  "sinElemento": null,
+  "errores": 0,
+  "advertencias": 1,
+  "hallazgos": [
+    {
+      "codigo": "A-05",
+      "severidad": "MEDIA",
+      "elemento": "Gateway \"Payment approved?\"",
+      "elementoId": 5,
+      "problema": "El gateway no tiene salida por defecto: si ninguna condicion se cumple, el caso se queda sin camino.",
+      "sugerencia": "Marca como salida por defecto la que deba tomarse cuando no se cumpla ninguna condicion."
+    }
+  ]
+}
+```
+
+A code that starts with `E` is an error: something that makes the model unusable, such as a step nothing leads to
+(`E-04`), a path that never reaches an end event (`E-03`), or a node that exists to exchange a message and has none
+anchored (`E-11`). A code that starts with `A` is a warning: the model works, but it will probably not do what was
+meant, such as an exclusive gateway with no default flow (`A-05`), or a message awaited in the middle of the flow
+with no correlation key (`A-03`). The condition of a sequence flow is read with the same grammar the engine will
+evaluate it with, so a condition that would not compile is reported before anyone runs the process.
+
+**Before deleting.** `?sinElemento=TYPE:id`, for example `GATEWAY:5`, answers the diagram that would be left after
+deleting that element, with the same cascade the deletion has: a pool takes its lanes, a lane its nodes, and a node
+its sequence flows. `A-06` lists what would go along with it, and the rest of the findings say what would break.
+
+```bash
+curl "http://localhost:8080/api/v1/procesos/1/diagnostico?sinElemento=GATEWAY:5" -H "Authorization: Bearer $TOKEN"
+```
 
 ### AI review
 
@@ -619,20 +675,20 @@ a process role is in use, `gestion` asks the `UsoDeRoles` port, which `modelado`
 ./mvnw verify
 ```
 
-The build runs 544 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 630 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
 | Architecture (ArchUnit) | 32 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 127 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 112 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along, and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
-| Repository slices (`@DataJpaTest`) | 29 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table, and the message with its anchors, its answer and its fields stored as JSON |
-| Security and isolation (`@SpringBootTest`) | 171 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 29 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 42 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
+| Controller slices (`@WebMvcTest`) | 132 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 187 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
+| Repository slices (`@DataJpaTest`) | 32 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, and the message with its anchors, its answer and its fields stored as JSON |
+| Security and isolation (`@SpringBootTest`) | 172 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 30 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
+| Module integration (`@SpringBootTest`) | 43 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 96 % of lines and 79 % of branches. The build fails below 85 % of lines or 70 % of
+Current coverage: 96 % of lines and 84 % of branches. The build fails below 85 % of lines or 70 % of
 branches overall, and below 90 % and 80 % in the service packages, where the business rules live. The gate
 leaves out DTOs and Spring configuration: they are records and wiring, and counting them only inflates the number.
 
@@ -727,6 +783,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] Aggregate endpoint that returns a complete BPMN diagram for the back-office web app
 
 **Beyond the model**
+- [x] Deterministic diagnosis of a diagram, with its own catalogue of errors and warnings and a what-if for a deletion
 - [x] AI review of a diagram, with the answer validated against a schema and limited per store
 - [ ] Review of a change instead of the whole diagram, so the model only reads what moved
 
