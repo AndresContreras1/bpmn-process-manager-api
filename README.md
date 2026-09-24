@@ -802,7 +802,7 @@ The build runs 739 tests and a JaCoCo coverage gate. The HTML report is written 
 | Module integration (`@SpringBootTest`) | 68 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 96 % of lines and 84 % of branches. The build fails below 85 % of lines or 70 % of
+Current coverage: 96 % of lines and 85 % of branches. The build fails below 85 % of lines or 70 % of
 branches overall, and below 90 % and 80 % in the service packages, where the business rules live. The gate
 leaves out DTOs and Spring configuration: they are records and wiring, and counting them only inflates the number.
 
