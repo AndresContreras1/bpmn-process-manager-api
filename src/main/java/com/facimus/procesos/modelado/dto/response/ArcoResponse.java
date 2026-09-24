@@ -9,6 +9,9 @@ public record ArcoResponse(
         @Schema(example = "20") Long id,
         @Schema(example = "Approved") String etiqueta,
         @Schema(example = "payment.status == APPROVED") String condicion,
+        @Schema(description = "The flow the gateway takes when no condition holds", example = "false")
+        boolean porDefecto,
+        @Schema(description = "Order in which the gateway evaluates its outgoing flows", example = "0") int orden,
         @Schema(example = "12") Long origenId,
         @Schema(example = "10") Long destinoId,
         @Schema(description = "Pool that contains both nodes", example = "1") Long poolId,

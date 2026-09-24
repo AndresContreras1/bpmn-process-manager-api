@@ -174,7 +174,7 @@ class BajaLogicaIntegracionTest {
                                 300, 100).id(),
                         actividadService.crear(empresaId, adminId, laneId, "Print label", null, TipoActividad.USUARIO,
                                 400, 100).id(), null,
-                                null)
+                                null, false, 0)
                         .id()),
                 elemento("mensaje", "mensajes", "/api/v1/mensajes/{id}", () -> mensajeService.crear(empresaId, adminId,
                         procesoId, DatosDeMensaje.basico("Invoice", "Order total", tiendaId,
@@ -226,7 +226,7 @@ class BajaLogicaIntegracionTest {
                 TipoActividad.USUARIO, 100, 100).id();
         Long revisar = gatewayService.crear(empresaId, adminId, mostrador, "Damaged?", TipoGateway.PARALELO, 200,
                 100).id();
-        Long arco = arcoService.crear(empresaId, adminId, recibir, revisar, null, null).id();
+        Long arco = arcoService.crear(empresaId, adminId, recibir, revisar, null, null, false, 0).id();
         Long cerrado = eventoService.crear(empresaId, adminId, mostrador, "Return closed", TipoEvento.FIN,
                 300, 100).id();
         Long solicitud = mensajeService.crear(empresaId, adminId, devoluciones, DatosDeMensaje.basico("Return request",

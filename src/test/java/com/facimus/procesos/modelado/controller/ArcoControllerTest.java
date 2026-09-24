@@ -37,7 +37,8 @@ class ArcoControllerTest {
     @DisplayName("POST /api/v1/arcos - crear arco (201)")
     void crear_arco() throws Exception {
         ArcoResponse arco = crearArco(1L);
-        given(arcoService.crear(eq(1L), eq(1L), anyLong(), anyLong(), anyString(), anyString())).willReturn(arco);
+        given(arcoService.crear(eq(1L), eq(1L), anyLong(), anyLong(), anyString(), anyString(), anyBoolean(),
+                anyInt())).willReturn(arco);
 
         mockMvc.perform(post("/api/v1/arcos")
                         .with(principal(RolAcceso.EDITOR))
@@ -113,8 +114,10 @@ class ArcoControllerTest {
     @Test
     @DisplayName("PUT /api/v1/arcos/{id} - editar arco (200)")
     void editar_arco() throws Exception {
-        ArcoResponse arco = new ArcoResponse(1L, "no", "aprobado", 10L, 20L, 5L, 0L, null, null, null, null);
-        given(arcoService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyString(), eq(3L))).willReturn(arco);
+        ArcoResponse arco = new ArcoResponse(1L, "no", "aprobado", false, 0, 10L, 20L, 5L, 0L, null, null, null,
+                null);
+        given(arcoService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyString(), anyBoolean(), anyInt(),
+                eq(3L))).willReturn(arco);
 
         mockMvc.perform(put("/api/v1/arcos/1")
                         .with(principal(RolAcceso.EDITOR))
@@ -135,7 +138,7 @@ class ArcoControllerTest {
     }
 
     private ArcoResponse crearArco(Long id) {
-        return new ArcoResponse(id, "si", "aprobado", 10L, 20L, 5L, 0L, null, null, null, null);
+        return new ArcoResponse(id, "si", "aprobado", false, 0, 10L, 20L, 5L, 0L, null, null, null, null);
     }
 
 }

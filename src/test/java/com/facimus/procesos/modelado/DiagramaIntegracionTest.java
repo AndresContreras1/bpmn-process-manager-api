@@ -118,10 +118,10 @@ class DiagramaIntegracionTest {
                 TipoActividad.USUARIO, 420, 200).id();
         Long pedidoEnviado = eventoService.crear(empresaId, adminId, bodega, "Order shipped", TipoEvento.FIN,
                 580, 200).id();
-        arcoService.crear(empresaId, adminId, pedidoRecibido, recibir, null, null);
-        arcoService.crear(empresaId, adminId, recibir, pagado, null, null);
-        arcoService.crear(empresaId, adminId, pagado, empacar, "Approved", "payment.status == APPROVED");
-        arcoService.crear(empresaId, adminId, empacar, pedidoEnviado, null, null);
+        arcoService.crear(empresaId, adminId, pedidoRecibido, recibir, null, null, false, 0);
+        arcoService.crear(empresaId, adminId, recibir, pagado, null, null, false, 0);
+        arcoService.crear(empresaId, adminId, pagado, empacar, "Approved", "payment.status == APPROVED", false, 0);
+        arcoService.crear(empresaId, adminId, empacar, pedidoEnviado, null, null, false, 0);
         Long pedido = mensajeService.crear(empresaId, adminId, procesoId, DatosDeMensaje.basico("Order placed",
                 "Cart items", clienteId,
                 tiendaId))

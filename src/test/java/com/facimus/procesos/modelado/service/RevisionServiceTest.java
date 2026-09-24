@@ -255,7 +255,8 @@ class RevisionServiceTest {
                 0L, null, AHORA, null, AHORA);
         GatewayResponse gateway = new GatewayResponse(31L, "Stock available?", TipoGateway.EXCLUSIVO, 30, 40, 7L,
                 0L, null, AHORA, null, AHORA);
-        ArcoResponse arco = new ArcoResponse(50L, "listo", "stock > 0", 30L, 31L, 5L, 0L, null, AHORA, null, AHORA);
+        ArcoResponse arco = new ArcoResponse(50L, "listo", "stock > 0", false, 0, 30L, 31L, 5L, 0L, null, AHORA,
+                null, AHORA);
         MensajeResponse mensaje = new MensajeResponse(40L, "Shipment requested", "Pedido listo", 5L, 6L,
                 30L, null, TipoDestino.COLA, AccionSiFalla.CONTINUAR, null, false, List.of(), null,
                 "shipment", null, PROCESO, 0L, null, AHORA, null, AHORA);

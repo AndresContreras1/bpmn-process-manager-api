@@ -198,7 +198,7 @@ class AislamientoEmpresasIntegracionTest {
         gatewayB =gatewayService.crear(empresaB, adminB, laneB, "Aprobar compra", TipoGateway.PARALELO, 100, 100).id();
         gatewayCierreB = gatewayService
                 .crear(empresaB, adminB, laneB, "Cerrar compra", TipoGateway.PARALELO, 300, 100).id();
-        arcoB = arcoService.crear(empresaB, adminB, gatewayB, gatewayCierreB, "Continuar", null).id();
+        arcoB = arcoService.crear(empresaB, adminB, gatewayB, gatewayCierreB, "Continuar", null, false, 0).id();
         eventoB = eventoService.crear(empresaB, adminB, laneB, "Compra recibida", TipoEvento.INICIO,
                 20, 300).id();
         mensajeB = mensajeService.crear(empresaB, adminB, procesoB, DatosDeMensaje.basico("Orden de compra", "Pedido",
@@ -293,7 +293,8 @@ class AislamientoEmpresasIntegracionTest {
                         "Evento no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/eventos/{id}", eventoB, null, "Evento no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
-                Arguments.of(HttpMethod.PUT, "/api/v1/arcos/{id}", arcoB, new EditarArcoRequest("Intruso", null, 0L),
+                Arguments.of(HttpMethod.PUT, "/api/v1/arcos/{id}", arcoB,
+                        new EditarArcoRequest("Intruso", null, null, null, 0L),
                         "Arco no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/mensajes", procesoB,
@@ -328,7 +329,8 @@ class AislamientoEmpresasIntegracionTest {
                         "Rol de proceso no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/lanes/{id}", laneA, new EditarLaneRequest("Mixta", rolB, 0L),
                         "Rol de proceso no encontrado"),
-                Arguments.of(HttpMethod.POST, "/api/v1/arcos", null, new ArcoRequest(gatewayA, gatewayB, null, null),
+                Arguments.of(HttpMethod.POST, "/api/v1/arcos", null,
+                        new ArcoRequest(gatewayA, gatewayB, null, null, null, null),
                         "Nodo de destino no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/mensajes", procesoA,
                         mensaje("Mixto", poolA, poolB), "Pool de destino no encontrado"),
