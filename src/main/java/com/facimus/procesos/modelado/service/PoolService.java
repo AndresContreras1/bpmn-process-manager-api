@@ -15,6 +15,9 @@ public interface PoolService {
     PoolResponse editar(Long empresaId, Long usuarioId, Long poolId, String nombre,
             TipoParticipante tipoParticipante, boolean cajaNegra, Integracion integracion, Long version);
 
+    /** R-43: coloca los pools del proceso en el orden de la lista, que tiene que traerlos todos. */
+    List<PoolResponse> reordenar(Long empresaId, Long usuarioId, Long procesoId, List<Long> ids);
+
     void eliminar(Long empresaId, Long usuarioId, Long poolId);
 
     List<PoolResponse> listarPorProceso(Long empresaId, Long procesoId);

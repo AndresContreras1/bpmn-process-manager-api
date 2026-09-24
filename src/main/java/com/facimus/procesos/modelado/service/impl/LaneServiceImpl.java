@@ -1,6 +1,7 @@
 package com.facimus.procesos.modelado.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +69,24 @@ public class LaneServiceImpl implements LaneService {
         historialCambioService.registrar(empresaId, usuarioId, lane.getPool().getProceso(),
                 "Lane \"" + nombre + "\" editada.");
         return laneMapper.toResponse(laneRepository.saveAndFlush(lane));
+    }
+
+    @Override
+    @Transactional
+    public List<LaneResponse> reordenar(Long empresaId, Long usuarioId, Long poolId, List<Long> ids) {
+        Pool pool = poolRepository.findByIdAndEmpresaId(poolId, empresaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Pool no encontrado."));
+        List<Lane> lanes = laneRepository.findAllByPoolIdAndEmpresaIdOrderByOrdenAsc(poolId, empresaId);
+        Map<Long, Lane> porId = ReglasDeOrden.exigirLaListaCompleta(ids, lanes, Lane::getId,
+                "La lista de orden debe contener exactamente las lanes del pool.");
+
+        for (int puesto = 0; puesto < ids.size(); puesto++) {
+            porId.get(ids.get(puesto)).setOrden(puesto);
+        }
+        laneRepository.saveAll(lanes);
+        historialCambioService.registrar(empresaId, usuarioId, pool.getProceso(),
+                "Lanes del pool \"" + pool.getNombre() + "\" reordenadas.");
+        return laneMapper.toResponses(ids.stream().map(porId::get).toList());
     }
 
     @Override

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.modelado.dto.request.EditarLaneRequest;
+import com.facimus.procesos.modelado.dto.request.OrdenRequest;
 import com.facimus.procesos.modelado.dto.request.LaneRequest;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.model.Lane;
@@ -89,6 +90,23 @@ public class LaneController {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(laneService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
                 request.rolProcesoId(), request.version()));
+    }
+
+    @Operation(summary = "Reorder the lanes of a pool",
+            description = "The body carries every lane of the pool, exactly once, in the order they should be "
+                    + "drawn. Sending the whole list is what lets the editor save a drag without the server having "
+                    + "to guess what happened to the rest.")
+    @ApiResponse(responseCode = "200", description = "Lanes of the pool, in their new order")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PutMapping("/pools/{poolId}/lanes/orden")
+    public ResponseEntity<List<LaneResponse>> reordenar(@PathVariable Long poolId,
+            @Validated @RequestBody OrdenRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
+        Long empresaId = principal.empresaId();
+        return ResponseEntity.ok(laneService.reordenar(empresaId, principal.usuarioId(), poolId, request.ids()));
     }
 
     @Operation(summary = "Delete a lane",

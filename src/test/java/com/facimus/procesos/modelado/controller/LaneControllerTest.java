@@ -108,6 +108,36 @@ class LaneControllerTest {
     }
 
     @Test
+    @DisplayName("PUT /api/v1/pools/{poolId}/lanes/orden - reordenar las lanes del pool (200)")
+    void reordenar_lanes() throws Exception {
+        given(laneService.reordenar(eq(1L), eq(1L), eq(5L), eq(List.of(8L, 7L))))
+                .willReturn(List.of(crearLane(8L, "Shipping"), crearLane(7L, "Sales")));
+
+        mockMvc.perform(put("/api/v1/pools/5/lanes/orden")
+                        .with(principal(RolAcceso.EDITOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"ids":[8,7]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(8))
+                .andExpect(jsonPath("$[1].id").value(7));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/pools/{poolId}/lanes/orden - sin lista responde 400")
+    void reordenar_lanesSinLista_devuelve400() throws Exception {
+        mockMvc.perform(put("/api/v1/pools/5/lanes/orden")
+                        .with(principal(RolAcceso.EDITOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"ids":[]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.ids").value("La lista de orden es obligatoria."));
+    }
+
+    @Test
     @DisplayName("DELETE /api/v1/lanes/{id} - eliminar lane (204)")
     void eliminar_lane() throws Exception {
         doNothing().when(laneService).eliminar(1L, 1L, 1L);

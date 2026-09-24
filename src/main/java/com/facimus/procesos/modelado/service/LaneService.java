@@ -11,6 +11,9 @@ public interface LaneService {
 
     LaneResponse editar(Long empresaId, Long usuarioId, Long laneId, String nombre, Long rolProcesoId, Long version);
 
+    /** R-43: coloca las lanes del pool en el orden de la lista, que tiene que traerlas todas. */
+    List<LaneResponse> reordenar(Long empresaId, Long usuarioId, Long poolId, List<Long> ids);
+
     void eliminar(Long empresaId, Long usuarioId, Long laneId);
 
     List<LaneResponse> listarPorPool(Long empresaId, Long poolId);

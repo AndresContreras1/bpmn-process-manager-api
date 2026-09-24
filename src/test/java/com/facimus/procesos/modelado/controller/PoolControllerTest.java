@@ -159,6 +159,23 @@ class PoolControllerTest {
     }
 
     @Test
+    @DisplayName("PUT /api/v1/procesos/{procesoId}/pools/orden - reordenar los participantes (200)")
+    void reordenar_pools() throws Exception {
+        given(poolService.reordenar(eq(1L), eq(1L), eq(10L), eq(List.of(3L, 2L))))
+                .willReturn(List.of(crearPool(3L, "Customer"), crearPool(2L, "Demo Store")));
+
+        mockMvc.perform(put("/api/v1/procesos/10/pools/orden")
+                        .with(principal(RolAcceso.EDITOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"ids":[3,2]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(3))
+                .andExpect(jsonPath("$[1].id").value(2));
+    }
+
+    @Test
     @DisplayName("DELETE /api/v1/pools/{id} - eliminar pool (204)")
     void eliminar_pool() throws Exception {
         doNothing().when(poolService).eliminar(1L, 1L, 1L);

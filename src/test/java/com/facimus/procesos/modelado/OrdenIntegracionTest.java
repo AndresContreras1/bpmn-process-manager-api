@@ -1,6 +1,9 @@
 package com.facimus.procesos.modelado;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -10,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
@@ -92,5 +96,59 @@ class OrdenIntegracionTest {
         assertThat(laneService.listarPorPool(empresaId, poolId))
                 .extracting(LaneResponse::orden)
                 .doesNotHaveDuplicates();
+    }
+
+    @Test
+    @DisplayName("R-43: reordenar las lanes del pool las deja en el orden de la lista")
+    void reordenar_lanesDelPool_lasDejaEnElOrdenPedido() {
+        Long procesoId = procesoService.crear(empresaId, adminId, "Picking", "Pick to ship", "Fulfillment").id();
+        Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
+        Long rolId = rolProcesoService.crear(empresaId, "Picking", null).id();
+        Long ventas = laneService.crear(empresaId, adminId, poolId, "Sales", rolId).id();
+        Long almacen = laneService.crear(empresaId, adminId, poolId, "Warehouse", rolId).id();
+        Long envios = laneService.crear(empresaId, adminId, poolId, "Shipping", rolId).id();
+
+        List<LaneResponse> reordenadas = laneService.reordenar(empresaId, adminId, poolId,
+                List.of(envios, ventas, almacen));
+
+        assertThat(reordenadas).extracting(LaneResponse::id).containsExactly(envios, ventas, almacen);
+        assertThat(reordenadas).extracting(LaneResponse::orden).containsExactly(0, 1, 2);
+        assertThat(laneService.listarPorPool(empresaId, poolId)).extracting(LaneResponse::id)
+                .containsExactly(envios, ventas, almacen);
+    }
+
+    @Test
+    @DisplayName("R-43: una lista que no trae todas las lanes del pool no reordena nada")
+    void reordenar_conLaListaIncompleta_lanzaReglaNegocio() {
+        Long procesoId = procesoService.crear(empresaId, adminId, "Packing", "Pack to ship", "Fulfillment").id();
+        Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
+        Long rolId = rolProcesoService.crear(empresaId, "Packing", null).id();
+        Long primera = laneService.crear(empresaId, adminId, poolId, "Packing", rolId).id();
+        Long segunda = laneService.crear(empresaId, adminId, poolId, "Labelling", rolId).id();
+
+        assertThatThrownBy(() -> laneService.reordenar(empresaId, adminId, poolId, List.of(segunda)))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("La lista de orden debe contener exactamente las lanes del pool.");
+        assertThatThrownBy(() -> laneService.reordenar(empresaId, adminId, poolId, List.of(primera, primera)))
+                .isInstanceOf(ReglaNegocioException.class);
+        assertThat(laneService.listarPorPool(empresaId, poolId)).extracting(LaneResponse::id)
+                .containsExactly(primera, segunda);
+    }
+
+    @Test
+    @DisplayName("R-43: los participantes del proceso se reordenan con la misma regla")
+    void reordenar_poolsDelProceso_losDejaEnElOrdenPedido() {
+        Long procesoId = procesoService.crear(empresaId, adminId, "Shipping", "Ship to deliver", "Logistics").id();
+        Long tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
+        Long cliente = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE, true,
+                Integracion.NINGUNA).id();
+
+        List<PoolResponse> reordenados = poolService.reordenar(empresaId, adminId, procesoId,
+                List.of(cliente, tienda));
+
+        assertThat(reordenados).extracting(PoolResponse::id).containsExactly(cliente, tienda);
+        assertThatThrownBy(() -> poolService.reordenar(empresaId, adminId, procesoId, List.of(tienda)))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("La lista de orden debe contener exactamente los pools del proceso.");
     }
 }
