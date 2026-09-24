@@ -112,7 +112,7 @@ class ProcesosCompartidosIntegracionTest {
         empresaService.registrar("Tienda ajena", NIT_AJENA, "contacto@ajena.com", "Administrador", "admin@ajena.com",
                 CLAVE);
         adminDuenaId = usuarioRepository.findByEmail("admin@duena.com").orElseThrow().getId();
-        usuarioService.crearColaborador(duenaId, "Editora", "editora@duena.com", CLAVE, RolAcceso.EDITOR);
+        usuarioService.crearColaborador(duenaId, null, "Editora", "editora@duena.com", CLAVE, RolAcceso.EDITOR);
 
         tokenDuena = login("admin@duena.com");
         tokenEditoraDuena = login("editora@duena.com");
@@ -269,7 +269,7 @@ class ProcesosCompartidosIntegracionTest {
     /** Lo minimo que el diagnostico da por bueno: una lane, un inicio, un paso y un fin, enlazados. */
     private void modelarUnProcesoPublicable(Long procesoId) {
         Long tienda = poolService.listarPorProceso(duenaId, procesoId).getFirst().id();
-        Long rolId = rolProcesoService.crear(duenaId, "Ventas de " + procesoId, null).id();
+        Long rolId = rolProcesoService.crear(duenaId, adminDuenaId, "Ventas de " + procesoId, null).id();
         Long laneId = laneService.crear(duenaId, adminDuenaId, tienda, "Sales", rolId).id();
         Long inicio = eventoService.crear(duenaId, adminDuenaId, laneId, "Order received", TipoEvento.INICIO,
                 40, 80).id();

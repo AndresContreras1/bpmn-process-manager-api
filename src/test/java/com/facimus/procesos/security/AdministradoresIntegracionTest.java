@@ -85,7 +85,7 @@ class AdministradoresIntegracionTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value(ULTIMO_ADMINISTRADOR));
 
-        usuarioService.crearColaborador(empresaId, "Segunda", "segunda@unico.com", CLAVE, RolAcceso.ADMINISTRADOR);
+        usuarioService.crearColaborador(empresaId, null, "Segunda", "segunda@unico.com", CLAVE, RolAcceso.ADMINISTRADOR);
         pedir(patch("/api/v1/usuarios/{id}", adminId), token, Map.of("rolAcceso", "EDITOR", "version", 0))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rolAcceso").value("EDITOR"));
@@ -96,7 +96,7 @@ class AdministradoresIntegracionTest {
     void nadieDesactivaSuPropiaCuenta() throws Exception {
         Long empresaId = registrarTienda("propia", "900161617-2");
         Long adminId = idDe("admin@propia.com");
-        Long otroId = usuarioService.crearColaborador(empresaId, "Otro", "otro@propia.com", CLAVE,
+        Long otroId = usuarioService.crearColaborador(empresaId, null, "Otro", "otro@propia.com", CLAVE,
                 RolAcceso.ADMINISTRADOR).id();
         String token = iniciarSesion("admin@propia.com");
 
@@ -115,7 +115,7 @@ class AdministradoresIntegracionTest {
     void dosAdministradoresALaVez_laTiendaConservaUno() throws Exception {
         Long empresaId = registrarTienda("concurrente", "900161618-3");
         Long ana = idDe("admin@concurrente.com");
-        Long beto = usuarioService.crearColaborador(empresaId, "Beto", "beto@concurrente.com", CLAVE,
+        Long beto = usuarioService.crearColaborador(empresaId, null, "Beto", "beto@concurrente.com", CLAVE,
                 RolAcceso.ADMINISTRADOR).id();
         TransactionTemplate transaccion = new TransactionTemplate(transactionManager);
         CountDownLatch betoCambiado = new CountDownLatch(1);

@@ -50,6 +50,9 @@ class UsuarioServiceTest {
     @Spy
     private UsuarioMapper usuarioMapper = Mappers.getMapper(UsuarioMapper.class);
 
+    @Mock
+    private HistorialCambioService historialCambioService;
+
     @InjectMocks
     private UsuarioServiceImpl usuarioService;
 
@@ -80,7 +83,7 @@ class UsuarioServiceTest {
         when(passwordEncoder.encode("pass")).thenReturn("hashed");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        UsuarioResponse result = usuarioService.crearColaborador(1L, "Nuevo", "nuevo@acme.com", "pass",
+        UsuarioResponse result = usuarioService.crearColaborador(1L, 9L, "Nuevo", "nuevo@acme.com", "pass",
                 RolAcceso.SOLO_LECTURA);
 
         assertEquals("Nuevo", result.nombre());
@@ -96,7 +99,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.existsByEmail("juan@acme.com")).thenReturn(true);
 
         ReglaNegocioException ex = assertThrows(ReglaNegocioException.class,
-                () -> usuarioService.crearColaborador(1L, "Juan", "juan@acme.com", "pass",
+                () -> usuarioService.crearColaborador(1L, 9L, "Juan", "juan@acme.com", "pass",
                         RolAcceso.EDITOR));
 
         assertTrue(ex.getMessage().contains("juan@acme.com"));
@@ -111,7 +114,7 @@ class UsuarioServiceTest {
         when(passwordEncoder.encode("pass")).thenReturn("hashed");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        UsuarioResponse result = usuarioService.crearColaborador(1L, "Nuevo", "  Nuevo@ACME.com ", "pass",
+        UsuarioResponse result = usuarioService.crearColaborador(1L, 9L, "Nuevo", "  Nuevo@ACME.com ", "pass",
                 RolAcceso.EDITOR);
 
         assertEquals("nuevo@acme.com", result.email());

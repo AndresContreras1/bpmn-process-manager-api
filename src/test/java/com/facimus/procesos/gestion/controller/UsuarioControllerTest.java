@@ -86,7 +86,7 @@ class UsuarioControllerTest {
     @DisplayName("POST /api/v1/usuarios - crear colaborador como admin (201)")
     void crear_colaborador() throws Exception {
         UsuarioResponse u = crearUsuario(2L, "Pedro", "pedro@acme.com", RolAcceso.EDITOR);
-        given(usuarioService.crearColaborador(eq(1L), anyString(), anyString(), anyString(), any()))
+        given(usuarioService.crearColaborador(eq(1L), eq(1L), anyString(), anyString(), anyString(), any()))
                 .willReturn(u);
 
         mockMvc.perform(post("/api/v1/usuarios")
@@ -124,7 +124,7 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("POST /api/v1/usuarios - si la base rechaza el correo duplicado responde 409 sin detalles de SQL")
     void crear_restriccionDeLaBase_devuelve409() throws Exception {
-        given(usuarioService.crearColaborador(eq(1L), anyString(), anyString(), anyString(), any()))
+        given(usuarioService.crearColaborador(eq(1L), eq(1L), anyString(), anyString(), anyString(), any()))
                 .willThrow(new DataIntegrityViolationException("Unique index violation: UK_USUARIOS_EMAIL"));
 
         mockMvc.perform(post("/api/v1/usuarios")

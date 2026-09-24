@@ -108,7 +108,7 @@ class RolProcesoControllerTest {
     @DisplayName("POST /api/v1/roles - crear rol como admin (201)")
     void crear_rol() throws Exception {
         RolProcesoVistaResponse rol = crearRol(2L, "Supervisor", "Supervisa", 0);
-        given(rolProcesoService.crear(eq(1L), anyString(), anyString())).willReturn(rol);
+        given(rolProcesoService.crear(eq(1L), eq(1L), anyString(), anyString())).willReturn(rol);
 
         mockMvc.perform(post("/api/v1/roles")
                         .with(principal(RolAcceso.ADMINISTRADOR))
@@ -137,7 +137,7 @@ class RolProcesoControllerTest {
     @DisplayName("PUT /api/v1/roles/{id} - editar rol (200)")
     void editar_rol() throws Exception {
         RolProcesoVistaResponse rol = crearRol(1L, "Analista Sr", "Senior", 0);
-        given(rolProcesoService.editar(eq(1L), eq(1L), anyString(), anyString(), eq(3L))).willReturn(rol);
+        given(rolProcesoService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyString(), eq(3L))).willReturn(rol);
 
         mockMvc.perform(put("/api/v1/roles/1")
                         .with(principal(RolAcceso.ADMINISTRADOR))
@@ -152,7 +152,7 @@ class RolProcesoControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/roles/{id} - eliminar rol (204)")
     void eliminar_rol() throws Exception {
-        doNothing().when(rolProcesoService).eliminar(1L, 1L);
+        doNothing().when(rolProcesoService).eliminar(1L, 1L, 1L);
 
         mockMvc.perform(delete("/api/v1/roles/1").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isNoContent());

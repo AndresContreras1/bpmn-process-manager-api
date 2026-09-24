@@ -9,10 +9,13 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 import com.facimus.procesos.gestion.mapper.EmpresaMapper;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,7 @@ public class EmpresaServiceImpl implements EmpresaService {
 
     private final EmpresaRepository empresaRepository;
     private final UsuarioService usuarioService;
+    private final HistorialCambioService historialCambioService;
     private final EmpresaMapper empresaMapper;
 
     @Override
@@ -43,8 +47,11 @@ public class EmpresaServiceImpl implements EmpresaService {
                 .fechaRegistro(LocalDate.now())
                 .build());
 
-        usuarioService.crearColaborador(empresa.getId(), nombreAdmin, emailAdmin, passwordAdmin,
-                RolAcceso.ADMINISTRADOR);
+        // Sin autor: el primer administrador todavia no existe, y al crearse firma su propia alta.
+        UsuarioResponse administrador = usuarioService.crearColaborador(empresa.getId(), null, nombreAdmin,
+                emailAdmin, passwordAdmin, RolAcceso.ADMINISTRADOR);
+        historialCambioService.registrarDeTienda(empresa.getId(), administrador.id(), RecursoDeHistorial.EMPRESA,
+                empresa.getId(), "Tienda \"" + nombre + "\" registrada.");
         return empresaMapper.toResponse(empresa);
     }
 

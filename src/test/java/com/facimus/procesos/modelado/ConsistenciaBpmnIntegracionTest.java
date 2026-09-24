@@ -110,7 +110,7 @@ class ConsistenciaBpmnIntegracionTest {
         clienteId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE, true,
                 Integracion.NINGUNA).id();
         laneId = laneService.crear(empresaId, adminId, tiendaId, "Warehouse",
-                rolProcesoService.crear(empresaId, "Warehouse", null).id()).id();
+                rolProcesoService.crear(empresaId, adminId, "Warehouse", null).id()).id();
         String login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, CLAVE))))
@@ -267,7 +267,7 @@ class ConsistenciaBpmnIntegracionTest {
     @Test
     @DisplayName("R-41: un nodo se arrastra a otra lane, y con arcos no se sale de su pool")
     void nodo_seMueveDeLaneYNoCruzaDePoolConArcos() throws Exception {
-        Long rolId = rolProcesoService.crear(empresaId, "Dispatch", null).id();
+        Long rolId = rolProcesoService.crear(empresaId, adminId, "Dispatch", null).id();
         Long otraLane = laneService.crear(empresaId, adminId, tiendaId, "Shipping", rolId).id();
         Long externo = poolService.crear(empresaId, adminId, procesoId, "Courier", TipoParticipante.PROVEEDOR,
                 false, Integracion.TRANSPORTE).id();

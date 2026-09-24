@@ -69,7 +69,7 @@ class AuditoriaIntegracionTest {
         Long empresaId = empresaService.registrar("Tienda de auditoria", "900444555-6", "contacto@auditoria.com",
                 "Administradora", ADMIN, CLAVE).id();
         adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
-        editoraId = usuarioService.crearColaborador(empresaId, "Editora", EDITORA, CLAVE, RolAcceso.EDITOR).id();
+        editoraId = usuarioService.crearColaborador(empresaId, null, "Editora", EDITORA, CLAVE, RolAcceso.EDITOR).id();
         tokenAdmin = login(ADMIN);
         tokenEditora = login(EDITORA);
     }

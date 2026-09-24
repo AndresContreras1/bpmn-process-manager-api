@@ -56,7 +56,7 @@ class UsoDeRolesIntegracionTest {
     @Test
     @DisplayName("Un rol con dos lanes en el mismo proceso lo usa un proceso, no dos")
     void rolEnDosLanesDeUnProceso_cuentaUnProceso() {
-        Long rolId = rolProcesoService.crear(empresaId, "Warehouse", "Picks and packs").id();
+        Long rolId = rolProcesoService.crear(empresaId, adminId, "Warehouse", "Picks and packs").id();
         Long procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
@@ -72,7 +72,7 @@ class UsoDeRolesIntegracionTest {
     @Test
     @DisplayName("Si el unico proceso que usaba el rol se elimina, el rol queda libre y se puede eliminar")
     void procesoEliminado_liberaElRol() {
-        Long rolId = rolProcesoService.crear(empresaId, "Returns desk", "Receives returned items").id();
+        Long rolId = rolProcesoService.crear(empresaId, adminId, "Returns desk", "Receives returned items").id();
         Long procesoId = procesoService.crear(empresaId, adminId, "Returns", "Return request to refund",
                 "After-sales").id();
         Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
@@ -81,6 +81,6 @@ class UsoDeRolesIntegracionTest {
         procesoService.eliminarLogico(empresaId, procesoId, adminId);
 
         assertThat(rolProcesoService.obtener(empresaId, rolId).enUso()).isFalse();
-        assertThatCode(() -> rolProcesoService.eliminar(empresaId, rolId)).doesNotThrowAnyException();
+        assertThatCode(() -> rolProcesoService.eliminar(empresaId, adminId, rolId)).doesNotThrowAnyException();
     }
 }

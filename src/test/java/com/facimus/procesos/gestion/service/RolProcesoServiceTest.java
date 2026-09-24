@@ -41,6 +41,9 @@ class RolProcesoServiceTest {
     @Spy
     private RolProcesoMapper rolProcesoMapper = Mappers.getMapper(RolProcesoMapper.class);
 
+    @Mock
+    private HistorialCambioService historialCambioService;
+
     @InjectMocks
     private RolProcesoServiceImpl rolProcesoService;
 
@@ -66,7 +69,7 @@ class RolProcesoServiceTest {
         when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
         when(rolProcesoRepository.save(any(RolProceso.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        RolProcesoVistaResponse result = rolProcesoService.crear(1L, "Auditor", "Revisa procesos");
+        RolProcesoVistaResponse result = rolProcesoService.crear(1L, 10L, "Auditor", "Revisa procesos");
 
         assertEquals("Auditor", result.nombre());
         assertFalse(result.enUso());
@@ -79,7 +82,7 @@ class RolProcesoServiceTest {
         when(usoDeRoles.procesosQueLoUsan(1L, 5L)).thenReturn(List.of("Compras"));
 
         assertThrows(ReglaNegocioException.class,
-                () -> rolProcesoService.eliminar(1L, 5L));
+                () -> rolProcesoService.eliminar(1L, 10L, 5L));
 
         verify(rolProcesoRepository, never()).delete(any());
     }
@@ -91,7 +94,7 @@ class RolProcesoServiceTest {
         when(usoDeRoles.procesosQueLoUsan(1L, 5L)).thenReturn(Collections.emptyList());
         when(rolProcesoRepository.save(any(RolProceso.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        rolProcesoService.eliminar(1L, 5L);
+        rolProcesoService.eliminar(1L, 10L, 5L);
 
         assertFalse(rol.isActivo());
         verify(rolProcesoRepository).save(rol);

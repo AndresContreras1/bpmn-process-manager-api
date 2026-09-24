@@ -124,7 +124,7 @@ class BajaLogicaIntegracionTest {
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         tiendaId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        rolId = rolProcesoService.crear(empresaId, "Warehouse", null).id();
+        rolId = rolProcesoService.crear(empresaId, adminId, "Warehouse", null).id();
         laneId = laneService.crear(empresaId, adminId, tiendaId, "Warehouse", rolId).id();
         String login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -275,8 +275,8 @@ class BajaLogicaIntegracionTest {
     @Test
     @DisplayName("Una lane no acepta un rol de proceso eliminado")
     void lane_conRolEliminado_devuelve404() throws Exception {
-        Long temporada = rolProcesoService.crear(empresaId, "Seasonal staff", null).id();
-        rolProcesoService.eliminar(empresaId, temporada);
+        Long temporada = rolProcesoService.crear(empresaId, adminId, "Seasonal staff", null).id();
+        rolProcesoService.eliminar(empresaId, adminId, temporada);
 
         pedir(post("/api/v1/pools/{id}/lanes", tiendaId), Map.of("nombre", "Holiday rush", "rolProcesoId", temporada))
                 .andExpect(status().isNotFound())

@@ -13,6 +13,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 
@@ -30,6 +31,9 @@ class EmpresaControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private HistorialCambioService historialCambioService;
 
     @MockitoBean
     private EmpresaService empresaService;

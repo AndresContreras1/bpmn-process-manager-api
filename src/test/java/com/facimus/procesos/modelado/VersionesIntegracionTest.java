@@ -132,12 +132,12 @@ class VersionesIntegracionTest {
         empresaId = empresaService.registrar("Tienda de versiones", "900888999-0", "contacto@versiones.com",
                 "Administradora", ADMIN, CLAVE).id();
         adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
-        colaboradorId = usuarioService.crearColaborador(empresaId, "Editora", "editora@versiones.com", CLAVE,
+        colaboradorId = usuarioService.crearColaborador(empresaId, null, "Editora", "editora@versiones.com", CLAVE,
                 RolAcceso.EDITOR).id();
 
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
-        rolId = rolProcesoService.crear(empresaId, "Warehouse", "Picks and packs").id();
+        rolId = rolProcesoService.crear(empresaId, adminId, "Warehouse", "Picks and packs").id();
         Long tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
         poolId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE, true,
                 Integracion.NINGUNA).id();

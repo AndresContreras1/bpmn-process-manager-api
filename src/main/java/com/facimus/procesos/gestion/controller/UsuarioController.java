@@ -77,8 +77,8 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponse> crear(@Validated @RequestBody CrearUsuarioRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        UsuarioResponse usuario = usuarioService.crearColaborador(empresaId, request.nombre(), request.email(),
-                request.password(), request.rolAcceso());
+        UsuarioResponse usuario = usuarioService.crearColaborador(empresaId, principal.usuarioId(),
+                request.nombre(), request.email(), request.password(), request.rolAcceso());
         return ResponseEntity.created(URI.create("/api/v1/usuarios/" + usuario.id())).body(usuario);
     }
 

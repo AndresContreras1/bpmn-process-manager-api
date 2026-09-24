@@ -79,6 +79,8 @@ public class SecurityConfig {
                         // gateways (HU-16) y eventos (HU-04).
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
+                        // El gobierno de la tienda es del administrador: su historial y su configuracion.
+                        .requestMatchers("/api/v1/empresas/actual/historial").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").authenticated()
                         .requestMatchers("/api/v1/roles/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/compartidos").hasAuthority(ADMINISTRADOR)

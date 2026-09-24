@@ -469,6 +469,6 @@ class SeguridadIntegracionTest {
     }
 
     private UsuarioResponse crearColaborador(String email, String password, RolAcceso rol) {
-        return usuarioService.crearColaborador(empresaId, "Colaborador de prueba", email, password, rol);
+        return usuarioService.crearColaborador(empresaId, null, "Colaborador de prueba", email, password, rol);
     }
 }

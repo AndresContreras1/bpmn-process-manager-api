@@ -15,10 +15,12 @@ import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
@@ -34,11 +36,12 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final UsuarioMapper usuarioMapper;
     private final SesionService sesionService;
+    private final HistorialCambioService historialCambioService;
 
     @Override
     @Transactional
-    public UsuarioResponse crearColaborador(Long empresaId, String nombre, String email, String password,
-            RolAcceso rolAcceso) {
+    public UsuarioResponse crearColaborador(Long empresaId, Long autorId, String nombre, String email,
+            String password, RolAcceso rolAcceso) {
         Empresa empresa = empresaRepository.findById(empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Empresa no encontrada."));
         String correo = normalizarCorreo(email);
@@ -51,6 +54,10 @@ public class UsuarioServiceImpl implements UsuarioService {
                 .passwordHash(passwordEncoder.encode(password))
                 .rolAcceso(rolAcceso)
                 .build());
+        // En el registro de la tienda no hay nadie mas: el primer administrador firma su propia alta.
+        historialCambioService.registrarDeTienda(empresaId, autorId == null ? usuario.getId() : autorId,
+                RecursoDeHistorial.USUARIO, usuario.getId(),
+                "Usuario \"" + nombre + "\" creado con rol " + rolAcceso + ".");
         return usuarioMapper.toResponse(usuario);
     }
 
@@ -82,6 +89,8 @@ public class UsuarioServiceImpl implements UsuarioService {
             usuario.setActivo(activo);
         }
         UsuarioResponse actualizado = usuarioMapper.toResponse(usuarioRepository.saveAndFlush(usuario));
+        historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
+                queLePaso(usuario, cambiaElRol, desactiva));
         if (cambiaElRol || !usuario.isActivo()) {
             // Los tokens ya emitidos llevan el rol y el estado de antes: el usuario vuelve a entrar con los nuevos.
             sesionService.cerrarTodas(empresaId, usuarioId);
@@ -97,7 +106,21 @@ public class UsuarioServiceImpl implements UsuarioService {
         conservarUnAdministrador(empresaId, usuario);
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
+        historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
+                "Usuario \"" + usuario.getNombre() + "\" desactivado.");
         sesionService.cerrarTodas(empresaId, usuarioId);
+    }
+
+    /** Lo que se anota en el historial: el rol nuevo, la baja, o las dos cosas si el cambio trae las dos. */
+    private static String queLePaso(Usuario usuario, boolean cambiaElRol, boolean desactiva) {
+        String quien = "Usuario \"" + usuario.getNombre() + "\" ";
+        if (cambiaElRol && desactiva) {
+            return quien + "desactivado y con rol " + usuario.getRolAcceso() + ".";
+        }
+        if (cambiaElRol) {
+            return quien + "con rol " + usuario.getRolAcceso() + ".";
+        }
+        return desactiva ? quien + "desactivado." : quien + "reactivado.";
     }
 
     @Override

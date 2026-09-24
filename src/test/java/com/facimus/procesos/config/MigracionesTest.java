@@ -84,7 +84,8 @@ class MigracionesTest {
                         "V9__eventos_y_tipos_de_actividad.sql",
                         "V10__mensajes_anclados_y_correlacion_por_campo.sql",
                         "V11__salida_por_defecto_y_orden_de_los_arcos.sql",
-                        "V12__versiones_publicadas_del_proceso.sql", "V13__definicion_de_la_version.sql");
+                        "V12__versiones_publicadas_del_proceso.sql", "V13__definicion_de_la_version.sql",
+                        "V14__gobierno_de_la_tienda.sql");
     }
 
     @Test

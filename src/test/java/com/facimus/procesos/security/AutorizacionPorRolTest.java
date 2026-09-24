@@ -65,8 +65,8 @@ class AutorizacionPorRolTest {
     void iniciarSesionConCadaRol() throws Exception {
         Long empresaId = empresaService.registrar("Tienda Autorizacion", "900111222-3", "contacto@autorizacion.com",
                 "Administrador", ADMIN, CLAVE).id();
-        usuarioService.crearColaborador(empresaId, "Editor", EDITOR, CLAVE, RolAcceso.EDITOR);
-        usuarioService.crearColaborador(empresaId, "Lector", LECTOR, CLAVE, RolAcceso.SOLO_LECTURA);
+        usuarioService.crearColaborador(empresaId, null, "Editor", EDITOR, CLAVE, RolAcceso.EDITOR);
+        usuarioService.crearColaborador(empresaId, null, "Lector", LECTOR, CLAVE, RolAcceso.SOLO_LECTURA);
 
         for (RolAcceso rol : RolAcceso.values()) {
             tokens.put(rol, login(correos.get(rol), CLAVE));
@@ -84,6 +84,9 @@ class AutorizacionPorRolTest {
             EDITOR        | GET    | /api/v1/procesos?incluirInactivos=true | 400
             ADMINISTRADOR | GET    | /api/v1/procesos?incluirInactivos=true | 200
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual        | 200
+            ADMINISTRADOR | GET    | /api/v1/empresas/actual/historial | 200
+            EDITOR        | GET    | /api/v1/empresas/actual/historial | 403
+            SOLO_LECTURA  | GET    | /api/v1/empresas/actual/historial | 403
             SOLO_LECTURA  | GET    | /api/v1/empresas/{id}          | 404
 
             # Usuarios: solo el administrador (HU-02)

@@ -173,7 +173,7 @@ class AislamientoEmpresasIntegracionTest {
         Long adminA = usuarioRepository.findByEmail(ADMIN_A).orElseThrow().getId();
         procesoA = procesoService.crear(empresaA, adminA, "Ventas", "Proceso de ventas", "Comercial").id();
         poolA = poolService.listarPorProceso(empresaA, procesoA).getFirst().id();
-        rolA = rolProcesoService.crear(empresaA, "Vendedor", "Atiende a los clientes").id();
+        rolA = rolProcesoService.crear(empresaA, adminA, "Vendedor", "Atiende a los clientes").id();
         laneA = laneService.crear(empresaA, adminA, poolA, "Ventas", rolA).id();
         gatewayA = gatewayService.crear(empresaA, adminA, laneA, "Revisar venta", TipoGateway.PARALELO, 100, 100).id();
         poolClienteA = poolService.crear(empresaA, adminA, procesoA, "Cliente", TipoParticipante.CLIENTE,
@@ -181,7 +181,7 @@ class AislamientoEmpresasIntegracionTest {
         // Quien ataca tiene un usuarioId distinto del empresaId de su empresa: si un controller
         // confundiera los dos ids, estas pruebas lo notarian.
         Long auditorA = usuarioService
-                .crearColaborador(empresaA, "Auditor A", AUDITOR_A, CLAVE, RolAcceso.ADMINISTRADOR).id();
+                .crearColaborador(empresaA, null, "Auditor A", AUDITOR_A, CLAVE, RolAcceso.ADMINISTRADOR).id();
         assertThat(auditorA).isNotEqualTo(empresaA);
 
         empresaB = empresaService
@@ -191,7 +191,7 @@ class AislamientoEmpresasIntegracionTest {
         poolB = poolService.listarPorProceso(empresaB, procesoB).getFirst().id();
         Long poolProveedorB = poolService.crear(empresaB, adminB, procesoB, "Proveedor",
                 TipoParticipante.PROVEEDOR, true, Integracion.NINGUNA).id();
-        rolB = rolProcesoService.crear(empresaB, "Comprador", "Gestiona las compras").id();
+        rolB = rolProcesoService.crear(empresaB, adminB, "Comprador", "Gestiona las compras").id();
         laneB = laneService.crear(empresaB, adminB, poolB, "Compras", rolB).id();
         actividadB = actividadService.crear(empresaB, adminB, laneB, "Solicitar cotizacion", "Pide precios",
                 TipoActividad.USUARIO, 100,

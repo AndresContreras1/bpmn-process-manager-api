@@ -100,9 +100,9 @@ public class DatosDemoInitializer implements CommandLineRunner {
                 TipoParticipante.PROVEEDOR, true, Integracion.TRANSPORTE);
 
         Long ventas = laneService.crear(empresaId, adminId, tienda.id(), "Sales", rolProcesoService
-                .crear(empresaId, "Sales", "Receives orders and coordinates the payment.").id()).id();
+                .crear(empresaId, adminId, "Sales", "Receives orders and coordinates the payment.").id()).id();
         Long bodega = laneService.crear(empresaId, adminId, tienda.id(), "Warehouse", rolProcesoService
-                .crear(empresaId, "Warehouse", "Picks, packs and ships the orders.").id()).id();
+                .crear(empresaId, adminId, "Warehouse", "Picks, packs and ships the orders.").id()).id();
 
         // El pedido entra por un evento de mensaje y cada camino termina en un evento de fin.
         Long pedidoRecibido = eventoService.crear(empresaId, adminId, ventas, "Order received",

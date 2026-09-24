@@ -130,7 +130,7 @@ class CargaPerezosaTest {
         empresaId = empresaService.registrar("Tienda de consultas", "900666777-8", "contacto@consultas.com",
                 "Administrador", "admin@consultas.com", "clave12345").id();
         adminId = usuarioRepository.findByEmail("admin@consultas.com").orElseThrow().getId();
-        Long editorId = usuarioService.crearColaborador(empresaId, "Editora", "editora@consultas.com", "clave12345",
+        Long editorId = usuarioService.crearColaborador(empresaId, null, "Editora", "editora@consultas.com", "clave12345",
                 RolAcceso.EDITOR).id();
 
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
@@ -139,7 +139,7 @@ class CargaPerezosaTest {
                 "Fulfillment", 0L);
         poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
         for (String rol : new String[] {"Sales", "Warehouse", "Shipping"}) {
-            laneService.crear(empresaId, adminId, poolId, rol, rolProcesoService.crear(empresaId, rol, null).id());
+            laneService.crear(empresaId, adminId, poolId, rol, rolProcesoService.crear(empresaId, adminId, rol, null).id());
         }
     }
 
@@ -207,7 +207,7 @@ class CargaPerezosaTest {
     @Test
     @DisplayName("El filtro JWT autentica sin consultar la base: una peticion que la autorizacion rechaza no corre SQL")
     void filtroJwt_autenticaSinConsultarLaBase() throws Exception {
-        UsuarioResponse lectora = usuarioService.crearColaborador(empresaId, "Lectora", "lectora@consultas.com",
+        UsuarioResponse lectora = usuarioService.crearColaborador(empresaId, null, "Lectora", "lectora@consultas.com",
                 "clave12345", RolAcceso.SOLO_LECTURA);
         String token = jwtService.generarToken(
                 ApiPrincipal.of(lectora, sesionService.iniciar(empresaId, lectora.id()).sesion()));
@@ -243,7 +243,7 @@ class CargaPerezosaTest {
         Long tienda = poolService.listarPorProceso(empresaId, devoluciones).getFirst().id();
         Long cliente = poolService.crear(empresaId, adminId, devoluciones, "Customer", TipoParticipante.CLIENTE,
                 true,Integracion.NINGUNA).id();
-        Long rol = rolProcesoService.crear(empresaId, "After-sales", null).id();
+        Long rol = rolProcesoService.crear(empresaId, adminId, "After-sales", null).id();
         agregarUnaLaneConSuFlujo(devoluciones, tienda, cliente, rol, "Customer service");
 
         estadisticas.clear();

@@ -67,7 +67,7 @@ class CredencialesFueraDeLasRespuestasTest {
     void registrarTiendaYEntrar() throws Exception {
         Long empresaId = empresaService.registrar("Tienda Credenciales", "900242526-7",
                 "contacto@credenciales.com", "Administradora", ADMIN, CLAVE).id();
-        colaboradorId = usuarioService.crearColaborador(empresaId, "Colaborador", COLABORADOR, CLAVE,
+        colaboradorId = usuarioService.crearColaborador(empresaId, null, "Colaborador", COLABORADOR, CLAVE,
                 RolAcceso.EDITOR).id();
         hashGuardado = usuarioRepository.findByEmail(ADMIN).orElseThrow().getPasswordHash();
         token = login();

@@ -83,7 +83,7 @@ class HistorialModeladoIntegracionTest {
         empresaId = empresaService.registrar("Tienda de historial", "900131313-4", "contacto@historial.com",
                 "Administradora", ADMIN, CLAVE).id();
         adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
-        usuarioService.crearColaborador(empresaId, "Editora", EDITORA, CLAVE, RolAcceso.EDITOR);
+        usuarioService.crearColaborador(empresaId, null, "Editora", EDITORA, CLAVE, RolAcceso.EDITOR);
         tokenEditora = jsonMapper.readTree(mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(EDITORA, CLAVE))))
@@ -97,7 +97,7 @@ class HistorialModeladoIntegracionTest {
         Long proceso = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         Long tienda = poolService.listarPorProceso(empresaId, proceso).getFirst().id();
-        Long rol = rolProcesoService.crear(empresaId, "Warehouse", null).id();
+        Long rol = rolProcesoService.crear(empresaId, adminId, "Warehouse", null).id();
 
         Long cliente = id(post("/api/v1/procesos/{id}/pools", proceso),
                 Map.of("nombre", "Customer", "tipoParticipante", "CLIENTE", "cajaNegra", true));

@@ -255,7 +255,7 @@ class VersionesDeProcesoIntegracionTest {
     private Long procesoPublicable(String nombre) {
         Long procesoId = crearProceso(nombre).id();
         Long tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        Long rolId = rolProcesoService.crear(empresaId, "Ventas " + contador.incrementAndGet(), null).id();
+        Long rolId = rolProcesoService.crear(empresaId, adminId, "Ventas " + contador.incrementAndGet(), null).id();
         Long laneId = laneService.crear(empresaId, adminId, tienda, "Sales", rolId).id();
         Long inicio = eventoService.crear(empresaId, adminId, laneId, "Order received", TipoEvento.INICIO,
                 40, 80).id();

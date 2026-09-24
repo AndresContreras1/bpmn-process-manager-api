@@ -15,8 +15,10 @@ public interface UsuarioService {
     /**
      * Unico punto que da de alta usuarios, tanto colaboradores como el administrador de una empresa nueva.
      * El correo es el usuario del login, que todavia no conoce la empresa: tiene que ser unico en todo el sistema.
+     * El autor es quien da el alta; vacio cuando es el registro de la tienda, donde el primer administrador se crea
+     * a si mismo y asi figura en el historial.
      */
-    UsuarioResponse crearColaborador(Long empresaId, String nombre, String email, String password,
+    UsuarioResponse crearColaborador(Long empresaId, Long autorId, String nombre, String email, String password,
             RolAcceso rolAcceso);
 
     void validarCorreoDisponible(String email);

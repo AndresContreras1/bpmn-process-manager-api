@@ -11,18 +11,26 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.gestion.dto.request.RegistroEmpresaRequest;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
+import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.security.ApiPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
 /** HU-01: registro de una nueva empresa y su administrador inicial. */
@@ -34,6 +42,7 @@ import lombok.RequiredArgsConstructor;
 public class EmpresaController {
 
     private final EmpresaService empresaService;
+    private final HistorialCambioService historialCambioService;
 
     @Operation(summary = "Register a store",
             description = "Creates the store together with its first administrator, whose email becomes the login.")
@@ -55,6 +64,26 @@ public class EmpresaController {
     @GetMapping("/actual")
     public ResponseEntity<EmpresaResponse> actual(@AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(empresaService.obtener(principal.empresaId(), principal.empresaId()));
+    }
+
+    @Operation(summary = "Get the history of the store",
+            description = "Everything that happened in the store, newest first: users, process roles, the "
+                    + "registration and every change to a process. Administrators only. Each entry says what it was "
+                    + "about with recursoTipo and recursoId.")
+    @ApiResponse(responseCode = "200", description = "One page of the store history")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @GetMapping("/actual/historial")
+    public ResponseEntity<PageResponse<HistorialCambioResponse>> historial(
+            @Parameter(description = "Page number, starting at 0")
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = Paginacion.PAGINA_INVALIDA) int pagina,
+            @Parameter(description = "Items per page, from 1 to 50")
+            @RequestParam(defaultValue = "20") @Min(value = 1, message = Paginacion.TAMANO_INVALIDO)
+            @Max(value = Paginacion.TAMANO_MAXIMO, message = Paginacion.TAMANO_INVALIDO) int tamano,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(historialCambioService.listarDeLaTienda(principal.empresaId(),
+                Paginacion.de(pagina, tamano)));
     }
 
     @Operation(summary = "Get a store",
