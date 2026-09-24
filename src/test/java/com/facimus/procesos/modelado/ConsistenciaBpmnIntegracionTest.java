@@ -265,6 +265,10 @@ class ConsistenciaBpmnIntegracionTest {
         pedir(post("/api/v1/arcos"), Map.of("origenId", decidir, "destinoId", revisar, "porDefecto", true))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Un gateway solo puede tener una salida por defecto."));
+        // R-36: el gateway se sigue editando aunque una de sus salidas no lleve condicion, porque es la por defecto.
+        pedir(put("/api/v1/gateways/{id}", decidir), Map.of("nombre", "Discount?", "tipoGateway", "EXCLUSIVO",
+                "posicionX", 100, "posicionY", 560, "version", 0))
+                .andExpect(status().isOk());
     }
 
     @Test

@@ -181,6 +181,16 @@ class DiagnosticoServiceTest {
     }
 
     @Test
+    @DisplayName("E-15: un unico inicio sin mensaje es lo normal, y no se avisa")
+    void unSoloInicioSinMensaje_noAvisa() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.evento(VENTAS, "Manual start", TipoEvento.INICIO);
+        armado.arco("Manual start", "Receive order");
+
+        assertThat(sobreQueElementos(armado, "E-15")).isEmpty();
+    }
+
+    @Test
     @DisplayName("A-05: un gateway exclusivo sin salida por defecto puede dejar al caso sin camino")
     void gatewayExclusivoSinSalidaPorDefecto_A05() {
         DiagramaArmado armado = DiagramaArmado.demo();
