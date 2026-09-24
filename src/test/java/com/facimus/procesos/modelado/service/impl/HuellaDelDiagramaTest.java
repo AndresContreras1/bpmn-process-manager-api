@@ -87,6 +87,17 @@ class HuellaDelDiagramaTest {
     }
 
     @Test
+    @DisplayName("Cambiar como viaja un mensaje cambia la huella, sin tocar nada mas")
+    void otroTipoDeDestinoDeUnMensaje_otraHuella() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        String completa = huella(armado.diagrama());
+        // Solo cambia un campo del mensaje: ni sus correlaciones ni ningun otro elemento se mueven.
+        armado.sinTipoDestino("Shipment request");
+
+        assertThat(huella(armado.diagrama())).isNotEqualTo(completa);
+    }
+
+    @Test
     @DisplayName("Una correlacion menos cambia la huella")
     void unaCorrelacionMenos_otraHuella() {
         DiagramaArmado armado = DiagramaArmado.demo();
