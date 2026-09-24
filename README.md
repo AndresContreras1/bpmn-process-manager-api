@@ -81,6 +81,7 @@ can read them.
 | Message flow | Information exchanged between two participants, sent from one step and awaited at another, with the fields it carries | Payment authorization request |
 | Correlation key | The value that ties together the messages of one case | `orderId` |
 | Diagnosis | What a diagram gets wrong against the modeling rules: errors and warnings, each one pointing at an element | *Nothing leads to "Pick and pack items"* |
+| Published version | The diagram frozen the day it was published. It does not change when the model does: what is edited afterwards is the draft | Version 2 of *Order fulfillment* |
 
 ## How it works
 
@@ -100,10 +101,13 @@ can read them.
    is unreachable, what has nowhere to go, which decision has no alternative path, which message nobody sends. The
    same question answers what would be left if an element were deleted, so a deletion can be confirmed knowing what
    it takes with it.
-7. **Publish.** When the process is ready, it moves from draft to published. A published process cannot go back to
-   draft.
+7. **Publish.** When the process is ready, publishing it saves the whole diagram as a version, which never
+   changes again. Publishing is refused while the diagnosis finds errors. What is edited afterwards is the draft,
+   and the process says so; publishing again saves the next version, and publishing without having changed anything
+   is refused.
 8. **Share.** An administrator can give a partner company on the platform read-only access to a process, for example
-   a logistics provider that needs to see how orders are handed over.
+   a logistics provider that needs to see how orders are handed over. The guest reads the version in force, never
+   the half-finished draft.
 9. **Keep track.** Every change is recorded in the process history with its author and date. Deleted items are
    retired, not erased, so the record stays complete.
 
@@ -184,6 +188,7 @@ user's access level or deactivating them takes effect at once: their open sessio
 | No lost work | When two people edit the same item, the second save is refused instead of silently overwriting the first. |
 | No duplicates on retries | A create request that is retried with the same idempotency key, for example after a network failure, creates the item only once. |
 | Always-valid models | The modeling rules are checked on every change, not only when a process is published. |
+| What is published does not move | Publishing saves the diagram as a version that never changes. The model keeps being editable, the process says when the draft is ahead of it, and a partner store always reads what was published. |
 | Complete history | Every change keeps its author and date, and deleted items stay on record. |
 | Nothing breaks by surprise | A diagram can be checked against the rules at any moment, and before deleting anything it says what would go with it and what would be left without a path. |
 | A second opinion | A model can review a diagram and point out what is missing, such as a decision with no alternative path. It only advises: nothing is changed without a person. |
@@ -255,6 +260,10 @@ The app opens on `http://localhost:4200`, and the Angular dev server forwards th
 The [Postman collection](postman/) covers a second scenario, in which *Acme Store* models how it hands orders over to
 a third-party logistics (3PL) partner. Run the requests in order, one by one or with the Collection Runner. The last
 folder deletes what the scenario created, children first.
+
+The scenario tours the endpoints rather than finishing a model, so its diagram stays incomplete on purpose:
+publishing it answers `409` with what the diagnosis found, which is the rule at work. To see a published process,
+use the demo store of the `dev` profile, where *Order fulfillment* starts published as version 1.
 
 ### Docker
 
@@ -393,6 +402,16 @@ any of them. The database makes each subtype fill its own type column and leaves
 
 ### Lifecycle rules
 
+- Publishing requires a diagnosis without errors. The `409` says how many there are and lists them in `errors`.
+  Warnings do not block: a decision without a default flow is published, and the warning stays.
+- Publishing saves the whole diagram as the next version, with the SHA-256 fingerprint of its canonical form. The
+  fingerprint covers every field of every element and the name, description and category of the process, and leaves
+  out what changes without the drawing changing: who saved it, when, and the optimistic version.
+- Publishing again without having changed anything is refused with `409`, because the version would be identical.
+- A version is never edited or deleted. It can be retired, and then the version in force is the newest one still
+  standing; with none left, the process stays published but has nothing to show until it is published again.
+  Version numbers are never reused.
+- A published process cannot go back to draft.
 - Everything is soft-deleted, from processes and process roles to every BPMN element. A deleted resource answers
   `404`, but it stays in the database, and an administrator can list and read the deleted processes with
   `incluirInactivos`.
@@ -487,6 +506,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
 | Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
+| Published versions | `GET /api/v1/procesos/{procesoId}/versiones` · `GET, PATCH /api/v1/procesos/{procesoId}/versiones/{numero}` · `GET /api/v1/procesos/{procesoId}/versiones/{numero}/diagrama` |
 | Diagnosis | `GET /api/v1/procesos/{id}/diagnostico[?sinElemento=TYPE:id]` |
 | AI review | `POST /api/v1/procesos/{id}/revision` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
@@ -495,7 +515,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 of pools, lanes, activities, gateways, events, sequence flows, message flows and correlation keys, linked by id.
 It runs one query per element type, however large the diagram grows.
 
-State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO", "version": 3 }`.
+State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO", "version": 3 }`,
+which is what publishes a process and saves its version.
 
 The `PUT` of an activity, a gateway or an event takes `laneId` to move it to another lane, and the `PUT` of a
 sequence flow takes `origenId` and `destinoId` to reconnect it; an end that is left out keeps the one it had. The
@@ -534,8 +555,8 @@ Each finding carries a code of the catalogue, a severity, the element it is abou
 A code that starts with `E` is an error: something that makes the model unusable, such as a step nothing leads to
 (`E-04`), a path that never reaches an end event (`E-03`), or a node that exists to exchange a message and has none
 anchored (`E-11`). A code that starts with `A` is a warning: the model works, but it will probably not do what was
-meant, such as an exclusive gateway with no default flow (`A-05`), or a message awaited in the middle of the flow
-with no correlation key (`A-03`). The condition of a sequence flow is read with the same grammar the engine will
+meant, such as an exclusive gateway with no default flow (`A-05`), a message awaited in the middle of the flow
+with no correlation key (`A-03`), or a draft with changes that the published version does not include (`A-13`). The condition of a sequence flow is read with the same grammar the engine will
 evaluate it with, so a condition that would not compile is reported before anyone runs the process.
 
 **Before deleting.** `?sinElemento=TYPE:id`, for example `GATEWAY:5`, answers the diagram that would be left after
@@ -545,6 +566,33 @@ its sequence flows. `A-06` lists what would go along with it, and the rest of th
 ```bash
 curl "http://localhost:8080/api/v1/procesos/1/diagnostico?sinElemento=GATEWAY:5" -H "Authorization: Bearer $TOKEN"
 ```
+
+### Published versions
+
+Publishing a process is `PATCH /api/v1/procesos/{id}` with `{ "estado": "PUBLICADO", "version": n }`. It runs the
+diagnosis first, and with a single error it answers `409` with the list in `errors` and saves nothing. Otherwise it
+saves the whole diagram as the next version, exactly as `GET /procesos/{id}/diagrama` returns it, and answers the
+process with `versionPublicada`.
+
+The model keeps being editable: what is edited is the draft. A process read one by one says `borradorPendiente`,
+which is true when the diagram of today is not the one in force, and the diagnosis says the same with `A-13`. It is
+worked out by comparing fingerprints, so moving a step and moving it back leaves nothing pending. It does not come
+in listings, where it would mean reading one whole diagram per row, nor for a guest store, which only sees what is
+published.
+
+```bash
+# Publish, and read the versions
+curl -s -X PATCH http://localhost:8080/api/v1/procesos/1 -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"estado":"PUBLICADO","version":0}'
+curl -s http://localhost:8080/api/v1/procesos/1/versiones -H "Authorization: Bearer $TOKEN"
+
+# The diagram as it was published, however much the draft has changed since
+curl -s http://localhost:8080/api/v1/procesos/1/versiones/1/diagrama -H "Authorization: Bearer $TOKEN"
+```
+
+A version that should not be used any more is retired by an administrator with
+`PATCH /api/v1/procesos/{id}/versiones/{n}` and `{ "estado": "RETIRADA" }`. Nothing is deleted: when processes are
+executed, the cases that were opened with a version will be read against it.
 
 ### AI review
 
@@ -685,6 +733,9 @@ and `mapper` for the MapStruct translations.
 is created, `gestion` publishes a `ProcesoCreado` event and `modelado` creates the store's pool in the same
 transaction. When a process is deleted, a `ProcesoEliminado` event lets `modelado` retire the model. To know whether
 a process role is in use, `gestion` asks the `UsoDeRoles` port, which `modelado` implements on top of its lanes.
+Publishing works the same way: `gestion` owns the versions but not the diagram, so it asks the
+`DiagnosticoDelModelo` and `InstantaneaDelModelo` ports for the errors that block publishing and for the diagram to
+freeze.
 
 ## Quality and testing
 
@@ -692,17 +743,17 @@ a process role is in use, `gestion` asks the `UsoDeRoles` port, which `modelado`
 ./mvnw verify
 ```
 
-The build runs 658 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 710 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
 | Architecture (ArchUnit) | 32 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 136 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 201 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
-| Repository slices (`@DataJpaTest`) | 33 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, and the message with its anchors, its answer and its fields stored as JSON |
-| Security and isolation (`@SpringBootTest`) | 176 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 30 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 48 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
+| Controller slices (`@WebMvcTest`) | 142 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 228 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
+| Repository slices (`@DataJpaTest`) | 37 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, and the versions, with one number per process and a whole diagram in the column |
+| Security and isolation (`@SpringBootTest`) | 181 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 31 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
+| Module integration (`@SpringBootTest`) | 57 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
 Current coverage: 96 % of lines and 84 % of branches. The build fails below 85 % of lines or 70 % of
@@ -736,6 +787,11 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - **A row lock guards the last administrator.** Two administrators who remove each other's role change different
   rows, so optimistic locking alone would let both changes through. Locking the store's row makes the second change
   wait and count again.
+- **A version is a snapshot, not a copy of the process.** Publishing stores the diagram as JSON instead of cloning
+  the process with its whole model. Cloning would break the unique name per store, multiply rows, and force every
+  modeling service to know about versions; a snapshot never changes, so it is also the obvious candidate for a
+  second-level cache. What tells two versions apart is the SHA-256 fingerprint of the diagram reduced to what draws
+  it, so saving without changing anything does not count as a change.
 - **Single-table inheritance for flow nodes.** Activities and gateways share one table and one identity, so sequence
   flows can point to either of them.
 - **Soft delete everywhere.** Processes and process roles carry their own `activo` flag. BPMN elements use Hibernate's
@@ -778,7 +834,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 **Consistency under concurrency**
 - [x] Optimistic locking with `@Version`, so two editors cannot overwrite each other (`409 Conflict`)
 - [x] Idempotency keys on create requests, so a retried call does not duplicate a process
-- [ ] Process versioning: editing a published process opens a new draft version
+- [x] Process versioning: publishing freezes the diagram as a version and what is edited afterwards is the draft
 
 **Security**
 - [x] Globally unique user emails, so a new store cannot reuse an existing user's login email

@@ -527,7 +527,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "procesos", "{{procesoId}}"]
 						},
-						"description": "HU-05: Publica el proceso mediante PATCH con estado=PUBLICADO. Requiere EDITOR o ADMINISTRADOR. Manda la version que devolvio la edicion anterior: si otra persona guardo un cambio despues, responde 409."
+						"description": "HU-05: Publica el proceso mediante PATCH con estado=PUBLICADO. Requiere EDITOR o ADMINISTRADOR. Corre el diagnostico y, si no hay errores, guarda el diagrama entero como la version siguiente: la respuesta trae versionPublicada. Con errores responde 409 y los lista en errors; sin cambios desde la ultima version, tambien 409. Manda la version que devolvio la edicion anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
 				}
@@ -1558,6 +1558,77 @@
 							]
 						},
 						"description": "Que quedaria del diagrama si se borrara el gateway: A-06 dice que se va con el y el resto de hallazgos que se rompe."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Versiones",
+			"description": "Lo que se publico del proceso, que no cambia nunca: lo que se edita despues es el borrador de trabajo, y el proceso avisa con borradorPendiente. Este recorrido deja el diagrama a medio modelar a proposito, asi que publicarlo responde 409 con lo que falta (R-44) y estas peticiones no encuentran ninguna version: para verlas con datos, usalas sobre Order fulfillment de la tienda demo del perfil dev, que arranca publicado como la version 1.",
+			"item": [
+				{
+					"name": "Listar versiones",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/versiones",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "versiones"]
+						},
+						"description": "Las versiones publicadas, de la mas reciente a la mas vieja. Cualquier rol las puede leer."
+					},
+					"response": []
+				},
+				{
+					"name": "Detalle de la version 1",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/versiones/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "versiones", "1"]
+						},
+						"description": "Cuando se publico, quien la publico y la huella del diagrama."
+					},
+					"response": []
+				},
+				{
+					"name": "Diagrama de la version 1",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/versiones/1/diagrama",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "versiones", "1", "diagrama"]
+						},
+						"description": "El diagrama tal como se publico, con la misma forma que GET /procesos/{id}/diagrama. Edita el modelo y vuelve a pedirlo: sigue diciendo lo mismo."
+					},
+					"response": []
+				},
+				{
+					"name": "Retirar la version 1",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"estado\": \"RETIRADA\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/versiones/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "versiones", "1"]
+						},
+						"description": "Solo administrador. La vigente pasa a ser la ultima que siga en pie; si no queda ninguna, el proceso se queda sin nada publicado hasta que se publique otra vez."
 					},
 					"response": []
 				}
