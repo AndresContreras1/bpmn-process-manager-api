@@ -18,6 +18,7 @@ import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.repository.PoolRepository;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,57 +35,61 @@ public class ArcoServiceImpl implements ArcoService {
 
     @Override
     @Transactional
-    public ArcoResponse crear(Long empresaId, Long usuarioId, Long origenId, Long destinoId, String etiqueta,
-            String condicion, boolean porDefecto, int orden) {
-        if (origenId.equals(destinoId)) {
-            throw new ReglaNegocioException("Un arco no puede tener el mismo nodo como origen y destino.");
-        }
-        NodoFlujo origen = nodoFlujoRepository.findByIdAndEmpresaId(origenId, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Nodo de origen no encontrado."));
-        NodoFlujo destino = nodoFlujoRepository.findByIdAndEmpresaId(destinoId, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Nodo de destino no encontrado."));
-
-        Pool poolOrigen = origen.getLane().getPool();
-        Pool poolDestino = destino.getLane().getPool();
-        if (!poolOrigen.getId().equals(poolDestino.getId())) {
-            throw new ReglaNegocioException("El origen y el destino de un arco deben pertenecer al mismo pool.");
-        }
-        if (arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(origenId, destinoId, empresaId)) {
-            throw new ReglaNegocioException("Ya existe un arco entre estos dos nodos.");
-        }
-        ReglasDeEventos.exigirNodosConectables(origen, destino);
-        exigirCondicion(origen, condicion, porDefecto);
-        exigirUnaSolaSalidaPorDefecto(empresaId, origen, condicion, porDefecto, null);
+    public ArcoResponse crear(Long empresaId, Long usuarioId, DatosDeArco datos) {
+        exigirNodosDistintos(datos.origenId(), datos.destinoId());
+        NodoFlujo origen = nodo(empresaId, datos.origenId(), "Nodo de origen no encontrado.");
+        NodoFlujo destino = nodo(empresaId, datos.destinoId(), "Nodo de destino no encontrado.");
+        Pool pool = exigirUnTramoValido(empresaId, origen, destino, datos, null);
 
         Arco arco = arcoRepository.save(Arco.builder()
                 .empresa(origen.getEmpresa())
                 .origen(origen)
                 .destino(destino)
-                .pool(poolOrigen)
-                .etiqueta(etiqueta)
-                .condicion(condicion)
-                .porDefecto(porDefecto)
-                .orden(orden)
+                .pool(pool)
+                .etiqueta(datos.etiqueta())
+                .condicion(datos.condicion())
+                .porDefecto(datos.porDefecto())
+                .orden(datos.orden())
                 .build());
-        historialCambioService.registrar(empresaId, usuarioId, poolOrigen.getProceso(),
+        historialCambioService.registrar(empresaId, usuarioId, pool.getProceso(),
                 "Flujo " + tramo(arco) + " agregado.");
         return arcoMapper.toResponse(arco);
     }
 
+    /**
+     * R-42: cambiar un extremo del arco vuelve a pasar por las mismas reglas que crearlo, porque lo que queda es
+     * otro tramo del diagrama. Un extremo que no llega deja el que ya tenia: mover la flecha y renombrarla son dos
+     * gestos distintos del editor.
+     */
     @Override
     @Transactional
-    public ArcoResponse editar(Long empresaId, Long usuarioId, Long arcoId, String etiqueta, String condicion,
-            boolean porDefecto, int orden, Long version) {
+    public ArcoResponse editar(Long empresaId, Long usuarioId, Long arcoId, DatosDeArco datos, Long version) {
         Arco arco = buscar(empresaId, arcoId);
         arco.verificarVersion(version);
-        exigirCondicion(arco.getOrigen(), condicion, porDefecto);
-        exigirUnaSolaSalidaPorDefecto(empresaId, arco.getOrigen(), condicion, porDefecto, arcoId);
-        arco.setEtiqueta(etiqueta);
-        arco.setCondicion(condicion);
-        arco.setPorDefecto(porDefecto);
-        arco.setOrden(orden);
-        historialCambioService.registrar(empresaId, usuarioId, arco.getPool().getProceso(),
-                "Flujo " + tramo(arco) + " editado.");
+        // Un extremo que no llega deja el que ya tenia, asi que la comparacion es entre los dos que quedarian.
+        Long origenId = datos.origenId() == null ? arco.getOrigen().getId() : datos.origenId();
+        Long destinoId = datos.destinoId() == null ? arco.getDestino().getId() : datos.destinoId();
+        exigirNodosDistintos(origenId, destinoId);
+        NodoFlujo origen = origenId.equals(arco.getOrigen().getId())
+                ? arco.getOrigen()
+                : nodo(empresaId, origenId, "Nodo de origen no encontrado.");
+        NodoFlujo destino = destinoId.equals(arco.getDestino().getId())
+                ? arco.getDestino()
+                : nodo(empresaId, destinoId, "Nodo de destino no encontrado.");
+        Pool pool = exigirUnTramoValido(empresaId, origen, destino, datos, arcoId);
+
+        String antes = tramo(arco);
+        arco.setOrigen(origen);
+        arco.setDestino(destino);
+        arco.setPool(pool);
+        arco.setEtiqueta(datos.etiqueta());
+        arco.setCondicion(datos.condicion());
+        arco.setPorDefecto(datos.porDefecto());
+        arco.setOrden(datos.orden());
+        String despues = tramo(arco);
+        historialCambioService.registrar(empresaId, usuarioId, pool.getProceso(), antes.equals(despues)
+                ? "Flujo " + despues + " editado."
+                : "Flujo " + antes + " movido a " + despues + ".");
         return arcoMapper.toResponse(arcoRepository.saveAndFlush(arco));
     }
 
@@ -95,6 +100,48 @@ public class ArcoServiceImpl implements ArcoService {
         arcoRepository.delete(arco);
         historialCambioService.registrar(empresaId, usuarioId, arco.getPool().getProceso(),
                 "Flujo " + tramo(arco) + " eliminado.");
+    }
+
+    @Override
+    public ArcoResponse obtener(Long empresaId, Long arcoId) {
+        return arcoMapper.toResponse(buscar(empresaId, arcoId));
+    }
+
+    @Override
+    public List<ArcoResponse> listarPorPool(Long empresaId, Long poolId) {
+        if (!poolRepository.existsByIdAndEmpresaId(poolId, empresaId)) {
+            throw new RecursoNoEncontradoException("Pool no encontrado.");
+        }
+        return arcoMapper.toResponses(arcoRepository.findAllByPoolIdAndEmpresaId(poolId, empresaId));
+    }
+
+    /** Las reglas del tramo: si va a alguna parte, si ya existe, y que exige el nodo del que sale. */
+    private Pool exigirUnTramoValido(Long empresaId, NodoFlujo origen, NodoFlujo destino, DatosDeArco datos,
+            Long arcoId) {
+        Pool poolOrigen = origen.getLane().getPool();
+        if (!poolOrigen.getId().equals(destino.getLane().getPool().getId())) {
+            throw new ReglaNegocioException("El origen y el destino de un arco deben pertenecer al mismo pool.");
+        }
+        if (yaExiste(empresaId, origen, destino, arcoId)) {
+            throw new ReglaNegocioException("Ya existe un arco entre estos dos nodos.");
+        }
+        ReglasDeEventos.exigirNodosConectables(origen, destino);
+        exigirCondicion(origen, datos.condicion(), datos.porDefecto());
+        exigirUnaSolaSalidaPorDefecto(empresaId, origen, datos.condicion(), datos.porDefecto(), arcoId);
+        return poolOrigen;
+    }
+
+    private static void exigirNodosDistintos(Long origenId, Long destinoId) {
+        if (origenId.equals(destinoId)) {
+            throw new ReglaNegocioException("Un arco no puede tener el mismo nodo como origen y destino.");
+        }
+    }
+
+    private boolean yaExiste(Long empresaId, NodoFlujo origen, NodoFlujo destino, Long arcoId) {
+        return arcoId == null
+                ? arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(origen.getId(), destino.getId(), empresaId)
+                : arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaIdAndIdNot(origen.getId(), destino.getId(),
+                        empresaId, arcoId);
     }
 
     /**
@@ -130,17 +177,9 @@ public class ArcoServiceImpl implements ArcoService {
         return "de \"" + arco.getOrigen().getNombre() + "\" a \"" + arco.getDestino().getNombre() + "\"";
     }
 
-    @Override
-    public ArcoResponse obtener(Long empresaId, Long arcoId) {
-        return arcoMapper.toResponse(buscar(empresaId, arcoId));
-    }
-
-    @Override
-    public List<ArcoResponse> listarPorPool(Long empresaId, Long poolId) {
-        if (!poolRepository.existsByIdAndEmpresaId(poolId, empresaId)) {
-            throw new RecursoNoEncontradoException("Pool no encontrado.");
-        }
-        return arcoMapper.toResponses(arcoRepository.findAllByPoolIdAndEmpresaId(poolId, empresaId));
+    private NodoFlujo nodo(Long empresaId, Long nodoId, String siNoEsta) {
+        return nodoFlujoRepository.findByIdAndEmpresaId(nodoId, empresaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException(siNoEsta));
     }
 
     private Arco buscar(Long empresaId, Long arcoId) {

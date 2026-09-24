@@ -74,6 +74,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.EventoService;
@@ -198,7 +199,8 @@ class AislamientoEmpresasIntegracionTest {
         gatewayB =gatewayService.crear(empresaB, adminB, laneB, "Aprobar compra", TipoGateway.PARALELO, 100, 100).id();
         gatewayCierreB = gatewayService
                 .crear(empresaB, adminB, laneB, "Cerrar compra", TipoGateway.PARALELO, 300, 100).id();
-        arcoB = arcoService.crear(empresaB, adminB, gatewayB, gatewayCierreB, "Continuar", null, false, 0).id();
+        arcoB = arcoService.crear(empresaB, adminB, new DatosDeArco(gatewayB, gatewayCierreB, "Continuar", null, false,
+                0)).id();
         eventoB = eventoService.crear(empresaB, adminB, laneB, "Compra recibida", TipoEvento.INICIO,
                 20, 300).id();
         mensajeB = mensajeService.crear(empresaB, adminB, procesoB, DatosDeMensaje.basico("Orden de compra", "Pedido",
@@ -295,7 +297,7 @@ class AislamientoEmpresasIntegracionTest {
                 Arguments.of(HttpMethod.DELETE, "/api/v1/eventos/{id}", eventoB, null, "Evento no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/arcos/{id}", arcoB,
-                        new EditarArcoRequest("Intruso", null, null, null, 0L),
+                        new EditarArcoRequest(null, null, "Intruso", null, null, null, 0L),
                         "Arco no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/mensajes", procesoB,

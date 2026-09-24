@@ -45,6 +45,7 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.repository.PoolRepository;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.GatewayService;
@@ -146,7 +147,7 @@ class VersionesIntegracionTest {
         Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack items", "Into the box",
                 TipoActividad.USUARIO, 260, 80).id();
         gatewayId = gatewayService.crear(empresaId, adminId, laneId, "Split", TipoGateway.PARALELO, 420, 80).id();
-        arcoId = arcoService.crear(empresaId, adminId, actividadId, empacar, null, null, false, 0).id();
+        arcoId = arcoService.crear(empresaId, adminId, DatosDeArco.entre(actividadId, empacar)).id();
         mensajeId = mensajeService.crear(empresaId, adminId, procesoId, DatosDeMensaje.basico("Order placed",
                 "Cart and address", poolId,
                 tienda))

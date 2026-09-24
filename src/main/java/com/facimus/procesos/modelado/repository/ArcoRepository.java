@@ -20,6 +20,9 @@ public interface ArcoRepository extends RepositorioTenant<Arco> {
 
     boolean existsByOrigenIdAndDestinoIdAndEmpresaId(Long origenId, Long destinoId, Long empresaId);
 
+    boolean existsByOrigenIdAndDestinoIdAndEmpresaIdAndIdNot(Long origenId, Long destinoId,
+            Long empresaId, Long id);
+
     /** Si el nodo esta conectado, por cualquiera de los dos extremos de un arco. */
     @Query("select count(a) > 0 from Arco a where a.empresa.id = :empresaId and (a.origen.id = :nodoId "
             + "or a.destino.id = :nodoId)")

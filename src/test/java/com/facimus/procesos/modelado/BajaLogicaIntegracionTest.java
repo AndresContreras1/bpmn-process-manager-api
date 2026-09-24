@@ -42,6 +42,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
@@ -156,6 +157,15 @@ class BajaLogicaIntegracionTest {
         assertThat(activo("pools", transportadora)).isFalse();
     }
 
+    /** Un arco necesita dos nodos que no existan todavia, asi que se crean con el. */
+    private Long arcoEntreDosActividadesNuevas() {
+        Long pesar = actividadService.crear(empresaId, adminId, laneId, "Weigh package", null,
+                TipoActividad.USUARIO, 300, 100).id();
+        Long etiquetar = actividadService.crear(empresaId, adminId, laneId, "Print label", null,
+                TipoActividad.USUARIO, 400, 100).id();
+        return arcoService.crear(empresaId, adminId, DatosDeArco.entre(pesar, etiquetar)).id();
+    }
+
     /** Cada elemento se crea en el momento, para que los casos no dependan unos de otros. */
     Stream<Arguments> elementos() {
         return Stream.of(
@@ -169,13 +179,7 @@ class BajaLogicaIntegracionTest {
                                 100, 100).id()),
                 elemento("gateway", "nodos_flujo", "/api/v1/gateways/{id}", () -> gatewayService
                         .crear(empresaId, adminId, laneId, "Fragile?", TipoGateway.PARALELO, 200, 100).id()),
-                elemento("arco", "arcos", "/api/v1/arcos/{id}", () -> arcoService.crear(empresaId, adminId,
-                        actividadService.crear(empresaId, adminId, laneId, "Weigh package", null, TipoActividad.USUARIO,
-                                300, 100).id(),
-                        actividadService.crear(empresaId, adminId, laneId, "Print label", null, TipoActividad.USUARIO,
-                                400, 100).id(), null,
-                                null, false, 0)
-                        .id()),
+                elemento("arco", "arcos", "/api/v1/arcos/{id}", this::arcoEntreDosActividadesNuevas),
                 elemento("mensaje", "mensajes", "/api/v1/mensajes/{id}", () -> mensajeService.crear(empresaId, adminId,
                         procesoId, DatosDeMensaje.basico("Invoice", "Order total", tiendaId,
                                 poolService.crear(empresaId, adminId, procesoId, "Accounting",
@@ -226,7 +230,7 @@ class BajaLogicaIntegracionTest {
                 TipoActividad.USUARIO, 100, 100).id();
         Long revisar = gatewayService.crear(empresaId, adminId, mostrador, "Damaged?", TipoGateway.PARALELO, 200,
                 100).id();
-        Long arco = arcoService.crear(empresaId, adminId, recibir, revisar, null, null, false, 0).id();
+        Long arco = arcoService.crear(empresaId, adminId, DatosDeArco.entre(recibir, revisar)).id();
         Long cerrado = eventoService.crear(empresaId, adminId, mostrador, "Return closed", TipoEvento.FIN,
                 300, 100).id();
         Long solicitud = mensajeService.crear(empresaId, adminId, devoluciones, DatosDeMensaje.basico("Return request",

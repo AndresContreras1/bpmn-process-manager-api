@@ -5,8 +5,12 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
-@Schema(description = "New label and condition of a sequence flow; its nodes cannot change")
+@Schema(description = "New label, condition and nodes of a sequence flow; a node that is left out stays as it was")
 public record EditarArcoRequest(
+        @Schema(description = "Move the flow to start at this node; without it, it keeps the one it had",
+                example = "12") Long origenId,
+        @Schema(description = "Move the flow to end at this node; without it, it keeps the one it had",
+                example = "10") Long destinoId,
         @Schema(example = "Declined")
         @Size(max = 120, message = "La etiqueta no puede superar 120 caracteres.") String etiqueta,
         @Schema(description = "Required when the source is an exclusive or inclusive gateway, unless the flow "

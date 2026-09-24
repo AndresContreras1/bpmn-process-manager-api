@@ -40,6 +40,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.DiagramaService;
@@ -273,8 +274,9 @@ class CargaPerezosaTest {
                 .id();
         Long reembolsar = actividadService.crear(empresaId, adminId, laneId, lane + ": refund", null,
                 TipoActividad.USUARIO, 420, 80).id();
-        arcoService.crear(empresaId, adminId, recibir, decidir, null, null, false, 0);
-        arcoService.crear(empresaId, adminId, decidir, reembolsar, "Approved", "return.status == APPROVED", false, 0);
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(recibir, decidir));
+        arcoService.crear(empresaId, adminId, new DatosDeArco(decidir, reembolsar, "Approved",
+                "return.status == APPROVED", false, 0));
         Long mensajeId = mensajeService.crear(empresaId, adminId, procesoId,
                 DatosDeMensaje.basico(lane + ": return request",
                 "Order and items", clienteId, tiendaId)).id();

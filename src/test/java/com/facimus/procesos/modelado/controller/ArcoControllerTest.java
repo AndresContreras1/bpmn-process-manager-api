@@ -13,6 +13,7 @@ import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.pri
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 
@@ -37,8 +38,7 @@ class ArcoControllerTest {
     @DisplayName("POST /api/v1/arcos - crear arco (201)")
     void crear_arco() throws Exception {
         ArcoResponse arco = crearArco(1L);
-        given(arcoService.crear(eq(1L), eq(1L), anyLong(), anyLong(), anyString(), anyString(), anyBoolean(),
-                anyInt())).willReturn(arco);
+        given(arcoService.crear(eq(1L), eq(1L), any(DatosDeArco.class))).willReturn(arco);
 
         mockMvc.perform(post("/api/v1/arcos")
                         .with(principal(RolAcceso.EDITOR))
@@ -116,8 +116,7 @@ class ArcoControllerTest {
     void editar_arco() throws Exception {
         ArcoResponse arco = new ArcoResponse(1L, "no", "aprobado", false, 0, 10L, 20L, 5L, 0L, null, null, null,
                 null);
-        given(arcoService.editar(eq(1L), eq(1L), eq(1L), anyString(), anyString(), anyBoolean(), anyInt(),
-                eq(3L))).willReturn(arco);
+        given(arcoService.editar(eq(1L), eq(1L), eq(1L), any(DatosDeArco.class), eq(3L))).willReturn(arco);
 
         mockMvc.perform(put("/api/v1/arcos/1")
                         .with(principal(RolAcceso.EDITOR))
