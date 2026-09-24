@@ -5,6 +5,7 @@ import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequ
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.common.security.ApiPrincipal;
 
 public final class ApiPrincipalRequestPostProcessor {
 

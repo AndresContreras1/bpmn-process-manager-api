@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.common.security.ApiPrincipal;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;

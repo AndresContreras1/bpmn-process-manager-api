@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.modelado.dto.request.EditarMensajeRequest;
 import com.facimus.procesos.modelado.dto.request.MensajeRequest;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.MensajeService;
-import com.facimus.procesos.security.ApiPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;

@@ -10,6 +10,8 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import tools.jackson.databind.json.JsonMapper;
 
+import com.facimus.procesos.common.security.ApiPrincipal;
+
 /**
  * Seguridad para los @WebMvcTest, donde SecurityConfig no se carga: mismas reglas de acceso y mismas
  * respuestas 401/403 que en produccion. Los tests inyectan un ApiPrincipal autenticado.

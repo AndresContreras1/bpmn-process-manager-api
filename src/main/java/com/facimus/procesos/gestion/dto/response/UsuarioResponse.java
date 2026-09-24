@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.dto.response;
 import java.time.LocalDateTime;
 
 import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -27,6 +28,11 @@ public record UsuarioResponse(
         @Schema(description = "The temporary password, answered once and only when it was just generated; it is "
                 + "never stored in the clear and no other response carries it", example = "Xk7pQm2r")
         @JsonInclude(JsonInclude.Include.NON_NULL) String claveTemporal) {
+
+    /** La identidad con la que entra este usuario: el tenant y el rol salen de aqui, nunca del request. */
+    public ApiPrincipal comoPrincipal(String sesion) {
+        return new ApiPrincipal(id, empresaId, rolAcceso, email, sesion, debeCambiarClave);
+    }
 
     /** La clave temporal solo viaja en la respuesta que la genera; el mapper deja el campo vacio siempre. */
     public UsuarioResponse conClaveTemporal(String clave) {

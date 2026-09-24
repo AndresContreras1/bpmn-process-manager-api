@@ -18,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import com.facimus.procesos.common.Huella;
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.response.ReservaIdempotencia;
 import com.facimus.procesos.gestion.model.ClaveIdempotencia;
 import com.facimus.procesos.gestion.service.IdempotenciaService;

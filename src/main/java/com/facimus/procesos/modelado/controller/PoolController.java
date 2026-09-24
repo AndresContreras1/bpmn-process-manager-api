@@ -16,13 +16,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.modelado.dto.request.EditarPoolRequest;
 import com.facimus.procesos.modelado.dto.request.OrdenRequest;
 import com.facimus.procesos.modelado.dto.request.PoolRequest;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.service.PoolService;
-import com.facimus.procesos.security.ApiPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;

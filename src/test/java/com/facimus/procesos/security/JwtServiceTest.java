@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.common.security.ApiPrincipal;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;

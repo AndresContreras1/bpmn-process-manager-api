@@ -22,6 +22,7 @@ import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.EditarProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
@@ -30,7 +31,6 @@ import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.service.ProcesoService;
-import com.facimus.procesos.security.ApiPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

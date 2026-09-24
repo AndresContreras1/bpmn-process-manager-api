@@ -8,8 +8,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.facimus.procesos.gestion.dto.request.CerrarSesionRequest;
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.CambiarClaveRequest;
+import com.facimus.procesos.gestion.dto.request.CerrarSesionRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.RenovarTokenRequest;
 import com.facimus.procesos.gestion.dto.response.LoginResponse;
@@ -17,7 +18,6 @@ import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
-import com.facimus.procesos.security.ApiPrincipal;
 import com.facimus.procesos.security.JwtService;
 import com.facimus.procesos.security.LoginAuthenticator;
 
@@ -114,7 +114,7 @@ public class AuthController {
     }
 
     private LoginResponse tokens(SesionIniciada sesion) {
-        String accessToken = jwtService.generarToken(ApiPrincipal.of(sesion.usuario(), sesion.sesion()));
+        String accessToken = jwtService.generarToken(sesion.usuario().comoPrincipal(sesion.sesion()));
         return new LoginResponse(accessToken, TIPO_TOKEN, jwtService.getExpirationSeconds(), sesion.refreshToken(),
                 sesion.usuario());
     }

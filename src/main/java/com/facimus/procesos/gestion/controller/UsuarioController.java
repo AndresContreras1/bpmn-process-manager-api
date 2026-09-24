@@ -19,11 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.ActualizarUsuarioRequest;
 import com.facimus.procesos.gestion.dto.request.CrearUsuarioRequest;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.UsuarioService;
-import com.facimus.procesos.security.ApiPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.ConfiguracionTiendaRequest;
 import com.facimus.procesos.gestion.dto.request.RegistroEmpresaRequest;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
@@ -25,7 +26,6 @@ import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
-import com.facimus.procesos.security.ApiPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

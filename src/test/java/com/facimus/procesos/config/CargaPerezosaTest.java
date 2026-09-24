@@ -48,7 +48,6 @@ import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.modelado.service.PoolService;
-import com.facimus.procesos.security.ApiPrincipal;
 import com.facimus.procesos.security.JwtService;
 
 import jakarta.persistence.EntityManagerFactory;
@@ -210,7 +209,7 @@ class CargaPerezosaTest {
         UsuarioResponse lectora = usuarioService.crearColaborador(empresaId, null, "Lectora", "lectora@consultas.com",
                 "clave12345", RolAcceso.SOLO_LECTURA);
         String token = jwtService.generarToken(
-                ApiPrincipal.of(lectora, sesionService.iniciar(empresaId, lectora.id()).sesion()));
+                lectora.comoPrincipal(sesionService.iniciar(empresaId, lectora.id()).sesion()));
 
         estadisticas.clear();
         mockMvc.perform(post("/api/v1/procesos")

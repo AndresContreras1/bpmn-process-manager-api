@@ -18,11 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.CompartirProcesoRequest;
 import com.facimus.procesos.gestion.dto.response.EmpresaInvitadaResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoRecibidoResponse;
 import com.facimus.procesos.gestion.service.ProcesoCompartidoService;
-import com.facimus.procesos.security.ApiPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
