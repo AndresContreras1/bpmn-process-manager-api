@@ -78,7 +78,7 @@ can read them.
 | Activity | A unit of work, done by a person, by the store itself, or to send or receive a message | Pick and pack items |
 | Gateway | A point where the flow splits or merges. When it splits, an exclusive gateway takes exactly one path, an inclusive gateway takes every path whose condition holds, and a parallel gateway takes all of them. | Payment approved? |
 | Sequence flow | The order of the steps inside a participant, with an optional condition | Payment approved? → Pick and pack items |
-| Message flow | Information exchanged between two participants | Payment authorization request |
+| Message flow | Information exchanged between two participants, sent from one step and awaited at another, with the fields it carries | Payment authorization request |
 | Correlation key | The value that ties together the messages of one case | `orderId` |
 
 ## How it works
@@ -91,8 +91,9 @@ can read them.
 4. **Model the process.** Editors add the participants, a lane for each role, the events where the process starts
    and ends, the activities and gateways, the order between them, and the messages exchanged with other
    participants.
-5. **Validate as you go.** Every change is checked against the modeling rules. A change that would break them is
-   rejected with the reason, so a model never ends up in an invalid state.
+5. **Validate as you go.** Every change is checked against the modeling rules: a step that cannot send a message
+   does not get one, and a message that may fail says what the process does then. A change that would break a rule
+   is rejected with the reason, so a model never ends up in an invalid state.
 6. **Publish.** When the process is ready, it moves from draft to published. A published process cannot go back to
    draft.
 7. **Share.** An administrator can give a partner company on the platform read-only access to a process, for example
@@ -135,15 +136,19 @@ element of the notation, and a draft *Returns and refunds* process that is ready
 | 10 | Shipment confirmed | Intermediate message event | Warehouse | Wait for the carrier to confirm the shipment. |
 | 11 | Order shipped | End event | Warehouse | The order ends on its way to the customer. |
 
-**Messages**, all correlated by `orderId`
+**Messages**, all correlated by the `orderId` field of their body
 
-| Message | From | To | Content |
-|---|---|---|---|
-| Order placed | Customer | Demo Store | Cart items, shipping address and payment method |
-| Payment authorization request | Demo Store | Payment gateway | Order total and tokenized card |
-| Payment authorization result | Payment gateway | Demo Store | Approved or declined, with the transaction id |
-| Shipment request | Demo Store | Carrier | Package size, weight and delivery address |
-| Order status notification | Demo Store | Customer | Confirmation with the tracking number, or the cancellation notice |
+| Message | From | To | Anchored at | How it travels | If it fails |
+|---|---|---|---|---|---|
+| Order placed | Customer | Demo Store | *Order received* | — | — |
+| Payment authorization request | Demo Store | Payment gateway | *Request payment authorization* | Web service | Handled by *Cancel order* |
+| Payment authorization result | Payment gateway | Demo Store | *Payment result received* | — | — |
+| Shipment request | Demo Store | Carrier | *Ship order* | Queue | The process continues |
+| Shipment confirmation | Carrier | Demo Store | *Shipment confirmed* | — | — |
+| Order status notification | Demo Store | Customer | *Cancel order* | Email | The process continues |
+
+The payment result arrives as `payment`, so the gateway of step 5 reads `payment.status`. Only *Order placed*
+opens a case: the rest are matched to one that is already open.
 
 ## Roles and permissions
 
@@ -321,12 +326,12 @@ entries in Spanish.
 | `Usuario` | User | Store | Email (the login), access role (`ADMINISTRADOR`, `EDITOR` or `SOLO_LECTURA`) and status |
 | `Proceso` | Process | Store | Name, description, category and state (`BORRADOR` or `PUBLICADO`) |
 | `RolProceso` | Process role | Store | Name and description |
-| `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag and order |
+| `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag, order and the kind of partner behind it (`integracion`) |
 | `Lane` | Lane | Pool | Process role and order |
 | `Actividad` · `Gateway` · `Evento` | Flow nodes | Lane | Name and position on the canvas. Activities add a description and a type (`USUARIO`, `SERVICIO`, `ENVIO` or `RECEPCION`), gateways a type (`EXCLUSIVO`, `PARALELO` or `INCLUSIVO`), and events a type (`INICIO`, `FIN`, `MENSAJE_INICIO`, `MENSAJE_INTERMEDIO` or `MENSAJE_FIN`). |
 | `Arco` | Sequence flow | Pool | Source node, target node, label and condition |
-| `Mensaje` | Message flow | Process | Sending pool, receiving pool and content |
-| `Correlacion` | Correlation key | Message | The criterion that correlates the message, such as `orderId` |
+| `Mensaje` | Message flow | Process | Sending and receiving pool, content, the nodes it is anchored to, how it travels (`CORREO`, `SERVICIO_WEB`, `COLA`), what the process does if it fails (`CONTINUAR`, `MANEJAR_ERROR`, `FINALIZAR`), the fields it carries, the name its body takes among the case variables, and the message that answers it |
+| `Correlacion` | Correlation key | Message | The criterion that correlates the message, the field of the body that carries it, and what to do with a message that matches no open case |
 | `HistorialCambio` | History entry | Process | Description, author and date |
 
 Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory `empresa_id` that cannot be updated.
@@ -343,6 +348,13 @@ any of them. The database makes each subtype fill its own type column and leaves
   path by those conditions. Flows that enter a gateway need none, and a gateway only becomes exclusive or inclusive
   when every flow that leaves it has a condition.
 - A message flow connects two different pools, and both must be participants of the message's process.
+- A message is anchored to the node that sends it and to the node that waits for it, each one in the pool of its
+  side. Only a step that can do it: a message end event or an activity that sends or serves, on one side; a message
+  start or intermediate event, or a receiving activity, on the other. A black-box pool anchors nothing, because its
+  inside is not modeled.
+- A message that handles a failure says which activity of the sending pool handles it, and only a message that
+  handles its failure names one.
+- The message that answers another one comes back from the pool that received it, in the same process.
 - Flow-node names are unique within a process, including when a node is renamed.
 - Process and process-role names are unique among a store's active records, ignoring case. The database enforces it
   too.
@@ -607,20 +619,20 @@ a process role is in use, `gestion` asks the `UsoDeRoles` port, which `modelado`
 ./mvnw verify
 ```
 
-The build runs 522 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 544 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
 | Architecture (ArchUnit) | 32 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 125 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 98 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along, and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
-| Repository slices (`@DataJpaTest`) | 26 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes and the check constraints of the flow-node table |
-| Security and isolation (`@SpringBootTest`) | 170 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Controller slices (`@WebMvcTest`) | 127 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 112 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along, and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
+| Repository slices (`@DataJpaTest`) | 29 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table, and the message with its anchors, its answer and its fields stored as JSON |
+| Security and isolation (`@SpringBootTest`) | 171 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 29 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 40 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
+| Module integration (`@SpringBootTest`) | 42 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 96 % of lines and 77 % of branches. The build fails below 85 % of lines or 70 % of
+Current coverage: 96 % of lines and 79 % of branches. The build fails below 85 % of lines or 70 % of
 branches overall, and below 90 % and 80 % in the service packages, where the business rules live. The gate
 leaves out DTOs and Spring configuration: they are records and wiring, and counting them only inflates the number.
 
