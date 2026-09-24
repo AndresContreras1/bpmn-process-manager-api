@@ -13,6 +13,7 @@ import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.mapper.PoolMapper;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
@@ -41,7 +42,7 @@ public class PoolServiceImpl implements PoolService {
     @Override
     @Transactional
     public PoolResponse crear(Long empresaId, Long usuarioId, Long procesoId, String nombre,
-            TipoParticipante tipoParticipante, boolean cajaNegra) {
+            TipoParticipante tipoParticipante, boolean cajaNegra, Integracion integracion) {
         Proceso proceso = procesoRepository.findByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
         int orden = poolRepository.siguienteOrden(procesoId, empresaId);
@@ -52,6 +53,7 @@ public class PoolServiceImpl implements PoolService {
                 .nombre(nombre)
                 .tipoParticipante(tipoParticipante)
                 .cajaNegra(cajaNegra)
+                .integracion(ninguna(integracion))
                 .orden(orden)
                 .build());
         historialCambioService.registrar(empresaId, usuarioId, proceso, "Pool \"" + nombre + "\" agregado.");
@@ -61,11 +63,12 @@ public class PoolServiceImpl implements PoolService {
     @Override
     @Transactional
     public PoolResponse editar(Long empresaId, Long usuarioId, Long poolId, String nombre,
-            TipoParticipante tipoParticipante, Long version) {
+            TipoParticipante tipoParticipante, Integracion integracion, Long version) {
         Pool pool = buscar(empresaId, poolId);
         pool.verificarVersion(version);
         pool.setNombre(nombre);
         pool.setTipoParticipante(tipoParticipante);
+        pool.setIntegracion(ninguna(integracion));
         historialCambioService.registrar(empresaId, usuarioId, pool.getProceso(), "Pool \"" + nombre + "\" editado.");
         return poolMapper.toResponse(poolRepository.saveAndFlush(pool));
     }
@@ -103,6 +106,11 @@ public class PoolServiceImpl implements PoolService {
     @Override
     public PoolResponse obtener(Long empresaId, Long poolId) {
         return poolMapper.toResponse(buscar(empresaId, poolId));
+    }
+
+    /** Un pool sin socio declarado es NINGUNA: la columna no admite vacio. */
+    private static Integracion ninguna(Integracion integracion) {
+        return integracion == null ? Integracion.NINGUNA : integracion;
     }
 
     private Pool buscar(Long empresaId, Long poolId) {

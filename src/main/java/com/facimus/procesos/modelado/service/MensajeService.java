@@ -7,11 +7,13 @@ import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 /** HU-25 a HU-27: mensajes (comunicacion entre pools). */
 public interface MensajeService {
 
-    MensajeResponse crear(Long empresaId, Long usuarioId, Long procesoId, String nombre, String contenido,
-            Long poolOrigenId, Long poolDestinoId);
+    MensajeResponse crear(Long empresaId, Long usuarioId, Long procesoId, DatosDeMensaje datos);
 
-    MensajeResponse editar(Long empresaId, Long usuarioId, Long mensajeId, String nombre, String contenido,
-            Long version);
+    /**
+     * Cambia todo lo del mensaje menos sus pools: cambiar de participante es trazar otro mensaje. Si los datos traen
+     * un pool distinto del guardado, la edicion se rechaza en vez de ignorarlo en silencio.
+     */
+    MensajeResponse editar(Long empresaId, Long usuarioId, Long mensajeId, DatosDeMensaje datos, Long version);
 
     void eliminar(Long empresaId, Long usuarioId, Long mensajeId);
 

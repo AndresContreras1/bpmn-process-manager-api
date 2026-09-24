@@ -14,6 +14,7 @@ import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.PoolService;
 
@@ -77,7 +78,8 @@ class PoolControllerTest {
     @DisplayName("POST /api/v1/procesos/{procesoId}/pools - crear pool (201)")
     void crear_pool() throws Exception {
         PoolResponse pool = crearPool(2L, "Proveedor");
-        given(poolService.crear(eq(1L), eq(1L), eq(10L), anyString(), any(), anyBoolean())).willReturn(pool);
+        given(poolService.crear(eq(1L), eq(1L), eq(10L), anyString(), any(), anyBoolean(), any()))
+                .willReturn(pool);
 
         mockMvc.perform(post("/api/v1/procesos/10/pools")
                         .with(principal(RolAcceso.EDITOR))
@@ -106,7 +108,8 @@ class PoolControllerTest {
     @DisplayName("PUT /api/v1/pools/{id} - editar pool (200)")
     void editar_pool() throws Exception {
         PoolResponse pool = crearPool(1L, "Cliente VIP");
-        given(poolService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), eq(3L))).willReturn(pool);
+        given(poolService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), any(), eq(3L)))
+                .willReturn(pool);
 
         mockMvc.perform(put("/api/v1/pools/1")
                         .with(principal(RolAcceso.EDITOR))
@@ -121,7 +124,7 @@ class PoolControllerTest {
     @Test
     @DisplayName("PUT /api/v1/pools/{id} - una version vieja devuelve 409 con Problem Details")
     void editar_versionVieja_devuelve409() throws Exception {
-        given(poolService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), eq(2L)))
+        given(poolService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), any(), eq(2L)))
                 .willThrow(new ConflictoDeVersionException(2L, 3L));
 
         mockMvc.perform(put("/api/v1/pools/1")
@@ -139,7 +142,7 @@ class PoolControllerTest {
     @Test
     @DisplayName("PUT /api/v1/pools/{id} - si la base rechaza una edicion simultanea tambien devuelve 409")
     void editar_edicionSimultanea_devuelve409() throws Exception {
-        given(poolService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), eq(2L)))
+        given(poolService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), any(), eq(2L)))
                 .willThrow(new ObjectOptimisticLockingFailureException(Pool.class, 1L));
 
         mockMvc.perform(put("/api/v1/pools/1")
@@ -165,7 +168,8 @@ class PoolControllerTest {
     }
 
     private PoolResponse crearPool(Long id, String nombre) {
-        return new PoolResponse(id, nombre, TipoParticipante.CLIENTE, false, 0, 10L, 0L, null, null, null, null);
+        return new PoolResponse(id, nombre, TipoParticipante.CLIENTE, false, Integracion.CLIENTE, 0, 10L,
+                0L, null, null, null, null);
     }
 
 }

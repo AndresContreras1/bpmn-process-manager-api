@@ -30,6 +30,7 @@ import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.mapper.CorrelacionMapper;
 import com.facimus.procesos.modelado.model.Correlacion;
 import com.facimus.procesos.modelado.model.Mensaje;
+import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
@@ -76,7 +77,8 @@ class CorrelacionServiceTest {
         when(correlacionRepository.findByMensajeIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.empty());
         when(correlacionRepository.saveAndFlush(any(Correlacion.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        CorrelacionResponse respuesta = correlacionService.definir(EMPRESA, AUTOR, 40L, "orderId", null);
+        CorrelacionResponse respuesta = correlacionService.definir(EMPRESA, AUTOR, 40L, "orderId", null,
+                null, null);
 
         assertThat(respuesta.criterio()).isEqualTo("orderId");
         assertThat(respuesta.mensajeId()).isEqualTo(40L);
@@ -92,7 +94,8 @@ class CorrelacionServiceTest {
         when(correlacionRepository.findByMensajeIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(actual));
         when(correlacionRepository.saveAndFlush(any(Correlacion.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        CorrelacionResponse respuesta = correlacionService.definir(EMPRESA, AUTOR, 40L, "trackingId", null);
+        CorrelacionResponse respuesta = correlacionService.definir(EMPRESA, AUTOR, 40L, "trackingId", null,
+                null, null);
 
         assertThat(respuesta.id()).isEqualTo(50L);
         assertThat(actual.getCriterio()).isEqualTo("trackingId");
@@ -106,10 +109,38 @@ class CorrelacionServiceTest {
         when(mensajeRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(mensaje));
         when(correlacionRepository.findByMensajeIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(actual));
 
-        assertThatThrownBy(() -> correlacionService.definir(EMPRESA, AUTOR, 40L, "trackingId", 3L))
+        assertThatThrownBy(() -> correlacionService.definir(EMPRESA, AUTOR, 40L, "trackingId", null,
+                null, 3L))
                 .isInstanceOf(ConflictoDeVersionException.class);
         assertThat(actual.getCriterio()).isEqualTo("orderId");
         verify(correlacionRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("HU-28: la clave dice en que campo del cuerpo viaja y que hacer con un mensaje sin caso")
+    void definir_conCampoYPolitica_losGuarda() {
+        when(mensajeRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(mensaje));
+        when(correlacionRepository.findByMensajeIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.empty());
+        when(correlacionRepository.saveAndFlush(any(Correlacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CorrelacionResponse respuesta = correlacionService.definir(EMPRESA, AUTOR, 40L, "Numero de pedido",
+                "orderId", PoliticaSinCaso.INICIAR_CASO, null);
+
+        assertThat(respuesta.campo()).isEqualTo("orderId");
+        assertThat(respuesta.sinCaso()).isEqualTo(PoliticaSinCaso.INICIAR_CASO);
+    }
+
+    @Test
+    @DisplayName("Una clave sin politica descarta el mensaje que no corresponde a ningun caso")
+    void definir_sinPolitica_descarta() {
+        when(mensajeRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(mensaje));
+        when(correlacionRepository.findByMensajeIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.empty());
+        when(correlacionRepository.saveAndFlush(any(Correlacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CorrelacionResponse respuesta = correlacionService.definir(EMPRESA, AUTOR, 40L, "orderId", "orderId", null,
+                null);
+
+        assertThat(respuesta.sinCaso()).isEqualTo(PoliticaSinCaso.DESCARTAR);
     }
 
     @Test
@@ -126,7 +157,8 @@ class CorrelacionServiceTest {
     void definir_mensajeAjeno_lanzaNoEncontrado() {
         when(mensajeRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> correlacionService.definir(EMPRESA, AUTOR, 40L, "orderId", null))
+        assertThatThrownBy(() -> correlacionService.definir(EMPRESA, AUTOR, 40L, "orderId", null,
+                null, null))
                 .isInstanceOf(RecursoNoEncontradoException.class);
         verify(correlacionRepository, never()).saveAndFlush(any());
     }

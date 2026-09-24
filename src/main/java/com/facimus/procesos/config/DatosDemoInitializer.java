@@ -13,6 +13,7 @@ import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
@@ -20,6 +21,7 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
@@ -84,11 +86,11 @@ public class DatosDemoInitializer implements CommandLineRunner {
         // El proceso nace con el pool de la tienda; los demas participantes se modelan como cajas negras.
         PoolResponse tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst();
         PoolResponse cliente = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE,
-                true);
+                true, Integracion.NINGUNA);
         PoolResponse pasarela = poolService.crear(empresaId, adminId, procesoId, "Payment gateway",
-                TipoParticipante.SISTEMA_EXTERNO, true);
+                TipoParticipante.SISTEMA_EXTERNO, true, Integracion.NINGUNA);
         PoolResponse transportadora = poolService.crear(empresaId, adminId, procesoId, "Carrier",
-                TipoParticipante.PROVEEDOR, true);
+                TipoParticipante.PROVEEDOR, true, Integracion.NINGUNA);
 
         Long ventas = laneService.crear(empresaId, adminId, tienda.id(), "Sales", rolProcesoService
                 .crear(empresaId, "Sales", "Receives orders and coordinates the payment.").id()).id();
@@ -131,25 +133,28 @@ public class DatosDemoInitializer implements CommandLineRunner {
         arcoService.crear(empresaId, adminId, enviar, envioConfirmado, null, null);
         arcoService.crear(empresaId, adminId, envioConfirmado, pedidoEnviado, null, null);
 
-        correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId, "Order placed",
-                "Cart items, shipping address and payment method.", cliente.id(), tienda.id()));
         correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId,
-                "Payment authorization request", "Order total and tokenized card.", tienda.id(), pasarela.id()));
+                DatosDeMensaje.basico("Order placed", "Cart items, shipping address and payment method.",
+                        cliente.id(), tienda.id())));
         correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId,
-                "Payment authorization result",
-                "Approved or declined, with the transaction id.", pasarela.id(), tienda.id()));
-        correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId, "Shipment request",
-                "Package size, weight and delivery address.", tienda.id(), transportadora.id()));
+                DatosDeMensaje.basico("Payment authorization request", "Order total and tokenized card.",
+                        tienda.id(), pasarela.id())));
         correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId,
-                "Order status notification",
-                "Confirmation with the tracking number, or the cancellation notice.", tienda.id(),
-                cliente.id()));
+                DatosDeMensaje.basico("Payment authorization result",
+                        "Approved or declined, with the transaction id.", pasarela.id(), tienda.id())));
+        correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId,
+                DatosDeMensaje.basico("Shipment request", "Package size, weight and delivery address.",
+                        tienda.id(), transportadora.id())));
+        correlacionar(empresaId, adminId, mensajeService.crear(empresaId, adminId, procesoId,
+                DatosDeMensaje.basico("Order status notification",
+                        "Confirmation with the tracking number, or the cancellation notice.", tienda.id(),
+                        cliente.id())));
 
         procesoService.cambiarEstado(empresaId, procesoId, adminId, EstadoProceso.PUBLICADO, proceso.version());
     }
 
     /** Todos los mensajes del pedido se correlacionan por su numero de orden. */
     private void correlacionar(Long empresaId, Long adminId, MensajeResponse mensaje) {
-        correlacionService.definir(empresaId, adminId, mensaje.id(), CLAVE_DE_CORRELACION, null);
+        correlacionService.definir(empresaId, adminId, mensaje.id(), CLAVE_DE_CORRELACION, null, null, null);
     }
 }

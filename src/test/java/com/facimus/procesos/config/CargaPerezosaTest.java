@@ -34,12 +34,14 @@ import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.DiagramaService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
@@ -239,7 +241,7 @@ class CargaPerezosaTest {
                 "After-sales").id();
         Long tienda = poolService.listarPorProceso(empresaId, devoluciones).getFirst().id();
         Long cliente = poolService.crear(empresaId, adminId, devoluciones, "Customer", TipoParticipante.CLIENTE,
-                true).id();
+                true,Integracion.NINGUNA).id();
         Long rol = rolProcesoService.crear(empresaId, "After-sales", null).id();
         agregarUnaLaneConSuFlujo(devoluciones, tienda, cliente, rol, "Customer service");
 
@@ -273,8 +275,9 @@ class CargaPerezosaTest {
                 TipoActividad.USUARIO, 420, 80).id();
         arcoService.crear(empresaId, adminId, recibir, decidir, null, null);
         arcoService.crear(empresaId, adminId, decidir, reembolsar, "Approved", "return.status == APPROVED");
-        Long mensajeId = mensajeService.crear(empresaId, adminId, procesoId, lane + ": return request",
-                "Order and items", clienteId, tiendaId).id();
-        correlacionService.definir(empresaId, adminId, mensajeId, "orderId", null);
+        Long mensajeId = mensajeService.crear(empresaId, adminId, procesoId,
+                DatosDeMensaje.basico(lane + ": return request",
+                "Order and items", clienteId, tiendaId)).id();
+        correlacionService.definir(empresaId, adminId, mensajeId, "orderId", null, null, null);
     }
 }

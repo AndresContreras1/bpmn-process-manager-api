@@ -2,12 +2,17 @@ package com.facimus.procesos.modelado.dto.response;
 
 import java.time.LocalDateTime;
 
+import com.facimus.procesos.modelado.model.PoliticaSinCaso;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "Correlation key of a message")
 public record CorrelacionResponse(
         @Schema(example = "3") Long id,
         @Schema(example = "orderId") String criterio,
+        @Schema(description = "Field of the message body that carries the key", example = "orderId")
+        String campo,
+        @Schema(example = "INICIAR_CASO") PoliticaSinCaso sinCaso,
         @Schema(example = "5") Long mensajeId,
         @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
         Long version,

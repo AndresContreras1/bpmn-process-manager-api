@@ -14,6 +14,10 @@ public interface MensajeMapper {
 
     @Mapping(target = "poolOrigenId", source = "poolOrigen.id")
     @Mapping(target = "poolDestinoId", source = "poolDestino.id")
+    @Mapping(target = "nodoOrigenId", source = "nodoOrigen.id")
+    @Mapping(target = "nodoDestinoId", source = "nodoDestino.id")
+    @Mapping(target = "nodoManejoErrorId", source = "nodoManejoError.id")
+    @Mapping(target = "respuestaEsperadaId", source = "respuestaEsperada.id")
     @Mapping(target = "procesoId", source = "proceso.id")
     MensajeResponse toResponse(Mensaje mensaje);
 

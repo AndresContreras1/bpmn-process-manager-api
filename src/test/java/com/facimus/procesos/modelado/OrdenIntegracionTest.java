@@ -16,6 +16,7 @@ import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.PoolService;
@@ -60,12 +61,13 @@ class OrdenIntegracionTest {
         Long procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         Long clienteId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE,
-                true).id();
-        poolService.crear(empresaId, adminId, procesoId, "Carrier", TipoParticipante.PROVEEDOR, true);
+                true,Integracion.NINGUNA).id();
+        poolService.crear(empresaId, adminId, procesoId, "Carrier", TipoParticipante.PROVEEDOR, true,
+                Integracion.NINGUNA);
         poolService.eliminar(empresaId, adminId, clienteId);
 
         PoolResponse nuevo = poolService.crear(empresaId, adminId, procesoId, "Payment gateway",
-                TipoParticipante.SISTEMA_EXTERNO, true);
+                TipoParticipante.SISTEMA_EXTERNO, true, Integracion.NINGUNA);
 
         assertThat(nuevo.orden()).isEqualTo(3);
         assertThat(poolService.listarPorProceso(empresaId, procesoId))

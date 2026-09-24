@@ -11,6 +11,7 @@ import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.mapper.CorrelacionMapper;
 import com.facimus.procesos.modelado.model.Correlacion;
 import com.facimus.procesos.modelado.model.Mensaje;
+import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.service.CorrelacionService;
@@ -30,7 +31,8 @@ public class CorrelacionServiceImpl implements CorrelacionService {
     /** Crea el criterio de correlacion del mensaje, o lo reemplaza si ya tenia uno. */
     @Override
     @Transactional
-    public CorrelacionResponse definir(Long empresaId, Long usuarioId, Long mensajeId, String criterio, Long version) {
+    public CorrelacionResponse definir(Long empresaId, Long usuarioId, Long mensajeId, String criterio,
+            String campo, PoliticaSinCaso sinCaso, Long version) {
         Mensaje mensaje = mensajeRepository.findByIdAndEmpresaId(mensajeId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Mensaje no encontrado."));
 
@@ -42,6 +44,8 @@ public class CorrelacionServiceImpl implements CorrelacionService {
                 .mensaje(mensaje)
                 .build());
         correlacion.setCriterio(criterio);
+        correlacion.setCampo(campo);
+        correlacion.setSinCaso(sinCaso == null ? PoliticaSinCaso.DESCARTAR : sinCaso);
         historialCambioService.registrar(empresaId, usuarioId, mensaje.getProceso(),
                 "Clave de correlación \"" + criterio + "\" definida para el mensaje \"" + mensaje.getNombre() + "\".");
         return correlacionMapper.toResponse(correlacionRepository.saveAndFlush(correlacion));

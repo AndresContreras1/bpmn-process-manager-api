@@ -1,5 +1,6 @@
 package com.facimus.procesos.modelado.dto.request;
 
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -14,6 +15,8 @@ public record EditarPoolRequest(
         @Size(max = 120, message = "El nombre no puede superar 120 caracteres.") String nombre,
         @Schema(example = "SISTEMA_EXTERNO")
         @NotNull(message = "El tipo de participante es obligatorio.") TipoParticipante tipoParticipante,
+        @Schema(description = "Kind of partner behind the participant", example = "PAGOS")
+        Integracion integracion,
         @Schema(description = "Version read with the last GET; if someone saved a change since, the edit answers 409",
                 example = "0")
         @NotNull(message = "La versión es obligatoria.") Long version) {

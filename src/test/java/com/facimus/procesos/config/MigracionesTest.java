@@ -81,7 +81,8 @@ class MigracionesTest {
                 .containsExactly("V1__esquema_inicial.sql", "V2__nombres_unicos_por_empresa.sql",
                         "V3__procesos_compartidos.sql", "V4__sesiones.sql", "V5__versiones.sql",
                         "V6__auditoria.sql", "V7__claves_idempotencia.sql", "V8__baja_logica_del_modelado.sql",
-                        "V9__eventos_y_tipos_de_actividad.sql");
+                        "V9__eventos_y_tipos_de_actividad.sql",
+                        "V10__mensajes_anclados_y_correlacion_por_campo.sql");
     }
 
     @Test

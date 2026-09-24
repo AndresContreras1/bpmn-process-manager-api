@@ -40,7 +40,11 @@ import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.dto.response.RevisionResponse;
 import com.facimus.procesos.modelado.model.Severidad;
+import com.facimus.procesos.modelado.model.AccionSiFalla;
+import com.facimus.procesos.modelado.model.Integracion;
+import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoDestino;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
@@ -129,7 +133,8 @@ class RevisionServiceTest {
                 .contains("Actividad USUARIO: Pick items - Recoger del estante")
                 .contains("Gateway EXCLUSIVO: Stock available?")
                 .contains("\"Pick items\" -> \"Stock available?\" [listo] si stock > 0")
-                .contains("\"Shipment requested\": Demo Store -> Carrier (correlacion por orderId)")
+                .contains("\"Shipment requested\": Demo Store -> Carrier, desde \"Pick items\", por COLA, "
+                        + "si falla CONTINUAR (correlacion por orderId)")
                 // Los ids internos no viajan al modelo: solo nombres.
                 .doesNotContain("procesoId");
     }
@@ -239,10 +244,10 @@ class RevisionServiceTest {
     private static DiagramaResponse diagrama() {
         ProcesoResponse proceso = new ProcesoResponse(PROCESO, "Order fulfillment", "De la compra a la entrega",
                 "Fulfillment", EstadoProceso.PUBLICADO, true, AHORA, AHORA, 0L, null, null);
-        PoolResponse tienda = new PoolResponse(5L, "Demo Store", TipoParticipante.EMPRESA, false, 0, PROCESO, 0L,
-                null, AHORA, null, AHORA);
-        PoolResponse transportadora = new PoolResponse(6L, "Carrier", TipoParticipante.PROVEEDOR, true, 1, PROCESO,
-                0L, null, AHORA, null, AHORA);
+        PoolResponse tienda = new PoolResponse(5L, "Demo Store", TipoParticipante.EMPRESA, false,
+                Integracion.NINGUNA, 0, PROCESO, 0L, null, AHORA, null, AHORA);
+        PoolResponse transportadora = new PoolResponse(6L, "Carrier", TipoParticipante.PROVEEDOR, true,
+                Integracion.TRANSPORTE, 1, PROCESO, 0L, null, AHORA, null, AHORA);
         LaneResponse lane = new LaneResponse(7L, "Picking", 0, 5L, 20L, "Warehouse", 0L, null, AHORA, null, AHORA);
         ActividadResponse actividad = new ActividadResponse(30L, "Pick items", "Recoger del estante",
                 TipoActividad.USUARIO, 10, 20, 7L, 0L, null, AHORA, null, AHORA);
@@ -251,9 +256,11 @@ class RevisionServiceTest {
         GatewayResponse gateway = new GatewayResponse(31L, "Stock available?", TipoGateway.EXCLUSIVO, 30, 40, 7L,
                 0L, null, AHORA, null, AHORA);
         ArcoResponse arco = new ArcoResponse(50L, "listo", "stock > 0", 30L, 31L, 5L, 0L, null, AHORA, null, AHORA);
-        MensajeResponse mensaje = new MensajeResponse(40L, "Shipment requested", "Pedido listo", 5L, 6L, PROCESO,
-                0L, null, AHORA, null, AHORA);
-        CorrelacionResponse correlacion = new CorrelacionResponse(60L, "orderId", 40L, 0L, null, AHORA, null, AHORA);
+        MensajeResponse mensaje = new MensajeResponse(40L, "Shipment requested", "Pedido listo", 5L, 6L,
+                30L, null, TipoDestino.COLA, AccionSiFalla.CONTINUAR, null, false, List.of(), null,
+                "shipment", null, PROCESO, 0L, null, AHORA, null, AHORA);
+        CorrelacionResponse correlacion = new CorrelacionResponse(60L, "orderId", "orderId",
+                PoliticaSinCaso.DESCARTAR, 40L, 0L, null, AHORA, null, AHORA);
         return new DiagramaResponse(proceso, false, List.of(tienda, transportadora), List.of(lane),
                 List.of(actividad), List.of(gateway), List.of(evento), List.of(arco), List.of(mensaje),
                 List.of(correlacion));

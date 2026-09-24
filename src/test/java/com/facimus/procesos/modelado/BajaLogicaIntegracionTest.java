@@ -35,12 +35,14 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.GatewayService;
@@ -135,12 +137,14 @@ class BajaLogicaIntegracionTest {
     @DisplayName("Eliminar un pool con mensajes da de baja sus mensajes y sus claves de correlacion")
     void poolConMensajes_alEliminarse_daDeBajaSusMensajes() throws Exception {
         Long transportadora = poolService.crear(empresaId, adminId, procesoId, "Carrier", TipoParticipante.PROVEEDOR,
-                true).id();
-        Long pedido = mensajeService.crear(empresaId, adminId, procesoId, "Shipment request", "Package and address",
-                tiendaId, transportadora).id();
-        Long confirmacion = mensajeService.crear(empresaId, adminId, procesoId, "Shipment confirmed", "Tracking number",
-                transportadora, tiendaId).id();
-        correlacionService.definir(empresaId, adminId, pedido, "orderId", null);
+                true,Integracion.NINGUNA).id();
+        Long pedido = mensajeService.crear(empresaId, adminId, procesoId, DatosDeMensaje.basico("Shipment request",
+                "Package and address",
+                tiendaId, transportadora)).id();
+        Long confirmacion = mensajeService.crear(empresaId, adminId, procesoId,
+                DatosDeMensaje.basico("Shipment confirmed", "Tracking number",
+                transportadora, tiendaId)).id();
+        correlacionService.definir(empresaId, adminId, pedido, "orderId", null, null, null);
 
         pedir(delete("/api/v1/pools/{id}", transportadora)).andExpect(status().isNoContent());
 
@@ -156,7 +160,8 @@ class BajaLogicaIntegracionTest {
     Stream<Arguments> elementos() {
         return Stream.of(
                 elemento("pool", "pools", "/api/v1/pools/{id}", () -> poolService
-                        .crear(empresaId, adminId, procesoId, "Supplier", TipoParticipante.PROVEEDOR, true).id()),
+                        .crear(empresaId, adminId, procesoId, "Supplier", TipoParticipante.PROVEEDOR,
+                                true, Integracion.NINGUNA).id()),
                 elemento("lane", "lanes", "/api/v1/lanes/{id}", () -> laneService
                         .crear(empresaId, adminId, tiendaId, "Returns desk", rolId).id()),
                 elemento("actividad", "nodos_flujo", "/api/v1/actividades/{id}", () -> actividadService
@@ -172,8 +177,10 @@ class BajaLogicaIntegracionTest {
                                 null)
                         .id()),
                 elemento("mensaje", "mensajes", "/api/v1/mensajes/{id}", () -> mensajeService.crear(empresaId, adminId,
-                        procesoId, "Invoice", "Order total", tiendaId, poolService.crear(empresaId, adminId, procesoId,
-                                "Accounting", TipoParticipante.SISTEMA_EXTERNO, true).id()).id()));
+                        procesoId, DatosDeMensaje.basico("Invoice", "Order total", tiendaId,
+                                poolService.crear(empresaId, adminId, procesoId, "Accounting",
+                                        TipoParticipante.SISTEMA_EXTERNO, true, Integracion.NINGUNA)
+                                        .id())).id()));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -213,7 +220,7 @@ class BajaLogicaIntegracionTest {
         Long devoluciones = procesoService.crear(empresaId, adminId, "Returns", "Return to refund", "After-sales").id();
         Long tienda = poolService.listarPorProceso(empresaId, devoluciones).getFirst().id();
         Long cliente = poolService.crear(empresaId, adminId, devoluciones, "Customer", TipoParticipante.CLIENTE,
-                true).id();
+                true,Integracion.NINGUNA).id();
         Long mostrador = laneService.crear(empresaId, adminId, tienda, "Returns desk", rolId).id();
         Long recibir = actividadService.crear(empresaId, adminId, mostrador, "Receive item", null,
                 TipoActividad.USUARIO, 100, 100).id();
@@ -222,9 +229,10 @@ class BajaLogicaIntegracionTest {
         Long arco = arcoService.crear(empresaId, adminId, recibir, revisar, null, null).id();
         Long cerrado = eventoService.crear(empresaId, adminId, mostrador, "Return closed", TipoEvento.FIN,
                 300, 100).id();
-        Long solicitud = mensajeService.crear(empresaId, adminId, devoluciones, "Return request", "Order and reason",
-                cliente, tienda).id();
-        correlacionService.definir(empresaId, adminId, solicitud, "orderId", null);
+        Long solicitud = mensajeService.crear(empresaId, adminId, devoluciones, DatosDeMensaje.basico("Return request",
+                "Order and reason",
+                cliente, tienda)).id();
+        correlacionService.definir(empresaId, adminId, solicitud, "orderId", null, null, null);
 
         pedir(delete("/api/v1/procesos/{id}", devoluciones)).andExpect(status().isNoContent());
 

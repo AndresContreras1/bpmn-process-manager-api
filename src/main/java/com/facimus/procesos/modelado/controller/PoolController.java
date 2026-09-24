@@ -73,11 +73,12 @@ public class PoolController {
             @Validated @RequestBody PoolRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         PoolResponse pool = poolService.crear(empresaId, principal.usuarioId(), procesoId, request.nombre(),
-                request.tipoParticipante(), request.cajaNegra());
+                request.tipoParticipante(), request.cajaNegra(), request.integracion());
         return ResponseEntity.created(URI.create("/api/v1/pools/" + pool.id())).body(pool);
     }
 
-    @Operation(summary = "Edit a pool", description = "Replaces its name and participant type.")
+    @Operation(summary = "Edit a pool",
+            description = "Replaces its name, participant type and the kind of partner behind it.")
     @ApiResponse(responseCode = "200", description = "Pool updated")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -89,7 +90,7 @@ public class PoolController {
             @Validated @RequestBody EditarPoolRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(poolService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
-                request.tipoParticipante(), request.version()));
+                request.tipoParticipante(), request.integracion(), request.version()));
     }
 
     @Operation(summary = "Delete a pool",

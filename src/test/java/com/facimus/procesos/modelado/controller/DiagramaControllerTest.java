@@ -29,6 +29,9 @@ import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
+import com.facimus.procesos.modelado.model.AccionSiFalla;
+import com.facimus.procesos.modelado.model.Integracion;
+import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
@@ -85,10 +88,10 @@ class DiagramaControllerTest {
                 new ProcesoResponse(10L, "Order fulfillment", "Checkout to delivery", "Fulfillment",
                         EstadoProceso.PUBLICADO, true, creado, creado, 0L, null, null),
                 false,
-                List.of(new PoolResponse(1L, "Demo Store", TipoParticipante.EMPRESA, false, 0, 10L, 0L, null, null,
-                        null, null),
-                        new PoolResponse(2L, "Customer", TipoParticipante.CLIENTE, true, 1, 10L, 0L, null, null, null,
-                                null)),
+                List.of(new PoolResponse(1L, "Demo Store", TipoParticipante.EMPRESA, false,
+                        Integracion.NINGUNA, 0, 10L, 0L, null, null, null, null),
+                        new PoolResponse(2L, "Customer", TipoParticipante.CLIENTE, true,
+                                Integracion.CLIENTE, 1, 10L, 0L, null, null, null, null)),
                 List.of(new LaneResponse(3L, "Sales", 0, 1L, 4L, "Sales", 0L, null, null, null, null)),
                 List.of(new ActividadResponse(5L, "Receive order", "Validate the cart", TipoActividad.USUARIO,
                         100, 80, 3L, 0L, null, null, null, null)),
@@ -97,7 +100,10 @@ class DiagramaControllerTest {
                 List.of(new EventoResponse(11L, "Order received", TipoEvento.MENSAJE_INICIO, 20, 80, 3L, 0L,
                         null, null, null, null)),
                 List.of(new ArcoResponse(7L, null, null, 5L, 6L, 1L, 0L, null, null, null, null)),
-                List.of(new MensajeResponse(8L, "Order placed", "Cart items", 2L, 1L, 10L, 0L, null, null, null, null)),
-                List.of(new CorrelacionResponse(9L, "orderId", 8L, 0L, null, null, null, null)));
+                List.of(new MensajeResponse(8L, "Order placed", "Cart items", 2L, 1L, null, 11L, null,
+                        AccionSiFalla.CONTINUAR, null, false, List.of(), null, "order", null, 10L, 0L,
+                        null, null, null, null)),
+                List.of(new CorrelacionResponse(9L, "orderId", "orderId", PoliticaSinCaso.INICIAR_CASO,
+                        8L, 0L, null, null, null, null)));
     }
 }

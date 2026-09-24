@@ -160,11 +160,34 @@ public class RevisionServiceImpl implements RevisionService {
             texto.append("- \"").append(mensaje.nombre()).append("\": ")
                     .append(nombresDePool.getOrDefault(mensaje.poolOrigenId(), "?")).append(" -> ")
                     .append(nombresDePool.getOrDefault(mensaje.poolDestinoId(), "?"));
+            anclaje(texto, " desde", mensaje.nodoOrigenId(), nombresDeNodo);
+            anclaje(texto, " hacia", mensaje.nodoDestinoId(), nombresDeNodo);
+            if (mensaje.origenExterno()) {
+                texto.append(", llega de fuera del diagrama");
+            }
+            if (mensaje.tipoDestino() != null) {
+                texto.append(", por ").append(mensaje.tipoDestino());
+            }
+            texto.append(", si falla ").append(mensaje.siFalla());
+            if (!mensaje.campos().isEmpty()) {
+                texto.append(", campos: ").append(mensaje.campos().stream()
+                        .map(campo -> campo.nombre() + " (" + campo.tipo() + ")")
+                        .collect(Collectors.joining(", ")));
+            }
             String criterio = criterios.get(mensaje.id());
             texto.append(criterio == null ? " (sin clave de correlacion)" : " (correlacion por " + criterio + ")");
             texto.append('\n');
         }
         return texto.toString();
+    }
+
+    /** El nodo al que se ancla un mensaje, si el pool de ese lado modela su flujo. */
+    private static void anclaje(StringBuilder texto, String preposicion, Long nodoId,
+            Map<Long, String> nombresDeNodo) {
+        if (nodoId != null) {
+            texto.append(",").append(preposicion).append(" \"")
+                    .append(nombresDeNodo.getOrDefault(nodoId, "?")).append('\"');
+        }
     }
 
     private static <T> Map<Long, List<T>> agrupar(List<T> elementos, Function<T, Long> padre) {

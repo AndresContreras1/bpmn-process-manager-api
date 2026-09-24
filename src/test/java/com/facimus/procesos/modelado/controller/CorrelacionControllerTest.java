@@ -10,10 +10,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
+import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -36,7 +38,8 @@ class CorrelacionControllerTest {
     @DisplayName("PUT /api/v1/mensajes/{mensajeId}/correlacion - la primera clave se define sin version (200)")
     void definir_correlacion() throws Exception {
         CorrelacionResponse c = crearCorrelacion(1L, "orderId");
-        given(correlacionService.definir(eq(1L), eq(1L), eq(5L), anyString(), isNull())).willReturn(c);
+        given(correlacionService.definir(eq(1L), eq(1L), eq(5L), anyString(), any(), any(), isNull()))
+                .willReturn(c);
 
         mockMvc.perform(put("/api/v1/mensajes/5/correlacion")
                         .with(principal(RolAcceso.EDITOR))
@@ -80,7 +83,8 @@ class CorrelacionControllerTest {
     }
 
     private CorrelacionResponse crearCorrelacion(Long id, String criterio) {
-        return new CorrelacionResponse(id, criterio, 5L, 0L, null, null, null, null);
+        return new CorrelacionResponse(id, criterio, "orderId", PoliticaSinCaso.INICIAR_CASO, 5L, 0L,
+                null, null, null, null);
     }
 
 }
