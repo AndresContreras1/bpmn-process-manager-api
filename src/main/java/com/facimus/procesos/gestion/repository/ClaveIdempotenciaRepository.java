@@ -25,4 +25,10 @@ public interface ClaveIdempotenciaRepository extends RepositorioTenant<ClaveIdem
             where c.id = :id and c.estado is null and c.fechaCreacion = :anterior
             """)
     int retomar(Long id, LocalDateTime anterior, LocalDateTime ahora);
+
+    /** D20: una clave vieja ya no se va a repetir; su reserva y su respuesta guardada sobran. */
+    @Transactional
+    @Modifying
+    @Query("delete from ClaveIdempotencia c where c.fechaCreacion < :limite")
+    int borrarAntesDe(LocalDateTime limite);
 }

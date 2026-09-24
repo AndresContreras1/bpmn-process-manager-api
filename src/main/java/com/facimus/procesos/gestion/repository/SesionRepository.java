@@ -4,7 +4,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.gestion.model.Sesion;
@@ -21,4 +23,16 @@ public interface SesionRepository extends RepositorioTenant<Sesion> {
      */
     @Query("select s.codigo from Sesion s where s.fechaCierre > :desde")
     List<String> codigosCerradosDesde(LocalDateTime desde);
+
+    /**
+     * D20: una sesion sin ningun refresh token no puede volver a emitir nada. Se va solo cuando ademas es mas
+     * vieja que el limite, que nunca es mas corto que la vigencia del access token.
+     */
+    @Transactional
+    @Modifying
+    @Query("""
+            delete from Sesion s where coalesce(s.fechaCierre, s.fechaInicio) < :limite
+            and not exists (select 1 from RefreshToken t where t.sesion = s)
+            """)
+    int borrarSinTokensAntesDe(LocalDateTime limite);
 }
