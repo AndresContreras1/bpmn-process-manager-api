@@ -208,6 +208,7 @@ The [technical documentation](#getting-started) explains how each guarantee is b
 
 - JDK 21, or Docker, for the API
 - Node.js 22 or later for the web app (optional)
+- Docker for the tests that run against a real PostgreSQL (optional)
 
 ### Run the API
 
@@ -320,6 +321,9 @@ Nothing else is exposed: any other Actuator endpoint answers `404`.
 | `dev` | Default, when no profile is set | H2 file under `./data` | ✓ | ✓ | ✓ | ✓ |
 | `test` | `@ActiveProfiles("test")` in integration tests | In-memory H2, a new one for each Spring test context | — | — | ✓ | — |
 | `prod` | `SPRING_PROFILES_ACTIVE=prod` | PostgreSQL | — | — | — | — |
+
+The tests tagged `postgres` leave the profile's database aside and run against a PostgreSQL 16 container;
+[Quality and testing](#quality-and-testing) says what they are for and how to run them.
 
 ### Environment variables
 
@@ -801,6 +805,17 @@ The build runs 739 tests and a JaCoCo coverage gate. The HTML report is written 
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 31 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
 | Module integration (`@SpringBootTest`) | 68 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
+| PostgreSQL 16 (Testcontainers) | 38 | What only the production engine can answer: the partial unique indexes behind the name of a process and the pair of nodes of a flow, which H2 has to replace with a generated column, and the `text` column that holds a published diagram. The migration, repository, version and publishing suites run again here, unchanged, and the context starts with `validate`, so every entity is checked against the schema Flyway leaves behind |
+
+The PostgreSQL row is the only one `./mvnw verify` does not run: it needs a Docker daemon, and a build that
+depends on one is a build that breaks on the laptop of whoever does not have it. Those tests carry the
+`postgres` tag, which the build excludes and this command runs on its own:
+
+```bash
+./mvnw test -Dsurefire.excluded.groups= -Dgroups=postgres
+```
+
+Without Docker they report as skipped instead of failing, and the pipeline runs them on every pull request.
 
 Current coverage: 96 % of lines and 85 % of branches. The build fails below 85 % of lines or 70 % of
 branches overall, and below 90 % and 80 % in the service packages, where the business rules live. The gate
@@ -812,6 +827,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 |---|---|
 | Build & Test | `./mvnw verify` on Ubuntu and Windows. The test results appear as a check, and the coverage report is kept as an artifact. |
 | Architecture Rules | The ArchUnit suite on its own, with a summary |
+| PostgreSQL Integration | The suites tagged `postgres` against a PostgreSQL 16 container, the same image the Compose stack runs |
 | Docker Image & Load Test | Builds the image, checks that the API answers from the container, brings up the Compose stack in the `prod` profile against PostgreSQL 16, and runs the k6 load test against it |
 | SonarCloud Analysis | Static analysis, skipped when SonarCloud is not configured |
 | Frontend Build | `npm ci` and a production build of the web app |
@@ -860,7 +876,12 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - **The schema belongs to Flyway.** Migrations are the single source of truth, and Hibernate only validates them
   (`ddl-auto=validate`). Portable SQL lives in `db/migration/common`. What only one engine can express, such as
   PostgreSQL's partial unique indexes, lives in `db/migration/{vendor}`, and H2 gets an equivalent built on a
-  generated column.
+  generated column. Each branch is proved against its own engine: the H2 one by the build of every day,
+  the PostgreSQL one by the suite that runs on a container.
+- **A published diagram is text in the row, not a large object.** Hibernate turns `@Lob` on a `String` into
+  an `oid` in PostgreSQL: the document moves out of the table into the large-object store, with its own
+  identity and its own cleanup, and plain SQL stops reading it. The column asks for `text` and the field
+  asks for the JDBC type that matches it, so the JSON stays in the row on both engines.
 - **Every text column has a length, and so does its request field.** A value that is too long answers `400` before it
   reaches the database. Passwords stop at 72 characters, because BCrypt only reads 72 bytes and Spring Security
   rejects longer ones.

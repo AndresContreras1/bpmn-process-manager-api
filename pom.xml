@@ -18,6 +18,9 @@
 		<java.version>21</java.version>
 		<mapstruct.version>1.6.3</mapstruct.version>
 		<lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+		<!-- Las pruebas contra PostgreSQL real necesitan Docker, asi que el verify de todos los dias las salta.
+		     El trabajo del CI que las corre vacia esta propiedad: -Dsurefire.excluded.groups= -Dgroups=postgres -->
+		<surefire.excluded.groups>postgres</surefire.excluded.groups>
 		<!-- SonarCloud: organizacion y proyecto que crea la importacion automatica del repositorio -->
 		<sonar.organization>andrescontreras1</sonar.organization>
 		<sonar.projectKey>AndresContreras1_bpmn-process-manager-api</sonar.projectKey>
@@ -140,6 +143,23 @@
 			<version>1.4.0</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- PostgreSQL de verdad para las pruebas etiquetadas "postgres": el motor de produccion es el que evalua
+		     los indices parciales y la columna text, que H2 no tiene. La version la fija el BOM del parent. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-postgresql</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -213,6 +233,14 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!-- Fuera del grupo excluido no hay nada que filtrar: es la unica etiqueta del proyecto -->
+					<excludedGroups>${surefire.excluded.groups}</excludedGroups>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.sonarsource.scanner.maven</groupId>
