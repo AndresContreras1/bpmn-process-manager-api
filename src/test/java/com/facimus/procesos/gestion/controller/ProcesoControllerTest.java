@@ -8,6 +8,7 @@ import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
@@ -48,7 +49,7 @@ class ProcesoControllerTest {
     @Test
     @DisplayName("GET /api/v1/procesos - listar procesos (200)")
     void listar_procesos() throws Exception {
-        given(procesoService.buscar(eq(1L), any(), any(), any(), any()))
+        given(procesoService.buscar(eq(1L), any(), any(), any(), anyBoolean(), any()))
                 .willReturn(new PageResponse<>(List.of(crearProceso(1L, "Ventas")), 0, 10, 1, 1));
 
         mockMvc.perform(get("/api/v1/procesos").with(principal(RolAcceso.EDITOR)))
@@ -57,10 +58,29 @@ class ProcesoControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/procesos?incluirInactivos - el administrador ve los eliminados y el editor no")
+    void listar_incluirInactivos_soloParaElAdministrador() throws Exception {
+        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), eq(true), any()))
+                .willReturn(PageResponse.from(new PageImpl<>(List.of(crearProceso(9L, "Retirado")))));
+
+        mockMvc.perform(get("/api/v1/procesos").param("incluirInactivos", "true")
+                        .with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(9));
+
+        mockMvc.perform(get("/api/v1/procesos").param("incluirInactivos", "true")
+                        .with(principal(RolAcceso.EDITOR)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Solicitud inválida"))
+                .andExpect(jsonPath("$.detail")
+                        .value("Solo un administrador puede consultar los procesos eliminados."));
+    }
+
+    @Test
     @DisplayName("GET /api/v1/procesos - por defecto 10 por pagina, los modificados mas recientes primero y el id desempata")
     void listar_procesos_ordenPorDefecto() throws Exception {
         ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
-        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), pagina.capture()))
+        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), anyBoolean(), pagina.capture()))
                 .willReturn(new PageResponse<>(List.of(), 0, 10, 0, 0));
 
         mockMvc.perform(get("/api/v1/procesos").with(principal(RolAcceso.SOLO_LECTURA)))
@@ -76,7 +96,7 @@ class ProcesoControllerTest {
     @DisplayName("GET /api/v1/procesos?pagina=2&tamano=25&orden=nombre,asc - el cliente elige tamano y orden")
     void listar_procesos_tamanoYOrdenElegidos() throws Exception {
         ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
-        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), pagina.capture()))
+        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), anyBoolean(), pagina.capture()))
                 .willReturn(new PageResponse<>(List.of(), 2, 25, 0, 0));
 
         mockMvc.perform(get("/api/v1/procesos").param("pagina", "2").param("tamano", "25")
@@ -137,7 +157,7 @@ class ProcesoControllerTest {
     @Test
     @DisplayName("GET /api/v1/procesos/{id} - detalle proceso (200)")
     void detalle_proceso() throws Exception {
-        given(procesoService.obtenerDetalle(1L, 1L))
+        given(procesoService.obtenerDetalle(1L, 1L, false))
                 .willReturn(new ProcesoDetalleResponse(crearProceso(1L, "Ventas"), List.of()));
 
         mockMvc.perform(get("/api/v1/procesos/1").with(principal(RolAcceso.EDITOR)))

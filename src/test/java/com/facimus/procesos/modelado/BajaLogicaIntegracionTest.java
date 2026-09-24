@@ -259,6 +259,17 @@ class BajaLogicaIntegracionTest {
                 activo("nodos_flujo", recibir), activo("nodos_flujo", revisar),
                 activo("nodos_flujo", cerrado), activo("arcos", arco),
                 activo("mensajes", solicitud))).containsOnly(false);
+
+        // HU-06.3: el proceso no desaparece; el administrador lo consulta con el filtro y lo ve dado de baja.
+        pedir(get("/api/v1/procesos/{id}", devoluciones)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/procesos/{id}", devoluciones).param("incluirInactivos", "true")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.proceso.activo").value(false));
+        mockMvc.perform(get("/api/v1/procesos").param("incluirInactivos", "true")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.id == " + devoluciones + ")]").isNotEmpty());
     }
 
     @Test

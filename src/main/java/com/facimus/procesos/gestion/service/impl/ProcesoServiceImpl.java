@@ -44,9 +44,10 @@ public class ProcesoServiceImpl implements ProcesoService {
 
     @Override
     public PageResponse<ProcesoResponse> buscar(Long empresaId, String nombre, EstadoProceso estado,
-            String categoria, Pageable pageable) {
+            String categoria, boolean incluirInactivos, Pageable pageable) {
         return PageResponse.from(procesoRepository
-                .findAll(ProcesoSpecifications.conFiltros(empresaId, nombre, estado, categoria), pageable)
+                .findAll(ProcesoSpecifications.conFiltros(empresaId, nombre, estado, categoria, incluirInactivos),
+                        pageable)
                 .map(procesoMapper::toResponse));
     }
 
@@ -74,8 +75,8 @@ public class ProcesoServiceImpl implements ProcesoService {
     }
 
     @Override
-    public ProcesoResponse obtener(Long empresaId, Long procesoId) {
-        return procesoMapper.toResponse(buscarActivo(empresaId, procesoId));
+    public ProcesoResponse obtener(Long empresaId, Long procesoId, boolean incluirInactivos) {
+        return procesoMapper.toResponse(buscar(empresaId, procesoId, incluirInactivos));
     }
 
     @Override
@@ -87,8 +88,8 @@ public class ProcesoServiceImpl implements ProcesoService {
     }
 
     @Override
-    public ProcesoDetalleResponse obtenerDetalle(Long empresaId, Long procesoId) {
-        Proceso proceso = buscarActivo(empresaId, procesoId);
+    public ProcesoDetalleResponse obtenerDetalle(Long empresaId, Long procesoId, boolean incluirInactivos) {
+        Proceso proceso = buscar(empresaId, procesoId, incluirInactivos);
         return new ProcesoDetalleResponse(procesoMapper.toResponse(proceso),
                 historialCambioService.listarPorProceso(empresaId, procesoId));
     }
@@ -154,6 +155,14 @@ public class ProcesoServiceImpl implements ProcesoService {
         eventos.publishEvent(new ProcesoEliminado(empresaId, procesoId));
 
         historialCambioService.registrar(proceso, autor, "Proceso eliminado (baja logica).");
+    }
+
+    /** HU-06.3: un proceso eliminado sigue ahi, y el administrador lo lee con activo en false. */
+    private Proceso buscar(Long empresaId, Long procesoId, boolean incluirInactivos) {
+        return incluirInactivos
+                ? procesoRepository.findByIdAndEmpresaId(procesoId, empresaId)
+                        .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."))
+                : buscarActivo(empresaId, procesoId);
     }
 
     private Proceso buscarActivo(Long empresaId, Long procesoId) {

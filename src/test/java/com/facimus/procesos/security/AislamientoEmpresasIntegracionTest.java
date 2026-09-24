@@ -382,8 +382,8 @@ class AislamientoEmpresasIntegracionTest {
                 .andReturn().getResponse().getContentAsString();
         Long procesoCreado = jsonMapper.readTree(respuesta).get("id").asLong();
 
-        assertThat(procesoService.obtener(empresaA, procesoCreado).nombre()).isEqualTo("Devoluciones");
-        assertThatThrownBy(() -> procesoService.obtener(empresaB, procesoCreado))
+        assertThat(procesoService.obtener(empresaA, procesoCreado, false).nombre()).isEqualTo("Devoluciones");
+        assertThatThrownBy(() -> procesoService.obtener(empresaB, procesoCreado, false))
                 .isInstanceOf(RecursoNoEncontradoException.class);
     }
 
@@ -430,7 +430,7 @@ class AislamientoEmpresasIntegracionTest {
     // Lo que la empresa B tiene, leido con su propia empresa: si una peticion de la empresa A cambia algo, esta
     // lista cambia.
     private List<Object> estadoEmpresaB() {
-        ProcesoResponse proceso = procesoService.obtener(empresaB, procesoB);
+        ProcesoResponse proceso = procesoService.obtener(empresaB, procesoB, false);
         RolProcesoVistaResponse rol = rolProcesoService.obtener(empresaB, rolB);
         UsuarioResponse admin = usuarioService.obtener(empresaB, adminB);
         return List.of(

@@ -141,7 +141,7 @@ class ProcesoServiceTest {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 2L)).thenReturn(Optional.empty());
 
         assertThrows(RecursoNoEncontradoException.class,
-                () -> procesoService.obtener(2L, 100L));
+                () -> procesoService.obtener(2L, 100L, false));
     }
 
     @Test
