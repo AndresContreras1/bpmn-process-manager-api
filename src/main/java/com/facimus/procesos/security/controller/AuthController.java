@@ -1,4 +1,4 @@
-package com.facimus.procesos.gestion.controller;
+package com.facimus.procesos.security.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

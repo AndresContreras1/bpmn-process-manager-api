@@ -1,4 +1,4 @@
-package com.facimus.procesos.gestion.controller;
+package com.facimus.procesos.security.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
