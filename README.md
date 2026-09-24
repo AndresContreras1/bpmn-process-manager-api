@@ -773,14 +773,15 @@ A business rule that the request would break answers `409` with the reason in `d
 
 ### Modules
 
-The code is split into two business modules and two shared packages. Each business module is layered as
-controller → service interface → service implementation → repository → model, with `dto` for the module's contract
-and `mapper` for the MapStruct translations.
+The code is split into two business modules and two shared packages, and the four of them stack: `common`
+depends on nobody, `gestion` on `common`, `security` on both, and `modelado` on all three. Each business module is
+layered as controller → service interface → service implementation → repository → model, with `dto` for the
+module's contract and `mapper` for the MapStruct translations.
 
 | Package | Responsibility |
 |---|---|
-| `security` | Filter chain, login and its rate limit, JWT issuing and validation, closed sessions, `ApiPrincipal`, `401` and `403` handlers, CORS |
-| `common` | Tenant base entity, tenant-aware repository contract, business exceptions, Problem Details, pagination |
+| `common` | What every module needs: the store and the access role, the authenticated identity (`ApiPrincipal`), the tenant base entity and the tenant-aware repository contract, business exceptions, Problem Details, pagination |
+| `security` | Filter chain, the authentication endpoints, login and its rate limit, JWT issuing and validation, closed sessions, `401` and `403` handlers, CORS |
 | `gestion` | Management: stores, users and their sessions, processes, process roles and change history |
 | `modelado` | BPMN modeling: pools, lanes, activities, gateways, sequence flows, message flows and correlation keys |
 
@@ -804,17 +805,22 @@ Publishing works the same way: `gestion` owns the versions but not the diagram, 
 `DiagnosticoDelModelo` and `InstantaneaDelModelo` ports for the errors that block publishing and for the diagram to
 freeze.
 
+The same rule holds one level up. What every module needs — the store, the access role and the identity of whoever
+is calling — lives in `common`, so nothing has to reach sideways for it, and the authentication endpoints live with
+the rest of `security` instead of with the management of the store. An ArchUnit rule checks that the four packages
+keep stacking, at the top level and inside each module.
+
 ## Quality and testing
 
 ```bash
 ./mvnw verify
 ```
 
-The build runs 749 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 750 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
-| Architecture (ArchUnit) | 32 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
+| Architecture (ArchUnit) | 33 | Layering, module boundaries and cycles between packages at both levels, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
 | Controller slices (`@WebMvcTest`) | 143 | Routes, status codes, JSON shape and validation, with the real security rules |
 | Service unit tests (Mockito) | 232 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
 | Repository slices (`@DataJpaTest`) | 37 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, and the versions, with one number per process and a whole diagram in the column |
@@ -893,7 +899,9 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - **Lazy associations, explicit fetching.** Every association is `LAZY`. A list that shows associated data fetches it
   with an `@EntityGraph`, and a test counts SQL statements so that an N+1 query fails the build.
 - **A one-way dependency between modules.** Events and a port let `modelado` react to and answer `gestion` without
-  `gestion` knowing `modelado`, so the modules can grow without a cycle.
+  `gestion` knowing `modelado`, so the modules can grow without a cycle. The same holds between the four top-level
+  packages: what everyone needs sits in `common` rather than being borrowed from a neighbour, and an ArchUnit rule
+  fails the build the day someone points one of them backwards.
 - **The schema belongs to Flyway.** Migrations are the single source of truth, and Hibernate only validates them
   (`ddl-auto=validate`). Portable SQL lives in `db/migration/common`. What only one engine can express, such as
   PostgreSQL's partial unique indexes, lives in `db/migration/{vendor}`, and H2 gets an equivalent built on a
