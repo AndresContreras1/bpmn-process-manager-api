@@ -74,4 +74,14 @@ public abstract class NodoFlujo extends EntidadEditable {
     public boolean aceptaArcosSalientes() {
         return true;
     }
+
+    /** Si desde este nodo se puede mandar un mensaje a otro participante. */
+    public boolean puedeEnviarMensajes() {
+        return false;
+    }
+
+    /** Si este nodo puede esperar un mensaje de otro participante. */
+    public boolean puedeRecibirMensajes() {
+        return false;
+    }
 }

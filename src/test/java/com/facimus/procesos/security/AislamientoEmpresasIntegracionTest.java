@@ -67,6 +67,7 @@ import com.facimus.procesos.modelado.dto.request.PoolRequest;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
@@ -74,6 +75,7 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
@@ -160,6 +162,7 @@ class AislamientoEmpresasIntegracionTest {
     private Long gatewayCierreB;
     private Long arcoB;
     private Long mensajeB;
+    private Long poolClienteA;
     private Long eventoB;
 
     @BeforeAll
@@ -172,6 +175,8 @@ class AislamientoEmpresasIntegracionTest {
         rolA = rolProcesoService.crear(empresaA, "Vendedor", "Atiende a los clientes").id();
         laneA = laneService.crear(empresaA, adminA, poolA, "Ventas", rolA).id();
         gatewayA = gatewayService.crear(empresaA, adminA, laneA, "Revisar venta", TipoGateway.PARALELO, 100, 100).id();
+        poolClienteA = poolService.crear(empresaA, adminA, procesoA, "Cliente", TipoParticipante.CLIENTE,
+                true, Integracion.CLIENTE).id();
         // Quien ataca tiene un usuarioId distinto del empresaId de su empresa: si un controller
         // confundiera los dos ids, estas pruebas lo notarian.
         Long auditorA = usuarioService
@@ -183,8 +188,8 @@ class AislamientoEmpresasIntegracionTest {
         adminB = usuarioRepository.findByEmail(ADMIN_B).orElseThrow().getId();
         procesoB = procesoService.crear(empresaB, adminB, "Compras", "Proceso de compras", "Logistica").id();
         poolB = poolService.listarPorProceso(empresaB, procesoB).getFirst().id();
-        Long poolProveedorB = poolService
-                .crear(empresaB, adminB, procesoB, "Proveedor", TipoParticipante.PROVEEDOR, true).id();
+        Long poolProveedorB = poolService.crear(empresaB, adminB, procesoB, "Proveedor",
+                TipoParticipante.PROVEEDOR, true, Integracion.NINGUNA).id();
         rolB = rolProcesoService.crear(empresaB, "Comprador", "Gestiona las compras").id();
         laneB = laneService.crear(empresaB, adminB, poolB, "Compras", rolB).id();
         actividadB = actividadService.crear(empresaB, adminB, laneB, "Solicitar cotizacion", "Pide precios",
@@ -196,9 +201,10 @@ class AislamientoEmpresasIntegracionTest {
         arcoB = arcoService.crear(empresaB, adminB, gatewayB, gatewayCierreB, "Continuar", null).id();
         eventoB = eventoService.crear(empresaB, adminB, laneB, "Compra recibida", TipoEvento.INICIO,
                 20, 300).id();
-        mensajeB = mensajeService.crear(empresaB, adminB, procesoB, "Orden de compra", "Pedido", poolB,
-                poolProveedorB).id();
-        correlacionService.definir(empresaB, adminB, mensajeB, "numeroPedido", null);
+        mensajeB = mensajeService.crear(empresaB, adminB, procesoB, DatosDeMensaje.basico("Orden de compra", "Pedido",
+                poolB,
+                poolProveedorB)).id();
+        correlacionService.definir(empresaB, adminB, mensajeB, "numeroPedido", null, null, null);
 
         tokenA = login(AUDITOR_A);
         tokenB = login(ADMIN_B);
@@ -256,10 +262,12 @@ class AislamientoEmpresasIntegracionTest {
                         "Rol de proceso no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/roles/{id}", rolB, null, "Rol de proceso no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/pools", procesoB,
-                        new PoolRequest("Intruso", TipoParticipante.CLIENTE, false), "Proceso no encontrado"),
+                        new PoolRequest("Intruso", TipoParticipante.CLIENTE, false, null),
+                        "Proceso no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/pools/{id}", poolB, null, "Pool no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/pools/{id}", poolB,
-                        new EditarPoolRequest("Intruso", TipoParticipante.CLIENTE, 0L), "Pool no encontrado"),
+                        new EditarPoolRequest("Intruso", TipoParticipante.CLIENTE, null, 0L),
+                        "Pool no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/pools/{id}", poolB, null, "Pool no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/pools/{id}/lanes", poolB, lane, "Pool no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/lanes/{id}", laneB, null, "Lane no encontrada"),
@@ -289,15 +297,17 @@ class AislamientoEmpresasIntegracionTest {
                         "Arco no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/mensajes", procesoB,
-                        new MensajeRequest("Intruso", "Desde la empresa A", poolA, poolB), "Proceso no encontrado"),
+                        mensaje("Intruso", poolA, poolB), "Proceso no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/mensajes/{id}", mensajeB, null, "Mensaje no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/mensajes/{id}", mensajeB,
-                        new EditarMensajeRequest("Intruso", "Desde la empresa A", 0L), "Mensaje no encontrado"),
+                        new EditarMensajeRequest("Intruso", "Desde la empresa A", null, null, null, null,
+                                null, false, null, null, null, null, 0L),
+                        "Mensaje no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/mensajes/{id}", mensajeB, null, "Mensaje no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/mensajes/{id}/correlacion", mensajeB, null,
                         "no tiene correlacion"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/mensajes/{id}/correlacion", mensajeB,
-                        new CorrelacionRequest("Intruso", null), "Mensaje no encontrado"));
+                        new CorrelacionRequest("Intruso", null, null, null), "Mensaje no encontrado"));
     }
 
     @ParameterizedTest(name = "{0} {1} -> 404 {4}")
@@ -321,8 +331,23 @@ class AislamientoEmpresasIntegracionTest {
                 Arguments.of(HttpMethod.POST, "/api/v1/arcos", null, new ArcoRequest(gatewayA, gatewayB, null, null),
                         "Nodo de destino no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/mensajes", procesoA,
-                        new MensajeRequest("Mixto", "Hacia la empresa B", poolA, poolB),
-                        "Pool de destino no encontrado"));
+                        mensaje("Mixto", poolA, poolB), "Pool de destino no encontrado"),
+                // El anclaje tambien entra por id: un nodo de la empresa B no existe para la A.
+                Arguments.of(HttpMethod.POST, "/api/v1/procesos/{id}/mensajes", procesoA,
+                        anclado("Mixto", poolA, poolClienteA, actividadB),
+                        "Nodo de origen del mensaje no encontrado"));
+    }
+
+    /** Un mensaje de prueba con lo minimo: el resto de campos llega vacio. */
+    private static MensajeRequest mensaje(String nombre, Long origen, Long destino) {
+        return new MensajeRequest(nombre, "Desde la empresa A", origen, destino, null, null, null, null,
+                null, false, null, null, null, null);
+    }
+
+    /** Un mensaje que se ancla a un nodo por su id. */
+    private static MensajeRequest anclado(String nombre, Long origen, Long destino, Long nodoOrigen) {
+        return new MensajeRequest(nombre, "Desde la empresa A", origen, destino, nodoOrigen, null, null,
+                null, null, false, null, null, null, null);
     }
 
     @ParameterizedTest(name = "{0} {1} -> 404 {4}")

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.facimus.procesos.modelado.dto.request.EditarMensajeRequest;
 import com.facimus.procesos.modelado.dto.request.MensajeRequest;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
+import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.security.ApiPrincipal;
 
@@ -72,12 +73,18 @@ public class MensajeController {
     public ResponseEntity<MensajeResponse> crear(@PathVariable Long procesoId,
             @Validated @RequestBody MensajeRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        MensajeResponse mensaje = mensajeService.crear(empresaId, principal.usuarioId(), procesoId, request.nombre(),
-                request.contenido(), request.poolOrigenId(), request.poolDestinoId());
+        MensajeResponse mensaje = mensajeService.crear(empresaId, principal.usuarioId(), procesoId,
+                new DatosDeMensaje(request.nombre(), request.contenido(), request.poolOrigenId(),
+                        request.poolDestinoId(), request.nodoOrigenId(), request.nodoDestinoId(),
+                        request.tipoDestino(), request.siFalla(), request.nodoManejoErrorId(),
+                        Boolean.TRUE.equals(request.origenExterno()), request.campos(),
+                        request.usoDeLosDatos(), request.variable(), request.respuestaEsperadaId()));
         return ResponseEntity.created(URI.create("/api/v1/mensajes/" + mensaje.id())).body(mensaje);
     }
 
-    @Operation(summary = "Edit a message flow", description = "Replaces its name and content.")
+    @Operation(summary = "Edit a message flow",
+            description = "Replaces everything but its pools: the anchored nodes, how it travels, what happens "
+                    + "if it fails, the fields it carries and the message that answers it.")
     @ApiResponse(responseCode = "200", description = "Message flow updated")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -88,8 +95,13 @@ public class MensajeController {
     public ResponseEntity<MensajeResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarMensajeRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(mensajeService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
-                request.contenido(), request.version()));
+        return ResponseEntity.ok(mensajeService.editar(empresaId, principal.usuarioId(), id,
+                new DatosDeMensaje(request.nombre(), request.contenido(), null, null,
+                        request.nodoOrigenId(), request.nodoDestinoId(), request.tipoDestino(),
+                        request.siFalla(), request.nodoManejoErrorId(),
+                        Boolean.TRUE.equals(request.origenExterno()), request.campos(),
+                        request.usoDeLosDatos(), request.variable(), request.respuestaEsperadaId()),
+                request.version()));
     }
 
     @Operation(summary = "Delete a message flow",

@@ -702,7 +702,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Fulfillment partner (3PL)\",\n  \"tipoParticipante\": \"PROVEEDOR\",\n  \"cajaNegra\": false\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment partner (3PL)\",\n  \"tipoParticipante\": \"PROVEEDOR\",\n  \"cajaNegra\": false,\n  \"integracion\": \"TRANSPORTE\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/pools",
@@ -753,7 +753,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Fulfillment partner\",\n  \"tipoParticipante\": \"PROVEEDOR\",\n  \"version\": {{version}}\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment partner\",\n  \"tipoParticipante\": \"PROVEEDOR\",\n  \"integracion\": \"TRANSPORTE\",\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}",
@@ -918,7 +918,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Pick items\",\n  \"descripcion\": \"Collect the ordered items from the shelves\",\n  \"tipoActividad\": \"USUARIO\",\n  \"posicionX\": 200,\n  \"posicionY\": 150\n}"
+							"raw": "{\n  \"nombre\": \"Receive fulfillment request\",\n  \"descripcion\": \"Wait for the order lines and the shipping address\",\n  \"tipoActividad\": \"RECEPCION\",\n  \"posicionX\": 200,\n  \"posicionY\": 150\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/lanes/{{laneId}}/actividades",
@@ -969,7 +969,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Pick and scan items\",\n  \"descripcion\": \"Collect and scan the ordered items\",\n  \"tipoActividad\": \"USUARIO\",\n  \"posicionX\": 250,\n  \"posicionY\": 150,\n  \"version\": {{version}}\n}"
+							"raw": "{\n  \"nombre\": \"Receive and confirm the request\",\n  \"descripcion\": \"Wait for the order and confirm that it can be fulfilled\",\n  \"tipoActividad\": \"RECEPCION\",\n  \"posicionX\": 250,\n  \"posicionY\": 150,\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/actividades/{{actividadId}}",
@@ -1350,14 +1350,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Fulfillment request\",\n  \"contenido\": \"Order lines and shipping address\",\n  \"poolOrigenId\": {{poolTiendaId}},\n  \"poolDestinoId\": {{poolId}}\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment request\",\n  \"contenido\": \"Order lines and shipping address\",\n  \"poolOrigenId\": {{poolTiendaId}},\n  \"poolDestinoId\": {{poolId}},\n  \"nodoDestinoId\": {{actividadId}},\n  \"tipoDestino\": \"SERVICIO_WEB\",\n  \"siFalla\": \"CONTINUAR\",\n  \"campos\": [\n    {\n      \"nombre\": \"orderId\",\n      \"tipo\": \"TEXTO\"\n    },\n    {\n      \"nombre\": \"items\",\n      \"tipo\": \"TEXTO\"\n    },\n    {\n      \"nombre\": \"weight\",\n      \"tipo\": \"NUMERO\"\n    }\n  ],\n  \"usoDeLosDatos\": \"The partner prepares and ships the order.\",\n  \"variable\": \"fulfillment\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/mensajes",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "procesos", "{{procesoId}}", "mensajes"]
 						},
-						"description": "HU-25: Crea un mensaje entre dos pools."
+						"description": "HU-25 a HU-27: Crea un mensaje entre dos pools. Si el pool de un lado modela su flujo, el mensaje se ancla al nodo que lo manda o lo espera; un pool de caja negra no ancla nada. tipoDestino dice por donde sale (CORREO, SERVICIO_WEB o COLA) y siFalla que hace el proceso si el envio no llega."
 					},
 					"response": []
 				},
@@ -1401,7 +1401,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Fulfillment request v2\",\n  \"contenido\": \"Order lines, shipping address and priority\",\n  \"version\": {{version}}\n}"
+							"raw": "{\n  \"nombre\": \"Fulfillment request v2\",\n  \"contenido\": \"Order lines, shipping address and priority\",\n  \"nodoDestinoId\": {{actividadId}},\n  \"tipoDestino\": \"COLA\",\n  \"siFalla\": \"CONTINUAR\",\n  \"campos\": [\n    {\n      \"nombre\": \"orderId\",\n      \"tipo\": \"TEXTO\"\n    },\n    {\n      \"nombre\": \"priority\",\n      \"tipo\": \"TEXTO\"\n    }\n  ],\n  \"usoDeLosDatos\": \"The partner prepares and ships the order.\",\n  \"variable\": \"fulfillment\",\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/mensajes/{{mensajeId}}",
@@ -1430,14 +1430,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"criterio\": \"orderId\"\n}"
+							"raw": "{\n  \"criterio\": \"orderId\",\n  \"campo\": \"orderId\",\n  \"sinCaso\": \"DESCARTAR\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/mensajes/{{mensajeId}}/correlacion",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "mensajes", "{{mensajeId}}", "correlacion"]
 						},
-						"description": "HU-28: Define o actualiza el criterio de correlacion de un mensaje. La primera clave se define sin version; para reemplazarla se manda la que devolvio el GET."
+						"description": "HU-28: Define o actualiza el criterio de correlacion de un mensaje. campo dice en que dato del cuerpo viaja la clave, y sinCaso que hacer con un mensaje que no corresponde a ningun caso abierto (DESCARTAR o INICIAR_CASO). La primera clave se define sin version; para reemplazarla se manda la que devolvio el GET."
 					},
 					"response": []
 				},

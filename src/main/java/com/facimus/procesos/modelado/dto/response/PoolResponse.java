@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.dto.response;
 
 import java.time.LocalDateTime;
 
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -12,6 +13,8 @@ public record PoolResponse(
         @Schema(example = "Payment gateway") String nombre,
         @Schema(example = "SISTEMA_EXTERNO") TipoParticipante tipoParticipante,
         @Schema(example = "true") boolean cajaNegra,
+        @Schema(description = "Kind of partner behind the participant", example = "PAGOS")
+        Integracion integracion,
         @Schema(description = "Position in the process; the store's own pool is 0", example = "2") int orden,
         @Schema(example = "1") Long procesoId,
         @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")

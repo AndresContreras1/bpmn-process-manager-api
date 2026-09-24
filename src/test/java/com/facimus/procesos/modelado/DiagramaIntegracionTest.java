@@ -28,6 +28,7 @@ import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
@@ -35,6 +36,7 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.DiagramaService;
 import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
@@ -100,7 +102,7 @@ class DiagramaIntegracionTest {
                 "Fulfillment").id();
         Long tiendaId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
         Long clienteId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE,
-                true).id();
+                true,Integracion.NINGUNA).id();
         Long ventas = laneService.crear(empresaId, adminId, tiendaId, "Sales",
                 rolProcesoService.crear(empresaId, "Sales", null).id()).id();
         Long bodega = laneService.crear(empresaId, adminId, tiendaId, "Warehouse",
@@ -120,15 +122,17 @@ class DiagramaIntegracionTest {
         arcoService.crear(empresaId, adminId, recibir, pagado, null, null);
         arcoService.crear(empresaId, adminId, pagado, empacar, "Approved", "payment.status == APPROVED");
         arcoService.crear(empresaId, adminId, empacar, pedidoEnviado, null, null);
-        Long pedido = mensajeService.crear(empresaId, adminId, procesoId, "Order placed", "Cart items", clienteId,
-                tiendaId)
+        Long pedido = mensajeService.crear(empresaId, adminId, procesoId, DatosDeMensaje.basico("Order placed",
+                "Cart items", clienteId,
+                tiendaId))
                 .id();
-        correlacionService.definir(empresaId, adminId, pedido, "orderId", null);
+        correlacionService.definir(empresaId, adminId, pedido, "orderId", null, null, null);
 
         // Otro proceso de la misma tienda, con un participante propio que no pertenece al diagrama anterior.
         Long devoluciones = procesoService.crear(empresaId, adminId, "Returns and refunds", "Return to refund",
                 "After-sales").id();
-        poolService.crear(empresaId, adminId, devoluciones, "Carrier", TipoParticipante.PROVEEDOR, true);
+        poolService.crear(empresaId, adminId, devoluciones, "Carrier", TipoParticipante.PROVEEDOR, true,
+                Integracion.NINGUNA);
     }
 
     @Test

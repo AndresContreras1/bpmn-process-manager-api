@@ -1,6 +1,11 @@
 package com.facimus.procesos.modelado.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.List;
+
+import com.facimus.procesos.modelado.model.AccionSiFalla;
+import com.facimus.procesos.modelado.model.CampoDeMensaje;
+import com.facimus.procesos.modelado.model.TipoDestino;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -11,6 +16,19 @@ public record MensajeResponse(
         @Schema(example = "Order total and tokenized card.") String contenido,
         @Schema(example = "1") Long poolOrigenId,
         @Schema(example = "3") Long poolDestinoId,
+        @Schema(description = "Node the message leaves from; empty when the sending pool is a black box",
+                example = "12") Long nodoOrigenId,
+        @Schema(description = "Node that waits for it; empty when the receiving pool is a black box", example = "15")
+        Long nodoDestinoId,
+        @Schema(example = "SERVICIO_WEB") TipoDestino tipoDestino,
+        @Schema(example = "MANEJAR_ERROR") AccionSiFalla siFalla,
+        @Schema(description = "Activity that handles a failed send", example = "18") Long nodoManejoErrorId,
+        @Schema(example = "false") boolean origenExterno,
+        @Schema(description = "The data that travels inside") List<CampoDeMensaje> campos,
+        @Schema(example = "The payment result decides whether the order is picked or cancelled.")
+        String usoDeLosDatos,
+        @Schema(description = "Name the body takes among the case variables", example = "payment") String variable,
+        @Schema(description = "Message that answers this one", example = "9") Long respuestaEsperadaId,
         @Schema(example = "1") Long procesoId,
         @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
         Long version,

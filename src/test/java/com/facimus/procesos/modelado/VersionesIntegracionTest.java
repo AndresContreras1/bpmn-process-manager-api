@@ -37,6 +37,7 @@ import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoGateway;
@@ -45,6 +46,7 @@ import com.facimus.procesos.modelado.repository.PoolRepository;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
@@ -136,7 +138,8 @@ class VersionesIntegracionTest {
                 "Fulfillment").id();
         rolId = rolProcesoService.crear(empresaId, "Warehouse", "Picks and packs").id();
         Long tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        poolId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE, true).id();
+        poolId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE, true,
+                Integracion.NINGUNA).id();
         laneId = laneService.crear(empresaId, adminId, tienda, "Warehouse", rolId).id();
         actividadId = actividadService.crear(empresaId, adminId, laneId, "Pick items", "From the shelves",
                 TipoActividad.USUARIO, 100, 80).id();
@@ -144,12 +147,14 @@ class VersionesIntegracionTest {
                 TipoActividad.USUARIO, 260, 80).id();
         gatewayId = gatewayService.crear(empresaId, adminId, laneId, "Split", TipoGateway.PARALELO, 420, 80).id();
         arcoId = arcoService.crear(empresaId, adminId, actividadId, empacar, null, null).id();
-        mensajeId = mensajeService.crear(empresaId, adminId, procesoId, "Order placed", "Cart and address", poolId,
-                tienda)
+        mensajeId = mensajeService.crear(empresaId, adminId, procesoId, DatosDeMensaje.basico("Order placed",
+                "Cart and address", poolId,
+                tienda))
                 .id();
-        mensajeSinClaveId = mensajeService.crear(empresaId, adminId, procesoId, "Order status", "Tracking number",
-                tienda, poolId).id();
-        correlacionService.definir(empresaId, adminId, mensajeId, "orderId", null);
+        mensajeSinClaveId = mensajeService.crear(empresaId, adminId, procesoId, DatosDeMensaje.basico("Order status",
+                "Tracking number",
+                tienda, poolId)).id();
+        correlacionService.definir(empresaId, adminId, mensajeId, "orderId", null, null, null);
 
         String login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -243,7 +248,8 @@ class VersionesIntegracionTest {
     @DisplayName("Si dos ediciones de la misma version pasan la comprobacion a la vez, la base rechaza la segunda")
     void copiaVieja_alGuardarLaRechazaLaBase() {
         Pool copiaVieja = poolRepository.findByIdAndEmpresaId(poolId, empresaId).orElseThrow();
-        poolService.editar(empresaId, adminId, poolId, "Buyer", TipoParticipante.CLIENTE, copiaVieja.getVersion());
+        poolService.editar(empresaId, adminId, poolId, "Buyer", TipoParticipante.CLIENTE, Integracion.NINGUNA,
+                copiaVieja.getVersion());
 
         copiaVieja.setNombre("Guest");
 

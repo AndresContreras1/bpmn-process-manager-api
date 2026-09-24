@@ -33,6 +33,7 @@ import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.mapper.PoolMapper;
 import com.facimus.procesos.modelado.model.Correlacion;
 import com.facimus.procesos.modelado.model.Mensaje;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
@@ -90,10 +91,11 @@ class PoolServiceTest {
         when(poolRepository.save(any(Pool.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PoolResponse respuesta = poolService.crear(EMPRESA, AUTOR, 100L, "Payment gateway",
-                TipoParticipante.SISTEMA_EXTERNO, true);
+                TipoParticipante.SISTEMA_EXTERNO, true, Integracion.PAGOS);
 
         assertThat(respuesta.orden()).isEqualTo(2);
         assertThat(respuesta.cajaNegra()).isTrue();
+        assertThat(respuesta.integracion()).isEqualTo(Integracion.PAGOS);
         assertThat(respuesta.procesoId()).isEqualTo(100L);
         verify(historialCambioService).registrar(eq(EMPRESA), eq(AUTOR), eq(proceso), contains("Payment gateway"));
     }
@@ -103,7 +105,8 @@ class PoolServiceTest {
     void crear_procesoFueraDeLaPuerta_lanzaNoEncontrado() {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, EMPRESA)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> poolService.crear(EMPRESA, AUTOR, 100L, "Carrier", TipoParticipante.PROVEEDOR, false))
+        assertThatThrownBy(() -> poolService.crear(EMPRESA, AUTOR, 100L, "Carrier",
+                TipoParticipante.PROVEEDOR, false, null))
                 .isInstanceOf(RecursoNoEncontradoException.class);
         verify(poolRepository, never()).save(any());
     }
@@ -154,7 +157,8 @@ class PoolServiceTest {
     void editar_conVersionVieja_lanzaConflicto() {
         when(poolRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(pool));
 
-        assertThatThrownBy(() -> poolService.editar(EMPRESA, AUTOR, 5L, "Carrier", TipoParticipante.PROVEEDOR, 7L))
+        assertThatThrownBy(() -> poolService.editar(EMPRESA, AUTOR, 5L, "Carrier",
+                TipoParticipante.PROVEEDOR, null, 7L))
                 .isInstanceOf(ConflictoDeVersionException.class);
         verify(poolRepository, never()).saveAndFlush(any());
         verify(historialCambioService, never()).registrar(any(), any(), any(), any());

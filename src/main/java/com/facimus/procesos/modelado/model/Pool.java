@@ -50,6 +50,12 @@ public class Pool extends EntidadEditable {
     @Builder.Default
     private boolean cajaNegra = false;
 
+    /** Con que clase de socio habla este participante; la tienda y los pools sin sistema son NINGUNA. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private Integracion integracion = Integracion.NINGUNA;
+
     @Column(nullable = false)
     private int orden;
 

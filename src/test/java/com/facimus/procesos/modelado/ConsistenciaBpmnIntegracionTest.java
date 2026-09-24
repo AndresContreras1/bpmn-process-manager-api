@@ -26,6 +26,7 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
@@ -101,7 +102,8 @@ class ConsistenciaBpmnIntegracionTest {
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
         tiendaId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        clienteId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE, true).id();
+        clienteId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE, true,
+                Integracion.NINGUNA).id();
         laneId = laneService.crear(empresaId, adminId, tiendaId, "Warehouse",
                 rolProcesoService.crear(empresaId, "Warehouse", null).id()).id();
         String login = mockMvc.perform(post("/api/v1/auth/login")
@@ -117,7 +119,7 @@ class ConsistenciaBpmnIntegracionTest {
     void mensaje_conPoolDeOtroProceso_devuelve409() throws Exception {
         Long otroProceso = procesoService.crear(empresaId, adminId, "Returns", "Return to refund", "After-sales").id();
         Long poolAjeno = poolService.crear(empresaId, adminId, otroProceso, "Carrier", TipoParticipante.PROVEEDOR,
-                true).id();
+                true,Integracion.NINGUNA).id();
 
         pedir(post("/api/v1/procesos/{id}/mensajes", procesoId), Map.of("nombre", "Shipment request",
                 "contenido", "Package", "poolOrigenId", tiendaId, "poolDestinoId", poolAjeno))
@@ -130,6 +132,52 @@ class ConsistenciaBpmnIntegracionTest {
         pedir(post("/api/v1/procesos/{id}/mensajes", procesoId), Map.of("nombre", "Order placed",
                 "contenido", "Cart", "poolOrigenId", clienteId, "poolDestinoId", tiendaId))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("R-37 y R-38: el mensaje se ancla a un nodo del pool de su lado que sepa mandarlo")
+    void mensaje_conAnclajeInvalido_devuelve409() throws Exception {
+        Long avisar = actividadService.crear(empresaId, adminId, laneId, "Notify the customer", null,
+                TipoActividad.ENVIO, 100, 620).id();
+        Long revisar = actividadService.crear(empresaId, adminId, laneId, "Check the address", null,
+                TipoActividad.USUARIO, 260, 620).id();
+
+        // El cliente es una caja negra: por dentro no se modela, asi que no ancla nodos.
+        pedir(post("/api/v1/procesos/{id}/mensajes", procesoId), Map.of("nombre", "Delivery notice",
+                "contenido", "Aviso", "poolOrigenId", tiendaId, "poolDestinoId", clienteId,
+                "nodoDestinoId", avisar))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("caja negra")));
+        pedir(post("/api/v1/procesos/{id}/mensajes", procesoId), Map.of("nombre", "Delivery notice",
+                "contenido", "Aviso", "poolOrigenId", tiendaId, "poolDestinoId", clienteId,
+                "nodoOrigenId", revisar))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("El nodo de origen del mensaje debe poder enviarlo."));
+        pedir(post("/api/v1/procesos/{id}/mensajes", procesoId), Map.of("nombre", "Delivery notice",
+                "contenido", "Aviso", "poolOrigenId", tiendaId, "poolDestinoId", clienteId,
+                "nodoOrigenId", avisar, "tipoDestino", "CORREO"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nodoOrigenId").value(avisar))
+                .andExpect(jsonPath("$.variable").value("deliveryNotice"));
+    }
+
+    @Test
+    @DisplayName("R-39: desviar el flujo por un envio fallido exige una actividad del pool que envia")
+    void mensaje_conManejoDeError_exigeActividad() throws Exception {
+        Long reintentar = actividadService.crear(empresaId, adminId, laneId, "Retry the shipment", null,
+                TipoActividad.SERVICIO, 420, 620).id();
+
+        pedir(post("/api/v1/procesos/{id}/mensajes", procesoId), Map.of("nombre", "Carrier request",
+                "contenido", "Paquete", "poolOrigenId", tiendaId, "poolDestinoId", clienteId,
+                "siFalla", "MANEJAR_ERROR"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Indique la actividad que maneja el error."));
+        pedir(post("/api/v1/procesos/{id}/mensajes", procesoId), Map.of("nombre", "Carrier request",
+                "contenido", "Paquete", "poolOrigenId", tiendaId, "poolDestinoId", clienteId,
+                "siFalla", "MANEJAR_ERROR", "nodoManejoErrorId", reintentar))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.siFalla").value("MANEJAR_ERROR"))
+                .andExpect(jsonPath("$.nodoManejoErrorId").value(reintentar));
     }
 
     @Test

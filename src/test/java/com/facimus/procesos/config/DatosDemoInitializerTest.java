@@ -75,16 +75,23 @@ class DatosDemoInitializerTest {
     }
 
     @Test
-    @DisplayName("Todos los mensajes del proceso de pedidos se correlacionan por orderId")
+    @DisplayName("Todos los mensajes del pedido se correlacionan por el campo orderId del cuerpo")
     void DatosDemo_procesoDePedidos_correlacionaLosMensajesPorOrderId() throws Exception {
         JsonNode mensajes = leer(get("/api/v1/procesos/{id}/mensajes", idDelProceso("Order fulfillment")));
 
-        assertThat(mensajes).hasSize(5);
+        assertThat(mensajes).hasSize(6);
         for (JsonNode mensaje : mensajes) {
             mockMvc.perform(conToken(get("/api/v1/mensajes/{id}/correlacion", mensaje.get("id").asLong())))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.criterio").value("orderId"));
+                    .andExpect(jsonPath("$.criterio").value("orderId"))
+                    .andExpect(jsonPath("$.campo").value("orderId"));
         }
+        // Solo el pedido del cliente abre un caso; los demas se cuelgan de uno ya abierto.
+        assertThat(mensajes).filteredOn(mensaje -> mensaje.get("nombre").asString().equals("Order placed"))
+                .singleElement()
+                .satisfies(pedido -> mockMvc.perform(conToken(get("/api/v1/mensajes/{id}/correlacion",
+                                pedido.get("id").asLong())))
+                        .andExpect(jsonPath("$.sinCaso").value("INICIAR_CASO")));
     }
 
     @Test
@@ -105,9 +112,21 @@ class DatosDemoInitializerTest {
                 .extracting(evento -> evento.get("tipoEvento").asString())
                 .containsExactly("MENSAJE_INICIO", "MENSAJE_INTERMEDIO", "FIN", "MENSAJE_INTERMEDIO", "FIN");
         assertThat(diagrama.get("arcos")).hasSize(10);
-        assertThat(diagrama.get("mensajes")).hasSize(5);
-        assertThat(diagrama.get("correlaciones")).extracting(correlacion -> correlacion.get("criterio").asString())
-                .hasSize(5)
+        assertThat(diagrama.get("mensajes")).hasSize(6);
+        // Cada mensaje sale de un nodo de la tienda o entra en uno; los de caja negra solo tienen un lado.
+        assertThat(diagrama.get("mensajes"))
+                .allMatch(mensaje -> !mensaje.get("nodoOrigenId").isNull()
+                        || !mensaje.get("nodoDestinoId").isNull());
+        assertThat(diagrama.get("mensajes"))
+                .filteredOn(mensaje -> mensaje.get("nombre").asString().equals("Payment authorization request"))
+                .singleElement()
+                .satisfies(peticion -> {
+                    assertThat(peticion.get("tipoDestino").asString()).isEqualTo("SERVICIO_WEB");
+                    assertThat(peticion.get("siFalla").asString()).isEqualTo("MANEJAR_ERROR");
+                    assertThat(peticion.get("variable").asString()).isEqualTo("paymentRequest");
+                });
+        assertThat(diagrama.get("correlaciones")).extracting(correlacion -> correlacion.get("campo").asString())
+                .hasSize(6)
                 .containsOnly("orderId");
     }
 
