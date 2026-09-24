@@ -87,7 +87,8 @@ can read them.
 
 1. **Register the store.** The store gets its private workspace and its first administrator.
 2. **Invite the team.** The administrator adds users and gives each one an access level: administrator, editor or
-   read-only.
+   read-only. A user can be created without a password: the API answers a temporary one, once, and that person can
+   do nothing until they change it.
 3. **Define process roles.** Roles describe who does the work, such as *Sales* or *Warehouse*, and every process of
    the store can reuse them.
 4. **Model the process.** Editors add the participants, a lane for each role, the events where the process starts
@@ -170,13 +171,19 @@ path. Marking the rejection as the default flow clears it, and it is there to be
 |---|:---:|:---:|:---:|
 | View processes, process roles and diagrams | ✓ | ✓ | ✓ |
 | Create and edit processes and diagrams | ✓ | ✓ | — |
+| Create and edit participants and lanes | ✓ | ✓ or — | — |
 | Delete processes and diagram elements | ✓ | — | — |
 | Manage process roles | ✓ | — | — |
 | Manage users | ✓ | — | — |
 | Share a process with a partner company | ✓ | — | — |
 
+Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
+`SOLO_ADMINISTRADOR`, only administrators create and edit them, and editors keep modeling everything inside a lane.
+The default is `ADMINISTRADOR_Y_EDITOR`, which is the table above.
+
 A store always keeps at least one active administrator, and nobody can deactivate their own account. Changing a
-user's access level or deactivating them takes effect at once: their open sessions are closed.
+user's access level or deactivating them takes effect at once: their open sessions are closed. Changing a password,
+or having it reset, closes them too.
 
 ## Built-in guarantees
 
@@ -189,7 +196,7 @@ user's access level or deactivating them takes effect at once: their open sessio
 | No duplicates on retries | A create request that is retried with the same idempotency key, for example after a network failure, creates the item only once. |
 | Always-valid models | The modeling rules are checked on every change, not only when a process is published. |
 | What is published does not move | Publishing saves the diagram as a version that never changes. The model keeps being editable, the process says when the draft is ahead of it, and a partner store always reads what was published. |
-| Complete history | Every change keeps its author and date, and deleted items stay on record. |
+| Complete history | Every change keeps its author and date, and deleted items stay on record. The store reads its own history: users, roles, processes and its registration, in one place. |
 | Nothing breaks by surprise | A diagram can be checked against the rules at any moment, and before deleting anything it says what would go with it and what would be left without a path. |
 | A second opinion | A model can review a diagram and point out what is missing, such as a decision with no alternative path. It only advises: nothing is changed without a person. |
 
@@ -399,6 +406,12 @@ any of them. The database makes each subtype fill its own type column and leaves
 - A store always keeps an active administrator. The last one cannot give up the role, and nobody can deactivate their
   own account. When two administrators remove each other's role at the same moment, the second change waits on a lock
   of the store's row, sees the first change and is refused with `409`.
+- A user created without a password gets a temporary one. It is answered once, in the response that generates it,
+  and never again: what the database keeps is its hash, like any other password.
+- While a temporary password is in use, that user can only change it, log out or renew the token; everything else
+  answers `403`. Changing it closes every session of the user and opens a new one, so the answer carries the tokens
+  to keep.
+- Passwords are at most 72 characters, which is what BCrypt reads.
 
 ### Lifecycle rules
 
@@ -509,6 +522,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Published versions | `GET /api/v1/procesos/{procesoId}/versiones` · `GET, PATCH /api/v1/procesos/{procesoId}/versiones/{numero}` · `GET /api/v1/procesos/{procesoId}/versiones/{numero}/diagrama` |
 | Diagnosis | `GET /api/v1/procesos/{id}/diagnostico[?sinElemento=TYPE:id]` |
 | AI review | `POST /api/v1/procesos/{id}/revision` |
+| Store history and settings | `GET /api/v1/empresas/actual/historial` · `GET, PUT /api/v1/empresas/actual/configuracion` |
+| Passwords | `POST /api/v1/auth/password` · `POST /api/v1/usuarios/{id}/restablecer-clave` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 
 `GET /api/v1/procesos/{id}/diagrama` returns everything a client needs to draw a process: the process and flat lists
@@ -566,6 +581,37 @@ its sequence flows. `A-06` lists what would go along with it, and the rest of th
 ```bash
 curl "http://localhost:8080/api/v1/procesos/1/diagnostico?sinElemento=GATEWAY:5" -H "Authorization: Bearer $TOKEN"
 ```
+
+### The store's own history and settings
+
+`GET /api/v1/empresas/actual/historial` answers everything that happened in the store, newest first and paginated:
+users created, renamed, given another role or deactivated, process roles added and removed, the registration of the
+store itself, and every change to a process. Each entry says who did it, when, and what it was about, with
+`recursoTipo` and `recursoId`. Administrators only.
+
+`GET` and `PUT /api/v1/empresas/actual/configuracion` read and change what the store decides about itself. Today
+that is `politicaEstructura`: with `SOLO_ADMINISTRADOR`, creating and editing participants and lanes is reserved to
+administrators, and editors keep modeling steps, flows and messages inside a lane. Changing it is recorded in the
+history.
+
+```bash
+curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"politicaEstructura":"SOLO_ADMINISTRADOR","version":0}'
+```
+
+### Passwords
+
+A user can be created without one: `POST /api/v1/usuarios` then answers `claveTemporal`, which is the only time it
+is ever shown, and `debeCambiarClave: true`. Whoever signs in with it can only call `POST /api/v1/auth/password`,
+`logout` and `refresh`; anything else answers `403` with "Debe cambiar su contraseña antes de seguir.".
+
+`POST /api/v1/auth/password` takes the password in use and the new one. It closes every session of that user,
+this one included, and answers a new session with its tokens: the ones that come back are the ones to keep.
+`POST /api/v1/usuarios/{id}/restablecer-clave` does the same from the other side, for an administrator, and answers
+another temporary password.
+
+There is no email delivery: whoever creates the user passes the temporary password along by whatever means they
+have. The database never keeps it in the clear.
 
 ### Published versions
 
@@ -743,17 +789,17 @@ freeze.
 ./mvnw verify
 ```
 
-The build runs 710 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 739 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
 | Architecture (ArchUnit) | 32 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 142 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Controller slices (`@WebMvcTest`) | 143 | Routes, status codes, JSON shape and validation, with the real security rules |
 | Service unit tests (Mockito) | 228 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
 | Repository slices (`@DataJpaTest`) | 37 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, and the versions, with one number per process and a whole diagram in the column |
-| Security and isolation (`@SpringBootTest`) | 181 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Security and isolation (`@SpringBootTest`) | 198 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 31 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 57 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
+| Module integration (`@SpringBootTest`) | 68 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
 Current coverage: 96 % of lines and 84 % of branches. The build fails below 85 % of lines or 70 % of

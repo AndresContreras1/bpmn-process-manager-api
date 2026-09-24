@@ -81,6 +81,18 @@
 			"type": "string"
 		},
 		{
+			"key": "usuarioTemporalId",
+			"value": ""
+		},
+		{
+			"key": "claveTemporal",
+			"value": ""
+		},
+		{
+			"key": "tokenTemporal",
+			"value": ""
+		},
+		{
 			"key": "token",
 			"value": "",
 			"type": "string"
@@ -1700,6 +1712,197 @@
 							"path": ["api", "v1", "procesos", "compartidos-conmigo"]
 						},
 						"description": "Los procesos que otras tiendas le comparten a esta, para abrirlos con el diagrama."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Gobierno de la tienda",
+			"description": "Lo que la tienda decide sobre si misma: quien puede dibujar su estructura, que ha pasado dentro, y como entra alguien nuevo sin que nadie le mande una contrasena por chat.",
+			"item": [
+				{
+					"name": "Historial de la tienda",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/empresas/actual/historial?pagina=0&tamano=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "empresas", "actual", "historial"],
+							"query": [
+								{ "key": "pagina", "value": "0" },
+								{ "key": "tamano", "value": "20" }
+							]
+						},
+						"description": "Todo lo que paso en la tienda, de lo mas reciente a lo mas viejo: usuarios, roles de proceso, el registro y los cambios de cada proceso. Cada linea dice de que recurso habla. Solo administrador."
+					},
+					"response": []
+				},
+				{
+					"name": "Configuracion de la tienda",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/empresas/actual/configuracion",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "empresas", "actual", "configuracion"]
+						},
+						"description": "Lo que la tienda decide sobre si misma. Hoy, quien puede crear y editar pools y lanes."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.collectionVariables.set('version', pm.response.json().version);",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Reservar la estructura a los administradores",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"politicaEstructura\": \"SOLO_ADMINISTRADOR\",\n  \"version\": {{version}}\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/empresas/actual/configuracion",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "empresas", "actual", "configuracion"]
+						},
+						"description": "R-46: desde aqui, solo un administrador crea o edita pools y lanes; el editor sigue modelando lo que va dentro de una lane. Con ADMINISTRADOR_Y_EDITOR vuelve a ser como al principio."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear usuario con clave temporal",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Camila Rojas\",\n  \"email\": \"camila.rojas@acme-postman.com\",\n  \"rolAcceso\": \"EDITOR\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/usuarios",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "usuarios"]
+						},
+						"description": "D17: sin password, la API genera una temporal y la devuelve una sola vez en claveTemporal. El usuario queda con debeCambiarClave en true."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('usuarioTemporalId', json.id);",
+									"    pm.collectionVariables.set('claveTemporal', json.claveTemporal);",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Entrar con la clave temporal",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"camila.rojas@acme-postman.com\",\n  \"password\": \"{{claveTemporal}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Entra, pero con ese token no puede hacer nada mas que cambiar la clave: cualquier otra peticion responde 403."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.collectionVariables.set('tokenTemporal', pm.response.json().accessToken);",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Cambiar la clave temporal",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{tokenTemporal}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"actual\": \"{{claveTemporal}}\",\n  \"nueva\": \"clave-de-camila-2026\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "password"]
+						},
+						"description": "Cierra todas las sesiones de ese usuario y abre una nueva: los tokens que responde son los que valen. A partir de aqui trabaja como cualquier editor."
+					},
+					"response": []
+				},
+				{
+					"name": "Restablecer la clave de un usuario",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioTemporalId}}/restablecer-clave",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "usuarios", "{{usuarioTemporalId}}", "restablecer-clave"]
+						},
+						"description": "El administrador le da otra clave temporal, que se responde una sola vez, y lo echa de donde estuviera. Solo administrador."
 					},
 					"response": []
 				}
