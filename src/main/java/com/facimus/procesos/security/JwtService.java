@@ -25,6 +25,8 @@ public class JwtService {
     static final String CLAIM_ROL = "rol";
     /** Claim registrado de OpenID Connect para la sesion que emitio el token. */
     static final String CLAIM_SESION = "sid";
+    /** D17: si entro con una clave temporal, el token lo dice y el filtro no tiene que consultar la base. */
+    static final String CLAIM_CAMBIO_DE_CLAVE = "debeCambiarClave";
 
     private static final Logger log = LoggerFactory.getLogger(JwtService.class);
 
@@ -50,6 +52,7 @@ public class JwtService {
                 .claim(CLAIM_EMPRESA_ID, principal.empresaId())
                 .claim(CLAIM_ROL, principal.rol().name())
                 .claim(CLAIM_SESION, principal.sesion())
+                .claim(CLAIM_CAMBIO_DE_CLAVE, principal.debeCambiarClave())
                 .issuedAt(ahora)
                 .expiration(new Date(ahora.getTime() + expirationSeconds * 1000))
                 .signWith(key)
@@ -81,6 +84,9 @@ public class JwtService {
         if (usuarioId == null || empresaId == null || rol == null || sesion == null || claims.getSubject() == null) {
             return Optional.empty();
         }
-        return Optional.of(new ApiPrincipal(usuarioId, empresaId, RolAcceso.valueOf(rol), claims.getSubject(), sesion));
+        // Un token emitido antes de que existiera el claim no obliga a nadie a cambiar nada.
+        boolean debeCambiarClave = Boolean.TRUE.equals(claims.get(CLAIM_CAMBIO_DE_CLAVE, Boolean.class));
+        return Optional.of(new ApiPrincipal(usuarioId, empresaId, RolAcceso.valueOf(rol), claims.getSubject(), sesion,
+                debeCambiarClave));
     }
 }

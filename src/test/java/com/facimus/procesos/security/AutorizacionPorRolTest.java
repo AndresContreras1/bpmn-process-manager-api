@@ -96,6 +96,9 @@ class AutorizacionPorRolTest {
             ADMINISTRADOR | GET    | /api/v1/usuarios               | 200
             ADMINISTRADOR | GET    | /api/v1/usuarios/{id}          | 404
             EDITOR        | GET    | /api/v1/usuarios               | 403
+            ADMINISTRADOR | POST   | /api/v1/usuarios/{id}/restablecer-clave | 404
+            EDITOR        | POST   | /api/v1/usuarios/{id}/restablecer-clave | 403
+            SOLO_LECTURA  | POST   | /api/v1/auth/password          | 400
             EDITOR        | GET    | /api/v1/usuarios/{id}          | 403
 
             # Roles de proceso: los modifica solo el administrador (HU-17 a HU-19)

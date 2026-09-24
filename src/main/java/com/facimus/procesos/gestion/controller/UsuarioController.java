@@ -93,6 +93,19 @@ public class UsuarioController {
         return ResponseEntity.ok(usuarioService.obtener(principal.empresaId(), id));
     }
 
+    @Operation(summary = "Give a user a new temporary password",
+            description = "Answers it once in claveTemporal and closes every session of that user. Whoever signs in "
+                    + "with it can only change it. Administrators only.")
+    @ApiResponse(responseCode = "200", description = "The user and the temporary password, answered only here")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @PostMapping("/{id}/restablecer-clave")
+    public ResponseEntity<UsuarioResponse> restablecerClave(@PathVariable Long id,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(usuarioService.restablecerClave(principal.empresaId(), principal.usuarioId(), id));
+    }
+
     @Operation(summary = "Change the access role or the status of a user",
             description = "A store always keeps an active administrator, and nobody can deactivate their own "
                     + "account.")

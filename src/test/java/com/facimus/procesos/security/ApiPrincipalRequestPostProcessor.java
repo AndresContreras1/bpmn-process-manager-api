@@ -15,7 +15,7 @@ public final class ApiPrincipalRequestPostProcessor {
     }
 
     public static RequestPostProcessor principal(RolAcceso rol) {
-        ApiPrincipal principal = new ApiPrincipal(1L, 1L, rol, "test@acme.com", SESION);
+        ApiPrincipal principal = new ApiPrincipal(1L, 1L, rol, "test@acme.com", SESION, false);
         var authentication = new UsernamePasswordAuthenticationToken(
                 principal, null, principal.authorities());
         return SecurityMockMvcRequestPostProcessors.authentication(authentication);

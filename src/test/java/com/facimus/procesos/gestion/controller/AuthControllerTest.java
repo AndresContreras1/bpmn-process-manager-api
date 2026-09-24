@@ -34,6 +34,7 @@ import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.SesionService;
+import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.ApiPrincipal;
 import com.facimus.procesos.security.JwtService;
 import com.facimus.procesos.security.LoginAuthenticator;
@@ -48,6 +49,9 @@ class AuthControllerTest {
 
     @Autowired
     private JsonMapper jsonMapper;
+
+    @MockitoBean
+    private UsuarioService usuarioService;
 
     @MockitoBean
     private LoginAuthenticator loginAuthenticator;
@@ -81,7 +85,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.usuario.rolAcceso").value("ADMINISTRADOR"));
 
         then(jwtService).should()
-                .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1"));
+                .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1", false));
     }
 
     @Test
@@ -152,7 +156,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.usuario.id").value(10));
 
         then(jwtService).should()
-                .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1"));
+                .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1", false));
     }
 
     @Test
@@ -216,6 +220,6 @@ class AuthControllerTest {
 
     private UsuarioResponse usuario() {
         return new UsuarioResponse(10L, "Juan", "juan@acme.com", RolAcceso.ADMINISTRADOR, true, 1L, 0L, null, null,
-                null, null);
+                null, null, false, null);
     }
 }

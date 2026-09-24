@@ -17,8 +17,9 @@ public record CrearUsuarioRequest(
         @NotBlank(message = "El correo es obligatorio.")
         @Email(message = "El correo no es valido.")
         @Size(max = 254, message = "El correo no puede superar 254 caracteres.") String email,
-        @Schema(description = "Initial password, at least 6 characters", example = "secret123", format = "password")
-        @NotBlank(message = "La contrasena es obligatoria.")
+        @Schema(description = "Initial password, at least 6 characters. Leaving it out generates a temporary one, "
+                + "which the answer carries once in claveTemporal and the user has to change before doing anything "
+                + "else", example = "secret123", format = "password")
         @Size(min = 6, message = "La contrasena debe tener al menos 6 caracteres.")
         @Size(max = 72, message = "La contrasena no puede superar 72 caracteres.") String password,
         @Schema(description = "Access role inside the store", example = "EDITOR")

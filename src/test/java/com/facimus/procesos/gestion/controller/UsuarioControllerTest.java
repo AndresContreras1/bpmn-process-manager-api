@@ -168,7 +168,7 @@ class UsuarioControllerTest {
     @Test
     void actualizar_estado_y_rechazar_patch_vacio() throws Exception {
         UsuarioResponse u = new UsuarioResponse(5L, "Laura", "laura@acme.com", RolAcceso.ADMINISTRADOR, false, 1L, 0L,
-                null, null, null, null);
+                null, null, null, null, false, null);
         given(usuarioService.actualizar(1L, 1L, 5L, RolAcceso.ADMINISTRADOR, false, 3L)).willReturn(u);
 
         mockMvc.perform(patch("/api/v1/usuarios/5").with(principal(RolAcceso.ADMINISTRADOR))
@@ -192,7 +192,7 @@ class UsuarioControllerTest {
     }
 
     private UsuarioResponse crearUsuario(Long id, String nombre, String email, RolAcceso rol) {
-        return new UsuarioResponse(id, nombre, email, rol, true, 1L, 0L, null, null, null, null);
+        return new UsuarioResponse(id, nombre, email, rol, true, 1L, 0L, null, null, null, null, false, null);
     }
 
 }

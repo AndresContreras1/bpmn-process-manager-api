@@ -371,6 +371,23 @@ class AislamientoEmpresasIntegracionTest {
     }
 
     @Test
+    @DisplayName("Restablecer la clave de un usuario de otra empresa no encuentra a nadie")
+    void Aislamiento_restablecerLaClaveDeOtraEmpresa_devuelve404() throws Exception {
+        // Un usuario de la empresa B que no use ninguna otra prueba: restablecer su clave le cierra las sesiones.
+        Long ajeno = usuarioService.crearColaborador(empresaB, adminB, "Desechable", "desechable@empresa-b.com",
+                CLAVE, RolAcceso.EDITOR).id();
+
+        mockMvc.perform(post("/api/v1/usuarios/{id}/restablecer-clave", ajeno)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Recurso no encontrado"));
+        // La empresa B si puede con el suyo: el 404 de A no se debe a un id equivocado.
+        mockMvc.perform(post("/api/v1/usuarios/{id}/restablecer-clave", ajeno)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("Las versiones de un proceso de otra empresa no dicen ni que el proceso existe")
     void Aislamiento_versionesDeOtraEmpresa_devuelve404() throws Exception {
         List<String> rutas = List.of("/api/v1/procesos/{id}/versiones", "/api/v1/procesos/{id}/versiones/1",

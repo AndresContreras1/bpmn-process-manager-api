@@ -54,6 +54,8 @@ public class SecurityConfig {
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService, revokedSessions),
                         UsernamePasswordAuthenticationFilter.class)
                 // Despues de la autorizacion: solo guarda las respuestas de peticiones que se pueden ejecutar.
+                // D17: con una clave temporal solo se puede cambiarla, asi que va justo detras de identificar quien es.
+                .addFilterAfter(new CambioDeClaveFilter(jsonMapper), JwtAuthenticationFilter.class)
                 .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), AuthorizationFilter.class);
         return http.build();
     }
@@ -77,7 +79,8 @@ public class SecurityConfig {
                         // y el administrador se reserva usuarios (HU-02), roles (HU-17 a HU-19), compartir procesos
                         // (HU-23) y los borrados de procesos (HU-06), actividades (HU-10), arcos (HU-13),
                         // gateways (HU-16) y eventos (HU-04).
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout", "/api/v1/auth/password")
+                        .authenticated()
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
                         // El gobierno de la tienda es del administrador: su historial y su configuracion.
                         .requestMatchers("/api/v1/empresas/actual/historial",

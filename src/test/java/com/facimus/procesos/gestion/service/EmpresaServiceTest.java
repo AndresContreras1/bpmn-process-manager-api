@@ -75,7 +75,7 @@ class EmpresaServiceTest {
 
     private static UsuarioResponse administrador() {
         return new UsuarioResponse(7L, "Admin", "admin@acme.com", RolAcceso.ADMINISTRADOR, true, 1L, 0L, null, null,
-                null, null);
+                null, null, false, null);
     }
 
     @Test
