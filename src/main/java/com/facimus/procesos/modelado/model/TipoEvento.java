@@ -26,4 +26,14 @@ public enum TipoEvento {
     public boolean terminaElProceso() {
         return this == FIN || this == MENSAJE_FIN;
     }
+
+    /** El unico evento que manda un mensaje es el que termina el camino mandandolo. */
+    public boolean puedeEnviar() {
+        return this == MENSAJE_FIN;
+    }
+
+    /** Los eventos que se quedan esperando un mensaje de otro participante. */
+    public boolean puedeRecibir() {
+        return this == MENSAJE_INICIO || this == MENSAJE_INTERMEDIO;
+    }
 }

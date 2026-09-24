@@ -130,6 +130,23 @@ class DatosDemoInitializerTest {
                 .containsOnly("orderId");
     }
 
+    @Test
+    @DisplayName("El diagnostico del proceso de pedidos solo avisa de la rama de rechazo, que sirve de ejemplo")
+    void DatosDemo_diagnostico_avisaDeLoQueLaDemoDejaAProposito() throws Exception {
+        mockMvc.perform(conToken(get("/api/v1/procesos/{id}/diagnostico", idDelProceso("Order fulfillment"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.errores").value(0))
+                .andExpect(jsonPath("$.advertencias").value(1))
+                .andExpect(jsonPath("$.hallazgos[0].codigo").value("A-05"))
+                .andExpect(jsonPath("$.hallazgos[0].elemento").value("Gateway \"Payment approved?\""));
+
+        // El de devoluciones esta recien creado: su pool todavia no tiene lanes.
+        mockMvc.perform(conToken(get("/api/v1/procesos/{id}/diagnostico", idDelProceso("Returns and refunds"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.errores").value(1))
+                .andExpect(jsonPath("$.hallazgos[0].codigo").value("E-01"));
+    }
+
     private long idDelProceso(String nombre) throws Exception {
         for (JsonNode proceso : leer(get("/api/v1/procesos")).get("content")) {
             if (proceso.get("nombre").asString().equals(nombre)) {

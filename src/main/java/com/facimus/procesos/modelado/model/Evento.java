@@ -44,12 +44,12 @@ public class Evento extends NodoFlujo {
     /** El throw de mensaje manda al salir del proceso. */
     @Override
     public boolean puedeEnviarMensajes() {
-        return tipoEvento == TipoEvento.MENSAJE_FIN;
+        return tipoEvento.puedeEnviar();
     }
 
     /** Los catch de mensaje esperan: el de inicio abre el caso y el intermedio lo despierta. */
     @Override
     public boolean puedeRecibirMensajes() {
-        return tipoEvento == TipoEvento.MENSAJE_INICIO || tipoEvento == TipoEvento.MENSAJE_INTERMEDIO;
+        return tipoEvento.puedeRecibir();
     }
 }
