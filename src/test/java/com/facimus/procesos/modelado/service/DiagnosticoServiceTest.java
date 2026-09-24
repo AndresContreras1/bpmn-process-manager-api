@@ -17,10 +17,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.modelado.dto.response.DiagnosticoResponse;
 import com.facimus.procesos.modelado.dto.response.HallazgoDiagnosticoResponse;
+import com.facimus.procesos.modelado.model.AccionSiFalla;
+import com.facimus.procesos.modelado.model.Integracion;
+import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.Severidad;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
+import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.impl.DiagnosticoServiceImpl;
 
 /**
@@ -245,6 +249,138 @@ class DiagnosticoServiceTest {
                 .containsExactly("E-05", "A-10");
         assertThat(diagnostico.errores()).isEqualTo(1);
         assertThat(diagnostico.advertencias()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("E-10: un evento que espera un mensaje sin ningun mensaje anclado no arranca nunca")
+    void eventoQueEsperaSinMensaje_E10() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.evento(VENTAS, "Invoice received", TipoEvento.MENSAJE_INTERMEDIO);
+        armado.arco("Receive order", "Invoice received");
+        armado.arco("Invoice received", "Order cancelled");
+
+        assertThat(sobreQueElementos(armado, "E-10")).containsExactly(armado.id("Invoice received"));
+    }
+
+    @Test
+    @DisplayName("E-11: una actividad de envio sin mensaje anclado no manda nada")
+    void actividadDeEnvioSinMensaje_E11() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.actividad(VENTAS, "Send invoice", TipoActividad.ENVIO);
+        armado.arco("Receive order", "Send invoice");
+        armado.arco("Send invoice", "Order cancelled");
+
+        assertThat(sobreQueElementos(armado, "E-11")).containsExactly(armado.id("Send invoice"));
+    }
+
+    @Test
+    @DisplayName("E-12: el nodo anclado tiene que estar en el pool del lado por el que sale el mensaje")
+    void mensajeAncladoFueraDeSuPool_E12() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.mensaje("Invoice sent", "Customer", TIENDA, "Cancel order", "Order received", null,
+                AccionSiFalla.CONTINUAR, null, false);
+
+        assertThat(sobreQueElementos(armado, "E-12")).containsExactly(armado.id("Invoice sent"));
+    }
+
+    @Test
+    @DisplayName("E-13: entre dos participantes modelados por dentro el mensaje dice por donde sale y por donde entra")
+    void mensajeEntreDosPoolsModeladosSinAnclar_E13() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.lane("Customer", "Purchasing");
+        armado.actividad("Purchasing", "Place order", TipoActividad.USUARIO);
+
+        // Los dos mensajes entre la tienda y el cliente pasan a necesitar sus dos anclajes.
+        assertThat(sobreQueElementos(armado, "E-13"))
+                .containsExactly(armado.id("Order placed"), armado.id("Order status notification"));
+    }
+
+    @Test
+    @DisplayName("A-01: un mensaje sin anclar hacia un participante modelado puede quedarse sin receptor")
+    void mensajeSinReceptor_A01() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.desanclarDestinoDe("Shipment confirmation");
+
+        assertThat(sobreQueElementos(armado, "A-01")).containsExactly(armado.id("Shipment confirmation"));
+    }
+
+    @Test
+    @DisplayName("A-02: un mensaje que el proceso espera y que nadie manda se queda sin llegar")
+    void mensajeQueNadieManda_A02() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.evento(VENTAS, "Stock checked", TipoEvento.MENSAJE_INTERMEDIO);
+        armado.arco("Receive order", "Stock checked");
+        armado.arco("Stock checked", "Order cancelled");
+        armado.mensaje("Stock check result", "Carrier", TIENDA, null, "Stock checked", null,
+                AccionSiFalla.CONTINUAR, null, false);
+        armado.correlacion("Stock check result", PoliticaSinCaso.DESCARTAR);
+
+        assertThat(sobreQueElementos(armado, "A-02")).containsExactly(armado.id("Stock check result"));
+    }
+
+    @Test
+    @DisplayName("A-03: un mensaje que se espera en mitad del flujo sin clave no encuentra su caso")
+    void mensajeIntermedioSinClave_A03() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.quitarCorrelacionDe("Payment authorization result");
+
+        assertThat(sobreQueElementos(armado, "A-03"))
+                .containsExactly(armado.id("Payment authorization result"));
+    }
+
+    @Test
+    @DisplayName("A-04: dos mensajes con el mismo nombre y la misma clave no se distinguen al llegar")
+    void mensajesConElMismoNombreYClave_A04() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.duplicarMensaje("Shipment request");
+
+        assertThat(sobreQueElementos(armado, "A-04")).containsExactly(armado.id("Shipment request"));
+    }
+
+    @Test
+    @DisplayName("A-07: una clave que no dice en que campo viaja no se puede correlacionar")
+    void correlacionSinCampo_A07() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.quitarCampoDeCorrelacionDe("Order placed");
+
+        assertThat(sobreQueElementos(armado, "A-07")).containsExactly(armado.id("Order placed"));
+    }
+
+    @Test
+    @DisplayName("A-08: un mensaje a un sistema externo dice por donde viaja")
+    void mensajeASistemaExternoSinDestino_A08() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.sinTipoDestino("Payment authorization request");
+
+        assertThat(sobreQueElementos(armado, "A-08"))
+                .containsExactly(armado.id("Payment authorization request"));
+    }
+
+    @Test
+    @DisplayName("A-09: un socio que nunca contesta deja al simulador sin nada que responder")
+    void socioQueNuncaResponde_A09() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.quitarMensaje("Shipment confirmation");
+
+        assertThat(sobreQueElementos(armado, "A-09")).containsExactly(armado.id("Carrier"));
+    }
+
+    @Test
+    @DisplayName("A-11: un participante que no intercambia nada no pinta nada en el proceso")
+    void participanteSinMensajes_A11() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.pool("Supplier", TipoParticipante.PROVEEDOR, true, Integracion.NINGUNA);
+
+        assertThat(sobreQueElementos(armado, "A-11")).containsExactly(armado.id("Supplier"));
+    }
+
+    @Test
+    @DisplayName("A-12: una actividad de servicio sin mensaje se completa sola, sin efecto")
+    void actividadDeServicioSinMensaje_A12() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.quitarMensaje("Order status notification");
+
+        assertThat(sobreQueElementos(armado, "A-12")).containsExactly(armado.id("Cancel order"));
     }
 
     /** La demo con una rama de espera mas, para colgar de ella lo que cada prueba quiere romper. */

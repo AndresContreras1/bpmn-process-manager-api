@@ -8,8 +8,10 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
+import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 
@@ -30,6 +32,10 @@ final class MapaDelDiagrama {
     private final Map<Long, List<NodoDelDiagrama>> nodosPorLane = new LinkedHashMap<>();
     private final Map<Long, List<ArcoResponse>> salidas = new LinkedHashMap<>();
     private final Map<Long, List<ArcoResponse>> entradas = new LinkedHashMap<>();
+    private final Map<Long, List<MensajeResponse>> mensajesQueSalenDe = new LinkedHashMap<>();
+    private final Map<Long, List<MensajeResponse>> mensajesQueLleganA = new LinkedHashMap<>();
+    private final Map<Long, List<MensajeResponse>> mensajesDePool = new LinkedHashMap<>();
+    private final Map<Long, CorrelacionResponse> correlaciones = new LinkedHashMap<>();
 
     MapaDelDiagrama(DiagramaResponse diagrama) {
         this.diagrama = diagrama;
@@ -50,6 +56,19 @@ final class MapaDelDiagrama {
             salidas.computeIfAbsent(arco.origenId(), sinArcos -> new ArrayList<>()).add(arco);
             entradas.computeIfAbsent(arco.destinoId(), sinArcos -> new ArrayList<>()).add(arco);
         });
+        diagrama.mensajes().forEach(mensaje -> {
+            anotar(mensajesQueSalenDe, mensaje.nodoOrigenId(), mensaje);
+            anotar(mensajesQueLleganA, mensaje.nodoDestinoId(), mensaje);
+            anotar(mensajesDePool, mensaje.poolOrigenId(), mensaje);
+            anotar(mensajesDePool, mensaje.poolDestinoId(), mensaje);
+        });
+        diagrama.correlaciones().forEach(correlacion -> correlaciones.put(correlacion.mensajeId(), correlacion));
+    }
+
+    private static void anotar(Map<Long, List<MensajeResponse>> indice, Long clave, MensajeResponse mensaje) {
+        if (clave != null) {
+            indice.computeIfAbsent(clave, sinMensajes -> new ArrayList<>()).add(mensaje);
+        }
     }
 
     DiagramaResponse diagrama() {
@@ -113,5 +132,25 @@ final class MapaDelDiagrama {
 
     List<ArcoResponse> entradasDe(Long nodoId) {
         return entradas.getOrDefault(nodoId, List.of());
+    }
+
+    /** Los mensajes que arrancan en este nodo, es decir los que el nodo manda. */
+    List<MensajeResponse> mensajesQueSalenDe(Long nodoId) {
+        return mensajesQueSalenDe.getOrDefault(nodoId, List.of());
+    }
+
+    /** Los mensajes anclados a este nodo como destino, es decir los que el nodo espera. */
+    List<MensajeResponse> mensajesQueLleganA(Long nodoId) {
+        return mensajesQueLleganA.getOrDefault(nodoId, List.of());
+    }
+
+    /** Todo lo que el pool intercambia, entre y salga. */
+    List<MensajeResponse> mensajesDe(Long poolId) {
+        return mensajesDePool.getOrDefault(poolId, List.of());
+    }
+
+    /** La clave con la que un mensaje encuentra su caso, si se definio. */
+    CorrelacionResponse correlacionDe(Long mensajeId) {
+        return correlaciones.get(mensajeId);
     }
 }

@@ -36,6 +36,7 @@ public class DiagnosticoServiceImpl implements DiagnosticoService {
         Hallazgos hallazgos = new Hallazgos();
         MapaDelDiagrama mapa = new MapaDelDiagrama(diagrama);
         RevisionDelFlujo.revisar(mapa, hallazgos);
+        RevisionDeLosMensajes.revisar(mapa, hallazgos);
 
         List<HallazgoDiagnosticoResponse> encontrados = hallazgos.ordenados();
         long errores = encontrados.stream().filter(hallazgo -> hallazgo.severidad() == Severidad.ALTA).count();

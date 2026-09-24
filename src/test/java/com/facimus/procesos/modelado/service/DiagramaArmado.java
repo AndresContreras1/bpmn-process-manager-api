@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
@@ -96,6 +97,8 @@ class DiagramaArmado {
         armado.mensaje("Order status notification", TIENDA, "Customer", "Cancel order", null, TipoDestino.CORREO,
                 AccionSiFalla.CONTINUAR, null, false);
 
+        armado.respuestaEsperada("Payment authorization request", "Payment authorization result");
+
         armado.correlacion("Order placed", PoliticaSinCaso.INICIAR_CASO);
         armado.correlacion("Payment authorization request", PoliticaSinCaso.DESCARTAR);
         armado.correlacion("Payment authorization result", PoliticaSinCaso.DESCARTAR);
@@ -180,6 +183,74 @@ class DiagramaArmado {
         mensajes.add(new MensajeResponse(id, nombre, "Contenido de prueba", id(poolOrigen), id(poolDestino),
                 id(nodoOrigen), id(nodoDestino), tipoDestino, siFalla, id(nodoManejoError), origenExterno, List.of(),
                 null, null, null, 1L, 0L, null, null, null, null));
+    }
+
+    /** Declara con que mensaje contesta el otro participante, como la pasarela contesta la autorizacion. */
+    void respuestaEsperada(String mensaje, String respuesta) {
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+                viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), viejo.nodoDestinoId(),
+                viejo.tipoDestino(), viejo.siFalla(), viejo.nodoManejoErrorId(), viejo.origenExterno(),
+                viejo.campos(), viejo.usoDeLosDatos(), viejo.variable(), id(respuesta), viejo.procesoId(),
+                viejo.version(), null, null, null, null));
+    }
+
+    /** Desancla un mensaje del nodo que lo espera, dejando solo el participante que lo recibe. */
+    void desanclarDestinoDe(String mensaje) {
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+                viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), null, viejo.tipoDestino(),
+                viejo.siFalla(), viejo.nodoManejoErrorId(), viejo.origenExterno(), viejo.campos(),
+                viejo.usoDeLosDatos(), viejo.variable(), viejo.respuestaEsperadaId(), viejo.procesoId(),
+                viejo.version(), null, null, null, null));
+    }
+
+    /** Quita un mensaje del diagrama con su correlacion, como si nunca se hubiera creado. */
+    void quitarMensaje(String nombre) {
+        Long mensajeId = id(nombre);
+        mensajes.removeIf(mensaje -> mensaje.id().equals(mensajeId));
+        correlaciones.removeIf(correlacion -> correlacion.mensajeId().equals(mensajeId));
+    }
+
+    /** Quita la clave con la que un mensaje encuentra su caso. */
+    void quitarCorrelacionDe(String mensaje) {
+        correlaciones.removeIf(correlacion -> correlacion.mensajeId().equals(id(mensaje)));
+    }
+
+    /** Deja un mensaje a un sistema externo sin decir por donde viaja. */
+    void sinTipoDestino(String mensaje) {
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+                viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), viejo.nodoDestinoId(), null,
+                viejo.siFalla(), viejo.nodoManejoErrorId(), viejo.origenExterno(), viejo.campos(),
+                viejo.usoDeLosDatos(), viejo.variable(), viejo.respuestaEsperadaId(), viejo.procesoId(),
+                viejo.version(), null, null, null, null));
+    }
+
+    /** Copia un mensaje con su clave, para las pruebas de nombres repetidos. */
+    void duplicarMensaje(String nombre) {
+        MensajeResponse original = mensajes.stream()
+                .filter(mensaje -> mensaje.id().equals(id(nombre)))
+                .findFirst().orElseThrow();
+        Long copia = siguienteId();
+        mensajes.add(new MensajeResponse(copia, original.nombre(), original.contenido(), original.poolOrigenId(),
+                original.poolDestinoId(), original.nodoOrigenId(), original.nodoDestinoId(), original.tipoDestino(),
+                original.siFalla(), original.nodoManejoErrorId(), original.origenExterno(), original.campos(),
+                original.usoDeLosDatos(), original.variable(), null, original.procesoId(), 0L, null, null, null,
+                null));
+        correlaciones.add(new CorrelacionResponse(siguienteId(), "orderId", "orderId", PoliticaSinCaso.DESCARTAR,
+                copia, 0L, null, null, null, null));
+    }
+
+    /** Deja la clave de correlacion sin el campo del cuerpo que la lleva. */
+    void quitarCampoDeCorrelacionDe(String mensaje) {
+        Long mensajeId = id(mensaje);
+        correlaciones.replaceAll(correlacion -> correlacion.mensajeId().equals(mensajeId)
+                ? new CorrelacionResponse(correlacion.id(), correlacion.criterio(), null, correlacion.sinCaso(),
+                        mensajeId, 0L, null, null, null, null)
+                : correlacion);
+    }
+
+    private void cambiarMensaje(String nombre, UnaryOperator<MensajeResponse> cambio) {
+        Long mensajeId = id(nombre);
+        mensajes.replaceAll(mensaje -> mensaje.id().equals(mensajeId) ? cambio.apply(mensaje) : mensaje);
     }
 
     void correlacion(String mensaje, PoliticaSinCaso sinCaso) {
