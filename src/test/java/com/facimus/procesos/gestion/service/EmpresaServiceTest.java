@@ -2,12 +2,12 @@ package com.facimus.procesos.gestion.service;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.mapper.EmpresaMapper;
-import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
-import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.service.impl.EmpresaServiceImpl;
 

@@ -2,7 +2,7 @@ package com.facimus.procesos.gestion.dto.response;
 
 import java.time.LocalDateTime;
 
-import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import io.swagger.v3.oas.annotations.media.Schema;

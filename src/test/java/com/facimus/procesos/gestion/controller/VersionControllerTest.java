@@ -21,9 +21,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
 import com.facimus.procesos.gestion.model.EstadoVersion;
-import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.VersionService;
 
 @WebMvcTest(VersionController.class)

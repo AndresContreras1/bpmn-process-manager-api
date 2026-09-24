@@ -21,8 +21,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import com.facimus.procesos.common.DemasiadosIntentosException;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
-import com.facimus.procesos.gestion.model.RolAcceso;
 
 @ExtendWith(MockitoExtension.class)
 class LoginAuthenticatorTest {

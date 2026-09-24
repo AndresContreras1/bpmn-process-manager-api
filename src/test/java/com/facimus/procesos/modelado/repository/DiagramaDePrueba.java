@@ -4,7 +4,7 @@ import java.time.LocalDate;
 
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 
-import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.modelado.model.Actividad;

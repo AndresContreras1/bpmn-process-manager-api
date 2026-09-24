@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.model;
 import java.time.LocalDateTime;
 
 import com.facimus.procesos.common.EntidadEmpresa;
+import com.facimus.procesos.common.model.Empresa;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
