@@ -136,6 +136,13 @@ class ProcesosCompartidosIntegracionTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.proceso.id == " + procesoId + ")].empresaPropietariaNombre")
                         .value("Tienda duena"));
+        // El historial de la duena avisa de que vera la invitada: hoy, nada, porque no hay version publicada.
+        mockMvc.perform(get("/api/v1/procesos/{id}/historial", procesoId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenDuena)))
+                .andExpect(jsonPath("$[*].descripcionCambio", hasItems(
+                        "Proceso compartido en solo lectura con Operador logistico. No verá nada hasta que el "
+                                + "proceso se publique.")));
+
         // D2: mientras no haya una version publicada, la invitada no tiene nada que leer.
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
@@ -213,7 +220,8 @@ class ProcesosCompartidosIntegracionTest {
         mockMvc.perform(get("/api/v1/procesos/{id}/historial", procesoId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(tokenDuena)))
                 .andExpect(jsonPath("$[*].descripcionCambio", hasItems(
-                        "Proceso compartido en solo lectura con Operador logistico.",
+                        "Proceso compartido en solo lectura con Operador logistico. No verá nada hasta que el "
+                                + "proceso se publique.",
                         "Se dejó de compartir el proceso con Operador logistico.")));
     }
 

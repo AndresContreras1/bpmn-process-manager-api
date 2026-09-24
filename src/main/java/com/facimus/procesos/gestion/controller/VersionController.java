@@ -5,12 +5,18 @@ import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.common.SolicitudInvalidaException;
+import com.facimus.procesos.gestion.dto.request.CambiarEstadoVersionRequest;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
+import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.service.VersionService;
 import com.facimus.procesos.security.ApiPrincipal;
 
@@ -50,6 +56,28 @@ public class VersionController {
     public ResponseEntity<VersionResponse> obtener(@PathVariable Long procesoId, @PathVariable int numero,
             @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(versionService.obtener(principal.empresaId(), procesoId, numero));
+    }
+
+    @Operation(summary = "Retire a version",
+            description = "A retired version stops being the one in force: the process goes back to the newest one "
+                    + "still standing, and with none left it keeps no published version until it is published "
+                    + "again. Nothing is deleted, because what ran with that version is read against it. "
+                    + "Administrators only.")
+    @ApiResponse(responseCode = "200", description = "The version, now retired")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PatchMapping("/{numero}")
+    public ResponseEntity<VersionResponse> retirar(@PathVariable Long procesoId, @PathVariable int numero,
+            @Validated @RequestBody CambiarEstadoVersionRequest request,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        if (request.estado() != EstadoVersion.RETIRADA) {
+            throw new SolicitudInvalidaException("Una versión publicada solo cambia de estado para retirarse.");
+        }
+        return ResponseEntity.ok(versionService.retirar(principal.empresaId(), procesoId, numero,
+                principal.usuarioId()));
     }
 
     @Operation(summary = "Get the diagram of one version",

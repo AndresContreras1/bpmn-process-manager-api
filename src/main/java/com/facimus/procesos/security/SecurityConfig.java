@@ -82,6 +82,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").authenticated()
                         .requestMatchers("/api/v1/roles/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/compartidos").hasAuthority(ADMINISTRADOR)
+                        // Retirar una version cambia lo que la tienda da por bueno: es del administrador (D2).
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/procesos/*/versiones/*")
+                        .hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/procesos/**", "/api/v1/actividades/**",
                                 "/api/v1/arcos/**", "/api/v1/gateways/**", "/api/v1/eventos/**",
                                 "/api/v1/pools/**", "/api/v1/lanes/**",

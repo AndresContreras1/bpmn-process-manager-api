@@ -116,6 +116,9 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/versiones            | 404
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/versiones/1          | 404
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/versiones/1/diagrama | 404
+            ADMINISTRADOR | PATCH  | /api/v1/procesos/{id}/versiones/1          | 404
+            EDITOR        | PATCH  | /api/v1/procesos/{id}/versiones/1          | 403
+            SOLO_LECTURA  | PATCH  | /api/v1/procesos/{id}/versiones/1          | 403
 
             # Revision con IA: la piden administrador y editor, porque cada una cuesta una llamada
             EDITOR        | POST   | /api/v1/procesos/{id}/revision           | 404
@@ -158,7 +161,9 @@ class AutorizacionPorRolTest {
         String token = ruta.equals("/api/v1/auth/logout") ? login(correos.get(rol), CLAVE) : tokens.get(rol);
         var peticion = request(metodo, ruta, ID_INEXISTENTE)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-        if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}")) {
+        if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}/versiones/1")) {
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"RETIRADA\"}");
+        } else if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"PUBLICADO\",\"version\":0}");
         } else if (ruta.equals("/api/v1/lanes/{id}/eventos")) {
             // La autorizacion decide antes de validar el cuerpo: el editor pasa y no encuentra la lane.

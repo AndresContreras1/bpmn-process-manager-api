@@ -18,7 +18,9 @@ import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.dto.response.VersionResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
@@ -165,7 +167,7 @@ class VersionesDeProcesoIntegracionTest {
         assertThat(segunda.borradorPendiente()).isFalse();
         assertThat(versionService.definicion(empresaId, procesoId, 1)).contains("Receive order");
         assertThat(versionService.definicion(empresaId, procesoId, 2)).contains("Review the supplier file");
-        assertThat(versionService.listar(empresaId, procesoId)).extracting(version -> version.numero())
+        assertThat(versionService.listar(empresaId, procesoId)).map(VersionResponse::numero)
                 .containsExactly(2, 1);
     }
 
@@ -178,6 +180,66 @@ class VersionesDeProcesoIntegracionTest {
         renombrarLaActividad(procesoId, "Count the shelves");
 
         assertThatThrownBy(() -> publicar(leido)).isInstanceOf(ConflictoDeVersionException.class);
+    }
+
+    @Test
+    @DisplayName("Retirar la unica version deja al proceso publicado pero sin ninguna vigente")
+    void retirar_laUnicaVersion_dejaAlProcesoSinVigente() {
+        Long procesoId = procesoPublicable("Gift wrapping");
+        publicar(procesoService.obtener(empresaId, procesoId, false));
+
+        VersionResponse retirada = versionService.retirar(empresaId, procesoId, 1, adminId);
+
+        assertThat(retirada.estado()).isEqualTo(EstadoVersion.RETIRADA);
+        ProcesoResponse proceso = procesoService.obtener(empresaId, procesoId, false);
+        assertThat(proceso.estado()).isEqualTo(EstadoProceso.PUBLICADO);
+        assertThat(proceso.versionPublicada()).isNull();
+        assertThat(proceso.borradorPendiente()).isFalse();
+        assertThat(procesoService.listarHistorial(empresaId, procesoId))
+                .extracting(HistorialCambioResponse::descripcionCambio)
+                .contains("Versión 1 retirada.");
+    }
+
+    @Test
+    @DisplayName("Retirar la ultima version devuelve el proceso a la anterior que sigue en pie")
+    void retirar_laUltima_devuelveElProcesoALaAnterior() {
+        Long procesoId = procesoPublicable("Price updates");
+        publicar(procesoService.obtener(empresaId, procesoId, false));
+        renombrarLaActividad(procesoId, "Update the price list");
+        publicar(procesoService.obtener(empresaId, procesoId, false));
+
+        versionService.retirar(empresaId, procesoId, 2, adminId);
+
+        ProcesoResponse proceso = procesoService.obtener(empresaId, procesoId, false);
+        assertThat(proceso.versionPublicada()).isEqualTo(1);
+        // El modelo vivo es el de la version 2, asi que frente a la 1 el borrador vuelve a tener cambios.
+        assertThat(proceso.borradorPendiente()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Retirar dos veces la misma version responde conflicto")
+    void retirar_dosVeces_esUnConflicto() {
+        Long procesoId = procesoPublicable("Catalog cleanup");
+        publicar(procesoService.obtener(empresaId, procesoId, false));
+        versionService.retirar(empresaId, procesoId, 1, adminId);
+
+        assertThatThrownBy(() -> versionService.retirar(empresaId, procesoId, 1, adminId))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("La versión 1 ya está retirada.");
+    }
+
+    @Test
+    @DisplayName("Publicar despues de retirarlo todo empieza por el numero siguiente: los numeros no se reusan")
+    void publicar_trasRetirarLaUnica_siguePorElNumeroSiguiente() {
+        Long procesoId = procesoPublicable("Seasonal campaign");
+        publicar(procesoService.obtener(empresaId, procesoId, false));
+        versionService.retirar(empresaId, procesoId, 1, adminId);
+
+        // El diagrama es el mismo que el de la version 1, y aun asi se publica: ya no hay ninguna vigente.
+        ProcesoResponse segunda = publicar(procesoService.obtener(empresaId, procesoId, false));
+
+        assertThat(segunda.versionPublicada()).isEqualTo(2);
+        assertThat(versionService.listar(empresaId, procesoId)).map(VersionResponse::numero).containsExactly(2, 1);
     }
 
     private ProcesoResponse publicar(ProcesoResponse proceso) {

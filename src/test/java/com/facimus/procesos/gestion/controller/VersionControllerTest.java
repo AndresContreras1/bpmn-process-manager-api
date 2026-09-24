@@ -2,7 +2,9 @@ package com.facimus.procesos.gestion.controller;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -76,6 +78,33 @@ class VersionControllerTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.proceso.nombre").value("Order fulfillment"))
                 .andExpect(jsonPath("$.pools").isArray());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/procesos/{id}/versiones/{n} - el administrador la retira (200)")
+    void retirar_dejaLaVersionRetirada() throws Exception {
+        given(versionService.retirar(1L, 10L, 2, 1L))
+                .willReturn(new VersionResponse(8L, 10L, 2, EstadoVersion.RETIRADA, PUBLICADA, 5L, HUELLA));
+
+        mockMvc.perform(patch("/api/v1/procesos/10/versiones/2").with(principal(RolAcceso.ADMINISTRADOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"estado\":\"RETIRADA\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.numero").value(2))
+                .andExpect(jsonPath("$.estado").value("RETIRADA"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/procesos/{id}/versiones/{n} - una version retirada no vuelve a estar vigente (400)")
+    void retirar_pidiendoVigente_esUnaSolicitudInvalida() throws Exception {
+        mockMvc.perform(patch("/api/v1/procesos/10/versiones/2").with(principal(RolAcceso.ADMINISTRADOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"estado\":\"VIGENTE\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Solicitud inválida"))
+                .andExpect(jsonPath("$.detail")
+                        .value("Una versión publicada solo cambia de estado para retirarse."));
+        verifyNoInteractions(versionService);
     }
 
     @Test
