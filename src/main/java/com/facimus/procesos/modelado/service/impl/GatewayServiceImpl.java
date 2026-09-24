@@ -17,6 +17,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.service.GatewayService;
 
@@ -32,6 +33,7 @@ public class GatewayServiceImpl implements GatewayService {
     private final NodoFlujoRepository nodoFlujoRepository;
     private final LaneRepository laneRepository;
     private final ArcoRepository arcoRepository;
+    private final MensajeRepository mensajeRepository;
     private final GatewayMapper gatewayMapper;
 
     @Override
@@ -62,7 +64,7 @@ public class GatewayServiceImpl implements GatewayService {
     @Override
     @Transactional
     public GatewayResponse editar(Long empresaId, Long usuarioId, Long gatewayId, String nombre,
-            TipoGateway tipoGateway, int posX, int posY, Long version) {
+            TipoGateway tipoGateway, Long laneId, int posX, int posY, Long version) {
         Gateway gateway = buscar(empresaId, gatewayId);
         gateway.verificarVersion(version);
         Long procesoId = gateway.getLane().getPool().getProceso().getId();
@@ -73,6 +75,8 @@ public class GatewayServiceImpl implements GatewayService {
         if (tipoGateway.eligePorCondicion() && tieneSalidasSinCondicion(empresaId, gatewayId)) {
             throw new ReglaNegocioException(ReglasDeGateways.SALIDAS_SIN_CONDICION);
         }
+        gateway.setLane(ReglasDeNodos.mudanza(empresaId, gateway, laneId, laneRepository, arcoRepository,
+                mensajeRepository));
         gateway.setNombre(nombre);
         gateway.setTipoGateway(tipoGateway);
         gateway.setPosicionX(posX);

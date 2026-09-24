@@ -125,7 +125,7 @@ class EventoControllerTest {
     @Test
     @DisplayName("PUT /api/v1/eventos/{id} - editar evento (200)")
     void editar_evento() throws Exception {
-        given(eventoService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), anyInt(), anyInt(), eq(3L)))
+        given(eventoService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), any(), anyInt(), anyInt(), eq(3L)))
                 .willReturn(crearEvento(1L, "Order cancelled", TipoEvento.FIN));
 
         mockMvc.perform(put("/api/v1/eventos/1")

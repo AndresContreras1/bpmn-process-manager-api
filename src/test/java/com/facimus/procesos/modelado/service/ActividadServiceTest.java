@@ -38,6 +38,7 @@ import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.service.impl.ActividadServiceImpl;
 
@@ -52,6 +53,8 @@ class ActividadServiceTest {
     private HistorialCambioService historialCambioService;
     @Mock
     private ActividadRepository actividadRepository;
+    @Mock
+    private MensajeRepository mensajeRepository;
     @Mock
     private NodoFlujoRepository nodoFlujoRepository;
     @Mock
@@ -136,11 +139,106 @@ class ActividadServiceTest {
         when(actividadRepository.saveAndFlush(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ActividadResponse respuesta = actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", "Otra",
-                TipoActividad.SERVICIO, 1, 2, null);
+                TipoActividad.SERVICIO, null, 1, 2, null);
 
         assertThat(respuesta.descripcion()).isEqualTo("Otra");
         assertThat(actividad.getTipoActividad()).isEqualTo(TipoActividad.SERVICIO);
         assertThat(actividad.getPosicionY()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("HU-09: la actividad se mueve a otra lane del mismo pool y se lleva su posicion")
+    void editar_moviendoLaActividadDeLane_laCambiaDePuesto() {
+        Lane despacho = Lane.builder().id(8L).empresa(empresa).pool(lane.getPool()).nombre("Shipping").build();
+        when(actividadRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(actividad));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Pick items", 100L,
+                EMPRESA, 30L)).thenReturn(false);
+        when(laneRepository.findByIdAndEmpresaId(8L, EMPRESA)).thenReturn(Optional.of(despacho));
+        when(actividadRepository.saveAndFlush(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ActividadResponse respuesta = actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", "Recoger",
+                TipoActividad.USUARIO, 8L, 120, 240, null);
+
+        assertThat(respuesta.laneId()).isEqualTo(8L);
+        assertThat(respuesta.posicionX()).isEqualTo(120);
+    }
+
+    @Test
+    @DisplayName("R-41: un nodo con arcos no cruza de pool, porque un arco no cruza pools")
+    void editar_moviendoUnNodoConArcosAOtroPool_lanzaReglaNegocio() {
+        Lane ajena = laneDeOtroPool();
+        when(actividadRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(actividad));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Pick items", 100L,
+                EMPRESA, 30L)).thenReturn(false);
+        when(laneRepository.findByIdAndEmpresaId(9L, EMPRESA)).thenReturn(Optional.of(ajena));
+        when(arcoRepository.tieneArcos(30L, EMPRESA)).thenReturn(true);
+
+        assertThatThrownBy(() -> actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", "Recoger",
+                TipoActividad.USUARIO, 9L, 0, 0, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("tiene arcos");
+        assertThat(actividad.getLane().getId()).isEqualTo(7L);
+        verify(actividadRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("R-41: un nodo con mensajes anclados tampoco cruza de pool, porque el mensaje se ancla a su lado")
+    void editar_moviendoUnNodoConMensajesAOtroPool_lanzaReglaNegocio() {
+        Lane ajena = laneDeOtroPool();
+        when(actividadRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(actividad));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Pick items", 100L,
+                EMPRESA, 30L)).thenReturn(false);
+        when(laneRepository.findByIdAndEmpresaId(9L, EMPRESA)).thenReturn(Optional.of(ajena));
+        when(arcoRepository.tieneArcos(30L, EMPRESA)).thenReturn(false);
+        when(mensajeRepository.tieneMensajesAnclados(30L, EMPRESA)).thenReturn(true);
+
+        assertThatThrownBy(() -> actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", "Recoger",
+                TipoActividad.USUARIO, 9L, 0, 0, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("mensajes anclados");
+        verify(actividadRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("R-41: un nodo suelto si cambia de pool, porque no arrastra nada")
+    void editar_moviendoUnNodoSueltoAOtroPool_loMueve() {
+        Lane ajena = laneDeOtroPool();
+        when(actividadRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(actividad));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Pick items", 100L,
+                EMPRESA, 30L)).thenReturn(false);
+        when(laneRepository.findByIdAndEmpresaId(9L, EMPRESA)).thenReturn(Optional.of(ajena));
+        when(arcoRepository.tieneArcos(30L, EMPRESA)).thenReturn(false);
+        when(mensajeRepository.tieneMensajesAnclados(30L, EMPRESA)).thenReturn(false);
+        when(actividadRepository.saveAndFlush(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ActividadResponse respuesta = actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", "Recoger",
+                TipoActividad.USUARIO, 9L, 0, 0, null);
+
+        assertThat(respuesta.laneId()).isEqualTo(9L);
+    }
+
+    @Test
+    @DisplayName("R-41: una lane de otro proceso no es sitio para el nodo")
+    void editar_moviendoUnNodoAOtroProceso_lanzaReglaNegocio() {
+        Proceso otro = Proceso.builder().id(200L).empresa(empresa).nombre("Returns").build();
+        Pool poolAjeno = Pool.builder().id(11L).empresa(empresa).proceso(otro).nombre("Demo Store").build();
+        Lane ajena = Lane.builder().id(12L).empresa(empresa).pool(poolAjeno).nombre("Returns").build();
+        when(actividadRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(actividad));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Pick items", 100L,
+                EMPRESA, 30L)).thenReturn(false);
+        when(laneRepository.findByIdAndEmpresaId(12L, EMPRESA)).thenReturn(Optional.of(ajena));
+
+        assertThatThrownBy(() -> actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", "Recoger",
+                TipoActividad.USUARIO, 12L, 0, 0, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("mismo proceso");
+        verify(actividadRepository, never()).saveAndFlush(any());
+    }
+
+    /** Otro participante del mismo proceso: cambiar de pool es lo que R-41 acota. */
+    private Lane laneDeOtroPool() {
+        Pool transportadora = Pool.builder().id(6L).empresa(empresa).proceso(proceso).nombre("Carrier").build();
+        return Lane.builder().id(9L).empresa(empresa).pool(transportadora).nombre("Routing").build();
     }
 
     @Test

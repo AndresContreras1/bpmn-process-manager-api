@@ -238,6 +238,43 @@ class ConsistenciaBpmnIntegracionTest {
     }
 
     @Test
+    @DisplayName("R-41: un nodo se arrastra a otra lane, y con arcos no se sale de su pool")
+    void nodo_seMueveDeLaneYNoCruzaDePoolConArcos() throws Exception {
+        Long rolId = rolProcesoService.crear(empresaId, "Dispatch", null).id();
+        Long otraLane = laneService.crear(empresaId, adminId, tiendaId, "Shipping", rolId).id();
+        Long externo = poolService.crear(empresaId, adminId, procesoId, "Courier", TipoParticipante.PROVEEDOR,
+                false, Integracion.TRANSPORTE).id();
+        Long laneExterna = laneService.crear(empresaId, adminId, externo, "Dispatch", rolId).id();
+        Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack refund", null,
+                TipoActividad.USUARIO, 100, 700).id();
+        Long despachar = actividadService.crear(empresaId, adminId, laneId, "Dispatch refund", null,
+                TipoActividad.USUARIO, 260, 700).id();
+
+        // Suelta, la actividad se muda a donde sea, incluso a otro participante del mismo proceso.
+        pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "Pack refund", "laneId", laneExterna,
+                "posicionX", 20, "posicionY", 30, "version", 0))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.laneId").value(laneExterna))
+                .andExpect(jsonPath("$.posicionX").value(20));
+        pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "Pack refund", "laneId", otraLane,
+                "posicionX", 20, "posicionY", 30, "version", 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.laneId").value(otraLane));
+
+        // Con un arco, ya solo se mueve dentro de su pool.
+        arcoService.crear(empresaId, adminId, empacar, despachar, null, null, false, 0);
+        pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "Pack refund", "laneId", laneExterna,
+                "posicionX", 20, "posicionY", 30, "version", 2))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail")
+                        .value("El nodo tiene arcos y solo puede moverse a una lane del mismo pool."));
+        pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "Pack refund", "laneId", laneId,
+                "posicionX", 20, "posicionY", 30, "version", 2))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.laneId").value(laneId));
+    }
+
+    @Test
     @DisplayName("R-35: la salida por defecto de un gateway es una sola y no lleva condicion")
     void arco_salidaPorDefecto_esUnicaYSinCondicion() throws Exception {
         Long decidir = gatewayService.crear(empresaId, adminId, laneId, "Discount?", TipoGateway.EXCLUSIVO, 100, 560)

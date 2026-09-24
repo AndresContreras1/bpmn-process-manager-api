@@ -88,7 +88,8 @@ public class EventoController {
             @Validated @RequestBody EditarEventoRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(eventoService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
-                request.tipoEvento(), request.posicionX(), request.posicionY(), request.version()));
+                request.tipoEvento(), request.laneId(), request.posicionX(), request.posicionY(),
+                request.version()));
     }
 
     @Operation(summary = "Delete an event",

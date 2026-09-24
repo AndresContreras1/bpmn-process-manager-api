@@ -12,7 +12,7 @@ public interface ActividadService {
             TipoActividad tipoActividad, int posX, int posY);
 
     ActividadResponse editar(Long empresaId, Long usuarioId, Long actividadId, String nombre, String descripcion,
-            TipoActividad tipoActividad, int posX, int posY, Long version);
+            TipoActividad tipoActividad, Long laneId, int posX, int posY, Long version);
 
     void eliminar(Long empresaId, Long usuarioId, Long actividadId);
 

@@ -35,6 +35,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
+import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.service.impl.GatewayServiceImpl;
 
@@ -49,6 +50,8 @@ class GatewayServiceTest {
     private HistorialCambioService historialCambioService;
     @Mock
     private GatewayRepository gatewayRepository;
+    @Mock
+    private MensajeRepository mensajeRepository;
     @Mock
     private NodoFlujoRepository nodoFlujoRepository;
     @Mock
@@ -115,8 +118,8 @@ class GatewayServiceTest {
         when(arcoRepository.findAllByOrigenIdAndEmpresaId(31L, EMPRESA))
                 .thenReturn(List.of(conCondicion, sinCondicion));
 
-        assertThatThrownBy(() -> gatewayService.editar(EMPRESA, AUTOR, 31L, "Stock available?", TipoGateway.EXCLUSIVO,
-                0, 0, null))
+        assertThatThrownBy(() -> gatewayService.editar(EMPRESA, AUTOR, 31L, "Stock available?",
+                TipoGateway.EXCLUSIVO, null, 0, 0, null))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("condicion");
         assertThat(gateway.getTipoGateway()).isEqualTo(TipoGateway.PARALELO);
@@ -133,7 +136,7 @@ class GatewayServiceTest {
         when(gatewayRepository.saveAndFlush(any(Gateway.class))).thenAnswer(inv -> inv.getArgument(0));
 
         GatewayResponse respuesta = gatewayService.editar(EMPRESA, AUTOR, 31L, "Stock available?",
-                TipoGateway.PARALELO, 0, 0, null);
+                TipoGateway.PARALELO, null, 0, 0, null);
 
         assertThat(respuesta.tipoGateway()).isEqualTo(TipoGateway.PARALELO);
         verify(arcoRepository, never()).findAllByOrigenIdAndEmpresaId(any(), any());

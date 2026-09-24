@@ -88,8 +88,8 @@ public class ActividadController {
             @Validated @RequestBody EditarActividadRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(actividadService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
-                request.descripcion(), request.tipoActividad(), request.posicionX(), request.posicionY(),
-                request.version()));
+                request.descripcion(), request.tipoActividad(), request.laneId(), request.posicionX(),
+                request.posicionY(), request.version()));
     }
 
     @Operation(summary = "Delete an activity",
