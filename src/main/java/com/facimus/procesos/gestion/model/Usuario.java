@@ -45,4 +45,9 @@ public class Usuario extends EntidadEditable {
     @Column(nullable = false)
     @Builder.Default
     private boolean activo = true;
+
+    /** D17: entro con una contrasena temporal y hasta que la cambie no puede hacer nada mas. */
+    @Column(name = "debe_cambiar_clave", nullable = false)
+    @Builder.Default
+    private boolean debeCambiarClave = false;
 }

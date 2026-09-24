@@ -77,8 +77,8 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponse> crear(@Validated @RequestBody CrearUsuarioRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        UsuarioResponse usuario = usuarioService.crearColaborador(empresaId, request.nombre(), request.email(),
-                request.password(), request.rolAcceso());
+        UsuarioResponse usuario = usuarioService.crearColaborador(empresaId, principal.usuarioId(),
+                request.nombre(), request.email(), request.password(), request.rolAcceso());
         return ResponseEntity.created(URI.create("/api/v1/usuarios/" + usuario.id())).body(usuario);
     }
 
@@ -93,9 +93,22 @@ public class UsuarioController {
         return ResponseEntity.ok(usuarioService.obtener(principal.empresaId(), id));
     }
 
-    @Operation(summary = "Change the access role or the status of a user",
-            description = "A store always keeps an active administrator, and nobody can deactivate their own "
-                    + "account.")
+    @Operation(summary = "Give a user a new temporary password",
+            description = "Answers it once in claveTemporal and closes every session of that user. Whoever signs in "
+                    + "with it can only change it. Administrators only.")
+    @ApiResponse(responseCode = "200", description = "The user and the temporary password, answered only here")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @PostMapping("/{id}/restablecer-clave")
+    public ResponseEntity<UsuarioResponse> restablecerClave(@PathVariable Long id,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(usuarioService.restablecerClave(principal.empresaId(), principal.usuarioId(), id));
+    }
+
+    @Operation(summary = "Change the name, the access role or the status of a user",
+            description = "Whatever is left out stays as it was. A store always keeps an active administrator, and "
+                    + "nobody can deactivate their own account.")
     @ApiResponse(responseCode = "200", description = "User updated")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -106,7 +119,7 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Long id,
             @Validated @RequestBody ActualizarUsuarioRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(usuarioService.actualizar(principal.empresaId(), principal.usuarioId(), id,
-                request.rolAcceso(), request.activo(), request.version()));
+                request.nombre(), request.rolAcceso(), request.activo(), request.version()));
     }
 
     @Operation(summary = "Deactivate a user",

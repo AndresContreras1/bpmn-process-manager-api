@@ -57,9 +57,16 @@ public class ProcesoCompartidoServiceImpl implements ProcesoCompartidoService {
                 .empresaInvitada(invitada)
                 .fechaCompartido(LocalDateTime.now())
                 .build());
+        // D2: la invitada ve la version publicada, no el borrador; si no hay ninguna, todavia no ve nada.
         historialCambioService.registrar(proceso, autor(empresaId, usuarioId),
-                "Proceso compartido en solo lectura con " + invitada.getNombre() + ".");
+                "Proceso compartido en solo lectura con " + invitada.getNombre() + ". " + queVera(proceso));
         return procesoCompartidoMapper.toInvitada(comparticion);
+    }
+
+    private static String queVera(Proceso proceso) {
+        return proceso.getVersionPublicada() == null
+                ? "No verá nada hasta que el proceso se publique."
+                : "Verá la versión " + proceso.getVersionPublicada() + ".";
     }
 
     @Override

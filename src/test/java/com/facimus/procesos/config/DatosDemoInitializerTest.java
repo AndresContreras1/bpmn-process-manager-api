@@ -100,6 +100,9 @@ class DatosDemoInitializerTest {
         JsonNode diagrama = leer(get("/api/v1/procesos/{id}/diagrama", idDelProceso("Order fulfillment")));
 
         assertThat(diagrama.get("proceso").get("estado").asString()).isEqualTo("PUBLICADO");
+        // La demo arranca publicada como version 1 y sin nada pendiente: lo que se ve es lo que esta publicado.
+        assertThat(diagrama.get("proceso").get("versionPublicada").asInt()).isEqualTo(1);
+        assertThat(diagrama.get("proceso").get("borradorPendiente").asBoolean()).isFalse();
         assertThat(diagrama.get("pools")).extracting(pool -> pool.get("tipoParticipante").asString())
                 .containsExactly("EMPRESA", "CLIENTE", "SISTEMA_EXTERNO", "PROVEEDOR");
         assertThat(diagrama.get("lanes")).extracting(lane -> lane.get("rolProcesoNombre").asString())
@@ -128,6 +131,23 @@ class DatosDemoInitializerTest {
         assertThat(diagrama.get("correlaciones")).extracting(correlacion -> correlacion.get("campo").asString())
                 .hasSize(6)
                 .containsOnly("orderId");
+    }
+
+    @Test
+    @DisplayName("La version 1 de la demo guarda el diagrama que se publico")
+    void DatosDemo_versionPublicada_guardaElDiagrama() throws Exception {
+        Long procesoId = idDelProceso("Order fulfillment");
+
+        JsonNode versiones = leer(get("/api/v1/procesos/{id}/versiones", procesoId));
+        assertThat(versiones).hasSize(1);
+        assertThat(versiones.get(0).get("numero").asInt()).isEqualTo(1);
+        assertThat(versiones.get(0).get("estado").asString()).isEqualTo("VIGENTE");
+        assertThat(versiones.get(0).get("huella").asString()).hasSize(64);
+
+        JsonNode publicado = leer(get("/api/v1/procesos/{id}/versiones/1/diagrama", procesoId));
+        assertThat(publicado.get("proceso").get("versionPublicada").asInt()).isEqualTo(1);
+        assertThat(publicado.get("actividades")).hasSize(5);
+        assertThat(publicado.get("mensajes")).hasSize(6);
     }
 
     @Test

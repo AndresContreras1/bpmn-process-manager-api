@@ -80,8 +80,8 @@ public class RolProcesoController {
     @PostMapping
     public ResponseEntity<RolProcesoVistaResponse> crear(@Validated @RequestBody RolProcesoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        RolProcesoVistaResponse rol = rolProcesoService.crear(principal.empresaId(), request.nombre(),
-                request.descripcion());
+        RolProcesoVistaResponse rol = rolProcesoService.crear(principal.empresaId(), principal.usuarioId(),
+                request.nombre(), request.descripcion());
         return ResponseEntity.created(URI.create("/api/v1/roles/" + rol.id())).body(rol);
     }
 
@@ -105,8 +105,8 @@ public class RolProcesoController {
     @PutMapping("/{id}")
     public ResponseEntity<RolProcesoVistaResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarRolProcesoRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
-        return ResponseEntity.ok(rolProcesoService.editar(principal.empresaId(), id, request.nombre(),
-                request.descripcion(), request.version()));
+        return ResponseEntity.ok(rolProcesoService.editar(principal.empresaId(), principal.usuarioId(), id,
+                request.nombre(), request.descripcion(), request.version()));
     }
 
     @Operation(summary = "Delete a process role",
@@ -119,7 +119,7 @@ public class RolProcesoController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        rolProcesoService.eliminar(empresaId, id);
+        rolProcesoService.eliminar(empresaId, principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 }

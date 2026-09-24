@@ -63,8 +63,8 @@ public enum CodigoDeDiagnostico {
     A11(Severidad.BAJA),
     /** Una actividad de servicio sin mensaje anclado. */
     A12(Severidad.BAJA),
-    // A-13, "hay cambios sin publicar desde la version n", entra con las versiones publicadas: hasta entonces no
-    // hay ninguna version con la que comparar el borrador.
+    /** El modelo vivo tiene cambios que la version publicada no incluye. */
+    A13(Severidad.BAJA),
     /** Un gateway inclusivo sin salida por defecto. */
     A14(Severidad.BAJA);
 

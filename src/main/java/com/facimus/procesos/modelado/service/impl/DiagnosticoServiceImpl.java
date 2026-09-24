@@ -6,9 +6,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.modelado.dto.response.DiagnosticoResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.HallazgoDiagnosticoResponse;
+import com.facimus.procesos.modelado.model.CodigoDeDiagnostico;
 import com.facimus.procesos.modelado.model.Severidad;
 import com.facimus.procesos.modelado.service.DiagnosticoService;
 import com.facimus.procesos.modelado.service.DiagramaService;
@@ -40,6 +42,7 @@ public class DiagnosticoServiceImpl implements DiagnosticoService {
     /** Puro sobre el diagrama: ni consulta, ni reloj, ni azar, asi que dos diagnosticos iguales se comparan. */
     static DiagnosticoResponse revisar(DiagramaResponse diagrama) {
         Hallazgos hallazgos = new Hallazgos();
+        avisarDelBorrador(diagrama, hallazgos);
         revisar(new MapaDelDiagrama(diagrama), hallazgos);
         return armar(diagrama, null, hallazgos);
     }
@@ -50,9 +53,23 @@ public class DiagnosticoServiceImpl implements DiagnosticoService {
         MapaDelDiagrama despues = new MapaDelDiagrama(SimulacionDeBorrado.sinElElemento(diagrama, elemento));
 
         Hallazgos hallazgos = new Hallazgos();
+        avisarDelBorrador(diagrama, hallazgos);
         SimulacionDeBorrado.avisarDeLoQueSeVa(antes, despues, elemento, hallazgos);
         revisar(despues, hallazgos);
         return armar(diagrama, elemento.texto(), hallazgos);
+    }
+
+    /**
+     * A-13: lo que se esta mirando es el borrador de trabajo, y lo que la invitada lee y la ejecucion usara es la
+     * version publicada. Llega vacio en un listado y para una invitada, que no ven el borrador de nadie.
+     */
+    private static void avisarDelBorrador(DiagramaResponse diagrama, Hallazgos hallazgos) {
+        ProcesoResponse proceso = diagrama.proceso();
+        if (Boolean.TRUE.equals(proceso.borradorPendiente())) {
+            hallazgos.anotar(CodigoDeDiagnostico.A13,
+                    "Hay cambios en el diagrama que la version " + proceso.versionPublicada() + " no incluye.",
+                    "Publica el proceso otra vez para que la version vigente sea este diagrama.");
+        }
     }
 
     private static void revisar(MapaDelDiagrama mapa, Hallazgos hallazgos) {

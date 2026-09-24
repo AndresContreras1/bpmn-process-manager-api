@@ -82,7 +82,7 @@ class IdempotenciaIntegracionTest {
         empresaId = empresaService.registrar("Tienda idempotente", "900999111-2", "contacto@idempotencia.com",
                 "Administradora", ADMIN, CLAVE).id();
         adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
-        usuarioService.crearColaborador(empresaId, "Editora", EDITORA, CLAVE, RolAcceso.EDITOR);
+        usuarioService.crearColaborador(empresaId, null, "Editora", EDITORA, CLAVE, RolAcceso.EDITOR);
         tokenAdmin = login(ADMIN);
         tokenEditora = login(EDITORA);
     }

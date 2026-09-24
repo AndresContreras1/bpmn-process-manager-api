@@ -322,7 +322,8 @@ class ProcesoControllerTest {
 
     private ProcesoResponse crearProceso(Long id, String nombre, EstadoProceso estado) {
         LocalDateTime ahora = LocalDateTime.now();
-        return new ProcesoResponse(id, nombre, "Descripcion", "Operativo", estado, true, ahora, ahora, 0L, null, null);
+        return new ProcesoResponse(id, nombre, "Descripcion", "Operativo", estado, true, ahora, ahora, 0L, null, null,
+                null, false);
     }
 
 }

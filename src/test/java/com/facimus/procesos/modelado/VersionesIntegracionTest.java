@@ -132,12 +132,12 @@ class VersionesIntegracionTest {
         empresaId = empresaService.registrar("Tienda de versiones", "900888999-0", "contacto@versiones.com",
                 "Administradora", ADMIN, CLAVE).id();
         adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
-        colaboradorId = usuarioService.crearColaborador(empresaId, "Editora", "editora@versiones.com", CLAVE,
+        colaboradorId = usuarioService.crearColaborador(empresaId, null, "Editora", "editora@versiones.com", CLAVE,
                 RolAcceso.EDITOR).id();
 
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();
-        rolId = rolProcesoService.crear(empresaId, "Warehouse", "Picks and packs").id();
+        rolId = rolProcesoService.crear(empresaId, adminId, "Warehouse", "Picks and packs").id();
         Long tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
         poolId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE, true,
                 Integracion.NINGUNA).id();
@@ -172,8 +172,6 @@ class VersionesIntegracionTest {
                 edicion("PUT proceso", HttpMethod.PUT, "/api/v1/procesos/{id}", "/api/v1/procesos/{id}", procesoId,
                         v -> Map.of("nombre", "Order fulfillment", "descripcion", "Checkout to delivery, v2",
                                 "categoria", "Fulfillment", "version", v)),
-                edicion("PATCH proceso", HttpMethod.PATCH, "/api/v1/procesos/{id}", "/api/v1/procesos/{id}",
-                        procesoId, v -> Map.of("estado", "PUBLICADO", "version", v)),
                 edicion("PUT rol", HttpMethod.PUT, "/api/v1/roles/{id}", "/api/v1/roles/{id}", rolId,
                         v -> Map.of("nombre", "Warehouse", "descripcion", "Picks, packs and ships", "version", v)),
                 edicion("PATCH usuario", HttpMethod.PATCH, "/api/v1/usuarios/{id}", "/api/v1/usuarios/{id}",

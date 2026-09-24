@@ -58,7 +58,7 @@ class ActuatorTest {
     void registrarTiendaYEntrar() throws Exception {
         Long empresaId = empresaService.registrar("Tienda Actuator", "900272829-1", "contacto@actuator.com",
                 "Administradora", ADMIN, CLAVE).id();
-        usuarioService.crearColaborador(empresaId, "Editor", EDITOR, CLAVE, RolAcceso.EDITOR);
+        usuarioService.crearColaborador(empresaId, null, "Editor", EDITOR, CLAVE, RolAcceso.EDITOR);
         tokenAdmin = login(ADMIN);
         tokenEditor = login(EDITOR);
     }

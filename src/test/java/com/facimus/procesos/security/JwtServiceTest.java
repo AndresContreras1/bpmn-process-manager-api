@@ -17,7 +17,7 @@ class JwtServiceTest {
 
     private static final String SECRETO = "clave-de-pruebas-de-al-menos-32-bytes";
 
-    private final ApiPrincipal editor = new ApiPrincipal(10L, 1L, RolAcceso.EDITOR, "ana@acme.com", "sesion-1");
+    private final ApiPrincipal editor = new ApiPrincipal(10L, 1L, RolAcceso.EDITOR, "ana@acme.com", "sesion-1", false);
 
     @Test
     @DisplayName("Un token recien generado es valido y trae la identidad completa, sesion incluida")
@@ -33,7 +33,7 @@ class JwtServiceTest {
         JwtService jwtService = new JwtService(SECRETO, 900);
         String[] original = jwtService.generarToken(editor).split("\\.");
         String[] otraEmpresa = jwtService
-                .generarToken(new ApiPrincipal(10L, 2L, RolAcceso.EDITOR, "ana@acme.com", "sesion-1"))
+                .generarToken(new ApiPrincipal(10L, 2L, RolAcceso.EDITOR, "ana@acme.com", "sesion-1", false))
                 .split("\\.");
 
         String manipulado = original[0] + "." + otraEmpresa[1] + "." + original[2];

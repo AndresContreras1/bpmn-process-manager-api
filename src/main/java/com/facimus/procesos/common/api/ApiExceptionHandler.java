@@ -34,6 +34,7 @@ import com.facimus.procesos.common.IntegracionNoConfiguradaException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SesionInvalidaException;
+import com.facimus.procesos.common.SinPermisoException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
 
 import tools.jackson.core.JacksonException;
@@ -61,7 +62,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ReglaNegocioException.class)
     public ProblemDetail manejarReglaNegocio(ReglaNegocioException ex, WebRequest req) {
-        return construir(HttpStatus.CONFLICT, "Regla de negocio violada", ex.getMessage(), req);
+        ProblemDetail problema = construir(HttpStatus.CONFLICT, "Regla de negocio violada", ex.getMessage(), req);
+        // Una regla que se rompe por varias cosas a la vez las lista, como hace la validacion con cada campo.
+        if (!ex.getErrores().isEmpty()) {
+            problema.setProperty(ERRORES, ex.getErrores());
+        }
+        return problema;
     }
 
     /** Edicion sobre una version vieja: el cliente recarga el recurso y decide de nuevo. */
@@ -123,6 +129,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(IntegracionNoConfiguradaException.class)
     public ProblemDetail manejarIntegracionNoConfigurada(IntegracionNoConfiguradaException ex, WebRequest req) {
         return construir(HttpStatus.SERVICE_UNAVAILABLE, "Función no configurada", ex.getMessage(), req);
+    }
+
+    /** Un permiso que decide la tienda, no la matriz de roles: el motivo se le puede contar a quien pregunta. */
+    @ExceptionHandler(SinPermisoException.class)
+    public ProblemDetail manejarSinPermisoDeLaTienda(SinPermisoException ex, WebRequest req) {
+        return construir(HttpStatus.FORBIDDEN, "Sin permisos", ex.getMessage(), req);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

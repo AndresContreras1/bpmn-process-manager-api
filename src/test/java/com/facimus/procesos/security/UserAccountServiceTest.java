@@ -25,7 +25,7 @@ import com.facimus.procesos.gestion.service.UsuarioService;
 class UserAccountServiceTest {
 
     private final UsuarioResponse ana = new UsuarioResponse(10L, "Ana", "ana@acme.com", RolAcceso.EDITOR, true, 1L, 0L,
-            null, null, null, null);
+            null, null, null, null, false, null);
 
     @Mock
     private UsuarioService usuarioService;

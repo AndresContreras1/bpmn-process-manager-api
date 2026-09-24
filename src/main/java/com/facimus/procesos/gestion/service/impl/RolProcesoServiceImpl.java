@@ -15,9 +15,11 @@ import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.mapper.RolProcesoMapper;
 import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
+import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.gestion.service.UsoDeRoles;
 
@@ -31,6 +33,7 @@ public class RolProcesoServiceImpl implements RolProcesoService {
     private final RolProcesoRepository rolProcesoRepository;
     private final EmpresaRepository empresaRepository;
     private final UsoDeRoles usoDeRoles;
+    private final HistorialCambioService historialCambioService;
     private final RolProcesoMapper rolProcesoMapper;
 
     @Override
@@ -46,7 +49,7 @@ public class RolProcesoServiceImpl implements RolProcesoService {
 
     @Override
     @Transactional
-    public RolProcesoVistaResponse crear(Long empresaId, String nombre, String descripcion) {
+    public RolProcesoVistaResponse crear(Long empresaId, Long usuarioId, String nombre, String descripcion) {
         if (rolProcesoRepository.existsByEmpresaIdAndNombreIgnoreCaseAndActivoTrue(empresaId, nombre)) {
             throw nombreRepetido(nombre);
         }
@@ -58,6 +61,8 @@ public class RolProcesoServiceImpl implements RolProcesoService {
                 .nombre(nombre)
                 .descripcion(descripcion)
                 .build());
+        historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.ROL, rol.getId(),
+                "Rol de proceso \"" + nombre + "\" creado.");
         return rolProcesoMapper.toResponse(rol, 0);
     }
 
@@ -68,21 +73,25 @@ public class RolProcesoServiceImpl implements RolProcesoService {
 
     @Override
     @Transactional
-    public RolProcesoVistaResponse editar(Long empresaId, Long rolId, String nombre, String descripcion,
-            Long version) {
+    public RolProcesoVistaResponse editar(Long empresaId, Long usuarioId, Long rolId, String nombre,
+            String descripcion, Long version) {
         RolProceso rol = buscarActivo(empresaId, rolId);
         rol.verificarVersion(version);
         if (rolProcesoRepository.existsByEmpresaIdAndNombreIgnoreCaseAndActivoTrueAndIdNot(empresaId, nombre, rolId)) {
             throw nombreRepetido(nombre);
         }
+        String anterior = rol.getNombre();
         rol.setNombre(nombre);
         rol.setDescripcion(descripcion);
+        historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.ROL, rolId,
+                anterior.equals(nombre) ? "Rol de proceso \"" + nombre + "\" editado."
+                        : "Rol de proceso \"" + anterior + "\" renombrado a \"" + nombre + "\".");
         return conUso(empresaId, rolProcesoRepository.saveAndFlush(rol));
     }
 
     @Override
     @Transactional
-    public void eliminar(Long empresaId, Long rolId) {
+    public void eliminar(Long empresaId, Long usuarioId, Long rolId) {
         RolProceso rol = buscarActivo(empresaId, rolId);
         List<String> procesos = usoDeRoles.procesosQueLoUsan(empresaId, rolId);
         if (!procesos.isEmpty()) {
@@ -92,6 +101,8 @@ public class RolProcesoServiceImpl implements RolProcesoService {
         }
         rol.setActivo(false);
         rolProcesoRepository.save(rol);
+        historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.ROL, rolId,
+                "Rol de proceso \"" + rol.getNombre() + "\" eliminado.");
     }
 
     private RolProcesoVistaResponse conUso(Long empresaId, RolProceso rol) {

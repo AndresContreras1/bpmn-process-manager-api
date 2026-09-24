@@ -86,7 +86,7 @@ class UsuarioControllerTest {
     @DisplayName("POST /api/v1/usuarios - crear colaborador como admin (201)")
     void crear_colaborador() throws Exception {
         UsuarioResponse u = crearUsuario(2L, "Pedro", "pedro@acme.com", RolAcceso.EDITOR);
-        given(usuarioService.crearColaborador(eq(1L), anyString(), anyString(), anyString(), any()))
+        given(usuarioService.crearColaborador(eq(1L), eq(1L), anyString(), anyString(), anyString(), any()))
                 .willReturn(u);
 
         mockMvc.perform(post("/api/v1/usuarios")
@@ -124,7 +124,7 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("POST /api/v1/usuarios - si la base rechaza el correo duplicado responde 409 sin detalles de SQL")
     void crear_restriccionDeLaBase_devuelve409() throws Exception {
-        given(usuarioService.crearColaborador(eq(1L), anyString(), anyString(), anyString(), any()))
+        given(usuarioService.crearColaborador(eq(1L), eq(1L), anyString(), anyString(), anyString(), any()))
                 .willThrow(new DataIntegrityViolationException("Unique index violation: UK_USUARIOS_EMAIL"));
 
         mockMvc.perform(post("/api/v1/usuarios")
@@ -153,7 +153,7 @@ class UsuarioControllerTest {
     @DisplayName("PATCH /api/v1/usuarios/{id} - cambiar rol (200)")
     void cambiar_rol() throws Exception {
         UsuarioResponse u = crearUsuario(5L, "Laura", "laura@acme.com", RolAcceso.ADMINISTRADOR);
-        given(usuarioService.actualizar(1L, 1L, 5L, RolAcceso.ADMINISTRADOR, null, 3L)).willReturn(u);
+        given(usuarioService.actualizar(1L, 1L, 5L, null, RolAcceso.ADMINISTRADOR, null, 3L)).willReturn(u);
 
         mockMvc.perform(patch("/api/v1/usuarios/5")
                         .with(principal(RolAcceso.ADMINISTRADOR))
@@ -168,8 +168,8 @@ class UsuarioControllerTest {
     @Test
     void actualizar_estado_y_rechazar_patch_vacio() throws Exception {
         UsuarioResponse u = new UsuarioResponse(5L, "Laura", "laura@acme.com", RolAcceso.ADMINISTRADOR, false, 1L, 0L,
-                null, null, null, null);
-        given(usuarioService.actualizar(1L, 1L, 5L, RolAcceso.ADMINISTRADOR, false, 3L)).willReturn(u);
+                null, null, null, null, false, null);
+        given(usuarioService.actualizar(1L, 1L, 5L, null, RolAcceso.ADMINISTRADOR, false, 3L)).willReturn(u);
 
         mockMvc.perform(patch("/api/v1/usuarios/5").with(principal(RolAcceso.ADMINISTRADOR))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -183,6 +183,21 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @DisplayName("PATCH /api/v1/usuarios/{id} - cambiar solo el nombre (200)")
+    void actualizar_soloElNombre() throws Exception {
+        UsuarioResponse u = new UsuarioResponse(5L, "Laura Mejia", "laura@acme.com", RolAcceso.EDITOR, true, 1L, 1L,
+                null, null, null, null, false, null);
+        given(usuarioService.actualizar(1L, 1L, 5L, "Laura Mejia", null, null, 3L)).willReturn(u);
+
+        mockMvc.perform(patch("/api/v1/usuarios/5").with(principal(RolAcceso.ADMINISTRADOR))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombre\":\"Laura Mejia\",\"version\":3}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Laura Mejia"))
+                .andExpect(jsonPath("$.rolAcceso").value("EDITOR"));
+    }
+
+    @Test
     @DisplayName("DELETE /api/v1/usuarios/{id} - desactivar usuario (204)")
     void desactivar_usuario() throws Exception {
         doNothing().when(usuarioService).desactivar(1L, 1L, 5L);
@@ -192,7 +207,7 @@ class UsuarioControllerTest {
     }
 
     private UsuarioResponse crearUsuario(Long id, String nombre, String email, RolAcceso rol) {
-        return new UsuarioResponse(id, nombre, email, rol, true, 1L, 0L, null, null, null, null);
+        return new UsuarioResponse(id, nombre, email, rol, true, 1L, 0L, null, null, null, null, false, null);
     }
 
 }

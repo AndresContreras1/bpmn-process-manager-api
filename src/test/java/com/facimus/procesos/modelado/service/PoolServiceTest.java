@@ -28,6 +28,7 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
+import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.mapper.PoolMapper;
@@ -67,6 +68,9 @@ class PoolServiceTest {
 
     @Spy
     private PoolMapper poolMapper = Mappers.getMapper(PoolMapper.class);
+
+    @Mock
+    private ConfiguracionTiendaService configuracionTiendaService;
 
     @InjectMocks
     private PoolServiceImpl poolService;

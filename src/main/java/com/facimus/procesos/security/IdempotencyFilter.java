@@ -6,9 +6,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -20,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
+import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.gestion.dto.response.ReservaIdempotencia;
 import com.facimus.procesos.gestion.model.ClaveIdempotencia;
 import com.facimus.procesos.gestion.service.IdempotenciaService;
@@ -137,13 +135,8 @@ public class IdempotencyFilter extends OncePerRequestFilter {
 
     /** SHA-256 del metodo, la ruta y el cuerpo: la misma clave solo sirve para repetir la misma peticion. */
     private static String huella(HttpServletRequest request, byte[] cuerpo) {
-        try {
-            MessageDigest sha = MessageDigest.getInstance("SHA-256");
-            sha.update((request.getMethod() + " " + request.getRequestURI() + "\n").getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(sha.digest(cuerpo));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("La JVM no trae SHA-256.", e);
-        }
+        String peticion = request.getMethod() + " " + request.getRequestURI() + "\n";
+        return Huella.de(peticion.getBytes(StandardCharsets.UTF_8), cuerpo);
     }
 
     /** Lee el cuerpo completo una vez, para calcular la huella, y se lo entrega igual al controller. */

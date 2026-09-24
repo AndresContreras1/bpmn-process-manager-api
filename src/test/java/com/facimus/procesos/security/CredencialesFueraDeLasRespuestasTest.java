@@ -67,7 +67,7 @@ class CredencialesFueraDeLasRespuestasTest {
     void registrarTiendaYEntrar() throws Exception {
         Long empresaId = empresaService.registrar("Tienda Credenciales", "900242526-7",
                 "contacto@credenciales.com", "Administradora", ADMIN, CLAVE).id();
-        colaboradorId = usuarioService.crearColaborador(empresaId, "Colaborador", COLABORADOR, CLAVE,
+        colaboradorId = usuarioService.crearColaborador(empresaId, null, "Colaborador", COLABORADOR, CLAVE,
                 RolAcceso.EDITOR).id();
         hashGuardado = usuarioRepository.findByEmail(ADMIN).orElseThrow().getPasswordHash();
         token = login();
@@ -122,6 +122,29 @@ class CredencialesFueraDeLasRespuestasTest {
                     .doesNotContain("$2")
                     .doesNotContainIgnoringCase("password");
         }
+    }
+
+    @Test
+    @DisplayName("La clave temporal sale solo en la respuesta que la genera, y nunca la guardada")
+    void claveTemporal_soloEnLaRespuestaQueLaGenera() throws Exception {
+        String alta = mockMvc.perform(post("/api/v1/usuarios").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombre\":\"Temporal\",\"email\":\"temporal@credenciales.com\","
+                                + "\"rolAcceso\":\"EDITOR\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String temporal = jsonMapper.readTree(alta).get("claveTemporal").asString();
+        Long nuevoId = jsonMapper.readTree(alta).get("id").asLong();
+        assertThat(temporal).isNotBlank();
+        // Ni el hash de la clave temporal, ni la clave en ninguna lectura posterior.
+        assertThat(alta).doesNotContain("$2");
+
+        String leido = mockMvc.perform(get("/api/v1/usuarios/{id}", nuevoId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(leido).doesNotContain(temporal).doesNotContain("claveTemporal");
     }
 
     @Test

@@ -65,8 +65,8 @@ class AutorizacionPorRolTest {
     void iniciarSesionConCadaRol() throws Exception {
         Long empresaId = empresaService.registrar("Tienda Autorizacion", "900111222-3", "contacto@autorizacion.com",
                 "Administrador", ADMIN, CLAVE).id();
-        usuarioService.crearColaborador(empresaId, "Editor", EDITOR, CLAVE, RolAcceso.EDITOR);
-        usuarioService.crearColaborador(empresaId, "Lector", LECTOR, CLAVE, RolAcceso.SOLO_LECTURA);
+        usuarioService.crearColaborador(empresaId, null, "Editor", EDITOR, CLAVE, RolAcceso.EDITOR);
+        usuarioService.crearColaborador(empresaId, null, "Lector", LECTOR, CLAVE, RolAcceso.SOLO_LECTURA);
 
         for (RolAcceso rol : RolAcceso.values()) {
             tokens.put(rol, login(correos.get(rol), CLAVE));
@@ -84,12 +84,21 @@ class AutorizacionPorRolTest {
             EDITOR        | GET    | /api/v1/procesos?incluirInactivos=true | 400
             ADMINISTRADOR | GET    | /api/v1/procesos?incluirInactivos=true | 200
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual        | 200
+            ADMINISTRADOR | GET    | /api/v1/empresas/actual/historial | 200
+            EDITOR        | GET    | /api/v1/empresas/actual/historial | 403
+            SOLO_LECTURA  | GET    | /api/v1/empresas/actual/historial | 403
+            ADMINISTRADOR | GET    | /api/v1/empresas/actual/configuracion | 200
+            EDITOR        | GET    | /api/v1/empresas/actual/configuracion | 403
+            EDITOR        | PUT    | /api/v1/empresas/actual/configuracion | 403
             SOLO_LECTURA  | GET    | /api/v1/empresas/{id}          | 404
 
             # Usuarios: solo el administrador (HU-02)
             ADMINISTRADOR | GET    | /api/v1/usuarios               | 200
             ADMINISTRADOR | GET    | /api/v1/usuarios/{id}          | 404
             EDITOR        | GET    | /api/v1/usuarios               | 403
+            ADMINISTRADOR | POST   | /api/v1/usuarios/{id}/restablecer-clave | 404
+            EDITOR        | POST   | /api/v1/usuarios/{id}/restablecer-clave | 403
+            SOLO_LECTURA  | POST   | /api/v1/auth/password          | 400
             EDITOR        | GET    | /api/v1/usuarios/{id}          | 403
 
             # Roles de proceso: los modifica solo el administrador (HU-17 a HU-19)
@@ -111,6 +120,14 @@ class AutorizacionPorRolTest {
             EDITOR        | DELETE | /api/v1/procesos/{id}/compartidos/424242 | 403
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/compartidos        | 404
             SOLO_LECTURA  | GET    | /api/v1/procesos/compartidos-conmigo     | 200
+
+            # Versiones publicadas: las lee cualquier rol (D2)
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/versiones            | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/versiones/1          | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/versiones/1/diagrama | 404
+            ADMINISTRADOR | PATCH  | /api/v1/procesos/{id}/versiones/1          | 404
+            EDITOR        | PATCH  | /api/v1/procesos/{id}/versiones/1          | 403
+            SOLO_LECTURA  | PATCH  | /api/v1/procesos/{id}/versiones/1          | 403
 
             # Revision con IA: la piden administrador y editor, porque cada una cuesta una llamada
             EDITOR        | POST   | /api/v1/procesos/{id}/revision           | 404
@@ -153,7 +170,9 @@ class AutorizacionPorRolTest {
         String token = ruta.equals("/api/v1/auth/logout") ? login(correos.get(rol), CLAVE) : tokens.get(rol);
         var peticion = request(metodo, ruta, ID_INEXISTENTE)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-        if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}")) {
+        if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}/versiones/1")) {
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"RETIRADA\"}");
+        } else if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"PUBLICADO\",\"version\":0}");
         } else if (ruta.equals("/api/v1/lanes/{id}/eventos")) {
             // La autorizacion decide antes de validar el cuerpo: el editor pasa y no encuentra la lane.

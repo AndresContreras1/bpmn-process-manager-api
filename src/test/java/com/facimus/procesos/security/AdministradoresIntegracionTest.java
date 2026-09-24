@@ -85,7 +85,7 @@ class AdministradoresIntegracionTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value(ULTIMO_ADMINISTRADOR));
 
-        usuarioService.crearColaborador(empresaId, "Segunda", "segunda@unico.com", CLAVE, RolAcceso.ADMINISTRADOR);
+        usuarioService.crearColaborador(empresaId, null, "Segunda", "segunda@unico.com", CLAVE, RolAcceso.ADMINISTRADOR);
         pedir(patch("/api/v1/usuarios/{id}", adminId), token, Map.of("rolAcceso", "EDITOR", "version", 0))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rolAcceso").value("EDITOR"));
@@ -96,7 +96,7 @@ class AdministradoresIntegracionTest {
     void nadieDesactivaSuPropiaCuenta() throws Exception {
         Long empresaId = registrarTienda("propia", "900161617-2");
         Long adminId = idDe("admin@propia.com");
-        Long otroId = usuarioService.crearColaborador(empresaId, "Otro", "otro@propia.com", CLAVE,
+        Long otroId = usuarioService.crearColaborador(empresaId, null, "Otro", "otro@propia.com", CLAVE,
                 RolAcceso.ADMINISTRADOR).id();
         String token = iniciarSesion("admin@propia.com");
 
@@ -115,7 +115,7 @@ class AdministradoresIntegracionTest {
     void dosAdministradoresALaVez_laTiendaConservaUno() throws Exception {
         Long empresaId = registrarTienda("concurrente", "900161618-3");
         Long ana = idDe("admin@concurrente.com");
-        Long beto = usuarioService.crearColaborador(empresaId, "Beto", "beto@concurrente.com", CLAVE,
+        Long beto = usuarioService.crearColaborador(empresaId, null, "Beto", "beto@concurrente.com", CLAVE,
                 RolAcceso.ADMINISTRADOR).id();
         TransactionTemplate transaccion = new TransactionTemplate(transactionManager);
         CountDownLatch betoCambiado = new CountDownLatch(1);
@@ -124,7 +124,7 @@ class AdministradoresIntegracionTest {
         try {
             // Ana le quita el rol a Beto y su transaccion sigue abierta.
             Future<?> primero = hilos.submit(() -> transaccion.executeWithoutResult(estado -> {
-                usuarioService.actualizar(empresaId, ana, beto, RolAcceso.EDITOR, null, 0L);
+                usuarioService.actualizar(empresaId, ana, beto, null, RolAcceso.EDITOR, null, 0L);
                 betoCambiado.countDown();
                 esperar(terminar);
             }));
@@ -132,7 +132,7 @@ class AdministradoresIntegracionTest {
 
             // Beto le quita el rol a Ana al mismo tiempo: espera a que el primer cambio termine.
             Future<UsuarioResponse> segundo = hilos.submit(
-                    () -> usuarioService.actualizar(empresaId, beto, ana, RolAcceso.EDITOR, null, 0L));
+                    () -> usuarioService.actualizar(empresaId, beto, ana, null, RolAcceso.EDITOR, null, 0L));
             assertThatThrownBy(() -> segundo.get(500, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
 
             terminar.countDown();

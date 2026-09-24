@@ -19,6 +19,11 @@ public final class Paginacion {
     }
 
     /** El orden llega como "campo" o "campo,asc|desc"; sin direccion es ascendente. */
+    /** Una pagina de un listado que ya sale ordenado por la consulta, como el historial. */
+    public static Pageable de(int pagina, int tamano) {
+        return PageRequest.of(pagina, tamano);
+    }
+
     public static Pageable de(int pagina, int tamano, String orden) {
         String[] partes = orden.split(",");
         Sort.Direction direccion = partes.length > 1 && "desc".equalsIgnoreCase(partes[1])

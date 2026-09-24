@@ -11,6 +11,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
+import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.mapper.PoolMapper;
@@ -32,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class PoolServiceImpl implements PoolService {
 
     private final HistorialCambioService historialCambioService;
+    private final ConfiguracionTiendaService configuracionTiendaService;
     private final PoolRepository poolRepository;
     private final ProcesoRepository procesoRepository;
     private final LaneRepository laneRepository;
@@ -44,6 +46,8 @@ public class PoolServiceImpl implements PoolService {
     @Transactional
     public PoolResponse crear(Long empresaId, Long usuarioId, Long procesoId, String nombre,
             TipoParticipante tipoParticipante, boolean cajaNegra, Integracion integracion) {
+        // R-46: la tienda decide si sus editores pueden tocar la estructura.
+        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId);
         Proceso proceso = procesoRepository.findByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
         int orden = poolRepository.siguienteOrden(procesoId, empresaId);
@@ -65,6 +69,8 @@ public class PoolServiceImpl implements PoolService {
     @Transactional
     public PoolResponse editar(Long empresaId, Long usuarioId, Long poolId, String nombre,
             TipoParticipante tipoParticipante, boolean cajaNegra, Integracion integracion, Long version) {
+        // R-46: la tienda decide si sus editores pueden tocar la estructura.
+        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId);
         Pool pool = buscar(empresaId, poolId);
         pool.verificarVersion(version);
         // R-33: una caja negra no se modela por dentro, asi que las lanes que ya tiene contradicen la marca.

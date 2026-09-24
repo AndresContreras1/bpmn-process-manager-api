@@ -173,7 +173,7 @@ class AislamientoEmpresasIntegracionTest {
         Long adminA = usuarioRepository.findByEmail(ADMIN_A).orElseThrow().getId();
         procesoA = procesoService.crear(empresaA, adminA, "Ventas", "Proceso de ventas", "Comercial").id();
         poolA = poolService.listarPorProceso(empresaA, procesoA).getFirst().id();
-        rolA = rolProcesoService.crear(empresaA, "Vendedor", "Atiende a los clientes").id();
+        rolA = rolProcesoService.crear(empresaA, adminA, "Vendedor", "Atiende a los clientes").id();
         laneA = laneService.crear(empresaA, adminA, poolA, "Ventas", rolA).id();
         gatewayA = gatewayService.crear(empresaA, adminA, laneA, "Revisar venta", TipoGateway.PARALELO, 100, 100).id();
         poolClienteA = poolService.crear(empresaA, adminA, procesoA, "Cliente", TipoParticipante.CLIENTE,
@@ -181,7 +181,7 @@ class AislamientoEmpresasIntegracionTest {
         // Quien ataca tiene un usuarioId distinto del empresaId de su empresa: si un controller
         // confundiera los dos ids, estas pruebas lo notarian.
         Long auditorA = usuarioService
-                .crearColaborador(empresaA, "Auditor A", AUDITOR_A, CLAVE, RolAcceso.ADMINISTRADOR).id();
+                .crearColaborador(empresaA, null, "Auditor A", AUDITOR_A, CLAVE, RolAcceso.ADMINISTRADOR).id();
         assertThat(auditorA).isNotEqualTo(empresaA);
 
         empresaB = empresaService
@@ -191,7 +191,7 @@ class AislamientoEmpresasIntegracionTest {
         poolB = poolService.listarPorProceso(empresaB, procesoB).getFirst().id();
         Long poolProveedorB = poolService.crear(empresaB, adminB, procesoB, "Proveedor",
                 TipoParticipante.PROVEEDOR, true, Integracion.NINGUNA).id();
-        rolB = rolProcesoService.crear(empresaB, "Comprador", "Gestiona las compras").id();
+        rolB = rolProcesoService.crear(empresaB, adminB, "Comprador", "Gestiona las compras").id();
         laneB = laneService.crear(empresaB, adminB, poolB, "Compras", rolB).id();
         actividadB = actividadService.crear(empresaB, adminB, laneB, "Solicitar cotizacion", "Pide precios",
                 TipoActividad.USUARIO, 100,
@@ -248,7 +248,7 @@ class AislamientoEmpresasIntegracionTest {
         return Stream.of(
                 Arguments.of(HttpMethod.GET, "/api/v1/usuarios/{id}", adminB, null, "Usuario no encontrado"),
                 Arguments.of(HttpMethod.PATCH, "/api/v1/usuarios/{id}", adminB,
-                        new ActualizarUsuarioRequest(RolAcceso.SOLO_LECTURA, null, 0L), "Usuario no encontrado"),
+                        new ActualizarUsuarioRequest(null, RolAcceso.SOLO_LECTURA, null, 0L), "Usuario no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/usuarios/{id}", adminB, null, "Usuario no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/empresas/{id}", empresaB, null, "Empresa no encontrada"),
                 Arguments.of(HttpMethod.GET, "/api/v1/procesos/{id}", procesoB, null, "Proceso no encontrado"),
@@ -368,6 +368,38 @@ class AislamientoEmpresasIntegracionTest {
         pedirComoEmpresaA(metodo, ruta, id, cuerpo, mensaje);
 
         assertThat(estadoEmpresaB()).isEqualTo(empresaBAntes);
+    }
+
+    @Test
+    @DisplayName("Restablecer la clave de un usuario de otra empresa no encuentra a nadie")
+    void Aislamiento_restablecerLaClaveDeOtraEmpresa_devuelve404() throws Exception {
+        // Un usuario de la empresa B que no use ninguna otra prueba: restablecer su clave le cierra las sesiones.
+        Long ajeno = usuarioService.crearColaborador(empresaB, adminB, "Desechable", "desechable@empresa-b.com",
+                CLAVE, RolAcceso.EDITOR).id();
+
+        mockMvc.perform(post("/api/v1/usuarios/{id}/restablecer-clave", ajeno)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Recurso no encontrado"));
+        // La empresa B si puede con el suyo: el 404 de A no se debe a un id equivocado.
+        mockMvc.perform(post("/api/v1/usuarios/{id}/restablecer-clave", ajeno)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Las versiones de un proceso de otra empresa no dicen ni que el proceso existe")
+    void Aislamiento_versionesDeOtraEmpresa_devuelve404() throws Exception {
+        List<String> rutas = List.of("/api/v1/procesos/{id}/versiones", "/api/v1/procesos/{id}/versiones/1",
+                "/api/v1/procesos/{id}/versiones/1/diagrama");
+
+        for (String ruta : rutas) {
+            mockMvc.perform(get(ruta, procesoB).header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.title").value("Recurso no encontrado"))
+                    // El 404 lo da el proceso, no la version: no se sabe si el proceso ajeno tiene alguna.
+                    .andExpect(jsonPath("$.detail").value("Proceso no encontrado."));
+        }
     }
 
     @Test

@@ -9,12 +9,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.gestion.dto.request.CerrarSesionRequest;
+import com.facimus.procesos.gestion.dto.request.CambiarClaveRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.RenovarTokenRequest;
 import com.facimus.procesos.gestion.dto.response.LoginResponse;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.SesionService;
+import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.ApiPrincipal;
 import com.facimus.procesos.security.JwtService;
 import com.facimus.procesos.security.LoginAuthenticator;
@@ -36,11 +38,14 @@ public class AuthController {
 
     private final LoginAuthenticator loginAuthenticator;
     private final SesionService sesionService;
+    private final UsuarioService usuarioService;
     private final JwtService jwtService;
 
-    public AuthController(LoginAuthenticator loginAuthenticator, SesionService sesionService, JwtService jwtService) {
+    public AuthController(LoginAuthenticator loginAuthenticator, SesionService sesionService,
+            UsuarioService usuarioService, JwtService jwtService) {
         this.loginAuthenticator = loginAuthenticator;
         this.sesionService = sesionService;
+        this.usuarioService = usuarioService;
         this.jwtService = jwtService;
     }
 
@@ -87,6 +92,25 @@ public class AuthController {
             sesionService.cerrarConToken(principal.empresaId(), principal.usuarioId(), request.refreshToken());
         }
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Change your own password",
+            description = "Checks the password in use and replaces it. Every session of the user is closed, this "
+                    + "one included, and the answer opens a new one: the tokens that come back are the ones to "
+                    + "keep. A user who signed in with a temporary password can only call this, logout and refresh "
+                    + "until the password is changed.")
+    @ApiResponse(responseCode = "200", description = "New tokens of a new session and the user's profile")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @PostMapping("/password")
+    public ResponseEntity<LoginResponse> cambiarClave(@Validated @RequestBody CambiarClaveRequest request,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        Long empresaId = principal.empresaId();
+        Long usuarioId = principal.usuarioId();
+        usuarioService.cambiarClavePropia(empresaId, usuarioId, request.actual(), request.nueva());
+        // Cambiar la contrasena echa a quien la estuviera usando en otro sitio; quien la cambio sigue con una nueva.
+        sesionService.cerrarTodas(empresaId, usuarioId);
+        return ResponseEntity.ok(tokens(sesionService.iniciar(empresaId, usuarioId)));
     }
 
     private LoginResponse tokens(SesionIniciada sesion) {

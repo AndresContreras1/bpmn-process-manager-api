@@ -85,7 +85,7 @@ class OrdenIntegracionTest {
         Long procesoId = procesoService.crear(empresaId, adminId, "Returns", "Return request to refund",
                 "After-sales").id();
         Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        Long rolId = rolProcesoService.crear(empresaId, "Returns desk", null).id();
+        Long rolId = rolProcesoService.crear(empresaId, adminId, "Returns desk", null).id();
         Long primeraId = laneService.crear(empresaId, adminId, poolId, "Reception", rolId).id();
         laneService.crear(empresaId, adminId, poolId, "Inspection", rolId);
         laneService.eliminar(empresaId, adminId, primeraId);
@@ -103,7 +103,7 @@ class OrdenIntegracionTest {
     void reordenar_lanesDelPool_lasDejaEnElOrdenPedido() {
         Long procesoId = procesoService.crear(empresaId, adminId, "Picking", "Pick to ship", "Fulfillment").id();
         Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        Long rolId = rolProcesoService.crear(empresaId, "Picking", null).id();
+        Long rolId = rolProcesoService.crear(empresaId, adminId, "Picking", null).id();
         Long ventas = laneService.crear(empresaId, adminId, poolId, "Sales", rolId).id();
         Long almacen = laneService.crear(empresaId, adminId, poolId, "Warehouse", rolId).id();
         Long envios = laneService.crear(empresaId, adminId, poolId, "Shipping", rolId).id();
@@ -122,7 +122,7 @@ class OrdenIntegracionTest {
     void reordenar_conLaListaIncompleta_lanzaReglaNegocio() {
         Long procesoId = procesoService.crear(empresaId, adminId, "Packing", "Pack to ship", "Fulfillment").id();
         Long poolId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
-        Long rolId = rolProcesoService.crear(empresaId, "Packing", null).id();
+        Long rolId = rolProcesoService.crear(empresaId, adminId, "Packing", null).id();
         Long primera = laneService.crear(empresaId, adminId, poolId, "Packing", rolId).id();
         Long segunda = laneService.crear(empresaId, adminId, poolId, "Labelling", rolId).id();
 

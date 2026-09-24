@@ -45,4 +45,12 @@ public class Proceso extends EntidadEditable {
     @Column(nullable = false)
     @Builder.Default
     private boolean activo = true;
+
+    /** Numero de la version vigente. Vacio si nunca se publico, o si se retiraron todas las que tenia. */
+    @Column(name = "version_publicada")
+    private Integer versionPublicada;
+
+    /** Huella de esa version. Comparada con la del modelo vivo dice si el borrador tiene cambios sin publicar. */
+    @Column(name = "huella_publicada", length = 64)
+    private String huellaPublicada;
 }

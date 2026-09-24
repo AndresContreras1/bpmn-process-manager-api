@@ -105,9 +105,9 @@ class DiagramaIntegracionTest {
         Long clienteId = poolService.crear(empresaId, adminId, procesoId, "Customer", TipoParticipante.CLIENTE,
                 true,Integracion.NINGUNA).id();
         Long ventas = laneService.crear(empresaId, adminId, tiendaId, "Sales",
-                rolProcesoService.crear(empresaId, "Sales", null).id()).id();
+                rolProcesoService.crear(empresaId, adminId, "Sales", null).id()).id();
         Long bodega = laneService.crear(empresaId, adminId, tiendaId, "Warehouse",
-                rolProcesoService.crear(empresaId, "Warehouse", null).id()).id();
+                rolProcesoService.crear(empresaId, adminId, "Warehouse", null).id()).id();
         Long pedidoRecibido = eventoService.crear(empresaId, adminId, ventas, "Order received",
                 TipoEvento.MENSAJE_INICIO, 20, 80).id();
         Long recibir = actividadService.crear(empresaId, adminId, ventas, "Receive order", null, TipoActividad.USUARIO,
