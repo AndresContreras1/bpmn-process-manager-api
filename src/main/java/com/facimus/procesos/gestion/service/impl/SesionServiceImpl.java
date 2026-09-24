@@ -1,13 +1,9 @@
 package com.facimus.procesos.gestion.service.impl;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,6 +14,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.SesionInvalidaException;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
@@ -153,11 +150,6 @@ public class SesionServiceImpl implements SesionService {
 
     /** SHA-256 y no BCrypt: el token ya es aleatorio, y el hash tiene que servir para buscarlo en la base. */
     private static String hash(String token) {
-        try {
-            return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("La JVM no trae SHA-256.", e);
-        }
+        return Huella.de(token);
     }
 }
