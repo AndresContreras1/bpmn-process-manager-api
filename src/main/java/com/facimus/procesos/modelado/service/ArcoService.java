@@ -8,9 +8,10 @@ import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 public interface ArcoService {
 
     ArcoResponse crear(Long empresaId, Long usuarioId, Long origenId, Long destinoId, String etiqueta,
-            String condicion);
+            String condicion, boolean porDefecto, int orden);
 
-    ArcoResponse editar(Long empresaId, Long usuarioId, Long arcoId, String etiqueta, String condicion, Long version);
+    ArcoResponse editar(Long empresaId, Long usuarioId, Long arcoId, String etiqueta, String condicion,
+            boolean porDefecto, int orden, Long version);
 
     void eliminar(Long empresaId, Long usuarioId, Long arcoId);
 

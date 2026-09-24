@@ -217,8 +217,8 @@ class ConsistenciaBpmnIntegracionTest {
                 .andExpect(status().isCreated());
         pedir(post("/api/v1/arcos"), Map.of("origenId", aprobada, "destinoId", reembolsar, "etiqueta", "Yes"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.detail")
-                        .value("Un arco que sale de un gateway exclusivo o inclusivo requiere condicion."));
+                .andExpect(jsonPath("$.detail").value("Un arco que sale de un gateway exclusivo o inclusivo "
+                        + "requiere condicion o ser la salida por defecto."));
         pedir(post("/api/v1/arcos"), Map.of("origenId", avisar, "destinoId", reembolsar, "condicion", "  "))
                 .andExpect(status().isConflict());
         pedir(post("/api/v1/arcos"), Map.of("origenId", repartir, "destinoId", reembolsar))
@@ -231,9 +231,43 @@ class ConsistenciaBpmnIntegracionTest {
 
         pedir(put("/api/v1/arcos/{id}", arcoId), Map.of("etiqueta", "Yes", "version", 0))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.detail")
-                        .value("Un arco que sale de un gateway exclusivo o inclusivo requiere condicion."));
+                .andExpect(jsonPath("$.detail").value("Un arco que sale de un gateway exclusivo o inclusivo "
+                        + "requiere condicion o ser la salida por defecto."));
         pedir(put("/api/v1/arcos/{id}", arcoId), Map.of("etiqueta", "Yes", "condicion", "return.ok", "version", 0))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("R-35: la salida por defecto de un gateway es una sola y no lleva condicion")
+    void arco_salidaPorDefecto_esUnicaYSinCondicion() throws Exception {
+        Long decidir = gatewayService.crear(empresaId, adminId, laneId, "Discount?", TipoGateway.EXCLUSIVO, 100, 560)
+                .id();
+        Long conDescuento = actividadService.crear(empresaId, adminId, laneId, "Apply discount", null,
+                TipoActividad.USUARIO, 260, 520).id();
+        Long sinDescuento = actividadService.crear(empresaId, adminId, laneId, "Charge full price", null,
+                TipoActividad.USUARIO, 260, 600).id();
+        Long revisar = actividadService.crear(empresaId, adminId, laneId, "Review price", null, TipoActividad.USUARIO,
+                420, 600).id();
+
+        pedir(post("/api/v1/arcos"), Map.of("origenId", decidir, "destinoId", conDescuento,
+                "condicion", "order.total > 100"))
+                .andExpect(status().isCreated());
+        // La salida por defecto es la que se toma cuando ninguna condicion se cumple, asi que no lleva una.
+        pedir(post("/api/v1/arcos"), Map.of("origenId", decidir, "destinoId", sinDescuento,
+                "porDefecto", true, "condicion", "order.total <= 100"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("La salida por defecto no lleva condicion."));
+        pedir(post("/api/v1/arcos"), Map.of("origenId", decidir, "destinoId", sinDescuento, "porDefecto", true,
+                "orden", 1))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.porDefecto").value(true))
+                .andExpect(jsonPath("$.orden").value(1));
+        pedir(post("/api/v1/arcos"), Map.of("origenId", decidir, "destinoId", revisar, "porDefecto", true))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Un gateway solo puede tener una salida por defecto."));
+        // R-36: el gateway se sigue editando aunque una de sus salidas no lleve condicion, porque es la por defecto.
+        pedir(put("/api/v1/gateways/{id}", decidir), Map.of("nombre", "Discount?", "tipoGateway", "EXCLUSIVO",
+                "posicionX", 100, "posicionY", 560, "version", 0))
                 .andExpect(status().isOk());
     }
 
@@ -246,14 +280,14 @@ class ConsistenciaBpmnIntegracionTest {
                 360).id();
         Long cajaB = actividadService.crear(empresaId, adminId, laneId, "Ship box B", null, TipoActividad.USUARIO, 260,
                 440).id();
-        Long haciaA = arcoService.crear(empresaId, adminId, repartir, cajaA, null, null).id();
-        arcoService.crear(empresaId, adminId, repartir, cajaB, null, "order.hasBoxB");
+        Long haciaA = arcoService.crear(empresaId, adminId, repartir, cajaA, null, null, false, 0).id();
+        arcoService.crear(empresaId, adminId, repartir, cajaB, null, "order.hasBoxB", false, 0);
 
         pedir(put("/api/v1/gateways/{id}", repartir), Map.of("nombre", "Ship boxes", "tipoGateway", "INCLUSIVO",
                 "posicionX", 100, "posicionY", 400, "version", 0))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.detail")
-                        .value("Todos los arcos que salen de un gateway exclusivo o inclusivo requieren condicion."));
+                .andExpect(jsonPath("$.detail").value("Todos los arcos que salen de un gateway exclusivo o "
+                        + "inclusivo requieren condicion o ser la salida por defecto."));
         pedir(put("/api/v1/arcos/{id}", haciaA), Map.of("condicion", "order.hasBoxA", "version", 0))
                 .andExpect(status().isOk());
         pedir(put("/api/v1/gateways/{id}", repartir), Map.of("nombre", "Ship boxes", "tipoGateway", "INCLUSIVO",
@@ -299,7 +333,7 @@ class ConsistenciaBpmnIntegracionTest {
                 TipoEvento.MENSAJE_INTERMEDIO, 480, 500).id();
         Long pagar = actividadService.crear(empresaId, adminId, laneId, "Refund the customer", null,
                 TipoActividad.SERVICIO, 640, 500).id();
-        arcoService.crear(empresaId, adminId, intermedio, pagar, null, null);
+        arcoService.crear(empresaId, adminId, intermedio, pagar, null, null, false, 0);
 
         pedir(put("/api/v1/eventos/{id}", intermedio), Map.of("nombre", "Refund confirmed", "tipoEvento", "FIN",
                 "posicionX", 480, "posicionY", 500, "version", 0))

@@ -71,8 +71,7 @@ public class GatewayServiceImpl implements GatewayService {
             throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
         }
         if (tipoGateway.eligePorCondicion() && tieneSalidasSinCondicion(empresaId, gatewayId)) {
-            throw new ReglaNegocioException(
-                    "Todos los arcos que salen de un gateway exclusivo o inclusivo requieren condicion.");
+            throw new ReglaNegocioException(ReglasDeGateways.SALIDAS_SIN_CONDICION);
         }
         gateway.setNombre(nombre);
         gateway.setTipoGateway(tipoGateway);
@@ -107,9 +106,10 @@ public class GatewayServiceImpl implements GatewayService {
         return gatewayMapper.toResponses(gatewayRepository.findAllByLaneIdAndEmpresaId(laneId, empresaId));
     }
 
+    /** R-36: la salida por defecto no necesita condicion, porque es la que se toma cuando ninguna se cumple. */
     private boolean tieneSalidasSinCondicion(Long empresaId, Long gatewayId) {
         return arcoRepository.findAllByOrigenIdAndEmpresaId(gatewayId, empresaId).stream()
-                .anyMatch(arco -> !StringUtils.hasText(arco.getCondicion()));
+                .anyMatch(arco -> !arco.isPorDefecto() && !StringUtils.hasText(arco.getCondicion()));
     }
 
     private Gateway buscar(Long empresaId, Long gatewayId) {

@@ -99,7 +99,7 @@ class DiagramaControllerTest {
                         null, null)),
                 List.of(new EventoResponse(11L, "Order received", TipoEvento.MENSAJE_INICIO, 20, 80, 3L, 0L,
                         null, null, null, null)),
-                List.of(new ArcoResponse(7L, null, null, 5L, 6L, 1L, 0L, null, null, null, null)),
+                List.of(new ArcoResponse(7L, null, null, false, 0, 5L, 6L, 1L, 0L, null, null, null, null)),
                 List.of(new MensajeResponse(8L, "Order placed", "Cart items", 2L, 1L, null, 11L, null,
                         AccionSiFalla.CONTINUAR, null, false, List.of(), null, "order", null, 10L, 0L,
                         null, null, null, null)),

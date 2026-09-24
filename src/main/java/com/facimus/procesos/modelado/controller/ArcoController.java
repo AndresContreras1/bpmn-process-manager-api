@@ -50,8 +50,9 @@ public class ArcoController {
     public ResponseEntity<ArcoResponse> crear(@Validated @RequestBody ArcoRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        ArcoResponse arco = arcoService.crear(empresaId, principal.usuarioId(), request.origenId(), request.destinoId(),
-                request.etiqueta(), request.condicion());
+        ArcoResponse arco = arcoService.crear(empresaId, principal.usuarioId(), request.origenId(),
+                request.destinoId(), request.etiqueta(), request.condicion(),
+                Boolean.TRUE.equals(request.porDefecto()), orden(request.orden()));
         return ResponseEntity.created(URI.create("/api/v1/arcos/" + arco.id())).body(arco);
     }
 
@@ -77,7 +78,9 @@ public class ArcoController {
         return ResponseEntity.ok(arcoService.listarPorPool(empresaId, poolId));
     }
 
-    @Operation(summary = "Edit a sequence flow", description = "Replaces its label and condition.")
+    @Operation(summary = "Edit a sequence flow",
+            description = "Replaces its label, its condition, whether it is the default flow of its gateway and the "
+                    + "order in which the gateway evaluates it. Its nodes cannot change.")
     @ApiResponse(responseCode = "200", description = "Sequence flow updated")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -90,7 +93,13 @@ public class ArcoController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(arcoService.editar(empresaId, principal.usuarioId(), id, request.etiqueta(),
-                request.condicion(), request.version()));
+                request.condicion(), Boolean.TRUE.equals(request.porDefecto()), orden(request.orden()),
+                request.version()));
+    }
+
+    /** El orden es opcional: sin el, todas las salidas comparten el 0 y el gateway las evalua por id. */
+    private static int orden(Integer orden) {
+        return orden == null ? 0 : orden;
     }
 
     @Operation(summary = "Delete a sequence flow", description = "Administrators only.")

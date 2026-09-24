@@ -1478,6 +1478,46 @@
 			]
 		},
 		{
+			"name": "Diagnostico",
+			"description": "Lo que el diagrama tiene mal segun las reglas de modelado: errores que hay que arreglar y advertencias. Es determinista y no llama a ningun servicio externo.",
+			"item": [
+				{
+					"name": "Diagnostico del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/diagnostico",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "diagnostico"]
+						},
+						"description": "Los hallazgos del diagrama, con el codigo del catalogo, el elemento y que hacer. Cualquier rol lo puede leer."
+					},
+					"response": []
+				},
+				{
+					"name": "Simular el borrado del gateway",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/diagnostico?sinElemento=GATEWAY:{{gatewayId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "diagnostico"],
+							"query": [
+								{
+									"key": "sinElemento",
+									"value": "GATEWAY:{{gatewayId}}"
+								}
+							]
+						},
+						"description": "Que quedaria del diagrama si se borrara el gateway: A-06 dice que se va con el y el resto de hallazgos que se rompe."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "Compartir",
 			"description": "HU-23: procesos compartidos en solo lectura con otras tiendas, la unica excepcion al aislamiento.",
 			"item": [

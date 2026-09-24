@@ -146,7 +146,7 @@ class VersionesIntegracionTest {
         Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack items", "Into the box",
                 TipoActividad.USUARIO, 260, 80).id();
         gatewayId = gatewayService.crear(empresaId, adminId, laneId, "Split", TipoGateway.PARALELO, 420, 80).id();
-        arcoId = arcoService.crear(empresaId, adminId, actividadId, empacar, null, null).id();
+        arcoId = arcoService.crear(empresaId, adminId, actividadId, empacar, null, null, false, 0).id();
         mensajeId = mensajeService.crear(empresaId, adminId, procesoId, DatosDeMensaje.basico("Order placed",
                 "Cart and address", poolId,
                 tienda))

@@ -16,4 +16,14 @@ public enum TipoActividad {
     public boolean intercambiaMensajes() {
         return this == ENVIO || this == RECEPCION;
     }
+
+    /** Una actividad de envio manda el mensaje; una de servicio puede mandarlo como parte de su tarea. */
+    public boolean puedeEnviar() {
+        return this == ENVIO || this == SERVICIO;
+    }
+
+    /** Solo una actividad de recepcion se queda esperando un mensaje. */
+    public boolean puedeRecibir() {
+        return this == RECEPCION;
+    }
 }

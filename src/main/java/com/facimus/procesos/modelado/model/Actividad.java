@@ -33,15 +33,13 @@ public class Actividad extends NodoFlujo {
     @Column(name = "tipo_actividad", length = 20)
     private TipoActividad tipoActividad;
 
-    /** Una actividad de envio manda el mensaje; una de servicio puede hacerlo como parte de su tarea. */
     @Override
     public boolean puedeEnviarMensajes() {
-        return tipoActividad == TipoActividad.ENVIO || tipoActividad == TipoActividad.SERVICIO;
+        return tipoActividad.puedeEnviar();
     }
 
-    /** Solo una actividad de recepcion se queda esperando un mensaje. */
     @Override
     public boolean puedeRecibirMensajes() {
-        return tipoActividad == TipoActividad.RECEPCION;
+        return tipoActividad.puedeRecibir();
     }
 }

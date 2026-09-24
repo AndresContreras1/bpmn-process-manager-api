@@ -35,7 +35,7 @@ public class ArcoServiceImpl implements ArcoService {
     @Override
     @Transactional
     public ArcoResponse crear(Long empresaId, Long usuarioId, Long origenId, Long destinoId, String etiqueta,
-            String condicion) {
+            String condicion, boolean porDefecto, int orden) {
         if (origenId.equals(destinoId)) {
             throw new ReglaNegocioException("Un arco no puede tener el mismo nodo como origen y destino.");
         }
@@ -53,7 +53,8 @@ public class ArcoServiceImpl implements ArcoService {
             throw new ReglaNegocioException("Ya existe un arco entre estos dos nodos.");
         }
         ReglasDeEventos.exigirNodosConectables(origen, destino);
-        exigirCondicion(origen, condicion);
+        exigirCondicion(origen, condicion, porDefecto);
+        exigirUnaSolaSalidaPorDefecto(empresaId, origen, condicion, porDefecto, null);
 
         Arco arco = arcoRepository.save(Arco.builder()
                 .empresa(origen.getEmpresa())
@@ -62,6 +63,8 @@ public class ArcoServiceImpl implements ArcoService {
                 .pool(poolOrigen)
                 .etiqueta(etiqueta)
                 .condicion(condicion)
+                .porDefecto(porDefecto)
+                .orden(orden)
                 .build());
         historialCambioService.registrar(empresaId, usuarioId, poolOrigen.getProceso(),
                 "Flujo " + tramo(arco) + " agregado.");
@@ -71,12 +74,15 @@ public class ArcoServiceImpl implements ArcoService {
     @Override
     @Transactional
     public ArcoResponse editar(Long empresaId, Long usuarioId, Long arcoId, String etiqueta, String condicion,
-            Long version) {
+            boolean porDefecto, int orden, Long version) {
         Arco arco = buscar(empresaId, arcoId);
         arco.verificarVersion(version);
-        exigirCondicion(arco.getOrigen(), condicion);
+        exigirCondicion(arco.getOrigen(), condicion, porDefecto);
+        exigirUnaSolaSalidaPorDefecto(empresaId, arco.getOrigen(), condicion, porDefecto, arcoId);
         arco.setEtiqueta(etiqueta);
         arco.setCondicion(condicion);
+        arco.setPorDefecto(porDefecto);
+        arco.setOrden(orden);
         historialCambioService.registrar(empresaId, usuarioId, arco.getPool().getProceso(),
                 "Flujo " + tramo(arco) + " editado.");
         return arcoMapper.toResponse(arcoRepository.saveAndFlush(arco));
@@ -91,10 +97,32 @@ public class ArcoServiceImpl implements ArcoService {
                 "Flujo " + tramo(arco) + " eliminado.");
     }
 
-    /** En BPMN, un gateway exclusivo o inclusivo elige por condicion los arcos que salen de el, no los que entran. */
-    private static void exigirCondicion(NodoFlujo origen, String condicion) {
-        if (origen.exigeCondicionAlSalir() && !StringUtils.hasText(condicion)) {
-            throw new ReglaNegocioException("Un arco que sale de un gateway exclusivo o inclusivo requiere condicion.");
+    /**
+     * R-36. En BPMN, un gateway exclusivo o inclusivo elige por condicion los arcos que salen de el, no los que
+     * entran; la excepcion es la salida por defecto, que es justo la que se toma cuando ninguna condicion se cumple.
+     */
+    private static void exigirCondicion(NodoFlujo origen, String condicion, boolean porDefecto) {
+        if (origen.exigeCondicionAlSalir() && !porDefecto && !StringUtils.hasText(condicion)) {
+            throw new ReglaNegocioException(ReglasDeGateways.SIN_CONDICION);
+        }
+    }
+
+    /** R-35: la salida por defecto sale de un gateway que decide, no lleva condicion y es una sola. */
+    private void exigirUnaSolaSalidaPorDefecto(Long empresaId, NodoFlujo origen, String condicion, boolean porDefecto,
+            Long arcoId) {
+        if (!porDefecto) {
+            return;
+        }
+        if (!origen.exigeCondicionAlSalir()) {
+            throw new ReglaNegocioException(ReglasDeGateways.DEFECTO_SIN_GATEWAY);
+        }
+        if (StringUtils.hasText(condicion)) {
+            throw new ReglaNegocioException(ReglasDeGateways.DEFECTO_CON_CONDICION);
+        }
+        boolean yaHayOtra = arcoRepository.findAllByOrigenIdAndEmpresaId(origen.getId(), empresaId).stream()
+                .anyMatch(otro -> otro.isPorDefecto() && !otro.getId().equals(arcoId));
+        if (yaHayOtra) {
+            throw new ReglaNegocioException(ReglasDeGateways.DEFECTO_REPETIDO);
         }
     }
 

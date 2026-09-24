@@ -82,7 +82,8 @@ class MigracionesTest {
                         "V3__procesos_compartidos.sql", "V4__sesiones.sql", "V5__versiones.sql",
                         "V6__auditoria.sql", "V7__claves_idempotencia.sql", "V8__baja_logica_del_modelado.sql",
                         "V9__eventos_y_tipos_de_actividad.sql",
-                        "V10__mensajes_anclados_y_correlacion_por_campo.sql");
+                        "V10__mensajes_anclados_y_correlacion_por_campo.sql",
+                        "V11__salida_por_defecto_y_orden_de_los_arcos.sql");
     }
 
     @Test

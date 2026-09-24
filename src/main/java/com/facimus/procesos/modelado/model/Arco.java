@@ -41,6 +41,14 @@ public class Arco extends EntidadEditable {
     @Column(length = 500)
     private String condicion;
 
+    /** La salida que toma un gateway que decide cuando ninguna de sus condiciones se cumple. */
+    @Column(name = "por_defecto", nullable = false)
+    private boolean porDefecto;
+
+    /** En que orden evalua el gateway sus salidas; entre dos con el mismo orden decide el id. */
+    @Column(nullable = false)
+    private int orden;
+
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "origen_id", nullable = false)
     private NodoFlujo origen;
