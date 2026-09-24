@@ -112,6 +112,11 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/compartidos        | 404
             SOLO_LECTURA  | GET    | /api/v1/procesos/compartidos-conmigo     | 200
 
+            # Versiones publicadas: las lee cualquier rol (D2)
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/versiones            | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/versiones/1          | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/versiones/1/diagrama | 404
+
             # Revision con IA: la piden administrador y editor, porque cada una cuesta una llamada
             EDITOR        | POST   | /api/v1/procesos/{id}/revision           | 404
             SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/revision           | 403
