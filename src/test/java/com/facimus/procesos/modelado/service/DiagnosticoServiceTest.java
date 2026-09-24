@@ -4,6 +4,8 @@ import static com.facimus.procesos.modelado.service.DiagramaArmado.ALMACEN;
 import static com.facimus.procesos.modelado.service.DiagramaArmado.TIENDA;
 import static com.facimus.procesos.modelado.service.DiagramaArmado.VENTAS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -15,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.modelado.dto.response.DiagnosticoResponse;
 import com.facimus.procesos.modelado.dto.response.HallazgoDiagnosticoResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
@@ -383,6 +386,57 @@ class DiagnosticoServiceTest {
         assertThat(sobreQueElementos(armado, "A-12")).containsExactly(armado.id("Cancel order"));
     }
 
+    @Test
+    @DisplayName("A-06: borrar el gateway se lleva sus flujos y deja media tienda sin camino")
+    void borrarUnGateway_diceQueSeVaYQueSeRompe_A06() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado, "GATEWAY:" + armado.id("Payment approved?"));
+
+        assertThat(diagnostico.sinElemento()).isEqualTo("GATEWAY:" + armado.id("Payment approved?"));
+        assertThat(codigos(diagnostico, "A-06")).containsExactly(
+                armado.arcoEntre("Payment result received", "Payment approved?"),
+                armado.arcoEntre("Payment approved?", "Pick and pack items"),
+                armado.arcoEntre("Payment approved?", "Cancel order"));
+        assertThat(codigos(diagnostico, "E-04"))
+                .contains(armado.id("Cancel order"), armado.id("Pick and pack items"));
+    }
+
+    @Test
+    @DisplayName("Borrar un flujo no se lleva nada mas, pero deja sin camino lo que iba detras")
+    void borrarUnArco_noSeLlevaNadaMas() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado,
+                "ARCO:" + armado.arcoEntre("Pick and pack items", "Ship order"));
+
+        assertThat(codigos(diagnostico, "A-06")).isEmpty();
+        assertThat(codigos(diagnostico, "E-04")).contains(armado.id("Ship order"));
+        assertThat(codigos(diagnostico, "E-05")).contains(armado.id("Pick and pack items"));
+    }
+
+    @Test
+    @DisplayName("Borrar un participante se lleva sus mensajes, y el nodo que los esperaba se queda sin ninguno")
+    void borrarUnPool_seLlevaSusMensajes() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado, "POOL:" + armado.id("Carrier"));
+
+        assertThat(codigos(diagnostico, "A-06"))
+                .containsExactly(armado.id("Shipment request"), armado.id("Shipment confirmation"));
+        assertThat(codigos(diagnostico, "E-10")).contains(armado.id("Shipment confirmed"));
+        assertThat(codigos(diagnostico, "E-11")).contains(armado.id("Ship order"));
+    }
+
+    @Test
+    @DisplayName("Un elemento que no se entiende se rechaza antes de mirar el diagrama")
+    void sinElementoMalEscrito_lanzaReglaNegocio() {
+        assertThatThrownBy(() -> diagnosticoService.diagnosticar(EMPRESA, PROCESO, "GATEWAY-12"))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("TIPO:id");
+        verifyNoInteractions(diagramaService);
+    }
+
     /** La demo con una rama de espera mas, para colgar de ella lo que cada prueba quiere romper. */
     private static DiagramaArmado conRamaDeEspera() {
         DiagramaArmado armado = DiagramaArmado.demo();
@@ -391,9 +445,20 @@ class DiagnosticoServiceTest {
         return armado;
     }
 
-    private DiagnosticoResponse diagnosticar(DiagramaArmado armado) {
+    private DiagnosticoResponse diagnosticar(DiagramaArmado armado, String sinElemento) {
         when(diagramaService.obtener(EMPRESA, PROCESO)).thenReturn(armado.diagrama());
-        return diagnosticoService.diagnosticar(EMPRESA, PROCESO);
+        return diagnosticoService.diagnosticar(EMPRESA, PROCESO, sinElemento);
+    }
+
+    private static List<Long> codigos(DiagnosticoResponse diagnostico, String codigo) {
+        return diagnostico.hallazgos().stream()
+                .filter(hallazgo -> hallazgo.codigo().equals(codigo))
+                .map(HallazgoDiagnosticoResponse::elementoId)
+                .toList();
+    }
+
+    private DiagnosticoResponse diagnosticar(DiagramaArmado armado) {
+        return diagnosticar(armado, null);
     }
 
     private List<HallazgoDiagnosticoResponse> hallazgos(DiagramaArmado armado, String codigo) {

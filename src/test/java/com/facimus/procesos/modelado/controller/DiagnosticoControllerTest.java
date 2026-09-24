@@ -34,7 +34,8 @@ class DiagnosticoControllerTest {
     @Test
     @DisplayName("GET /api/v1/procesos/{id}/diagnostico - los hallazgos, tambien para solo lectura (200)")
     void diagnosticar_devuelveLosHallazgos() throws Exception {
-        given(diagnosticoService.diagnosticar(1L, 10L)).willReturn(new DiagnosticoResponse(10L, 1, 1, List.of(
+        given(diagnosticoService.diagnosticar(1L, 10L, null)).willReturn(new DiagnosticoResponse(10L, null, 1, 1,
+                List.of(
                 new HallazgoDiagnosticoResponse("E-05", Severidad.ALTA, "Actividad \"Pick and pack items\"", 30L,
                         "No sale ningun flujo de este nodo.", "Conectalo con el paso siguiente."),
                 new HallazgoDiagnosticoResponse("A-10", Severidad.BAJA, "Lane \"Returns\"", 8L,
@@ -52,9 +53,34 @@ class DiagnosticoControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/procesos/{id}/diagnostico?sinElemento - simula el borrado (200)")
+    void diagnosticar_simulandoUnBorrado() throws Exception {
+        given(diagnosticoService.diagnosticar(1L, 10L, "GATEWAY:12"))
+                .willReturn(new DiagnosticoResponse(10L, "GATEWAY:12", 0, 1, List.of(
+                        new HallazgoDiagnosticoResponse("A-06", Severidad.MEDIA, "Flujo de \"A\" a \"B\"", 20L,
+                                "Si se borra el elemento por el que se pregunta, tambien se va el flujo.",
+                                "Revisa si hay que rehacer esta parte del diagrama antes de borrar."))));
+
+        mockMvc.perform(get("/api/v1/procesos/10/diagnostico").param("sinElemento", "GATEWAY:12")
+                        .with(principal(RolAcceso.EDITOR)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sinElemento").value("GATEWAY:12"))
+                .andExpect(jsonPath("$.hallazgos[0].codigo").value("A-06"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/procesos/{id}/diagnostico?sinElemento - elemento mal escrito (400)")
+    void diagnosticar_elementoMalEscrito_devuelve400() throws Exception {
+        mockMvc.perform(get("/api/v1/procesos/10/diagnostico").param("sinElemento", "GATEWAY-12")
+                        .with(principal(RolAcceso.EDITOR)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Parámetro inválido"));
+    }
+
+    @Test
     @DisplayName("GET /api/v1/procesos/{id}/diagnostico - proceso de otra tienda (404)")
     void diagnosticar_procesoAjeno_devuelve404() throws Exception {
-        given(diagnosticoService.diagnosticar(1L, 99L))
+        given(diagnosticoService.diagnosticar(1L, 99L, null))
                 .willThrow(new RecursoNoEncontradoException("Proceso no encontrado."));
 
         mockMvc.perform(get("/api/v1/procesos/99/diagnostico").with(principal(RolAcceso.EDITOR)))

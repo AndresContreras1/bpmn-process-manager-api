@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.util.StringUtils;
@@ -166,7 +165,7 @@ final class RevisionDelFlujo {
             Hallazgos hallazgos) {
         for (ArcoResponse salida : salidas) {
             if (!salida.porDefecto() && !StringUtils.hasText(salida.condicion())) {
-                hallazgos.anotar(CodigoDeDiagnostico.E07, nombreDelFlujo(mapa, salida), salida.id(),
+                hallazgos.anotar(CodigoDeDiagnostico.E07, mapa.nombreDelFlujo(salida), salida.id(),
                         "Esta salida del gateway no lleva condicion y tampoco es la salida por defecto.",
                         "Escribe su condicion, o marcala como la salida por defecto del gateway.");
             }
@@ -209,15 +208,10 @@ final class RevisionDelFlujo {
                 continue;
             }
             Optional<String> problema = GramaticaDeCondiciones.problema(arco.condicion());
-            problema.ifPresent(detalle -> hallazgos.anotar(CodigoDeDiagnostico.E08, nombreDelFlujo(mapa, arco),
+            problema.ifPresent(detalle -> hallazgos.anotar(CodigoDeDiagnostico.E08, mapa.nombreDelFlujo(arco),
                     arco.id(), "La condicion no se entiende: " + detalle,
                     "Escribela como una comparacion, por ejemplo payment.status == APPROVED."));
         }
     }
 
-    /** Un flujo se nombra por los nodos que une, que es como lo ve quien modela. */
-    private static String nombreDelFlujo(MapaDelDiagrama mapa, ArcoResponse arco) {
-        Function<Long, String> nombre = id -> mapa.nodo(id) == null ? "?" : mapa.nodo(id).nombre();
-        return "Flujo de \"" + nombre.apply(arco.origenId()) + "\" a \"" + nombre.apply(arco.destinoId()) + "\"";
-    }
 }

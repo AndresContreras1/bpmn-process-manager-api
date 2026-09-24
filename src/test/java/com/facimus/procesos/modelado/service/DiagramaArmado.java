@@ -258,6 +258,14 @@ class DiagramaArmado {
                 null, null, null));
     }
 
+    /** El id del flujo que une dos nodos, para las pruebas que preguntan por un arco. */
+    Long arcoEntre(String origen, String destino) {
+        return arcos.stream()
+                .filter(arco -> arco.origenId().equals(id(origen)) && arco.destinoId().equals(id(destino)))
+                .map(ArcoResponse::id)
+                .findFirst().orElseThrow();
+    }
+
     /** El id con el que el diagrama nombra un elemento; null cuando el nombre no es de ninguno. */
     Long id(String nombre) {
         int posicion = nombre == null ? -1 : nombres.indexOf(nombre);

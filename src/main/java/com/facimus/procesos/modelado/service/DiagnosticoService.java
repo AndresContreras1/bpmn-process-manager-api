@@ -9,5 +9,9 @@ import com.facimus.procesos.modelado.dto.response.DiagnosticoResponse;
  */
 public interface DiagnosticoService {
 
-    DiagnosticoResponse diagnosticar(Long empresaId, Long procesoId);
+    /**
+     * Los hallazgos del diagrama. Con {@code sinElemento} escrito TIPO:id se revisa, en su lugar, el diagrama que
+     * quedaria si ese elemento se borrara, para ver que se rompe antes de borrarlo.
+     */
+    DiagnosticoResponse diagnosticar(Long empresaId, Long procesoId, String sinElemento);
 }

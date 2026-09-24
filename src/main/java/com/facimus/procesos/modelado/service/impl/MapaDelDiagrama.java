@@ -44,14 +44,10 @@ final class MapaDelDiagrama {
             poolDeLane.put(lane.id(), lane.poolId());
             lanesPorPool.computeIfAbsent(lane.poolId(), sinLanes -> new ArrayList<>()).add(lane);
         });
-        Stream.concat(Stream.concat(
-                        diagrama.actividades().stream().map(NodoDelDiagrama::de),
-                        diagrama.gateways().stream().map(NodoDelDiagrama::de)),
-                        diagrama.eventos().stream().map(NodoDelDiagrama::de))
-                .forEach(nodo -> {
-                    nodos.put(nodo.id(), nodo);
-                    nodosPorLane.computeIfAbsent(nodo.laneId(), sinNodos -> new ArrayList<>()).add(nodo);
-                });
+        nodosDe(diagrama).forEach(nodo -> {
+            nodos.put(nodo.id(), nodo);
+            nodosPorLane.computeIfAbsent(nodo.laneId(), sinNodos -> new ArrayList<>()).add(nodo);
+        });
         diagrama.arcos().forEach(arco -> {
             salidas.computeIfAbsent(arco.origenId(), sinArcos -> new ArrayList<>()).add(arco);
             entradas.computeIfAbsent(arco.destinoId(), sinArcos -> new ArrayList<>()).add(arco);
@@ -63,6 +59,15 @@ final class MapaDelDiagrama {
             anotar(mensajesDePool, mensaje.poolDestinoId(), mensaje);
         });
         diagrama.correlaciones().forEach(correlacion -> correlaciones.put(correlacion.mensajeId(), correlacion));
+    }
+
+    /** Las actividades, los gateways y los eventos de un diagrama, vistos todos igual y en orden de id. */
+    static List<NodoDelDiagrama> nodosDe(DiagramaResponse diagrama) {
+        return Stream.concat(Stream.concat(
+                        diagrama.actividades().stream().map(NodoDelDiagrama::de),
+                        diagrama.gateways().stream().map(NodoDelDiagrama::de)),
+                        diagrama.eventos().stream().map(NodoDelDiagrama::de))
+                .toList();
     }
 
     private static void anotar(Map<Long, List<MensajeResponse>> indice, Long clave, MensajeResponse mensaje) {
@@ -147,6 +152,16 @@ final class MapaDelDiagrama {
     /** Todo lo que el pool intercambia, entre y salga. */
     List<MensajeResponse> mensajesDe(Long poolId) {
         return mensajesDePool.getOrDefault(poolId, List.of());
+    }
+
+    /** Un flujo se nombra por los nodos que une, que es como lo ve quien modela. */
+    String nombreDelFlujo(ArcoResponse arco) {
+        return "Flujo de \"" + nombreDelNodo(arco.origenId()) + "\" a \"" + nombreDelNodo(arco.destinoId()) + "\"";
+    }
+
+    private String nombreDelNodo(Long nodoId) {
+        NodoDelDiagrama nodo = nodos.get(nodoId);
+        return nodo == null ? "?" : nodo.nombre();
     }
 
     /** La clave con la que un mensaje encuentra su caso, si se definio. */
