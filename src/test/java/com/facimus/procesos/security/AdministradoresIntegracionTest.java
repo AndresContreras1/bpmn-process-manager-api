@@ -124,7 +124,7 @@ class AdministradoresIntegracionTest {
         try {
             // Ana le quita el rol a Beto y su transaccion sigue abierta.
             Future<?> primero = hilos.submit(() -> transaccion.executeWithoutResult(estado -> {
-                usuarioService.actualizar(empresaId, ana, beto, RolAcceso.EDITOR, null, 0L);
+                usuarioService.actualizar(empresaId, ana, beto, null, RolAcceso.EDITOR, null, 0L);
                 betoCambiado.countDown();
                 esperar(terminar);
             }));
@@ -132,7 +132,7 @@ class AdministradoresIntegracionTest {
 
             // Beto le quita el rol a Ana al mismo tiempo: espera a que el primer cambio termine.
             Future<UsuarioResponse> segundo = hilos.submit(
-                    () -> usuarioService.actualizar(empresaId, beto, ana, RolAcceso.EDITOR, null, 0L));
+                    () -> usuarioService.actualizar(empresaId, beto, ana, null, RolAcceso.EDITOR, null, 0L));
             assertThatThrownBy(() -> segundo.get(500, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
 
             terminar.countDown();

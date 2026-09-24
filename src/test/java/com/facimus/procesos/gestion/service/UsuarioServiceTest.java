@@ -176,7 +176,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.SOLO_LECTURA, null, usuario.getVersion());
+        usuarioService.actualizar(1L, AUTOR, 10L, null, RolAcceso.SOLO_LECTURA, null, usuario.getVersion());
 
         verify(sesionService).cerrarTodas(1L, 10L);
     }
@@ -187,7 +187,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, AUTOR, 10L, null, false, usuario.getVersion());
+        usuarioService.actualizar(1L, AUTOR, 10L, null, null, false, usuario.getVersion());
 
         verify(sesionService).cerrarTodas(1L, 10L);
     }
@@ -199,7 +199,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
 
         assertThrows(ConflictoDeVersionException.class,
-                () -> usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.SOLO_LECTURA, null, 2L));
+                () -> usuarioService.actualizar(1L, AUTOR, 10L, null, RolAcceso.SOLO_LECTURA, null, 2L));
 
         assertEquals(RolAcceso.EDITOR, usuario.getRolAcceso());
         verify(usuarioRepository, never()).saveAndFlush(any());
@@ -212,7 +212,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.EDITOR, true, usuario.getVersion());
+        usuarioService.actualizar(1L, AUTOR, 10L, null, RolAcceso.EDITOR, true, usuario.getVersion());
 
         verify(sesionService, never()).cerrarTodas(anyLong(), anyLong());
     }
@@ -222,7 +222,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        UsuarioResponse actualizado = usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.ADMINISTRADOR, false,
+        UsuarioResponse actualizado = usuarioService.actualizar(1L, AUTOR, 10L, null, RolAcceso.ADMINISTRADOR, false,
                 usuario.getVersion());
 
         assertEquals(RolAcceso.ADMINISTRADOR, actualizado.rolAcceso());
@@ -254,7 +254,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.countByEmpresaIdAndRolAccesoAndActivoTrue(1L, RolAcceso.ADMINISTRADOR)).thenReturn(1L);
 
         assertThrows(ReglaNegocioException.class,
-                () -> usuarioService.actualizar(1L, AUTOR, 10L, null, false, usuario.getVersion()));
+                () -> usuarioService.actualizar(1L, AUTOR, 10L, null, null, false, usuario.getVersion()));
 
         assertTrue(usuario.isActivo());
         verify(usuarioRepository, never()).saveAndFlush(any());
@@ -268,7 +268,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
 
-        usuarioService.actualizar(1L, AUTOR, 10L, RolAcceso.EDITOR, null, usuario.getVersion());
+        usuarioService.actualizar(1L, AUTOR, 10L, null, RolAcceso.EDITOR, null, usuario.getVersion());
 
         assertEquals(RolAcceso.EDITOR, usuario.getRolAcceso());
         verify(empresaRepository, never()).bloquear(anyLong());

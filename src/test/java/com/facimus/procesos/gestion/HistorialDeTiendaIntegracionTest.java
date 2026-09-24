@@ -16,6 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
@@ -82,7 +83,7 @@ class HistorialDeTiendaIntegracionTest {
         Long editoraId = usuarioService.crearColaborador(empresaId, adminId, "Editora", "editora@historial.com",
                 CLAVE, RolAcceso.EDITOR).id();
         Long version = usuarioService.obtener(empresaId, editoraId).version();
-        usuarioService.actualizar(empresaId, adminId, editoraId, RolAcceso.SOLO_LECTURA, null, version);
+        usuarioService.actualizar(empresaId, adminId, editoraId, null, RolAcceso.SOLO_LECTURA, null, version);
         usuarioService.desactivar(empresaId, adminId, editoraId);
 
         assertThat(historial())
@@ -92,6 +93,26 @@ class HistorialDeTiendaIntegracionTest {
                 .containsExactly("Usuario \"Editora\" desactivado.",
                         "Usuario \"Editora\" con rol SOLO_LECTURA.",
                         "Usuario \"Editora\" creado con rol EDITOR.");
+    }
+
+    @Test
+    @DisplayName("Renombrar a un usuario queda en el historial y le deja el rol que tenia")
+    void renombrar_quedaEnElHistorial() {
+        Long usuarioId = usuarioService.crearColaborador(empresaId, adminId, "Lector", "lector@historial.com",
+                CLAVE, RolAcceso.SOLO_LECTURA).id();
+        Long version = usuarioService.obtener(empresaId, usuarioId).version();
+
+        UsuarioResponse renombrado = usuarioService.actualizar(empresaId, adminId, usuarioId, "Lector Mayor", null,
+                null, version);
+
+        assertThat(renombrado.nombre()).isEqualTo("Lector Mayor");
+        assertThat(renombrado.rolAcceso()).isEqualTo(RolAcceso.SOLO_LECTURA);
+        assertThat(historial())
+                .filteredOn(linea -> linea.recursoTipo() == RecursoDeHistorial.USUARIO
+                        && usuarioId.equals(linea.recursoId()))
+                .extracting(HistorialCambioResponse::descripcionCambio)
+                .containsExactly("Usuario \"Lector Mayor\" renombrado.",
+                        "Usuario \"Lector\" creado con rol SOLO_LECTURA.");
     }
 
     @Test

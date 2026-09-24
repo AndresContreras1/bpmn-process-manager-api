@@ -248,7 +248,7 @@ class AislamientoEmpresasIntegracionTest {
         return Stream.of(
                 Arguments.of(HttpMethod.GET, "/api/v1/usuarios/{id}", adminB, null, "Usuario no encontrado"),
                 Arguments.of(HttpMethod.PATCH, "/api/v1/usuarios/{id}", adminB,
-                        new ActualizarUsuarioRequest(RolAcceso.SOLO_LECTURA, null, 0L), "Usuario no encontrado"),
+                        new ActualizarUsuarioRequest(null, RolAcceso.SOLO_LECTURA, null, 0L), "Usuario no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/usuarios/{id}", adminB, null, "Usuario no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/empresas/{id}", empresaB, null, "Empresa no encontrada"),
                 Arguments.of(HttpMethod.GET, "/api/v1/procesos/{id}", procesoB, null, "Proceso no encontrado"),

@@ -1,7 +1,9 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -82,8 +84,8 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional
-    public UsuarioResponse actualizar(Long empresaId, Long autorId, Long usuarioId, RolAcceso rolAcceso,
-            Boolean activo, Long version) {
+    public UsuarioResponse actualizar(Long empresaId, Long autorId, Long usuarioId, String nombre,
+            RolAcceso rolAcceso, Boolean activo, Long version) {
         Usuario usuario = buscar(empresaId, usuarioId);
         usuario.verificarVersion(version);
         boolean desactiva = Boolean.FALSE.equals(activo);
@@ -94,6 +96,10 @@ public class UsuarioServiceImpl implements UsuarioService {
             conservarUnAdministrador(empresaId, usuario);
         }
         boolean cambiaElRol = rolAcceso != null && rolAcceso != usuario.getRolAcceso();
+        boolean cambiaElNombre = nombre != null && !nombre.equals(usuario.getNombre());
+        if (cambiaElNombre) {
+            usuario.setNombre(nombre);
+        }
         if (rolAcceso != null) {
             usuario.setRolAcceso(rolAcceso);
         }
@@ -102,7 +108,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         }
         UsuarioResponse actualizado = usuarioMapper.toResponse(usuarioRepository.saveAndFlush(usuario));
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
-                queLePaso(usuario, cambiaElRol, desactiva));
+                queLePaso(usuario, cambiaElNombre, cambiaElRol, desactiva));
         if (cambiaElRol || !usuario.isActivo()) {
             // Los tokens ya emitidos llevan el rol y el estado de antes: el usuario vuelve a entrar con los nuevos.
             sesionService.cerrarTodas(empresaId, usuarioId);
@@ -123,16 +129,21 @@ public class UsuarioServiceImpl implements UsuarioService {
         sesionService.cerrarTodas(empresaId, usuarioId);
     }
 
-    /** Lo que se anota en el historial: el rol nuevo, la baja, o las dos cosas si el cambio trae las dos. */
-    private static String queLePaso(Usuario usuario, boolean cambiaElRol, boolean desactiva) {
-        String quien = "Usuario \"" + usuario.getNombre() + "\" ";
-        if (cambiaElRol && desactiva) {
-            return quien + "desactivado y con rol " + usuario.getRolAcceso() + ".";
+    /** Lo que se anota en el historial: lo que cambio de verdad, que puede ser mas de una cosa a la vez. */
+    private static String queLePaso(Usuario usuario, boolean cambiaElNombre, boolean cambiaElRol, boolean desactiva) {
+        List<String> cambios = new ArrayList<>();
+        if (cambiaElNombre) {
+            cambios.add("renombrado");
         }
         if (cambiaElRol) {
-            return quien + "con rol " + usuario.getRolAcceso() + ".";
+            cambios.add("con rol " + usuario.getRolAcceso());
         }
-        return desactiva ? quien + "desactivado." : quien + "reactivado.";
+        if (desactiva) {
+            cambios.add("desactivado");
+        } else if (!cambiaElNombre && !cambiaElRol) {
+            cambios.add("reactivado");
+        }
+        return "Usuario \"" + usuario.getNombre() + "\" " + String.join(", ", cambios) + ".";
     }
 
     @Override

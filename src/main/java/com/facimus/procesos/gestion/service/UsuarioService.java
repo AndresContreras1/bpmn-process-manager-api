@@ -24,9 +24,12 @@ public interface UsuarioService {
 
     void validarCorreoDisponible(String email);
 
-    /** El autor es el administrador que hace el cambio: nadie puede desactivar su propia cuenta. */
-    UsuarioResponse actualizar(Long empresaId, Long autorId, Long usuarioId, RolAcceso rolAcceso, Boolean activo,
-            Long version);
+    /**
+     * El autor es el administrador que hace el cambio: nadie puede desactivar su propia cuenta. Lo que llegue vacio
+     * se queda como estaba.
+     */
+    UsuarioResponse actualizar(Long empresaId, Long autorId, Long usuarioId, String nombre, RolAcceso rolAcceso,
+            Boolean activo, Long version);
 
     void desactivar(Long empresaId, Long autorId, Long usuarioId);
 

@@ -227,7 +227,7 @@ class SeguridadIntegracionTest {
         UsuarioResponse editor = crearColaborador("editor.rol@seguridad.com", "editor123", RolAcceso.EDITOR);
         Tokens antes = sesion("editor.rol@seguridad.com", "editor123");
 
-        usuarioService.actualizar(editor.empresaId(), adminId, editor.id(), RolAcceso.SOLO_LECTURA, null,
+        usuarioService.actualizar(editor.empresaId(), adminId, editor.id(), null, RolAcceso.SOLO_LECTURA, null,
                 editor.version());
 
         mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(antes.access())))
