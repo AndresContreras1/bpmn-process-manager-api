@@ -850,6 +850,29 @@
 					"response": []
 				},
 				{
+					"name": "Reordenar las lanes del pool",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"ids\": [{{laneId}}]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/pools/{{poolId}}/lanes/orden",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "pools", "{{poolId}}", "lanes", "orden"]
+						},
+						"description": "El cuerpo trae todas las lanes del pool, una sola vez, en el orden en que se dibujan. Una lista incompleta o con repetidos no reordena nada."
+					},
+					"response": []
+				},
+				{
 					"name": "Editar lane",
 					"request": {
 						"method": "PUT",
@@ -954,6 +977,29 @@
 							"path": ["api", "v1", "actividades", "{{actividadId}}"]
 						},
 						"description": "Obtiene una actividad por su ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Mover la actividad a otra lane",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Confirmar recepcion\",\n  \"descripcion\": \"Revisar que el paquete llego completo.\",\n  \"tipoActividad\": \"USUARIO\",\n  \"laneId\": {{laneId}},\n  \"posicionX\": 320,\n  \"posicionY\": 260,\n  \"version\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/actividades/{{actividadId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "actividades", "{{actividadId}}"]
+						},
+						"description": "La actividad cambia de lane y de sitio en el lienzo. Suelta se mueve a donde sea; con arcos o mensajes anclados, solo dentro de su pool."
 					},
 					"response": []
 				},

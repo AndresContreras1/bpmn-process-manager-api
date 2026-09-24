@@ -91,7 +91,8 @@ can read them.
    the store can reuse them.
 4. **Model the process.** Editors add the participants, a lane for each role, the events where the process starts
    and ends, the activities and gateways, the order between them, and the messages exchanged with other
-   participants.
+   participants. Everything can be corrected afterwards without starting over: a step moves to another lane, an
+   arrow is reconnected to a different step, and lanes and participants are reordered as a whole.
 5. **Validate as you go.** Every change is checked against the modeling rules: a step that cannot send a message
    does not get one, and a message that may fail says what the process does then. A change that would break a rule
    is rejected with the reason, so a model never ends up in an invalid state.
@@ -367,6 +368,15 @@ any of them. The database makes each subtype fill its own type column and leaves
 - A message that handles a failure says which activity of the sending pool handles it, and only a message that
   handles its failure names one.
 - The message that answers another one comes back from the pool that received it, in the same process.
+- A step moves to any lane of its process while it is still loose. Once it has sequence flows or anchored
+  messages it stays in its pool, because a flow never crosses pools and a message is anchored to the node of its own
+  side. A lane of another process is never a place for it.
+- Moving one end of a sequence flow goes through the same rules as connecting the two nodes for the first time.
+- A participant drawn as a black box has no lanes, and one that already has lanes cannot become a black box.
+- Turning a gateway parallel retires the conditions of its outgoing flows and its default flow, because a parallel
+  gateway follows all of them: the history says how many were retired.
+- Reordering the lanes of a pool, or the participants of a process, takes the complete list of their ids, so what
+  the editor shows after a drag is what gets saved.
 - Flow-node names are unique within a process, including when a node is renamed.
 - Process and process-role names are unique among a store's active records, ignoring case. The database enforces it
   too.
@@ -384,7 +394,8 @@ any of them. The database makes each subtype fill its own type column and leaves
 ### Lifecycle rules
 
 - Everything is soft-deleted, from processes and process roles to every BPMN element. A deleted resource answers
-  `404`, but it stays in the database.
+  `404`, but it stays in the database, and an administrator can list and read the deleted processes with
+  `incluirInactivos`.
 - Deleting a pool retires the message flows that enter or leave it. Deleting a process (HU-06) retires its whole
   model.
 - Every change to a process or its model is recorded in the process history with its author.
@@ -467,8 +478,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` |
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
-| Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` |
-| Lanes | `GET, POST /api/v1/pools/{poolId}/lanes` · `GET, PUT, DELETE /api/v1/lanes/{id}` |
+| Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` · `PUT /api/v1/procesos/{procesoId}/pools/orden` |
+| Lanes | `GET, POST /api/v1/pools/{poolId}/lanes` · `GET, PUT, DELETE /api/v1/lanes/{id}` · `PUT /api/v1/pools/{poolId}/lanes/orden` |
 | Activities | `GET, POST /api/v1/lanes/{laneId}/actividades` · `GET, PUT, DELETE /api/v1/actividades/{id}` |
 | Gateways | `GET, POST /api/v1/lanes/{laneId}/gateways` · `GET, PUT, DELETE /api/v1/gateways/{id}` |
 | Events | `GET, POST /api/v1/lanes/{laneId}/eventos` · `GET, PUT, DELETE /api/v1/eventos/{id}` |
@@ -485,6 +496,12 @@ of pools, lanes, activities, gateways, events, sequence flows, message flows and
 It runs one query per element type, however large the diagram grows.
 
 State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO", "version": 3 }`.
+
+The `PUT` of an activity, a gateway or an event takes `laneId` to move it to another lane, and the `PUT` of a
+sequence flow takes `origenId` and `destinoId` to reconnect it; an end that is left out keeps the one it had. The
+two `orden` endpoints take `{ "ids": [...] }` with every child of the element, exactly once, in the order they
+should be drawn. `GET /api/v1/procesos` and `GET /api/v1/procesos/{id}` take `incluirInactivos=true`, which only an
+administrator can ask for.
 
 ### Diagnosis
 
@@ -675,17 +692,17 @@ a process role is in use, `gestion` asks the `UsoDeRoles` port, which `modelado`
 ./mvnw verify
 ```
 
-The build runs 630 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 658 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
 | Architecture (ArchUnit) | 32 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 132 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 187 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
-| Repository slices (`@DataJpaTest`) | 32 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, and the message with its anchors, its answer and its fields stored as JSON |
-| Security and isolation (`@SpringBootTest`) | 172 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Controller slices (`@WebMvcTest`) | 136 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 201 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
+| Repository slices (`@DataJpaTest`) | 33 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, and the message with its anchors, its answer and its fields stored as JSON |
+| Security and isolation (`@SpringBootTest`) | 176 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 30 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 43 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
+| Module integration (`@SpringBootTest`) | 48 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
 Current coverage: 96 % of lines and 84 % of branches. The build fails below 85 % of lines or 70 % of
