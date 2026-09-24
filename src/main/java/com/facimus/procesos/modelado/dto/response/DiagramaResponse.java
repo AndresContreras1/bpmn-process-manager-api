@@ -17,6 +17,8 @@ public record DiagramaResponse(
         @Schema(description = "Ordered by pool and by position inside the pool") List<LaneResponse> lanes,
         @Schema(description = "Linked to their lane by laneId") List<ActividadResponse> actividades,
         @Schema(description = "Linked to their lane by laneId") List<GatewayResponse> gateways,
+        @Schema(description = "Start, end and message events, linked to their lane by laneId")
+        List<EventoResponse> eventos,
         @Schema(description = "Sequence flows; origenId and destinoId point to activities or gateways")
         List<ArcoResponse> arcos,
         @Schema(description = "Message flows; poolOrigenId and poolDestinoId point to pools")

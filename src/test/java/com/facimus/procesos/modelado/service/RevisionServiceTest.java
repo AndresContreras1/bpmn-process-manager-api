@@ -32,6 +32,7 @@ import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.HallazgoResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
@@ -39,6 +40,8 @@ import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.dto.response.RevisionResponse;
 import com.facimus.procesos.modelado.model.Severidad;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.impl.RevisionServiceImpl;
@@ -122,7 +125,8 @@ class RevisionServiceTest {
                 .contains("Proceso: Order fulfillment (PUBLICADO)")
                 .contains("- Demo Store (EMPRESA)")
                 .contains("Lane Picking (rol Warehouse)")
-                .contains("Actividad: Pick items - Recoger del estante")
+                .contains("Evento MENSAJE_INICIO: Order received")
+                .contains("Actividad USUARIO: Pick items - Recoger del estante")
                 .contains("Gateway EXCLUSIVO: Stock available?")
                 .contains("\"Pick items\" -> \"Stock available?\" [listo] si stock > 0")
                 .contains("\"Shipment requested\": Demo Store -> Carrier (correlacion por orderId)")
@@ -134,8 +138,8 @@ class RevisionServiceTest {
     @DisplayName("Un mensaje sin clave de correlacion se cuenta como tal, que es justo lo que hay que revisar")
     void revisar_mensajeSinCorrelacion_seDice() {
         DiagramaResponse sinCorrelacion = new DiagramaResponse(diagrama().proceso(), false, diagrama().pools(),
-                diagrama().lanes(), diagrama().actividades(), diagrama().gateways(), diagrama().arcos(),
-                diagrama().mensajes(), List.of());
+                diagrama().lanes(), diagrama().actividades(), diagrama().gateways(), diagrama().eventos(),
+                diagrama().arcos(), diagrama().mensajes(), List.of());
         when(diagramaService.obtener(EMPRESA, PROCESO)).thenReturn(sinCorrelacion);
         when(revisor.estaConfigurado()).thenReturn(true);
         when(revisor.revisar(any())).thenReturn(new Dictamen("Bien.", List.of()));
@@ -170,7 +174,7 @@ class RevisionServiceTest {
     void revisar_diagramaCambiado_vuelveAPreguntar() {
         DiagramaResponse conOtroPool = new DiagramaResponse(diagrama().proceso(), false,
                 List.of(diagrama().pools().getFirst()), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of());
+                List.of(), List.of());
         when(diagramaService.obtener(EMPRESA, PROCESO)).thenReturn(diagrama(), conOtroPool);
         when(revisor.estaConfigurado()).thenReturn(true);
         when(revisor.revisar(any())).thenReturn(new Dictamen("Falta el caso de error.", List.of()));
@@ -202,7 +206,7 @@ class RevisionServiceTest {
     @DisplayName("Pasado el limite de la tienda, la siguiente revision responde 429 con cuanto hay que esperar")
     void revisar_pasadoElLimite_lanzaDemasiadosIntentos() {
         DiagramaResponse otroDiagrama = new DiagramaResponse(diagrama().proceso(), false, List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         when(diagramaService.obtener(EMPRESA, PROCESO)).thenReturn(diagrama(), otroDiagrama);
         when(revisor.estaConfigurado()).thenReturn(true);
         when(revisor.revisar(any())).thenReturn(new Dictamen("Falta el caso de error.", List.of()));
@@ -240,7 +244,9 @@ class RevisionServiceTest {
         PoolResponse transportadora = new PoolResponse(6L, "Carrier", TipoParticipante.PROVEEDOR, true, 1, PROCESO,
                 0L, null, AHORA, null, AHORA);
         LaneResponse lane = new LaneResponse(7L, "Picking", 0, 5L, 20L, "Warehouse", 0L, null, AHORA, null, AHORA);
-        ActividadResponse actividad = new ActividadResponse(30L, "Pick items", "Recoger del estante", 10, 20, 7L,
+        ActividadResponse actividad = new ActividadResponse(30L, "Pick items", "Recoger del estante",
+                TipoActividad.USUARIO, 10, 20, 7L, 0L, null, AHORA, null, AHORA);
+        EventoResponse evento = new EventoResponse(32L, "Order received", TipoEvento.MENSAJE_INICIO, 0, 20, 7L,
                 0L, null, AHORA, null, AHORA);
         GatewayResponse gateway = new GatewayResponse(31L, "Stock available?", TipoGateway.EXCLUSIVO, 30, 40, 7L,
                 0L, null, AHORA, null, AHORA);
@@ -249,6 +255,7 @@ class RevisionServiceTest {
                 0L, null, AHORA, null, AHORA);
         CorrelacionResponse correlacion = new CorrelacionResponse(60L, "orderId", 40L, 0L, null, AHORA, null, AHORA);
         return new DiagramaResponse(proceso, false, List.of(tienda, transportadora), List.of(lane),
-                List.of(actividad), List.of(gateway), List.of(arco), List.of(mensaje), List.of(correlacion));
+                List.of(actividad), List.of(gateway), List.of(evento), List.of(arco), List.of(mensaje),
+                List.of(correlacion));
     }
 }

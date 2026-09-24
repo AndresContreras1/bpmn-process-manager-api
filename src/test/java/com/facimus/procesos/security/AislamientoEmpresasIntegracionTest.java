@@ -54,10 +54,12 @@ import com.facimus.procesos.modelado.dto.request.ArcoRequest;
 import com.facimus.procesos.modelado.dto.request.CorrelacionRequest;
 import com.facimus.procesos.modelado.dto.request.EditarActividadRequest;
 import com.facimus.procesos.modelado.dto.request.EditarArcoRequest;
+import com.facimus.procesos.modelado.dto.request.EditarEventoRequest;
 import com.facimus.procesos.modelado.dto.request.EditarGatewayRequest;
 import com.facimus.procesos.modelado.dto.request.EditarLaneRequest;
 import com.facimus.procesos.modelado.dto.request.EditarMensajeRequest;
 import com.facimus.procesos.modelado.dto.request.EditarPoolRequest;
+import com.facimus.procesos.modelado.dto.request.EventoRequest;
 import com.facimus.procesos.modelado.dto.request.GatewayRequest;
 import com.facimus.procesos.modelado.dto.request.LaneRequest;
 import com.facimus.procesos.modelado.dto.request.MensajeRequest;
@@ -65,11 +67,14 @@ import com.facimus.procesos.modelado.dto.request.PoolRequest;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
@@ -123,6 +128,9 @@ class AislamientoEmpresasIntegracionTest {
     private GatewayService gatewayService;
 
     @Autowired
+    private EventoService eventoService;
+
+    @Autowired
     private ArcoService arcoService;
 
     @Autowired
@@ -152,6 +160,7 @@ class AislamientoEmpresasIntegracionTest {
     private Long gatewayCierreB;
     private Long arcoB;
     private Long mensajeB;
+    private Long eventoB;
 
     @BeforeAll
     void crearDosEmpresas() throws Exception {
@@ -178,12 +187,15 @@ class AislamientoEmpresasIntegracionTest {
                 .crear(empresaB, adminB, procesoB, "Proveedor", TipoParticipante.PROVEEDOR, true).id();
         rolB = rolProcesoService.crear(empresaB, "Comprador", "Gestiona las compras").id();
         laneB = laneService.crear(empresaB, adminB, poolB, "Compras", rolB).id();
-        actividadB = actividadService.crear(empresaB, adminB, laneB, "Solicitar cotizacion", "Pide precios", 100,
+        actividadB = actividadService.crear(empresaB, adminB, laneB, "Solicitar cotizacion", "Pide precios",
+                TipoActividad.USUARIO, 100,
                 300).id();
         gatewayB =gatewayService.crear(empresaB, adminB, laneB, "Aprobar compra", TipoGateway.PARALELO, 100, 100).id();
         gatewayCierreB = gatewayService
                 .crear(empresaB, adminB, laneB, "Cerrar compra", TipoGateway.PARALELO, 300, 100).id();
         arcoB = arcoService.crear(empresaB, adminB, gatewayB, gatewayCierreB, "Continuar", null).id();
+        eventoB = eventoService.crear(empresaB, adminB, laneB, "Compra recibida", TipoEvento.INICIO,
+                20, 300).id();
         mensajeB = mensajeService.crear(empresaB, adminB, procesoB, "Orden de compra", "Pedido", poolB,
                 poolProveedorB).id();
         correlacionService.definir(empresaB, adminB, mensajeB, "numeroPedido", null);
@@ -200,6 +212,7 @@ class AislamientoEmpresasIntegracionTest {
                 Arguments.of("/api/v1/pools/{id}/lanes", poolB),
                 Arguments.of("/api/v1/lanes/{id}/actividades", laneB),
                 Arguments.of("/api/v1/lanes/{id}/gateways", laneB),
+                Arguments.of("/api/v1/lanes/{id}/eventos", laneB),
                 Arguments.of("/api/v1/pools/{id}/arcos", poolB));
     }
 
@@ -218,8 +231,10 @@ class AislamientoEmpresasIntegracionTest {
 
     // README §11: cada recurso de la empresa B pedido por su id con el token de la empresa A.
     Stream<Arguments> recursosDeLaEmpresaBPorId() {
-        ActividadRequest actividad = new ActividadRequest("Intrusa", "Desde la empresa A", 0, 0);
+        ActividadRequest actividad = new ActividadRequest("Intrusa", "Desde la empresa A",
+                TipoActividad.USUARIO, 0, 0);
         GatewayRequest gateway = new GatewayRequest("Intruso", TipoGateway.PARALELO, 0, 0);
+        EventoRequest evento = new EventoRequest("Intruso", TipoEvento.INICIO, 0, 0);
         LaneRequest lane = new LaneRequest("Intrusa", rolA);
         EditarLaneRequest edicionLane = new EditarLaneRequest("Intrusa", rolA, 0L);
         return Stream.of(
@@ -253,7 +268,8 @@ class AislamientoEmpresasIntegracionTest {
                 Arguments.of(HttpMethod.POST, "/api/v1/lanes/{id}/actividades", laneB, actividad, "Lane no encontrada"),
                 Arguments.of(HttpMethod.GET, "/api/v1/actividades/{id}", actividadB, null, "Actividad no encontrada"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/actividades/{id}", actividadB,
-                        new EditarActividadRequest("Intrusa", "Desde la empresa A", 0, 0, 0L),
+                        new EditarActividadRequest("Intrusa", "Desde la empresa A", TipoActividad.USUARIO,
+                                0, 0, 0L),
                         "Actividad no encontrada"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/actividades/{id}", actividadB, null,
                         "Actividad no encontrada"),
@@ -262,6 +278,12 @@ class AislamientoEmpresasIntegracionTest {
                 Arguments.of(HttpMethod.PUT, "/api/v1/gateways/{id}", gatewayB,
                         new EditarGatewayRequest("Intruso", TipoGateway.PARALELO, 0, 0, 0L), "Gateway no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/gateways/{id}", gatewayB, null, "Gateway no encontrado"),
+                Arguments.of(HttpMethod.POST, "/api/v1/lanes/{id}/eventos", laneB, evento, "Lane no encontrada"),
+                Arguments.of(HttpMethod.GET, "/api/v1/eventos/{id}", eventoB, null, "Evento no encontrado"),
+                Arguments.of(HttpMethod.PUT, "/api/v1/eventos/{id}", eventoB,
+                        new EditarEventoRequest("Intruso", TipoEvento.INICIO, 0, 0, 0L),
+                        "Evento no encontrado"),
+                Arguments.of(HttpMethod.DELETE, "/api/v1/eventos/{id}", eventoB, null, "Evento no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/arcos/{id}", arcoB, null, "Arco no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/arcos/{id}", arcoB, new EditarArcoRequest("Intruso", null, 0L),
                         "Arco no encontrado"),

@@ -24,10 +24,13 @@ import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.DiagramaService;
@@ -87,10 +90,12 @@ class DiagramaControllerTest {
                         new PoolResponse(2L, "Customer", TipoParticipante.CLIENTE, true, 1, 10L, 0L, null, null, null,
                                 null)),
                 List.of(new LaneResponse(3L, "Sales", 0, 1L, 4L, "Sales", 0L, null, null, null, null)),
-                List.of(new ActividadResponse(5L, "Receive order", "Validate the cart", 100, 80, 3L, 0L, null, null,
-                        null, null)),
+                List.of(new ActividadResponse(5L, "Receive order", "Validate the cart", TipoActividad.USUARIO,
+                        100, 80, 3L, 0L, null, null, null, null)),
                 List.of(new GatewayResponse(6L, "Payment approved?", TipoGateway.EXCLUSIVO, 260, 80, 3L, 0L, null, null,
                         null, null)),
+                List.of(new EventoResponse(11L, "Order received", TipoEvento.MENSAJE_INICIO, 20, 80, 3L, 0L,
+                        null, null, null, null)),
                 List.of(new ArcoResponse(7L, null, null, 5L, 6L, 1L, 0L, null, null, null, null)),
                 List.of(new MensajeResponse(8L, "Order placed", "Cart items", 2L, 1L, 10L, 0L, null, null, null, null)),
                 List.of(new CorrelacionResponse(9L, "orderId", 8L, 0L, null, null, null, null)));

@@ -52,6 +52,7 @@ public class ArcoServiceImpl implements ArcoService {
         if (arcoRepository.existsByOrigenIdAndDestinoIdAndEmpresaId(origenId, destinoId, empresaId)) {
             throw new ReglaNegocioException("Ya existe un arco entre estos dos nodos.");
         }
+        ReglasDeEventos.exigirNodosConectables(origen, destino);
         exigirCondicion(origen, condicion);
 
         Arco arco = arcoRepository.save(Arco.builder()

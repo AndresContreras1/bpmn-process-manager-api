@@ -26,10 +26,13 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.PoolService;
@@ -78,6 +81,9 @@ class ConsistenciaBpmnIntegracionTest {
 
     @Autowired
     private ArcoService arcoService;
+
+    @Autowired
+    private EventoService eventoService;
 
     private String token;
     private Long empresaId;
@@ -129,8 +135,9 @@ class ConsistenciaBpmnIntegracionTest {
     @Test
     @DisplayName("Renombrar un nodo con el nombre de otro nodo del proceso responde 409; con el suyo, no")
     void nodo_renombradoComoOtro_devuelve409() throws Exception {
-        actividadService.crear(empresaId, adminId, laneId, "Pick items", null, 100, 80);
-        Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack items", null, 260, 80).id();
+        actividadService.crear(empresaId, adminId, laneId, "Pick items", null, TipoActividad.USUARIO, 100, 80);
+        Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack items", null, TipoActividad.USUARIO,
+                260, 80).id();
         Long decidir = gatewayService.crear(empresaId, adminId, laneId, "Split", TipoGateway.PARALELO, 420, 80).id();
 
         pedir(put("/api/v1/actividades/{id}", empacar), Map.of("nombre", "PICK ITEMS", "posicionX", 260,
@@ -149,10 +156,12 @@ class ConsistenciaBpmnIntegracionTest {
     @Test
     @DisplayName("Los arcos que salen de un gateway exclusivo o inclusivo llevan condicion; los que entran, no")
     void arco_queSaleDeUnGatewayQueDecide_exigeCondicion() throws Exception {
-        Long revisar = actividadService.crear(empresaId, adminId, laneId, "Review return", null, 100, 240).id();
+        Long revisar = actividadService.crear(empresaId, adminId, laneId, "Review return", null, TipoActividad.USUARIO,
+                100, 240).id();
         Long aprobada = gatewayService.crear(empresaId, adminId, laneId, "Return approved?", TipoGateway.EXCLUSIVO,
                 260, 240).id();
-        Long reembolsar = actividadService.crear(empresaId, adminId, laneId, "Refund", null, 420, 240).id();
+        Long reembolsar = actividadService.crear(empresaId, adminId, laneId, "Refund", null, TipoActividad.USUARIO, 420,
+                240).id();
         Long avisar = gatewayService.crear(empresaId, adminId, laneId, "Notify?", TipoGateway.INCLUSIVO, 580, 240).id();
         Long repartir = gatewayService.crear(empresaId, adminId, laneId, "Fork", TipoGateway.PARALELO, 740, 240).id();
 
@@ -185,8 +194,10 @@ class ConsistenciaBpmnIntegracionTest {
     void gateway_quePasaADecidirConSalidasSinCondicion_devuelve409() throws Exception {
         Long repartir = gatewayService.crear(empresaId, adminId, laneId, "Ship boxes", TipoGateway.PARALELO, 100, 400)
                 .id();
-        Long cajaA = actividadService.crear(empresaId, adminId, laneId, "Ship box A", null, 260, 360).id();
-        Long cajaB = actividadService.crear(empresaId, adminId, laneId, "Ship box B", null, 260, 440).id();
+        Long cajaA = actividadService.crear(empresaId, adminId, laneId, "Ship box A", null, TipoActividad.USUARIO, 260,
+                360).id();
+        Long cajaB = actividadService.crear(empresaId, adminId, laneId, "Ship box B", null, TipoActividad.USUARIO, 260,
+                440).id();
         Long haciaA = arcoService.crear(empresaId, adminId, repartir, cajaA, null, null).id();
         arcoService.crear(empresaId, adminId, repartir, cajaB, null, "order.hasBoxB");
 
@@ -201,6 +212,55 @@ class ConsistenciaBpmnIntegracionTest {
                 "posicionX", 100, "posicionY", 400, "version", 0))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tipoGateway").value("INCLUSIVO"));
+    }
+
+    @Test
+    @DisplayName("R-31 y R-32: nada llega a un evento de inicio y nada sale de un evento de fin")
+    void arco_conEventosDeInicioYFin_devuelve409() throws Exception {
+        Long inicio = eventoService.crear(empresaId, adminId, laneId, "Return requested", TipoEvento.MENSAJE_INICIO,
+                20, 500).id();
+        Long revisar = actividadService.crear(empresaId, adminId, laneId, "Inspect item", null,
+                TipoActividad.USUARIO, 160, 500).id();
+        Long fin = eventoService.crear(empresaId, adminId, laneId, "Return closed", TipoEvento.FIN, 320, 500).id();
+
+        pedir(post("/api/v1/arcos"), Map.of("origenId", inicio, "destinoId", revisar))
+                .andExpect(status().isCreated());
+        pedir(post("/api/v1/arcos"), Map.of("origenId", revisar, "destinoId", fin))
+                .andExpect(status().isCreated());
+        pedir(post("/api/v1/arcos"), Map.of("origenId", revisar, "destinoId", inicio))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Un evento de inicio no puede tener arcos entrantes."));
+        pedir(post("/api/v1/arcos"), Map.of("origenId", fin, "destinoId", revisar))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Un evento de fin no puede tener arcos salientes."));
+
+        // Los eventos de mensaje cuentan igual: el catch de inicio abre el proceso y el throw de fin lo cierra.
+        Long avisoFinal = eventoService.crear(empresaId, adminId, laneId, "Refund notified",
+                TipoEvento.MENSAJE_FIN, 460, 500).id();
+        pedir(post("/api/v1/arcos"), Map.of("origenId", revisar, "destinoId", avisoFinal))
+                .andExpect(status().isCreated());
+        pedir(post("/api/v1/arcos"), Map.of("origenId", avisoFinal, "destinoId", revisar))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Un evento de fin no puede tener arcos salientes."));
+    }
+
+    @Test
+    @DisplayName("Un evento con arcos no cambia a un tipo que esos arcos no admiten")
+    void evento_conArcos_noCambiaAUnTipoQueLosProhibe() throws Exception {
+        Long intermedio = eventoService.crear(empresaId, adminId, laneId, "Refund confirmed",
+                TipoEvento.MENSAJE_INTERMEDIO, 480, 500).id();
+        Long pagar = actividadService.crear(empresaId, adminId, laneId, "Refund the customer", null,
+                TipoActividad.SERVICIO, 640, 500).id();
+        arcoService.crear(empresaId, adminId, intermedio, pagar, null, null);
+
+        pedir(put("/api/v1/eventos/{id}", intermedio), Map.of("nombre", "Refund confirmed", "tipoEvento", "FIN",
+                "posicionX", 480, "posicionY", 500, "version", 0))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Un evento de fin no puede tener arcos salientes."));
+        pedir(put("/api/v1/eventos/{id}", intermedio), Map.of("nombre", "Refund confirmed", "tipoEvento", "INICIO",
+                "posicionX", 480, "posicionY", 500, "version", 0))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tipoEvento").value("INICIO"));
     }
 
     private ResultActions pedir(MockHttpServletRequestBuilder peticion, Map<String, Object> cuerpo) throws Exception {

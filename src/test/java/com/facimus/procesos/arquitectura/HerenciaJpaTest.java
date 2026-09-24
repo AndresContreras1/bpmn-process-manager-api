@@ -3,6 +3,8 @@ package com.facimus.procesos.arquitectura;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 
+import org.hibernate.annotations.SQLDelete;
+
 import com.facimus.procesos.modelado.model.NodoFlujo;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaField;
@@ -31,16 +33,25 @@ class HerenciaJpaTest {
     static final ArchRule nodoFlujo_usa_single_table = classes()
             .that().haveSimpleName("NodoFlujo")
             .should(tenerInheritanceSingleTable())
-            .because("Consolidado: NodoFlujo usa SINGLE_TABLE, 2 subtipos con pocos campos");
+            .because("Consolidado: NodoFlujo usa SINGLE_TABLE, 3 subtipos con pocos campos");
 
     @ArchTest
     static final ArchRule subtipos_extienden_NodoFlujo = classes()
             .that().haveSimpleNameStartingWith("Actividad")
             .or().haveSimpleNameStartingWith("Gateway")
+            .or().haveSimpleNameStartingWith("Evento")
             .and().resideInAPackage("..model..")
             .and().areAnnotatedWith(Entity.class)
             .should().beAssignableTo(NodoFlujo.class)
-            .because("Actividad y Gateway son los unicos subtipos de NodoFlujo");
+            .because("Actividad, Gateway y Evento son los unicos subtipos de NodoFlujo");
+    @ArchTest
+    static final ArchRule subtipos_declaran_su_borrado = classes()
+            .that().areAssignableTo(NodoFlujo.class)
+            .and().areAnnotatedWith(Entity.class)
+            .and().areNotInterfaces()
+            .should(declararSuPropioSQLDelete())
+            .because("con SINGLE_TABLE el @SQLDelete no se hereda: cada subtipo declara su baja logica");
+
 
     @ArchTest
     static final ArchRule enums_mapeados_como_string = classes()
@@ -54,6 +65,27 @@ class HerenciaJpaTest {
             .or().areAnnotatedWith(OneToOne.class)
             .should(cargarsePerezosamente())
             .because("con EAGER cada consulta arrastra sus asociaciones; cada consulta pide lo que necesita");
+
+    private static ArchCondition<JavaClass> declararSuPropioSQLDelete() {
+        return new ArchCondition<>("declarar su propio @SQLDelete sobre nodos_flujo") {
+            @Override
+            public void check(JavaClass javaClass, ConditionEvents events) {
+                if (javaClass.isEquivalentTo(NodoFlujo.class)) {
+                    return;
+                }
+                javaClass.tryGetAnnotationOfType(SQLDelete.class).ifPresentOrElse(
+                        borrado -> {
+                            if (!borrado.sql().contains("update nodos_flujo set activo = false")) {
+                                events.add(SimpleConditionEvent.violated(javaClass,
+                                        javaClass.getName() + " borra con: " + borrado.sql()));
+                            }
+                        },
+                        () -> events.add(SimpleConditionEvent.violated(javaClass,
+                                javaClass.getName() + " no declara @SQLDelete"))
+                );
+            }
+        };
+    }
 
     private static ArchCondition<JavaClass> tenerInheritanceSingleTable() {
         return new ArchCondition<>("tener @Inheritance(SINGLE_TABLE)") {

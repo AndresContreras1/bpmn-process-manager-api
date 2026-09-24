@@ -35,10 +35,13 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
@@ -92,6 +95,9 @@ class BajaLogicaIntegracionTest {
 
     @Autowired
     private ArcoService arcoService;
+
+    @Autowired
+    private EventoService eventoService;
 
     @Autowired
     private MensajeService mensajeService;
@@ -154,12 +160,15 @@ class BajaLogicaIntegracionTest {
                 elemento("lane", "lanes", "/api/v1/lanes/{id}", () -> laneService
                         .crear(empresaId, adminId, tiendaId, "Returns desk", rolId).id()),
                 elemento("actividad", "nodos_flujo", "/api/v1/actividades/{id}", () -> actividadService
-                        .crear(empresaId, adminId, laneId, "Label package", null, 100, 100).id()),
+                        .crear(empresaId, adminId, laneId, "Label package", null, TipoActividad.USUARIO,
+                                100, 100).id()),
                 elemento("gateway", "nodos_flujo", "/api/v1/gateways/{id}", () -> gatewayService
                         .crear(empresaId, adminId, laneId, "Fragile?", TipoGateway.PARALELO, 200, 100).id()),
                 elemento("arco", "arcos", "/api/v1/arcos/{id}", () -> arcoService.crear(empresaId, adminId,
-                        actividadService.crear(empresaId, adminId, laneId, "Weigh package", null, 300, 100).id(),
-                        actividadService.crear(empresaId, adminId, laneId, "Print label", null, 400, 100).id(), null,
+                        actividadService.crear(empresaId, adminId, laneId, "Weigh package", null, TipoActividad.USUARIO,
+                                300, 100).id(),
+                        actividadService.crear(empresaId, adminId, laneId, "Print label", null, TipoActividad.USUARIO,
+                                400, 100).id(), null,
                                 null)
                         .id()),
                 elemento("mensaje", "mensajes", "/api/v1/mensajes/{id}", () -> mensajeService.crear(empresaId, adminId,
@@ -184,8 +193,10 @@ class BajaLogicaIntegracionTest {
     @Test
     @DisplayName("Un arco eliminado libera su par de nodos: se puede volver a trazar entre los mismos")
     void arcoEliminado_liberaSuParDeNodos() throws Exception {
-        Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack items", null, 100, 300).id();
-        Long enviar = actividadService.crear(empresaId, adminId, laneId, "Ship items", null, 300, 300).id();
+        Long empacar = actividadService.crear(empresaId, adminId, laneId, "Pack items", null, TipoActividad.USUARIO,
+                100, 300).id();
+        Long enviar = actividadService.crear(empresaId, adminId, laneId, "Ship items", null, TipoActividad.USUARIO, 300,
+                300).id();
         Map<String, Object> arco = Map.of("origenId", empacar, "destinoId", enviar);
         Long primero = jsonMapper.readTree(pedir(post("/api/v1/arcos"), arco)
                 .andExpect(status().isCreated())
@@ -204,10 +215,13 @@ class BajaLogicaIntegracionTest {
         Long cliente = poolService.crear(empresaId, adminId, devoluciones, "Customer", TipoParticipante.CLIENTE,
                 true).id();
         Long mostrador = laneService.crear(empresaId, adminId, tienda, "Returns desk", rolId).id();
-        Long recibir = actividadService.crear(empresaId, adminId, mostrador, "Receive item", null, 100, 100).id();
+        Long recibir = actividadService.crear(empresaId, adminId, mostrador, "Receive item", null,
+                TipoActividad.USUARIO, 100, 100).id();
         Long revisar = gatewayService.crear(empresaId, adminId, mostrador, "Damaged?", TipoGateway.PARALELO, 200,
                 100).id();
         Long arco = arcoService.crear(empresaId, adminId, recibir, revisar, null, null).id();
+        Long cerrado = eventoService.crear(empresaId, adminId, mostrador, "Return closed", TipoEvento.FIN,
+                300, 100).id();
         Long solicitud = mensajeService.crear(empresaId, adminId, devoluciones, "Return request", "Order and reason",
                 cliente, tienda).id();
         correlacionService.definir(empresaId, adminId, solicitud, "orderId", null);
@@ -216,6 +230,7 @@ class BajaLogicaIntegracionTest {
 
         for (String ruta : List.of("/api/v1/pools/" + cliente, "/api/v1/lanes/" + mostrador,
                 "/api/v1/actividades/" + recibir, "/api/v1/gateways/" + revisar, "/api/v1/arcos/" + arco,
+                "/api/v1/eventos/" + cerrado,
                 "/api/v1/mensajes/" + solicitud, "/api/v1/mensajes/" + solicitud + "/correlacion",
                 "/api/v1/procesos/" + devoluciones + "/pools", "/api/v1/procesos/" + devoluciones + "/mensajes")) {
             pedir(get(ruta)).andExpect(status().isNotFound());
@@ -229,7 +244,8 @@ class BajaLogicaIntegracionTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Proceso no encontrado."));
         assertThat(List.of(activo("pools", tienda), activo("pools", cliente), activo("lanes", mostrador),
-                activo("nodos_flujo", recibir), activo("nodos_flujo", revisar), activo("arcos", arco),
+                activo("nodos_flujo", recibir), activo("nodos_flujo", revisar),
+                activo("nodos_flujo", cerrado), activo("arcos", arco),
                 activo("mensajes", solicitud))).containsOnly(false);
     }
 

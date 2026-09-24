@@ -74,7 +74,8 @@ can read them.
 | Process | A workflow that the store runs again and again | Order fulfillment |
 | Participant (pool) | A company or system that takes part in the process | The store, the customer, the payment gateway |
 | Lane | A team or role inside a participant | Sales, Warehouse |
-| Activity | A unit of work | Pick and pack items |
+| Event | Something that happens: where the process starts, where it waits for a message, and where a path ends | Order received |
+| Activity | A unit of work, done by a person, by the store itself, or to send or receive a message | Pick and pack items |
 | Gateway | A point where the flow splits or merges. When it splits, an exclusive gateway takes exactly one path, an inclusive gateway takes every path whose condition holds, and a parallel gateway takes all of them. | Payment approved? |
 | Sequence flow | The order of the steps inside a participant, with an optional condition | Payment approved? → Pick and pack items |
 | Message flow | Information exchanged between two participants | Payment authorization request |
@@ -87,8 +88,9 @@ can read them.
    read-only.
 3. **Define process roles.** Roles describe who does the work, such as *Sales* or *Warehouse*, and every process of
    the store can reuse them.
-4. **Model the process.** Editors add the participants, a lane for each role, the activities and gateways, the order
-   between them, and the messages exchanged with other participants.
+4. **Model the process.** Editors add the participants, a lane for each role, the events where the process starts
+   and ends, the activities and gateways, the order between them, and the messages exchanged with other
+   participants.
 5. **Validate as you go.** Every change is checked against the modeling rules. A change that would break them is
    rejected with the reason, so a model never ends up in an invalid state.
 6. **Publish.** When the process is ready, it moves from draft to published. A published process cannot go back to
@@ -119,14 +121,19 @@ element of the notation, and a draft *Returns and refunds* process that is ready
 
 **Steps**
 
-| # | Step | Lane | What happens |
-|---|---|---|---|
-| 1 | Receive order | Sales | Validate the cart, the stock and the shipping address. |
-| 2 | Request payment authorization | Sales | Send the order total to the payment gateway. |
-| 3 | *Payment approved?* | Sales | Exclusive gateway. `payment.status == APPROVED` continues to step 4, and `payment.status == DECLINED` goes to step 6. |
-| 4 | Pick and pack items | Warehouse | Collect the items and prepare the package. |
-| 5 | Ship order | Warehouse | Hand the package over to the carrier. |
-| 6 | Cancel order | Sales | Release the reserved stock and notify the customer. |
+| # | Step | Kind | Lane | What happens |
+|---|---|---|---|---|
+| 1 | Order received | Message start event | Sales | The order of a customer starts the process. |
+| 2 | Receive order | Activity, done by a person | Sales | Validate the cart, the stock and the shipping address. |
+| 3 | Request payment authorization | Activity that sends a message | Sales | Send the order total to the payment gateway. |
+| 4 | Payment result received | Intermediate message event | Sales | Wait for the answer of the payment gateway. |
+| 5 | *Payment approved?* | Exclusive gateway | Sales | `payment.status == APPROVED` continues to step 8, and `payment.status == DECLINED` goes to step 6. |
+| 6 | Cancel order | Activity, done by the store | Sales | Release the reserved stock and notify the customer. |
+| 7 | Order cancelled | End event | Sales | The order ends without a shipment. |
+| 8 | Pick and pack items | Activity, done by a person | Warehouse | Collect the items and prepare the package. |
+| 9 | Ship order | Activity that sends a message | Warehouse | Hand the package over to the carrier. |
+| 10 | Shipment confirmed | Intermediate message event | Warehouse | Wait for the carrier to confirm the shipment. |
+| 11 | Order shipped | End event | Warehouse | The order ends on its way to the customer. |
 
 **Messages**, all correlated by `orderId`
 
@@ -316,19 +323,22 @@ entries in Spanish.
 | `RolProceso` | Process role | Store | Name and description |
 | `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag and order |
 | `Lane` | Lane | Pool | Process role and order |
-| `Actividad` · `Gateway` | Flow nodes | Lane | Name and position on the canvas. Activities add a description, and gateways a type: `EXCLUSIVO`, `PARALELO` or `INCLUSIVO`. |
+| `Actividad` · `Gateway` · `Evento` | Flow nodes | Lane | Name and position on the canvas. Activities add a description and a type (`USUARIO`, `SERVICIO`, `ENVIO` or `RECEPCION`), gateways a type (`EXCLUSIVO`, `PARALELO` or `INCLUSIVO`), and events a type (`INICIO`, `FIN`, `MENSAJE_INICIO`, `MENSAJE_INTERMEDIO` or `MENSAJE_FIN`). |
 | `Arco` | Sequence flow | Pool | Source node, target node, label and condition |
 | `Mensaje` | Message flow | Process | Sending pool, receiving pool and content |
 | `Correlacion` | Correlation key | Message | The criterion that correlates the message, such as `orderId` |
 | `HistorialCambio` | History entry | Process | Description, author and date |
 
 Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory `empresa_id` that cannot be updated.
-Activities and gateways share one table through single-table inheritance, so a sequence flow can point to either.
+Activities, gateways and events share one table through single-table inheritance, so a sequence flow can point to
+any of them. The database makes each subtype fill its own type column and leaves the others empty.
 
 ### Modeling rules
 
 - A sequence flow joins two different nodes of the same pool, so it never crosses pools. There is at most one
   sequence flow from one node to another.
+- A process starts at a start event and ends at an end event: no sequence flow arrives at a start event, and none
+  leaves an end event. An event that already has flows cannot be turned into a type those flows forbid.
 - A sequence flow that leaves an exclusive or inclusive gateway carries a condition, because the gateway picks its
   path by those conditions. Flows that enter a gateway need none, and a gateway only becomes exclusive or inclusive
   when every flow that leaves it has a condition.
@@ -437,6 +447,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Lanes | `GET, POST /api/v1/pools/{poolId}/lanes` · `GET, PUT, DELETE /api/v1/lanes/{id}` |
 | Activities | `GET, POST /api/v1/lanes/{laneId}/actividades` · `GET, PUT, DELETE /api/v1/actividades/{id}` |
 | Gateways | `GET, POST /api/v1/lanes/{laneId}/gateways` · `GET, PUT, DELETE /api/v1/gateways/{id}` |
+| Events | `GET, POST /api/v1/lanes/{laneId}/eventos` · `GET, PUT, DELETE /api/v1/eventos/{id}` |
 | Sequence flows | `POST /api/v1/arcos` · `GET /api/v1/pools/{poolId}/arcos` · `GET, PUT, DELETE /api/v1/arcos/{id}` |
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
@@ -445,8 +456,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 
 `GET /api/v1/procesos/{id}/diagrama` returns everything a client needs to draw a process: the process and flat lists
-of pools, lanes, activities, gateways, sequence flows, message flows and correlation keys, linked by id. It runs one
-query per element type, however large the diagram grows.
+of pools, lanes, activities, gateways, events, sequence flows, message flows and correlation keys, linked by id.
+It runs one query per element type, however large the diagram grows.
 
 State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO", "version": 3 }`.
 
@@ -596,20 +607,20 @@ a process role is in use, `gestion` asks the `UsoDeRoles` port, which `modelado`
 ./mvnw verify
 ```
 
-The build runs 484 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 522 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
-| Architecture (ArchUnit) | 31 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 114 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 88 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along, and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
-| Repository slices (`@DataJpaTest`) | 23 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete and the partial unique indexes |
-| Security and isolation (`@SpringBootTest`) | 159 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Architecture (ArchUnit) | 32 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
+| Controller slices (`@WebMvcTest`) | 125 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 98 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along, and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
+| Repository slices (`@DataJpaTest`) | 26 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes and the check constraints of the flow-node table |
+| Security and isolation (`@SpringBootTest`) | 170 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 29 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 38 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
+| Module integration (`@SpringBootTest`) | 40 | Process-role usage across modules, the order of pools and lanes, the whole diagram, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 
-Current coverage: 96 % of lines and 78 % of branches. The build fails below 85 % of lines or 70 % of
+Current coverage: 96 % of lines and 77 % of branches. The build fails below 85 % of lines or 70 % of
 branches overall, and below 90 % and 80 % in the service packages, where the business rules live. The gate
 leaves out DTOs and Spring configuration: they are records and wiring, and counting them only inflates the number.
 

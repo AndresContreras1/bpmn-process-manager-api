@@ -2,19 +2,18 @@ package com.facimus.procesos.modelado.dto.response;
 
 import java.time.LocalDateTime;
 
-import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "An activity (task) of the process")
-public record ActividadResponse(
-        @Schema(example = "10") Long id,
-        @Schema(example = "Pick and pack items") String nombre,
-        @Schema(example = "Collect the items and prepare the package.") String descripcion,
-        @Schema(example = "USUARIO") TipoActividad tipoActividad,
-        @Schema(example = "580") int posicionX,
-        @Schema(example = "200") int posicionY,
-        @Schema(example = "4") Long laneId,
+@Schema(description = "An event of the process")
+public record EventoResponse(
+        @Schema(example = "14") Long id,
+        @Schema(example = "Order received") String nombre,
+        @Schema(example = "MENSAJE_INICIO") TipoEvento tipoEvento,
+        @Schema(example = "20") int posicionX,
+        @Schema(example = "80") int posicionY,
+        @Schema(example = "3") Long laneId,
         @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
         Long version,
         @Schema(description = "Id of the user who created it; empty when the system did, like the store registration",

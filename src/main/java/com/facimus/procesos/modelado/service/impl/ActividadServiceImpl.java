@@ -12,6 +12,7 @@ import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Lane;
+import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
@@ -35,7 +36,7 @@ public class ActividadServiceImpl implements ActividadService {
     @Override
     @Transactional
     public ActividadResponse crear(Long empresaId, Long usuarioId, Long laneId, String nombre, String descripcion,
-            int posX, int posY) {
+            TipoActividad tipoActividad, int posX, int posY) {
         Lane lane = laneRepository.findByIdAndEmpresaId(laneId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Lane no encontrada."));
         Long procesoId = lane.getPool().getProceso().getId();
@@ -49,6 +50,7 @@ public class ActividadServiceImpl implements ActividadService {
                 .lane(lane)
                 .nombre(nombre)
                 .descripcion(descripcion)
+                .tipoActividad(deUsuarioSiFalta(tipoActividad))
                 .posicionX(posX)
                 .posicionY(posY)
                 .build());
@@ -60,7 +62,7 @@ public class ActividadServiceImpl implements ActividadService {
     @Override
     @Transactional
     public ActividadResponse editar(Long empresaId, Long usuarioId, Long actividadId, String nombre, String descripcion,
-            int posX, int posY, Long version) {
+            TipoActividad tipoActividad, int posX, int posY, Long version) {
         Actividad actividad = buscar(empresaId, actividadId);
         actividad.verificarVersion(version);
         Long procesoId = actividad.getLane().getPool().getProceso().getId();
@@ -70,6 +72,7 @@ public class ActividadServiceImpl implements ActividadService {
         }
         actividad.setNombre(nombre);
         actividad.setDescripcion(descripcion);
+        actividad.setTipoActividad(deUsuarioSiFalta(tipoActividad));
         actividad.setPosicionX(posX);
         actividad.setPosicionY(posY);
         historialCambioService.registrar(empresaId, usuarioId, actividad.getLane().getPool().getProceso(),
@@ -99,6 +102,14 @@ public class ActividadServiceImpl implements ActividadService {
             throw new RecursoNoEncontradoException("Lane no encontrada.");
         }
         return actividadMapper.toResponses(actividadRepository.findAllByLaneIdAndEmpresaId(laneId, empresaId));
+    }
+
+    /**
+     * El tipo llega opcional durante un ciclo de compatibilidad: un cliente escrito antes de que existiera
+     * sigue creando y editando actividades, y las suyas son trabajo de una persona del rol de su lane.
+     */
+    private static TipoActividad deUsuarioSiFalta(TipoActividad tipoActividad) {
+        return tipoActividad == null ? TipoActividad.USUARIO : tipoActividad;
     }
 
     private Actividad buscar(Long empresaId, Long actividadId) {

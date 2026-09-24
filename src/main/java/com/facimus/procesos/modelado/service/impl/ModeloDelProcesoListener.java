@@ -7,6 +7,7 @@ import com.facimus.procesos.gestion.event.ProcesoEliminado;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
+import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
@@ -28,6 +29,7 @@ public class ModeloDelProcesoListener {
     private final ArcoRepository arcoRepository;
     private final ActividadRepository actividadRepository;
     private final GatewayRepository gatewayRepository;
+    private final EventoRepository eventoRepository;
     private final LaneRepository laneRepository;
     private final PoolRepository poolRepository;
 
@@ -44,6 +46,8 @@ public class ModeloDelProcesoListener {
                 actividadRepository.findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));
         gatewayRepository.deleteAll(
                 gatewayRepository.findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));
+        eventoRepository.deleteAll(
+                eventoRepository.findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));
         laneRepository.deleteAll(laneRepository.delProcesoEnOrden(procesoId, empresaId));
         poolRepository.deleteAll(poolRepository.findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId, empresaId));
     }
