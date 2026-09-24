@@ -1,5 +1,9 @@
 package com.facimus.procesos.modelado;
 
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -327,8 +331,19 @@ class ConsistenciaBpmnIntegracionTest {
                 .andExpect(jsonPath("$.detail").value("Un gateway solo puede tener una salida por defecto."));
         // R-36: el gateway se sigue editando aunque una de sus salidas no lleve condicion, porque es la por defecto.
         pedir(put("/api/v1/gateways/{id}", decidir), Map.of("nombre", "Discount?", "tipoGateway", "EXCLUSIVO",
-                "posicionX", 100, "posicionY", 560, "version", 0))
+                "posicionX", 100, "posicionY", 580, "version", 0))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1));
+        // R-34: un paralelo sigue todas sus salidas, asi que las condiciones y la salida por defecto se retiran.
+        pedir(put("/api/v1/gateways/{id}", decidir), Map.of("nombre", "Discount?", "tipoGateway", "PARALELO",
+                "posicionX", 100, "posicionY", 560, "version", 1))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/pools/{id}/arcos", tiendaId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.origenId == " + decidir + ")].condicion").value(everyItem(nullValue())))
+                .andExpect(jsonPath("$[?(@.origenId == " + decidir + ")].porDefecto")
+                        .value(everyItem(is(false))));
     }
 
     @Test
