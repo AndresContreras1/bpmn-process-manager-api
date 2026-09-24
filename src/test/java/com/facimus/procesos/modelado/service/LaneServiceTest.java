@@ -27,6 +27,7 @@ import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
+import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.mapper.LaneMapper;
@@ -57,6 +58,9 @@ class LaneServiceTest {
 
     @Spy
     private LaneMapper laneMapper = Mappers.getMapper(LaneMapper.class);
+
+    @Mock
+    private ConfiguracionTiendaService configuracionTiendaService;
 
     @InjectMocks
     private LaneServiceImpl laneService;

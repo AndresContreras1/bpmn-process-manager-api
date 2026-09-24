@@ -9,6 +9,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,9 +17,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
+import com.facimus.procesos.gestion.dto.request.ConfiguracionTiendaRequest;
 import com.facimus.procesos.gestion.dto.request.RegistroEmpresaRequest;
+import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
+import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.security.ApiPrincipal;
@@ -43,6 +47,7 @@ public class EmpresaController {
 
     private final EmpresaService empresaService;
     private final HistorialCambioService historialCambioService;
+    private final ConfiguracionTiendaService configuracionTiendaService;
 
     @Operation(summary = "Register a store",
             description = "Creates the store together with its first administrator, whose email becomes the login.")
@@ -84,6 +89,34 @@ public class EmpresaController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(historialCambioService.listarDeLaTienda(principal.empresaId(),
                 Paginacion.de(pagina, tamano)));
+    }
+
+    @Operation(summary = "Get what the store decides about itself",
+            description = "Today, who can create and edit participants and lanes. Administrators only.")
+    @ApiResponse(responseCode = "200", description = "The store settings")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @GetMapping("/actual/configuracion")
+    public ResponseEntity<ConfiguracionTiendaResponse> configuracion(
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(configuracionTiendaService.obtener(principal.empresaId()));
+    }
+
+    @Operation(summary = "Change what the store decides about itself",
+            description = "Reserving the structure to administrators leaves editors modeling everything inside a "
+                    + "lane: steps, flows and messages. Deleting participants and lanes is an administrator's job "
+                    + "either way. Administrators only.")
+    @ApiResponse(responseCode = "200", description = "The store settings")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PutMapping("/actual/configuracion")
+    public ResponseEntity<ConfiguracionTiendaResponse> editarConfiguracion(
+            @Validated @RequestBody ConfiguracionTiendaRequest request,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(configuracionTiendaService.editar(principal.empresaId(), principal.usuarioId(),
+                request.politicaEstructura(), request.version()));
     }
 
     @Operation(summary = "Get a store",

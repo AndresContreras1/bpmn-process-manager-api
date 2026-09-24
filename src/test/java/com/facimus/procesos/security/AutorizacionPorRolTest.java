@@ -87,6 +87,9 @@ class AutorizacionPorRolTest {
             ADMINISTRADOR | GET    | /api/v1/empresas/actual/historial | 200
             EDITOR        | GET    | /api/v1/empresas/actual/historial | 403
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual/historial | 403
+            ADMINISTRADOR | GET    | /api/v1/empresas/actual/configuracion | 200
+            EDITOR        | GET    | /api/v1/empresas/actual/configuracion | 403
+            EDITOR        | PUT    | /api/v1/empresas/actual/configuracion | 403
             SOLO_LECTURA  | GET    | /api/v1/empresas/{id}          | 404
 
             # Usuarios: solo el administrador (HU-02)

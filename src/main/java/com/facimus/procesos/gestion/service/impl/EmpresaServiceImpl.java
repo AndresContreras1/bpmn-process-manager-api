@@ -14,6 +14,7 @@ import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -27,6 +28,7 @@ public class EmpresaServiceImpl implements EmpresaService {
 
     private final EmpresaRepository empresaRepository;
     private final UsuarioService usuarioService;
+    private final ConfiguracionTiendaService configuracionTiendaService;
     private final HistorialCambioService historialCambioService;
     private final EmpresaMapper empresaMapper;
 
@@ -50,6 +52,7 @@ public class EmpresaServiceImpl implements EmpresaService {
         // Sin autor: el primer administrador todavia no existe, y al crearse firma su propia alta.
         UsuarioResponse administrador = usuarioService.crearColaborador(empresa.getId(), null, nombreAdmin,
                 emailAdmin, passwordAdmin, RolAcceso.ADMINISTRADOR);
+        configuracionTiendaService.crearPara(empresa.getId());
         historialCambioService.registrarDeTienda(empresa.getId(), administrador.id(), RecursoDeHistorial.EMPRESA,
                 empresa.getId(), "Tienda \"" + nombre + "\" registrada.");
         return empresaMapper.toResponse(empresa);

@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 
@@ -34,6 +35,9 @@ class EmpresaControllerTest {
 
     @MockitoBean
     private HistorialCambioService historialCambioService;
+
+    @MockitoBean
+    private ConfiguracionTiendaService configuracionTiendaService;
 
     @MockitoBean
     private EmpresaService empresaService;

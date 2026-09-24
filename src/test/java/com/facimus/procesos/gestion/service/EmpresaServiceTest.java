@@ -42,6 +42,9 @@ class EmpresaServiceTest {
     @Mock
     private HistorialCambioService historialCambioService;
 
+    @Mock
+    private ConfiguracionTiendaService configuracionTiendaService;
+
     @InjectMocks
     private EmpresaServiceImpl empresaService;
 
