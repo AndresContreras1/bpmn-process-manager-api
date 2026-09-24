@@ -2,6 +2,9 @@ package com.facimus.procesos.gestion.model;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.facimus.procesos.common.EntidadEmpresa;
 
 import jakarta.persistence.Column;
@@ -13,7 +16,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -62,8 +64,14 @@ public class VersionProceso extends EntidadEmpresa {
     @Column(nullable = false, length = 64, updatable = false)
     private String huella;
 
-    /** El diagrama completo en JSON, igual que lo devuelve GET /procesos/{id}/diagrama el dia que se publico. */
-    @Lob
+    /**
+     * El diagrama completo en JSON, igual que lo devuelve GET /procesos/{id}/diagrama el dia que se publico.
+     * <p>
+     * No lleva {@code @Lob}: en PostgreSQL eso serian objetos grandes (un {@code oid} que apunta fuera de la fila,
+     * con su propia vida y su propia limpieza), y esto es un documento de texto que quiere estar en la fila. El
+     * tipo se pide a mano para que sea el {@code text} de la V13 y el {@code clob} de H2.
+     */
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
     @Column(nullable = false, updatable = false)
     private String definicion;
 }
