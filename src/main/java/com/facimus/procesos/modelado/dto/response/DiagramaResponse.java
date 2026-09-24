@@ -25,4 +25,10 @@ public record DiagramaResponse(
         List<MensajeResponse> mensajes,
         @Schema(description = "Correlation keys; mensajeId points to a message")
         List<CorrelacionResponse> correlaciones) {
+
+    /** El mismo dibujo con otro encabezado: lo usa quien responde una version publicada con el proceso de hoy. */
+    public DiagramaResponse conProceso(ProcesoResponse otro, boolean esCompartido) {
+        return new DiagramaResponse(otro, esCompartido, pools, lanes, actividades, gateways, eventos, arcos,
+                mensajes, correlaciones);
+    }
 }

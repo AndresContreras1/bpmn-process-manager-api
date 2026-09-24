@@ -86,7 +86,7 @@ class DiagramaControllerTest {
         LocalDateTime creado = LocalDateTime.of(2026, 9, 21, 10, 0);
         return new DiagramaResponse(
                 new ProcesoResponse(10L, "Order fulfillment", "Checkout to delivery", "Fulfillment",
-                        EstadoProceso.PUBLICADO, true, creado, creado, 0L, null, null),
+                        EstadoProceso.PUBLICADO, true, creado, creado, 0L, null, null, 1, false),
                 false,
                 List.of(new PoolResponse(1L, "Demo Store", TipoParticipante.EMPRESA, false,
                         Integracion.NINGUNA, 0, 10L, 0L, null, null, null, null),

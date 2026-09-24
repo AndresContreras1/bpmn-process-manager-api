@@ -243,7 +243,7 @@ class RevisionServiceTest {
 
     private static DiagramaResponse diagrama() {
         ProcesoResponse proceso = new ProcesoResponse(PROCESO, "Order fulfillment", "De la compra a la entrega",
-                "Fulfillment", EstadoProceso.PUBLICADO, true, AHORA, AHORA, 0L, null, null);
+                "Fulfillment", EstadoProceso.PUBLICADO, true, AHORA, AHORA, 0L, null, null, 1, false);
         PoolResponse tienda = new PoolResponse(5L, "Demo Store", TipoParticipante.EMPRESA, false,
                 Integracion.NINGUNA, 0, PROCESO, 0L, null, AHORA, null, AHORA);
         PoolResponse transportadora = new PoolResponse(6L, "Carrier", TipoParticipante.PROVEEDOR, true,

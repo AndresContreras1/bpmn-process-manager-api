@@ -3,33 +3,21 @@ package com.facimus.procesos.modelado.service.impl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.facimus.procesos.common.Huella;
+import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.gestion.dto.response.ProcesoLectura;
 import com.facimus.procesos.gestion.service.ProcesoService;
+import com.facimus.procesos.gestion.service.VersionService;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
-import com.facimus.procesos.modelado.mapper.ActividadMapper;
-import com.facimus.procesos.modelado.mapper.ArcoMapper;
-import com.facimus.procesos.modelado.mapper.CorrelacionMapper;
-import com.facimus.procesos.modelado.mapper.EventoMapper;
-import com.facimus.procesos.modelado.mapper.GatewayMapper;
-import com.facimus.procesos.modelado.mapper.LaneMapper;
-import com.facimus.procesos.modelado.mapper.MensajeMapper;
-import com.facimus.procesos.modelado.mapper.PoolMapper;
-import com.facimus.procesos.modelado.repository.ActividadRepository;
-import com.facimus.procesos.modelado.repository.ArcoRepository;
-import com.facimus.procesos.modelado.repository.CorrelacionRepository;
-import com.facimus.procesos.modelado.repository.EventoRepository;
-import com.facimus.procesos.modelado.repository.GatewayRepository;
-import com.facimus.procesos.modelado.repository.LaneRepository;
-import com.facimus.procesos.modelado.repository.MensajeRepository;
-import com.facimus.procesos.modelado.repository.PoolRepository;
 import com.facimus.procesos.modelado.service.DiagramaService;
 
 import lombok.RequiredArgsConstructor;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Una consulta por tipo de elemento, filtrada por proceso y empresa: el numero de sentencias no crece con el tamano
- * del diagrama. Los DTO llevan los id de sus padres, que Hibernate lee de la llave foranea sin cargar la relacion.
- * El proceso entra por la puerta de lectura, asi que tambien se dibuja uno compartido por otra empresa (HU-23).
+ * El proceso entra por la puerta de lectura, asi que un proceso ajeno o eliminado responde 404 antes de armar nada.
+ * La tienda duena ve su modelo vivo, con el aviso de si tiene cambios sin publicar; una invitada ve la version
+ * vigente, que es lo unico que la otra tienda dio por bueno (HU-23 y D2).
  */
 @Service
 @RequiredArgsConstructor
@@ -37,44 +25,37 @@ import lombok.RequiredArgsConstructor;
 public class DiagramaServiceImpl implements DiagramaService {
 
     private final ProcesoService procesoService;
-    private final PoolRepository poolRepository;
-    private final LaneRepository laneRepository;
-    private final ActividadRepository actividadRepository;
-    private final GatewayRepository gatewayRepository;
-    private final EventoRepository eventoRepository;
-    private final ArcoRepository arcoRepository;
-    private final MensajeRepository mensajeRepository;
-    private final CorrelacionRepository correlacionRepository;
-    private final PoolMapper poolMapper;
-    private final LaneMapper laneMapper;
-    private final ActividadMapper actividadMapper;
-    private final GatewayMapper gatewayMapper;
-    private final EventoMapper eventoMapper;
-    private final ArcoMapper arcoMapper;
-    private final MensajeMapper mensajeMapper;
-    private final CorrelacionMapper correlacionMapper;
+    private final VersionService versionService;
+    private final ArmadoDelDiagrama armado;
+    private final JsonMapper json;
 
     @Override
     public DiagramaResponse obtener(Long empresaId, Long procesoId) {
-        // Responde 404 si el proceso esta eliminado, o si no es de la empresa ni se lo compartieron.
         ProcesoLectura lectura = procesoService.obtenerParaLectura(empresaId, procesoId);
-        // Los elementos son de la empresa duena, que en un proceso compartido no es la del usuario.
-        Long duena = lectura.empresaPropietariaId();
-        return new DiagramaResponse(lectura.proceso(), lectura.compartido(),
-                poolMapper.toResponses(poolRepository
-                        .findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId, duena)),
-                laneMapper.toResponses(laneRepository.delProcesoEnOrden(procesoId, duena)),
-                actividadMapper.toResponses(actividadRepository
-                        .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
-                gatewayMapper.toResponses(gatewayRepository
-                        .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
-                eventoMapper.toResponses(eventoRepository
-                        .findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
-                arcoMapper.toResponses(arcoRepository
-                        .findAllByPool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
-                mensajeMapper.toResponses(mensajeRepository
-                        .findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)),
-                correlacionMapper.toResponses(correlacionRepository
-                        .findAllByMensaje_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, duena)));
+        if (lectura.compartido()) {
+            return loPublicado(lectura, procesoId);
+        }
+        DiagramaResponse diagrama = armado.armar(lectura.proceso(), false, lectura.empresaPropietariaId());
+        return diagrama.conProceso(lectura.proceso().conBorradorPendiente(tieneCambios(diagrama, lectura)), false);
+    }
+
+    /** Sin ninguna version vigente no hay nada que ensenarle a la invitada: para ella el proceso todavia no existe. */
+    private DiagramaResponse loPublicado(ProcesoLectura lectura, Long procesoId) {
+        String definicion = versionService.definicionVigente(lectura.empresaPropietariaId(), procesoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
+        DiagramaResponse publicado = json.readValue(definicion, DiagramaResponse.class);
+        // El dibujo es el del dia que se publico; el encabezado, el proceso como esta hoy.
+        return publicado.conProceso(lectura.proceso(), true);
+    }
+
+    /**
+     * Comparar la huella de lo que se acaba de armar con la de la version vigente no cuesta ninguna consulta mas: el
+     * diagrama ya esta aqui y la huella publicada llego con la puerta de lectura.
+     */
+    private Boolean tieneCambios(DiagramaResponse diagrama, ProcesoLectura lectura) {
+        if (lectura.proceso().versionPublicada() == null) {
+            return false;
+        }
+        return !Huella.de(DiagramaCanonico.de(diagrama, json)).equals(lectura.huellaPublicada());
     }
 }

@@ -31,6 +31,16 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.service.RolProcesoService;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.service.ActividadService;
+import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
+import com.facimus.procesos.modelado.service.EventoService;
+import com.facimus.procesos.modelado.service.LaneService;
+import com.facimus.procesos.modelado.service.PoolService;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -67,6 +77,24 @@ class ProcesosCompartidosIntegracionTest {
     @Autowired
     private ProcesoService procesoService;
 
+    @Autowired
+    private RolProcesoService rolProcesoService;
+
+    @Autowired
+    private PoolService poolService;
+
+    @Autowired
+    private LaneService laneService;
+
+    @Autowired
+    private EventoService eventoService;
+
+    @Autowired
+    private ActividadService actividadService;
+
+    @Autowired
+    private ArcoService arcoService;
+
     private Long duenaId;
     private Long invitadaId;
     private Long adminDuenaId;
@@ -93,9 +121,10 @@ class ProcesosCompartidosIntegracionTest {
     }
 
     @Test
-    @DisplayName("La invitada ve el proceso en su lista y lee su diagrama completo, marcado como compartido")
+    @DisplayName("La invitada ve el proceso en su lista y lee la version publicada, marcada como compartida")
     void compartir_laInvitadaLeeElDiagrama() throws Exception {
         Long procesoId = nuevoProceso("Order fulfillment");
+        modelarUnProcesoPublicable(procesoId);
 
         mockMvc.perform(compartir(procesoId, NIT_INVITADA, tokenDuena))
                 .andExpect(status().isCreated())
@@ -107,11 +136,18 @@ class ProcesosCompartidosIntegracionTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.proceso.id == " + procesoId + ")].empresaPropietariaNombre")
                         .value("Tienda duena"));
+        // D2: mientras no haya una version publicada, la invitada no tiene nada que leer.
+        mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
+                .andExpect(status().isNotFound());
+        publicar(procesoId);
+
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.compartido").value(true))
                 .andExpect(jsonPath("$.proceso.nombre").value("Order fulfillment"))
+                .andExpect(jsonPath("$.proceso.versionPublicada").value(1))
                 .andExpect(jsonPath("$.pools[0].tipoParticipante").value("EMPRESA"));
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(tokenDuena)))
@@ -220,6 +256,25 @@ class ProcesosCompartidosIntegracionTest {
 
     private Long nuevoProceso(String nombre) {
         return procesoService.crear(duenaId, adminDuenaId, nombre, "Proceso de la tienda duena", "Operations").id();
+    }
+
+    /** Lo minimo que el diagnostico da por bueno: una lane, un inicio, un paso y un fin, enlazados. */
+    private void modelarUnProcesoPublicable(Long procesoId) {
+        Long tienda = poolService.listarPorProceso(duenaId, procesoId).getFirst().id();
+        Long rolId = rolProcesoService.crear(duenaId, "Ventas de " + procesoId, null).id();
+        Long laneId = laneService.crear(duenaId, adminDuenaId, tienda, "Sales", rolId).id();
+        Long inicio = eventoService.crear(duenaId, adminDuenaId, laneId, "Order received", TipoEvento.INICIO,
+                40, 80).id();
+        Long recibir = actividadService.crear(duenaId, adminDuenaId, laneId, "Receive order", "Check the cart",
+                TipoActividad.USUARIO, 180, 80).id();
+        Long fin = eventoService.crear(duenaId, adminDuenaId, laneId, "Order accepted", TipoEvento.FIN, 340, 80).id();
+        arcoService.crear(duenaId, adminDuenaId, DatosDeArco.entre(inicio, recibir));
+        arcoService.crear(duenaId, adminDuenaId, DatosDeArco.entre(recibir, fin));
+    }
+
+    private void publicar(Long procesoId) {
+        Long version = procesoService.obtener(duenaId, procesoId, false).version();
+        procesoService.cambiarEstado(duenaId, procesoId, adminDuenaId, EstadoProceso.PUBLICADO, version);
     }
 
     private MockHttpServletRequestBuilder compartir(Long procesoId, String nit, String token) throws Exception {

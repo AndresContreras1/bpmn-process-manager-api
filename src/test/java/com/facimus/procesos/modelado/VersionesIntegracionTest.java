@@ -172,8 +172,6 @@ class VersionesIntegracionTest {
                 edicion("PUT proceso", HttpMethod.PUT, "/api/v1/procesos/{id}", "/api/v1/procesos/{id}", procesoId,
                         v -> Map.of("nombre", "Order fulfillment", "descripcion", "Checkout to delivery, v2",
                                 "categoria", "Fulfillment", "version", v)),
-                edicion("PATCH proceso", HttpMethod.PATCH, "/api/v1/procesos/{id}", "/api/v1/procesos/{id}",
-                        procesoId, v -> Map.of("estado", "PUBLICADO", "version", v)),
                 edicion("PUT rol", HttpMethod.PUT, "/api/v1/roles/{id}", "/api/v1/roles/{id}", rolId,
                         v -> Map.of("nombre", "Warehouse", "descripcion", "Picks, packs and ships", "version", v)),
                 edicion("PATCH usuario", HttpMethod.PATCH, "/api/v1/usuarios/{id}", "/api/v1/usuarios/{id}",

@@ -1,4 +1,4 @@
-package com.facimus.procesos.modelado.service;
+package com.facimus.procesos.modelado.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -16,10 +16,8 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.facimus.procesos.gestion.dto.response.ProcesoLectura;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
-import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
@@ -37,18 +35,14 @@ import com.facimus.procesos.modelado.repository.GatewayRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.PoolRepository;
-import com.facimus.procesos.modelado.service.impl.DiagramaServiceImpl;
 
-/** El diagrama completo en una respuesta, incluido el caso de HU-23: un proceso que otra tienda comparte. */
+/** Los elementos son de la empresa duena del proceso, que en uno compartido no es la de quien lo lee (HU-23). */
 @ExtendWith(MockitoExtension.class)
-class DiagramaServiceTest {
+class ArmadoDelDiagramaTest {
 
-    private static final Long LECTORA = 1L;
     private static final Long DUENA = 9L;
     private static final Long PROCESO = 100L;
 
-    @Mock
-    private ProcesoService procesoService;
     @Mock
     private PoolRepository poolRepository;
     @Mock
@@ -84,18 +78,18 @@ class DiagramaServiceTest {
     private CorrelacionMapper correlacionMapper = Mappers.getMapper(CorrelacionMapper.class);
 
     @InjectMocks
-    private DiagramaServiceImpl diagramaService;
+    private ArmadoDelDiagrama armado;
 
     @Test
-    @DisplayName("HU-23: el diagrama de un proceso compartido se arma con la tienda duena, no con la que lo lee")
-    void obtener_procesoCompartido_consultaConLaTiendaDuena() {
-        when(procesoService.obtenerParaLectura(LECTORA, PROCESO)).thenReturn(lectura(true, DUENA));
+    @DisplayName("Cada elemento se consulta con el proceso y la empresa duena que recibe")
+    void armar_consultaTodoConLaTiendaDuena() {
+        when(poolRepository.findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(PROCESO, DUENA)).thenReturn(List.of());
 
-        DiagramaResponse diagrama = diagramaService.obtener(LECTORA, PROCESO);
+        DiagramaResponse diagrama = armado.armar(proceso(), true, DUENA);
 
         assertThat(diagrama.compartido()).isTrue();
         assertThat(diagrama.proceso().nombre()).isEqualTo("Order fulfillment");
-        verify(poolRepository).findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(PROCESO, DUENA);
+        assertThat(diagrama.pools()).isEmpty();
         verify(laneRepository).delProcesoEnOrden(PROCESO, DUENA);
         verify(actividadRepository).findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
         verify(gatewayRepository).findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
@@ -105,23 +99,9 @@ class DiagramaServiceTest {
         verify(correlacionRepository).findAllByMensaje_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
     }
 
-    @Test
-    @DisplayName("El diagrama de un proceso propio se arma con la tienda del usuario y no se marca compartido")
-    void obtener_procesoPropio_consultaConSuTiendaYNoLoMarcaCompartido() {
-        when(procesoService.obtenerParaLectura(LECTORA, PROCESO)).thenReturn(lectura(false, LECTORA));
-        when(poolRepository.findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(PROCESO, LECTORA)).thenReturn(List.of());
-
-        DiagramaResponse diagrama = diagramaService.obtener(LECTORA, PROCESO);
-
-        assertThat(diagrama.compartido()).isFalse();
-        assertThat(diagrama.pools()).isEmpty();
-        verify(laneRepository).delProcesoEnOrden(PROCESO, LECTORA);
-    }
-
-    private static ProcesoLectura lectura(boolean compartido, Long duena) {
-        ProcesoResponse proceso = new ProcesoResponse(PROCESO, "Order fulfillment", "De la compra a la entrega",
-                "Fulfillment", EstadoProceso.PUBLICADO, true, LocalDateTime.now(), LocalDateTime.now(), 0L, null,
-                null);
-        return new ProcesoLectura(proceso, duena, compartido);
+    private static ProcesoResponse proceso() {
+        LocalDateTime ahora = LocalDateTime.now();
+        return new ProcesoResponse(PROCESO, "Order fulfillment", "De la compra a la entrega", "Fulfillment",
+                EstadoProceso.PUBLICADO, true, ahora, ahora, 0L, null, null, 1, false);
     }
 }

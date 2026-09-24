@@ -25,8 +25,12 @@ import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.repository.ProcesoSpecifications;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.DiagnosticoDelModelo;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
+import com.facimus.procesos.gestion.service.Instantanea;
+import com.facimus.procesos.gestion.service.InstantaneaDelModelo;
 import com.facimus.procesos.gestion.service.ProcesoService;
+import com.facimus.procesos.gestion.service.VersionService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -40,6 +44,9 @@ public class ProcesoServiceImpl implements ProcesoService {
     private final UsuarioRepository usuarioRepository;
     private final ApplicationEventPublisher eventos;
     private final HistorialCambioService historialCambioService;
+    private final VersionService versionService;
+    private final DiagnosticoDelModelo diagnosticoDelModelo;
+    private final InstantaneaDelModelo instantaneaDelModelo;
     private final ProcesoMapper procesoMapper;
 
     @Override
@@ -71,26 +78,31 @@ public class ProcesoServiceImpl implements ProcesoService {
         eventos.publishEvent(new ProcesoCreado(empresaId, proceso.getId()));
 
         historialCambioService.registrar(proceso, autor, "Proceso creado.");
-        return procesoMapper.toResponse(proceso);
+        return conBorrador(proceso);
     }
 
     @Override
     public ProcesoResponse obtener(Long empresaId, Long procesoId, boolean incluirInactivos) {
-        return procesoMapper.toResponse(buscar(empresaId, procesoId, incluirInactivos));
+        return conBorrador(buscar(empresaId, procesoId, incluirInactivos));
     }
 
+    /**
+     * La puerta de lectura no calcula si el borrador tiene cambios: quien arma el diagrama ya tendra la huella de
+     * hoy, y le basta con la de la version vigente para compararlas sin volver a leer el modelo.
+     */
     @Override
     public ProcesoLectura obtenerParaLectura(Long empresaId, Long procesoId) {
         Proceso proceso = procesoRepository.paraLectura(procesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
         Long duena = proceso.getEmpresa().getId();
-        return new ProcesoLectura(procesoMapper.toResponse(proceso), duena, !duena.equals(empresaId));
+        return new ProcesoLectura(procesoMapper.toResponse(proceso), duena, !duena.equals(empresaId),
+                proceso.getHuellaPublicada());
     }
 
     @Override
     public ProcesoDetalleResponse obtenerDetalle(Long empresaId, Long procesoId, boolean incluirInactivos) {
         Proceso proceso = buscar(empresaId, procesoId, incluirInactivos);
-        return new ProcesoDetalleResponse(procesoMapper.toResponse(proceso),
+        return new ProcesoDetalleResponse(conBorrador(proceso),
                 historialCambioService.listarPorProceso(empresaId, procesoId));
     }
 
@@ -118,29 +130,51 @@ public class ProcesoServiceImpl implements ProcesoService {
         proceso = procesoRepository.saveAndFlush(proceso);
 
         historialCambioService.registrar(proceso, autor, "Proceso editado.");
-        return procesoMapper.toResponse(proceso);
+        return conBorrador(proceso);
     }
 
+    /**
+     * D2: pedir el estado PUBLICADO publica. Un proceso ya publicado se vuelve a publicar, y eso crea la version
+     * siguiente: lo que se edita despues es el borrador de trabajo, y la version anterior se queda como estaba.
+     */
     @Override
     @Transactional
     public ProcesoResponse cambiarEstado(Long empresaId, Long procesoId, Long usuarioId,
             EstadoProceso nuevoEstado, Long version) {
         Proceso proceso = buscarActivo(empresaId, procesoId);
         proceso.verificarVersion(version);
-        if (proceso.getEstado() == nuevoEstado) {
-            return procesoMapper.toResponse(proceso);
+        if (nuevoEstado == EstadoProceso.BORRADOR) {
+            if (proceso.getEstado() == EstadoProceso.PUBLICADO) {
+                throw new ReglaNegocioException("Un proceso publicado no puede volver a borrador.");
+            }
+            return procesoMapper.toResponse(proceso).conBorradorPendiente(false);
         }
-        if (proceso.getEstado() == EstadoProceso.PUBLICADO && nuevoEstado == EstadoProceso.BORRADOR) {
-            throw new ReglaNegocioException("Un proceso publicado no puede volver a borrador.");
-        }
-        Usuario autor = autor(empresaId, usuarioId);
+        return publicar(proceso, autor(empresaId, usuarioId));
+    }
 
-        proceso.setEstado(nuevoEstado);
+    /** R-44 y R-45: no se publica lo que no se puede ejecutar, ni se publica dos veces lo mismo. */
+    private ProcesoResponse publicar(Proceso proceso, Usuario autor) {
+        Long empresaId = proceso.getEmpresa().getId();
+        List<String> errores = diagnosticoDelModelo.errores(empresaId, procesoMapper.toResponse(proceso));
+        if (!errores.isEmpty()) {
+            throw new ReglaNegocioException("El proceso no se puede publicar: " + errores.size()
+                    + (errores.size() == 1 ? " error de diagnóstico." : " errores de diagnóstico."), errores);
+        }
+        int numero = versionService.siguienteNumero(empresaId, proceso.getId());
+        Instantanea instantanea = instantaneaDelModelo.tomar(empresaId,
+                procesoMapper.toResponse(proceso).publicadoComo(numero));
+        if (instantanea.huella().equals(proceso.getHuellaPublicada())) {
+            throw new ReglaNegocioException("No hay cambios desde la versión " + proceso.getVersionPublicada() + ".");
+        }
+
+        versionService.publicar(proceso, numero, autor.getId(), instantanea);
+        proceso.setEstado(EstadoProceso.PUBLICADO);
+        proceso.setVersionPublicada(numero);
+        proceso.setHuellaPublicada(instantanea.huella());
         proceso = procesoRepository.saveAndFlush(proceso);
 
-        historialCambioService.registrar(proceso, autor,
-                nuevoEstado == EstadoProceso.PUBLICADO ? "Proceso publicado." : "Estado del proceso actualizado.");
-        return procesoMapper.toResponse(proceso);
+        historialCambioService.registrar(proceso, autor, "Versión " + numero + " publicada.");
+        return procesoMapper.toResponse(proceso).conBorradorPendiente(false);
     }
 
     @Override
@@ -155,6 +189,20 @@ public class ProcesoServiceImpl implements ProcesoService {
         eventos.publishEvent(new ProcesoEliminado(empresaId, procesoId));
 
         historialCambioService.registrar(proceso, autor, "Proceso eliminado (baja logica).");
+    }
+
+    /**
+     * Si el borrador tiene cambios sin publicar se sabe comparando el modelo de hoy con la huella de la version
+     * vigente, asi que cuesta leer el diagrama entero. Se calcula al responder un proceso concreto, no en un
+     * listado, donde seria un diagrama por fila.
+     */
+    private ProcesoResponse conBorrador(Proceso proceso) {
+        ProcesoResponse respuesta = procesoMapper.toResponse(proceso);
+        if (proceso.getVersionPublicada() == null) {
+            return respuesta.conBorradorPendiente(false);
+        }
+        Instantanea instantanea = instantaneaDelModelo.tomar(proceso.getEmpresa().getId(), respuesta);
+        return respuesta.conBorradorPendiente(!instantanea.huella().equals(proceso.getHuellaPublicada()));
     }
 
     /** HU-06.3: un proceso eliminado sigue ahi, y el administrador lo lee con activo en false. */

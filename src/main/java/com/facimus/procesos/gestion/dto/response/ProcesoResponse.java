@@ -21,5 +21,26 @@ public record ProcesoResponse(
         Long version,
         @Schema(description = "Id of the user who created it; empty when the system did, like the store registration",
                 example = "2") Long creadoPor,
-        @Schema(description = "Id of the user who saved the last change", example = "5") Long modificadoPor) {
+        @Schema(description = "Id of the user who saved the last change", example = "5") Long modificadoPor,
+        @Schema(description = "Number of the version in force; empty when nothing is published yet", example = "2")
+        Integer versionPublicada,
+        @Schema(description = "True when the live model differs from the version in force. Empty in listings, "
+                + "where working it out would mean reading one whole diagram per row, and for a guest store, "
+                + "which only sees what is published", example = "true")
+        Boolean borradorPendiente) {
+
+    /**
+     * El mismo proceso visto como quedara publicado con ese numero. La instantanea se toma antes de guardar nada,
+     * asi que sin esto el diagrama de la version 1 diria para siempre que el proceso era un borrador.
+     */
+    public ProcesoResponse publicadoComo(int numero) {
+        return new ProcesoResponse(id, nombre, descripcion, categoria, EstadoProceso.PUBLICADO, activo, fechaCreacion,
+                fechaModificacion, version, creadoPor, modificadoPor, numero, false);
+    }
+
+    /** El mismo proceso diciendo si su borrador tiene cambios sin publicar; lo calcula quien ya tiene el diagrama. */
+    public ProcesoResponse conBorradorPendiente(Boolean pendiente) {
+        return new ProcesoResponse(id, nombre, descripcion, categoria, estado, activo, fechaCreacion,
+                fechaModificacion, version, creadoPor, modificadoPor, versionPublicada, pendiente);
+    }
 }

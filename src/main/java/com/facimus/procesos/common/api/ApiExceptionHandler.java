@@ -61,7 +61,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ReglaNegocioException.class)
     public ProblemDetail manejarReglaNegocio(ReglaNegocioException ex, WebRequest req) {
-        return construir(HttpStatus.CONFLICT, "Regla de negocio violada", ex.getMessage(), req);
+        ProblemDetail problema = construir(HttpStatus.CONFLICT, "Regla de negocio violada", ex.getMessage(), req);
+        // Una regla que se rompe por varias cosas a la vez las lista, como hace la validacion con cada campo.
+        if (!ex.getErrores().isEmpty()) {
+            problema.setProperty(ERRORES, ex.getErrores());
+        }
+        return problema;
     }
 
     /** Edicion sobre una version vieja: el cliente recarga el recurso y decide de nuevo. */

@@ -240,6 +240,20 @@ class DiagnosticoServiceTest {
     }
 
     @Test
+    @DisplayName("A-13: el diagrama que se esta editando tiene cambios que la version publicada no incluye")
+    void borradorConCambiosSinPublicar_A13() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.conCambiosSinPublicar(2);
+
+        List<HallazgoDiagnosticoResponse> hallazgos = hallazgos(armado, "A-13");
+
+        assertThat(hallazgos).hasSize(1);
+        assertThat(hallazgos.getFirst().severidad()).isEqualTo(Severidad.BAJA);
+        assertThat(hallazgos.getFirst().problema()).contains("la version 2");
+        assertThat(hallazgos.getFirst().elementoId()).isNull();
+    }
+
+    @Test
     @DisplayName("A-10: una lane sin nodos no dice nada del proceso")
     void laneSinNodos_A10() {
         DiagramaArmado armado = DiagramaArmado.demo();
