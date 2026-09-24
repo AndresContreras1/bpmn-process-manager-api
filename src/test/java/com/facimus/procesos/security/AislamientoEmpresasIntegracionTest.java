@@ -268,7 +268,7 @@ class AislamientoEmpresasIntegracionTest {
                         "Proceso no encontrado"),
                 Arguments.of(HttpMethod.GET, "/api/v1/pools/{id}", poolB, null, "Pool no encontrado"),
                 Arguments.of(HttpMethod.PUT, "/api/v1/pools/{id}", poolB,
-                        new EditarPoolRequest("Intruso", TipoParticipante.CLIENTE, null, 0L),
+                        new EditarPoolRequest("Intruso", TipoParticipante.CLIENTE, null, null, 0L),
                         "Pool no encontrado"),
                 Arguments.of(HttpMethod.DELETE, "/api/v1/pools/{id}", poolB, null, "Pool no encontrado"),
                 Arguments.of(HttpMethod.POST, "/api/v1/pools/{id}/lanes", poolB, lane, "Pool no encontrado"),

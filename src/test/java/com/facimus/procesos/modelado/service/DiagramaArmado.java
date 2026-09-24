@@ -258,6 +258,15 @@ class DiagramaArmado {
                 null, null, null));
     }
 
+    /** El participante pasa a modelarse por dentro, que es lo unico que le permite tener lanes. */
+    void dejaDeSerCajaNegra(String nombre) {
+        Long poolId = id(nombre);
+        pools.replaceAll(pool -> pool.id().equals(poolId)
+                ? new PoolResponse(pool.id(), pool.nombre(), pool.tipoParticipante(), false, pool.integracion(),
+                        pool.orden(), pool.procesoId(), pool.version(), null, null, null, null)
+                : pool);
+    }
+
     /** El id del flujo que une dos nodos, para las pruebas que preguntan por un arco. */
     Long arcoEntre(String origen, String destino) {
         return arcos.stream()

@@ -153,12 +153,39 @@ class PoolServiceTest {
     }
 
     @Test
+    @DisplayName("R-33: un pool que ya tiene lanes no pasa a caja negra")
+    void editar_pasandoACajaNegraConLanes_lanzaReglaNegocio() {
+        when(poolRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(pool));
+        when(laneRepository.existsByPoolIdAndEmpresaId(5L, EMPRESA)).thenReturn(true);
+
+        assertThatThrownBy(() -> poolService.editar(EMPRESA, AUTOR, 5L, "Carrier", TipoParticipante.PROVEEDOR, true,
+                null, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("Un pool de caja negra no puede tener lanes.");
+        assertThat(pool.isCajaNegra()).isFalse();
+        verify(poolRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("HU-21.4: un pool sin lanes si pasa a caja negra, que es como se dibuja otra empresa")
+    void editar_pasandoACajaNegraSinLanes_loMarca() {
+        when(poolRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(pool));
+        when(laneRepository.existsByPoolIdAndEmpresaId(5L, EMPRESA)).thenReturn(false);
+        when(poolRepository.saveAndFlush(any(Pool.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PoolResponse respuesta = poolService.editar(EMPRESA, AUTOR, 5L, "Carrier", TipoParticipante.PROVEEDOR, true,
+                null, null);
+
+        assertThat(respuesta.cajaNegra()).isTrue();
+    }
+
+    @Test
     @DisplayName("Editar con una version vieja responde conflicto y no guarda")
     void editar_conVersionVieja_lanzaConflicto() {
         when(poolRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(pool));
 
         assertThatThrownBy(() -> poolService.editar(EMPRESA, AUTOR, 5L, "Carrier",
-                TipoParticipante.PROVEEDOR, null, 7L))
+                TipoParticipante.PROVEEDOR, false, null, 7L))
                 .isInstanceOf(ConflictoDeVersionException.class);
         verify(poolRepository, never()).saveAndFlush(any());
         verify(historialCambioService, never()).registrar(any(), any(), any(), any());

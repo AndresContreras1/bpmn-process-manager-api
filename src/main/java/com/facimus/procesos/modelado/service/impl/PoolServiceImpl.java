@@ -63,9 +63,14 @@ public class PoolServiceImpl implements PoolService {
     @Override
     @Transactional
     public PoolResponse editar(Long empresaId, Long usuarioId, Long poolId, String nombre,
-            TipoParticipante tipoParticipante, Integracion integracion, Long version) {
+            TipoParticipante tipoParticipante, boolean cajaNegra, Integracion integracion, Long version) {
         Pool pool = buscar(empresaId, poolId);
         pool.verificarVersion(version);
+        // R-33: una caja negra no se modela por dentro, asi que las lanes que ya tiene contradicen la marca.
+        if (cajaNegra && laneRepository.existsByPoolIdAndEmpresaId(poolId, empresaId)) {
+            throw new ReglaNegocioException(ReglasDePools.CAJA_NEGRA_SIN_LANES);
+        }
+        pool.setCajaNegra(cajaNegra);
         pool.setNombre(nombre);
         pool.setTipoParticipante(tipoParticipante);
         pool.setIntegracion(ninguna(integracion));

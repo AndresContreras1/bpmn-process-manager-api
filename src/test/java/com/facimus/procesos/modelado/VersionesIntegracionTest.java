@@ -249,7 +249,7 @@ class VersionesIntegracionTest {
     @DisplayName("Si dos ediciones de la misma version pasan la comprobacion a la vez, la base rechaza la segunda")
     void copiaVieja_alGuardarLaRechazaLaBase() {
         Pool copiaVieja = poolRepository.findByIdAndEmpresaId(poolId, empresaId).orElseThrow();
-        poolService.editar(empresaId, adminId, poolId, "Buyer", TipoParticipante.CLIENTE, Integracion.NINGUNA,
+        poolService.editar(empresaId, adminId, poolId, "Buyer", TipoParticipante.CLIENTE, false, Integracion.NINGUNA,
                 copiaVieja.getVersion());
 
         copiaVieja.setNombre("Guest");

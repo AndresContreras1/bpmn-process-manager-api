@@ -38,6 +38,10 @@ public class LaneServiceImpl implements LaneService {
     public LaneResponse crear(Long empresaId, Long usuarioId, Long poolId, String nombre, Long rolProcesoId) {
         Pool pool = poolRepository.findByIdAndEmpresaId(poolId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pool no encontrado."));
+        // R-33: de una caja negra solo se ve lo que entra y lo que sale; por dentro no hay nada que repartir.
+        if (pool.isCajaNegra()) {
+            throw new ReglaNegocioException(ReglasDePools.CAJA_NEGRA_SIN_LANES);
+        }
         RolProceso rolProceso = rolProceso(empresaId, rolProcesoId);
         int orden = laneRepository.siguienteOrden(poolId, empresaId);
 

@@ -8,13 +8,16 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-@Schema(description = "New name and participant type of a pool")
+@Schema(description = "New name, participant type and black-box flag of a pool")
 public record EditarPoolRequest(
         @Schema(example = "Payment gateway")
         @NotBlank(message = "El nombre es obligatorio.")
         @Size(max = 120, message = "El nombre no puede superar 120 caracteres.") String nombre,
         @Schema(example = "SISTEMA_EXTERNO")
         @NotNull(message = "El tipo de participante es obligatorio.") TipoParticipante tipoParticipante,
+        @Schema(description = "True when the participant is not modeled inside, which is how another company "
+                + "is drawn; a pool that already has lanes cannot become one", example = "true")
+        Boolean cajaNegra,
         @Schema(description = "Kind of partner behind the participant", example = "PAGOS")
         Integracion integracion,
         @Schema(description = "Version read with the last GET; if someone saved a change since, the edit answers 409",

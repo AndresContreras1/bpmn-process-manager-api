@@ -90,7 +90,8 @@ public class PoolController {
             @Validated @RequestBody EditarPoolRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(poolService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
-                request.tipoParticipante(), request.integracion(), request.version()));
+                request.tipoParticipante(), Boolean.TRUE.equals(request.cajaNegra()), request.integracion(),
+                request.version()));
     }
 
     @Operation(summary = "Delete a pool",
