@@ -48,9 +48,9 @@ import com.facimus.procesos.modelado.service.GatewayService;
  * Un pedido de punta a punta sobre una version publicada: se abre, la tarea aparece en la bandeja de su rol, el
  * gateway decide con las variables del caso, la siguiente tarea aparece en la otra bandeja y el caso termina.
  *
- * <p>El proceso es el de la demo hasta donde este PR llega: las actividades que hablan con un socio son de servicio
- * y no de envio, porque mientras no haya mensajeria un envio no tendria a quien mandarle nada. El PR de la
- * mensajeria las convierte y anade la mitad que falta.
+ * <p>El proceso es el de la demo sin mensajes: las actividades que hablarian con un socio son de servicio y se
+ * completan solas. Sigue siendo el que prueba los gateways, las bandejas y el rescate de un caso en error sin que
+ * haya nada esperando por medio; el de punta a punta con mensajes y reloj es DemoDePuntaAPuntaTest.
  */
 @SpringBootTest
 @ActiveProfiles("test")
