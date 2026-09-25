@@ -92,6 +92,19 @@ class EmpaquetadoTest {
             .because("modelado se apoya en los procesos y roles de gestion; al reves se formaria un ciclo");
 
     @ArchTest
+    static final ArchRule nadie_depende_de_ejecucion = noClasses()
+            .that().resideInAnyPackage("..common..", "..security..", "..gestion..", "..modelado..")
+            .should().dependOnClassesThat().resideInAPackage("..ejecucion..")
+            .because("D1: la ejecucion se apoya en el modelo publicado y en los roles; al reves seria un ciclo");
+
+    @ArchTest
+    static final ArchRule condiciones_sin_lenguajes_que_ejecutan_codigo = noClasses()
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("org.springframework.expression..", "javax.script..", "jdk.dynalink..")
+            .because("D6: una condicion la escribe un usuario, y se lee con la gramatica del proyecto; SpEL o un "
+                    + "motor de scripts permitirian llamar metodos desde ese texto");
+
+    @ArchTest
     static final ArchRule paquetes_de_cada_modulo_sin_ciclos = slices()
             .matching("com.facimus.procesos.(*).(*)..")
             .should().beFreeOfCycles()

@@ -77,11 +77,22 @@ class EsquemaEnPostgresTest {
     @Test
     @DisplayName("V13: el diagrama publicado se guarda en un text obligatorio, sin el tope de un varchar")
     void v13_laDefinicionDeLaVersionEsText() {
-        assertThat(jdbcTemplate.queryForObject("""
+        assertThat(tipoDeColumna("versiones_proceso", "definicion")).isEqualTo("text NO");
+    }
+
+    @Test
+    @DisplayName("V16: las variables de un caso y los datos de una tarea tambien son text, no objetos grandes")
+    void v16_lasVariablesDelCasoSonText() {
+        assertThat(tipoDeColumna("casos", "variables")).isEqualTo("text NO");
+        assertThat(tipoDeColumna("actividades_caso", "datos_salida")).isEqualTo("text YES");
+    }
+
+    /** El tipo de una columna y si acepta nulos, como los declara el catalogo del motor. */
+    private String tipoDeColumna(String tabla, String columna) {
+        return jdbcTemplate.queryForObject("""
                 select data_type || ' ' || is_nullable from information_schema.columns
-                where table_name = 'versiones_proceso' and column_name = 'definicion'
-                """, String.class))
-                .isEqualTo("text NO");
+                where table_name = ? and column_name = ?
+                """, String.class, tabla, columna);
     }
 
     private String definicionDelIndice(String nombre) {

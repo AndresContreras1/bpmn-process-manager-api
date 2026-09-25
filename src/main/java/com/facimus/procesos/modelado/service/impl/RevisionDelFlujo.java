@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.util.StringUtils;
 
+import com.facimus.procesos.common.condiciones.EvaluadorDeCondiciones;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
@@ -207,7 +208,7 @@ final class RevisionDelFlujo {
             if (!StringUtils.hasText(arco.condicion())) {
                 continue;
             }
-            Optional<String> problema = GramaticaDeCondiciones.problema(arco.condicion());
+            Optional<String> problema = EvaluadorDeCondiciones.problema(arco.condicion());
             problema.ifPresent(detalle -> hallazgos.anotar(CodigoDeDiagnostico.E08, mapa.nombreDelFlujo(arco),
                     arco.id(), "La condicion no se entiende: " + detalle,
                     "Escribela como una comparacion, por ejemplo payment.status == APPROVED."));

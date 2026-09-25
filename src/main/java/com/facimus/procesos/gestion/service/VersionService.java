@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
 import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.model.VersionProceso;
 
 /**
  * Las versiones publicadas de un proceso (D2). Publicar es de ProcesoService, que es quien conoce el estado del
@@ -36,6 +37,12 @@ public interface VersionService {
      * tiene ninguna, porque nunca se publico o porque se retiraron todas.
      */
     Optional<String> definicionVigente(Long empresaPropietariaId, Long procesoId);
+
+    /**
+     * La version vigente de un proceso propio y activo: la unica sobre la que se abren casos nuevos (R-47). Se
+     * devuelve la entidad y no un DTO porque el caso se ata a ella, y de ella cuelgan el proceso y la tienda.
+     */
+    Optional<VersionProceso> vigente(Long empresaId, Long procesoId);
 
     /** Retira una version: deja de ser la vigente y el proceso pasa a la anterior que siga en pie, si queda alguna. */
     VersionResponse retirar(Long empresaId, Long procesoId, int numero, Long usuarioId);

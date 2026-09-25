@@ -1,16 +1,14 @@
-package com.facimus.procesos.modelado.service.impl;
+package com.facimus.procesos.common.condiciones;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 /**
- * La gramatica de las condiciones de un gateway. Una condicion compara el valor de una variable del caso con un
- * valor fijo, y esas comparaciones se combinan con and, or y not:
+ * D6: el lenguaje en el que se escriben las condiciones de un gateway, compilado a mano. Una condicion compara el
+ * valor de una variable del caso con un valor fijo, y esas comparaciones se combinan con and, or y not:
  *
  * <pre>
  * expresion   := termino ( "or" termino )*
@@ -22,33 +20,50 @@ import java.util.Set;
  * valor       := numero | texto entre comillas | nombre | "true" | "false"
  * </pre>
  *
- * No hay funciones, ni asignaciones, ni nada que se ejecute: aqui la condicion solo se lee para decir si esta bien
- * escrita. Evaluarla sobre las variables de un caso es cosa del motor.
+ * <p>No hay funciones, ni asignaciones, ni llamadas, ni acceso a nada que no sean las variables del caso: lo que se
+ * escribe en un arco lo escribe un usuario, y un lenguaje que ejecuta codigo seria una puerta abierta. Por eso no
+ * se usa SpEL ni un motor de scripts, y una regla de ArchUnit lo deja escrito.
+ *
+ * <p>Se usa en dos momentos. Al publicar, {@link #problema(String)} dice por que una condicion no compila y el
+ * diagnostico lo muestra como E-08. Al ejecutar, {@link #compilar(String)} devuelve el arbol que el motor evalua
+ * contra las variables del caso. Es el mismo analisis: una condicion que se publica es una condicion que corre.
+ *
+ * <p>Vive en {@code common} y no en {@code ejecucion} porque lo necesitan los dos lados: el diagnostico, que es de
+ * {@code modelado}, y el motor. Tenerlo en cualquiera de ellos pondria a un modulo a mirar hacia arriba.
  */
-final class GramaticaDeCondiciones {
+public final class EvaluadorDeCondiciones {
 
     private static final Set<String> PALABRAS = Set.of("and", "or", "not", "true", "false");
-    private static final Set<String> RELACIONALES = Set.of(">", ">=", "<", "<=");
     private static final String OPERADORES = "=!<>";
 
-    private GramaticaDeCondiciones() {
+    private EvaluadorDeCondiciones() {
+    }
+
+    /**
+     * La condicion compilada, lista para evaluarse.
+     *
+     * @throws CondicionMalEscrita si no compila; al ejecutar no deberia pasar, porque publicar ya lo comprobo
+     */
+    public static Condicion compilar(String condicion) {
+        Lector lector = new Lector(partir(condicion));
+        Condicion arbol = lector.expresion();
+        lector.exigirElFinal();
+        return arbol;
+    }
+
+    /** Por que la condicion no compila, o vacio cuando esta bien escrita. */
+    public static Optional<String> problema(String condicion) {
+        try {
+            compilar(condicion);
+            return Optional.empty();
+        } catch (CondicionMalEscrita mala) {
+            return Optional.of(mala.getMessage());
+        }
     }
 
     /** Lo que un mensaje cita de la condicion va entre comillas, como en el resto de las reglas. */
     private static String entreComillas(String texto) {
         return "\"" + texto + "\"";
-    }
-
-    /** Por que la condicion no compila, o vacio cuando esta bien escrita. */
-    static Optional<String> problema(String condicion) {
-        try {
-            Lector lector = new Lector(partir(condicion));
-            lector.expresion();
-            lector.exigirElFinal();
-            return Optional.empty();
-        } catch (CondicionMalEscrita mala) {
-            return Optional.of(mala.getMessage());
-        }
     }
 
     /** Un trozo con sentido propio de la condicion: un nombre, un valor, un operador o un parentesis. */
@@ -70,16 +85,6 @@ final class GramaticaDeCondiciones {
         OPERADOR,
         ABRE,
         CIERRA
-    }
-
-    /** Lo que se levanta al encontrar la falta; su mensaje es lo que el diagnostico muestra. */
-    private static final class CondicionMalEscrita extends RuntimeException {
-
-        private static final long serialVersionUID = 1L;
-
-        CondicionMalEscrita(String mensaje) {
-            super(mensaje);
-        }
     }
 
     private static List<Simbolo> partir(String condicion) {
@@ -151,7 +156,7 @@ final class GramaticaDeCondiciones {
     private static int leerOperador(String condicion, int desde, List<Simbolo> simbolos) {
         int largo = desde + 1 < condicion.length() && condicion.charAt(desde + 1) == '=' ? 2 : 1;
         String operador = condicion.substring(desde, desde + largo);
-        if (operador.equals("=") || operador.equals("!")) {
+        if (Operador.delSimbolo(operador).isEmpty()) {
             throw new CondicionMalEscrita("Se esperaba ==, !=, >, >=, < o <=, no " + entreComillas(operador)
                     + ", en la posicion " + (desde + 1) + ".");
         }
@@ -169,12 +174,14 @@ final class GramaticaDeCondiciones {
             this.simbolos = simbolos;
         }
 
-        void expresion() {
-            termino();
+        /** {@code or} une lo que {@code and} ya agrupo: por eso queda arriba y ata menos. */
+        Condicion expresion() {
+            Condicion condicion = termino();
             while (hay() && actual().esPalabra("or")) {
                 i++;
-                termino();
+                condicion = new Condicion.O(condicion, termino());
             }
+            return condicion;
         }
 
         void exigirElFinal() {
@@ -184,40 +191,44 @@ final class GramaticaDeCondiciones {
             }
         }
 
-        private void termino() {
-            factor();
+        private Condicion termino() {
+            Condicion condicion = factor();
             while (hay() && actual().esPalabra("and")) {
                 i++;
-                factor();
+                condicion = new Condicion.Y(condicion, factor());
             }
+            return condicion;
         }
 
-        private void factor() {
+        private Condicion factor() {
             if (hay() && actual().esPalabra("not")) {
                 i++;
-                factor();
-            } else if (hay() && actual().es(Clase.ABRE)) {
-                i++;
-                expresion();
-                exigir(Clase.CIERRA, "Falta cerrar el parentesis.");
-            } else {
-                comparacion();
+                return new Condicion.No(factor());
             }
+            if (hay() && actual().es(Clase.ABRE)) {
+                i++;
+                Condicion dentro = expresion();
+                exigir(Clase.CIERRA, "Falta cerrar el parentesis.");
+                return new Condicion.Grupo(dentro);
+            }
+            return comparacion();
         }
 
-        private void comparacion() {
+        private Condicion comparacion() {
             Simbolo ruta = exigir(Clase.NOMBRE, "Se esperaba el nombre de una variable, como payment.status.");
             if (PALABRAS.contains(ruta.texto())) {
                 throw new CondicionMalEscrita(entreComillas(ruta.texto()) + " es una palabra de la gramatica, no el "
                         + "nombre de una variable.");
             }
-            Simbolo operador = exigir(Clase.OPERADOR,
+            Simbolo simbolo = exigir(Clase.OPERADOR,
                     "Se esperaba ==, !=, >, >=, < o <= despues de " + entreComillas(ruta.texto()) + ".");
+            Operador operador = Operador.delSimbolo(simbolo.texto()).orElseThrow();
             Simbolo valor = valor(ruta);
-            if (RELACIONALES.contains(operador.texto()) && !esNumeroOFecha(valor)) {
+            if (operador.ordena() && !esNumeroOFecha(valor)) {
                 throw new CondicionMalEscrita("Los operadores >, >=, < y <= solo comparan numeros o fechas, y "
                         + entreComillas(valor.texto()) + " no lo es.");
             }
+            return new Condicion.Comparacion(ruta.texto(), operador, literal(valor), comoSeEscribio(valor));
         }
 
         private Simbolo valor(Simbolo ruta) {
@@ -227,26 +238,26 @@ final class GramaticaDeCondiciones {
             return simbolos.get(i++);
         }
 
+        /**
+         * Un nombre sin comillas a la derecha es una constante que se compara como texto: {@code APPROVED} y
+         * {@code 'APPROVED'} son lo mismo, que es como estaban escritas las condiciones antes de que corrieran.
+         */
+        private static Object literal(Simbolo valor) {
+            if (valor.es(Clase.NUMERO)) {
+                return new BigDecimal(valor.texto());
+            }
+            if (valor.es(Clase.NOMBRE) && (valor.texto().equals("true") || valor.texto().equals("false"))) {
+                return Boolean.valueOf(valor.texto());
+            }
+            return valor.texto();
+        }
+
+        private static String comoSeEscribio(Simbolo valor) {
+            return valor.es(Clase.TEXTO) ? "'" + valor.texto() + "'" : valor.texto();
+        }
+
         private static boolean esNumeroOFecha(Simbolo valor) {
-            return valor.es(Clase.NUMERO) || (valor.es(Clase.TEXTO) && esFecha(valor.texto()));
-        }
-
-        private static boolean esFecha(String texto) {
-            try {
-                LocalDate.parse(texto);
-                return true;
-            } catch (DateTimeParseException noEsUnaFecha) {
-                return esFechaConHora(texto);
-            }
-        }
-
-        private static boolean esFechaConHora(String texto) {
-            try {
-                LocalDateTime.parse(texto);
-                return true;
-            } catch (DateTimeParseException noEsUnaFecha) {
-                return false;
-            }
+            return valor.es(Clase.NUMERO) || (valor.es(Clase.TEXTO) && Operador.comoFecha(valor.texto()).isPresent());
         }
 
         private Simbolo exigir(Clase clase, String queja) {

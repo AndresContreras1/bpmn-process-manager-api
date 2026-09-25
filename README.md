@@ -58,6 +58,10 @@ order, where decisions are made, and what information is exchanged with customer
 (Business Process Model and Notation), the standard notation for business processes (ISO/IEC 19510), so any analyst
 can read them.
 
+A published model is not only a drawing: orders run on it. Opening a case walks the diagram step by step, leaves
+each task in the tray of the role that has to do it, and takes the decisions the gateways describe, so the picture
+on the wall and what the store actually does are the same thing.
+
 ### Who it is for
 
 | Audience | What they get |
@@ -82,6 +86,9 @@ can read them.
 | Correlation key | The value that ties together the messages of one case | `orderId` |
 | Diagnosis | What a diagram gets wrong against the modeling rules: errors and warnings, each one pointing at an element | *Nothing leads to "Pick and pack items"* |
 | Published version | The diagram frozen the day it was published. It does not change when the model does: what is edited afterwards is the draft | Version 2 of *Order fulfillment* |
+| Case | One run of a published version, from start to end | Order `ORD-1001` |
+| Task | A step of a case that waits for a person, in the tray of its lane's role | *Pick and pack items* of `ORD-1001`, waiting for Warehouse |
+| Case variables | What the case knows, and what the conditions of its gateways read | `payment.status`, `order.total` |
 
 ## How it works
 
@@ -109,8 +116,12 @@ can read them.
 8. **Share.** An administrator can give a partner company on the platform read-only access to a process, for example
    a logistics provider that needs to see how orders are handed over. The guest reads the version in force, never
    the half-finished draft.
-9. **Keep track.** Every change is recorded in the process history with its author and date. Deleted items are
-   retired, not erased, so the record stays complete.
+9. **Run it.** With a version published, an order is opened as a case. It walks the diagram on its own until it
+   needs somebody: each activity done by a person waits in the tray of its role, and completing it moves the case
+   on. Gateways decide with the variables of the case, and everything that happens is written down, so a case that
+   stops can be read instead of guessed at.
+10. **Keep track.** Every change is recorded in the process history with its author and date. Deleted items are
+    retired, not erased, so the record stays complete.
 
 The web app in [`frontend/`](frontend/) covers signing in, store registration, the account page, the process list,
 detail and forms, publishing, and a diagram viewer. Modeling the diagram itself is done through the
@@ -165,6 +176,10 @@ The [diagnosis](#diagnosis) of this process answers no errors and one warning on
 is marked as the default one, so an answer that is neither approved nor declined would leave the order with no
 path. Marking the rejection as the default flow clears it, and it is there to be seen.
 
+This process starts with a message, so an order of it is opened by sending *Order placed* and not by hand, which is
+what the [messaging](#running-a-process) will bring. A process that starts with a plain start event can be run
+today, end to end.
+
 ## Roles and permissions
 
 | Capability | Administrator | Editor | Read-only |
@@ -176,6 +191,9 @@ path. Marking the rejection as the default flow clears it, and it is there to be
 | Manage process roles | ✓ | — | — |
 | Manage users | ✓ | — | — |
 | Share a process with a partner company | ✓ | — | — |
+| Watch cases, their timeline and the tray | ✓ | ✓ | ✓ |
+| Open a case, complete and take a task, cancel a case | ✓ | ✓ | — |
+| Correct the variables of a case and retry it | ✓ | — | — |
 
 Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
 `SOLO_ADMINISTRADOR`, only administrators create and edit them, and editors keep modeling everything inside a lane.
@@ -196,6 +214,9 @@ or having it reset, closes them too.
 | No duplicates on retries | A create request that is retried with the same idempotency key, for example after a network failure, creates the item only once. |
 | Always-valid models | The modeling rules are checked on every change, not only when a process is published. |
 | What is published does not move | Publishing saves the diagram as a version that never changes. The model keeps being editable, the process says when the draft is ahead of it, and a partner store always reads what was published. |
+| A case runs on the version it was opened with | Publishing a new version does not move an order that is already running: it finishes on the diagram it started with. |
+| One task, one person | Two people completing the same task at the same time do not complete it twice: the second is told it is already done. |
+| A case that stops says why | Every decision, task and missing variable is written down in order, so an order that did not move can be read and rescued instead of started over. |
 | Complete history | Every change keeps its author and date, and deleted items stay on record. The store reads its own history: users, roles, processes and its registration, in one place. |
 | Nothing breaks by surprise | A diagram can be checked against the rules at any moment, and before deleting anything it says what would go with it and what would be left without a path. |
 | A second opinion | A model can review a diagram and point out what is missing, such as a decision with no alternative path. It only advises: nothing is changed without a person. |
@@ -272,6 +293,11 @@ folder deletes what the scenario created, children first.
 The scenario tours the endpoints rather than finishing a model, so its diagram stays incomplete on purpose:
 publishing it answers `409` with what the diagnosis found, which is the rule at work. To see a published process,
 use the demo store of the `dev` profile, where *Order fulfillment* starts published as version 1.
+
+The *Operacion simulada* folder is the one part that needs a finished model: a case runs on a published version, so
+those requests answer `409` until the diagram passes the diagnosis and is published, and they need a plain start
+event, because a process that starts with a message is opened by sending that message. It is there to document the
+shape of every request of the operation.
 
 ### Docker
 
@@ -367,6 +393,9 @@ entries in Spanish.
 | `Mensaje` | Message flow | Process | Sending and receiving pool, content, the nodes it is anchored to, how it travels (`CORREO`, `SERVICIO_WEB`, `COLA`), what the process does if it fails (`CONTINUAR`, `MANEJAR_ERROR`, `FINALIZAR`), the fields it carries, the name its body takes among the case variables, and the message that answers it |
 | `Correlacion` | Correlation key | Message | The criterion that correlates the message, the field of the body that carries it, and what to do with a message that matches no open case |
 | `HistorialCambio` | History entry | Process | Description, author and date |
+| `Caso` | Case | Store | The process and the published version it runs on, the reference its messages are matched by, state (`ABIERTO`, `TERMINADO`, `CANCELADO`, `FALLIDO` or `ERROR`) and the case variables as JSON |
+| `ActividadCaso` | Step of a case | Case | The node of the version it went through, copied by id and by name, its kind, the process role of its lane, state (`PENDIENTE`, `EN_ESPERA`, `COMPLETADA`, `FALLIDA` or `OMITIDA`), how many tokens have reached it, who took it and what they handed over |
+| `EventoCaso` | Timeline entry | Case | What happened, when, and who caused it. Only inserted |
 
 Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory `empresa_id` that cannot be updated.
 Activities, gateways and events share one table through single-table inheritance, so a sequence flow can point to
@@ -532,6 +561,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Store history and settings | `GET /api/v1/empresas/actual/historial` · `GET, PUT /api/v1/empresas/actual/configuracion` |
 | Passwords | `POST /api/v1/auth/password` · `POST /api/v1/usuarios/{id}/restablecer-clave` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
+| Cases | `POST /api/v1/procesos/{procesoId}/casos` · `GET /api/v1/casos` · `GET /api/v1/casos/{id}` · `GET /api/v1/casos/{id}/eventos` · `POST /api/v1/casos/{id}/cancelar` · `PATCH /api/v1/casos/{id}/variables` · `POST /api/v1/casos/{id}/reintentar` |
+| Tasks | `GET /api/v1/tareas` · `GET /api/v1/tareas/{id}` · `POST /api/v1/tareas/{id}/completar` · `POST /api/v1/tareas/{id}/asignar` |
 
 `GET /api/v1/procesos/{id}/diagrama` returns everything a client needs to draw a process: the process and flat lists
 of pools, lanes, activities, gateways, events, sequence flows, message flows and correlation keys, linked by id.
@@ -644,8 +675,64 @@ curl -s http://localhost:8080/api/v1/procesos/1/versiones/1/diagrama -H "Authori
 ```
 
 A version that should not be used any more is retired by an administrator with
-`PATCH /api/v1/procesos/{id}/versiones/{n}` and `{ "estado": "RETIRADA" }`. Nothing is deleted: when processes are
-executed, the cases that were opened with a version will be read against it.
+`PATCH /api/v1/procesos/{id}/versiones/{n}` and `{ "estado": "RETIRADA" }`. Nothing is deleted: the cases that were
+opened with a version are read against it.
+
+### Running a process
+
+A case is one run of a published version: an order. It is opened on the version in force, with the reference its
+messages will be matched by and whatever the process already knows about it, and from there it walks the diagram
+on its own until it needs somebody.
+
+```bash
+# Open an order on the version in force
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/casos -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"referencia":"ORD-1001","variables":{"payment":{"status":"APPROVED"}}}'
+
+# What the store is waiting for, and who has to do it
+curl -s "http://localhost:8080/api/v1/tareas?rolProcesoId=2" -H "Authorization: Bearer $TOKEN"
+
+# Complete it; whatever is handed over lands in the case variables under tarea.pickAndPackItems
+curl -s -X POST http://localhost:8080/api/v1/tareas/77/completar -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"datos":{"packedItems":3}}'
+
+# The case with the steps it went through, and its timeline
+curl -s http://localhost:8080/api/v1/casos/42 -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/casos/42/eventos -H "Authorization: Bearer $TOKEN"
+```
+
+What each node does when a case reaches it:
+
+| Node | What happens |
+|---|---|
+| Start event | Completes at once and puts one token on each of its outgoing flows |
+| Activity done by a person | Waits in the tray of its lane's process role until someone completes it |
+| Activity done by the store, or one that exchanges a message | Completes at once. Sending and waiting for the message arrives with the messaging |
+| Exclusive gateway that splits | Takes the first outgoing flow whose condition holds, in the order they were given; if none does, the default one |
+| Inclusive gateway that splits | Takes every outgoing flow whose condition holds; if none does, the default one |
+| Parallel gateway that splits | Takes all of them at once |
+| Parallel gateway that merges | Waits until as many tokens have arrived as there are flows coming in |
+| Inclusive gateway that merges | Waits while any other live token of the case can still reach it |
+| Exclusive gateway that merges | Does not synchronize: every token that arrives goes on |
+| End event | Consumes its token. When the last live token of the case dies, the case is finished |
+| Anything in another participant | Is not run: the other pools are partners or black boxes, and what they draw inside is documentation |
+
+**Conditions.** A gateway decides with the conditions written on its outgoing flows, in a small language of its own:
+a variable of the case, one of `==`, `!=`, `>`, `>=`, `<` and `<=`, and a value, combined with `and`, `or`, `not`
+and brackets. `payment.status == APPROVED` and `order.total > 5000 and order.vip == true` are conditions. There are
+no function calls, no assignments and no access to anything but the variables, so a condition written by a user
+cannot run code. It is the same language the diagnosis checks when publishing: a condition that is published is a
+condition that runs.
+
+A variable the case does not have makes its comparison false and leaves a note in the timeline. If that leaves a
+gateway with nowhere to go, the case stops in `ERROR` with the gateway that found no path written down. An
+administrator corrects the variables with `PATCH /api/v1/casos/{id}/variables` and `POST /api/v1/casos/{id}/reintentar`
+evaluates that gateway again. A case can also be cancelled, which switches off its live tokens; nothing is deleted.
+
+**Variables.** They are the JSON the case carries: what was passed when it was opened, and, under
+`tarea.<taskNameInCamel>`, whatever each person handed over when completing a task. `caso.referencia` and
+`caso.tick` are always readable and come from the case itself.
 
 ### AI review
 
@@ -773,10 +860,10 @@ A business rule that the request would break answers `409` with the reason in `d
 
 ### Modules
 
-The code is split into two business modules and two shared packages, and the four of them stack: `common`
-depends on nobody, `gestion` on `common`, `security` on both, and `modelado` on all three. Each business module is
-layered as controller → service interface → service implementation → repository → model, with `dto` for the
-module's contract and `mapper` for the MapStruct translations.
+The code is split into three business modules and two shared packages, and the five of them stack: `common`
+depends on nobody, `gestion` on `common`, `security` on both, `modelado` on the three, and `ejecucion` on all of
+them. Each business module is layered as controller → service interface → service implementation → repository →
+model, with `dto` for the module's contract and `mapper` for the MapStruct translations.
 
 | Package | Responsibility |
 |---|---|
@@ -784,6 +871,7 @@ module's contract and `mapper` for the MapStruct translations.
 | `security` | Filter chain, the authentication endpoints, login and its rate limit, JWT issuing and validation, closed sessions, `401` and `403` handlers, CORS |
 | `gestion` | Management: stores, users and their sessions, processes, process roles and change history |
 | `modelado` | BPMN modeling: pools, lanes, activities, gateways, sequence flows, message flows and correlation keys |
+| `ejecucion` | Running a published version: cases, the steps they go through, the tray of tasks, the timeline and the engine that moves them |
 
 ### Request lifecycle
 
@@ -805,10 +893,16 @@ Publishing works the same way: `gestion` owns the versions but not the diagram, 
 `DiagnosticoDelModelo` and `InstantaneaDelModelo` ports for the errors that block publishing and for the diagram to
 freeze.
 
+`ejecucion` sits on top of all of them: it reads the published version through the service that owns it and the
+diagram through the DTOs that `modelado` already answers with, and nothing below ever looks back at it, which
+another ArchUnit rule checks. The language of the conditions is the one thing both sides need — the diagnosis to
+refuse publishing one that does not compile, the engine to evaluate it — so it lives in `common` rather than in
+either of them.
+
 The same rule holds one level up. What every module needs — the store, the access role and the identity of whoever
 is calling — lives in `common`, so nothing has to reach sideways for it, and the authentication endpoints live with
-the rest of `security` instead of with the management of the store. An ArchUnit rule checks that the four packages
-keep stacking, at the top level and inside each module.
+the rest of `security` instead of with the management of the store. An ArchUnit rule checks that the packages keep
+stacking, at the top level and inside each module.
 
 ## Quality and testing
 
@@ -816,19 +910,19 @@ keep stacking, at the top level and inside each module.
 ./mvnw verify
 ```
 
-The build runs 750 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 959 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
-| Architecture (ArchUnit) | 33 | Layering, module boundaries and cycles between packages at both levels, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 143 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 232 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
-| Repository slices (`@DataJpaTest`) | 37 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, and the versions, with one number per process and a whole diagram in the column |
-| Security and isolation (`@SpringBootTest`) | 198 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Architecture (ArchUnit) | 35 | Layering, module boundaries and cycles between packages at both levels, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
+| Controller slices (`@WebMvcTest`) | 167 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 362 | Business rules of the three modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the language of the conditions, compiled and evaluated, operator by operator; the graph a published version turns into; the engine, with one test per row of the table of what each node does, on diagrams built in memory; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
+| Repository slices (`@DataJpaTest`) | 50 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, the versions, with one number per process and a whole diagram in the column, and the named queries of the execution, which do not exist as code: a renamed one does not start the application |
+| Security and isolation (`@SpringBootTest`) | 229 | The two-store IDOR suite, one block of it for cases, tasks and their timeline, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 32 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 73 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
+| Module integration (`@SpringBootTest`) | 82 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history, the BPMN consistency rules, an order from opening to finishing through both trays, and two people completing the same task at the same time |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
-| PostgreSQL 16 (Testcontainers) | 38 | What only the production engine can answer: the partial unique indexes behind the name of a process and the pair of nodes of a flow, which H2 has to replace with a generated column, and the `text` column that holds a published diagram. The migration, repository, version and publishing suites run again here, unchanged, and the context starts with `validate`, so every entity is checked against the schema Flyway leaves behind |
+| PostgreSQL 16 (Testcontainers) | 47 | What only the production engine can answer: the partial unique indexes behind the name of a process and the pair of nodes of a flow, which H2 has to replace with a generated column, and the `text` columns that hold a published diagram and the variables of a case. The migration, repository, version, publishing and execution suites run again here, unchanged, and the context starts with `validate`, so every entity is checked against the schema Flyway leaves behind |
 
 The PostgreSQL row is the only one `./mvnw verify` does not run: it needs a Docker daemon, and a build that
 depends on one is a build that breaks on the laptop of whoever does not have it. Those tests carry the
@@ -877,6 +971,26 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
   modeling service to know about versions; a snapshot never changes, so it is also the obvious candidate for a
   second-level cache. What tells two versions apart is the SHA-256 fingerprint of the diagram reduced to what draws
   it, so saving without changing anything does not count as a change.
+- **A case is a list of steps, not a table of tokens.** Every time a case goes through a node it leaves a row with
+  the name the node had and its state, so reading a case is reading where it has been. The live tokens are the rows
+  that are still pending or waiting, and the tray of tasks is a query over them. A table of marks would be exact and
+  unreadable.
+- **A row lock guards a case, not a version number.** Completing a task, receiving a message and moving the clock
+  can all touch the same case, and they touch different rows of it, so optimistic locking would let two of them
+  through. Every operation that moves a case starts by locking its row, and whoever completes a task locks the case
+  **before** reading the task: the other way round, the second person would keep the state they read before waiting
+  and complete it twice.
+- **Conditions have their own language.** What is written on a flow is written by a user, so it is read with a
+  grammar of the project's own — variables, six comparators, `and`, `or`, `not` and brackets — and never with SpEL
+  or a script engine, which would let that text call methods. The same parser answers the diagnosis when publishing
+  and the engine when running, so a condition that publishes is a condition that runs, and an ArchUnit rule keeps
+  anything that executes code out of the build.
+- **A missing variable is false, and says so.** A comparison over a variable the case does not have is false rather
+  than an error, and leaves a note in the timeline. An order does not fall over because a partner sent one field
+  less; it stops at the gateway that has nowhere to go, with the reason written down.
+- **The queries of the execution are named queries.** The reads the operation depends on live on the entity as
+  `@NamedQuery`, so a renamed one fails to start the application and its test, instead of failing a request on a
+  Tuesday afternoon.
 - **Single-table inheritance for flow nodes.** Activities and gateways share one table and one identity, so sequence
   flows can point to either of them.
 - **Soft delete everywhere.** Processes and process roles carry their own `activo` flag. BPMN elements use Hibernate's
@@ -950,6 +1064,14 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] Full OpenAPI documentation (`@Tag`, `@Operation`, `@ApiResponse`, `@Schema`), not published in production
 - [x] Field-level validation errors in Problem Details
 - [x] Aggregate endpoint that returns a complete BPMN diagram for the back-office web app
+
+**Running processes**
+- [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline
+- [x] A condition language of its own, checked when publishing and evaluated when running, that cannot execute code
+- [x] A row lock per case, so two people completing the same task do not complete it twice
+- [ ] Messaging and a simulation clock: sending, correlating and waiting for the messages the diagram declares
+- [ ] Simulated partners for payments, shipping and notifications, deterministic by store and seed
+- [ ] An operations dashboard: cases by state, cycle time and open tasks per role
 
 **Beyond the model**
 - [x] Deterministic diagnosis of a diagram, with its own catalogue of errors and warnings and a what-if for a deletion

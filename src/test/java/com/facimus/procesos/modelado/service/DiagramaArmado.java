@@ -125,8 +125,14 @@ public class DiagramaArmado {
     }
 
     public Long lane(String pool, String nombre) {
+        return lane(pool, nombre, null);
+    }
+
+    /** Con el rol de proceso de la lane, que es el rol en cuya bandeja caen las tareas de sus nodos. */
+    public Long lane(String pool, String nombre, Long rolProcesoId) {
         Long id = registrar(nombre);
-        lanes.add(new LaneResponse(id, nombre, lanes.size(), id(pool), null, null, 0L, null, null, null, null));
+        lanes.add(new LaneResponse(id, nombre, lanes.size(), id(pool), rolProcesoId, nombre, 0L, null, null, null,
+                null));
         return id;
     }
 
@@ -154,6 +160,18 @@ public class DiagramaArmado {
 
     public void arcoCon(String origen, String destino, String condicion) {
         nuevoArco(origen, destino, condicion, false);
+    }
+
+    /** Con la etiqueta que se le puso al dibujarlo, que es como lo nombra quien mira el diagrama. */
+    public void arcoConEtiqueta(String origen, String destino, String etiqueta, String condicion) {
+        arcos.add(new ArcoResponse(siguienteId(), etiqueta, condicion, false, 0, id(origen), id(destino), id(TIENDA),
+                0L, null, null, null, null));
+    }
+
+    /** Con el orden en que el gateway lo evalua; sin el, todos valen 0 y desempata el id. */
+    public void arcoCon(String origen, String destino, String condicion, int orden) {
+        arcos.add(new ArcoResponse(siguienteId(), null, condicion, false, orden, id(origen), id(destino), id(TIENDA),
+                0L, null, null, null, null));
     }
 
     public void arcoPorDefecto(String origen, String destino) {

@@ -101,6 +101,26 @@
 			"key": "refreshToken",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "casoId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "casoACancelarId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "casoVersion",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "tareaId",
+			"value": "",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -1300,7 +1320,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"origenId\": {{actividadId}},\n  \"destinoId\": {{gatewayId}},\n  \"etiqueta\": \"picked\",\n  \"condicion\": \"Picking finished\"\n}"
+							"raw": "{\n  \"origenId\": {{actividadId}},\n  \"destinoId\": {{gatewayId}},\n  \"etiqueta\": \"picked\",\n  \"condicion\": \"stock.disponible == true\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/arcos",
@@ -1351,7 +1371,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"etiqueta\": \"in stock\",\n  \"condicion\": \"stock >= quantity\",\n  \"version\": {{version}}\n}"
+							"raw": "{\n  \"etiqueta\": \"in stock\",\n  \"condicion\": \"stock.unidades >= 1\",\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/arcos/{{arcoId}}",
@@ -1903,6 +1923,290 @@
 							"path": ["api", "v1", "usuarios", "{{usuarioTemporalId}}", "restablecer-clave"]
 						},
 						"description": "El administrador le da otra clave temporal, que se responde una sola vez, y lo echa de donde estuviera. Solo administrador."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Operacion simulada",
+			"description": "Correr el proceso publicado: abrir un pedido, trabajarlo desde la bandeja de su rol y verlo terminar. Pide un proceso publicado cuyo evento de inicio sea INICIO; uno que empieza con un mensaje se abre mandando ese mensaje, que llega con la mensajeria. Los casos no se borran, asi que esta carpeta cierra los dos que abre: el primero termina solo y el segundo se cancela.",
+			"item": [
+				{
+					"name": "Abrir un caso",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('casoId', json.id);",
+									"    pm.collectionVariables.set('casoVersion', json.version);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"referencia\": \"ORD-1001\",\n  \"variables\": {\n    \"payment\": {\n      \"status\": \"APPROVED\"\n    },\n    \"order\": {\n      \"total\": 150\n    }\n  }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/casos",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "casos"]
+						},
+						"description": "Abre un pedido sobre la version vigente y lo avanza hasta donde llegue, normalmente hasta la primera tarea de una bandeja. La referencia es con lo que despues se encuentran sus mensajes, y las variables son lo que ya se sabe del pedido: las condiciones de los gateways las leen. Administrador y editor."
+					},
+					"response": []
+				},
+				{
+					"name": "Listar los casos del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/casos?procesoId={{procesoId}}&pagina=0&tamano=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "casos"],
+							"query": [
+								{ "key": "procesoId", "value": "{{procesoId}}" },
+								{ "key": "pagina", "value": "0" },
+								{ "key": "tamano", "value": "20" }
+							]
+						},
+						"description": "Los pedidos del proceso, del mas nuevo al mas viejo. Tambien filtra por estado y por la referencia exacta de un pedido. Cualquier rol."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver el caso",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.collectionVariables.set('casoVersion', pm.response.json().caso.version);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/casos/{{casoId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "casos", "{{casoId}}"]
+						},
+						"description": "El caso con los pasos por los que ha ido y las variables con las que deciden sus gateways. Cualquier rol."
+					},
+					"response": []
+				},
+				{
+					"name": "Linea de tiempo del caso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/casos/{{casoId}}/eventos",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "casos", "{{casoId}}", "eventos"]
+						},
+						"description": "Lo que le paso al caso, en el orden en que paso: cada decision, cada tarea y cada variable que una condicion pidio y no estaba. Es lo que se lee cuando un pedido no se movio. Cualquier rol."
+					},
+					"response": []
+				},
+				{
+					"name": "Bandeja de tareas",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var pagina = pm.response.code === 200 ? pm.response.json().content : [];",
+									"if (pagina.length > 0) {",
+									"    pm.collectionVariables.set('tareaId', pagina[0].id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tareas?rolProcesoId={{rolId}}&pagina=0&tamano=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tareas"],
+							"query": [
+								{ "key": "rolProcesoId", "value": "{{rolId}}" },
+								{ "key": "pagina", "value": "0" },
+								{ "key": "tamano", "value": "20" }
+							]
+						},
+						"description": "Las tareas que esperan a alguien, opcionalmente las de un rol de proceso o las de un proceso. Con estado=COMPLETADA se mira lo que ya se hizo. Cualquier rol."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver la tarea",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tareas/{{tareaId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tareas", "{{tareaId}}"]
+						},
+						"description": "La tarea con el caso y el proceso de los que viene. Cualquier rol."
+					},
+					"response": []
+				},
+				{
+					"name": "Reservar la tarea",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": \"{{usuarioId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tareas/{{tareaId}}/asignar",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tareas", "{{tareaId}}", "asignar"]
+						},
+						"description": "Una nota para el equipo: la bandeja la sigue viendo el rol entero y completarla no exige tenerla reservada. Sin usuarioId vuelve a quedar libre. Administrador y editor."
+					},
+					"response": []
+				},
+				{
+					"name": "Completar la tarea",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"datos\": {\n    \"packedItems\": 3,\n    \"notes\": \"Todo en orden\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tareas/{{tareaId}}/completar",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tareas", "{{tareaId}}", "completar"]
+						},
+						"description": "Completa la tarea y deja que el caso siga. Lo que se entrega entra a las variables del caso bajo tarea.<nombre del nodo en camello>, asi que un gateway posterior puede preguntar por ello. Una tarea se completa una sola vez. Administrador y editor."
+					},
+					"response": []
+				},
+				{
+					"name": "Corregir las variables del caso",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"variables\": {\n    \"payment\": {\n      \"status\": \"APPROVED\"\n    }\n  },\n  \"version\": \"{{casoVersion}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/casos/{{casoId}}/variables",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "casos", "{{casoId}}", "variables"]
+						},
+						"description": "Reemplaza las variables del caso. Es lo que rescata un pedido que se quedo sin camino porque le faltaba lo que un gateway preguntaba. Solo administrador."
+					},
+					"response": []
+				},
+				{
+					"name": "Reintentar el caso",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/casos/{{casoId}}/reintentar",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "casos", "{{casoId}}", "reintentar"]
+						},
+						"description": "Vuelve a evaluar el gateway que dejo el caso en ERROR, con las variables que tenga ahora. Un caso que no esta en error responde 409. Solo administrador."
+					},
+					"response": []
+				},
+				{
+					"name": "Abrir un caso para cancelarlo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    pm.collectionVariables.set('casoACancelarId', pm.response.json().id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"referencia\": \"ORD-1002\",\n  \"variables\": {}\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/casos",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "casos"]
+						},
+						"description": "Otro pedido, para ver que hace cancelar sin tocar el primero. Administrador y editor."
+					},
+					"response": []
+				},
+				{
+					"name": "Cancelar el caso",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/casos/{{casoACancelarId}}/cancelar",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "casos", "{{casoACancelarId}}", "cancelar"]
+						},
+						"description": "Cierra el caso antes de tiempo: sus tokens vivos se apagan y no vuelve a moverse. No se borra nada, y un caso ya cerrado responde 409. Administrador y editor."
 					},
 					"response": []
 				}
