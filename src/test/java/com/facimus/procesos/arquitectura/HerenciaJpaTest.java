@@ -35,15 +35,20 @@ class HerenciaJpaTest {
             .should(tenerInheritanceSingleTable())
             .because("Consolidado: NodoFlujo usa SINGLE_TABLE, 3 subtipos con pocos campos");
 
+    /**
+     * La regla mira solo el modelo de modelado: la ejecucion tiene sus propias entidades que empiezan igual
+     * (ActividadCaso, EventoCaso) y no son nodos del diagrama, sino pasos de un caso por uno de ellos.
+     */
     @ArchTest
     static final ArchRule subtipos_extienden_NodoFlujo = classes()
             .that().haveSimpleNameStartingWith("Actividad")
             .or().haveSimpleNameStartingWith("Gateway")
             .or().haveSimpleNameStartingWith("Evento")
-            .and().resideInAPackage("..model..")
+            .and().resideInAPackage("..modelado.model..")
             .and().areAnnotatedWith(Entity.class)
             .should().beAssignableTo(NodoFlujo.class)
             .because("Actividad, Gateway y Evento son los unicos subtipos de NodoFlujo");
+
     @ArchTest
     static final ArchRule subtipos_declaran_su_borrado = classes()
             .that().areAssignableTo(NodoFlujo.class)

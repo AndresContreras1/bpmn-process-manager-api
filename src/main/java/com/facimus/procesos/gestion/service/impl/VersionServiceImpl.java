@@ -85,6 +85,17 @@ public class VersionServiceImpl implements VersionService {
                 .map(VersionProceso::getDefinicion);
     }
 
+    /**
+     * Pasa por el proceso a proposito: uno de otra tienda, o eliminado, no tiene version vigente aunque sus filas
+     * sigan ahi. Asi la puerta de abrir un caso responde 404 antes de mirar nada mas.
+     */
+    @Override
+    public Optional<VersionProceso> vigente(Long empresaId, Long procesoId) {
+        exigirProceso(empresaId, procesoId);
+        return versionProcesoRepository.findFirstByProcesoIdAndEmpresaIdAndEstadoOrderByNumeroDesc(procesoId,
+                empresaId, EstadoVersion.VIGENTE);
+    }
+
     @Override
     @Transactional
     public VersionResponse retirar(Long empresaId, Long procesoId, int numero, Long usuarioId) {
