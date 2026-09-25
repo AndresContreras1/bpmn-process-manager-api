@@ -38,6 +38,14 @@ class SemillaDeterministaTest {
     }
 
     @Test
+    @DisplayName("Una tasa baja le toca a pocos y una alta a muchos: la tasa se aplica en el sentido que dice")
+    void laTasa_seAplicaEnSuSentido() {
+        assertThat(cuantosLesToca(10)).isLessThan(25);
+        assertThat(cuantosLesToca(90)).isGreaterThan(75);
+        assertThat(cuantosLesToca(10)).isLessThan(cuantosLesToca(90));
+    }
+
+    @Test
     @DisplayName("Con una tasa del cincuenta por ciento, cien pedidos no corren todos la misma suerte")
     void casosDistintos_noCorrenLaMismaSuerte() {
         long tocados = IntStream.range(0, 100)
@@ -58,6 +66,12 @@ class SemillaDeterministaTest {
 
         assertThat(conUna).isNotEqualTo(conOtra).isNotEqualTo(conOtroMensaje);
         assertThat(conUna).isEqualTo(decisiones(42L, MENSAJE));
+    }
+
+    private static long cuantosLesToca(int tasa) {
+        return IntStream.range(0, 100)
+                .filter(caso -> SemillaDeterminista.leToca(42L, (long) caso, MENSAJE, tasa))
+                .count();
     }
 
     private static List<Boolean> decisiones(long semilla, String mensaje) {

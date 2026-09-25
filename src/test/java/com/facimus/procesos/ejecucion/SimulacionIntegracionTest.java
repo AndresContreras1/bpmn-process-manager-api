@@ -122,6 +122,23 @@ class SimulacionIntegracionTest {
     }
 
     @Test
+    @DisplayName("Un mensaje vence cuando su socio dice que tarda, no cuando le toca a cualquiera")
+    void elVencimiento_loDiceElSocio() {
+        conRespuestaDePagosEn(4);
+        Long procesoId = tienda.publicar(empresaId, adminId, "Order fulfillment with a slow gateway");
+        Long casoId = unPedidoEsperandoLaPasarela(procesoId, "ORD-1700");
+
+        MensajeSalienteResponse saliente = mensajeriaService.salientesDelCaso(empresaId, casoId).getFirst();
+
+        assertThat(saliente.tickEntrega()).isEqualTo(saliente.tickCreacion() + 4);
+        simulacionService.tick(empresaId, 1);
+        assertThat(casoService.obtener(empresaId, casoId).caso().estado()).isEqualTo(EstadoCaso.ABIERTO);
+        simulacionService.tick(empresaId, 3);
+        assertThat(casoService.obtener(empresaId, casoId).caso().estado()).isEqualTo(EstadoCaso.TERMINADO);
+        conRespuestaDePagosEn(1);
+    }
+
+    @Test
     @DisplayName("El panel dice en que tick va la tienda y que queda pendiente, por socio")
     void elPanel_cuentaLoQueQueda() {
         Long procesoId = tienda.publicar(empresaId, adminId, "Order fulfillment on the dashboard");
@@ -235,6 +252,14 @@ class SimulacionIntegracionTest {
                 .hasMessageContaining("entre 1 y 100");
         assertThatThrownBy(() -> simulacionService.tick(empresaId, 101))
                 .isInstanceOf(ReglaNegocioException.class);
+    }
+
+    /** Fija cuantos ticks tarda la pasarela en contestar. */
+    private void conRespuestaDePagosEn(int ticks) {
+        ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(empresaId);
+        configuracionTiendaService.editar(empresaId, adminId, antes.politicaEstructura(), null,
+                ParametrosSimulacion.builder().ticksRespuestaPagos(ticks).tasaRechazoPagos(0).build(),
+                antes.version());
     }
 
     /** Fija cuantas notificaciones de cada cien no llegan. */

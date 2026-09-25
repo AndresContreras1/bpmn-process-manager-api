@@ -14,16 +14,13 @@ final class SemillaDeterminista {
     }
 
     /**
-     * Si a este mensaje de este caso le toca, con una tasa de 0 a 100. Cero no le toca a nadie y cien le toca a
-     * todos sin mirar el hash: son las dos formas de forzar el resultado desde una prueba o desde una demo.
+     * Si a este mensaje de este caso le toca, con una tasa de 0 a 100.
+     *
+     * <p>Los dos extremos salen solos y no necesitan un caso aparte: con tasa cero ningun resto es menor que cero,
+     * y con cien todos lo son. Son las dos formas de forzar el resultado desde una prueba o desde una demo, y
+     * escribirlas a mano seria escribir dos veces lo mismo.
      */
     static boolean leToca(long semilla, Long casoId, String mensaje, int tasa) {
-        if (tasa <= 0) {
-            return false;
-        }
-        if (tasa >= 100) {
-            return true;
-        }
         return Math.floorMod(mezclar(semilla, casoId, mensaje), 100) < tasa;
     }
 
