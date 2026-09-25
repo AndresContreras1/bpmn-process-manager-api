@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.facimus.procesos.common.RepositorioTenant;
+import com.facimus.procesos.ejecucion.dto.response.TareasPorRolResponse;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 
@@ -30,6 +31,26 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
      */
     Page<ActividadCaso> bandejaDeMisRoles(@Param("empresaId") Long empresaId, @Param("roles") List<Long> roles,
             @Param("procesoId") Long procesoId, @Param("estado") EstadoActividadCaso estado, Pageable pagina);
+
+    /**
+     * Las tareas que esperan en cada bandeja, con el nombre del rol. El nombre se trae en la misma consulta: un
+     * tablero con ids no lo lee nadie, y pedirlo aparte seria una consulta por rol.
+     */
+    @Query("""
+            select new com.facimus.procesos.ejecucion.dto.response.TareasPorRolResponse(
+                    a.rolProcesoId, r.nombre, count(a))
+            from ActividadCaso a, com.facimus.procesos.gestion.model.RolProceso r
+            where a.empresa.id = :empresaId
+              and r.id = a.rolProcesoId
+              and a.tipoNodo = com.facimus.procesos.ejecucion.model.TipoNodoCaso.ACTIVIDAD
+              and a.subtipo = 'USUARIO'
+              and a.estado = com.facimus.procesos.ejecucion.model.EstadoActividadCaso.EN_ESPERA
+              and (:procesoId is null or a.caso.proceso.id = :procesoId)
+            group by a.rolProcesoId, r.nombre
+            order by r.nombre
+            """)
+    List<TareasPorRolResponse> tareasPorRol(@Param("empresaId") Long empresaId,
+            @Param("procesoId") Long procesoId);
 
     /** Lo que el motor procesa en esta vuelta, en el orden en que se creo. */
     List<ActividadCaso> findAllByCasoIdAndEmpresaIdAndEstadoOrderByIdAsc(Long casoId, Long empresaId,
