@@ -45,6 +45,7 @@ class EntregaDeMensajes {
     private final CasoRepository casoRepository;
     private final GrafosDeVersion grafos;
     private final SociosSimulados socios;
+    private final ParametrosDeLaTienda parametros;
     private final MensajeriaService mensajeriaService;
     private final MotorDeProcesos motor;
     private final JsonMapper json;
@@ -76,7 +77,8 @@ class EntregaDeMensajes {
         Optional<MensajeDeLaVersion> definicion = grafo.mensajePorNombre(saliente.getNombre());
         RespuestaDelSocio respuesta = socios.paraA(saliente.getIntegracion())
                 .recibir(new MensajeParaElSocio(caso.getId(), saliente.getNombre(), saliente.getClave(),
-                        json.readValue(saliente.getCuerpo(), MAPA), respuestaEsperada(definicion), tick));
+                        json.readValue(saliente.getCuerpo(), MAPA), respuestaEsperada(definicion), tick,
+                        parametros.de(empresaId)));
 
         saliente.setIntentos(saliente.getIntentos() + 1);
         saliente.setEstado(respuesta.entregado() ? EstadoMensajeSaliente.ENTREGADO : EstadoMensajeSaliente.FALLIDO);

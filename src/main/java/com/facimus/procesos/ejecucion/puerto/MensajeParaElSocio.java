@@ -12,7 +12,8 @@ import java.util.Map;
  * @param cuerpo            lo que viaja dentro
  * @param respuestaEsperada como se llama el mensaje con el que el diagrama dice que se contesta, si lo hay
  * @param tick              en que tick del reloj de la tienda le llega
+ * @param parametros        lo que la tienda decidio sobre sus socios
  */
 public record MensajeParaElSocio(Long casoId, String nombre, String clave, Map<String, Object> cuerpo,
-        String respuestaEsperada, int tick) {
+        String respuestaEsperada, int tick, ParametrosDeSimulacion parametros) {
 }

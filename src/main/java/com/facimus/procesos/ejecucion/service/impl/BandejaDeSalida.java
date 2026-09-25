@@ -28,13 +28,9 @@ import tools.jackson.databind.json.JsonMapper;
 @RequiredArgsConstructor
 class BandejaDeSalida {
 
-    /**
-     * Lo que tarda un mensaje en llegar. Es uno para todos mientras los socios sean un eco; cuando cada socio
-     * traiga su latencia, este numero sera el que use el que no diga nada.
-     */
-    static final int LATENCIA = 1;
-
     private final MensajeSalienteRepository mensajeSalienteRepository;
+    private final SociosSimulados socios;
+    private final ParametrosDeLaTienda parametros;
     private final Bitacora bitacora;
     private final JsonMapper json;
 
@@ -66,13 +62,23 @@ class BandejaDeSalida {
                 .cuerpo(json.writeValueAsString(cuerpo))
                 .estado(EstadoMensajeSaliente.PENDIENTE)
                 .tickCreacion(momento.tick())
-                .tickEntrega(momento.tick() + LATENCIA)
+                .tickEntrega(momento.tick() + latenciaDe(caso, mensaje))
                 .intentos(0)
                 .fecha(LocalDateTime.now())
                 .build());
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.MENSAJE_ENVIADO,
                 "\"" + mensaje.nombre() + "\" sale hacia \"" + mensaje.poolDestinoNombre() + "\".");
         return saliente;
+    }
+
+    /**
+     * Cuanto tarda en llegar: lo que tarde el socio que atiende a ese participante. Se pregunta al escribirlo y no
+     * al entregarlo, porque el tick de entrega es lo que decide cuando le toca; cambiar los parametros despues no
+     * adelanta ni atrasa lo que ya salio, que es lo que uno esperaria de algo que ya esta en camino.
+     */
+    private int latenciaDe(Caso caso, MensajeDeLaVersion mensaje) {
+        return Math.max(1, socios.paraA(mensaje.integracion())
+                .latencia(parametros.de(caso.getEmpresa().getId())));
     }
 
     /**

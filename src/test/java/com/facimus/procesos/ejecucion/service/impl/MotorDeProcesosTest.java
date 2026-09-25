@@ -3,6 +3,9 @@ package com.facimus.procesos.ejecucion.service.impl;
 import static com.facimus.procesos.modelado.service.DiagramaArmado.TIENDA;
 import static com.facimus.procesos.modelado.service.DiagramaArmado.VENTAS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,6 +35,10 @@ import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
+import com.facimus.procesos.ejecucion.puerto.MensajeParaElSocio;
+import com.facimus.procesos.ejecucion.puerto.ParametrosDeSimulacion;
+import com.facimus.procesos.ejecucion.puerto.RespuestaDelSocio;
+import com.facimus.procesos.ejecucion.puerto.SocioSimulado;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
@@ -94,8 +101,12 @@ class MotorDeProcesosTest {
     void armarElMotorYLaTienda() {
         JsonMapper json = JsonMapper.builder().build();
         Bitacora bitacora = new Bitacora(eventoCasoRepository);
+        // Al motor le da igual quien atiende al otro lado: lo unico que necesita del socio es cuanto tarda.
+        ParametrosDeLaTienda parametros = mock(ParametrosDeLaTienda.class);
+        given(parametros.de(any())).willReturn(ParametrosDeSimulacion.deFabrica());
         motor = new MotorDeProcesos(actividadCasoRepository,
-                new BandejaDeSalida(mensajeSalienteRepository, bitacora, json), bitacora, json);
+                new BandejaDeSalida(mensajeSalienteRepository, new SociosSimulados(List.of(unSocioQueTardaUnTick())),
+                        parametros, bitacora, json), bitacora, json);
         tienda = em.persistFlushFind(Empresa.builder().nombre("Tienda del motor").nit("900123456-1")
                 .correoContacto("motor@demo.com").fechaRegistro(LocalDate.now()).build());
         proceso = em.persistFlushFind(Proceso.builder().empresa(tienda).nombre("Order fulfillment")
@@ -837,6 +848,27 @@ class MotorDeProcesosTest {
         private List<MensajeSaliente> salientesDe(Caso caso) {
             return mensajeSalienteRepository.findAllByCasoIdAndEmpresaIdOrderByIdAsc(caso.getId(), tienda.getId());
         }
+    }
+
+    /** Un socio de mentira que tarda un tick y no contesta nada: el motor no llega a preguntarle mas. */
+    private static SocioSimulado unSocioQueTardaUnTick() {
+        return new SocioSimulado() {
+
+            @Override
+            public Integracion integracion() {
+                return Integracion.NINGUNA;
+            }
+
+            @Override
+            public int latencia(ParametrosDeSimulacion parametros) {
+                return 1;
+            }
+
+            @Override
+            public RespuestaDelSocio recibir(MensajeParaElSocio mensaje) {
+                return RespuestaDelSocio.llego();
+            }
+        };
     }
 
     /** Completa una tarea como lo hara el service: la marca completada y sigue por sus salidas. */

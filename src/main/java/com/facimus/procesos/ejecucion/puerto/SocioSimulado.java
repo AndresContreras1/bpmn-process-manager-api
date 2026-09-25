@@ -16,6 +16,12 @@ public interface SocioSimulado {
     /** Con que clase de participante habla. El que dice NINGUNA atiende a los que no tienen socio propio. */
     Integracion integracion();
 
+    /**
+     * Cuanto tarda en contestar, en ticks del reloj de la tienda. Se pregunta al escribir el mensaje en la bandeja,
+     * porque es lo que decide en que tick le toca llegar; nunca menos de uno, o contestaria antes de recibir.
+     */
+    int latencia(ParametrosDeSimulacion parametros);
+
     /** Que hace con el mensaje que le llega: si lo da por entregado y que contesta. */
     RespuestaDelSocio recibir(MensajeParaElSocio mensaje);
 }

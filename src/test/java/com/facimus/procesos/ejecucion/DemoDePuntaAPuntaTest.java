@@ -30,7 +30,10 @@ import com.facimus.procesos.ejecucion.service.DatosDelEntrante;
 import com.facimus.procesos.ejecucion.service.MensajeriaService;
 import com.facimus.procesos.ejecucion.service.SimulacionService;
 import com.facimus.procesos.ejecucion.service.TareaService;
+import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
+import com.facimus.procesos.gestion.model.ParametrosSimulacion;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 
 /**
@@ -65,6 +68,9 @@ class DemoDePuntaAPuntaTest {
     private SimulacionService simulacionService;
 
     @Autowired
+    private ConfiguracionTiendaService configuracionTiendaService;
+
+    @Autowired
     private ApplicationContext contexto;
 
     private TiendaConMensajeria demo;
@@ -82,6 +88,7 @@ class DemoDePuntaAPuntaTest {
     @Test
     @DisplayName("Un pedido entero: entra por mensaje, lo mueven dos personas y dos ticks, y sale enviado")
     void unPedido_dePuntaAPunta() {
+        conRechazoDePagos(0);
         Long procesoId = demo.publicarLaDemo(empresaId, adminId, "Order fulfillment end to end");
 
         Long casoId = mensajeriaService.recibir(empresaId, procesoId, DatosDelEntrante.aMano(
@@ -148,6 +155,28 @@ class DemoDePuntaAPuntaTest {
     }
 
     @Test
+    @DisplayName("Con la tasa de rechazo al cien, la pasarela rechaza y el pedido acaba cancelado sin tocar nada")
+    void pasarelaQueRechaza_elPedidoSeCancela() {
+        conRechazoDePagos(100);
+        Long procesoId = demo.publicarLaDemo(empresaId, adminId, "Order fulfillment declined by the gateway");
+        Long casoId = mensajeriaService.recibir(empresaId, procesoId, DatosDelEntrante.aMano(
+                TiendaConMensajeria.PEDIDO, null, Map.of("orderId", "ORD-2004"), null)).casoId();
+        completarLaTarea(procesoId, casoId);
+
+        simulacionService.tick(empresaId, 1);
+
+        CasoDetalleResponse caso = casoService.obtener(empresaId, casoId);
+        assertThat(caso.caso().estado()).isEqualTo(EstadoCaso.TERMINADO);
+        assertThat(caso.pasos()).extracting(PasoDelCasoResponse::nodoNombre)
+                .contains(TiendaConMensajeria.CANCELAR).doesNotContain(TiendaConMensajeria.EMPACAR);
+        assertThat(caso.variables()).extractingByKey("payment").asInstanceOf(
+                        org.assertj.core.api.InstanceOfAssertFactories.map(String.class, Object.class))
+                .containsEntry("status", "DECLINED")
+                .containsEntry("transactionId", "SIM-PAY-" + casoId);
+        conRechazoDePagos(0);
+    }
+
+    @Test
     @DisplayName("El mismo pedido mandado dos veces no abre dos casos, y el segundo lo dice")
     void elMismoPedidoDosVeces_abreUnSoloCaso() {
         Long procesoId = demo.publicarLaDemo(empresaId, adminId, "Order fulfillment sent twice by the customer");
@@ -163,6 +192,13 @@ class DemoDePuntaAPuntaTest {
                 .hasSize(1);
         assertThat(mensajeriaService.bandejaDeEntrada(empresaId, procesoId, ResultadoCorrelacion.CASO_NUEVO,
                 Paginacion.de(0, 10)).content()).hasSize(1);
+    }
+
+    /** Fija cuantos pagos de cada cien rechaza la pasarela; cero y cien son las dos formas de forzar el final. */
+    private void conRechazoDePagos(int tasa) {
+        ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(empresaId);
+        configuracionTiendaService.editar(empresaId, adminId, antes.politicaEstructura(), null,
+                ParametrosSimulacion.builder().tasaRechazoPagos(tasa).build(), antes.version());
     }
 
     /** Lo que el caso tiene delante: el unico paso que sigue vivo, que es donde esta parado. */
