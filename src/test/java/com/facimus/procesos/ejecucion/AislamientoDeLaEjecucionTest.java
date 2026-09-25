@@ -148,7 +148,8 @@ class AislamientoDeLaEjecucionTest {
                 Arguments.of(HttpMethod.POST, "/api/v1/tareas/" + tareaB + "/asignar", "{}",
                         "Tarea no encontrada."),
                 Arguments.of(HttpMethod.POST, "/api/v1/procesos/" + procesoB + "/casos", "{\"referencia\":\"ORD-X\"}",
-                        "Proceso no encontrado."));
+                        "Proceso no encontrado."),
+                Arguments.of(HttpMethod.GET, "/api/v1/casos/" + casoB + "/mensajes", null, "Caso no encontrado."));
     }
 
     @ParameterizedTest(name = "{0} {1}")
@@ -165,6 +166,19 @@ class AislamientoDeLaEjecucionTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Recurso no encontrado"))
                 .andExpect(jsonPath("$.detail").value(detalle));
+    }
+
+    @Test
+    @DisplayName("Las bandejas de mensajes de un proceso de otra tienda salen vacias, no con lo suyo")
+    void bandejasDeMensajes_soloLasDeLaTienda() throws Exception {
+        mockMvc.perform(get("/api/v1/procesos/" + procesoB + "/bandeja-salida")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(get("/api/v1/procesos/" + procesoB + "/bandeja-entrada")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
     }
 
     @Test

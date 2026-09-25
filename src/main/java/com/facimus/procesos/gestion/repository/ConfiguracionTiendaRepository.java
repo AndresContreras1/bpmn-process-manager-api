@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.Query;
@@ -19,4 +20,12 @@ public interface ConfiguracionTiendaRepository extends RepositorioTenant<Configu
      */
     @Query("select c.reloj from ConfiguracionTienda c where c.empresa.id = :empresaId")
     Optional<Integer> relojDe(@Param("empresaId") Long empresaId);
+
+    /** Las tiendas que pidieron que su reloj corriera solo; normalmente ninguna, asi que solo trae los ids. */
+    @Query("""
+            select c.empresa.id from ConfiguracionTienda c
+            where c.modoSimulacion = com.facimus.procesos.gestion.model.ModoSimulacion.AUTOMATICO
+            order by c.empresa.id
+            """)
+    List<Long> empresasEnAutomatico();
 }

@@ -1,5 +1,7 @@
 package com.facimus.procesos.gestion.service;
 
+import java.util.List;
+
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
@@ -21,6 +23,9 @@ public interface ConfiguracionTiendaService {
 
     /** Mueve el reloj de la tienda y devuelve el tick al que llego. */
     int avanzarReloj(Long empresaId, int ticks);
+
+    /** Las tiendas que pidieron que su reloj corriera solo, que son las que el trabajo mueve. */
+    List<Long> tiendasEnAutomatico();
 
     /**
      * R-46: comprueba que ese usuario puede crear o editar pools y lanes en su tienda. Lo llama el modelado, que no

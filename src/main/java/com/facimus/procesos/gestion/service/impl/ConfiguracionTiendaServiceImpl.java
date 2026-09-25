@@ -1,5 +1,7 @@
 package com.facimus.procesos.gestion.service.impl;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -92,6 +94,11 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
         ConfiguracionTienda configuracion = buscar(empresaId);
         configuracion.setReloj(configuracion.getReloj() + ticks);
         return configuracionTiendaRepository.saveAndFlush(configuracion).getReloj();
+    }
+
+    @Override
+    public List<Long> tiendasEnAutomatico() {
+        return configuracionTiendaRepository.empresasEnAutomatico();
     }
 
     @Override
