@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.ejecucion.dto.response.PanelDeSimulacionResponse;
+import com.facimus.procesos.ejecucion.dto.response.PedidosSimuladosResponse;
 import com.facimus.procesos.ejecucion.dto.response.PendientesPorSocioResponse;
 import com.facimus.procesos.ejecucion.service.SimulacionService;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
@@ -102,6 +104,49 @@ class SimulacionControllerTest {
                         .content("{\"ticks\":1}")
                         .with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/simulacion/pedidos - pide la tanda y responde que hizo el proceso con ella (200)")
+    void pedidos_respondeLoQueElProcesoHizo() throws Exception {
+        given(simulacionService.pedidos(1L, 10L, 20, Map.of("channel", "web")))
+                .willReturn(new PedidosSimuladosResponse("Order placed", 20, 20, List.of("SIM-10-1")));
+
+        mockMvc.perform(post("/api/v1/simulacion/pedidos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"procesoId\":10,\"cantidad\":20,\"plantilla\":{\"channel\":\"web\"}}")
+                        .with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mensaje").value("Order placed"))
+                .andExpect(jsonPath("$.pedidos").value(20))
+                .andExpect(jsonPath("$.casosNuevos").value(20))
+                .andExpect(jsonPath("$.referencias[0]").value("SIM-10-1"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/simulacion/pedidos - doscientos uno no llega al service (400)")
+    void pedidos_porEncimaDelTope_esInvalido() throws Exception {
+        mockMvc.perform(post("/api/v1/simulacion/pedidos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"procesoId\":10,\"cantidad\":201}")
+                        .with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.cantidad").exists());
+
+        verifyNoInteractions(simulacionService);
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/simulacion/pedidos - sin proceso no llega al service (400)")
+    void pedidos_sinProceso_esInvalido() throws Exception {
+        mockMvc.perform(post("/api/v1/simulacion/pedidos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"cantidad\":5}")
+                        .with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.procesoId").exists());
+
+        verifyNoInteractions(simulacionService);
     }
 
     private static PanelDeSimulacionResponse panel(int reloj) {

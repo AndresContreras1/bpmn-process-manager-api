@@ -27,6 +27,14 @@ final class SemillaDeterminista {
         return Math.floorMod(mezclar(semilla, casoId, mensaje), 100) < tasa;
     }
 
+    /**
+     * Un numero de 0 a {@code tope - 1}, estable para los mismos tres. Es lo que usa quien no decide si o no sino
+     * cuanto: el monto de un pedido inventado, por ejemplo.
+     */
+    static int numero(long semilla, Long casoId, String mensaje, int tope) {
+        return Math.floorMod(mezclar(semilla, casoId, mensaje), tope);
+    }
+
     /** Un numero estable a partir de los tres: sin estado, sin reloj y sin nada que cambie entre dos corridas. */
     private static int mezclar(long semilla, Long casoId, String mensaje) {
         long mezcla = semilla * 31 + (casoId == null ? 0 : casoId);
