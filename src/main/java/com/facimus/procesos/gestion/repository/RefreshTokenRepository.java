@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.gestion.model.RefreshToken;
@@ -25,4 +26,10 @@ public interface RefreshTokenRepository extends RepositorioTenant<RefreshToken> 
     @Modifying
     @Query("update RefreshToken t set t.fechaUso = :ahora where t.id = :id and t.fechaUso is null")
     int marcarUsado(Long id, LocalDateTime ahora);
+
+    /** D20: un refresh token vencido ya no renueva nada. La limpieza cruza tiendas a proposito. */
+    @Transactional
+    @Modifying
+    @Query("delete from RefreshToken t where t.fechaExpiracion < :limite")
+    int borrarVencidosAntesDe(LocalDateTime limite);
 }

@@ -337,6 +337,9 @@ The tests tagged `postgres` leave the profile's database aside and run against a
 | `JWT_REFRESH_EXPIRATION_SECONDS` | Refresh token lifetime. Every renewal issues a new refresh token. | `604800` (7 days) |
 | `LOGIN_MAX_FAILED_ATTEMPTS` · `LOGIN_FAILED_ATTEMPTS_WINDOW` | Failed logins for an email from one address before `429`, and the window that counts them | `5` · `15m` |
 | `CORS_ALLOWED_ORIGINS` | Allowed storefront or back-office origins | `http://localhost:4200` |
+| `LIMPIEZA_CRON` | When the nightly purge runs. `-` turns it off. | `0 30 3 * * *` |
+| `LIMPIEZA_RETENCION_SESIONES` | How long a dead session and its expired refresh tokens are kept. Never shorter than the access token lifetime. | `7d` |
+| `LIMPIEZA_RETENCION_IDEMPOTENCIA` | How long a spent idempotency key is kept | `24h` |
 | `DB_POOL_SIZE` | Connections to PostgreSQL, the real ceiling of concurrent work (`prod`) | `10` |
 | `SERVER_THREADS` | Threads that serve requests; the rest queue up (`prod`) | `200` |
 | `GEMINI_API_KEY` | Key for the AI review. Without it the review answers `503` and nothing else changes. | None |
@@ -706,6 +709,20 @@ Every editable resource answers `creadoPor`, `fechaCreacion`, `modificadoPor` an
 Data auditing fills from the authenticated user. Records that the system creates without a token, such as the first
 administrator of a store, have no author.
 
+### Data that does not pile up
+
+Three tables only grow. A login writes a session, every renewal writes a refresh token, and every request with an
+`Idempotency-Key` writes a key; nothing reads any of them once they expire. A job sweeps them every night
+(`LIMPIEZA_CRON`, 3:30 by default):
+
+- **Refresh tokens** that expired more than `LIMPIEZA_RETENCION_SESIONES` ago. An expired one renews nothing.
+- **Sessions** older than that same window with no refresh token left, which can no longer issue anything. The
+  window is never shorter than the access token lifetime: when the API restarts it rereads the sessions closed
+  recently to keep rejecting their tokens, so deleting one too early would let a revoked token back in.
+- **Idempotency keys** older than `LIMPIEZA_RETENCION_IDEMPOTENCIA`.
+
+This is the only place in the API where a row is really deleted; everything else is a soft delete and stays.
+
 ### Errors
 
 Errors follow RFC 9457 (Problem Details):
@@ -793,17 +810,17 @@ freeze.
 ./mvnw verify
 ```
 
-The build runs 739 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 749 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
 | Architecture (ArchUnit) | 32 | Layering, module boundaries and package cycles, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
 | Controller slices (`@WebMvcTest`) | 143 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 228 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
+| Service unit tests (Mockito) | 232 | Business rules of both modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the grammar of the conditions; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
 | Repository slices (`@DataJpaTest`) | 37 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, and the versions, with one number per process and a whole diagram in the column |
 | Security and isolation (`@SpringBootTest`) | 198 | The two-store IDOR suite, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 31 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 68 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 32 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
+| Module integration (`@SpringBootTest`) | 73 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history and the BPMN consistency rules |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 | PostgreSQL 16 (Testcontainers) | 38 | What only the production engine can answer: the partial unique indexes behind the name of a process and the pair of nodes of a flow, which H2 has to replace with a generated column, and the `text` column that holds a published diagram. The migration, repository, version and publishing suites run again here, unchanged, and the context starts with `validate`, so every entity is checked against the schema Flyway leaves behind |
 
@@ -829,7 +846,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 | Architecture Rules | The ArchUnit suite on its own, with a summary |
 | PostgreSQL Integration | The suites tagged `postgres` against a PostgreSQL 16 container, the same image the Compose stack runs |
 | Docker Image & Load Test | Builds the image, checks that the API answers from the container, brings up the Compose stack in the `prod` profile against PostgreSQL 16, and runs the k6 load test against it |
-| SonarCloud Analysis | Static analysis, skipped when SonarCloud is not configured |
+| SonarCloud Analysis | Static analysis and its quality gate: the job waits for SonarCloud to judge the analysis and goes red when the gate does not pass. Skipped while the token is not configured |
 | Frontend Build | `npm ci` and a production build of the web app |
 
 ## Design decisions
@@ -861,6 +878,10 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
   `@SoftDelete` would have forced eager to-one associations, against the project's lazy-loading rule. A unique
   constraint that a retired row would still hold, such as the pair of nodes of a sequence flow, only counts active
   rows.
+- **One job deletes, and only technical rows.** Sessions, refresh tokens and idempotency keys are the only
+  tables that grow with nobody reading them back, so a nightly sweep is the single physical `DELETE` in the API,
+  and the only place that crosses stores on purpose: it reads nobody's data, it drops rows that are useless to
+  everyone. A session waits until it has no refresh token left and until no access token of it can still be alive.
 - **One error format.** Validation, business and security errors all return Problem Details, so clients handle a
   single shape.
 - **Unknown fields are errors.** Jackson fails on properties that the contract does not define, so a typo or a
@@ -909,7 +930,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] Authentication through `AuthenticationManager` and `UserDetailsService`, without revealing whether an email exists
 - [x] Short-lived access tokens with refresh tokens
 - [x] Rate limiting on login (`429` with `Retry-After`)
-- [ ] Scheduled purge of expired sessions, refresh tokens and old idempotency keys
+- [x] Scheduled purge of expired sessions, refresh tokens and old idempotency keys
 
 **Data and auditability**
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
@@ -933,9 +954,9 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] Complete Spring profiles: `dev` with seed data, `test` with an isolated in-memory database, and `prod`
 - [x] Repository tests with `@DataJpaTest` and unit tests for every modeling service
 - [x] Coverage gate per package, branches included
-- [ ] A SonarCloud quality gate on top of it
+- [x] A SonarCloud quality gate on top of it, which fails the build as soon as the project token is in the repository secrets
 - [x] Docker Compose with PostgreSQL and Actuator health checks
-- [ ] Testcontainers-based integration tests against a real PostgreSQL
+- [x] Testcontainers-based integration tests against a real PostgreSQL
 
 ## Credits
 

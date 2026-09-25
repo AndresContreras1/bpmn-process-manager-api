@@ -51,6 +51,12 @@ class PerfilesTest {
         void dev_registraLaConsolaH2() {
             assertThat(rutasDeServlets(context)).contains(CONSOLA_H2);
         }
+
+        @Test
+        @DisplayName("dev programa la purga nocturna de las tablas tecnicas")
+        void dev_programaLaPurga() {
+            assertThat(context.getBeanNamesForType(LimpiezaConfig.class)).isNotEmpty();
+        }
     }
 
     @Nested

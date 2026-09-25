@@ -186,7 +186,7 @@ jobs:
     steps:
       - name: Skip when SonarCloud is not configured
         if: env.SONAR_TOKEN == ''
-        run: echo "::notice::SONAR_TOKEN is not set, so the SonarCloud analysis is skipped."
+        run: echo "::notice::SONAR_TOKEN is not set, so the SonarCloud analysis and its quality gate are skipped."
 
       - name: Checkout
         if: env.SONAR_TOKEN != ''
@@ -202,7 +202,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build, test and analyze
+      # sonar.qualitygate.wait is set in the pom: the step waits for SonarCloud to judge this analysis and fails
+      # when the gate does not pass, so a drop in quality stops the pull request instead of just reporting.
+      - name: Build, analyze and wait for the quality gate
         if: env.SONAR_TOKEN != ''
         run: ./mvnw -B verify sonar:sonar -Dsonar.token=$SONAR_TOKEN
 
