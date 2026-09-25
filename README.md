@@ -88,6 +88,7 @@ on the wall and what the store actually does are the same thing.
 | Published version | The diagram frozen the day it was published. It does not change when the model does: what is edited afterwards is the draft | Version 2 of *Order fulfillment* |
 | Case | One run of a published version, from start to end | Order `ORD-1001` |
 | Task | A step of a case that waits for a person, in the tray of its lane's role | *Pick and pack items* of `ORD-1001`, waiting for Warehouse |
+| Membership | Which process roles a person belongs to, so they can ask for their own tray | *Ana* is in *Warehouse* |
 | Case variables | What the case knows, and what the conditions of its gateways read | `payment.status`, `order.total` |
 
 ## How it works
@@ -194,6 +195,7 @@ today, end to end.
 | Watch cases, their timeline and the tray | ✓ | ✓ | ✓ |
 | Open a case, complete and take a task, cancel a case | ✓ | ✓ | — |
 | Correct the variables of a case and retry it | ✓ | — | — |
+| Say which process roles a person belongs to | ✓ | — | — |
 
 Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
 `SOLO_ADMINISTRADOR`, only administrators create and edit them, and editors keep modeling everything inside a lane.
@@ -396,6 +398,7 @@ entries in Spanish.
 | `Caso` | Case | Store | The process and the published version it runs on, the reference its messages are matched by, state (`ABIERTO`, `TERMINADO`, `CANCELADO`, `FALLIDO` or `ERROR`) and the case variables as JSON |
 | `ActividadCaso` | Step of a case | Case | The node of the version it went through, copied by id and by name, its kind, the process role of its lane, state (`PENDIENTE`, `EN_ESPERA`, `COMPLETADA`, `FALLIDA` or `OMITIDA`), how many tokens have reached it, who took it and what they handed over |
 | `EventoCaso` | Timeline entry | Case | What happened, when, and who caused it. Only inserted |
+| `MembresiaRol` | Membership | Store | Which process roles a user belongs to; the pair is unique |
 
 Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory `empresa_id` that cannot be updated.
 Activities, gateways and events share one table through single-table inheritance, so a sequence flow can point to
@@ -543,7 +546,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 |---|---|
 | Stores | `POST /api/v1/empresas` · `GET /api/v1/empresas/actual` · `GET /api/v1/empresas/{id}` |
 | Authentication | `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` |
-| Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` |
+| Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` · `GET, PUT /api/v1/usuarios/{id}/roles-proceso` |
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
 | Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` · `PUT /api/v1/procesos/{procesoId}/pools/orden` |
@@ -734,6 +737,12 @@ evaluates that gateway again. A case can also be cancelled, which switches off i
 `tarea.<taskNameInCamel>`, whatever each person handed over when completing a task. `caso.referencia` and
 `caso.tick` are always readable and come from the case itself.
 
+**Whose tray.** A task is born with the process role of its lane, and `GET /tareas?rolProcesoId=2` is the tray of
+that role. An administrator can also say which roles each person belongs to, with
+`PUT /usuarios/{id}/roles-proceso` and the whole list, and then `GET /tareas?mias=true` answers only the tasks of
+the caller's roles — someone with no roles gets an empty tray. It is a filter and not a door: completing a task
+still only asks for the access role, so a store that does not want to manage memberships simply never sets any.
+
 ### AI review
 
 `POST /api/v1/procesos/{id}/revision` sends the diagram to a language model and answers with findings: a
@@ -910,17 +919,17 @@ stacking, at the top level and inside each module.
 ./mvnw verify
 ```
 
-The build runs 959 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 993 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
 | Architecture (ArchUnit) | 35 | Layering, module boundaries and cycles between packages at both levels, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 167 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 362 | Business rules of the three modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the language of the conditions, compiled and evaluated, operator by operator; the graph a published version turns into; the engine, with one test per row of the table of what each node does, on diagrams built in memory; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
-| Repository slices (`@DataJpaTest`) | 50 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, the versions, with one number per process and a whole diagram in the column, and the named queries of the execution, which do not exist as code: a renamed one does not start the application |
-| Security and isolation (`@SpringBootTest`) | 229 | The two-store IDOR suite, one block of it for cases, tasks and their timeline, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Controller slices (`@WebMvcTest`) | 172 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 374 | Business rules of the three modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the language of the conditions, compiled and evaluated, operator by operator; the graph a published version turns into; the engine, with one test per row of the table of what each node does, on diagrams built in memory; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
+| Repository slices (`@DataJpaTest`) | 54 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, the versions, with one number per process and a whole diagram in the column, and the named queries of the execution, which do not exist as code: a renamed one does not start the application |
+| Security and isolation (`@SpringBootTest`) | 235 | The two-store IDOR suite, one block of it for cases, tasks and their timeline, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
 | Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 32 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 82 | Process-role usage across modules, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history, the BPMN consistency rules, an order from opening to finishing through both trays, and two people completing the same task at the same time |
+| Module integration (`@SpringBootTest`) | 89 | Process-role usage across modules, who sees which tray, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history, the BPMN consistency rules, an order from opening to finishing through both trays, and two people completing the same task at the same time |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 | PostgreSQL 16 (Testcontainers) | 47 | What only the production engine can answer: the partial unique indexes behind the name of a process and the pair of nodes of a flow, which H2 has to replace with a generated column, and the `text` columns that hold a published diagram and the variables of a case. The migration, repository, version, publishing and execution suites run again here, unchanged, and the context starts with `validate`, so every entity is checked against the schema Flyway leaves behind |
 
@@ -1069,6 +1078,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline
 - [x] A condition language of its own, checked when publishing and evaluated when running, that cannot execute code
 - [x] A row lock per case, so two people completing the same task do not complete it twice
+- [x] Memberships, so each person can ask for the tray of their own process roles
 - [ ] Messaging and a simulation clock: sending, correlating and waiting for the messages the diagram declares
 - [ ] Simulated partners for payments, shipping and notifications, deterministic by store and seed
 - [ ] An operations dashboard: cases by state, cycle time and open tasks per role

@@ -327,7 +327,8 @@ class EjecucionIntegracionTest {
     }
 
     private List<TareaResponse> bandejaDe(Long rolProcesoId) {
-        return tareaService.bandeja(empresaId, rolProcesoId, null, null, Paginacion.de(0, 10)).content();
+        return tareaService.bandeja(empresaId, adminId, false, rolProcesoId, null, null, Paginacion.de(0, 10))
+                .content();
     }
 
     private List<TipoEventoCaso> tiposDeLaBitacora(Long casoId) {

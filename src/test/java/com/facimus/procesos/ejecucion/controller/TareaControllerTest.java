@@ -46,7 +46,7 @@ class TareaControllerTest {
     @Test
     @DisplayName("GET /api/v1/tareas - la bandeja de la tienda para cualquier rol (200)")
     void bandeja_devuelveLaPagina() throws Exception {
-        given(tareaService.bandeja(eq(1L), eq(null), eq(null), eq(null), any(Pageable.class)))
+        given(tareaService.bandeja(eq(1L), eq(1L), eq(false), eq(null), eq(null), eq(null), any(Pageable.class)))
                 .willReturn(new PageResponse<>(List.of(tarea(EstadoActividadCaso.EN_ESPERA)), 0, 10, 1, 1));
 
         mockMvc.perform(get("/api/v1/tareas").with(principal(RolAcceso.SOLO_LECTURA)))
@@ -60,7 +60,8 @@ class TareaControllerTest {
     @Test
     @DisplayName("GET /api/v1/tareas - los filtros de rol, proceso y estado llegan al service (200)")
     void bandeja_pasaLosFiltros() throws Exception {
-        given(tareaService.bandeja(eq(1L), eq(2L), eq(10L), eq(EstadoActividadCaso.COMPLETADA), any(Pageable.class)))
+        given(tareaService.bandeja(eq(1L), eq(1L), eq(false), eq(2L), eq(10L), eq(EstadoActividadCaso.COMPLETADA),
+                any(Pageable.class)))
                 .willReturn(new PageResponse<>(List.of(), 0, 10, 0, 0));
 
         mockMvc.perform(get("/api/v1/tareas")
@@ -68,7 +69,21 @@ class TareaControllerTest {
                         .with(principal(RolAcceso.SOLO_LECTURA)))
                 .andExpect(status().isOk());
 
-        verify(tareaService).bandeja(eq(1L), eq(2L), eq(10L), eq(EstadoActividadCaso.COMPLETADA), any(Pageable.class));
+        verify(tareaService).bandeja(eq(1L), eq(1L), eq(false), eq(2L), eq(10L), eq(EstadoActividadCaso.COMPLETADA),
+                any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/tareas?mias=true - la bandeja propia llega al service como tal (200)")
+    void bandeja_mias_llegaAlService() throws Exception {
+        given(tareaService.bandeja(eq(1L), eq(1L), eq(true), eq(null), eq(null), eq(null), any(Pageable.class)))
+                .willReturn(new PageResponse<>(List.of(tarea(EstadoActividadCaso.EN_ESPERA)), 0, 10, 1, 1));
+
+        mockMvc.perform(get("/api/v1/tareas").param("mias", "true").with(principal(RolAcceso.SOLO_LECTURA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(77));
+
+        verify(tareaService).bandeja(eq(1L), eq(1L), eq(true), eq(null), eq(null), eq(null), any(Pageable.class));
     }
 
     @Test

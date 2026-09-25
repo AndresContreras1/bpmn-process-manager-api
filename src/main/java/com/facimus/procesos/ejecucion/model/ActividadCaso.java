@@ -49,6 +49,25 @@ import lombok.experimental.SuperBuilder;
           and (:rolProcesoId is null or a.rolProcesoId = :rolProcesoId)
           and (:procesoId is null or a.caso.proceso.id = :procesoId)
         """)
+@NamedQuery(name = "ActividadCaso.bandejaDeMisRoles", query = """
+        select a from ActividadCaso a
+        where a.empresa.id = :empresaId
+          and a.tipoNodo = com.facimus.procesos.ejecucion.model.TipoNodoCaso.ACTIVIDAD
+          and a.subtipo = 'USUARIO'
+          and a.estado = :estado
+          and a.rolProcesoId in :roles
+          and (:procesoId is null or a.caso.proceso.id = :procesoId)
+        order by a.id
+        """)
+@NamedQuery(name = "ActividadCaso.bandejaDeMisRoles.count", query = """
+        select count(a) from ActividadCaso a
+        where a.empresa.id = :empresaId
+          and a.tipoNodo = com.facimus.procesos.ejecucion.model.TipoNodoCaso.ACTIVIDAD
+          and a.subtipo = 'USUARIO'
+          and a.estado = :estado
+          and a.rolProcesoId in :roles
+          and (:procesoId is null or a.caso.proceso.id = :procesoId)
+        """)
 @Getter
 @Setter
 @NoArgsConstructor

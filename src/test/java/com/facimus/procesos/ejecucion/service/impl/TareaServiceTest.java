@@ -27,6 +27,7 @@ import org.mockito.quality.Strictness;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.ejecucion.mapper.CasoMapper;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
@@ -40,6 +41,7 @@ import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.VersionProceso;
+import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
@@ -70,6 +72,9 @@ class TareaServiceTest {
     private UsuarioService usuarioService;
 
     @Mock
+    private MembresiaRolService membresiaRolService;
+
+    @Mock
     private GrafosDeVersion grafos;
 
     @Mock
@@ -92,8 +97,8 @@ class TareaServiceTest {
 
     @BeforeEach
     void laTiendaYSuCaso() {
-        tareaService = new TareaServiceImpl(actividadCasoRepository, casoRepository, usuarioService, grafos, motor,
-                bitacora, casoMapper, json);
+        tareaService = new TareaServiceImpl(actividadCasoRepository, casoRepository, usuarioService,
+                membresiaRolService, grafos, motor, bitacora, casoMapper, json);
         tienda = Empresa.builder().id(TIENDA_ID).nombre("Demo Store").build();
         Proceso proceso = Proceso.builder().id(10L).empresa(tienda).nombre("Order fulfillment")
                 .estado(EstadoProceso.PUBLICADO).activo(true).build();
@@ -234,11 +239,61 @@ class TareaServiceTest {
         given(actividadCasoRepository.bandejaPorRol(eq(TIENDA_ID), any(), any(), any(), any()))
                 .willReturn(org.springframework.data.domain.Page.empty());
 
-        tareaService.bandeja(TIENDA_ID, null, null, null,
-                com.facimus.procesos.common.api.Paginacion.de(0, 10));
+        tareaService.bandeja(TIENDA_ID, EDITOR, false, null, null, null, Paginacion.de(0, 10));
 
         verify(actividadCasoRepository).bandejaPorRol(TIENDA_ID, null, null, EstadoActividadCaso.EN_ESPERA,
-                com.facimus.procesos.common.api.Paginacion.de(0, 10));
+                Paginacion.de(0, 10));
+    }
+
+    @Test
+    @DisplayName("D13: la bandeja propia pregunta solo por los roles de quien la pide")
+    void bandejaPropia_consultaSusRoles() {
+        given(membresiaRolService.idsDeLosRolesDe(TIENDA_ID, EDITOR)).willReturn(java.util.List.of(2L, 3L));
+        given(actividadCasoRepository.bandejaDeMisRoles(eq(TIENDA_ID), any(), any(), any(), any()))
+                .willReturn(org.springframework.data.domain.Page.empty());
+
+        tareaService.bandeja(TIENDA_ID, EDITOR, true, null, null, null, Paginacion.de(0, 10));
+
+        verify(actividadCasoRepository).bandejaDeMisRoles(TIENDA_ID, java.util.List.of(2L, 3L), null,
+                EstadoActividadCaso.EN_ESPERA, Paginacion.de(0, 10));
+        verify(actividadCasoRepository, never()).bandejaPorRol(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Quien no tiene ningun rol no tiene bandeja propia, y no se consulta nada")
+    void bandejaPropia_sinRoles_vaciaSinConsultar() {
+        given(membresiaRolService.idsDeLosRolesDe(TIENDA_ID, EDITOR)).willReturn(java.util.List.of());
+
+        var pagina = tareaService.bandeja(TIENDA_ID, EDITOR, true, null, null, null, Paginacion.de(0, 10));
+
+        assertThat(pagina.content()).isEmpty();
+        assertThat(pagina.totalElements()).isZero();
+        verify(actividadCasoRepository, never()).bandejaDeMisRoles(any(), any(), any(), any(), any());
+        verify(actividadCasoRepository, never()).bandejaPorRol(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Pedir la bandeja propia de un rol que no es suyo no devuelve las tareas de ese rol")
+    void bandejaPropia_conRolAjeno_vacia() {
+        given(membresiaRolService.idsDeLosRolesDe(TIENDA_ID, EDITOR)).willReturn(java.util.List.of(2L));
+
+        var pagina = tareaService.bandeja(TIENDA_ID, EDITOR, true, 9L, null, null, Paginacion.de(0, 10));
+
+        assertThat(pagina.content()).isEmpty();
+        verify(actividadCasoRepository, never()).bandejaDeMisRoles(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Pedir la bandeja propia de uno de sus roles la acota a ese")
+    void bandejaPropia_conRolPropio_loAcota() {
+        given(membresiaRolService.idsDeLosRolesDe(TIENDA_ID, EDITOR)).willReturn(java.util.List.of(2L, 3L));
+        given(actividadCasoRepository.bandejaDeMisRoles(eq(TIENDA_ID), any(), any(), any(), any()))
+                .willReturn(org.springframework.data.domain.Page.empty());
+
+        tareaService.bandeja(TIENDA_ID, EDITOR, true, 3L, null, null, Paginacion.de(0, 10));
+
+        verify(actividadCasoRepository).bandejaDeMisRoles(TIENDA_ID, java.util.List.of(3L), null,
+                EstadoActividadCaso.EN_ESPERA, Paginacion.de(0, 10));
     }
 
     private ActividadCaso conTarea(EstadoActividadCaso estado) {

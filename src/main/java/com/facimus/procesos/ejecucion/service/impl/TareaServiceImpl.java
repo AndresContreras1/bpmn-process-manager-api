@@ -1,7 +1,9 @@
 package com.facimus.procesos.ejecucion.service.impl;
 
+import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,7 @@ import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.ejecucion.repository.CasoRepository;
 import com.facimus.procesos.ejecucion.service.TareaService;
+import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import lombok.RequiredArgsConstructor;
@@ -36,6 +39,7 @@ public class TareaServiceImpl implements TareaService {
     private final ActividadCasoRepository actividadCasoRepository;
     private final CasoRepository casoRepository;
     private final UsuarioService usuarioService;
+    private final MembresiaRolService membresiaRolService;
     private final GrafosDeVersion grafos;
     private final MotorDeProcesos motor;
     private final Bitacora bitacora;
@@ -43,11 +47,25 @@ public class TareaServiceImpl implements TareaService {
     private final JsonMapper json;
 
     @Override
-    public PageResponse<TareaResponse> bandeja(Long empresaId, Long rolProcesoId, Long procesoId,
-            EstadoActividadCaso estado, Pageable pagina) {
+    public PageResponse<TareaResponse> bandeja(Long empresaId, Long usuarioId, boolean mias, Long rolProcesoId,
+            Long procesoId, EstadoActividadCaso estado, Pageable pagina) {
+        EstadoActividadCaso buscado = estado == null ? EstadoActividadCaso.EN_ESPERA : estado;
+        if (!mias) {
+            return PageResponse.from(actividadCasoRepository
+                    .bandejaPorRol(empresaId, rolProcesoId, procesoId, buscado, pagina)
+                    .map(casoMapper::toTarea));
+        }
+        List<Long> roles = membresiaRolService.idsDeLosRolesDe(empresaId, usuarioId);
+        if (roles.isEmpty()) {
+            // Sin roles no hay bandeja propia, y preguntar "in ()" no es una consulta que la base acepte.
+            return PageResponse.from(Page.<ActividadCaso>empty(pagina).map(casoMapper::toTarea));
+        }
+        if (rolProcesoId != null && !roles.contains(rolProcesoId)) {
+            return PageResponse.from(Page.<ActividadCaso>empty(pagina).map(casoMapper::toTarea));
+        }
+        List<Long> acotados = rolProcesoId == null ? roles : List.of(rolProcesoId);
         return PageResponse.from(actividadCasoRepository
-                .bandejaPorRol(empresaId, rolProcesoId, procesoId,
-                        estado == null ? EstadoActividadCaso.EN_ESPERA : estado, pagina)
+                .bandejaDeMisRoles(empresaId, acotados, procesoId, buscado, pagina)
                 .map(casoMapper::toTarea));
     }
 

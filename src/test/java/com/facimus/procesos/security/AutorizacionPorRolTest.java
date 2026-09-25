@@ -98,6 +98,11 @@ class AutorizacionPorRolTest {
             EDITOR        | GET    | /api/v1/usuarios               | 403
             ADMINISTRADOR | POST   | /api/v1/usuarios/{id}/restablecer-clave | 404
             EDITOR        | POST   | /api/v1/usuarios/{id}/restablecer-clave | 403
+            ADMINISTRADOR | GET    | /api/v1/usuarios/{id}/roles-proceso | 404
+            EDITOR        | GET    | /api/v1/usuarios/{id}/roles-proceso | 403
+            ADMINISTRADOR | PUT    | /api/v1/usuarios/{id}/roles-proceso | 404
+            EDITOR        | PUT    | /api/v1/usuarios/{id}/roles-proceso | 403
+            SOLO_LECTURA  | PUT    | /api/v1/usuarios/{id}/roles-proceso | 403
             SOLO_LECTURA  | POST   | /api/v1/auth/password          | 400
             EDITOR        | GET    | /api/v1/usuarios/{id}          | 403
 
@@ -178,6 +183,7 @@ class AutorizacionPorRolTest {
 
             # Bandeja: la lee cualquier rol; la trabajan administrador y editor (D13)
             SOLO_LECTURA  | GET    | /api/v1/tareas                 | 200
+            SOLO_LECTURA  | GET    | /api/v1/tareas?mias=true       | 200
             SOLO_LECTURA  | GET    | /api/v1/tareas/{id}            | 404
             EDITOR        | POST   | /api/v1/tareas/{id}/completar  | 404
             SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/completar  | 403
@@ -201,6 +207,8 @@ class AutorizacionPorRolTest {
             // La autorizacion decide antes de validar el cuerpo: el editor pasa y no encuentra la lane.
             peticion.contentType(MediaType.APPLICATION_JSON)
                     .content("{\"nombre\":\"Order received\",\"tipoEvento\":\"INICIO\",\"posicionX\":0,\"posicionY\":0}");
+        } else if (ruta.equals("/api/v1/usuarios/{id}/roles-proceso")) {
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"rolesProcesoIds\":[]}");
         } else if (ruta.equals("/api/v1/casos/{id}/variables")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"variables\":{},\"version\":0}");
         } else if (metodo != HttpMethod.GET && (ruta.startsWith("/api/v1/tareas/")

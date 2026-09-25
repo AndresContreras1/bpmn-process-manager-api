@@ -162,7 +162,7 @@ class ConcurrenciaDeCasosTest {
     }
 
     private List<TareaResponse> bandeja() {
-        return tareaService.bandeja(empresaId, rolId, null, null, Paginacion.de(0, 10)).content();
+        return tareaService.bandeja(empresaId, adminId, false, rolId, null, null, Paginacion.de(0, 10)).content();
     }
 
     private static void esperar(CountDownLatch latch) {

@@ -39,12 +39,15 @@ public class TareaController {
 
     @Operation(summary = "List the tasks in the tray",
             description = "Tasks waiting for someone, oldest first. Filters by process role, by process and by "
-                    + "state, to look at what has already been done. Any role.")
+                    + "state, to look at what has already been done. With mias=true, only the tasks of the process "
+                    + "roles the caller belongs to; someone with no roles gets an empty tray. Any role.")
     @ApiResponse(responseCode = "200", description = "One page of tasks")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @GetMapping
     public ResponseEntity<PageResponse<TareaResponse>> bandeja(
+            @Parameter(description = "Only the tasks of the process roles the caller belongs to")
+            @RequestParam(defaultValue = "false") boolean mias,
             @Parameter(description = "Only the tasks of this process role")
             @RequestParam(required = false) Long rolProcesoId,
             @Parameter(description = "Only the tasks of cases of this process")
@@ -57,8 +60,8 @@ public class TareaController {
             @RequestParam(defaultValue = "10") @Min(value = 1, message = Paginacion.TAMANO_INVALIDO)
             @Max(value = Paginacion.TAMANO_MAXIMO, message = Paginacion.TAMANO_INVALIDO) int tamano,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        return ResponseEntity.ok(tareaService.bandeja(principal.empresaId(), rolProcesoId, procesoId, estado,
-                Paginacion.de(pagina, tamano)));
+        return ResponseEntity.ok(tareaService.bandeja(principal.empresaId(), principal.usuarioId(), mias,
+                rolProcesoId, procesoId, estado, Paginacion.de(pagina, tamano)));
     }
 
     @Operation(summary = "Get a task", description = "With the case and the process it belongs to. Any role.")

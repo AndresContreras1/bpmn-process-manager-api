@@ -14,9 +14,12 @@ import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
  */
 public interface TareaService {
 
-    /** Las tareas de la tienda, opcionalmente las de un rol, las de un proceso o las que ya se completaron. */
-    PageResponse<TareaResponse> bandeja(Long empresaId, Long rolProcesoId, Long procesoId,
-            EstadoActividadCaso estado, Pageable pagina);
+    /**
+     * Las tareas de la tienda, opcionalmente las de un rol, las de un proceso o las que ya se completaron. Con
+     * {@code mias}, solo las de los roles de proceso de quien pregunta (D13); sin ningun rol, ninguna.
+     */
+    PageResponse<TareaResponse> bandeja(Long empresaId, Long usuarioId, boolean mias, Long rolProcesoId,
+            Long procesoId, EstadoActividadCaso estado, Pageable pagina);
 
     TareaResponse obtener(Long empresaId, Long tareaId);
 

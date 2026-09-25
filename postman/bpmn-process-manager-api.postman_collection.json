@@ -395,6 +395,43 @@
 						"description": "HU-02: Actualiza el rol y/o estado activo de un usuario. Solo administrador. Manda la version leida en el GET anterior: si otra persona guardo un cambio despues, responde 409."
 					},
 					"response": []
+				},
+				{
+					"name": "Roles de proceso del usuario",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}/roles-proceso",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "usuarios", "{{usuarioId}}", "roles-proceso"]
+						},
+						"description": "A que roles de proceso pertenece esta persona, que es lo que le permite pedir solo su bandeja. No reparte permisos: lo que puede hacer lo sigue diciendo su rol de acceso. Solo administrador."
+					},
+					"response": []
+				},
+				{
+					"name": "Reemplazar los roles de proceso del usuario",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rolesProcesoIds\": [\n    \"{{rolId}}\"\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}/roles-proceso",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "usuarios", "{{usuarioId}}", "roles-proceso"]
+						},
+						"description": "La lista entera: lo que se manda es con lo que queda, y una lista vacia la deja sin ninguno. Un rol retirado no se reparte. Solo administrador."
+					},
+					"response": []
 				}
 			]
 		},
@@ -2060,6 +2097,25 @@
 							]
 						},
 						"description": "Las tareas que esperan a alguien, opcionalmente las de un rol de proceso o las de un proceso. Con estado=COMPLETADA se mira lo que ya se hizo. Cualquier rol."
+					},
+					"response": []
+				},
+				{
+					"name": "Mi bandeja",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tareas?mias=true&pagina=0&tamano=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tareas"],
+							"query": [
+								{ "key": "mias", "value": "true" },
+								{ "key": "pagina", "value": "0" },
+								{ "key": "tamano", "value": "20" }
+							]
+						},
+						"description": "Solo las tareas de los roles de proceso a los que pertenece quien pregunta. Sin ningun rol, la bandeja sale vacia. Cualquier rol."
 					},
 					"response": []
 				},

@@ -86,7 +86,8 @@ class MigracionesTest {
                         "V11__salida_por_defecto_y_orden_de_los_arcos.sql",
                         "V12__versiones_publicadas_del_proceso.sql", "V13__definicion_de_la_version.sql",
                         "V14__gobierno_de_la_tienda.sql", "V15__casos_tareas_y_bitacora.sql",
-                        "V16__variables_del_caso.sql");
+                        "V16__variables_del_caso.sql",
+                        "V17__membresias_de_rol.sql");
     }
 
     @Test
