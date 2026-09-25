@@ -15,6 +15,7 @@ import org.springframework.data.repository.query.Param;
 import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.ejecucion.dto.response.CasosPorEstadoResponse;
 import com.facimus.procesos.ejecucion.model.Caso;
+import com.facimus.procesos.ejecucion.model.EstadoCaso;
 
 import jakarta.persistence.LockModeType;
 
@@ -65,6 +66,9 @@ public interface CasoRepository extends RepositorioTenant<Caso>, JpaSpecificatio
             order by c.tickFin - c.tickInicio
             """)
     List<Integer> ticksDeCiclo(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId);
+
+    /** Cuantos hay en un estado en toda la instalacion: es lo que publica el medidor de Actuator. */
+    long countByEstado(EstadoCaso estado);
 
     /** Cuantos casos lleva un proceso: es por donde siguen numerando las tandas de pedidos simulados. */
     long countByEmpresaIdAndProcesoId(Long empresaId, Long procesoId);

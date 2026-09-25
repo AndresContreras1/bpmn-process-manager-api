@@ -109,6 +109,27 @@ class ActuatorTest {
     }
 
     @Test
+    @DisplayName("Las metricas publican los medidores de la operacion, y los publican con su numero")
+    void metrics_publicanLosMedidoresDeLaOperacion() throws Exception {
+        for (String medidor : new String[] {"casos.abiertos", "tareas.pendientes",
+                "mensajes.salientes.pendientes", "mensajes.entrantes.pendientes"}) {
+            mockMvc.perform(get("/actuator/metrics/" + medidor)
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.name").value(medidor))
+                    .andExpect(jsonPath("$.measurements[0].value").isNumber());
+        }
+    }
+
+    @Test
+    @DisplayName("Los medidores de la operacion tampoco los ve un editor")
+    void medidores_pidenUnAdministrador() throws Exception {
+        mockMvc.perform(get("/actuator/metrics/casos.abiertos")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenEditor))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("Lo demas de Actuator no esta expuesto, ni siquiera para un administrador")
     void resto_deActuator_noEstaExpuesto() throws Exception {
         for (String endpoint : new String[] {"env", "beans", "configprops", "loggers", "heapdump", "threaddump"}) {

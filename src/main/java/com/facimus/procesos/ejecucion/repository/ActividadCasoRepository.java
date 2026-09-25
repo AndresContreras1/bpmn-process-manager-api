@@ -52,6 +52,15 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
     List<TareasPorRolResponse> tareasPorRol(@Param("empresaId") Long empresaId,
             @Param("procesoId") Long procesoId);
 
+    /** Cuantas tareas esperan en alguna bandeja de la instalacion: lo que publica el medidor de Actuator. */
+    @Query("""
+            select count(a) from ActividadCaso a
+            where a.tipoNodo = com.facimus.procesos.ejecucion.model.TipoNodoCaso.ACTIVIDAD
+              and a.subtipo = 'USUARIO'
+              and a.estado = com.facimus.procesos.ejecucion.model.EstadoActividadCaso.EN_ESPERA
+            """)
+    long contarTareasEnEspera();
+
     /** Lo que el motor procesa en esta vuelta, en el orden en que se creo. */
     List<ActividadCaso> findAllByCasoIdAndEmpresaIdAndEstadoOrderByIdAsc(Long casoId, Long empresaId,
             EstadoActividadCaso estado);

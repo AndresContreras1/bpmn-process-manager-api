@@ -44,6 +44,9 @@ public interface MensajeSalienteRepository extends RepositorioTenant<MensajeSali
     /** Cuantos hay en un estado, para el panel de simulacion. */
     long countByEmpresaIdAndEstado(Long empresaId, EstadoMensajeSaliente estado);
 
+    /** Los mismos de toda la instalacion: lo que publica el medidor de Actuator. */
+    long countByEstado(EstadoMensajeSaliente estado);
+
     /**
      * Lo pendiente agrupado por la clase de socio que lo espera. Es una sola consulta agrupada y no una por socio:
      * el panel se pinta entero de una vez.

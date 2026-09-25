@@ -45,6 +45,14 @@ public interface MensajeEntranteRepository extends RepositorioTenant<MensajeEntr
     /** Cuantos hay con ese resultado, para el panel de simulacion. */
     long countByEmpresaIdAndResultado(Long empresaId, ResultadoCorrelacion resultado);
 
+    /** Los que en toda la instalacion siguen esperando algo: lo que publica el medidor de Actuator. */
+    @Query("""
+            select count(m) from MensajeEntrante m
+            where m.resultado in (com.facimus.procesos.ejecucion.model.ResultadoCorrelacion.EN_ESPERA,
+                                  com.facimus.procesos.ejecucion.model.ResultadoCorrelacion.PROGRAMADO)
+            """)
+    long contarPendientes();
+
     /** Si ese mensaje ya entro: repetir la clave externa responde lo de la primera vez, no lo procesa otra vez. */
     Optional<MensajeEntrante> findByEmpresaIdAndClaveExterna(Long empresaId, String claveExterna);
 
