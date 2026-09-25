@@ -161,6 +161,29 @@ class AutorizacionPorRolTest {
             EDITOR        | DELETE | /api/v1/arcos/{id}             | 403
             EDITOR        | DELETE | /api/v1/gateways/{id}          | 403
 
+            # Casos: los abren y cancelan administrador y editor; corregirlos y reintentarlos es del administrador
+            SOLO_LECTURA  | GET    | /api/v1/casos                  | 200
+            SOLO_LECTURA  | GET    | /api/v1/casos/{id}             | 404
+            SOLO_LECTURA  | GET    | /api/v1/casos/{id}/eventos     | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/casos    | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/casos    | 403
+            EDITOR        | POST   | /api/v1/casos/{id}/cancelar    | 404
+            SOLO_LECTURA  | POST   | /api/v1/casos/{id}/cancelar    | 403
+            ADMINISTRADOR | PATCH  | /api/v1/casos/{id}/variables   | 404
+            EDITOR        | PATCH  | /api/v1/casos/{id}/variables   | 403
+            SOLO_LECTURA  | PATCH  | /api/v1/casos/{id}/variables   | 403
+            ADMINISTRADOR | POST   | /api/v1/casos/{id}/reintentar  | 404
+            EDITOR        | POST   | /api/v1/casos/{id}/reintentar  | 403
+            SOLO_LECTURA  | POST   | /api/v1/casos/{id}/reintentar  | 403
+
+            # Bandeja: la lee cualquier rol; la trabajan administrador y editor (D13)
+            SOLO_LECTURA  | GET    | /api/v1/tareas                 | 200
+            SOLO_LECTURA  | GET    | /api/v1/tareas/{id}            | 404
+            EDITOR        | POST   | /api/v1/tareas/{id}/completar  | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/completar  | 403
+            EDITOR        | POST   | /api/v1/tareas/{id}/asignar    | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/asignar    | 403
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)
@@ -178,6 +201,13 @@ class AutorizacionPorRolTest {
             // La autorizacion decide antes de validar el cuerpo: el editor pasa y no encuentra la lane.
             peticion.contentType(MediaType.APPLICATION_JSON)
                     .content("{\"nombre\":\"Order received\",\"tipoEvento\":\"INICIO\",\"posicionX\":0,\"posicionY\":0}");
+        } else if (ruta.equals("/api/v1/casos/{id}/variables")) {
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"variables\":{},\"version\":0}");
+        } else if (metodo != HttpMethod.GET && (ruta.startsWith("/api/v1/tareas/")
+                || ruta.equals("/api/v1/procesos/{id}/casos"))) {
+            // Llevan cuerpo: sin el, la peticion fallaria por el cuerpo y no por la regla de roles, que es lo que
+            // esta matriz comprueba.
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{}");
         }
         var resultado = mockMvc.perform(peticion).andExpect(status().is(estadoEsperado));
         // El titulo distingue de donde viene la respuesta: un 404 del service, no de una ruta que ya no existe;
