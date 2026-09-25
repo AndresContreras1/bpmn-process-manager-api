@@ -91,6 +91,10 @@ public class SecurityConfig {
                         // Retirar una version cambia lo que la tienda da por bueno: es del administrador (D2).
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/procesos/*/versiones/*")
                         .hasAuthority(ADMINISTRADOR)
+                        // Tocar a mano las variables de un caso o volver a lanzarlo es rescatar una ejecucion que
+                        // se torcio: abrir casos y completar tareas es del dia a dia, esto no.
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/casos/*/variables").hasAuthority(ADMINISTRADOR)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/casos/*/reintentar").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/procesos/**", "/api/v1/actividades/**",
                                 "/api/v1/arcos/**", "/api/v1/gateways/**", "/api/v1/eventos/**",
                                 "/api/v1/pools/**", "/api/v1/lanes/**",

@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.facimus.procesos.common.RepositorioTenant;
@@ -32,6 +33,14 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
     /** Los tokens vivos del caso: mientras quede alguno, el caso no ha terminado. */
     List<ActividadCaso> findAllByCasoIdAndEmpresaIdAndEstadoInOrderByIdAsc(Long casoId, Long empresaId,
             List<EstadoActividadCaso> estados);
+
+    /**
+     * De que caso es una tarea, sin traer la fila. Quien va a completarla necesita el caso para bloquearlo antes de
+     * leer la tarea: leerla primero dejaria en memoria un estado que el bloqueo ya no refresca, y dos personas
+     * podrian completarla a la vez.
+     */
+    @Query("select a.caso.id from ActividadCaso a where a.id = :id and a.empresa.id = :empresaId")
+    Optional<Long> casoDe(@Param("id") Long id, @Param("empresaId") Long empresaId);
 
     /** El token que espera en un nodo concreto, que es como un join encuentra el suyo. */
     Optional<ActividadCaso> findFirstByCasoIdAndEmpresaIdAndNodoIdAndEstadoOrderByIdAsc(Long casoId, Long empresaId,

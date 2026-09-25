@@ -29,6 +29,9 @@ public final class Paginacion {
         Sort.Direction direccion = partes.length > 1 && "desc".equalsIgnoreCase(partes[1])
                 ? Sort.Direction.DESC
                 : Sort.Direction.ASC;
-        return PageRequest.of(pagina, tamano, Sort.by(direccion, partes[0]).and(Sort.by(Sort.Direction.ASC, "id")));
+        Sort orden0 = Sort.by(direccion, partes[0]);
+        // Ordenar por id ya desempata solo: repetirlo detras seria un criterio que nunca se llega a mirar.
+        return PageRequest.of(pagina, tamano,
+                "id".equals(partes[0]) ? orden0 : orden0.and(Sort.by(Sort.Direction.ASC, "id")));
     }
 }

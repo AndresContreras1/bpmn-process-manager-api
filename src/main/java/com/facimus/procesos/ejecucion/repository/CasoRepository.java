@@ -3,6 +3,10 @@ package com.facimus.procesos.ejecucion.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +23,14 @@ import jakarta.persistence.LockModeType;
  * una, el contexto no arranca.
  */
 public interface CasoRepository extends RepositorioTenant<Caso>, JpaSpecificationExecutor<Caso> {
+
+    /**
+     * El listado de casos con su proceso y su version ya traidos: cada fila del listado los nombra, y sin esto
+     * serian dos consultas mas por caso.
+     */
+    @Override
+    @EntityGraph(attributePaths = {"proceso", "versionProceso"})
+    Page<Caso> findAll(Specification<Caso> filtros, Pageable pagina);
 
     /** Los casos de un proceso que todavia tienen tokens vivos. */
     List<Caso> abiertosPorProceso(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId);
