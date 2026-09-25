@@ -117,11 +117,15 @@ on the wall and what the store actually does are the same thing.
 8. **Share.** An administrator can give a partner company on the platform read-only access to a process, for example
    a logistics provider that needs to see how orders are handed over. The guest reads the version in force, never
    the half-finished draft.
-9. **Run it.** With a version published, an order is opened as a case. It walks the diagram on its own until it
-   needs somebody: each activity done by a person waits in the tray of its role, and completing it moves the case
-   on. Gateways decide with the variables of the case, and everything that happens is written down, so a case that
-   stops can be read instead of guessed at.
-10. **Keep track.** Every change is recorded in the process history with its author and date. Deleted items are
+9. **Run it.** With a version published, an order is opened as a case, by hand or by the message that starts the
+   process. It walks the diagram on its own until it needs somebody: each activity done by a person waits in the
+   tray of its role, and completing it moves the case on. Gateways decide with the variables of the case, and
+   everything that happens is written down, so a case that stops can be read instead of guessed at.
+10. **Let the partners answer.** What the process sends to a payment gateway or a carrier goes to an outbox, and
+    what comes back goes to an inbox. Nothing is real behind them: the partners are simulated, and the store's own
+    clock, in ticks, decides when each message arrives. Moving the clock is what makes an order advance, and the
+    same steps always give the same result.
+11. **Keep track.** Every change is recorded in the process history with its author and date. Deleted items are
     retired, not erased, so the record stays complete.
 
 The web app in [`frontend/`](frontend/) covers signing in, store registration, the account page, the process list,
@@ -196,6 +200,9 @@ today, end to end.
 | Open a case, complete and take a task, cancel a case | ✓ | ✓ | — |
 | Correct the variables of a case and retry it | ✓ | — | — |
 | Say which process roles a person belongs to | ✓ | — | — |
+| Read the outbox and the inbox of a process | ✓ | ✓ | ✓ |
+| Send a message to a process | ✓ | ✓ | — |
+| Move the store's clock, and watch its simulation | ✓ | — | — |
 
 Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
 `SOLO_ADMINISTRADOR`, only administrators create and edit them, and editors keep modeling everything inside a lane.
@@ -219,6 +226,9 @@ or having it reset, closes them too.
 | A case runs on the version it was opened with | Publishing a new version does not move an order that is already running: it finishes on the diagram it started with. |
 | One task, one person | Two people completing the same task at the same time do not complete it twice: the second is told it is already done. |
 | A case that stops says why | Every decision, task and missing variable is written down in order, so an order that did not move can be read and rescued instead of started over. |
+| Nothing is lost between participants | What a process sends and what reaches it are both written down, with what was done with each one. A message that arrives for nobody is kept and explained, not dropped. |
+| The same message twice does not count twice | A partner that repeats a message with the same identifier gets the first answer back instead of a second order. |
+| Time that can be reproduced | Orders do not age with the wall clock: the store has its own clock in ticks, moved by whoever is testing. The same steps always give the same result. |
 | Complete history | Every change keeps its author and date, and deleted items stay on record. The store reads its own history: users, roles, processes and its registration, in one place. |
 | Nothing breaks by surprise | A diagram can be checked against the rules at any moment, and before deleting anything it says what would go with it and what would be left without a path. |
 | A second opinion | A model can review a diagram and point out what is missing, such as a decision with no alternative path. It only advises: nothing is changed without a person. |
@@ -368,6 +378,7 @@ The tests tagged `postgres` leave the profile's database aside and run against a
 | `LIMPIEZA_CRON` | When the nightly purge runs. `-` turns it off. | `0 30 3 * * *` |
 | `LIMPIEZA_RETENCION_SESIONES` | How long a dead session and its expired refresh tokens are kept. Never shorter than the access token lifetime. | `7d` |
 | `LIMPIEZA_RETENCION_IDEMPOTENCIA` | How long a spent idempotency key is kept | `24h` |
+| `SIMULACION_TICK` | How often the clock of the stores that asked for it advances one tick. A store in `MANUAL`, which is the default, never moves by itself. | `30s` |
 | `DB_POOL_SIZE` | Connections to PostgreSQL, the real ceiling of concurrent work (`prod`) | `10` |
 | `SERVER_THREADS` | Threads that serve requests; the rest queue up (`prod`) | `200` |
 | `GEMINI_API_KEY` | Key for the AI review. Without it the review answers `503` and nothing else changes. | None |
@@ -566,6 +577,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 | Cases | `POST /api/v1/procesos/{procesoId}/casos` · `GET /api/v1/casos` · `GET /api/v1/casos/{id}` · `GET /api/v1/casos/{id}/eventos` · `POST /api/v1/casos/{id}/cancelar` · `PATCH /api/v1/casos/{id}/variables` · `POST /api/v1/casos/{id}/reintentar` |
 | Tasks | `GET /api/v1/tareas` · `GET /api/v1/tareas/{id}` · `POST /api/v1/tareas/{id}/completar` · `POST /api/v1/tareas/{id}/asignar` |
+| Messaging | `POST /api/v1/procesos/{procesoId}/mensajes-entrantes` · `GET /api/v1/procesos/{procesoId}/bandeja-salida` · `GET /api/v1/procesos/{procesoId}/bandeja-entrada` · `GET /api/v1/casos/{id}/mensajes` |
+| Simulation | `GET /api/v1/simulacion` · `POST /api/v1/simulacion/tick` |
 
 `GET /api/v1/procesos/{id}/diagrama` returns everything a client needs to draw a process: the process and flat lists
 of pools, lanes, activities, gateways, events, sequence flows, message flows and correlation keys, linked by id.
@@ -711,7 +724,10 @@ What each node does when a case reaches it:
 |---|---|
 | Start event | Completes at once and puts one token on each of its outgoing flows |
 | Activity done by a person | Waits in the tray of its lane's process role until someone completes it |
-| Activity done by the store, or one that exchanges a message | Completes at once. Sending and waiting for the message arrives with the messaging |
+| Activity that sends a message, or one done by the store with a message anchored to it | Writes the message in the outbox and goes on at once |
+| Activity that receives a message, or an intermediate message event | Waits until that message arrives |
+| End event that sends a message | Sends it and ends that path |
+| Activity done by the store with nothing anchored to it | Completes at once |
 | Exclusive gateway that splits | Takes the first outgoing flow whose condition holds, in the order they were given; if none does, the default one |
 | Inclusive gateway that splits | Takes every outgoing flow whose condition holds; if none does, the default one |
 | Parallel gateway that splits | Takes all of them at once |
@@ -733,15 +749,62 @@ gateway with nowhere to go, the case stops in `ERROR` with the gateway that foun
 administrator corrects the variables with `PATCH /api/v1/casos/{id}/variables` and `POST /api/v1/casos/{id}/reintentar`
 evaluates that gateway again. A case can also be cancelled, which switches off its live tokens; nothing is deleted.
 
-**Variables.** They are the JSON the case carries: what was passed when it was opened, and, under
-`tarea.<taskNameInCamel>`, whatever each person handed over when completing a task. `caso.referencia` and
-`caso.tick` are always readable and come from the case itself.
+**Variables.** They are the JSON the case carries: what was passed when it was opened, under
+`tarea.<taskNameInCamel>` whatever each person handed over when completing a task, and under the name each message
+declares, the body of every message received. `caso.referencia` and `caso.tick` are always readable and come from
+the case itself.
 
 **Whose tray.** A task is born with the process role of its lane, and `GET /tareas?rolProcesoId=2` is the tray of
 that role. An administrator can also say which roles each person belongs to, with
 `PUT /usuarios/{id}/roles-proceso` and the whole list, and then `GET /tareas?mias=true` answers only the tasks of
 the caller's roles — someone with no roles gets an empty tray. It is a filter and not a door: completing a task
 still only asks for the access role, so a store that does not want to manage memberships simply never sets any.
+
+### Messages and the clock
+
+Participants do not call each other. What a process sends goes to an outbox, and what reaches it goes to an inbox:
+two lists that can be read, which is what explains an order that is waiting. Nothing is real behind them — the
+partners are simulated — and nothing is lost either.
+
+```bash
+# The order arrives as a message and opens a case; claveExterna makes sending it twice safe
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/mensajes-entrantes -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"nombre":"Order placed","cuerpo":{"orderId":"ORD-1001"},"claveExterna":"shop-1001"}'
+
+# What the process has sent and what has reached it
+curl -s http://localhost:8080/api/v1/procesos/1/bandeja-salida -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/procesos/1/bandeja-entrada -H "Authorization: Bearer $TOKEN"
+
+# Move the store's clock one tick: what was due is delivered and the partners answer
+curl -s -X POST http://localhost:8080/api/v1/simulacion/tick -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"ticks":1}'
+
+# Where the simulation is, and what a case sent and received
+curl -s http://localhost:8080/api/v1/simulacion -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/casos/42/mensajes -H "Authorization: Bearer $TOKEN"
+```
+
+**Sending.** When a case goes through a node with a message anchored to it, the message is written in the outbox
+with the fields it declares, taken from the variables of the case — a field the case does not have travels empty
+and is written in the timeline. It carries the key the answer will come back with: the correlation field, or the
+reference of the case. It is due one tick later, never the same tick it was sent: otherwise moving the clock once
+would deliver everything at once and an order waiting for the payment gateway could never be seen.
+
+**Receiving.** A message that arrives is matched to a case by its key, and there are four possible endings, decided
+in this order: there is an open case with that key and a node waiting for that message, and it is delivered; there
+is a case but it has not reached the point of waiting yet, and the message stays in the inbox until a later tick;
+there is no case and the message is one that opens them, and one is opened; there is no case and it does not open
+any, and it is discarded, written down. A message without a key is never delivered to a case just because the name
+matches: guessing would put the answer of one order into another.
+
+**If a message does not arrive**, the message itself says what happens: the process goes on, it is diverted to the
+activity that handles the problem, or the order is given up and the case ends `FALLIDO`.
+
+**The clock.** A store has its own clock, a counter of ticks that starts at zero and only goes up, and
+`POST /api/v1/simulacion/tick` moves it. Each due message is delivered in its own transaction with its case locked,
+so twenty orders move one after another rather than all at once. A store can also ask for its clock to run on its
+own, with `modoSimulacion` on `AUTOMATICO`; by default it is `MANUAL`, which is what makes a demo repeatable.
 
 ### AI review
 
@@ -869,10 +932,11 @@ A business rule that the request would break answers `409` with the reason in `d
 
 ### Modules
 
-The code is split into three business modules and two shared packages, and the five of them stack: `common`
-depends on nobody, `gestion` on `common`, `security` on both, `modelado` on the three, and `ejecucion` on all of
-them. Each business module is layered as controller → service interface → service implementation → repository →
-model, with `dto` for the module's contract and `mapper` for the MapStruct translations.
+The code is split into four business modules and two shared packages, and they stack: `common` depends on nobody,
+`gestion` on `common`, `security` on both, `modelado` on the three, `ejecucion` on all of them, and `integracion`
+only on the port `ejecucion` publishes. Each business module is layered as controller → service interface →
+service implementation → repository → model, with `dto` for the module's contract and `mapper` for the MapStruct
+translations.
 
 | Package | Responsibility |
 |---|---|
@@ -880,7 +944,8 @@ model, with `dto` for the module's contract and `mapper` for the MapStruct trans
 | `security` | Filter chain, the authentication endpoints, login and its rate limit, JWT issuing and validation, closed sessions, `401` and `403` handlers, CORS |
 | `gestion` | Management: stores, users and their sessions, processes, process roles and change history |
 | `modelado` | BPMN modeling: pools, lanes, activities, gateways, sequence flows, message flows and correlation keys |
-| `ejecucion` | Running a published version: cases, the steps they go through, the tray of tasks, the timeline and the engine that moves them |
+| `ejecucion` | Running a published version: cases, the steps they go through, the tray of tasks, the timeline, the two message trays, the store's clock and the engine that moves them. It publishes the port the partner on the other side of a message is asked through |
+| `integracion` | The simulated partners behind that port. They receive a message and answer; they know nothing about cases, trays or who called them, and they open no connections |
 
 ### Request lifecycle
 
@@ -908,6 +973,14 @@ another ArchUnit rule checks. The language of the conditions is the one thing bo
 refuse publishing one that does not compile, the engine to evaluate it — so it lives in `common` rather than in
 either of them.
 
+The partner on the other side of a message is the one place the direction turns around. `ejecucion` publishes a
+port — a partner receives a message and answers — and `integracion` implements it; the engine asks for the partner
+of a kind of participant and works with whatever it is given. Three ArchUnit rules hold that line: a simulated
+partner cannot reach into the services, repositories or entities of the execution, it cannot open a connection to
+anything (one that did would stop being a simulation, and the tests would start depending on something outside
+answering), and the port itself cannot mention an entity, or whoever implements it would have to know the
+database.
+
 The same rule holds one level up. What every module needs — the store, the access role and the identity of whoever
 is calling — lives in `common`, so nothing has to reach sideways for it, and the authentication endpoints live with
 the rest of `security` instead of with the management of the store. An ArchUnit rule checks that the packages keep
@@ -919,19 +992,19 @@ stacking, at the top level and inside each module.
 ./mvnw verify
 ```
 
-The build runs 993 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 1091 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
-| Architecture (ArchUnit) | 35 | Layering, module boundaries and cycles between packages at both levels, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 172 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 374 | Business rules of the three modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the language of the conditions, compiled and evaluated, operator by operator; the graph a published version turns into; the engine, with one test per row of the table of what each node does, on diagrams built in memory; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
-| Repository slices (`@DataJpaTest`) | 54 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, the versions, with one number per process and a whole diagram in the column, and the named queries of the execution, which do not exist as code: a renamed one does not start the application |
-| Security and isolation (`@SpringBootTest`) | 235 | The two-store IDOR suite, one block of it for cases, tasks and their timeline, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 32 | What `dev` and `prod` expose, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 89 | Process-role usage across modules, who sees which tray, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history, the BPMN consistency rules, an order from opening to finishing through both trays, and two people completing the same task at the same time |
+| Architecture (ArchUnit) | 39 | Layering, module boundaries and cycles between packages at both levels, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, a simulated partner that cannot reach into the engine or open a connection, a port that cannot mention an entity, anything that runs on its own living in `config`, and a declared profile in every `@SpringBootTest` and persistence slice |
+| Controller slices (`@WebMvcTest`) | 186 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 396 | Business rules of the three modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the language of the conditions, compiled and evaluated, operator by operator; the graph a published version turns into; the engine, with one test per row of the table of what each node does, on diagrams built in memory, messages included: what a node sends, what it waits for and what each `siFalla` does when a send does not arrive; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; and the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses |
+| Repository slices (`@DataJpaTest`) | 66 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, the versions, with one number per process and a whole diagram in the column, and the named queries of the execution and of the two message trays, which do not exist as code: a renamed one does not start the application |
+| Security and isolation (`@SpringBootTest`) | 248 | The two-store IDOR suite, one block of it for cases, tasks, their timeline and the message trays, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 35 | What `dev` and `prod` expose, what runs on its own in each one and what does not run in `test`, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
+| Module integration (`@SpringBootTest`) | 119 | Process-role usage across modules, who sees which tray, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history, the BPMN consistency rules, an order from opening to finishing through both trays, two people completing the same task at the same time, the four endings of the correlation of a message, the store's clock and what each tick delivers, and the whole demo order end to end: it arrives as a message, two people move it, two ticks deliver what it sent, and it finishes shipped |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
-| PostgreSQL 16 (Testcontainers) | 47 | What only the production engine can answer: the partial unique indexes behind the name of a process and the pair of nodes of a flow, which H2 has to replace with a generated column, and the `text` columns that hold a published diagram and the variables of a case. The migration, repository, version, publishing and execution suites run again here, unchanged, and the context starts with `validate`, so every entity is checked against the schema Flyway leaves behind |
+| PostgreSQL 16 (Testcontainers) | 66 | What only the production engine can answer: the partial unique indexes behind the name of a process and the pair of nodes of a flow, which H2 has to replace with a generated column, and the `text` columns that hold a published diagram, the variables of a case and the bodies of the messages. The migration, repository, version, publishing, execution, messaging and whole-demo suites run again here, unchanged, and the context starts with `validate`, so every entity is checked against the schema Flyway leaves behind |
 
 The PostgreSQL row is the only one `./mvnw verify` does not run: it needs a Docker daemon, and a build that
 depends on one is a build that breaks on the laptop of whoever does not have it. Those tests carry the
@@ -1079,7 +1152,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] A condition language of its own, checked when publishing and evaluated when running, that cannot execute code
 - [x] A row lock per case, so two people completing the same task do not complete it twice
 - [x] Memberships, so each person can ask for the tray of their own process roles
-- [ ] Messaging and a simulation clock: sending, correlating and waiting for the messages the diagram declares
+- [x] Messaging and a simulation clock: sending, correlating and waiting for the messages the diagram declares
 - [ ] Simulated partners for payments, shipping and notifications, deterministic by store and seed
 - [ ] An operations dashboard: cases by state, cycle time and open tasks per role
 

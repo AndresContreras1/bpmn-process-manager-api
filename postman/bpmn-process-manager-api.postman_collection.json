@@ -113,6 +113,11 @@
 			"type": "string"
 		},
 		{
+			"key": "mensajeEntranteId",
+			"value": "",
+			"type": "string"
+		},
+		{
 			"key": "casoVersion",
 			"value": "",
 			"type": "string"
@@ -2213,6 +2218,129 @@
 							"path": ["api", "v1", "casos", "{{casoId}}", "reintentar"]
 						},
 						"description": "Vuelve a evaluar el gateway que dejo el caso en ERROR, con las variables que tenga ahora. Un caso que no esta en error responde 409. Solo administrador."
+					},
+					"response": []
+				},
+				{
+					"name": "Mandar un mensaje al proceso",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.collectionVariables.set('mensajeEntranteId', pm.response.json().id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Payment authorization result\",\n  \"clave\": \"ORD-1001\",\n  \"cuerpo\": {\n    \"status\": \"APPROVED\"\n  },\n  \"claveExterna\": \"webhook-1001\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/mensajes-entrantes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "mensajes-entrantes"]
+						},
+						"description": "Un mensaje que llega de otro participante. Se guarda, se busca a que caso corresponde y, si alguien lo estaba esperando, el caso sigue. La claveExterna hace que mandarlo dos veces no lo procese dos veces: la segunda responde lo mismo, con la cabecera Idempotent-Replayed. Administrador y editor."
+					},
+					"response": []
+				},
+				{
+					"name": "Bandeja de salida del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/bandeja-salida?pagina=0&tamano=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "bandeja-salida"],
+							"query": [
+								{ "key": "pagina", "value": "0" },
+								{ "key": "tamano", "value": "20" }
+							]
+						},
+						"description": "Lo que los casos del proceso han mandado. Un mensaje espera aqui hasta que el reloj llega a su tick de entrega. Se puede pedir solo lo PENDIENTE. Cualquier rol."
+					},
+					"response": []
+				},
+				{
+					"name": "Bandeja de entrada del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/bandeja-entrada?pagina=0&tamano=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "bandeja-entrada"],
+							"query": [
+								{ "key": "pagina", "value": "0" },
+								{ "key": "tamano", "value": "20" }
+							]
+						},
+						"description": "Lo que ha llegado al proceso y que se hizo con cada uno: entregado a un caso, abrio uno nuevo, se quedo esperando a que alguien lo espere, o se descarto. Cualquier rol."
+					},
+					"response": []
+				},
+				{
+					"name": "Mensajes del caso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/casos/{{casoId}}/mensajes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "casos", "{{casoId}}", "mensajes"]
+						},
+						"description": "Lo que este caso mando y lo que le llego, que es lo que explica un pedido que esta esperando. Cualquier rol."
+					},
+					"response": []
+				},
+				{
+					"name": "Panel de simulacion",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/simulacion",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "simulacion"]
+						},
+						"description": "En que tick va la tienda, quien mueve el reloj y que queda en las bandejas, por clase de socio. Solo administrador."
+					},
+					"response": []
+				},
+				{
+					"name": "Mover el reloj un tick",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"ticks\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/simulacion/tick",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "simulacion", "tick"]
+						},
+						"description": "Adelanta el reloj y entrega lo que con ese tick ya vencio: cada mensaje va al socio simulado de su participante, que decide si llego y que contesta, y los casos siguen. Entre 1 y 100 ticks. Solo administrador."
 					},
 					"response": []
 				},
