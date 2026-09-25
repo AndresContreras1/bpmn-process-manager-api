@@ -22,11 +22,13 @@ public interface MensajeEntranteRepository extends RepositorioTenant<MensajeEntr
             @Param("resultado") ResultadoCorrelacion resultado, Pageable pagina);
 
     /**
-     * Los que llegaron antes de que nadie los esperara. Se vuelven a mirar cada vez que el caso avanza, que es
-     * cuando puede haber aparecido el nodo que los espera.
+     * Los que llegaron antes de que nadie los esperara, en cualquier proceso de la tienda. Es lo que cada tick
+     * vuelve a intentar: lo que puede haber cambiado desde que llegaron no es el mensaje, es el caso.
      */
-    List<MensajeEntrante> enEspera(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId,
-            @Param("nombre") String nombre);
+    List<MensajeEntrante> enEsperaDeLaTienda(@Param("empresaId") Long empresaId);
+
+    /** Cuantos hay con ese resultado, para el panel de simulacion. */
+    long countByEmpresaIdAndResultado(Long empresaId, ResultadoCorrelacion resultado);
 
     /** Si ese mensaje ya entro: repetir la clave externa responde lo de la primera vez, no lo procesa otra vez. */
     Optional<MensajeEntrante> findByEmpresaIdAndClaveExterna(Long empresaId, String claveExterna);

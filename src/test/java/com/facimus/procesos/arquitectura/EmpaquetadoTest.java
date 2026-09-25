@@ -105,6 +105,32 @@ class EmpaquetadoTest {
                     + "motor de scripts permitirian llamar metodos desde ese texto");
 
     @ArchTest
+    static final ArchRule los_simulados_no_miran_dentro_del_motor = noClasses()
+            .that().resideInAPackage("..integracion..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("..ejecucion.service..", "..ejecucion.repository..", "..ejecucion.model..",
+                    "..ejecucion.controller..", "..ejecucion.dto..", "..gestion..", "..security..")
+            .because("D7: un socio simulado recibe un mensaje y contesta; no sabe de casos, ni de bandejas, ni de "
+                    + "quien lo llamo, y solo habla por su puerto");
+
+    @ArchTest
+    static final ArchRule los_simulados_no_hacen_red = noClasses()
+            .that().resideInAPackage("..integracion..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("java.net..", "org.springframework.web.client..",
+                    "org.springframework.web.reactive..")
+            .because("D7: no hay socios de verdad. Uno que abriera una conexion dejaria de ser una simulacion, y "
+                    + "las pruebas pasarian a depender de que algo de fuera conteste");
+
+    @ArchTest
+    static final ArchRule los_puertos_no_hablan_de_la_base = noClasses()
+            .that().resideInAPackage("..puerto..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("..service..", "..repository..", "..controller..", "..ejecucion.model..")
+            .because("un puerto es el contrato con lo de fuera: si hablara de entidades, quien lo implemente "
+                    + "tendria que conocer la base de datos de la ejecucion");
+
+    @ArchTest
     static final ArchRule paquetes_de_cada_modulo_sin_ciclos = slices()
             .matching("com.facimus.procesos.(*).(*)..")
             .should().beFreeOfCycles()

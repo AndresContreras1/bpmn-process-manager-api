@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.ReglaNegocioException;
@@ -32,29 +32,9 @@ import com.facimus.procesos.ejecucion.service.CasoService;
 import com.facimus.procesos.ejecucion.service.DatosDelEntrante;
 import com.facimus.procesos.ejecucion.service.MensajeriaService;
 import com.facimus.procesos.ejecucion.service.TareaService;
-import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
-import com.facimus.procesos.gestion.service.ProcesoService;
-import com.facimus.procesos.gestion.service.RolProcesoService;
-import com.facimus.procesos.modelado.model.AccionSiFalla;
-import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.Integracion;
-import com.facimus.procesos.modelado.model.PoliticaSinCaso;
-import com.facimus.procesos.modelado.model.TipoActividad;
-import com.facimus.procesos.modelado.model.TipoDeDato;
-import com.facimus.procesos.modelado.model.TipoDestino;
-import com.facimus.procesos.modelado.model.TipoEvento;
-import com.facimus.procesos.modelado.model.TipoParticipante;
-import com.facimus.procesos.modelado.service.ActividadService;
-import com.facimus.procesos.modelado.service.ArcoService;
-import com.facimus.procesos.modelado.service.CorrelacionService;
-import com.facimus.procesos.modelado.service.DatosDeArco;
-import com.facimus.procesos.modelado.service.DatosDeMensaje;
-import com.facimus.procesos.modelado.service.EventoService;
-import com.facimus.procesos.modelado.service.LaneService;
-import com.facimus.procesos.modelado.service.MensajeService;
-import com.facimus.procesos.modelado.service.PoolService;
 
 /**
  * Los cuatro finales de la correlacion sobre un proceso de verdad: un mensaje abre un pedido, otro se entrega al
@@ -66,46 +46,11 @@ import com.facimus.procesos.modelado.service.PoolService;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MensajeriaIntegracionTest {
 
-    private static final String CLIENTE = "Customer";
-    private static final String PASARELA = "Payment gateway";
-    private static final String PEDIDO = "Order placed";
-    private static final String AUTORIZACION = "Payment authorization request";
-    private static final String RESULTADO = "Payment authorization result";
-
-    private final AtomicInteger contador = new AtomicInteger();
-
     @Autowired
     private EmpresaService empresaService;
 
     @Autowired
     private UsuarioRepository usuarioRepository;
-
-    @Autowired
-    private ProcesoService procesoService;
-
-    @Autowired
-    private RolProcesoService rolProcesoService;
-
-    @Autowired
-    private PoolService poolService;
-
-    @Autowired
-    private LaneService laneService;
-
-    @Autowired
-    private EventoService eventoService;
-
-    @Autowired
-    private ActividadService actividadService;
-
-    @Autowired
-    private ArcoService arcoService;
-
-    @Autowired
-    private MensajeService mensajeService;
-
-    @Autowired
-    private CorrelacionService correlacionService;
 
     @Autowired
     private CasoService casoService;
@@ -116,11 +61,16 @@ class MensajeriaIntegracionTest {
     @Autowired
     private MensajeriaService mensajeriaService;
 
+    @Autowired
+    private ApplicationContext contexto;
+
+    private TiendaConMensajeria tienda;
     private Long empresaId;
     private Long adminId;
 
     @BeforeAll
     void registrarLaTienda() {
+        tienda = new TiendaConMensajeria(contexto);
         empresaId = empresaService.registrar("Tienda con mensajeria", "900666111-1", "contacto@mensajeria.com",
                 "Administradora", "admin@mensajeria.com", "clave12345").id();
         adminId = usuarioRepository.findByEmail("admin@mensajeria.com").orElseThrow().getId();
@@ -131,7 +81,7 @@ class MensajeriaIntegracionTest {
     void mensajeDeInicio_abreElPedido() {
         Long procesoId = publicar("Order fulfillment by message");
 
-        MensajeEntranteResponse entrante = recibir(procesoId, PEDIDO, null,
+        MensajeEntranteResponse entrante = recibir(procesoId, TiendaConMensajeria.PEDIDO, null,
                 Map.of("orderId", "ORD-100", "total", 150), null);
 
         assertThat(entrante.resultado()).isEqualTo(ResultadoCorrelacion.CASO_NUEVO);
@@ -153,7 +103,7 @@ class MensajeriaIntegracionTest {
         Long procesoId = publicar("Order fulfillment waiting for the gateway");
         Long casoId = unPedidoEsperandoLaPasarela(procesoId, "ORD-200");
 
-        MensajeEntranteResponse entrante = recibir(procesoId, RESULTADO, null,
+        MensajeEntranteResponse entrante = recibir(procesoId, TiendaConMensajeria.RESULTADO, null,
                 Map.of("orderId", "ORD-200", "status", "APPROVED"), null);
 
         assertThat(entrante.resultado()).isEqualTo(ResultadoCorrelacion.ENTREGADO_A_CASO);
@@ -172,7 +122,7 @@ class MensajeriaIntegracionTest {
         Long procesoId = publicar("Order fulfillment with a keyless answer");
         Long casoId = unPedidoEsperandoLaPasarela(procesoId, "ORD-300");
 
-        MensajeEntranteResponse entrante = recibir(procesoId, RESULTADO, null, Map.of("status", "APPROVED"), null);
+        MensajeEntranteResponse entrante = recibir(procesoId, TiendaConMensajeria.RESULTADO, null, Map.of("status", "APPROVED"), null);
 
         assertThat(entrante.resultado()).isEqualTo(ResultadoCorrelacion.DESCARTADO);
         assertThat(entrante.casoId()).isNull();
@@ -185,7 +135,7 @@ class MensajeriaIntegracionTest {
         Long procesoId = publicar("Order fulfillment with an unknown key");
         unPedidoEsperandoLaPasarela(procesoId, "ORD-400");
 
-        MensajeEntranteResponse entrante = recibir(procesoId, RESULTADO, "ORD-999",
+        MensajeEntranteResponse entrante = recibir(procesoId, TiendaConMensajeria.RESULTADO, "ORD-999",
                 Map.of("status", "APPROVED"), null);
 
         assertThat(entrante.resultado()).isEqualTo(ResultadoCorrelacion.DESCARTADO);
@@ -198,9 +148,9 @@ class MensajeriaIntegracionTest {
     void mensajeAdelantado_seQuedaEnEspera() {
         Long procesoId = publicar("Order fulfillment with an early answer");
         // El caso acaba de abrirse: esta en la tarea de ventas, todavia lejos de esperar a la pasarela.
-        MensajeEntranteResponse pedido = recibir(procesoId, PEDIDO, null, Map.of("orderId", "ORD-500"), null);
+        MensajeEntranteResponse pedido = recibir(procesoId, TiendaConMensajeria.PEDIDO, null, Map.of("orderId", "ORD-500"), null);
 
-        MensajeEntranteResponse entrante = recibir(procesoId, RESULTADO, "ORD-500",
+        MensajeEntranteResponse entrante = recibir(procesoId, TiendaConMensajeria.RESULTADO, "ORD-500",
                 Map.of("status", "APPROVED"), null);
 
         assertThat(entrante.resultado()).isEqualTo(ResultadoCorrelacion.EN_ESPERA);
@@ -213,9 +163,9 @@ class MensajeriaIntegracionTest {
     void claveExternaRepetida_noSeProcesaDosVeces() {
         Long procesoId = publicar("Order fulfillment sent twice");
 
-        MensajeEntranteResponse primera = recibir(procesoId, PEDIDO, null, Map.of("orderId", "ORD-600"),
+        MensajeEntranteResponse primera = recibir(procesoId, TiendaConMensajeria.PEDIDO, null, Map.of("orderId", "ORD-600"),
                 "webhook-600");
-        MensajeEntranteResponse segunda = recibir(procesoId, PEDIDO, null, Map.of("orderId", "ORD-600"),
+        MensajeEntranteResponse segunda = recibir(procesoId, TiendaConMensajeria.PEDIDO, null, Map.of("orderId", "ORD-600"),
                 "webhook-600");
 
         assertThat(primera.repetido()).isFalse();
@@ -230,15 +180,15 @@ class MensajeriaIntegracionTest {
     @DisplayName("La misma clave externa en otra tienda entra normalmente: es unica dentro de cada una")
     void claveExterna_deOtraTienda_noSeConfunde() {
         Long procesoId = publicar("Order fulfillment with a shared external key");
-        recibir(procesoId, PEDIDO, null, Map.of("orderId", "ORD-650"), "webhook-650");
+        recibir(procesoId, TiendaConMensajeria.PEDIDO, null, Map.of("orderId", "ORD-650"), "webhook-650");
 
         Long otraId = empresaService.registrar("Tienda vecina con mensajeria", "900666111-2",
                 "contacto@vecina.com", "Otro", "admin@vecina.com", "clave12345").id();
         Long otroAdmin = usuarioRepository.findByEmail("admin@vecina.com").orElseThrow().getId();
-        Long suProceso = publicarEn(otraId, otroAdmin, "Order fulfillment next door");
+        Long suProceso = tienda.publicar(otraId, otroAdmin, "Order fulfillment next door");
 
         MensajeEntranteResponse suyo = mensajeriaService.recibir(otraId, suProceso,
-                DatosDelEntrante.aMano(PEDIDO, null, Map.of("orderId", "ORD-650"), "webhook-650"));
+                DatosDelEntrante.aMano(TiendaConMensajeria.PEDIDO, null, Map.of("orderId", "ORD-650"), "webhook-650"));
 
         assertThat(suyo.repetido()).isFalse();
         assertThat(suyo.resultado()).isEqualTo(ResultadoCorrelacion.CASO_NUEVO);
@@ -249,7 +199,7 @@ class MensajeriaIntegracionTest {
     void mensajeQueLaTiendaManda_noSeRecibe() {
         Long procesoId = publicar("Order fulfillment with an outgoing name");
 
-        assertThatThrownBy(() -> recibir(procesoId, AUTORIZACION, "ORD-700", Map.of(), null))
+        assertThatThrownBy(() -> recibir(procesoId, TiendaConMensajeria.AUTORIZACION, "ORD-700", Map.of(), null))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("no recibe ningún mensaje llamado");
     }
@@ -273,19 +223,19 @@ class MensajeriaIntegracionTest {
         List<MensajeSalienteResponse> salida = mensajeriaService.salientesDelCaso(empresaId, casoId);
 
         assertThat(salida).singleElement()
-                .returns(AUTORIZACION, MensajeSalienteResponse::nombre)
-                .returns(PASARELA, MensajeSalienteResponse::poolDestinoNombre)
+                .returns(TiendaConMensajeria.AUTORIZACION, MensajeSalienteResponse::nombre)
+                .returns(TiendaConMensajeria.PASARELA, MensajeSalienteResponse::poolDestinoNombre)
                 .returns(Integracion.PAGOS, MensajeSalienteResponse::integracion)
                 .returns("ORD-900", MensajeSalienteResponse::clave)
                 .returns(EstadoMensajeSaliente.PENDIENTE, MensajeSalienteResponse::estado);
         assertThat(salida.getFirst().cuerpo()).containsEntry("orderId", "ORD-900");
         assertThat(mensajeriaService.bandejaDeSalida(empresaId, procesoId, EstadoMensajeSaliente.PENDIENTE,
-                Paginacion.de(0, 50)).content()).extracting(MensajeSalienteResponse::nombre).contains(AUTORIZACION);
+                Paginacion.de(0, 50)).content()).extracting(MensajeSalienteResponse::nombre).contains(TiendaConMensajeria.AUTORIZACION);
     }
 
     /** Un pedido abierto por mensaje al que se le completa la tarea de ventas: se queda esperando a la pasarela. */
     private Long unPedidoEsperandoLaPasarela(Long procesoId, String referencia) {
-        Long casoId = recibir(procesoId, PEDIDO, null, Map.of("orderId", referencia), null).casoId();
+        Long casoId = recibir(procesoId, TiendaConMensajeria.PEDIDO, null, Map.of("orderId", referencia), null).casoId();
         TareaResponse tarea = tareaService.bandeja(empresaId, adminId, false, null, procesoId, null,
                 Paginacion.de(0, 10)).content().stream()
                 .filter(pendiente -> pendiente.casoId().equals(casoId))
@@ -304,62 +254,7 @@ class MensajeriaIntegracionTest {
     }
 
     private Long publicar(String nombre) {
-        return publicarEn(empresaId, adminId, nombre);
-    }
-
-    /**
-     * El pedido de la demo hasta donde llega la mensajeria: entra por mensaje, ventas lo revisa, se pide la
-     * autorizacion del pago y el caso espera la respuesta.
-     */
-    private Long publicarEn(Long tiendaId, Long autorId, String nombre) {
-        int numero = contador.incrementAndGet();
-        Long procesoId = procesoService.crear(tiendaId, autorId, nombre + " " + numero,
-                "De la compra a la entrega", "Fulfillment").id();
-        Long tienda = poolService.listarPorProceso(tiendaId, procesoId).getFirst().id();
-        Long cliente = poolService.crear(tiendaId, autorId, procesoId, CLIENTE, TipoParticipante.CLIENTE, true,
-                Integracion.CLIENTE).id();
-        Long pasarela = poolService.crear(tiendaId, autorId, procesoId, PASARELA,
-                TipoParticipante.SISTEMA_EXTERNO, true, Integracion.PAGOS).id();
-        Long ventas = rolProcesoService.crear(tiendaId, autorId, "Sales " + numero, null).id();
-        Long lane = laneService.crear(tiendaId, autorId, tienda, "Sales", ventas).id();
-
-        Long inicio = eventoService.crear(tiendaId, autorId, lane, "Order received", TipoEvento.MENSAJE_INICIO,
-                20, 80).id();
-        Long recibir = actividadService.crear(tiendaId, autorId, lane, "Receive order",
-                "Validate the cart and the address.", TipoActividad.USUARIO, 160, 80).id();
-        Long pedirPago = actividadService.crear(tiendaId, autorId, lane, "Request payment authorization",
-                "Ask the gateway to authorize the payment.", TipoActividad.ENVIO, 320, 80).id();
-        Long esperarPago = eventoService.crear(tiendaId, autorId, lane, "Payment result received",
-                TipoEvento.MENSAJE_INTERMEDIO, 480, 80).id();
-        Long fin = eventoService.crear(tiendaId, autorId, lane, "Order handled", TipoEvento.FIN, 640, 80).id();
-
-        arcoService.crear(tiendaId, autorId, DatosDeArco.entre(inicio, recibir));
-        arcoService.crear(tiendaId, autorId, DatosDeArco.entre(recibir, pedirPago));
-        arcoService.crear(tiendaId, autorId, DatosDeArco.entre(pedirPago, esperarPago));
-        arcoService.crear(tiendaId, autorId, DatosDeArco.entre(esperarPago, fin));
-
-        Long pedido = mensajeService.crear(tiendaId, autorId, procesoId, new DatosDeMensaje(PEDIDO,
-                "What the customer bought.", cliente, tienda, null, inicio, null, AccionSiFalla.CONTINUAR, null,
-                true, List.of(new CampoDeMensaje("orderId", TipoDeDato.TEXTO)), null, "order", null)).id();
-        Long respuesta = mensajeService.crear(tiendaId, autorId, procesoId, new DatosDeMensaje(RESULTADO,
-                "Whether the payment went through.", pasarela, tienda, null, esperarPago, null,
-                AccionSiFalla.CONTINUAR, null, false,
-                List.of(new CampoDeMensaje("status", TipoDeDato.TEXTO)), null, "payment", null)).id();
-        Long peticion = mensajeService.crear(tiendaId, autorId, procesoId, new DatosDeMensaje(AUTORIZACION,
-                "Order total and tokenized card.", tienda, pasarela, pedirPago, null, TipoDestino.SERVICIO_WEB,
-                AccionSiFalla.CONTINUAR, null, false,
-                List.of(new CampoDeMensaje("order.orderId", TipoDeDato.TEXTO)), null, null, respuesta)).id();
-
-        correlacionService.definir(tiendaId, autorId, pedido, "orderId", "orderId", PoliticaSinCaso.INICIAR_CASO,
-                null);
-        correlacionService.definir(tiendaId, autorId, respuesta, "orderId", "orderId", PoliticaSinCaso.DESCARTAR,
-                null);
-        correlacionService.definir(tiendaId, autorId, peticion, "orderId", "orderId", PoliticaSinCaso.DESCARTAR,
-                null);
-
-        procesoService.cambiarEstado(tiendaId, procesoId, autorId, EstadoProceso.PUBLICADO,
-                procesoService.obtener(tiendaId, procesoId, false).version());
-        return procesoId;
+        return tienda.publicar(empresaId, adminId, nombre);
     }
 
     private List<TipoEventoCaso> tiposDeLaBitacora(Long casoId) {

@@ -47,11 +47,9 @@ import lombok.experimental.SuperBuilder;
           and m.proceso.id = :procesoId
           and (:resultado is null or m.resultado = :resultado)
         """)
-@NamedQuery(name = "MensajeEntrante.enEspera", query = """
+@NamedQuery(name = "MensajeEntrante.enEsperaDeLaTienda", query = """
         select m from MensajeEntrante m
         where m.empresa.id = :empresaId
-          and m.proceso.id = :procesoId
-          and m.nombre = :nombre
           and m.resultado = com.facimus.procesos.ejecucion.model.ResultadoCorrelacion.EN_ESPERA
         order by m.id
         """)

@@ -24,4 +24,9 @@ class RelojDeLaTienda {
     int ahora(Long empresaId) {
         return configuracionTiendaService.reloj(empresaId);
     }
+
+    /** Adelanta el reloj de la tienda y devuelve el tick al que llego. */
+    int avanzar(Long empresaId, int ticks) {
+        return configuracionTiendaService.avanzarReloj(empresaId, ticks);
+    }
 }

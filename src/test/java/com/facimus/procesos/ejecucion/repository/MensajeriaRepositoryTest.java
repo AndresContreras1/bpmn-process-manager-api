@@ -3,6 +3,7 @@ package com.facimus.procesos.ejecucion.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ import org.springframework.test.context.ActiveProfiles;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.config.AuditoriaConfig;
+import com.facimus.procesos.ejecucion.dto.response.PendientesPorSocioResponse;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
@@ -91,6 +93,21 @@ class MensajeriaRepositoryTest {
             assertThat(mensajeSalienteRepository.vencidos(tienda.getId(), 5))
                     .extracting(MensajeSaliente::getId)
                     .containsExactly(tarde.getId(), justo.getId());
+        }
+
+        @Test
+        @DisplayName("El panel cuenta lo pendiente por socio, sin mezclar tiendas")
+        void pendientesPorSocio_agrupaYSeparaTiendas() {
+            salienteRepositorio("Payment authorization request", 0, 1, EstadoMensajeSaliente.PENDIENTE);
+            salienteRepositorio("Payment authorization request bis", 0, 1, EstadoMensajeSaliente.PENDIENTE);
+            salienteRepositorio("Shipment request", 0, 1, EstadoMensajeSaliente.ENTREGADO);
+            otraTiendaConSuSaliente();
+
+            assertThat(mensajeSalienteRepository.pendientesPorSocio(tienda.getId()))
+                    .extracting(PendientesPorSocioResponse::socio, PendientesPorSocioResponse::cantidad)
+                    .containsExactly(tuple(Integracion.PAGOS, 2L));
+            assertThat(mensajeSalienteRepository.countByEmpresaIdAndEstado(tienda.getId(),
+                    EstadoMensajeSaliente.PENDIENTE)).isEqualTo(2);
         }
 
         @Test
@@ -201,16 +218,46 @@ class MensajeriaRepositoryTest {
         }
 
         @Test
-        @DisplayName("En espera trae solo los de ese nombre que nadie ha recogido todavia")
-        void enEspera_soloLosDeEseNombreSinRecoger() {
+        @DisplayName("En espera trae los de toda la tienda que nadie ha recogido, y ninguno de otra")
+        void enEsperaDeLaTienda_soloLosSinRecogerDeEsaTienda() {
             MensajeEntrante esperando = entrante("Payment authorization result", "ORD-9", null,
                     ResultadoCorrelacion.EN_ESPERA);
+            MensajeEntrante deOtroProceso = otroProcesoConSuEntranteEnEspera();
             entrante("Payment authorization result", "ORD-1", null, ResultadoCorrelacion.ENTREGADO_A_CASO);
-            entrante("Shipment confirmation", "ORD-9", null, ResultadoCorrelacion.EN_ESPERA);
+            otraTiendaConSuEntranteEnEspera();
 
-            assertThat(mensajeEntranteRepository.enEspera(tienda.getId(), proceso.getId(),
-                    "Payment authorization result"))
-                    .extracting(MensajeEntrante::getId).containsExactly(esperando.getId());
+            assertThat(mensajeEntranteRepository.enEsperaDeLaTienda(tienda.getId()))
+                    .extracting(MensajeEntrante::getId)
+                    .containsExactly(esperando.getId(), deOtroProceso.getId());
+        }
+
+        @Test
+        @DisplayName("El panel cuenta los que se quedaron esperando, sin contar los de otra tienda")
+        void contarPorResultado_soloLosDeEsaTienda() {
+            entrante("Payment authorization result", "ORD-9", null, ResultadoCorrelacion.EN_ESPERA);
+            entrante("Payment authorization result", "ORD-1", null, ResultadoCorrelacion.ENTREGADO_A_CASO);
+            otraTiendaConSuEntranteEnEspera();
+
+            assertThat(mensajeEntranteRepository.countByEmpresaIdAndResultado(tienda.getId(),
+                    ResultadoCorrelacion.EN_ESPERA)).isEqualTo(1);
+        }
+
+        private MensajeEntrante otroProcesoConSuEntranteEnEspera() {
+            Proceso otro = proceso(tienda, "Returns");
+            MensajeEntrante guardado = mensajeEntranteRepository.save(MensajeEntrante.builder()
+                    .empresa(tienda).proceso(otro).nombre("Refund confirmed").clave("DEV-1").cuerpo(CUERPO)
+                    .origen(OrigenMensajeEntrante.MANUAL).resultado(ResultadoCorrelacion.EN_ESPERA)
+                    .tick(0).fecha(LocalDateTime.now()).build());
+            em.flush();
+            return guardado;
+        }
+
+        private void otraTiendaConSuEntranteEnEspera() {
+            Empresa otra = empresa("Tienda que tambien espera");
+            em.persistAndFlush(MensajeEntrante.builder().empresa(otra).proceso(proceso(otra, "Order fulfillment"))
+                    .nombre("Payment authorization result").clave("ORD-9").cuerpo(CUERPO)
+                    .origen(OrigenMensajeEntrante.MANUAL).resultado(ResultadoCorrelacion.EN_ESPERA)
+                    .tick(0).fecha(LocalDateTime.now()).build());
         }
 
         @Test
