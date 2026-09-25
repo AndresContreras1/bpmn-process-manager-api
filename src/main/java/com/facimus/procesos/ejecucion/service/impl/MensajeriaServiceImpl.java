@@ -31,6 +31,7 @@ import com.facimus.procesos.gestion.model.VersionProceso;
 import com.facimus.procesos.gestion.service.VersionService;
 
 import lombok.RequiredArgsConstructor;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -45,6 +46,9 @@ import tools.jackson.databind.json.JsonMapper;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MensajeriaServiceImpl implements MensajeriaService {
+
+    private static final TypeReference<Map<String, Object>> MAPA = new TypeReference<>() {
+    };
 
     private final MensajeSalienteRepository mensajeSalienteRepository;
     private final MensajeEntranteRepository mensajeEntranteRepository;
@@ -76,11 +80,7 @@ public class MensajeriaServiceImpl implements MensajeriaService {
         String clave = claveDe(datos, mensaje);
         Momento momento = Momento.en(reloj.ahora(empresaId));
         Correlacion correlacion = correlacionador.correlacionar(empresaId, procesoId, vigente, mensaje, clave);
-        Caso caso = switch (correlacion.resultado()) {
-            case ENTREGADO_A_CASO -> entregar(correlacion, mensaje, datos, momento);
-            case CASO_NUEVO -> abrirCaso(version, vigente, correlacion, mensaje, datos, clave, momento);
-            case EN_ESPERA, DESCARTADO -> correlacion.elCaso().orElse(null);
-        };
+        Caso caso = llevarADonde(correlacion, version, vigente, mensaje, datos, clave, momento);
         return mensajeriaMapper.toEntrante(mensajeEntranteRepository.save(MensajeEntrante.builder()
                 .empresa(version.getEmpresa())
                 .proceso(version.getProceso())
@@ -94,6 +94,41 @@ public class MensajeriaServiceImpl implements MensajeriaService {
                 .tick(momento.tick())
                 .fecha(LocalDateTime.now())
                 .build()));
+    }
+
+    /**
+     * El mismo mensaje otra vez, con el caso de ahora. La fila no se borra ni se duplica: se le pone el resultado
+     * al que llego esta vez, porque es el mismo mensaje que ya habia entrado.
+     */
+    @Override
+    @Transactional
+    public MensajeEntranteResponse reintentar(Long empresaId, Long entranteId) {
+        MensajeEntrante entrante = mensajeEntranteRepository.findByIdAndEmpresaId(entranteId, empresaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Mensaje entrante no encontrado."));
+        if (!entrante.getResultado().puedeReintentarse()) {
+            return mensajeriaMapper.toEntrante(entrante);
+        }
+        Long procesoId = entrante.getProceso().getId();
+        VersionProceso version = versionService.vigente(empresaId, procesoId)
+                .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada vigente."));
+        GrafoDeVersion vigente = grafos.del(version);
+        Optional<MensajeDeLaVersion> mensaje = vigente.mensajePorNombre(entrante.getNombre())
+                .filter(candidato -> loRecibeLaTienda(vigente, candidato));
+        if (mensaje.isEmpty()) {
+            // La version de ahora ya no recibe ese mensaje: dejarlo esperando para siempre seria mentir.
+            entrante.setResultado(ResultadoCorrelacion.DESCARTADO);
+            return mensajeriaMapper.toEntrante(mensajeEntranteRepository.save(entrante));
+        }
+        DatosDelEntrante datos = new DatosDelEntrante(entrante.getNombre(), entrante.getClave(),
+                json.readValue(entrante.getCuerpo(), MAPA), entrante.getClaveExterna(), entrante.getOrigen());
+        Momento momento = Momento.en(reloj.ahora(empresaId));
+        Correlacion correlacion = correlacionador.correlacionar(empresaId, procesoId, vigente,
+                mensaje.orElseThrow(), entrante.getClave());
+        Caso caso = llevarADonde(correlacion, version, vigente, mensaje.orElseThrow(), datos, entrante.getClave(),
+                momento);
+        entrante.setResultado(correlacion.resultado());
+        entrante.setCaso(caso);
+        return mensajeriaMapper.toEntrante(mensajeEntranteRepository.save(entrante));
     }
 
     @Override
@@ -122,6 +157,16 @@ public class MensajeriaServiceImpl implements MensajeriaService {
         exigirCaso(empresaId, casoId);
         return mensajeriaMapper.toEntrantes(
                 mensajeEntranteRepository.findAllByCasoIdAndEmpresaIdOrderByIdAsc(casoId, empresaId));
+    }
+
+    /** Lo que se hace con el mensaje segun donde acabo: entregarlo, abrir un caso con el, o solo escribirlo. */
+    private Caso llevarADonde(Correlacion correlacion, VersionProceso version, GrafoDeVersion vigente,
+            MensajeDeLaVersion mensaje, DatosDelEntrante datos, String clave, Momento momento) {
+        return switch (correlacion.resultado()) {
+            case ENTREGADO_A_CASO -> entregar(correlacion, mensaje, datos, momento);
+            case CASO_NUEVO -> abrirCaso(version, vigente, correlacion, mensaje, datos, clave, momento);
+            case EN_ESPERA, DESCARTADO -> correlacion.elCaso().orElse(null);
+        };
     }
 
     /** El cuerpo entra a las variables del caso con el nombre que el mensaje declara, y el caso sigue. */

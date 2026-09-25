@@ -152,6 +152,11 @@ class SimulacionIntegracionTest {
                 .isEqualTo(EstadoCaso.TERMINADO);
         assertThat(mensajeriaService.bandejaDeEntrada(empresaId, procesoId, ResultadoCorrelacion.EN_ESPERA,
                 Paginacion.de(0, 10)).content()).isEmpty();
+        // Es el mismo mensaje que ya habia entrado, no otro: la fila de la bandeja conserva su id.
+        assertThat(mensajeriaService.entrantesDelCaso(empresaId, pedido.casoId()))
+                .extracting(MensajeEntranteResponse::id, MensajeEntranteResponse::resultado)
+                .contains(org.assertj.core.api.Assertions.tuple(adelantada.id(),
+                        ResultadoCorrelacion.ENTREGADO_A_CASO));
     }
 
     @Test
@@ -172,6 +177,17 @@ class SimulacionIntegracionTest {
         assertThat(configuracionTiendaService.reloj(otraId)).isEqualTo(suReloj);
         assertThat(casoService.obtener(empresaId, casoId).caso().estado()).isEqualTo(EstadoCaso.TERMINADO);
         assertThat(simulacionService.panel(otraId).salientesPendientes()).isZero();
+    }
+
+    @Test
+    @DisplayName("Mover el reloj tres ticks deja la tienda tres ticks mas adelante, y el panel lo dice")
+    void elTick_adelantaElReloj() {
+        int antes = configuracionTiendaService.reloj(empresaId);
+
+        PanelDeSimulacionResponse despues = simulacionService.tick(empresaId, 3);
+
+        assertThat(despues.reloj()).isEqualTo(antes + 3);
+        assertThat(configuracionTiendaService.reloj(empresaId)).isEqualTo(antes + 3);
     }
 
     @Test

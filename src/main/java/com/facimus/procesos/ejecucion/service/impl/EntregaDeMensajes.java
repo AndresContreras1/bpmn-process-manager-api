@@ -105,21 +105,10 @@ class EntregaDeMensajes {
                 .map(MensajeEntrante::getId).toList();
     }
 
-    /** Reintenta uno: se vuelve a recibir tal cual llego, y esta vez puede que si encuentre a quien lo espera. */
+    /** Reintenta uno, en su propia transaccion: el tick mueve muchos y ninguno se lleva a los demas por delante. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     void reintentar(Long empresaId, Long entranteId) {
-        MensajeEntrante entrante = mensajeEntranteRepository.findByIdAndEmpresaId(entranteId, empresaId)
-                .orElseThrow();
-        if (!entrante.getResultado().puedeReintentarse()) {
-            return;
-        }
-        // Se borra el de antes para que el de ahora no choque con su clave externa: es el mismo mensaje, no otro.
-        mensajeEntranteRepository.delete(entrante);
-        mensajeEntranteRepository.flush();
-        mensajeriaService.recibir(empresaId, entrante.getProceso().getId(),
-                new DatosDelEntrante(entrante.getNombre(), entrante.getClave(),
-                        json.readValue(entrante.getCuerpo(), MAPA), entrante.getClaveExterna(),
-                        entrante.getOrigen()));
+        mensajeriaService.reintentar(empresaId, entranteId);
     }
 
     private static String respuestaEsperada(Optional<MensajeDeLaVersion> definicion) {

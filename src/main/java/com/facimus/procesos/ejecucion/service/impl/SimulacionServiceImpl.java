@@ -52,12 +52,13 @@ public class SimulacionServiceImpl implements SimulacionService {
             throw new ReglaNegocioException("El reloj se mueve entre 1 y " + TICKS_MAXIMOS + " ticks por vez.");
         }
         int ahora = reloj.avanzar(empresaId, ticks);
-        for (Long saliente : entrega.vencidos(empresaId, ahora)) {
-            entrega.entregar(empresaId, saliente, ahora);
-        }
-        // Y despues los que habian llegado antes de que nadie los esperara: puede que ahora si los esperen.
+        // Primero lo que ya habia llegado y nadie esperaba, porque llego antes: si ahora si lo esperan, le toca a
+        // ese y no a la respuesta que venga en este mismo tick.
         for (Long entrante : entrega.enEspera(empresaId)) {
             entrega.reintentar(empresaId, entrante);
+        }
+        for (Long saliente : entrega.vencidos(empresaId, ahora)) {
+            entrega.entregar(empresaId, saliente, ahora);
         }
         return panel(empresaId);
     }

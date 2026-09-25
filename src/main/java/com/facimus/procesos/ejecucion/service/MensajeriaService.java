@@ -19,6 +19,12 @@ public interface MensajeriaService {
      */
     MensajeEntranteResponse recibir(Long empresaId, Long procesoId, DatosDelEntrante datos);
 
+    /**
+     * Vuelve a intentar un mensaje que se quedo esperando. Lo que puede haber cambiado desde que llego no es el
+     * mensaje, es el caso: ahora puede estar parado esperandolo. Sigue siendo la misma fila de la bandeja.
+     */
+    MensajeEntranteResponse reintentar(Long empresaId, Long entranteId);
+
     PageResponse<MensajeSalienteResponse> bandejaDeSalida(Long empresaId, Long procesoId,
             EstadoMensajeSaliente estado, Pageable pagina);
 
