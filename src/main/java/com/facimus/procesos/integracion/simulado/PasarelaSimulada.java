@@ -51,7 +51,7 @@ class PasarelaSimulada implements SocioSimulado {
         cuerpo.put("transactionId", "SIM-PAY-" + mensaje.casoId());
         cuerpo.put("amount", mensaje.cuerpo().get(TOTAL));
         return RespuestaDelSocio.llegoYContesta(List.of(
-                new RespuestaEntrante(mensaje.respuestaEsperada(), mensaje.clave(), cuerpo)));
+                RespuestaEntrante.ahora(mensaje.respuestaEsperada(), mensaje.clave(), cuerpo)));
     }
 
     /** La regla rechaza seguro; lo que la regla no rechaza queda en manos de la tasa. */

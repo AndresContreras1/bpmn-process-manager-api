@@ -156,10 +156,12 @@ public class TiendaConMensajeria {
                 "The package is on its way.", transportista, tienda, null, esperarEnvio, null,
                 AccionSiFalla.CONTINUAR, null, true,
                 List.of(new CampoDeMensaje("trackingNumber", TipoDeDato.TEXTO)), null, "shipment", null)).id();
+        // El envio no se contesta en el acto: el transportista recoge el paquete y confirma la entrega despues,
+        // con el mensaje que ese participante manda por su cuenta (origen externo).
         Long peticionEnvio = mensajeService.crear(empresaId, autorId, procesoId, new DatosDeMensaje(ENVIO,
                 "Address and package weight.", tienda, transportista, enviar, null, TipoDestino.COLA,
                 AccionSiFalla.CONTINUAR, null, false,
-                List.of(new CampoDeMensaje("order.orderId", TipoDeDato.TEXTO)), null, null, confirmacion)).id();
+                List.of(new CampoDeMensaje("order.orderId", TipoDeDato.TEXTO)), null, null, null)).id();
         Long aviso = mensajeService.crear(empresaId, autorId, procesoId, new DatosDeMensaje(AVISO,
                 "Why the order could not go through.", tienda, cliente, cancelar, null, TipoDestino.CORREO,
                 AccionSiFalla.CONTINUAR, null, false, List.of(), null, null, null)).id();

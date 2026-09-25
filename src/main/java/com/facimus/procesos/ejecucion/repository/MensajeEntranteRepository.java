@@ -22,10 +22,10 @@ public interface MensajeEntranteRepository extends RepositorioTenant<MensajeEntr
             @Param("resultado") ResultadoCorrelacion resultado, Pageable pagina);
 
     /**
-     * Los que llegaron antes de que nadie los esperara, en cualquier proceso de la tienda. Es lo que cada tick
-     * vuelve a intentar: lo que puede haber cambiado desde que llegaron no es el mensaje, es el caso.
+     * Lo que este tick puede recoger: lo que llego antes de que nadie lo esperara, y lo que un socio dejo dicho
+     * para un tick que ya paso. Del primero lo que cambia es el caso; del segundo, que ya le toca.
      */
-    List<MensajeEntrante> enEsperaDeLaTienda(@Param("empresaId") Long empresaId);
+    List<MensajeEntrante> pendientesDeLaTienda(@Param("empresaId") Long empresaId, @Param("tick") int tick);
 
     /** Cuantos hay con ese resultado, para el panel de simulacion. */
     long countByEmpresaIdAndResultado(Long empresaId, ResultadoCorrelacion resultado);

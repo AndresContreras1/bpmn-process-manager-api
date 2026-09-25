@@ -32,7 +32,7 @@ class EcoSimuladoTest {
     @DisplayName("Contesta la respuesta que el diagrama espera, con la clave del mensaje que recibio")
     void contesta_laRespuestaEsperadaConLaMismaClave() {
         RespuestaDelSocio respuesta = eco.recibir(new MensajeParaElSocio(42L, "Payment authorization request",
-                "ORD-1", Map.of("total", 150), "Payment authorization result", 3,
+                "ORD-1", Map.of("total", 150), "Payment authorization result", null, 3,
                 ParametrosDeSimulacion.deFabrica()));
 
         assertThat(respuesta.entregado()).isTrue();
@@ -47,7 +47,7 @@ class EcoSimuladoTest {
     @DisplayName("Un mensaje que no espera respuesta se da por entregado y no contesta nada")
     void sinRespuestaEsperada_noContestaNada() {
         RespuestaDelSocio respuesta = eco.recibir(new MensajeParaElSocio(42L, "Order status notification",
-                "ORD-1", Map.of(), null, 3, ParametrosDeSimulacion.deFabrica()));
+                "ORD-1", Map.of(), null, null, 3, ParametrosDeSimulacion.deFabrica()));
 
         assertThat(respuesta.entregado()).isTrue();
         assertThat(respuesta.respuestas()).isEmpty();

@@ -54,7 +54,7 @@ public class SimulacionServiceImpl implements SimulacionService {
         int ahora = reloj.avanzar(empresaId, ticks);
         // Primero lo que ya habia llegado y nadie esperaba, porque llego antes: si ahora si lo esperan, le toca a
         // ese y no a la respuesta que venga en este mismo tick.
-        for (Long entrante : entrega.enEspera(empresaId)) {
+        for (Long entrante : entrega.pendientes(empresaId, ahora)) {
             entrega.reintentar(empresaId, entrante);
         }
         for (Long saliente : entrega.vencidos(empresaId, ahora)) {

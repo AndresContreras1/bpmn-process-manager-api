@@ -102,7 +102,7 @@ class PasarelaSimuladaTest {
     @DisplayName("Un mensaje a la pasarela que nadie espera que se conteste llega y no contesta nada")
     void sinRespuestaEsperada_noContestaNada() {
         RespuestaDelSocio respuesta = pasarela.recibir(new MensajeParaElSocio(7L, "Payment receipt", "ORD-7",
-                Map.of(), null, 1, parametros(0, null)));
+                Map.of(), null, null, 1, parametros(0, null)));
 
         assertThat(respuesta.entregado()).isTrue();
         assertThat(respuesta.respuestas()).isEmpty();
@@ -114,7 +114,8 @@ class PasarelaSimuladaTest {
 
     private static MensajeParaElSocio peticion(Long casoId, Map<String, Object> cuerpo,
             ParametrosDeSimulacion parametros) {
-        return new MensajeParaElSocio(casoId, PETICION, "ORD-" + casoId, cuerpo, RESPUESTA, 1, parametros);
+        return new MensajeParaElSocio(casoId, PETICION, "ORD-" + casoId, cuerpo, RESPUESTA, null, 1,
+                parametros);
     }
 
     private static ParametrosDeSimulacion parametros(int tasa, String regla) {

@@ -40,6 +40,6 @@ class EcoSimulado implements SocioSimulado {
             return RespuestaDelSocio.llego();
         }
         return RespuestaDelSocio.llegoYContesta(List.of(
-                new RespuestaEntrante(mensaje.respuestaEsperada(), mensaje.clave(), Map.of())));
+                RespuestaEntrante.ahora(mensaje.respuestaEsperada(), mensaje.clave(), Map.of())));
     }
 }

@@ -1,5 +1,6 @@
 package com.facimus.procesos.ejecucion.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -13,6 +14,7 @@ import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
 import com.facimus.procesos.ejecucion.model.MensajeEntrante;
 import com.facimus.procesos.ejecucion.model.MensajeSaliente;
 import com.facimus.procesos.ejecucion.model.OrigenMensajeEntrante;
+import com.facimus.procesos.ejecucion.model.ResultadoCorrelacion;
 import com.facimus.procesos.ejecucion.puerto.MensajeParaElSocio;
 import com.facimus.procesos.ejecucion.puerto.RespuestaDelSocio;
 import com.facimus.procesos.ejecucion.puerto.RespuestaEntrante;
@@ -77,8 +79,8 @@ class EntregaDeMensajes {
         Optional<MensajeDeLaVersion> definicion = grafo.mensajePorNombre(saliente.getNombre());
         RespuestaDelSocio respuesta = socios.paraA(saliente.getIntegracion())
                 .recibir(new MensajeParaElSocio(caso.getId(), saliente.getNombre(), saliente.getClave(),
-                        json.readValue(saliente.getCuerpo(), MAPA), respuestaEsperada(definicion), tick,
-                        parametros.de(empresaId)));
+                        json.readValue(saliente.getCuerpo(), MAPA), respuestaEsperada(definicion),
+                        avisoPosterior(grafo, definicion), tick, parametros.de(empresaId)));
 
         saliente.setIntentos(saliente.getIntentos() + 1);
         saliente.setEstado(respuesta.entregado() ? EstadoMensajeSaliente.ENTREGADO : EstadoMensajeSaliente.FALLIDO);
@@ -91,26 +93,54 @@ class EntregaDeMensajes {
             return;
         }
         for (RespuestaEntrante contestacion : respuesta.respuestas()) {
-            mensajeriaService.recibir(empresaId, caso.getProceso().getId(),
-                    new DatosDelEntrante(contestacion.nombre(), contestacion.clave(), contestacion.cuerpo(), null,
-                            OrigenMensajeEntrante.delSocio(saliente.getIntegracion())));
+            if (contestacion.enTicks() > 0) {
+                programar(caso, saliente, contestacion, tick);
+            } else {
+                mensajeriaService.recibir(empresaId, caso.getProceso().getId(),
+                        new DatosDelEntrante(contestacion.nombre(), contestacion.clave(), contestacion.cuerpo(),
+                                null, OrigenMensajeEntrante.delSocio(saliente.getIntegracion())));
+            }
         }
     }
 
     /**
-     * Vuelve a mirar los mensajes que llegaron antes de que nadie los esperara. Es aqui y no al recibirlos porque
-     * lo que puede haber cambiado desde entonces es el caso: ahora si esta parado esperandolos.
+     * Lo que este tick puede recoger: lo que llego antes de que nadie lo esperara, y lo que un socio dejo dicho
+     * para mas adelante y ya le toca.
      */
     @Transactional(readOnly = true)
-    List<Long> enEspera(Long empresaId) {
-        return mensajeEntranteRepository.enEsperaDeLaTienda(empresaId).stream()
+    List<Long> pendientes(Long empresaId, int tick) {
+        return mensajeEntranteRepository.pendientesDeLaTienda(empresaId, tick).stream()
                 .map(MensajeEntrante::getId).toList();
+    }
+
+    /** Como se llama lo que ese participante manda por su cuenta mas tarde, si el diagrama declara algo asi. */
+    private static String avisoPosterior(GrafoDeVersion grafo, Optional<MensajeDeLaVersion> definicion) {
+        return definicion.flatMap(grafo::avisoDe).map(MensajeDeLaVersion::nombre).orElse(null);
     }
 
     /** Reintenta uno, en su propia transaccion: el tick mueve muchos y ninguno se lleva a los demas por delante. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     void reintentar(Long empresaId, Long entranteId) {
         mensajeriaService.reintentar(empresaId, entranteId);
+    }
+
+    /**
+     * Lo que el socio dejo dicho para mas adelante se guarda ya, con el tick en que le tocara. No se correlaciona
+     * todavia a proposito: el caso aun no ha llegado a esperarlo, y si se entregara ahora se perderia.
+     */
+    private void programar(Caso caso, MensajeSaliente saliente, RespuestaEntrante contestacion, int tick) {
+        mensajeEntranteRepository.save(MensajeEntrante.builder()
+                .empresa(caso.getEmpresa())
+                .proceso(caso.getProceso())
+                .nombre(contestacion.nombre())
+                .clave(contestacion.clave())
+                .cuerpo(json.writeValueAsString(contestacion.cuerpo()))
+                .origen(OrigenMensajeEntrante.delSocio(saliente.getIntegracion()))
+                .resultado(ResultadoCorrelacion.PROGRAMADO)
+                .tick(tick)
+                .tickDisponible(tick + contestacion.enTicks())
+                .fecha(LocalDateTime.now())
+                .build());
     }
 
     private static String respuestaEsperada(Optional<MensajeDeLaVersion> definicion) {

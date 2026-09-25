@@ -107,7 +107,11 @@ class DemoDePuntaAPuntaTest {
         completarLaTarea(procesoId, casoId);
         assertThat(pasoActual(casoId)).isEqualTo(TiendaConMensajeria.ESPERAR_ENVIO);
 
+        // El transportista recoge el paquete en el primer tick y confirma la entrega tres ticks despues: un
+        // pedido esperando al transportista es lo que hay que poder ver, y solo se ve si el tiempo pasa.
         simulacionService.tick(empresaId, 1);
+        assertThat(pasoActual(casoId)).isEqualTo(TiendaConMensajeria.ESPERAR_ENVIO);
+        simulacionService.tick(empresaId, 3);
 
         CasoDetalleResponse terminado = casoService.obtener(empresaId, casoId);
         assertThat(terminado.caso().estado()).isEqualTo(EstadoCaso.TERMINADO);

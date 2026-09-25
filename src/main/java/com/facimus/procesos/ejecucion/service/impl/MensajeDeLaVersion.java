@@ -18,10 +18,10 @@ import com.facimus.procesos.modelado.model.TipoDestino;
  * seguir leyendose dentro de un ano, cuando el pool a lo mejor ya no existe en el modelo vivo. Lo mismo con la
  * respuesta esperada, que se nombra en vez de apuntarse.
  */
-record MensajeDeLaVersion(Long id, String nombre, Long nodoOrigenId, Long nodoDestinoId, String poolDestinoNombre,
-        Integracion integracion, TipoDestino tipoDestino, AccionSiFalla siFalla, Long nodoManejoErrorId,
-        List<CampoDeMensaje> campos, String variable, String respuestaEsperada, String campoDeCorrelacion,
-        PoliticaSinCaso sinCaso, boolean origenExterno) {
+record MensajeDeLaVersion(Long id, String nombre, Long nodoOrigenId, Long nodoDestinoId, Long poolOrigenId,
+        Long poolDestinoId, String poolDestinoNombre, Integracion integracion, TipoDestino tipoDestino,
+        AccionSiFalla siFalla, Long nodoManejoErrorId, List<CampoDeMensaje> campos, String variable,
+        String respuestaEsperada, String campoDeCorrelacion, PoliticaSinCaso sinCaso, boolean origenExterno) {
 
     /** Que hace el proceso si el envio no llega; sin decir nada, sigue por donde iba. */
     AccionSiFalla siFallaOContinuar() {

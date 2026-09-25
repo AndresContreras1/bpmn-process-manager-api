@@ -9,11 +9,13 @@ public enum ResultadoCorrelacion {
     CASO_NUEVO,
     /** Hay caso, pero todavia no ha llegado a esperarlo: se queda en la bandeja y se reintenta al avanzar. */
     EN_ESPERA,
+    /** El socio lo dejo dicho para mas adelante: no se mira hasta que el reloj llegue a su tick. */
+    PROGRAMADO,
     /** No corresponde a ningun caso y no abre ninguno; queda escrito para que se pueda mirar. */
     DESCARTADO;
 
-    /** Un entrante en espera es el unico que todavia puede cambiar de resultado. */
+    /** Los dos que todavia pueden cambiar de resultado: el que espera a alguien y el que espera su momento. */
     public boolean puedeReintentarse() {
-        return this == EN_ESPERA;
+        return this == EN_ESPERA || this == PROGRAMADO;
     }
 }
