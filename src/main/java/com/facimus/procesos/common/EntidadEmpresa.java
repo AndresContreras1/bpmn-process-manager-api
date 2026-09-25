@@ -1,6 +1,6 @@
 package com.facimus.procesos.common;
 
-import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.common.model.Empresa;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;

@@ -1,9 +1,9 @@
 package com.facimus.procesos.gestion.service;
 
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.mapper.RolProcesoMapper;
-import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;

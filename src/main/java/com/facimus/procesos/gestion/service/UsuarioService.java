@@ -5,9 +5,9 @@ import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
-import com.facimus.procesos.gestion.model.RolAcceso;
 
 /** HU-02: alta y administracion de colaboradores. HU-03: inicio de sesion. */
 public interface UsuarioService {

@@ -1,12 +1,11 @@
-package com.facimus.procesos.security;
+package com.facimus.procesos.common.security;
 
 import java.util.List;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
-import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.common.model.RolAcceso;
 
 /**
  * Identidad del usuario autenticado. El tenant sale de aqui, nunca del request. sesion es el codigo de la sesion que
@@ -15,11 +14,6 @@ import com.facimus.procesos.gestion.model.RolAcceso;
  */
 public record ApiPrincipal(Long usuarioId, Long empresaId, RolAcceso rol, String email, String sesion,
         boolean debeCambiarClave) {
-
-    public static ApiPrincipal of(UsuarioResponse usuario, String sesion) {
-        return new ApiPrincipal(usuario.id(), usuario.empresaId(), usuario.rolAcceso(), usuario.email(), sesion,
-                usuario.debeCambiarClave());
-    }
 
     public List<GrantedAuthority> authorities() {
         return List.of(new SimpleGrantedAuthority(rol.name()));

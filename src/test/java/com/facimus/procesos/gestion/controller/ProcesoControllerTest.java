@@ -16,10 +16,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
-import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 

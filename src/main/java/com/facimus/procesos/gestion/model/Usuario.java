@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.model;
 
 import com.facimus.procesos.common.EntidadEditable;
+import com.facimus.procesos.common.model.RolAcceso;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

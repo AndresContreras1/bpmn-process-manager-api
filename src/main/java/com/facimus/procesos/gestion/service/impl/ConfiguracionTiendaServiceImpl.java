@@ -5,10 +5,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.SinPermisoException;
+import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.mapper.ConfiguracionTiendaMapper;
 import com.facimus.procesos.gestion.model.ConfiguracionTienda;
-import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;

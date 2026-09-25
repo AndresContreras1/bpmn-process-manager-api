@@ -1,5 +1,7 @@
 package com.facimus.procesos.gestion.model;
 
+import com.facimus.procesos.common.model.RolAcceso;
+
 /** D16: quien puede crear y editar la estructura de los diagramas, es decir los pools y las lanes. */
 public enum PoliticaEstructura {
 

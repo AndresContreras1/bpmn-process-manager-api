@@ -1,4 +1,4 @@
-package com.facimus.procesos.gestion.controller;
+package com.facimus.procesos.security.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -27,15 +27,15 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.common.DemasiadosIntentosException;
 import com.facimus.procesos.common.SesionInvalidaException;
+import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.CerrarSesionRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.RenovarTokenRequest;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
-import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
-import com.facimus.procesos.security.ApiPrincipal;
 import com.facimus.procesos.security.JwtService;
 import com.facimus.procesos.security.LoginAuthenticator;
 

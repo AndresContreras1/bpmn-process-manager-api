@@ -14,11 +14,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.config.LimpiezaConfig;
 import com.facimus.procesos.gestion.model.ClaveIdempotencia;
-import com.facimus.procesos.gestion.model.Empresa;
 import com.facimus.procesos.gestion.model.RefreshToken;
-import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Sesion;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.ClaveIdempotenciaRepository;

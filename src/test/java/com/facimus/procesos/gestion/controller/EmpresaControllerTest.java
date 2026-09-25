@@ -10,8 +10,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
-import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;

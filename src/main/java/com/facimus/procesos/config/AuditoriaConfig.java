@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.facimus.procesos.security.ApiPrincipal;
+import com.facimus.procesos.common.security.ApiPrincipal;
 
 /**
  * Auditoria de Spring Data: al guardar una entidad editable anota quien y cuando la creo y la cambio por ultima vez.

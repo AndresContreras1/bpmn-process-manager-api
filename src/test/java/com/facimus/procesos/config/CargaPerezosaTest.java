@@ -20,11 +20,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoRecibidoResponse;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
-import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoCompartidoService;
@@ -40,15 +40,14 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
-import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.DiagramaService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.modelado.service.PoolService;
-import com.facimus.procesos.security.ApiPrincipal;
 import com.facimus.procesos.security.JwtService;
 
 import jakarta.persistence.EntityManagerFactory;
@@ -210,7 +209,7 @@ class CargaPerezosaTest {
         UsuarioResponse lectora = usuarioService.crearColaborador(empresaId, null, "Lectora", "lectora@consultas.com",
                 "clave12345", RolAcceso.SOLO_LECTURA);
         String token = jwtService.generarToken(
-                ApiPrincipal.of(lectora, sesionService.iniciar(empresaId, lectora.id()).sesion()));
+                lectora.comoPrincipal(sesionService.iniciar(empresaId, lectora.id()).sesion()));
 
         estadisticas.clear();
         mockMvc.perform(post("/api/v1/procesos")

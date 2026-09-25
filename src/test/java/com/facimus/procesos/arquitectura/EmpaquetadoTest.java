@@ -98,6 +98,12 @@ class EmpaquetadoTest {
             .because("cada capa de un modulo depende solo de las de abajo");
 
     @ArchTest
+    static final ArchRule paquetes_de_primer_nivel_sin_ciclos = slices()
+            .matching("com.facimus.procesos.(*)..")
+            .should().beFreeOfCycles()
+            .because("common, security, gestion y modelado se apilan: ninguno vuelve sobre el de abajo");
+
+    @ArchTest
     static final ArchRule servicios_no_dependen_de_controllers = noClasses()
             .that().resideInAPackage("..service..")
             .should().dependOnClassesThat().resideInAPackage("..controller..")

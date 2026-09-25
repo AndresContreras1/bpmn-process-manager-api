@@ -6,7 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import com.facimus.procesos.common.RepositorioTenant;
-import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Usuario;
 
 public interface UsuarioRepository extends RepositorioTenant<Usuario> {

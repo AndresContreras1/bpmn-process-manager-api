@@ -24,8 +24,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
-import com.facimus.procesos.gestion.model.RolAcceso;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;

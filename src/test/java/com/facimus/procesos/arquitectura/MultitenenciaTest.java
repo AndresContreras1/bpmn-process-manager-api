@@ -3,7 +3,7 @@ package com.facimus.procesos.arquitectura;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
 import com.facimus.procesos.common.EntidadEmpresa;
-import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.common.model.Empresa;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.importer.ImportOption;

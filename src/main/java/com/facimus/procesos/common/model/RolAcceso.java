@@ -1,4 +1,4 @@
-package com.facimus.procesos.gestion.model;
+package com.facimus.procesos.common.model;
 
 public enum RolAcceso {
     ADMINISTRADOR,

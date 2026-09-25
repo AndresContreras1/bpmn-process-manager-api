@@ -11,10 +11,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.common.ConflictoDeVersionException;
-import com.facimus.procesos.gestion.model.RolAcceso;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
-import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.Integracion;
+import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.PoolService;
 

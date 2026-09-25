@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
-import com.facimus.procesos.gestion.model.Empresa;
+import com.facimus.procesos.common.model.Empresa;
 
 import jakarta.persistence.LockModeType;
 
