@@ -55,6 +55,9 @@ public class TiendaConMensajeria {
     public static final String EMPACAR = "Pick and pack items";
     public static final String ESPERAR_ENVIO = "Shipment confirmed";
     public static final String RECHAZADO = "payment.status == DECLINED";
+    public static final String NOTIFICADOR = "Notifications";
+    public static final String AVISAR = "Notify the customer";
+    public static final String RECOGER = "Wait for pickup";
 
     private final AtomicInteger contador = new AtomicInteger();
 
@@ -172,6 +175,57 @@ public class TiendaConMensajeria {
         }
         correlacionService.definir(empresaId, autorId, pedido, "orderId", "orderId",
                 PoliticaSinCaso.INICIAR_CASO, null);
+
+        procesoService.cambiarEstado(empresaId, procesoId, autorId, EstadoProceso.PUBLICADO,
+                procesoService.obtener(empresaId, procesoId, false).version());
+        return procesoId;
+    }
+
+    /**
+     * Un proceso que avisa al cliente por un proveedor de notificaciones y no puede seguir si el aviso no llega:
+     * el pedido entra por mensaje, ventas lo revisa, se manda el aviso y el pedido espera a que lo recojan.
+     *
+     * <p>Es lo que hace falta para ver el siFalla de verdad. En el proceso de la demo el aviso va al cliente, al
+     * que le llega siempre; aqui va a quien puede fallar, y el mensaje dice que sin el no hay pedido.
+     */
+    public Long publicarConAviso(Long empresaId, Long autorId, String nombre, AccionSiFalla siFalla) {
+        int numero = contador.incrementAndGet();
+        Long procesoId = procesoService.crear(empresaId, autorId, nombre + " " + numero,
+                "De la compra a la entrega", "Fulfillment").id();
+        Long tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
+        Long cliente = poolService.crear(empresaId, autorId, procesoId, CLIENTE, TipoParticipante.CLIENTE, true,
+                Integracion.CLIENTE).id();
+        Long correos = poolService.crear(empresaId, autorId, procesoId, NOTIFICADOR,
+                TipoParticipante.SISTEMA_EXTERNO, true, Integracion.NOTIFICACIONES).id();
+        Long ventas = rolProcesoService.crear(empresaId, autorId, "Sales " + numero, null).id();
+        Long lane = laneService.crear(empresaId, autorId, tienda, "Sales", ventas).id();
+
+        Long inicio = eventoService.crear(empresaId, autorId, lane, "Order received", TipoEvento.MENSAJE_INICIO,
+                20, 80).id();
+        Long revisar = actividadService.crear(empresaId, autorId, lane, REVISAR,
+                "Validate the cart and the address.", TipoActividad.USUARIO, 160, 80).id();
+        Long avisar = actividadService.crear(empresaId, autorId, lane, AVISAR,
+                "Tell the customer the order is confirmed.", TipoActividad.ENVIO, 320, 80).id();
+        Long recoger = actividadService.crear(empresaId, autorId, lane, RECOGER,
+                "Wait for the customer to pick it up.", TipoActividad.USUARIO, 480, 80).id();
+        Long fin = eventoService.crear(empresaId, autorId, lane, "Order handled", TipoEvento.FIN, 640, 80).id();
+
+        arcoService.crear(empresaId, autorId, DatosDeArco.entre(inicio, revisar));
+        arcoService.crear(empresaId, autorId, DatosDeArco.entre(revisar, avisar));
+        arcoService.crear(empresaId, autorId, DatosDeArco.entre(avisar, recoger));
+        arcoService.crear(empresaId, autorId, DatosDeArco.entre(recoger, fin));
+
+        Long pedido = mensajeService.crear(empresaId, autorId, procesoId, new DatosDeMensaje(PEDIDO,
+                "What the customer bought.", cliente, tienda, null, inicio, null, AccionSiFalla.CONTINUAR, null,
+                true, List.of(new CampoDeMensaje("orderId", TipoDeDato.TEXTO)), null, "order", null)).id();
+        Long aviso = mensajeService.crear(empresaId, autorId, procesoId, new DatosDeMensaje(AVISO,
+                "The order is confirmed.", tienda, correos, avisar, null, TipoDestino.CORREO, siFalla,
+                siFalla.necesitaActividad() ? recoger : null, false, List.of(), null, null, null)).id();
+
+        correlacionService.definir(empresaId, autorId, pedido, "orderId", "orderId",
+                PoliticaSinCaso.INICIAR_CASO, null);
+        correlacionService.definir(empresaId, autorId, aviso, "orderId", "orderId", PoliticaSinCaso.DESCARTAR,
+                null);
 
         procesoService.cambiarEstado(empresaId, procesoId, autorId, EstadoProceso.PUBLICADO,
                 procesoService.obtener(empresaId, procesoId, false).version());
