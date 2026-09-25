@@ -27,18 +27,23 @@ import com.facimus.procesos.ejecucion.dto.response.TareaResponse;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
 import com.facimus.procesos.ejecucion.model.ResultadoCorrelacion;
+import com.facimus.procesos.ejecucion.service.CasoService;
 import com.facimus.procesos.ejecucion.service.MedidoresDeLaOperacion;
 import com.facimus.procesos.ejecucion.service.SimulacionService;
 import com.facimus.procesos.ejecucion.service.TableroService;
 import com.facimus.procesos.ejecucion.service.TareaService;
+import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
+import com.facimus.procesos.gestion.model.ParametrosSimulacion;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.modelado.model.AccionSiFalla;
 
 import jakarta.persistence.EntityManagerFactory;
 
 /**
- * El tablero sobre datos que se cuentan a mano: cinco pedidos, tres atendidos y dos esperando en la bandeja. Las
- * cifras son exactas a proposito, porque un tablero que se aproxima no sirve para decidir nada.
+ * El tablero sobre datos que se cuentan a mano: cinco pedidos, tres atendidos, uno cancelado y uno esperando en
+ * la bandeja. Las cifras son exactas a proposito, porque un tablero que se aproxima no sirve para decidir nada.
  *
  * <p>Y el numero que importa de su implementacion: seis consultas, crezcan los pedidos lo que crezcan. Un tablero
  * que hiciera una consulta por caso dejaria de poder mirarse justo el dia que hiciera falta mirarlo.
@@ -52,6 +57,12 @@ class TableroIntegracionTest {
     private static final int ATENDIDOS = 3;
     /** Pedidos de otro proceso de la misma tienda, que el tablero de este no tiene que contar. */
     private static final int DE_OTRO_PROCESO = 2;
+    /** Uno de los que quedaban se cancela: se cierra igual que los atendidos, pero no es un pedido rapido. */
+    private static final int CANCELADOS = 1;
+    /** Los que siguen esperando en la bandeja cuando el tablero se abre. */
+    private static final int ESPERANDO = PEDIDOS - ATENDIDOS - CANCELADOS;
+    /** Avisos al cliente que no llegan nunca, en una tienda aparte. */
+    private static final int AVISOS_PERDIDOS = 2;
     /** El reloj no arranca en cero a proposito: asi se ve que el ciclo es una resta y no el tick del final. */
     private static final int RELOJ_INICIAL = 2;
 
@@ -71,6 +82,12 @@ class TableroIntegracionTest {
     private TableroService tableroService;
 
     @Autowired
+    private CasoService casoService;
+
+    @Autowired
+    private ConfiguracionTiendaService configuracionTiendaService;
+
+    @Autowired
     private MedidoresDeLaOperacion medidores;
 
     @Autowired
@@ -80,18 +97,19 @@ class TableroIntegracionTest {
     private ApplicationContext contexto;
 
     private Statistics estadisticas;
+    private TiendaConMensajeria tienda;
     private Long empresaId;
     private Long adminId;
     private Long procesoId;
     private Long otroProcesoId;
 
     @BeforeAll
-    void cincoPedidosDeLosCualesTresSeAtienden() {
+    void cincoPedidosDeLosCualesTresSeAtiendenYUnoSeCancela() {
         estadisticas = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         empresaId = empresaService.registrar("Tienda del tablero", "900606060-1", "contacto@tablero.com",
                 "Administradora", "admin@tablero.com", "clave12345").id();
         adminId = usuarioRepository.findByEmail("admin@tablero.com").orElseThrow().getId();
-        TiendaConMensajeria tienda = new TiendaConMensajeria(contexto);
+        tienda = new TiendaConMensajeria(contexto);
         procesoId = tienda.publicar(empresaId, adminId, "Order fulfillment on a board");
         otroProcesoId = tienda.publicar(empresaId, adminId, "Returns on the same board");
 
@@ -101,6 +119,10 @@ class TableroIntegracionTest {
         bandeja().stream().limit(ATENDIDOS)
                 .forEach(tarea -> tareaService.completar(empresaId, adminId, tarea.id(), null));
         simulacionService.tick(empresaId, 1);
+        // Y un tick mas tarde se cancela uno de los que quedaban: se cierra en el cuatro y no en el tres, asi
+        // que si el ciclo lo contara se notaria en los tres numeros a la vez.
+        simulacionService.tick(empresaId, 1);
+        casoService.cancelar(empresaId, adminId, bandeja().getFirst().casoId());
     }
 
     @Test
@@ -112,7 +134,8 @@ class TableroIntegracionTest {
         assertThat(tablero.casos()).isEqualTo(PEDIDOS);
         assertThat(tablero.casosPorEstado())
                 .extracting(CasosPorEstadoResponse::estado, CasosPorEstadoResponse::cantidad)
-                .containsExactlyInAnyOrder(tuple(EstadoCaso.ABIERTO, (long) (PEDIDOS - ATENDIDOS)),
+                .containsExactlyInAnyOrder(tuple(EstadoCaso.ABIERTO, (long) ESPERANDO),
+                        tuple(EstadoCaso.CANCELADO, (long) CANCELADOS),
                         tuple(EstadoCaso.TERMINADO, (long) ATENDIDOS));
         // Cada pedido atendido se abrio en el tick dos y termino en el tres: un tick de punta a punta, no tres.
         assertThat(tablero.ciclo().terminados()).isEqualTo(ATENDIDOS);
@@ -126,7 +149,7 @@ class TableroIntegracionTest {
         TableroResponse tablero = tableroService.de(empresaId, procesoId);
 
         assertThat(tablero.tareasPorRol()).singleElement()
-                .returns((long) (PEDIDOS - ATENDIDOS), TareasPorRolResponse::tareas)
+                .returns((long) ESPERANDO, TareasPorRolResponse::tareas)
                 .satisfies(fila -> assertThat(fila.rolNombre()).startsWith("Sales"));
     }
 
@@ -159,10 +182,10 @@ class TableroIntegracionTest {
     }
 
     @Test
-    @DisplayName("Los medidores de Actuator cuentan lo que esta vivo, no lo que ya termino")
+    @DisplayName("Los medidores de Actuator cuentan lo que esta vivo: ni lo terminado ni lo cancelado")
     void losMedidores_cuentanLoQueEstaVivo() {
-        assertThat(medidores.casosAbiertos()).isEqualTo(PEDIDOS - ATENDIDOS + DE_OTRO_PROCESO);
-        assertThat(medidores.tareasPendientes()).isEqualTo(PEDIDOS - ATENDIDOS + DE_OTRO_PROCESO);
+        assertThat(medidores.casosAbiertos()).isEqualTo(ESPERANDO + DE_OTRO_PROCESO);
+        assertThat(medidores.tareasPendientes()).isEqualTo(ESPERANDO + DE_OTRO_PROCESO);
         assertThat(medidores.salientesPendientes()).isZero();
         assertThat(medidores.entrantesPendientes()).isZero();
     }
@@ -191,6 +214,43 @@ class TableroIntegracionTest {
         // Sin pedidos terminados no hay tiempo de ciclo: cero no seria rapido, seria mentira.
         assertThat(tablero.ciclo().terminados()).isZero();
         assertThat(tablero.ciclo().medio()).isZero();
+    }
+
+    @Test
+    @DisplayName("Un pedido cancelado se cerro, pero no es un pedido rapido: no entra en el tiempo de ciclo")
+    void unPedidoCancelado_noEntraEnElCiclo() {
+        TableroResponse tablero = tableroService.de(empresaId, procesoId);
+
+        assertThat(tablero.casosPorEstado())
+                .extracting(CasosPorEstadoResponse::estado, CasosPorEstadoResponse::cantidad)
+                .contains(tuple(EstadoCaso.CANCELADO, (long) CANCELADOS));
+        // El cancelado tambien tiene tick de cierre: se abrio en el dos y se cerro en el cuatro. Si entrara,
+        // serian cuatro pedidos, el promedio 1.25 y el p95 dos. Son tres, uno y uno.
+        assertThat(tablero.ciclo().terminados()).isEqualTo(ATENDIDOS);
+        assertThat(tablero.ciclo().medio()).isEqualTo(1.0);
+        assertThat(tablero.ciclo().p95()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Lo que salio mal cuenta los avisos que no llegaron, y no otra cosa de la bitacora")
+    void loQueSalioMal_cuentaLosAvisosQueNoLlegaron() {
+        Long avisosId = empresaService.registrar("Tienda de los avisos perdidos", "900606060-3",
+                "contacto@avisos.com", "Otra", "admin@avisos.com", "clave12345").id();
+        Long suAdmin = usuarioRepository.findByEmail("admin@avisos.com").orElseThrow().getId();
+        ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(avisosId);
+        configuracionTiendaService.editar(avisosId, suAdmin, antes.politicaEstructura(), null,
+                ParametrosSimulacion.builder().tasaFalloNotificaciones(100).build(), antes.version());
+        Long suProceso = tienda.publicarConAviso(avisosId, suAdmin, "Order fulfillment with a lost notice",
+                AccionSiFalla.FINALIZAR);
+        simulacionService.pedidos(avisosId, suProceso, AVISOS_PERDIDOS, null);
+        tareaService.bandeja(avisosId, suAdmin, false, null, suProceso, null, Paginacion.de(0, 50)).content()
+                .forEach(tarea -> tareaService.completar(avisosId, suAdmin, tarea.id(), null));
+
+        simulacionService.tick(avisosId, 1);
+
+        // Dos avisos perdidos y nada mas: la bitacora de esos dos pedidos tiene muchas otras lineas.
+        assertThat(tableroService.de(avisosId, suProceso).loQueSalioMal())
+                .isEqualTo(new LoQueSalioMalResponse(AVISOS_PERDIDOS, 0, 0));
     }
 
     private List<TareaResponse> bandeja() {
