@@ -27,6 +27,7 @@ import com.facimus.procesos.ejecucion.dto.response.TareaResponse;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
 import com.facimus.procesos.ejecucion.model.ResultadoCorrelacion;
+import com.facimus.procesos.ejecucion.service.MedidoresDeLaOperacion;
 import com.facimus.procesos.ejecucion.service.SimulacionService;
 import com.facimus.procesos.ejecucion.service.TableroService;
 import com.facimus.procesos.ejecucion.service.TareaService;
@@ -49,6 +50,10 @@ class TableroIntegracionTest {
 
     private static final int PEDIDOS = 5;
     private static final int ATENDIDOS = 3;
+    /** Pedidos de otro proceso de la misma tienda, que el tablero de este no tiene que contar. */
+    private static final int DE_OTRO_PROCESO = 2;
+    /** El reloj no arranca en cero a proposito: asi se ve que el ciclo es una resta y no el tick del final. */
+    private static final int RELOJ_INICIAL = 2;
 
     @Autowired
     private EmpresaService empresaService;
@@ -66,6 +71,9 @@ class TableroIntegracionTest {
     private TableroService tableroService;
 
     @Autowired
+    private MedidoresDeLaOperacion medidores;
+
+    @Autowired
     private EntityManagerFactory entityManagerFactory;
 
     @Autowired
@@ -75,6 +83,7 @@ class TableroIntegracionTest {
     private Long empresaId;
     private Long adminId;
     private Long procesoId;
+    private Long otroProcesoId;
 
     @BeforeAll
     void cincoPedidosDeLosCualesTresSeAtienden() {
@@ -82,9 +91,13 @@ class TableroIntegracionTest {
         empresaId = empresaService.registrar("Tienda del tablero", "900606060-1", "contacto@tablero.com",
                 "Administradora", "admin@tablero.com", "clave12345").id();
         adminId = usuarioRepository.findByEmail("admin@tablero.com").orElseThrow().getId();
-        procesoId = new TiendaConMensajeria(contexto).publicar(empresaId, adminId, "Order fulfillment on a board");
+        TiendaConMensajeria tienda = new TiendaConMensajeria(contexto);
+        procesoId = tienda.publicar(empresaId, adminId, "Order fulfillment on a board");
+        otroProcesoId = tienda.publicar(empresaId, adminId, "Returns on the same board");
 
+        simulacionService.tick(empresaId, RELOJ_INICIAL);
         simulacionService.pedidos(empresaId, procesoId, PEDIDOS, null);
+        simulacionService.pedidos(empresaId, otroProcesoId, DE_OTRO_PROCESO, null);
         bandeja().stream().limit(ATENDIDOS)
                 .forEach(tarea -> tareaService.completar(empresaId, adminId, tarea.id(), null));
         simulacionService.tick(empresaId, 1);
@@ -101,7 +114,7 @@ class TableroIntegracionTest {
                 .extracting(CasosPorEstadoResponse::estado, CasosPorEstadoResponse::cantidad)
                 .containsExactlyInAnyOrder(tuple(EstadoCaso.ABIERTO, (long) (PEDIDOS - ATENDIDOS)),
                         tuple(EstadoCaso.TERMINADO, (long) ATENDIDOS));
-        // Cada pedido atendido se abrio en el tick cero y termino en el uno: un tick de punta a punta.
+        // Cada pedido atendido se abrio en el tick dos y termino en el tres: un tick de punta a punta, no tres.
         assertThat(tablero.ciclo().terminados()).isEqualTo(ATENDIDOS);
         assertThat(tablero.ciclo().medio()).isEqualTo(1.0);
         assertThat(tablero.ciclo().p95()).isEqualTo(1);
@@ -134,12 +147,24 @@ class TableroIntegracionTest {
     }
 
     @Test
-    @DisplayName("El tablero de la tienda entera trae lo mismo sin pedir proceso, y no separa por el")
-    void elTableroDeLaTienda_noPideProceso() {
+    @DisplayName("El tablero de la tienda suma los dos procesos; el de uno solo no cuenta los del otro")
+    void elTableroDeLaTienda_sumaLosDosProcesos() {
         TableroResponse tablero = tableroService.de(empresaId, null);
 
         assertThat(tablero.procesoId()).isNull();
-        assertThat(tablero.casos()).isEqualTo(PEDIDOS);
+        assertThat(tablero.casos()).isEqualTo(PEDIDOS + DE_OTRO_PROCESO);
+        assertThat(tableroService.de(empresaId, procesoId).casos()).isEqualTo(PEDIDOS);
+        assertThat(tableroService.de(empresaId, otroProcesoId).casos()).isEqualTo(DE_OTRO_PROCESO);
+        assertThat(tableroService.de(empresaId, otroProcesoId).salientes()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Los medidores de Actuator cuentan lo que esta vivo, no lo que ya termino")
+    void losMedidores_cuentanLoQueEstaVivo() {
+        assertThat(medidores.casosAbiertos()).isEqualTo(PEDIDOS - ATENDIDOS + DE_OTRO_PROCESO);
+        assertThat(medidores.tareasPendientes()).isEqualTo(PEDIDOS - ATENDIDOS + DE_OTRO_PROCESO);
+        assertThat(medidores.salientesPendientes()).isZero();
+        assertThat(medidores.entrantesPendientes()).isZero();
     }
 
     @Test

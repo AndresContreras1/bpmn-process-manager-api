@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.ejecucion.dto.response.CasosPorEstadoResponse;
-import com.facimus.procesos.ejecucion.dto.response.CicloDeCasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.LoQueSalioMalResponse;
 import com.facimus.procesos.ejecucion.dto.response.TableroResponse;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
@@ -53,7 +52,7 @@ public class TableroServiceImpl implements TableroService {
         return new TableroResponse(procesoId,
                 porEstado.stream().mapToLong(CasosPorEstadoResponse::cantidad).sum(),
                 porEstado,
-                ciclo(casoRepository.ticksDeCiclo(empresaId, procesoId)),
+                TiempoDeCiclo.de(casoRepository.ticksDeCiclo(empresaId, procesoId)),
                 actividadCasoRepository.tareasPorRol(empresaId, procesoId),
                 mensajeSalienteRepository.salientesPorEstado(empresaId, procesoId),
                 mensajeEntranteRepository.entrantesPorResultado(empresaId, procesoId),
@@ -62,17 +61,4 @@ public class TableroServiceImpl implements TableroService {
                         salioMal.getOrDefault(TipoEventoCaso.VARIABLE_AUSENTE, 0L)));
     }
 
-    /**
-     * El promedio y el p95 de una lista que ya viene ordenada. Se calculan aqui y no en SQL porque el percentil no
-     * se escribe igual en H2 que en PostgreSQL, y un numero que se publica no puede salir distinto segun el motor.
-     */
-    private static CicloDeCasoResponse ciclo(List<Integer> ticks) {
-        if (ticks.isEmpty()) {
-            return CicloDeCasoResponse.sinDatos();
-        }
-        double medio = ticks.stream().mapToInt(Integer::intValue).average().orElseThrow();
-        // El menor valor que cubre al menos el 95 % de los pedidos: con veinte, el ultimo; con diez, el decimo.
-        int posicion = (int) Math.ceil(ticks.size() * 0.95) - 1;
-        return new CicloDeCasoResponse(ticks.size(), Math.round(medio * 100) / 100.0, ticks.get(posicion));
-    }
 }
