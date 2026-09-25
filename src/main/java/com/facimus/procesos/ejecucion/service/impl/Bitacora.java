@@ -24,6 +24,7 @@ class Bitacora {
 
     private final EventoCasoRepository eventoCasoRepository;
 
+    /** El tick es el del caso; hasta que exista el reloj de la tienda, el de su apertura, que es 0. */
     void anotar(Caso caso, TipoEventoCaso tipo, String detalle, Long autorId) {
         eventoCasoRepository.save(EventoCaso.builder()
                 .empresa(caso.getEmpresa())

@@ -215,6 +215,9 @@ class MotorDeProcesos {
         variables.olvidarAusentes();
         List<ArcoDeLaVersion> elegidos = new ArrayList<>();
         ArcoDeLaVersion porDefecto = null;
+        // Las condiciones se evaluan todas aunque el exclusivo se quede con la primera: asi las variables que le
+        // faltan a las demas tambien quedan anotadas, que es lo que se lee cuando el caso no fue por donde se
+        // esperaba.
         for (ArcoDeLaVersion salida : grafo.salidasDe(nodo.id())) {
             if (salida.porDefecto()) {
                 porDefecto = salida;

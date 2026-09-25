@@ -27,6 +27,7 @@ import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.model.EventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
+import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.gestion.model.EstadoProceso;
@@ -447,6 +448,26 @@ class MotorDeProcesosTest {
         }
 
         @Test
+        @DisplayName("Un token en un nodo que no esta en la version no sigue: el caso queda en ERROR")
+        void nodoQueNoEstaEnLaVersion_dejaElCasoEnError() {
+            DiagramaArmado armado = unDiagrama();
+            armado.evento(VENTAS, "Done", TipoEvento.FIN);
+            armado.arco("Start", "Done");
+            Caso caso = arrancarSinMotor(armado);
+            GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
+            // Un paso que apunta a un nodo que la version no tiene: el modelo vivo lo borro despues de publicar.
+            actividadCasoRepository.saveAndFlush(ActividadCaso.builder().empresa(tienda).caso(caso).nodoId(9999L)
+                    .nodoNombre("Fantasma").tipoNodo(TipoNodoCaso.ACTIVIDAD).subtipo("USUARIO")
+                    .estado(EstadoActividadCaso.PENDIENTE).build());
+
+            motor.avanzar(caso, grafo, null);
+
+            assertThat(caso.getEstado()).isEqualTo(EstadoCaso.ERROR);
+            assertThat(pasoPor(caso, "Fantasma")).returns(EstadoActividadCaso.FALLIDA, ActividadCaso::getEstado);
+            assertThat(detallesDeLaBitacora(caso)).anyMatch(detalle -> detalle.contains("no esta en la version"));
+        }
+
+        @Test
         @DisplayName("Un ciclo que nunca espera se corta y deja el caso en ERROR en vez de colgar la peticion")
         void cicloSinEspera_dejaElCasoEnError() {
             DiagramaArmado armado = unDiagrama();
@@ -525,11 +546,20 @@ class MotorDeProcesosTest {
 
     private Caso arrancar(DiagramaArmado armado, String variables) {
         GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
-        Caso caso = em.persistFlushFind(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(version)
-                .referencia("ORD-1").estado(EstadoCaso.ABIERTO).variables(variables).build());
+        Caso caso = arrancarSinMotor(armado, variables);
         motor.arrancar(caso, grafo, grafo.inicioAMano().orElseThrow(), null);
         em.flush();
         return caso;
+    }
+
+    /** Un caso recien abierto sin que el motor lo haya tocado, para poner a mano el token que hace falta. */
+    private Caso arrancarSinMotor(DiagramaArmado armado) {
+        return arrancarSinMotor(armado, SIN_VARIABLES);
+    }
+
+    private Caso arrancarSinMotor(DiagramaArmado armado, String variables) {
+        return em.persistFlushFind(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(version)
+                .referencia("ORD-1").estado(EstadoCaso.ABIERTO).variables(variables).build());
     }
 
     /** El pool de la tienda con una lane de ventas y su evento de inicio, que es de donde parte todo. */

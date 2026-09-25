@@ -164,6 +164,16 @@ class EvaluadorDeCondicionesTest {
         }
 
         @Test
+        @DisplayName("Una fecha no se ordena contra un texto que no es una fecha")
+        void fecha_contraTextoQueNoLoEs_noSeOrdena() {
+            Map<String, Object> variables = Map.of("order", Map.of("createdAt", "ayer"));
+
+            // Comparar los dos textos por orden alfabetico diria que "ayer" es mayor que cualquier fecha.
+            assertThat(evaluar("order.createdAt > '2026-09-23'", variables)).isFalse();
+            assertThat(evaluar("order.createdAt < '2026-09-23'", variables)).isFalse();
+        }
+
+        @Test
         @DisplayName("Comparar tipos distintos no es igual, y tampoco pone el caso en orden")
         void tiposDistintos_niIgualesNiOrdenados() {
             Map<String, Object> variables = Map.of("order", Map.of("total", "150"));
@@ -222,8 +232,10 @@ class EvaluadorDeCondicionesTest {
         @Test
         @DisplayName("not se aplica al factor que sigue, no a toda la expresion")
         void not_seAplicaAlFactorQueSigue() {
-            // not A and B: si not tomara toda la expresion, el resultado seria el contrario.
             assertThat(evaluar("not payment.status == DECLINED and order.total > 100", PEDIDO)).isTrue();
+
+            // Con las dos falsas se ve la diferencia: (not A) and B es falsa, y not (A and B) seria verdadera.
+            assertThat(evaluar("not payment.status == APPROVED and order.total > 200", PEDIDO)).isFalse();
         }
     }
 
