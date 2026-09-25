@@ -196,7 +196,7 @@ today, end to end.
 | Manage process roles | ✓ | — | — |
 | Manage users | ✓ | — | — |
 | Share a process with a partner company | ✓ | — | — |
-| Watch cases, their timeline and the tray | ✓ | ✓ | ✓ |
+| Watch cases, their timeline, the tray and the dashboard | ✓ | ✓ | ✓ |
 | Open a case, complete and take a task, cancel a case | ✓ | ✓ | — |
 | Correct the variables of a case and retry it | ✓ | — | — |
 | Say which process roles a person belongs to | ✓ | — | — |
@@ -581,6 +581,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Tasks | `GET /api/v1/tareas` · `GET /api/v1/tareas/{id}` · `POST /api/v1/tareas/{id}/completar` · `POST /api/v1/tareas/{id}/asignar` |
 | Messaging | `POST /api/v1/procesos/{procesoId}/mensajes-entrantes` · `GET /api/v1/procesos/{procesoId}/bandeja-salida` · `GET /api/v1/procesos/{procesoId}/bandeja-entrada` · `GET /api/v1/casos/{id}/mensajes` |
 | Simulation | `GET /api/v1/simulacion` · `POST /api/v1/simulacion/tick` · `POST /api/v1/simulacion/pedidos` |
+| Dashboard | `GET /api/v1/procesos/{procesoId}/tablero` · `GET /api/v1/empresas/actual/tablero` |
 
 `GET /api/v1/procesos/{id}/diagrama` returns everything a client needs to draw a process: the process and flat lists
 of pools, lanes, activities, gateways, events, sequence flows, message flows and correlation keys, linked by id.
@@ -850,6 +851,36 @@ reference and an amount made up from the seed. They enter through the same door 
 simulated order and a real one walk exactly the same path: nothing downstream knows where they came from. A
 process that is opened by hand does not take batches — its cases are opened one at a time.
 
+### The dashboard
+
+How operations are going, for one process or for the whole store. It answers what somebody actually asks when they
+open it: how many orders there are and what state they are in, how long a finished one takes, who has work
+waiting, what has been sent and received, and what did not go as expected.
+
+```bash
+curl -s http://localhost:8080/api/v1/procesos/1/tablero -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/empresas/actual/tablero -H "Authorization: Bearer $TOKEN"
+```
+
+**Time is counted in ticks**, not in hours: the simulation's time is the one that can be reproduced, and mixing
+the two would be counting two different things in one column. Alongside the average there is a p95 — the time that
+at least ninety-five out of a hundred orders stay under. It is deliberately not the maximum: out of twenty orders,
+one slow one does not move it and two do, which is what makes it worth looking at.
+
+**What did not go as expected** is three numbers taken from the case timelines: messages that never reached the
+partner, gateways that found no path, and conditions that asked for a variable the case did not have. Each one is
+fixed a different way, so each one is counted separately. There is no "declined payments" column: whether a
+payment was declined is a fact of the business that lives in the diagram, and the engine would have to guess it by
+reading inside the body of a message — while these three it knows for certain, because it wrote them.
+
+**It costs six queries**, whether the store has five orders or five thousand, and a test counts the statements so
+it stays that way. A dashboard that grew with the orders would stop being openable exactly on the day it mattered.
+
+For whoever runs the server rather than the store, Actuator publishes four gauges next to the memory and
+connection-pool ones: `casos.abiertos`, `tareas.pendientes`, `mensajes.salientes.pendientes` and
+`mensajes.entrantes.pendientes`. Those are for the whole installation — a gauge tagged per store would create a
+new series every time somebody registers — and they are the administrator's, like the rest of Actuator.
+
 ### AI review
 
 `POST /api/v1/procesos/{id}/revision` sends the diagram to a language model and answers with findings: a
@@ -1036,17 +1067,17 @@ stacking, at the top level and inside each module.
 ./mvnw verify
 ```
 
-The build runs 1142 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 1163 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
 | Architecture (ArchUnit) | 39 | Layering, module boundaries and cycles between packages at both levels, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, a simulated partner that cannot reach into the engine or open a connection, a port that cannot mention an entity, anything that runs on its own living in `config`, and a declared profile in every `@SpringBootTest` and persistence slice |
-| Controller slices (`@WebMvcTest`) | 189 | Routes, status codes, JSON shape and validation, with the real security rules |
-| Service unit tests (Mockito) | 423 | Business rules of the three modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the language of the conditions, compiled and evaluated, operator by operator; the graph a published version turns into; the engine, with one test per row of the table of what each node does, on diagrams built in memory, messages included: what a node sends, what it waits for and what each `siFalla` does when a send does not arrive; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses; and the four simulated partners, one suite each, with the seed proving that the same store and the same steps always decide the same way |
+| Controller slices (`@WebMvcTest`) | 191 | Routes, status codes, JSON shape and validation, with the real security rules |
+| Service unit tests (Mockito) | 429 | Business rules of the three modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the language of the conditions, compiled and evaluated, operator by operator; the graph a published version turns into; the engine, with one test per row of the table of what each node does, on diagrams built in memory, messages included: what a node sends, what it waits for and what each `siFalla` does when a send does not arrive; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses; the four simulated partners, one suite each, with the seed proving that the same store and the same steps always decide the same way; and the cycle time over lists counted by hand, where out of twenty orders one slow one does not move the p95 and two do |
 | Repository slices (`@DataJpaTest`) | 67 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, the versions, with one number per process and a whole diagram in the column, and the named queries of the execution and of the two message trays, which do not exist as code: a renamed one does not start the application |
-| Security and isolation (`@SpringBootTest`) | 251 | The two-store IDOR suite, one block of it for cases, tasks, their timeline and the message trays, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 37 | What `dev` and `prod` expose, what runs on its own in each one and what does not run in `test`, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, and the demo data read through the API |
-| Module integration (`@SpringBootTest`) | 134 | Process-role usage across modules, who sees which tray, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history, the BPMN consistency rules, an order from opening to finishing through both trays, two people completing the same task at the same time, the four endings of the correlation of a message, the store's clock and what each tick delivers, and the whole demo order end to end: it arrives as a message, two people move it, the clock delivers what it sent and the partners answer, and it finishes shipped — twenty of them at a time, and every one of them cancelled instead when the rejection rate says so |
+| Security and isolation (`@SpringBootTest`) | 253 | The two-store IDOR suite, one block of it for cases, tasks, their timeline and the message trays, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 39 | What `dev` and `prod` expose, what runs on its own in each one and what does not run in `test`, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, the four gauges of the operation included, and the demo data read through the API |
+| Module integration (`@SpringBootTest`) | 143 | Process-role usage across modules, who sees which tray, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history, the BPMN consistency rules, an order from opening to finishing through both trays, two people completing the same task at the same time, the four endings of the correlation of a message, the store's clock and what each tick delivers, and the whole demo order end to end: it arrives as a message, two people move it, the clock delivers what it sent and the partners answer, and it finishes shipped — twenty of them at a time, and every one of them cancelled instead when the rejection rate says so; and the dashboard over figures counted by hand, with a statement count that keeps it at six queries however many orders there are, and an order cancelled on purpose to prove that the cycle time counts only the ones that finished |
 | Application context | 2 | The full context starts in the `test` profile, without the demo store |
 | PostgreSQL 16 (Testcontainers) | 79 | What only the production engine can answer: the partial unique indexes behind the name of a process and the pair of nodes of a flow, which H2 has to replace with a generated column, and the `text` columns that hold a published diagram, the variables of a case and the bodies of the messages. The migration, repository, version, publishing, execution, messaging, simulation and whole-demo suites run again here, unchanged, and the context starts with `validate`, so every entity is checked against the schema Flyway leaves behind |
 
@@ -1071,7 +1102,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 | Build & Test | `./mvnw verify` on Ubuntu and Windows. The test results appear as a check, and the coverage report is kept as an artifact. |
 | Architecture Rules | The ArchUnit suite on its own, with a summary |
 | PostgreSQL Integration | The suites tagged `postgres` against a PostgreSQL 16 container, the same image the Compose stack runs |
-| Docker Image & Load Test | Builds the image, checks that the API answers from the container, brings up the Compose stack in the `prod` profile against PostgreSQL 16, and runs the k6 load test against it |
+| Docker Image & Load Test | Builds the image, checks that the API answers from the container, brings up the Compose stack in the `prod` profile against PostgreSQL 16, and runs the two k6 load tests against it: one that loads reading the model and one that loads running it |
 | SonarCloud Analysis | Static analysis and its quality gate: the job waits for SonarCloud to judge the analysis and goes red when the gate does not pass. Skipped while the token is not configured |
 | Frontend Build | `npm ci` and a production build of the web app |
 
@@ -1162,7 +1193,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 ## Roadmap
 
 **Peak-traffic readiness**
-- [x] k6 load tests that simulate a sales peak, with thresholds in CI
+- [x] k6 load tests that simulate a sales peak and an order peak, with thresholds in CI
 - [x] Connection-pool and thread-pool sizing, moved by environment variables
 - [ ] Second-level cache for published processes, once the load test says where the time goes
 - [x] `Pageable`-based pagination with stable sorting for every collection that can grow
@@ -1198,7 +1229,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 - [x] Memberships, so each person can ask for the tray of their own process roles
 - [x] Messaging and a simulation clock: sending, correlating and waiting for the messages the diagram declares
 - [x] Simulated partners for payments, shipping and notifications, deterministic by store and seed
-- [ ] An operations dashboard: cases by state, cycle time and open tasks per role
+- [x] An operations dashboard: cases by state, cycle time and open tasks per role
 
 **Beyond the model**
 - [x] Deterministic diagnosis of a diagram, with its own catalogue of errors and warnings and a what-if for a deletion

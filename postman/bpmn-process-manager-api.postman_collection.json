@@ -2368,6 +2368,34 @@
 					"response": []
 				},
 				{
+					"name": "Tablero del proceso",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/tablero",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "procesos", "{{procesoId}}", "tablero"]
+						},
+						"description": "Como va la operacion de este proceso: cuantos pedidos hay y en que estado, cuanto tarda uno terminado (promedio y p95, en ticks del reloj de la tienda), quien tiene trabajo esperando, que se mando y que llego, y lo que no salio como se esperaba. Cuesta seis consultas, haya cinco pedidos o cinco mil. Cualquier rol: solo mira."
+					},
+					"response": []
+				},
+				{
+					"name": "Tablero de la tienda",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/empresas/actual/tablero",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "empresas", "actual", "tablero"]
+						},
+						"description": "El mismo tablero, con la misma forma, sumando todos los procesos de la tienda. El unico campo que cambia es procesoId, que viene vacio. Cualquier rol: solo mira."
+					},
+					"response": []
+				},
+				{
 					"name": "Abrir un caso para cancelarlo",
 					"event": [
 						{
