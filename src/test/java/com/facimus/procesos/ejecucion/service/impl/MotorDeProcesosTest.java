@@ -596,6 +596,20 @@ class MotorDeProcesosTest {
         }
 
         @Test
+        @DisplayName("Un campo con puntos baja por las variables del caso y viaja con su ultimo tramo")
+        void campoConPuntos_viajaConSuUltimoTramo() {
+            DiagramaArmado armado = conEnvioSimple(AccionSiFalla.CONTINUAR);
+            armado.datosDelMensaje("Payment authorization request", "payment",
+                    new CampoDeMensaje("order.total", TipoDeDato.NUMERO));
+
+            Caso caso = arrancar(armado, "{\"order\":{\"total\":150}}");
+
+            // Dentro del caso el dato se llama order.total; el socio del otro lado lo conoce como total.
+            assertThat(salientesDe(caso).getFirst().getCuerpo()).isEqualTo("{\"total\":150}");
+            assertThat(tiposDeLaBitacora(caso)).doesNotContain(TipoEventoCaso.VARIABLE_AUSENTE);
+        }
+
+        @Test
         @DisplayName("Sin campo de correlacion, la clave del mensaje es la referencia del caso")
         void sinCampoDeCorrelacion_laClaveEsLaReferencia() {
             DiagramaArmado armado = conEnvioSimple(AccionSiFalla.CONTINUAR);

@@ -47,7 +47,7 @@ class BandejaDeSalida {
         Map<String, Object> cuerpo = new LinkedHashMap<>();
         for (CampoDeMensaje campo : mensaje.campos()) {
             Object valor = variables.valor(campo.nombre()).orElse(null);
-            cuerpo.put(campo.nombre(), valor);
+            cuerpo.put(comoViaja(campo.nombre()), valor);
             if (valor == null) {
                 bitacora.anotar(caso, momento.tick(), TipoEventoCaso.VARIABLE_AUSENTE,
                         "\"" + mensaje.nombre() + "\" lleva el campo \"" + campo.nombre()
@@ -73,6 +73,16 @@ class BandejaDeSalida {
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.MENSAJE_ENVIADO,
                 "\"" + mensaje.nombre() + "\" sale hacia \"" + mensaje.poolDestinoNombre() + "\".");
         return saliente;
+    }
+
+    /**
+     * Un campo se busca por su nombre entre las variables del caso, y un nombre con puntos baja por el camino,
+     * igual que en una condicion. En el cuerpo viaja con su ultimo tramo, que es el nombre por el que lo conoce el
+     * participante del otro lado: dentro del caso es "order.orderId" y fuera, "orderId".
+     */
+    private static String comoViaja(String nombre) {
+        int punto = nombre.lastIndexOf('.');
+        return punto < 0 ? nombre : nombre.substring(punto + 1);
     }
 
     /**
