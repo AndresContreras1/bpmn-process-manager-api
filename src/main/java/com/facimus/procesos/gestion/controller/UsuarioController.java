@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,7 +23,10 @@ import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.ActualizarUsuarioRequest;
 import com.facimus.procesos.gestion.dto.request.CrearUsuarioRequest;
+import com.facimus.procesos.gestion.dto.request.RolesDeUsuarioRequest;
+import com.facimus.procesos.gestion.dto.response.RolDeUsuarioResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,6 +49,7 @@ public class UsuarioController {
     private static final String ORDEN = "(nombre|email|rolAcceso)(,(asc|desc))?";
 
     private final UsuarioService usuarioService;
+    private final MembresiaRolService membresiaRolService;
 
     @Operation(summary = "List active users", description = "Pages of the store's active users, by name by default.")
     @ApiResponse(responseCode = "200", description = "One page of the store's active users")
@@ -134,5 +139,35 @@ public class UsuarioController {
     public ResponseEntity<Void> desactivar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         usuarioService.desactivar(principal.empresaId(), principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "List the process roles of a user",
+            description = "Which process roles this person belongs to, which is what lets them ask for their own "
+                    + "tray. It gives no permissions: what someone can do is still their access role. "
+                    + "Administrators only.")
+    @ApiResponse(responseCode = "200", description = "The process roles of the user")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @GetMapping("/{id}/roles-proceso")
+    public ResponseEntity<List<RolDeUsuarioResponse>> rolesDeProceso(@PathVariable Long id,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(membresiaRolService.rolesDe(principal.empresaId(), id));
+    }
+
+    @Operation(summary = "Replace the process roles of a user",
+            description = "Takes the whole list: whatever is sent is what the person ends up with, and an empty "
+                    + "list leaves them with none. A retired role is not handed out. Administrators only.")
+    @ApiResponse(responseCode = "200", description = "The process roles the user now has")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @PutMapping("/{id}/roles-proceso")
+    public ResponseEntity<List<RolDeUsuarioResponse>> reemplazarRolesDeProceso(@PathVariable Long id,
+            @Validated @RequestBody RolesDeUsuarioRequest request,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(membresiaRolService.reemplazar(principal.empresaId(), principal.usuarioId(), id,
+                request.rolesProcesoIds()));
     }
 }

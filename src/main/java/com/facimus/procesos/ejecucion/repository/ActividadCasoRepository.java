@@ -23,6 +23,14 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
             @Param("rolProcesoId") Long rolProcesoId, @Param("procesoId") Long procesoId,
             @Param("estado") EstadoActividadCaso estado, Pageable pagina);
 
+    /**
+     * La bandeja de una persona: la misma consulta, acotada a los roles de proceso a los que pertenece (D13). Es
+     * otra consulta con nombre y no un parametro mas de la anterior porque una lista vacia no se puede preguntar
+     * con un {@code in}, y quien no tiene roles no tiene bandeja propia que consultar.
+     */
+    Page<ActividadCaso> bandejaDeMisRoles(@Param("empresaId") Long empresaId, @Param("roles") List<Long> roles,
+            @Param("procesoId") Long procesoId, @Param("estado") EstadoActividadCaso estado, Pageable pagina);
+
     /** Lo que el motor procesa en esta vuelta, en el orden en que se creo. */
     List<ActividadCaso> findAllByCasoIdAndEmpresaIdAndEstadoOrderByIdAsc(Long casoId, Long empresaId,
             EstadoActividadCaso estado);

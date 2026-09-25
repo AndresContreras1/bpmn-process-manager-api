@@ -16,7 +16,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.gestion.dto.response.RolDeUsuarioResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -31,6 +34,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,6 +49,9 @@ class UsuarioControllerTest {
 
     @MockitoBean
     private UsuarioService usuarioService;
+
+    @MockitoBean
+    private MembresiaRolService membresiaRolService;
 
     @Test
     @DisplayName("GET /api/v1/usuarios - listar como admin: una pagina ordenada por nombre (200)")
@@ -210,4 +218,57 @@ class UsuarioControllerTest {
         return new UsuarioResponse(id, nombre, email, rol, true, 1L, 0L, null, null, null, null, false, null);
     }
 
+    @Test
+    @DisplayName("GET /api/v1/usuarios/{id}/roles-proceso - los roles de proceso de una persona (200)")
+    void rolesDeProceso_devuelveLosRoles() throws Exception {
+        given(membresiaRolService.rolesDe(1L, 5L)).willReturn(List.of(
+                new RolDeUsuarioResponse(2L, "Warehouse", "Picks, packs and ships the orders."),
+                new RolDeUsuarioResponse(3L, "Sales", null)));
+
+        mockMvc.perform(get("/api/v1/usuarios/5/roles-proceso").with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].nombre").value("Warehouse"))
+                .andExpect(jsonPath("$[1].id").value(3));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/usuarios/{id}/roles-proceso - reemplaza la lista entera (200)")
+    void reemplazarRolesDeProceso_devuelveLosQueQuedan() throws Exception {
+        given(membresiaRolService.reemplazar(1L, 1L, 5L, List.of(2L, 3L)))
+                .willReturn(List.of(new RolDeUsuarioResponse(2L, "Warehouse", null),
+                        new RolDeUsuarioResponse(3L, "Sales", null)));
+
+        mockMvc.perform(put("/api/v1/usuarios/5/roles-proceso")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"rolesProcesoIds\":[2,3]}")
+                        .with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+
+        verify(membresiaRolService).reemplazar(1L, 1L, 5L, List.of(2L, 3L));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/usuarios/{id}/roles-proceso - sin la lista no se guarda nada (400)")
+    void reemplazarRolesDeProceso_sinLista_esInvalida() throws Exception {
+        mockMvc.perform(put("/api/v1/usuarios/5/roles-proceso")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}")
+                        .with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.rolesProcesoIds").exists());
+
+        verifyNoInteractions(membresiaRolService);
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/usuarios/{id}/roles-proceso - un rol de otra tienda no existe (404)")
+    void reemplazarRolesDeProceso_conRolAjeno_noExiste() throws Exception {
+        given(membresiaRolService.reemplazar(1L, 1L, 5L, List.of(99L)))
+                .willThrow(new RecursoNoEncontradoException("Rol de proceso no encontrado."));
+
+        mockMvc.perform(put("/api/v1/usuarios/5/roles-proceso")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"rolesProcesoIds\":[99]}")
+                        .with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Rol de proceso no encontrado."));
+    }
 }

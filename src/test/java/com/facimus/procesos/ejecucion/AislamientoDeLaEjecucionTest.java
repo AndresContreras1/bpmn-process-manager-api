@@ -128,7 +128,7 @@ class AislamientoDeLaEjecucionTest {
         procesoB = publicarUnProceso(empresaB, adminB, "Order fulfillment B");
         CasoResponse caso = casoService.abrir(empresaB, adminB, procesoB, "ORD-B", Map.of());
         casoB = caso.id();
-        tareaB = tareaService.bandeja(empresaB, null, null, null, Paginacion.de(0, 10)).content().getFirst().id();
+        tareaB = tareaService.bandeja(empresaB, adminB, false, null, null, null, Paginacion.de(0, 10)).content().getFirst().id();
 
         tokenA = login(ADMIN_A);
     }
