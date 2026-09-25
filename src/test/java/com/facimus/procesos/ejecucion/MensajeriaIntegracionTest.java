@@ -33,7 +33,12 @@ import com.facimus.procesos.ejecucion.service.DatosDelEntrante;
 import com.facimus.procesos.ejecucion.service.MensajeriaService;
 import com.facimus.procesos.ejecucion.service.TareaService;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.gestion.service.ProcesoService;
+import com.facimus.procesos.modelado.model.PoliticaSinCaso;
+import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.modelado.model.Integracion;
 
 /**
@@ -60,6 +65,15 @@ class MensajeriaIntegracionTest {
 
     @Autowired
     private MensajeriaService mensajeriaService;
+
+    @Autowired
+    private ProcesoService procesoService;
+
+    @Autowired
+    private MensajeService mensajeService;
+
+    @Autowired
+    private CorrelacionService correlacionService;
 
     @Autowired
     private ApplicationContext contexto;
@@ -215,6 +229,69 @@ class MensajeriaIntegracionTest {
     }
 
     @Test
+    @DisplayName("Dos procesos de la tienda con un pedido de la misma referencia no se confunden")
+    void mismaReferenciaEnDosProcesos_cadaMensajeVaAlSuyo() {
+        Long unProceso = publicar("Order fulfillment with a shared reference");
+        Long otroProceso = publicar("Another fulfillment with the same reference");
+        Long casoDeUno = unPedidoEsperandoLaPasarela(unProceso, "ORD-DOBLE");
+        Long casoDelOtro = unPedidoEsperandoLaPasarela(otroProceso, "ORD-DOBLE");
+
+        MensajeEntranteResponse entrante = recibir(otroProceso, TiendaConMensajeria.RESULTADO, "ORD-DOBLE",
+                Map.of("status", "APPROVED"), null);
+
+        assertThat(entrante.casoId()).isEqualTo(casoDelOtro);
+        assertThat(casoService.obtener(empresaId, casoDelOtro).caso().estado()).isEqualTo(EstadoCaso.TERMINADO);
+        assertThat(casoService.obtener(empresaId, casoDeUno).caso().estado()).isEqualTo(EstadoCaso.ABIERTO);
+    }
+
+    @Test
+    @DisplayName("Un mensaje de inicio cuya correlacion dice descartar no abre ningun caso")
+    void mensajeDeInicioQueDiceDescartar_noAbreCaso() {
+        Long procesoId = publicar("Order fulfillment that stopped opening cases");
+        // Esta anclado a un evento que empieza el proceso, que es la otra mitad de la condicion: lo unico que
+        // cambia es lo que dice su correlacion, y con eso deja de abrir casos.
+        republicarConPolitica(procesoId, TiendaConMensajeria.PEDIDO, PoliticaSinCaso.DESCARTAR);
+
+        MensajeEntranteResponse entrante = recibir(procesoId, TiendaConMensajeria.PEDIDO, null,
+                Map.of("orderId", "ORD-970"), null);
+
+        assertThat(entrante.resultado()).isEqualTo(ResultadoCorrelacion.DESCARTADO);
+        assertThat(entrante.casoId()).isNull();
+        assertThat(casoService.listar(empresaId, procesoId, null, "ORD-970", Paginacion.de(0, 10)).content())
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("Un mensaje para un caso que ya se cerro se descarta: un caso cerrado no recibe nada")
+    void casoCerrado_noRecibeNada() {
+        Long procesoId = publicar("Order fulfillment already closed");
+        Long casoId = unPedidoEsperandoLaPasarela(procesoId, "ORD-950");
+        casoService.cancelar(empresaId, adminId, casoId);
+
+        MensajeEntranteResponse entrante = recibir(procesoId, TiendaConMensajeria.RESULTADO, "ORD-950",
+                Map.of("status", "APPROVED"), null);
+
+        assertThat(entrante.resultado()).isEqualTo(ResultadoCorrelacion.DESCARTADO);
+        assertThat(entrante.casoId()).isNull();
+        assertThat(casoService.obtener(empresaId, casoId).caso().estado()).isEqualTo(EstadoCaso.CANCELADO);
+    }
+
+    @Test
+    @DisplayName("Una correlacion que dice abrir caso en mitad del flujo no abre nada: se descarta")
+    void iniciarCasoEnMitadDelFlujo_noAbreNada() {
+        Long procesoId = publicar("Order fulfillment with a misplaced policy");
+        // La respuesta del pago dice INICIAR_CASO, pero esta anclada a un evento intermedio y no a un inicio.
+        republicarConPolitica(procesoId, TiendaConMensajeria.RESULTADO, PoliticaSinCaso.INICIAR_CASO);
+
+        MensajeEntranteResponse entrante = recibir(procesoId, TiendaConMensajeria.RESULTADO, "ORD-960",
+                Map.of("status", "APPROVED"), null);
+
+        assertThat(entrante.resultado()).isEqualTo(ResultadoCorrelacion.DESCARTADO);
+        assertThat(casoService.listar(empresaId, procesoId, null, "ORD-960", Paginacion.de(0, 10)).content())
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("El envio del caso queda en la bandeja de salida con su clave y su cuerpo")
     void elEnvio_quedaEnLaBandejaDeSalida() {
         Long procesoId = publicar("Order fulfillment with an outbox");
@@ -245,6 +322,17 @@ class MensajeriaIntegracionTest {
                 .filteredOn(paso -> paso.nodoNombre().equals("Payment result received"))
                 .singleElement().returns(EstadoActividadCaso.EN_ESPERA, PasoDelCasoResponse::estado);
         return casoId;
+    }
+
+    /** Cambia lo que hace un mensaje cuando no encuentra caso y vuelve a publicar: la version vigente es la nueva. */
+    private void republicarConPolitica(Long procesoId, String mensaje, PoliticaSinCaso politica) {
+        Long mensajeId = mensajeService.listarPorProceso(empresaId, procesoId).stream()
+                .filter(candidato -> candidato.nombre().equals(mensaje))
+                .findFirst().orElseThrow().id();
+        correlacionService.definir(empresaId, adminId, mensajeId, "orderId", "orderId", politica,
+                correlacionService.obtener(empresaId, mensajeId).version());
+        procesoService.cambiarEstado(empresaId, procesoId, adminId, EstadoProceso.PUBLICADO,
+                procesoService.obtener(empresaId, procesoId, false).version());
     }
 
     private MensajeEntranteResponse recibir(Long procesoId, String nombre, String clave,

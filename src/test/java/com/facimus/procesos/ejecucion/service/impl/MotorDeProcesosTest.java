@@ -163,8 +163,8 @@ class MotorDeProcesosTest {
         }
 
         @Test
-        @DisplayName("Un evento de mensaje intermedio pasa de largo mientras no haya mensajeria")
-        void mensajeIntermedio_pasaDeLargo() {
+        @DisplayName("Un evento de mensaje intermedio sin mensaje anclado no tiene nada que esperar y pasa")
+        void mensajeIntermedioSinMensaje_pasaDeLargo() {
             DiagramaArmado armado = unDiagrama();
             armado.evento(VENTAS, "Payment result received", TipoEvento.MENSAJE_INTERMEDIO);
             armado.evento(VENTAS, "Done", TipoEvento.FIN);
@@ -179,8 +179,8 @@ class MotorDeProcesosTest {
         }
 
         @Test
-        @DisplayName("Un mensaje de fin cierra su camino igual que un fin normal")
-        void mensajeFin_cierraSuCamino() {
+        @DisplayName("Un mensaje de fin sin mensaje anclado cierra su camino igual que un fin normal")
+        void mensajeFinSinMensaje_cierraSuCamino() {
             DiagramaArmado armado = unDiagrama();
             armado.evento(VENTAS, "Order shipped", TipoEvento.MENSAJE_FIN);
             armado.arco("Start", "Order shipped");

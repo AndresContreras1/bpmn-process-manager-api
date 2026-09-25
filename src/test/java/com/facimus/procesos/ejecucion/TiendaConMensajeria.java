@@ -37,24 +37,24 @@ import com.facimus.procesos.modelado.service.PoolService;
  * <p>Lo comparten las pruebas de mensajeria y las de simulacion porque necesitan el mismo diagrama exacto: una
  * manda los mensajes a mano y la otra deja que los entregue el reloj, y las dos tienen que llegar al mismo sitio.
  */
-class TiendaConMensajeria {
+public class TiendaConMensajeria {
 
-    static final String CLIENTE = "Customer";
-    static final String PASARELA = "Payment gateway";
-    static final String PEDIDO = "Order placed";
-    static final String AUTORIZACION = "Payment authorization request";
-    static final String RESULTADO = "Payment authorization result";
-    static final String REVISAR = "Receive order";
-    static final String ESPERAR_PAGO = "Payment result received";
-    static final String TRANSPORTISTA = "Carrier";
-    static final String CONFIRMACION = "Shipment confirmation";
-    static final String ENVIO = "Shipment request";
-    static final String AVISO = "Order status notification";
-    static final String DECIDIR = "Payment approved?";
-    static final String CANCELAR = "Cancel order";
-    static final String EMPACAR = "Pick and pack items";
-    static final String ESPERAR_ENVIO = "Shipment confirmed";
-    static final String RECHAZADO = "payment.status == DECLINED";
+    public static final String CLIENTE = "Customer";
+    public static final String PASARELA = "Payment gateway";
+    public static final String PEDIDO = "Order placed";
+    public static final String AUTORIZACION = "Payment authorization request";
+    public static final String RESULTADO = "Payment authorization result";
+    public static final String REVISAR = "Receive order";
+    public static final String ESPERAR_PAGO = "Payment result received";
+    public static final String TRANSPORTISTA = "Carrier";
+    public static final String CONFIRMACION = "Shipment confirmation";
+    public static final String ENVIO = "Shipment request";
+    public static final String AVISO = "Order status notification";
+    public static final String DECIDIR = "Payment approved?";
+    public static final String CANCELAR = "Cancel order";
+    public static final String EMPACAR = "Pick and pack items";
+    public static final String ESPERAR_ENVIO = "Shipment confirmed";
+    public static final String RECHAZADO = "payment.status == DECLINED";
 
     private final AtomicInteger contador = new AtomicInteger();
 
@@ -69,7 +69,7 @@ class TiendaConMensajeria {
     private final MensajeService mensajeService;
     private final CorrelacionService correlacionService;
 
-    TiendaConMensajeria(ApplicationContext contexto) {
+    public TiendaConMensajeria(ApplicationContext contexto) {
         this.procesoService = contexto.getBean(ProcesoService.class);
         this.rolProcesoService = contexto.getBean(RolProcesoService.class);
         this.poolService = contexto.getBean(PoolService.class);
@@ -90,7 +90,7 @@ class TiendaConMensajeria {
      * defecto. Es a proposito y es lo que el negocio quiere decir, "solo si la pasarela dice que lo rechazo se
      * cancela"; y ademas es lo unico honesto mientras el socio sea un eco que contesta con el cuerpo vacio.
      */
-    Long publicarLaDemo(Long empresaId, Long autorId, String nombre) {
+    public Long publicarLaDemo(Long empresaId, Long autorId, String nombre) {
         int numero = contador.incrementAndGet();
         Long procesoId = procesoService.crear(empresaId, autorId, nombre + " " + numero,
                 "De la compra a la entrega", "Fulfillment").id();
@@ -177,7 +177,7 @@ class TiendaConMensajeria {
     }
 
     /** Publica una copia del proceso, con nombres propios para que dos pruebas no se pisen. */
-    Long publicar(Long empresaId, Long autorId, String nombre) {
+    public Long publicar(Long empresaId, Long autorId, String nombre) {
         int numero = contador.incrementAndGet();
         Long procesoId = procesoService.crear(empresaId, autorId, nombre + " " + numero,
                 "De la compra a la entrega", "Fulfillment").id();
