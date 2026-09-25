@@ -234,6 +234,15 @@ public class DiagramaArmado {
                 viejo.version(), null, null, null, null));
     }
 
+    /** Cambia la actividad que atiende el fallo de un envio, sin tocar nada mas del mensaje. */
+    public void manejaElError(String mensaje, String actividad) {
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+                viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), viejo.nodoDestinoId(),
+                viejo.tipoDestino(), viejo.siFalla(), id(actividad), viejo.origenExterno(), viejo.campos(),
+                viejo.usoDeLosDatos(), viejo.variable(), viejo.respuestaEsperadaId(), viejo.procesoId(),
+                viejo.version(), null, null, null, null));
+    }
+
     /** Desancla un mensaje del nodo que lo espera, dejando solo el participante que lo recibe. */
     public void desanclarDestinoDe(String mensaje) {
         cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),

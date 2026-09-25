@@ -3,6 +3,7 @@ package com.facimus.procesos.ejecucion.service.impl;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
@@ -28,6 +29,10 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>El motor no lee el reloj: recibe el {@link Momento} en que trabaja. Todo lo que pasa en una operacion pasa
  * en el mismo tick, y asi una prueba puede decir en que tick ocurre sin montar la tienda entera.
+ *
+ * <p>Los mensajes entran y salen por las bandejas, no por la red: lo que el motor hace al pasar por un nodo que
+ * manda es escribir una fila en la de salida, y lo que hace en uno que espera es quedarse en espera. Quien entrega
+ * y quien correlaciona estan fuera, porque eso ya no es la semantica del diagrama sino el tiempo (D9).
  */
 @Component
 @RequiredArgsConstructor
@@ -43,6 +48,7 @@ class MotorDeProcesos {
             List.of(EstadoActividadCaso.PENDIENTE, EstadoActividadCaso.EN_ESPERA);
 
     private final ActividadCasoRepository actividadCasoRepository;
+    private final BandejaDeSalida bandejaDeSalida;
     private final Bitacora bitacora;
     private final JsonMapper json;
 
@@ -136,29 +142,31 @@ class MotorDeProcesos {
             return;
         }
         switch (nodo.orElseThrow().tipo()) {
-            case EVENTO -> procesarEvento(caso, grafo, token, nodo.orElseThrow(), momento);
-            case ACTIVIDAD -> procesarActividad(caso, grafo, token, nodo.orElseThrow(), momento);
+            case EVENTO -> procesarEvento(caso, grafo, token, nodo.orElseThrow(), variables, momento);
+            case ACTIVIDAD -> procesarActividad(caso, grafo, token, nodo.orElseThrow(), variables, momento);
             case GATEWAY -> procesarGateway(caso, grafo, token, nodo.orElseThrow(), variables, momento);
         }
     }
 
     private void procesarEvento(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
-            Momento momento) {
+            VariablesDelCaso variables, Momento momento) {
+        if (quedarseEsperando(caso, grafo, token, nodo, momento)) {
+            return;
+        }
+        mandarLoQueTenga(caso, grafo, nodo, variables, momento);
         completar(caso, token, momento);
         if (nodo.terminaElProceso()) {
-            // TODO (PR 24): un MENSAJE_FIN manda su mensaje antes de consumir el token.
             bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO,
                     "Un camino del caso termina en " + comillas(nodo.nombre()) + ".");
             return;
         }
-        // TODO (PR 24): un MENSAJE_INTERMEDIO se queda esperando su mensaje en vez de pasar de largo.
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO,
                 "Paso por " + comillas(nodo.nombre()) + ".");
         seguir(caso, grafo, grafo.salidasDe(nodo.id()), momento);
     }
 
     private void procesarActividad(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
-            Momento momento) {
+            VariablesDelCaso variables, Momento momento) {
         if (nodo.esTareaDeUsuario()) {
             token.setEstado(EstadoActividadCaso.EN_ESPERA);
             actividadCasoRepository.save(token);
@@ -167,11 +175,94 @@ class MotorDeProcesos {
                     momento.autorId());
             return;
         }
-        // TODO (PR 24): una actividad de envio manda su mensaje y una de recepcion se queda esperandolo.
+        if (quedarseEsperando(caso, grafo, token, nodo, momento)) {
+            return;
+        }
+        boolean mando = mandarLoQueTenga(caso, grafo, nodo, variables, momento);
         completar(caso, token, momento);
-        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO,
-                comillas(nodo.nombre()) + " (" + enMinusculas(nodo.subtipo()) + ") se completa sola.");
+        if (!mando) {
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO,
+                    comillas(nodo.nombre()) + " (" + enMinusculas(nodo.subtipo()) + ") se completa sola.");
+        }
         seguir(caso, grafo, grafo.salidasDe(nodo.id()), momento);
+    }
+
+    /**
+     * Un nodo que espera un mensaje se queda en espera hasta que llegue. Si es de los que esperan pero no tiene
+     * ninguno anclado, sigue de largo: el diagnostico no deja publicar eso (E-11), y un caso parado para siempre
+     * seria peor que uno que sigue.
+     */
+    private boolean quedarseEsperando(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
+            Momento momento) {
+        if (!nodo.esperaUnMensaje()) {
+            return false;
+        }
+        Optional<MensajeDeLaVersion> esperado = grafo.mensajeQueEspera(nodo.id());
+        if (esperado.isEmpty()) {
+            return false;
+        }
+        token.setEstado(EstadoActividadCaso.EN_ESPERA);
+        actividadCasoRepository.save(token);
+        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO, comillas(nodo.nombre())
+                + " espera el mensaje " + comillas(esperado.orElseThrow().nombre()) + ".");
+        return true;
+    }
+
+    /** Manda el mensaje anclado al nodo, si el nodo es de los que mandan y tiene uno. */
+    private boolean mandarLoQueTenga(Caso caso, GrafoDeVersion grafo, NodoDeLaVersion nodo,
+            VariablesDelCaso variables, Momento momento) {
+        if (!nodo.puedeEnviar()) {
+            return false;
+        }
+        Optional<MensajeDeLaVersion> mensaje = grafo.mensajeQueManda(nodo.id());
+        mensaje.ifPresent(anclado -> bandejaDeSalida.enviar(caso, anclado, variables, momento));
+        return mensaje.isPresent();
+    }
+
+    /**
+     * Llego el mensaje que un token estaba esperando: el token se completa y el caso sigue por sus salidas. Lo
+     * llama la mensajeria con el caso ya bloqueado, igual que completar una tarea.
+     */
+    void mensajeRecibido(Caso caso, GrafoDeVersion grafo, ActividadCaso token, Momento momento) {
+        completar(caso, token, momento);
+        seguirDesde(caso, grafo, token.getNodoId(), momento);
+    }
+
+    /**
+     * Un envio no llego a su destino, y lo que pasa ahora lo dice el propio mensaje: seguir por donde iba, desviar
+     * el caso a la actividad que atiende el problema, o darlo por perdido.
+     */
+    void envioFallido(Caso caso, GrafoDeVersion grafo, MensajeDeLaVersion mensaje, String error, Momento momento) {
+        switch (mensaje.siFallaOContinuar()) {
+            case CONTINUAR -> bitacora.anotar(caso, momento.tick(), TipoEventoCaso.ENVIO_FALLIDO,
+                    comillas(mensaje.nombre()) + " no llego (" + error + "), y el caso sigue por donde iba.");
+            case MANEJAR_ERROR -> desviar(caso, grafo, mensaje, error, momento);
+            case FINALIZAR -> darPorPerdido(caso, mensaje, error, momento);
+        }
+    }
+
+    private void desviar(Caso caso, GrafoDeVersion grafo, MensajeDeLaVersion mensaje, String error,
+            Momento momento) {
+        Optional<NodoDeLaVersion> manejo = mensaje.nodoQueManejaElError().flatMap(grafo::nodo);
+        if (manejo.isEmpty()) {
+            enError(caso, momento, comillas(mensaje.nombre()) + " no llego (" + error + ") y la actividad que "
+                    + "tenia que atenderlo no esta en la version del caso.");
+            return;
+        }
+        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.ENVIO_FALLIDO, comillas(mensaje.nombre())
+                + " no llego (" + error + "), asi que el caso pasa por "
+                + comillas(manejo.orElseThrow().nombre()) + ".");
+        activar(caso, grafo, manejo.orElseThrow(), momento);
+        avanzar(caso, grafo, momento);
+    }
+
+    private void darPorPerdido(Caso caso, MensajeDeLaVersion mensaje, String error, Momento momento) {
+        apagarTokens(caso, momento);
+        caso.setEstado(EstadoCaso.FALLIDO);
+        caso.setTickFin(momento.tick());
+        caso.setFechaFin(LocalDateTime.now());
+        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.ENVIO_FALLIDO, comillas(mensaje.nombre())
+                + " no llego (" + error + ") y sin el el caso no tiene sentido: queda fallido.");
     }
 
     private void procesarGateway(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
