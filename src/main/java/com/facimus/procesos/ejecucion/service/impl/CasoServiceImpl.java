@@ -82,7 +82,8 @@ public class CasoServiceImpl implements CasoService {
     private static String porDondeEmpieza(GrafoDeVersion grafo) {
         return grafo.inicioPorMensaje()
                 .map(inicio -> "Este proceso se inicia con el mensaje \""
-                        + grafo.mensajeQueEspera(inicio.id()).orElse(inicio.nombre())
+                        + grafo.mensajeQueEspera(inicio.id()).map(MensajeDeLaVersion::nombre)
+                                .orElse(inicio.nombre())
                         + "\"; envíelo como mensaje entrante.")
                 .orElse("La versión publicada no tiene ningún evento de inicio.");
     }

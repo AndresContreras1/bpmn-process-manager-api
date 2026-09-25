@@ -16,6 +16,7 @@ import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
+import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.TipoActividad;
@@ -203,6 +204,25 @@ public class DiagramaArmado {
         mensajes.add(new MensajeResponse(id, nombre, "Contenido de prueba", id(poolOrigen), id(poolDestino),
                 id(nodoOrigen), id(nodoDestino), tipoDestino, siFalla, id(nodoManejoError), origenExterno, List.of(),
                 null, null, null, 1L, 0L, null, null, null, null));
+    }
+
+    /**
+     * Los datos que viajan dentro de un mensaje y el nombre con el que su cuerpo entra a las variables del caso,
+     * que es lo que una condicion nombra despues: "payment" hace que se lea payment.status.
+     */
+    public void datosDelMensaje(String mensaje, String variable, CampoDeMensaje... campos) {
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+                viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), viejo.nodoDestinoId(),
+                viejo.tipoDestino(), viejo.siFalla(), viejo.nodoManejoErrorId(), viejo.origenExterno(),
+                List.of(campos), viejo.usoDeLosDatos(), variable, viejo.respuestaEsperadaId(), viejo.procesoId(),
+                viejo.version(), null, null, null, null));
+    }
+
+    /** La clave con la que un mensaje encuentra su caso, cuando no es el orderId de siempre. */
+    public void correlacionPorCampo(String mensaje, String campo, PoliticaSinCaso sinCaso) {
+        quitarCorrelacionDe(mensaje);
+        correlaciones.add(new CorrelacionResponse(siguienteId(), campo, campo, sinCaso, id(mensaje), 0L, null,
+                null, null, null));
     }
 
     /** Declara con que mensaje contesta el otro participante, como la pasarela contesta la autorizacion. */
