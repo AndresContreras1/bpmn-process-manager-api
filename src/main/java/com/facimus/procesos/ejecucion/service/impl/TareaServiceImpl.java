@@ -42,6 +42,7 @@ public class TareaServiceImpl implements TareaService {
     private final MembresiaRolService membresiaRolService;
     private final GrafosDeVersion grafos;
     private final MotorDeProcesos motor;
+    private final RelojDeLaTienda reloj;
     private final Bitacora bitacora;
     private final CasoMapper casoMapper;
     private final JsonMapper json;
@@ -96,13 +97,14 @@ public class TareaServiceImpl implements TareaService {
             caso.setVariables(variables.comoJson());
             tarea.setDatosSalida(casoMapper.aJson(datos));
         }
+        Momento momento = new Momento(reloj.ahora(empresaId), usuarioId);
         tarea.setEstado(EstadoActividadCaso.COMPLETADA);
-        tarea.setTickFin(caso.getTickInicio());
+        tarea.setTickFin(momento.tick());
         actividadCasoRepository.save(tarea);
-        bitacora.anotar(caso, TipoEventoCaso.TAREA_COMPLETADA,
+        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_COMPLETADA,
                 "\"" + tarea.getNodoNombre() + "\" se completo.", usuarioId);
 
-        motor.seguirDesde(caso, grafos.del(caso.getVersionProceso()), tarea.getNodoId(), usuarioId);
+        motor.seguirDesde(caso, grafos.del(caso.getVersionProceso()), tarea.getNodoId(), momento);
         return casoMapper.toTarea(tarea);
     }
 

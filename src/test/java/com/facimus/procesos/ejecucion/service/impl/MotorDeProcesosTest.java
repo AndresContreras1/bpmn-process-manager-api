@@ -58,6 +58,11 @@ class MotorDeProcesosTest {
 
     private static final Long VENDEDORES = 3L;
     private static final String SIN_VARIABLES = "{}";
+    /**
+     * El tick en que corre cada prueba. El motor no lee el reloj: recibe el momento, asi que aqui es un numero y no
+     * una tienda entera con su configuracion.
+     */
+    private static final int TICK = 3;
 
     @Autowired
     private TestEntityManager em;
@@ -460,7 +465,7 @@ class MotorDeProcesosTest {
                     .nodoNombre("Fantasma").tipoNodo(TipoNodoCaso.ACTIVIDAD).subtipo("USUARIO")
                     .estado(EstadoActividadCaso.PENDIENTE).build());
 
-            motor.avanzar(caso, grafo, null);
+            motor.avanzar(caso, grafo, Momento.en(TICK));
 
             assertThat(caso.getEstado()).isEqualTo(EstadoCaso.ERROR);
             assertThat(pasoPor(caso, "Fantasma")).returns(EstadoActividadCaso.FALLIDA, ActividadCaso::getEstado);
@@ -502,7 +507,7 @@ class MotorDeProcesosTest {
             tarea.setEstado(EstadoActividadCaso.COMPLETADA);
             actividadCasoRepository.save(tarea);
 
-            motor.seguirDesde(caso, grafo, tarea.getNodoId(), null);
+            motor.seguirDesde(caso, grafo, tarea.getNodoId(), Momento.en(TICK));
 
             assertThat(pasoPor(caso, "Done")).returns(EstadoActividadCaso.COMPLETADA, ActividadCaso::getEstado);
             assertThat(caso.getEstado()).isEqualTo(EstadoCaso.TERMINADO);
@@ -520,7 +525,7 @@ class MotorDeProcesosTest {
             armado.arco("Fork", "Derecha");
             Caso caso = arrancar(armado);
 
-            motor.apagarTokens(caso);
+            motor.apagarTokens(caso, Momento.en(TICK));
             em.flush();
 
             assertThat(pasoPor(caso, "Izquierda")).returns(EstadoActividadCaso.OMITIDA, ActividadCaso::getEstado);
@@ -536,8 +541,8 @@ class MotorDeProcesosTest {
         actividadCasoRepository.save(tarea);
         grafo.salidasDe(tarea.getNodoId())
                 .forEach(salida -> grafo.nodo(salida.destinoId())
-                        .ifPresent(destino -> motor.activar(caso, grafo, destino)));
-        motor.avanzar(caso, grafo, null);
+                        .ifPresent(destino -> motor.activar(caso, grafo, destino, Momento.en(TICK))));
+        motor.avanzar(caso, grafo, Momento.en(TICK));
     }
 
     private Caso arrancar(DiagramaArmado armado) {
@@ -547,7 +552,7 @@ class MotorDeProcesosTest {
     private Caso arrancar(DiagramaArmado armado, String variables) {
         GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
         Caso caso = arrancarSinMotor(armado, variables);
-        motor.arrancar(caso, grafo, grafo.inicioAMano().orElseThrow(), null);
+        motor.arrancar(caso, grafo, grafo.inicioAMano().orElseThrow(), Momento.en(TICK));
         em.flush();
         return caso;
     }

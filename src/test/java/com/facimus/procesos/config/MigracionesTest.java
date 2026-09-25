@@ -20,12 +20,15 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.gestion.model.ConfiguracionTienda;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.ProcesoCompartido;
 import com.facimus.procesos.gestion.model.RefreshToken;
 import com.facimus.procesos.gestion.model.RolProceso;
+import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.Sesion;
 import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.repository.ConfiguracionTiendaRepository;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoCompartidoRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
@@ -50,6 +53,9 @@ class MigracionesTest {
 
     @Autowired
     private ProcesoRepository procesoRepository;
+
+    @Autowired
+    private ConfiguracionTiendaRepository configuracionTiendaRepository;
 
     @Autowired
     private RolProcesoRepository rolProcesoRepository;
@@ -87,7 +93,7 @@ class MigracionesTest {
                         "V12__versiones_publicadas_del_proceso.sql", "V13__definicion_de_la_version.sql",
                         "V14__gobierno_de_la_tienda.sql", "V15__casos_tareas_y_bitacora.sql",
                         "V16__variables_del_caso.sql",
-                        "V17__membresias_de_rol.sql");
+                        "V17__membresias_de_rol.sql", "V18__reloj_de_la_tienda.sql");
     }
 
     @Test
@@ -114,6 +120,20 @@ class MigracionesTest {
         assertThat(procesoRepository.findAllByEmpresaId(otra.getId()))
                 .extracting(Proceso::getNombre)
                 .containsExactly("Returns");
+    }
+
+    @Test
+    @DisplayName("Una tienda estrena su reloj en cero y en manual, y la base no deja que el reloj vaya atras")
+    void elReloj_empiezaEnCeroYNoRetrocede() {
+        ConfiguracionTienda configuracion = configuracionTiendaRepository
+                .saveAndFlush(ConfiguracionTienda.builder().empresa(empresa).build());
+
+        assertThat(configuracion.getReloj()).isZero();
+        assertThat(configuracion.getModoSimulacion()).isEqualTo(ModoSimulacion.MANUAL);
+
+        configuracion.setReloj(-1);
+        assertThatThrownBy(() -> configuracionTiendaRepository.saveAndFlush(configuracion))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

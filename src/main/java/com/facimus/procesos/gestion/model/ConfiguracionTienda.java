@@ -17,8 +17,8 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * D16: lo que cada tienda decide sobre si misma. Hoy solo quien puede tocar la estructura de los diagramas; cuando
- * la plataforma simule la ejecucion, aqui viviran tambien sus parametros. Una fila por tienda, creada con ella.
+ * D16: lo que cada tienda decide sobre si misma: quien puede tocar la estructura de los diagramas y, desde que hay
+ * ejecucion, el reloj de su simulacion y quien lo mueve. Una fila por tienda, creada con ella.
  */
 @Getter
 @Setter
@@ -36,4 +36,17 @@ public class ConfiguracionTienda extends EntidadEditable {
     @Column(name = "politica_estructura", nullable = false, length = 30)
     @Builder.Default
     private PoliticaEstructura politicaEstructura = PoliticaEstructura.ADMINISTRADOR_Y_EDITOR;
+
+    /**
+     * D8: el reloj de la simulacion de esta tienda, en ticks. Empieza en cero y solo sube; lo mueve quien prueba.
+     * No es una hora: es el numero de pasos que la tienda ha dado, y con el se fecha todo lo que pasa en un caso.
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private int reloj = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modo_simulacion", nullable = false, length = 20)
+    @Builder.Default
+    private ModoSimulacion modoSimulacion = ModoSimulacion.MANUAL;
 }

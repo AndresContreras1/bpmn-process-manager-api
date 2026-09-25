@@ -24,12 +24,15 @@ class Bitacora {
 
     private final EventoCasoRepository eventoCasoRepository;
 
-    /** El tick es el del caso; hasta que exista el reloj de la tienda, el de su apertura, que es 0. */
-    void anotar(Caso caso, TipoEventoCaso tipo, String detalle, Long autorId) {
+    /**
+     * El tick llega de fuera, del {@link Momento} de la operacion: todo lo que pasa en una misma transaccion pasa
+     * en el mismo momento de la simulacion, y leer el reloj por cada linea seria preguntar lo mismo muchas veces.
+     */
+    void anotar(Caso caso, int tick, TipoEventoCaso tipo, String detalle, Long autorId) {
         eventoCasoRepository.save(EventoCaso.builder()
                 .empresa(caso.getEmpresa())
                 .caso(caso)
-                .tick(caso.getTickInicio())
+                .tick(tick)
                 .fecha(LocalDateTime.now())
                 .tipo(tipo)
                 .detalle(recortar(detalle))
@@ -37,8 +40,9 @@ class Bitacora {
                 .build());
     }
 
-    void anotar(Caso caso, TipoEventoCaso tipo, String detalle) {
-        anotar(caso, tipo, detalle, null);
+    /** Lo que el motor hizo por su cuenta: pasa en un tick, pero no lo hizo nadie. */
+    void anotar(Caso caso, int tick, TipoEventoCaso tipo, String detalle) {
+        anotar(caso, tick, tipo, detalle, null);
     }
 
     private static String recortar(String detalle) {

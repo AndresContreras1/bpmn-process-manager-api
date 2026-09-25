@@ -92,7 +92,8 @@ public class EmpresaController {
     }
 
     @Operation(summary = "Get what the store decides about itself",
-            description = "Today, who can create and edit participants and lanes. Administrators only.")
+            description = "Who can create and edit participants and lanes, and the store's own simulation clock: "
+                    + "which tick it is on and who moves it. Administrators only.")
     @ApiResponse(responseCode = "200", description = "The store settings")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
@@ -105,7 +106,8 @@ public class EmpresaController {
     @Operation(summary = "Change what the store decides about itself",
             description = "Reserving the structure to administrators leaves editors modeling everything inside a "
                     + "lane: steps, flows and messages. Deleting participants and lanes is an administrator's job "
-                    + "either way. Administrators only.")
+                    + "either way. The simulation mode says who moves the clock; leaving it out keeps the current "
+                    + "one. Administrators only.")
     @ApiResponse(responseCode = "200", description = "The store settings")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -116,7 +118,7 @@ public class EmpresaController {
             @Validated @RequestBody ConfiguracionTiendaRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(configuracionTiendaService.editar(principal.empresaId(), principal.usuarioId(),
-                request.politicaEstructura(), request.version()));
+                request.politicaEstructura(), request.modoSimulacion(), request.version()));
     }
 
     @Operation(summary = "Get a store",

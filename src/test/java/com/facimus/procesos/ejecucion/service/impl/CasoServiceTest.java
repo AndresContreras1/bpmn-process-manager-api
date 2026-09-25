@@ -58,6 +58,8 @@ class CasoServiceTest {
     private static final Long ADMIN = 2L;
     private static final Long PROCESO_ID = 10L;
     private static final Long CASO_ID = 42L;
+    /** El tick en que la tienda esta cuando se llama al service: todo lo de esa operacion lleva ese numero. */
+    private static final int TICK = 7;
 
     @Mock
     private CasoRepository casoRepository;
@@ -76,6 +78,9 @@ class CasoServiceTest {
 
     @Mock
     private MotorDeProcesos motor;
+
+    @Mock
+    private RelojDeLaTienda reloj;
 
     @Mock
     private Bitacora bitacora;
@@ -97,6 +102,7 @@ class CasoServiceTest {
         version = VersionProceso.builder().id(5L).empresa(tienda).proceso(proceso).numero(1)
                 .estado(EstadoVersion.VIGENTE).definicion("{}").build();
         given(casoMapper.aJson(any())).willReturn("{}");
+        given(reloj.ahora(TIENDA_ID)).willReturn(TICK);
         given(casoRepository.save(any(Caso.class))).willAnswer(llamada -> llamada.getArgument(0));
     }
 
@@ -139,7 +145,7 @@ class CasoServiceTest {
         casoService.abrir(TIENDA_ID, ADMIN, PROCESO_ID, "ORD-1", Map.of("order", Map.of("total", 150)));
 
         verify(casoRepository).save(any(Caso.class));
-        verify(motor).arrancar(any(Caso.class), any(GrafoDeVersion.class), any(), eq(ADMIN));
+        verify(motor).arrancar(any(Caso.class), any(GrafoDeVersion.class), any(), eq(new Momento(TICK, ADMIN)));
     }
 
     @Test
@@ -150,7 +156,7 @@ class CasoServiceTest {
         assertThatThrownBy(() -> casoService.cancelar(TIENDA_ID, ADMIN, CASO_ID))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("El caso ya está cerrado.");
-        verify(motor, never()).apagarTokens(any());
+        verify(motor, never()).apagarTokens(any(), any());
     }
 
     @Test
@@ -161,7 +167,7 @@ class CasoServiceTest {
 
         casoService.cancelar(TIENDA_ID, ADMIN, CASO_ID);
 
-        verify(motor).apagarTokens(caso);
+        verify(motor).apagarTokens(caso, new Momento(TICK, ADMIN));
         assertThat(caso.getEstado()).isEqualTo(EstadoCaso.CANCELADO);
         assertThat(caso.getFechaFin()).isNotNull();
     }
@@ -217,7 +223,7 @@ class CasoServiceTest {
         assertThat(gateway.getEstado()).isEqualTo(EstadoActividadCaso.PENDIENTE);
         assertThat(tarea.getEstado()).isEqualTo(EstadoActividadCaso.EN_ESPERA);
         assertThat(caso.getEstado()).isEqualTo(EstadoCaso.ABIERTO);
-        verify(motor).avanzar(eq(caso), any(GrafoDeVersion.class), eq(ADMIN));
+        verify(motor).avanzar(eq(caso), any(GrafoDeVersion.class), eq(new Momento(TICK, ADMIN)));
     }
 
     @Test
