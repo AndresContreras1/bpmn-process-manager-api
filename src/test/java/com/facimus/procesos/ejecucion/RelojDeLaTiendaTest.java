@@ -163,15 +163,15 @@ class RelojDeLaTiendaTest {
         var antes = configuracionTiendaService.obtener(empresaId);
 
         var conAutomatico = configuracionTiendaService.editar(empresaId, adminId, antes.politicaEstructura(),
-                ModoSimulacion.AUTOMATICO, antes.version());
-        var sinModo = configuracionTiendaService.editar(empresaId, adminId, antes.politicaEstructura(), null,
+                ModoSimulacion.AUTOMATICO, null, antes.version());
+        var sinModo = configuracionTiendaService.editar(empresaId, adminId, antes.politicaEstructura(), null, null,
                 conAutomatico.version());
 
         assertThat(conAutomatico.modoSimulacion()).isEqualTo(ModoSimulacion.AUTOMATICO);
         assertThat(sinModo.modoSimulacion()).isEqualTo(ModoSimulacion.AUTOMATICO);
         assertThat(sinModo.politicaEstructura()).isEqualTo(antes.politicaEstructura());
         configuracionTiendaService.editar(empresaId, adminId, antes.politicaEstructura(), ModoSimulacion.MANUAL,
-                sinModo.version());
+                null, sinModo.version());
     }
 
     /** Lo mas corto que se puede publicar y ejecutar: un inicio, una tarea de ventas y un fin. */

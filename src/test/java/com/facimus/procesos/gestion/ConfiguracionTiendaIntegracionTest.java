@@ -13,11 +13,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.ConflictoDeVersionException;
+import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SinPermisoException;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
+import com.facimus.procesos.gestion.dto.response.ParametrosSimulacionResponse;
+import com.facimus.procesos.gestion.model.ParametrosSimulacion;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
@@ -118,7 +121,7 @@ class ConfiguracionTiendaIntegracionTest {
         ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(empresaId);
 
         ConfiguracionTiendaResponse despues = configuracionTiendaService.editar(empresaId, adminId,
-                PoliticaEstructura.SOLO_ADMINISTRADOR, null, antes.version());
+                PoliticaEstructura.SOLO_ADMINISTRADOR, null, null, antes.version());
 
         assertThat(despues.politicaEstructura()).isEqualTo(PoliticaEstructura.SOLO_ADMINISTRADOR);
         assertThat(despues.version()).isEqualTo(antes.version() + 1);
@@ -127,9 +130,84 @@ class ConfiguracionTiendaIntegracionTest {
                 .contains("La estructura de los diagramas queda reservada a los administradores.");
 
         assertThatThrownBy(() -> configuracionTiendaService.editar(empresaId, adminId,
-                PoliticaEstructura.ADMINISTRADOR_Y_EDITOR, null, antes.version()))
+                PoliticaEstructura.ADMINISTRADOR_Y_EDITOR, null, null, antes.version()))
                 .isInstanceOf(ConflictoDeVersionException.class);
         reservar(PoliticaEstructura.ADMINISTRADOR_Y_EDITOR);
+    }
+
+    @Test
+    @DisplayName("Una tienda nueva estrena los parametros de fabrica de sus socios")
+    void tiendaNueva_estrenaLosParametrosDeFabrica() {
+        Long otraId = empresaService.registrar("Tienda con socios de fabrica", "900383940-7",
+                "contacto@fabrica.com", "Otro", "admin@fabrica.com", CLAVE).id();
+
+        ParametrosSimulacionResponse socios = configuracionTiendaService.obtener(otraId).simulacion();
+
+        assertThat(socios.semilla()).isEqualTo(42);
+        assertThat(socios.tasaRechazoPagos()).isEqualTo(10);
+        assertThat(socios.ticksRespuestaPagos()).isEqualTo(1);
+        assertThat(socios.reglaRechazoPagos()).isNull();
+        assertThat(socios.ticksEntrega()).isEqualTo(3);
+        assertThat(socios.tasaPerdidaEnvios()).isEqualTo(5);
+        assertThat(socios.tasaFalloNotificaciones()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Los parametros se reemplazan enteros, y no mandarlos deja los que habia")
+    void losParametros_seReemplazanEnteros() {
+        ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(empresaId);
+
+        ConfiguracionTiendaResponse cambiada = configuracionTiendaService.editar(empresaId, adminId,
+                antes.politicaEstructura(), null, parametros("total > 5000", 100), antes.version());
+        ConfiguracionTiendaResponse sinParametros = configuracionTiendaService.editar(empresaId, adminId,
+                antes.politicaEstructura(), null, null, cambiada.version());
+
+        assertThat(cambiada.simulacion().reglaRechazoPagos()).isEqualTo("total > 5000");
+        assertThat(cambiada.simulacion().tasaRechazoPagos()).isEqualTo(100);
+        assertThat(sinParametros.simulacion().reglaRechazoPagos()).isEqualTo("total > 5000");
+        assertThat(sinParametros.simulacion().tasaRechazoPagos()).isEqualTo(100);
+        devolverLosParametros(sinParametros.version());
+    }
+
+    @Test
+    @DisplayName("R-52: una regla de rechazo mal escrita no se guarda")
+    void reglaMalEscrita_noSeGuarda() {
+        ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(empresaId);
+
+        assertThatThrownBy(() -> configuracionTiendaService.editar(empresaId, adminId, antes.politicaEstructura(),
+                null, parametros("total >", 10), antes.version()))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("no está bien escrita");
+        assertThat(configuracionTiendaService.obtener(empresaId).simulacion().reglaRechazoPagos()).isNull();
+    }
+
+    @Test
+    @DisplayName("Los parametros de una tienda no alcanzan a las demas")
+    void losParametros_sonDeCadaTienda() {
+        Long otraId = empresaService.registrar("Tienda con sus propios socios", "900383940-8",
+                "contacto@propios.com", "Otro", "admin@propios.com", CLAVE).id();
+        ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(empresaId);
+
+        ConfiguracionTiendaResponse cambiada = configuracionTiendaService.editar(empresaId, adminId,
+                antes.politicaEstructura(), null, parametros(null, 77), antes.version());
+
+        assertThat(cambiada.simulacion().tasaRechazoPagos()).isEqualTo(77);
+        assertThat(configuracionTiendaService.obtener(otraId).simulacion().tasaRechazoPagos()).isEqualTo(10);
+        devolverLosParametros(cambiada.version());
+    }
+
+    private void devolverLosParametros(Long version) {
+        configuracionTiendaService.editar(empresaId, adminId,
+                configuracionTiendaService.obtener(empresaId).politicaEstructura(), null,
+                ParametrosSimulacion.builder().build(), version);
+    }
+
+    private static ParametrosSimulacion parametros(String regla, int tasaRechazo) {
+        return ParametrosSimulacion.builder()
+                .semilla(7L)
+                .tasaRechazoPagos(tasaRechazo)
+                .reglaRechazoPagos(regla)
+                .build();
     }
 
     @Test
@@ -145,7 +223,7 @@ class ConfiguracionTiendaIntegracionTest {
     }
 
     private void reservar(PoliticaEstructura politica) {
-        configuracionTiendaService.editar(empresaId, adminId, politica, null,
+        configuracionTiendaService.editar(empresaId, adminId, politica, null, null,
                 configuracionTiendaService.obtener(empresaId).version());
     }
 

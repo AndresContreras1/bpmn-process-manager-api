@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.model;
 import com.facimus.procesos.common.EntidadEditable;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -49,4 +50,9 @@ public class ConfiguracionTienda extends EntidadEditable {
     @Column(name = "modo_simulacion", nullable = false, length = 20)
     @Builder.Default
     private ModoSimulacion modoSimulacion = ModoSimulacion.MANUAL;
+
+    /** D7: como se portan los socios de esta tienda. Viven en la misma fila porque son decisiones suyas. */
+    @Embedded
+    @Builder.Default
+    private ParametrosSimulacion simulacion = ParametrosSimulacion.builder().build();
 }

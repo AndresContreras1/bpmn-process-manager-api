@@ -94,7 +94,8 @@ class MigracionesTest {
                         "V14__gobierno_de_la_tienda.sql", "V15__casos_tareas_y_bitacora.sql",
                         "V16__variables_del_caso.sql",
                         "V17__membresias_de_rol.sql", "V18__reloj_de_la_tienda.sql",
-                        "V19__bandejas_de_mensajes.sql", "V20__cuerpos_de_los_mensajes.sql");
+                        "V19__bandejas_de_mensajes.sql", "V20__cuerpos_de_los_mensajes.sql",
+                        "V21__parametros_de_simulacion.sql");
     }
 
     @Test
@@ -133,6 +134,28 @@ class MigracionesTest {
         assertThat(configuracion.getModoSimulacion()).isEqualTo(ModoSimulacion.MANUAL);
 
         configuracion.setReloj(-1);
+        assertThatThrownBy(() -> configuracionTiendaRepository.saveAndFlush(configuracion))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("La base no acepta una tasa fuera de cien ni un socio que conteste en cero ticks")
+    void losParametros_tienenLimites() {
+        ConfiguracionTienda configuracion = configuracionTiendaRepository
+                .saveAndFlush(ConfiguracionTienda.builder().empresa(empresa).build());
+
+        configuracion.getSimulacion().setTasaRechazoPagos(101);
+        assertThatThrownBy(() -> configuracionTiendaRepository.saveAndFlush(configuracion))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("La base tampoco acepta un socio que conteste antes de recibir")
+    void losTicks_sonAlMenosUno() {
+        ConfiguracionTienda configuracion = configuracionTiendaRepository
+                .saveAndFlush(ConfiguracionTienda.builder().empresa(empresa).build());
+
+        configuracion.getSimulacion().setTicksRespuestaPagos(0);
         assertThatThrownBy(() -> configuracionTiendaRepository.saveAndFlush(configuracion))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }

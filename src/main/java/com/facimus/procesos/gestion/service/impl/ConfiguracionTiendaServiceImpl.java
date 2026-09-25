@@ -6,12 +6,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SinPermisoException;
+import com.facimus.procesos.common.condiciones.CondicionMalEscrita;
+import com.facimus.procesos.common.condiciones.EvaluadorDeCondiciones;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.mapper.ConfiguracionTiendaMapper;
 import com.facimus.procesos.gestion.model.ConfiguracionTienda;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
+import com.facimus.procesos.gestion.model.ParametrosSimulacion;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
@@ -61,12 +65,16 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
     @Override
     @Transactional
     public ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
-            ModoSimulacion modo, Long version) {
+            ModoSimulacion modo, ParametrosSimulacion parametros, Long version) {
         ConfiguracionTienda configuracion = buscar(empresaId);
         configuracion.verificarVersion(version);
         configuracion.setPoliticaEstructura(politica);
         if (modo != null) {
             configuracion.setModoSimulacion(modo);
+        }
+        if (parametros != null) {
+            exigirReglaQueCompila(parametros.getReglaRechazoPagos());
+            configuracion.setSimulacion(parametros);
         }
         configuracion = configuracionTiendaRepository.saveAndFlush(configuracion);
 
@@ -75,6 +83,23 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
                         ? "La estructura de los diagramas queda reservada a los administradores."
                         : "Los editores vuelven a poder cambiar la estructura de los diagramas.");
         return configuracionTiendaMapper.toResponse(configuracion);
+    }
+
+    /**
+     * R-52: la regla con la que la pasarela rechaza un pago se escribe en la gramatica del proyecto, la misma de
+     * las condiciones de un gateway. Se comprueba al guardarla y no al simular: una regla mal escrita descubierta
+     * a mitad de una demo no se puede arreglar sin parar la demo.
+     */
+    private static void exigirReglaQueCompila(String regla) {
+        if (regla == null || regla.isBlank()) {
+            return;
+        }
+        try {
+            EvaluadorDeCondiciones.compilar(regla);
+        } catch (CondicionMalEscrita malEscrita) {
+            throw new ReglaNegocioException("La regla de rechazo de pagos no está bien escrita: "
+                    + malEscrita.getMessage());
+        }
     }
 
     @Override
