@@ -1840,7 +1840,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"politicaEstructura\": \"SOLO_ADMINISTRADOR\",\n  \"version\": {{version}}\n}"
+							"raw": "{\n  \"politicaEstructura\": \"SOLO_ADMINISTRADOR\",\n  \"modoSimulacion\": \"MANUAL\",\n  \"simulacion\": {\n    \"semilla\": 42,\n    \"tasaRechazoPagos\": 10,\n    \"ticksRespuestaPagos\": 1,\n    \"reglaRechazoPagos\": \"total > 5000\",\n    \"ticksRespuestaTransporte\": 1,\n    \"ticksEntrega\": 3,\n    \"tasaPerdidaEnvios\": 5,\n    \"tasaFalloNotificaciones\": 2\n  },\n  \"version\": {{version}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/empresas/actual/configuracion",
@@ -2341,6 +2341,29 @@
 							"path": ["api", "v1", "simulacion", "tick"]
 						},
 						"description": "Adelanta el reloj y entrega lo que con ese tick ya vencio: cada mensaje va al socio simulado de su participante, que decide si llego y que contesta, y los casos siguen. Entre 1 y 100 ticks. Solo administrador."
+					},
+					"response": []
+				},
+				{
+					"name": "Pedir una tanda de pedidos simulados",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"procesoId\": \"{{procesoId}}\",\n  \"cantidad\": 20,\n  \"plantilla\": {\n    \"channel\": \"web\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/simulacion/pedidos",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "simulacion", "pedidos"]
+						},
+						"description": "Veinte pedidos del cliente simulado. Entran como el mensaje que abre un caso de este proceso, con referencia numerada y un monto que sale de la semilla de la tienda, asi que pedir la misma tanda vuelve a dar los mismos pedidos. El proceso tiene que empezar por mensaje. Solo administrador."
 					},
 					"response": []
 				},
