@@ -45,7 +45,11 @@ public interface UsuarioService {
     /** HU-03: las credenciales de un usuario activo para el login; vacio si el correo no existe o esta desactivado. */
     Optional<CredencialesUsuario> buscarCredenciales(String email);
 
-    PageResponse<UsuarioResponse> buscar(Long empresaId, Pageable pageable);
+    /**
+     * HU-02: una pagina de colaboradores de la tienda. El nombre es una parte, sin distinguir mayusculas, y los
+     * desactivados solo salen si se piden: siguen existiendo para poder reactivarlos.
+     */
+    PageResponse<UsuarioResponse> buscar(Long empresaId, String nombre, boolean incluirInactivos, Pageable pageable);
 
     UsuarioResponse obtener(Long empresaId, Long usuarioId);
 }

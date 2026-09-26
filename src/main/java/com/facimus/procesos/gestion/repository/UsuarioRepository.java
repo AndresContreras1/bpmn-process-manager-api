@@ -2,18 +2,16 @@ package com.facimus.procesos.gestion.repository;
 
 import java.util.Optional;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Usuario;
 
-public interface UsuarioRepository extends RepositorioTenant<Usuario> {
+/** El listado con filtros va por UsuarioSpecifications; lo demas son consultas con nombre propio. */
+public interface UsuarioRepository extends RepositorioTenant<Usuario>, JpaSpecificationExecutor<Usuario> {
 
     Optional<Usuario> findByEmpresaIdAndEmail(Long empresaId, String email);
-
-    Page<Usuario> findAllByEmpresaIdAndActivoTrue(Long empresaId, Pageable pageable);
 
     long countByEmpresaIdAndRolAccesoAndActivoTrue(Long empresaId, RolAcceso rolAcceso);
 

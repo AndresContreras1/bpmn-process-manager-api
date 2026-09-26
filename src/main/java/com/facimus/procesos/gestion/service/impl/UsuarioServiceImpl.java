@@ -26,6 +26,7 @@ import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.repository.UsuarioSpecifications;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -189,8 +190,10 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
-    public PageResponse<UsuarioResponse> buscar(Long empresaId, Pageable pageable) {
-        return PageResponse.from(usuarioRepository.findAllByEmpresaIdAndActivoTrue(empresaId, pageable)
+    public PageResponse<UsuarioResponse> buscar(Long empresaId, String nombre, boolean incluirInactivos,
+            Pageable pageable) {
+        return PageResponse.from(usuarioRepository
+                .findAll(UsuarioSpecifications.conFiltros(empresaId, nombre, incluirInactivos), pageable)
                 .map(usuarioMapper::toResponse));
     }
 

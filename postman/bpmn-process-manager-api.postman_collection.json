@@ -306,10 +306,12 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "usuarios"],
 							"query": [
-								{ "key": "orden", "value": "email,asc", "disabled": true }
+								{ "key": "orden", "value": "email,asc", "disabled": true },
+								{ "key": "nombre", "value": "ana", "description": "Parte del nombre, sin distinguir mayusculas", "disabled": true },
+								{ "key": "incluirInactivos", "value": "true", "description": "Tambien los desactivados, que es de donde se los reactiva", "disabled": true }
 							]
 						},
-						"description": "HU-02: Lista todos los usuarios de la empresa. Solo administrador."
+						"description": "HU-02: Lista los usuarios de la empresa, los activos por defecto. Con nombre se busca por una parte del nombre y con incluirInactivos salen tambien los que ya no pueden entrar, que es de donde se los reactiva. Solo administrador."
 					},
 					"response": []
 				},
