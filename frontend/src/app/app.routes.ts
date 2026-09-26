@@ -1,7 +1,10 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './guards/auth.guard';
+import { CompartirComponent } from './pages/compartir/compartir.component';
+import { ConfiguracionComponent } from './pages/configuracion/configuracion.component';
 import { CuentaComponent } from './pages/cuenta/cuenta.component';
+import { HistorialComponent } from './pages/historial/historial.component';
 import { InicioComponent } from './pages/inicio/inicio.component';
 import { LoginComponent } from './pages/login/login.component';
 import { NoEncontradaComponent } from './pages/no-encontrada/no-encontrada.component';
@@ -10,9 +13,6 @@ import { ProcesoEditorComponent } from './pages/proceso-editor/proceso-editor.co
 import { ProcesoFormComponent } from './pages/proceso-form/proceso-form.component';
 import { ProcesosComponent } from './pages/procesos/procesos.component';
 import { RegistroComponent } from './pages/registro/registro.component';
-import { CompartirComponent } from './pages/compartir/compartir.component';
-import { ConfiguracionComponent } from './pages/configuracion/configuracion.component';
-import { HistorialComponent } from './pages/historial/historial.component';
 import { RolesComponent } from './pages/roles/roles.component';
 import { UsuariosComponent } from './pages/usuarios/usuarios.component';
 
@@ -31,7 +31,12 @@ export const routes: Routes = [
     canActivate: [authGuard],
     title: 'Store settings · BPMN Process Manager',
   },
-  { path: 'historial', component: HistorialComponent, canActivate: [authGuard], title: 'Store history · BPMN Process Manager' },
+  {
+    path: 'historial',
+    component: HistorialComponent,
+    canActivate: [authGuard],
+    title: 'Store history · BPMN Process Manager',
+  },
   // nuevo va antes de :id, o Angular tomaria "nuevo" como el id de un proceso
   {
     path: 'procesos/nuevo',

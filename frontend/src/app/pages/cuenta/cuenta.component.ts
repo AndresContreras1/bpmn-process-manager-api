@@ -4,9 +4,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 
 import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
+import { AuthService } from '../../service/auth.service';
 import { TokenService } from '../../service/token.service';
 import { CambiarClaveComponent } from './cambiar-clave/cambiar-clave.component';
-import { AuthService } from '../../service/auth.service';
 
 /** Una accion de la aplicacion y los roles que pueden hacerla: la misma matriz que aplica la API. */
 interface Permiso {
@@ -22,6 +22,7 @@ interface Permiso {
 })
 export class CuentaComponent implements OnInit {
   private readonly authService: AuthService = inject(AuthService);
+  private readonly tokenService: TokenService = inject(TokenService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
 
   readonly usuario$: Observable<Usuario | null> = this.authService.usuario$;
@@ -33,7 +34,6 @@ export class CuentaComponent implements OnInit {
     { accion: 'Delete processes and diagram elements', roles: ['ADMINISTRADOR'] },
     { accion: 'Manage users and process roles', roles: ['ADMINISTRADOR'] },
   ];
-  private readonly tokenService: TokenService = inject(TokenService);
 
   bienvenida: boolean = false;
   /** True mientras la clave siga siendo la temporal con la que entro. */

@@ -5,8 +5,8 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ConfiguracionTienda, ConfiguracionTiendaRequest } from '../models/configuracion.model';
 import { Empresa } from '../models/empresa.model';
-import { HistorialCambio } from '../models/proceso.model';
 import { PageResponse } from '../models/page-response.model';
+import { HistorialCambio } from '../models/proceso.model';
 
 /** La tienda de quien entro: sus datos, su configuracion y todo lo que ha pasado en ella. */
 @Injectable({ providedIn: 'root' })

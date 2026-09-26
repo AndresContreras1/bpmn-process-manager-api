@@ -5,6 +5,8 @@ export type ModoSimulacion = 'MANUAL' | 'AUTOMATICO';
 
 /** Como responde cada socio simulado. Se ajusta desde las pantallas de operacion. */
 export interface ParametrosSimulacion {
+  /** De aqui salen todas las decisiones de los socios: la misma semilla repite la misma simulacion. */
+  semilla: number;
   tasaRechazoPagos: number;
   ticksRespuestaPagos: number;
   reglaRechazoPagos: string | null;
