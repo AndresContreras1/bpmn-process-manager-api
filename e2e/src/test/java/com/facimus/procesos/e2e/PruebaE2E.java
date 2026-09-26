@@ -126,6 +126,15 @@ abstract class PruebaE2E {
         return visible(donde).getText();
     }
 
+    /**
+     * Espera a que queden exactamente tantas filas. Contar sin esperar no sirve en un listado que filtra: el
+     * numero de ahora es el de antes de que el filtro conteste, y la espera por texto vuelve enseguida si el texto
+     * ya estaba en la primera fila.
+     */
+    protected void esperarFilas(By donde, int cuantas) {
+        espera.until(ExpectedConditions.numberOfElementsToBe(donde, cuantas));
+    }
+
     protected void esperarTexto(By donde, String texto) {
         espera.until(ExpectedConditions.textToBePresentInElementLocated(donde, texto));
     }
