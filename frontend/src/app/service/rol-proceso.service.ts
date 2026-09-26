@@ -13,12 +13,15 @@ export class RolProcesoService {
   private readonly url: string = `${environment.apiUrl}/api/v1/roles`;
 
   /**
-   * Todos los roles en una sola pagina. Son pocos por tienda —uno por cada trabajo que hace— y el editor los
-   * necesita enteros para poder elegir cualquiera en el formulario de una lane.
+   * Todos los roles en una sola pagina, para los desplegables: el de una lane en el editor, el de la bandeja y el
+   * panel de roles de una persona. Son pocos por tienda, uno por cada trabajo que hace.
+   *
+   * Cincuenta es el maximo que la API acepta por pagina, y pedir mas no devuelve mas: devuelve 400. Una tienda con
+   * mas de cincuenta roles necesitaria un desplegable que busque, no una pagina mas grande.
    */
   listar(): Observable<RolProceso[]> {
     return this.http
-      .get<PageResponse<RolProceso>>(this.url, { params: { pagina: 0, tamano: 200, orden: 'nombre,asc' } })
+      .get<PageResponse<RolProceso>>(this.url, { params: { pagina: 0, tamano: 50, orden: 'nombre,asc' } })
       .pipe(map((pagina: PageResponse<RolProceso>) => pagina.content));
   }
 
