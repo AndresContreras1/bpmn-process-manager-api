@@ -148,6 +148,27 @@ the same screen without the palette, the forms or the buttons.
 - The findings keep the API's wording, in Spanish; only the class in front of the name is translated, because the
   sentences carry data inside them.
 
+## Administration
+
+Six screens that used to need Postman. The navbar shows the administration ones only to an administrator, taking
+the role from the observable rather than from a snapshot, because the navbar is built before anyone signs in.
+
+- **Users** (`/usuarios`): search, sort, add, change a role, take access away and give it back, reset a password,
+  and choose which process roles a person answers for, which is where their task tray comes from. Somebody added
+  here gets a temporary password that the API invents and returns **once**; the screen shows it on its own and says
+  so, because if it is lost the only way back is resetting it.
+- **Process roles** (`/roles`): the list says which ones a lane is using, and Delete is disabled on those, because
+  the API refuses them with a `409`.
+- **Sharing** (`/procesos/:id/compartir`): by tax id, which is how a store is known to other stores. It is a
+  read-only door to the version in force of that one diagram. What other stores share with you is listed on the
+  process list, which is how a guest reaches it.
+- **Account** (`/cuenta`): changing your own password closes every session of yours and opens a new one here,
+  because that is what the API answers. Somebody who signed in with a temporary password is sent here by the route
+  guard and kept here until they change it, since the API answers `403` to everything else.
+- **Store settings** (`/configuracion`): who may change the structure of a diagram. The simulation parameters are
+  saved empty on purpose; they belong to running processes.
+- **Store history** (`/historial`): everything that happened, paged, newest first.
+
 ## Where things go
 
 ```
