@@ -3,6 +3,8 @@ import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 
+import { environment } from '../../../environments/environment';
+
 import { Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
 
@@ -20,6 +22,8 @@ interface Caracteristica {
   styleUrl: './inicio.component.scss',
 })
 export class InicioComponent {
+  /** La cuenta de demostracion solo existe cuando la API corre en dev; no se ofrece lo que no hay. */
+  readonly demo: boolean = environment.demo;
   readonly usuario$: Observable<Usuario | null> = inject(AuthService).usuario$;
 
   readonly caracteristicas: Caracteristica[] = [

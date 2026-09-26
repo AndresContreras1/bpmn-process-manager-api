@@ -7,6 +7,7 @@ import { finalize } from 'rxjs';
 
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
 import { mensajeDeError } from '../../helpers/errores-api';
+import { environment } from '../../../environments/environment';
 import { AuthService } from '../../service/auth.service';
 
 @Component({
@@ -16,6 +17,8 @@ import { AuthService } from '../../service/auth.service';
   styleUrl: './login.component.scss',
 })
 export class LoginComponent implements OnInit {
+  /** La cuenta de demostracion solo existe cuando la API corre en dev. */
+  readonly demo: boolean = environment.demo;
   private readonly authService: AuthService = inject(AuthService);
   private readonly router: Router = inject(Router);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);

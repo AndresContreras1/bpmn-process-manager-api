@@ -172,6 +172,27 @@ the role from the observable rather than from a snapshot, because the navbar is 
 - **Store history** (`/historial`): everything that happened, paged, newest first. For administrators
   only, like the three above, because that is what the API allows.
 
+## In a container
+
+`frontend/Dockerfile` compiles the app with Node and serves it with NGINX; Node only exists in the build stage. The
+runtime image is `nginx-unprivileged`, so it runs as a normal user like the API image does, and therefore listens
+on 8080 rather than on 80, which would need root.
+
+`nginx.conf` does three things: serves any path that is not a file as `index.html`, because Angular resolves its
+own routes; forwards `/api` to the API inside the compose network, which is why `environment.ts` has no absolute
+URL and there is no CORS to configure; and answers `/healthz`, which is what the container health check asks, so it
+reports on NGINX and not on the API, which has its own probe.
+
+Files built with a hash in the name are cached for a year and `index.html` is not cached at all: otherwise a
+browser would keep asking for the files of the version before.
+
+```bash
+docker compose up -d --build --wait   # from the root of the repository
+```
+
+That stack runs the API in its `prod` profile, so it comes up with no demo store: create one from the app. The
+demo data is seeded by `dev`, which is what `npm start` talks to.
+
 ## Where things go
 
 ```

@@ -39,6 +39,7 @@
             </button>
           </form>
 
+          @if (demo) {
           <div class="border rounded-3 p-3 mt-4 bg-body-tertiary small" id="login-demo">
             <div class="fw-semibold mb-1"><i class="fa-solid fa-store" aria-hidden="true"></i> Demo store</div>
             <p class="text-body-secondary mb-2">admin&#64;demo.com · admin123 · administrator</p>
@@ -46,6 +47,7 @@
               Use the demo account
             </button>
           </div>
+          }
 
           <p class="text-center small mt-4 mb-0">
             No store yet? <a routerLink="/registro" id="login-ir-registro">Create one</a>

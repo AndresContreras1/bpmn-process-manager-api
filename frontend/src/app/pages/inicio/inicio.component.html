@@ -18,7 +18,11 @@
           }
         </div>
         <p class="text-body-secondary small mb-0" id="inicio-demo">
-          The demo store comes with a published order fulfillment process: sign in with admin&#64;demo.com and admin123.
+          @if (demo) {
+            The demo store comes with a published order fulfillment process: sign in with admin&#64;demo.com and admin123.
+          } @else {
+            Create your store and model your first process; nothing you put in it is visible to anyone else.
+          }
         </p>
       </div>
 
