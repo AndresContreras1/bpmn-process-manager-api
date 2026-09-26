@@ -11,11 +11,13 @@ import {
   debounceTime,
   finalize,
   forkJoin,
+  map,
   of,
   startWith,
   switchMap,
 } from 'rxjs';
 
+import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { mensajeDeError } from '../../helpers/errores-api';
 import {
   Diagrama,
@@ -31,16 +33,16 @@ import {
 import { Diagnostico, Hallazgo, Revision, TipoElemento } from '../../models/diagnostico.model';
 import { Proceso } from '../../models/proceso.model';
 import { RolProceso } from '../../models/rol-proceso.model';
-import { AuthService } from '../../service/auth.service';
 import { ActividadService } from '../../service/actividad.service';
 import { ArcoService } from '../../service/arco.service';
+import { AuthService } from '../../service/auth.service';
 import { DiagnosticoService } from '../../service/diagnostico.service';
+import { DiagramaService } from '../../service/diagrama.service';
 import { EventoService } from '../../service/evento.service';
 import { GatewayService } from '../../service/gateway.service';
 import { LaneService } from '../../service/lane.service';
 import { MensajeService } from '../../service/mensaje.service';
 import { PoolService } from '../../service/pool.service';
-import { DiagramaService } from '../../service/diagrama.service';
 import { ProcesoService } from '../../service/proceso.service';
 import { RevisionService } from '../../service/revision.service';
 import { RolProcesoService } from '../../service/rol-proceso.service';
@@ -48,13 +50,13 @@ import {
   DiagramaBpmnComponent,
   MovimientoDeNodo,
 } from '../proceso-detalle/components/diagrama-bpmn/diagrama-bpmn.component';
-import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
-import { PanelElementoComponent } from './components/panel-elemento/panel-elemento.component';
 import { Lienzo, dibujarDiagrama } from '../proceso-detalle/components/diagrama-bpmn/lienzo';
+import { PanelElementoComponent } from './components/panel-elemento/panel-elemento.component';
 import {
   NOMBRE_ELEMENTO,
   Seleccion,
   elementoEnIngles,
+  esNodo,
   nombreDeSeleccion,
   seleccionDelHallazgo,
   tipoDelNodo,
@@ -336,7 +338,10 @@ export class ProcesoEditorComponent implements OnInit {
       )
       .subscribe({
         next: (publicado: Proceso) => {
-          this.publicado = `Published as version ${publicado.versionPublicada ?? ''}.`.replace(' .', '.');
+          this.publicado =
+            publicado.versionPublicada === null
+              ? 'The process is published.'
+              : `Published as version ${publicado.versionPublicada}.`;
           this.refrescar();
         },
         error: (error: HttpErrorResponse) => {
@@ -353,6 +358,7 @@ export class ProcesoEditorComponent implements OnInit {
   revisar(): void {
     this.revisando = true;
     this.errorRevision = null;
+    this.revision = null;
     this.revisionService
       .revisar(this.procesoId)
       .pipe(
@@ -622,7 +628,7 @@ export class ProcesoEditorComponent implements OnInit {
     const nodo = [...diagrama.actividades, ...diagrama.gateways, ...diagrama.eventos].find(
       (candidato) => candidato.id === seleccion.id,
     );
-    return ['ACTIVIDAD', 'GATEWAY', 'EVENTO'].includes(seleccion.tipo) ? (nodo?.laneId ?? null) : null;
+    return esNodo(seleccion.tipo) ? (nodo?.laneId ?? null) : null;
   }
 
   /** A la derecha de lo que ya hay en ese lane, para que lo nuevo no caiga encima de nada. */
@@ -669,9 +675,7 @@ export class ProcesoEditorComponent implements OnInit {
 
   /** El id del nodo elegido, o null si lo elegido no es un nodo: es lo que el lienzo sabe resaltar. */
   get nodoElegidoId(): number | null {
-    return this.seleccion && ['ACTIVIDAD', 'GATEWAY', 'EVENTO'].includes(this.seleccion.tipo)
-      ? this.seleccion.id
-      : null;
+    return this.seleccion && esNodo(this.seleccion.tipo) ? this.seleccion.id : null;
   }
 
   private refrescarSeleccion(): void {
@@ -697,7 +701,9 @@ export class ProcesoEditorComponent implements OnInit {
       this.diagramaService.obtener(this.procesoId),
       this.diagnosticoService.obtener(this.procesoId).pipe(catchError(() => of(null))),
     ]).pipe(
-      switchMap((respuesta) => of([respuesta[0].proceso, respuesta[1], respuesta[2]] as [Proceso, Diagrama, Diagnostico | null])),
+      map(
+        (respuesta): [Proceso, Diagrama, Diagnostico | null] => [respuesta[0].proceso, respuesta[1], respuesta[2]],
+      ),
       catchError((error: HttpErrorResponse) => {
         this.cargando = false;
         if (error.status === 404 || error.status === 400) {

@@ -1,5 +1,5 @@
-import { Diagrama } from '../../models/diagrama.model';
 import { TipoElemento } from '../../models/diagnostico.model';
+import { Diagrama } from '../../models/diagrama.model';
 
 /** Lo que esta elegido en el editor. El tipo hace falta porque los ids no son unicos entre tablas. */
 export interface Seleccion {
