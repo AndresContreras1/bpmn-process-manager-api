@@ -16,6 +16,7 @@ import { ProcesoFormComponent } from './pages/proceso-form/proceso-form.componen
 import { ProcesosComponent } from './pages/procesos/procesos.component';
 import { RegistroComponent } from './pages/registro/registro.component';
 import { RolesComponent } from './pages/roles/roles.component';
+import { SimulacionComponent } from './pages/simulacion/simulacion.component';
 import { TareasComponent } from './pages/tareas/tareas.component';
 import { UsuariosComponent } from './pages/usuarios/usuarios.component';
 
@@ -32,6 +33,12 @@ export const routes: Routes = [
     component: CasoDetalleComponent,
     canActivate: [authGuard],
     title: 'Case · BPMN Process Manager',
+  },
+  {
+    path: 'simulacion',
+    component: SimulacionComponent,
+    canActivate: [authGuard],
+    title: 'Simulation · BPMN Process Manager',
   },
   { path: 'tareas', component: TareasComponent, canActivate: [authGuard], title: 'Task tray · BPMN Process Manager' },
   { path: 'usuarios', component: UsuariosComponent, canActivate: [authGuard], title: 'Users · BPMN Process Manager' },
