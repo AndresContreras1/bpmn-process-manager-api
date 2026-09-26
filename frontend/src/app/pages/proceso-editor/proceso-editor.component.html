@@ -314,8 +314,10 @@
                 </p>
               } @else {
                 <p class="small mb-2" id="proceso-editor-cuenta">
-                  <span class="badge text-bg-danger">{{ diagnostico.errores }}</span> errors ·
-                  <span class="badge text-bg-warning">{{ diagnostico.advertencias }}</span> warnings
+                  <span class="badge text-bg-danger">{{ diagnostico.errores }}</span>
+                  {{ diagnostico.errores === 1 ? 'error' : 'errors' }} ·
+                  <span class="badge text-bg-warning">{{ diagnostico.advertencias }}</span>
+                  {{ diagnostico.advertencias === 1 ? 'warning' : 'warnings' }}
                 </p>
                 @if (diagnostico.hallazgos.length === 0) {
                   <p class="small text-success mb-0" id="proceso-editor-limpio">

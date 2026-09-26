@@ -62,6 +62,11 @@ import {
   tipoDelNodo,
 } from './seleccion';
 
+/** La cuenta de errores con la palabra que le toca: "1 error" y no "1 errors". */
+function conErrores(cuantos: number): string {
+  return `${cuantos} ${cuantos === 1 ? 'error' : 'errors'}`;
+}
+
 /** Un pool con sus carriles, para el esquema de la izquierda. */
 interface RamaDelEsquema {
   pool: Pool;
@@ -543,8 +548,8 @@ export class ProcesoEditorComponent implements OnInit {
           const nombre: string = this.nombreElegido;
           this.impacto =
             despues.errores === antes
-              ? `Deleting "${nombre}" leaves the diagram with the same ${antes} errors it has now.`
-              : `Deleting "${nombre}" takes the diagram from ${antes} to ${despues.errores} errors.`;
+              ? `Deleting "${nombre}" leaves the diagram with the same ${conErrores(antes)} it has now.`
+              : `Deleting "${nombre}" takes the diagram from ${antes} to ${conErrores(despues.errores)}.`;
         },
         error: () => (this.impacto = 'The impact could not be worked out. Deleting cannot be undone.'),
       });
