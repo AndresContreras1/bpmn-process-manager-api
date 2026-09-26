@@ -1,0 +1,191 @@
+<div class="container-fluid py-4" id="proceso-editor">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+      <li class="breadcrumb-item"><a routerLink="/procesos">Processes</a></li>
+      <li class="breadcrumb-item"><a [routerLink]="['/procesos', procesoId]">Process</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Model</li>
+    </ol>
+  </nav>
+
+  @if (noEncontrado) {
+    <div class="alert alert-warning" role="alert" id="proceso-editor-no-encontrado">
+      This process does not exist in your store.
+      <a routerLink="/procesos" class="alert-link">Back to processes</a>
+    </div>
+  } @else {
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <div>
+        <h1 class="h4 fw-bold mb-0" id="proceso-editor-titulo">{{ proceso?.nombre ?? 'Loading…' }}</h1>
+        <p class="text-body-secondary small mb-0">
+          Model the diagram. Every change is saved as soon as the API confirms it.
+        </p>
+      </div>
+      <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/procesos', procesoId]"
+         id="proceso-editor-volver">Back to the process</a>
+    </div>
+
+    @if (!puedeEditar) {
+      <div class="alert alert-info" role="alert" id="proceso-editor-solo-lectura">
+        Your role can read this diagram but not change it. Everything below is shown for reading.
+      </div>
+    }
+    @if (error) {
+      <div class="alert alert-danger" role="alert" id="proceso-editor-error">{{ error }}</div>
+    }
+
+    @if (cargando) {
+      <div class="text-center text-body-secondary py-5" id="proceso-editor-cargando">
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading the diagram…
+      </div>
+    } @else if (diagrama && lienzo) {
+      <div class="row g-3">
+        <!-- ------------------------------------------------------------------ el esquema -->
+        <div class="col-lg-3 col-xl-2">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Outline</h2>
+              <ul class="esquema list-unstyled small mb-0" id="proceso-editor-esquema">
+                @for (rama of esquema; track rama.pool.id) {
+                  <li class="mb-2">
+                    <button type="button" class="enlace fw-semibold" data-testid="esquema-pool"
+                            [class.elegido]="seleccion?.tipo === 'POOL' && seleccion?.id === rama.pool.id"
+                            (click)="elegir({ tipo: 'POOL', id: rama.pool.id })">
+                      {{ rama.pool.nombre }}
+                    </button>
+                    @if (rama.pool.cajaNegra) {
+                      <span class="text-body-secondary">· black box</span>
+                    }
+                    <ul class="list-unstyled ms-3">
+                      @for (lane of rama.lanes; track lane.id) {
+                        <li>
+                          <button type="button" class="enlace" data-testid="esquema-lane"
+                                  [class.elegido]="seleccion?.tipo === 'LANE' && seleccion?.id === lane.id"
+                                  (click)="elegir({ tipo: 'LANE', id: lane.id })">{{ lane.nombre }}</button>
+                          <ul class="list-unstyled ms-3">
+                            @for (evento of diagrama.eventos; track evento.id) {
+                              @if (evento.laneId === lane.id) {
+                                <li>
+                                  <button type="button" class="enlace" data-testid="esquema-nodo"
+                                          [class.elegido]="seleccion?.tipo === 'EVENTO' && seleccion?.id === evento.id"
+                                          (click)="elegir({ tipo: 'EVENTO', id: evento.id })">
+                                    <i class="fa-regular fa-circle" aria-hidden="true"></i> {{ evento.nombre }}
+                                  </button>
+                                </li>
+                              }
+                            }
+                            @for (actividad of diagrama.actividades; track actividad.id) {
+                              @if (actividad.laneId === lane.id) {
+                                <li>
+                                  <button type="button" class="enlace" data-testid="esquema-nodo"
+                                          [class.elegido]="seleccion?.tipo === 'ACTIVIDAD' && seleccion?.id === actividad.id"
+                                          (click)="elegir({ tipo: 'ACTIVIDAD', id: actividad.id })">
+                                    <i class="fa-regular fa-square" aria-hidden="true"></i> {{ actividad.nombre }}
+                                  </button>
+                                </li>
+                              }
+                            }
+                            @for (gateway of diagrama.gateways; track gateway.id) {
+                              @if (gateway.laneId === lane.id) {
+                                <li>
+                                  <button type="button" class="enlace" data-testid="esquema-nodo"
+                                          [class.elegido]="seleccion?.tipo === 'GATEWAY' && seleccion?.id === gateway.id"
+                                          (click)="elegir({ tipo: 'GATEWAY', id: gateway.id })">
+                                    <i class="fa-solid fa-diamond" aria-hidden="true"></i> {{ gateway.nombre }}
+                                  </button>
+                                </li>
+                              }
+                            }
+                          </ul>
+                        </li>
+                      }
+                    </ul>
+                  </li>
+                }
+              </ul>
+
+              @if (lienzo.mensajes.length) {
+                <h2 class="h6 text-uppercase text-body-secondary fw-semibold mt-3">Message flows</h2>
+                <ul class="esquema list-unstyled small mb-0">
+                  @for (mensaje of lienzo.mensajes; track mensaje.id) {
+                    <li>
+                      <button type="button" class="enlace" data-testid="esquema-mensaje"
+                              [class.elegido]="seleccion?.tipo === 'MENSAJE' && seleccion?.id === mensaje.id"
+                              (click)="elegir({ tipo: 'MENSAJE', id: mensaje.id })">
+                        {{ mensaje.numero }}. {{ mensaje.nombre }}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------------------------------ el lienzo -->
+        <div class="col-lg-9 col-xl-7">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+              <app-diagrama-bpmn [lienzo]="lienzo" [titulo]="'BPMN diagram of ' + (proceso?.nombre ?? '')"
+                                 [seleccionadoId]="nodoElegidoId" (seleccionar)="elegirNodo($event)" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------------------------------ el panel -->
+        <div class="col-xl-3">
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-3">
+              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Selected</h2>
+              @if (seleccion) {
+                <p class="mb-0" id="proceso-editor-elegido">
+                  <span class="badge text-bg-light border">{{ nombreElemento[seleccion.tipo] }}</span>
+                  <span class="fw-semibold ms-1">{{ nombreElegido }}</span>
+                </p>
+              } @else {
+                <p class="small text-body-secondary mb-0" id="proceso-editor-sin-eleccion">
+                  Pick something in the outline or in the diagram.
+                </p>
+              }
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm">
+            <div class="card-body p-3">
+              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Diagnosis</h2>
+              @if (!diagnostico) {
+                <p class="small text-body-secondary mb-0" id="proceso-editor-sin-diagnostico">
+                  The diagnosis could not be read. The diagram can still be edited.
+                </p>
+              } @else {
+                <p class="small mb-2" id="proceso-editor-cuenta">
+                  <span class="badge text-bg-danger">{{ diagnostico.errores }}</span> errors ·
+                  <span class="badge text-bg-warning">{{ diagnostico.advertencias }}</span> warnings
+                </p>
+                @if (diagnostico.hallazgos.length === 0) {
+                  <p class="small text-success mb-0" id="proceso-editor-limpio">
+                    Nothing to fix. This diagram can be published.
+                  </p>
+                } @else {
+                  <ul class="list-unstyled small mb-0" id="proceso-editor-hallazgos">
+                    @for (hallazgo of diagnostico.hallazgos; track $index) {
+                      <li class="mb-2" data-testid="hallazgo">
+                        <button type="button" class="enlace text-start" (click)="irAlHallazgo(hallazgo)"
+                                [disabled]="hallazgo.elementoId === null">
+                          <span class="badge" [class.text-bg-danger]="hallazgo.codigo.startsWith('E')"
+                                [class.text-bg-warning]="!hallazgo.codigo.startsWith('E')">{{ hallazgo.codigo }}</span>
+                          <span class="fw-semibold ms-1">{{ elementoEnIngles(hallazgo.elemento) ?? 'The process' }}</span>
+                        </button>
+                        <div class="text-body-secondary">{{ hallazgo.problema }}</div>
+                        <div class="text-body-tertiary">{{ hallazgo.sugerencia }}</div>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>

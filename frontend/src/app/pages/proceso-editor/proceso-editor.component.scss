@@ -1,0 +1,27 @@
+// Los elementos del esquema y de los hallazgos son botones, no enlaces: no llevan a ninguna parte, eligen algo
+.enlace {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  text-align: inherit;
+
+  &:hover:not(:disabled) {
+    color: var(--bs-primary);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.enlace.elegido {
+  color: var(--bs-primary);
+  font-weight: 600;
+}
+
+// El esquema puede crecer mucho: se queda en su columna y se desplaza solo
+.esquema {
+  max-height: 22rem;
+  overflow-y: auto;
+}
