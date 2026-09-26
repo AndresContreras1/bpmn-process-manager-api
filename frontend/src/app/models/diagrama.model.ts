@@ -3,6 +3,13 @@ import { Proceso } from './proceso.model';
 export type TipoParticipante = 'EMPRESA' | 'CLIENTE' | 'PROVEEDOR' | 'SISTEMA_EXTERNO';
 export type TipoGateway = 'EXCLUSIVO' | 'PARALELO' | 'INCLUSIVO';
 
+/** Los eventos que el modelo acepta. No hay temporizadores ni eventos de error: no estan en la API. */
+export type TipoEvento = 'INICIO' | 'FIN' | 'MENSAJE_INICIO' | 'MENSAJE_INTERMEDIO' | 'MENSAJE_FIN';
+export type TipoDestino = 'CORREO' | 'SERVICIO_WEB' | 'COLA';
+export type AccionSiFalla = 'CONTINUAR' | 'MANEJAR_ERROR' | 'FINALIZAR';
+export type PoliticaSinCaso = 'DESCARTAR' | 'INICIAR_CASO';
+export type TipoDeDato = 'TEXTO' | 'NUMERO' | 'FECHA' | 'BOOLEANO';
+
 /** Participante del proceso (PoolResponse). Una caja negra no muestra su interior. */
 export interface Pool {
   id: number;
@@ -43,6 +50,19 @@ export interface Gateway {
   laneId: number;
 }
 
+/**
+ * Evento del proceso (EventoResponse): por donde empieza, por donde termina y donde espera o manda un mensaje.
+ * Comparte los ids con las actividades y los gateways: los tres son nodos del flujo.
+ */
+export interface Evento {
+  id: number;
+  nombre: string;
+  tipoEvento: TipoEvento;
+  posicionX: number;
+  posicionY: number;
+  laneId: number;
+}
+
 /** Flujo de secuencia entre dos nodos, dentro de un pool (ArcoResponse). */
 export interface Arco {
   id: number;
@@ -53,13 +73,32 @@ export interface Arco {
   poolId: number;
 }
 
-/** Flujo de mensaje entre dos pools (MensajeResponse). */
+/** Un dato que viaja dentro de un mensaje (CampoDeMensaje). */
+export interface CampoDeMensaje {
+  nombre: string;
+  tipo: TipoDeDato;
+}
+
+/**
+ * Flujo de mensaje entre dos pools (MensajeResponse). Los nodos de los extremos pueden faltar: una caja negra no
+ * muestra por donde sale ni por donde entra.
+ */
 export interface Mensaje {
   id: number;
   nombre: string;
   contenido: string;
   poolOrigenId: number;
   poolDestinoId: number;
+  nodoOrigenId: number | null;
+  nodoDestinoId: number | null;
+  tipoDestino: TipoDestino | null;
+  siFalla: AccionSiFalla | null;
+  nodoManejoErrorId: number | null;
+  origenExterno: boolean;
+  campos: CampoDeMensaje[];
+  usoDeLosDatos: string | null;
+  variable: string | null;
+  respuestaEsperadaId: number | null;
   procesoId: number;
 }
 
@@ -67,6 +106,8 @@ export interface Mensaje {
 export interface Correlacion {
   id: number;
   criterio: string;
+  campo: string;
+  sinCaso: PoliticaSinCaso;
   mensajeId: number;
 }
 
@@ -78,6 +119,7 @@ export interface Diagrama {
   lanes: Lane[];
   actividades: Actividad[];
   gateways: Gateway[];
+  eventos: Evento[];
   arcos: Arco[];
   mensajes: Mensaje[];
   correlaciones: Correlacion[];
@@ -97,3 +139,41 @@ export const NOMBRE_GATEWAY: Record<TipoGateway, string> = {
   PARALELO: 'Parallel gateway',
   INCLUSIVO: 'Inclusive gateway',
 };
+
+/** Nombre de cada tipo de evento en la interfaz. */
+export const NOMBRE_EVENTO: Record<TipoEvento, string> = {
+  INICIO: 'Start event',
+  FIN: 'End event',
+  MENSAJE_INICIO: 'Message start event',
+  MENSAJE_INTERMEDIO: 'Message catch event',
+  MENSAJE_FIN: 'Message end event',
+};
+
+/** Como sale el mensaje hacia el otro participante. */
+export const NOMBRE_DESTINO: Record<TipoDestino, string> = {
+  CORREO: 'email',
+  SERVICIO_WEB: 'web service',
+  COLA: 'queue',
+};
+
+/** Que hace el proceso si el mensaje no se puede entregar. */
+export const NOMBRE_SI_FALLA: Record<AccionSiFalla, string> = {
+  CONTINUAR: 'the process carries on',
+  MANEJAR_ERROR: 'the process goes to a task that handles it',
+  FINALIZAR: 'the process ends',
+};
+
+/** Que hace un mensaje que llega y no corresponde a ningun caso abierto. */
+export const NOMBRE_SIN_CASO: Record<PoliticaSinCaso, string> = {
+  DESCARTAR: 'it is discarded',
+  INICIAR_CASO: 'it opens a new case',
+};
+
+/** Un evento de inicio no recibe flujo de secuencia y uno de fin no lo emite. */
+export function empiezaElProceso(tipo: TipoEvento): boolean {
+  return tipo === 'INICIO' || tipo === 'MENSAJE_INICIO';
+}
+
+export function terminaElProceso(tipo: TipoEvento): boolean {
+  return tipo === 'FIN' || tipo === 'MENSAJE_FIN';
+}
