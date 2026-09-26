@@ -127,6 +127,28 @@ class VersionProcesoRepositoryTest {
     }
 
     @Test
+    @DisplayName("Las consultas de la cache dan el id de la vigente y su diagrama, y no cruzan tiendas")
+    void consultasDeLaCache_noCruzanTiendas() {
+        String diagrama = "{\"pools\":[{\"nombre\":\"Demo Store\"}]}";
+        em.persistFlushFind(version(1, EstadoVersion.VIGENTE, HUELLA));
+        VersionProceso segunda = em.persistFlushFind(version(2, EstadoVersion.VIGENTE, "2" + HUELLA.substring(1),
+                diagrama));
+        Empresa otra = empresa("Otra tienda mas");
+
+        assertThat(versionProcesoRepository.idDeLaVigente(proceso.getId(), tienda.getId(), EstadoVersion.VIGENTE))
+                .contains(segunda.getId());
+        assertThat(versionProcesoRepository.idDeLaVersion(proceso.getId(), 1, tienda.getId())).isPresent();
+        assertThat(versionProcesoRepository.idDeLaVersion(proceso.getId(), 9, tienda.getId())).isEmpty();
+        assertThat(versionProcesoRepository.definicionDe(segunda.getId(), tienda.getId())).contains(diagrama);
+
+        // Lo mismo preguntado por otra tienda no existe: la clave de la cache se llena con estas dos consultas,
+        // asi que si alguna se olvidara de la tienda, la cache heredaria el agujero.
+        assertThat(versionProcesoRepository.idDeLaVigente(proceso.getId(), otra.getId(), EstadoVersion.VIGENTE))
+                .isEmpty();
+        assertThat(versionProcesoRepository.definicionDe(segunda.getId(), otra.getId())).isEmpty();
+    }
+
+    @Test
     @DisplayName("El diagrama publicado no cabe en un varchar corriente y la columna lo guarda entero")
     void definicion_guardaUnDocumentoLargo() {
         String definicion = "{\"pools\":[" + "{\"nombre\":\"Demo Store\"},".repeat(2000) + "{}]}";
