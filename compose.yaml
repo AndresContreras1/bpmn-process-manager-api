@@ -58,9 +58,11 @@ services:
         condition: service_healthy
     ports:
       - "${WEB_PORT:-80}:8080"
-    # Mira que NGINX este sirviendo, no que la API conteste: la API ya tiene su propia sonda
+    # Mira que NGINX este sirviendo, no que la API conteste: la API ya tiene su propia sonda.
+    # Va a 127.0.0.1 y no a localhost porque dentro del contenedor localhost tambien es ::1, y NGINX escucha en
+    # IPv4: con el nombre, wget prueba primero el ::1 y la sonda falla aunque el servidor este sirviendo.
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/healthz | grep -q ok"]
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/healthz | grep -q ok"]
       interval: 5s
       timeout: 3s
       retries: 12
