@@ -43,8 +43,19 @@
               <dd class="col-7">
                 <span class="badge text-bg-primary" id="cuenta-rol">{{ nombreRol[usuario.rolAcceso] }}</span>
               </dd>
-              <dt class="col-5 text-body-secondary fw-normal">Store ID</dt>
-              <dd class="col-7 mb-0" id="cuenta-empresa">{{ usuario.empresaId }}</dd>
+              @if (empresa) {
+                <dt class="col-5 text-body-secondary fw-normal">Store</dt>
+                <dd class="col-7" id="cuenta-empresa">{{ empresa.nombre }}</dd>
+                <dt class="col-5 text-body-secondary fw-normal">Tax id</dt>
+                <dd class="col-7" id="cuenta-empresa-nit">{{ empresa.nit }}</dd>
+                <dt class="col-5 text-body-secondary fw-normal">Contact</dt>
+                <dd class="col-7" id="cuenta-empresa-correo">{{ empresa.correoContacto }}</dd>
+                <dt class="col-5 text-body-secondary fw-normal">Registered</dt>
+                <dd class="col-7 mb-0" id="cuenta-empresa-fecha">{{ empresa.fechaRegistro | date: 'longDate' }}</dd>
+              } @else {
+                <dt class="col-5 text-body-secondary fw-normal">Store ID</dt>
+                <dd class="col-7 mb-0" id="cuenta-empresa">{{ usuario.empresaId }}</dd>
+              }
             </dl>
           </div>
         </div>
