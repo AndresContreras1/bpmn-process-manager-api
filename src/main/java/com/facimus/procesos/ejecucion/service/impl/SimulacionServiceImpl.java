@@ -38,11 +38,7 @@ public class SimulacionServiceImpl implements SimulacionService {
 
     @Override
     public PanelDeSimulacionResponse panel(Long empresaId) {
-        var configuracion = configuracionTiendaService.obtener(empresaId);
-        return new PanelDeSimulacionResponse(configuracion.reloj(), configuracion.modoSimulacion(),
-                mensajeSalienteRepository.countByEmpresaIdAndEstado(empresaId, EstadoMensajeSaliente.PENDIENTE),
-                mensajeSalienteRepository.pendientesPorSocio(empresaId),
-                mensajeEntranteRepository.countByEmpresaIdAndResultado(empresaId, ResultadoCorrelacion.EN_ESPERA));
+        return contarLoQueHay(empresaId);
     }
 
     @Override
@@ -60,6 +56,22 @@ public class SimulacionServiceImpl implements SimulacionService {
         for (Long saliente : entrega.vencidos(empresaId, ahora)) {
             entrega.entregar(empresaId, saliente, ahora);
         }
-        return panel(empresaId);
+        return contarLoQueHay(empresaId);
+    }
+
+    /**
+     * El panel sin promesa de transaccion, que es lo que lo hace servible desde los dos sitios: el endpoint lo
+     * pide dentro de la suya, y el tick, que corre sin ninguna a proposito, lo pide al terminar.
+     *
+     * <p>Esta separado porque una llamada de la clase a si misma no pasa por el proxy de Spring: si el tick
+     * llamara al metodo publico, la anotacion de ese metodo no se aplicaria y estaria prometiendo una
+     * transaccion que nadie abre.
+     */
+    private PanelDeSimulacionResponse contarLoQueHay(Long empresaId) {
+        var configuracion = configuracionTiendaService.obtener(empresaId);
+        return new PanelDeSimulacionResponse(configuracion.reloj(), configuracion.modoSimulacion(),
+                mensajeSalienteRepository.countByEmpresaIdAndEstado(empresaId, EstadoMensajeSaliente.PENDIENTE),
+                mensajeSalienteRepository.pendientesPorSocio(empresaId),
+                mensajeEntranteRepository.countByEmpresaIdAndResultado(empresaId, ResultadoCorrelacion.EN_ESPERA));
     }
 }
