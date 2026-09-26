@@ -109,6 +109,7 @@ export class ProcesoDetalleComponent implements OnInit {
       .pipe(
         switchMap(() => this.procesoService.obtener(proceso.id)),
         finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: (detalle: ProcesoDetalle) => {
@@ -128,7 +129,10 @@ export class ProcesoDetalleComponent implements OnInit {
     this.error = null;
     this.procesoService
       .eliminar(proceso.id)
-      .pipe(finalize(() => (this.enviando = false)))
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: () => this.router.navigate(['/procesos'], { queryParams: { eliminado: 1 } }),
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),

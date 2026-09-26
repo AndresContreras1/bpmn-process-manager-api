@@ -80,11 +80,18 @@ export class ProcesoFormComponent implements OnInit {
       this.procesoId === null
         ? this.procesoService.crear(solicitud)
         : this.procesoService.editar(this.procesoId, { ...solicitud, version: this.version as number });
-    guardado$.pipe(finalize(() => (this.enviando = false))).subscribe({
-      next: (proceso: Proceso) =>
-        this.router.navigate(['/procesos', proceso.id], { queryParams: this.isEdit ? { editado: 1 } : { creado: 1 } }),
-      error: (error: HttpErrorResponse) => this.mostrarError(error),
-    });
+    guardado$
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (proceso: Proceso) =>
+          this.router.navigate(['/procesos', proceso.id], {
+            queryParams: this.isEdit ? { editado: 1 } : { creado: 1 },
+          }),
+        error: (error: HttpErrorResponse) => this.mostrarError(error),
+      });
   }
 
   /** Pide el proceso y deja el formulario con sus valores y su version. */

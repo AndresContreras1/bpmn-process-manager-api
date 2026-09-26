@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -18,6 +19,7 @@ export class LoginComponent implements OnInit {
   private readonly authService: AuthService = inject(AuthService);
   private readonly router: Router = inject(Router);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
+  private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   readonly loginForm = new FormGroup({
     email: new FormControl('', [Validators.required, Validators.email, Validators.maxLength(254)]),
@@ -49,7 +51,10 @@ export class LoginComponent implements OnInit {
     const credenciales = { email: this.loginForm.value.email ?? '', password: this.loginForm.value.password ?? '' };
     this.authService
       .login(credenciales)
-      .pipe(finalize(() => (this.enviando = false)))
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: () => this.router.navigateByUrl(this.volver),
         error: (error: HttpErrorResponse) => {

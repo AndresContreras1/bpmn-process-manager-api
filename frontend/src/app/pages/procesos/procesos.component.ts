@@ -154,23 +154,26 @@ export class ProcesosComponent implements OnInit {
       return;
     }
     this.limpiarMensajes();
-    this.procesoService.publicar(proceso.id, proceso.version).subscribe({
-      // La lista se vuelve a pedir con la respuesta de la API: el proceso cambia de estado y sube por su fecha
-      next: (publicado: Proceso) => {
-        this.aviso = `"${publicado.nombre}" is now published.`;
-        this.buscar();
-      },
-      error: (error: HttpErrorResponse) => {
-        // Si la version de la fila ya no vale, la lista se recarga: con la version nueva el boton vuelve a servir
-        if (esConflictoDeVersion(error)) {
-          this.desactualizado = `"${proceso.nombre}" changed while this list was open, so it was not published. `
-            + 'The list is up to date now: try again.';
+    this.procesoService
+      .publicar(proceso.id, proceso.version)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        // La lista se vuelve a pedir con la respuesta de la API: el proceso cambia de estado y sube por su fecha
+        next: (publicado: Proceso) => {
+          this.aviso = `"${publicado.nombre}" is now published.`;
           this.buscar();
-        } else {
-          this.error = mensajeDeError(error);
-        }
-      },
-    });
+        },
+        error: (error: HttpErrorResponse) => {
+          // Si la version de la fila ya no vale, la lista se recarga: con la version nueva el boton vuelve a servir
+          if (esConflictoDeVersion(error)) {
+            this.desactualizado = `"${proceso.nombre}" changed while this list was open, so it was not published. `
+              + 'The list is up to date now: try again.';
+            this.buscar();
+          } else {
+            this.error = mensajeDeError(error);
+          }
+        },
+      });
   }
 
   confirmarEliminacion(): void {
@@ -179,13 +182,16 @@ export class ProcesosComponent implements OnInit {
       return;
     }
     this.limpiarMensajes();
-    this.procesoService.eliminar(proceso.id).subscribe({
-      next: () => {
-        this.aviso = `"${proceso.nombre}" was deleted.`;
-        this.buscar();
-      },
-      error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
-    });
+    this.procesoService
+      .eliminar(proceso.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.aviso = `"${proceso.nombre}" was deleted.`;
+          this.buscar();
+        },
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+      });
   }
 
   private limpiarMensajes(): void {
