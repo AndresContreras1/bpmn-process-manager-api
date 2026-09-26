@@ -8,11 +8,14 @@ import { mensajeDeError } from '../../helpers/errores-api';
 import { Diagrama, Lane, Pool } from '../../models/diagrama.model';
 import { Diagnostico, Hallazgo, TipoElemento } from '../../models/diagnostico.model';
 import { Proceso } from '../../models/proceso.model';
+import { RolProceso } from '../../models/rol-proceso.model';
 import { AuthService } from '../../service/auth.service';
 import { DiagnosticoService } from '../../service/diagnostico.service';
 import { DiagramaService } from '../../service/diagrama.service';
 import { ProcesoService } from '../../service/proceso.service';
+import { RolProcesoService } from '../../service/rol-proceso.service';
 import { DiagramaBpmnComponent } from '../proceso-detalle/components/diagrama-bpmn/diagrama-bpmn.component';
+import { PanelElementoComponent } from './components/panel-elemento/panel-elemento.component';
 import { Lienzo, dibujarDiagrama } from '../proceso-detalle/components/diagrama-bpmn/lienzo';
 import {
   NOMBRE_ELEMENTO,
@@ -38,7 +41,7 @@ interface RamaDelEsquema {
  */
 @Component({
   selector: 'app-proceso-editor',
-  imports: [RouterLink, DiagramaBpmnComponent],
+  imports: [RouterLink, DiagramaBpmnComponent, PanelElementoComponent],
   templateUrl: './proceso-editor.component.html',
   styleUrl: './proceso-editor.component.scss',
 })
@@ -46,6 +49,7 @@ export class ProcesoEditorComponent implements OnInit {
   private readonly procesoService: ProcesoService = inject(ProcesoService);
   private readonly diagramaService: DiagramaService = inject(DiagramaService);
   private readonly diagnosticoService: DiagnosticoService = inject(DiagnosticoService);
+  private readonly rolProcesoService: RolProcesoService = inject(RolProcesoService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
@@ -59,6 +63,7 @@ export class ProcesoEditorComponent implements OnInit {
   lienzo: Lienzo | null = null;
   diagnostico: Diagnostico | null = null;
   esquema: RamaDelEsquema[] = [];
+  roles: RolProceso[] = [];
   seleccion: Seleccion | null = null;
   nombreElegido: string = '';
   cargando: boolean = true;
@@ -70,6 +75,14 @@ export class ProcesoEditorComponent implements OnInit {
 
   ngOnInit(): void {
     this.procesoId = Number(this.route.snapshot.paramMap.get('id'));
+    // Los roles no cambian mientras se modela, asi que se piden una vez y no en cada recarga
+    this.rolProcesoService
+      .listar()
+      .pipe(
+        catchError(() => of([] as RolProceso[])),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((roles: RolProceso[]) => (this.roles = roles));
     this.cambios$
       .pipe(
         startWith(undefined),

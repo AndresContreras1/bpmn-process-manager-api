@@ -141,6 +141,8 @@
                   <span class="badge text-bg-light border">{{ nombreElemento[seleccion.tipo] }}</span>
                   <span class="fw-semibold ms-1">{{ nombreElegido }}</span>
                 </p>
+                <app-panel-elemento class="d-block mt-3" [seleccion]="seleccion" [diagrama]="diagrama"
+                                    [roles]="roles" [puedeEditar]="puedeEditar" (guardado)="refrescar()" />
               } @else {
                 <p class="small text-body-secondary mb-0" id="proceso-editor-sin-eleccion">
                   Pick something in the outline or in the diagram.
