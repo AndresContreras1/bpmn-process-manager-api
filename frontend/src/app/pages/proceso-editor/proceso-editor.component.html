@@ -188,8 +188,30 @@
         <div class="col-lg-9 col-xl-7">
           <div class="card border-0 shadow-sm h-100">
             <div class="card-body p-3">
+              @if (puedeEditar) {
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <button type="button" class="btn btn-sm" id="proceso-editor-conectar"
+                          [class.btn-primary]="conectando" [class.btn-outline-primary]="!conectando"
+                          (click)="alternarConexion()">
+                    <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
+                    {{ conectando ? 'Cancel' : 'Connect two nodes' }}
+                  </button>
+                  @if (conectando) {
+                    <span class="small text-body-secondary" id="proceso-editor-conectando">
+                      {{ origenConexion === null
+                        ? 'Click the node the flow leaves from.'
+                        : 'Now click the node it goes to.' }}
+                      Two nodes of the same participant make a sequence flow; of different ones, a message flow.
+                    </span>
+                  } @else {
+                    <span class="small text-body-secondary">Drag a node to move it, or onto another lane.</span>
+                  }
+                </div>
+              }
               <app-diagrama-bpmn [lienzo]="lienzo" [titulo]="'BPMN diagram of ' + (proceso?.nombre ?? '')"
-                                 [seleccionadoId]="nodoElegidoId" (seleccionar)="elegirNodo($event)" />
+                                 [seleccionadoId]="conectando ? origenConexion : nodoElegidoId"
+                                 [editable]="puedeEditar && !conectando" (seleccionar)="elegirNodo($event)"
+                                 (mover)="moverNodo($event)" />
             </div>
           </div>
         </div>

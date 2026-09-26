@@ -1,7 +1,9 @@
 <div class="lienzo" id="diagrama-lienzo">
-  <svg class="diagrama" id="diagrama-bpmn" role="img" aria-labelledby="diagrama-bpmn-titulo"
+  <svg #svg class="diagrama" id="diagrama-bpmn" role="img" aria-labelledby="diagrama-bpmn-titulo"
+       [class.editable]="editable()"
        [attr.viewBox]="'0 0 ' + lienzo().ancho + ' ' + lienzo().alto"
-       [style.max-width.px]="lienzo().ancho" [style.min-width.px]="lienzo().anchoMinimo">
+       [style.max-width.px]="lienzo().ancho" [style.min-width.px]="lienzo().anchoMinimo"
+       (pointermove)="seguirArrastre($event)" (pointerup)="soltar($event)" (pointercancel)="soltar($event)">
     <title id="diagrama-bpmn-titulo">{{ titulo() }}</title>
     <defs>
       <marker id="diagrama-flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
@@ -64,7 +66,8 @@
     @for (actividad of lienzo().actividades; track actividad.id) {
       <g class="nodo" data-testid="nodo-actividad" tabindex="0" role="button"
          [class.seleccionado]="actividad.id === seleccionadoId()" [attr.aria-pressed]="actividad.id === seleccionadoId()"
-         [attr.aria-label]="'Task: ' + actividad.nombre" (click)="elegir(actividad.id)"
+         [attr.aria-label]="'Task: ' + actividad.nombre" [attr.transform]="desplazamiento(actividad.id)"
+         (pointerdown)="empezarArrastre(actividad.id, $event)" (click)="elegir(actividad.id)"
          (keydown.enter)="elegir(actividad.id, $event)" (keydown.space)="elegir(actividad.id, $event)">
         <rect class="tarea" rx="10" [attr.x]="actividad.x" [attr.y]="actividad.y" [attr.width]="actividad.ancho"
               [attr.height]="actividad.alto" />
@@ -80,7 +83,8 @@
     @for (gateway of lienzo().gateways; track gateway.id) {
       <g class="nodo" data-testid="nodo-gateway" tabindex="0" role="button"
          [class.seleccionado]="gateway.id === seleccionadoId()" [attr.aria-pressed]="gateway.id === seleccionadoId()"
-         [attr.aria-label]="'Gateway: ' + gateway.nombre" (click)="elegir(gateway.id)"
+         [attr.aria-label]="'Gateway: ' + gateway.nombre" [attr.transform]="desplazamiento(gateway.id)"
+         (pointerdown)="empezarArrastre(gateway.id, $event)" (click)="elegir(gateway.id)"
          (keydown.enter)="elegir(gateway.id, $event)" (keydown.space)="elegir(gateway.id, $event)">
         <polygon class="gateway" [attr.points]="gateway.puntos" />
         <path class="marca" [attr.d]="gateway.marca" />
@@ -96,7 +100,8 @@
     @for (evento of lienzo().eventos; track evento.id) {
       <g class="nodo evento" data-testid="nodo-evento" tabindex="0" role="button"
          [class.seleccionado]="evento.id === seleccionadoId()" [attr.aria-pressed]="evento.id === seleccionadoId()"
-         [attr.aria-label]="evento.titulo" (click)="elegir(evento.id)"
+         [attr.aria-label]="evento.titulo" [attr.transform]="desplazamiento(evento.id)"
+         (pointerdown)="empezarArrastre(evento.id, $event)" (click)="elegir(evento.id)"
          (keydown.enter)="elegir(evento.id, $event)" (keydown.space)="elegir(evento.id, $event)">
         <circle class="borde-evento" [class]="'borde-evento evento-' + evento.clase" [attr.cx]="evento.cx"
                 [attr.cy]="evento.cy" [attr.r]="evento.radio" />

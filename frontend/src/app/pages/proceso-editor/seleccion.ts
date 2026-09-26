@@ -49,8 +49,17 @@ export function nombreDeSeleccion(diagrama: Diagrama, seleccion: Seleccion): str
       return buscar(diagrama.eventos)?.nombre ?? '';
     case 'MENSAJE':
       return buscar(diagrama.mensajes)?.nombre ?? '';
-    case 'ARCO':
-      return diagrama.arcos.find((arco) => arco.id === id)?.etiqueta ?? 'Sequence flow';
+    case 'ARCO': {
+      // Un arco no tiene nombre; lo que lo identifica es que une: "Receive order -> Check stock"
+      const arco = diagrama.arcos.find((candidato) => candidato.id === id);
+      if (!arco) {
+        return '';
+      }
+      const nodos = [...diagrama.actividades, ...diagrama.gateways, ...diagrama.eventos];
+      const nombre = (nodoId: number): string =>
+        nodos.find((candidato) => candidato.id === nodoId)?.nombre ?? '?';
+      return `${nombre(arco.origenId)} → ${nombre(arco.destinoId)}`;
+    }
   }
 }
 

@@ -32,7 +32,10 @@ import { PoolService } from '../../service/pool.service';
 import { DiagramaService } from '../../service/diagrama.service';
 import { ProcesoService } from '../../service/proceso.service';
 import { RolProcesoService } from '../../service/rol-proceso.service';
-import { DiagramaBpmnComponent } from '../proceso-detalle/components/diagrama-bpmn/diagrama-bpmn.component';
+import {
+  DiagramaBpmnComponent,
+  MovimientoDeNodo,
+} from '../proceso-detalle/components/diagrama-bpmn/diagrama-bpmn.component';
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { PanelElementoComponent } from './components/panel-elemento/panel-elemento.component';
 import { Lienzo, dibujarDiagrama } from '../proceso-detalle/components/diagrama-bpmn/lienzo';
@@ -112,6 +115,10 @@ export class ProcesoEditorComponent implements OnInit {
   /** Lo que el modal de borrado dice que pasaria; se llena cuando responde el diagnostico simulado. */
   impacto: string = '';
 
+  /** Mientras se conecta, un clic en un nodo no lo elige: marca el origen y despues el destino. */
+  conectando: boolean = false;
+  origenConexion: number | null = null;
+
   // Cada cambio confirmado por la API emite aqui; el debounce junta los que llegan seguidos
   private readonly cambios$ = new Subject<void>();
 
@@ -163,8 +170,134 @@ export class ProcesoEditorComponent implements OnInit {
     if (!this.diagrama) {
       return;
     }
+    if (this.conectando) {
+      this.conectar(id);
+      return;
+    }
     const tipo = tipoDelNodo(this.diagrama, id);
     this.elegir(this.seleccion?.id === id ? null : { tipo, id });
+  }
+
+  /** Entra y sale del modo de conectar. Al salir se olvida el origen a medias. */
+  alternarConexion(): void {
+    this.conectando = !this.conectando;
+    this.origenConexion = null;
+    this.error = null;
+  }
+
+  /**
+   * Dos nodos del mismo participante se unen con un flujo de secuencia; dos de participantes distintos, con un
+   * flujo de mensaje, porque un arco nunca cruza de un pool a otro.
+   */
+  private conectar(id: number): void {
+    if (this.origenConexion === null) {
+      this.origenConexion = id;
+      return;
+    }
+    const origen: number = this.origenConexion;
+    this.origenConexion = null;
+    this.conectando = false;
+    if (origen === id) {
+      this.error = 'A flow needs two different nodes.';
+      return;
+    }
+    const poolOrigen: number | null = this.poolDelNodo(origen);
+    const poolDestino: number | null = this.poolDelNodo(id);
+    if (poolOrigen === null || poolDestino === null) {
+      return;
+    }
+    if (poolOrigen === poolDestino) {
+      this.crear(
+        this.arcoService.crear({
+          origenId: origen,
+          destinoId: id,
+          etiqueta: null,
+          condicion: null,
+          porDefecto: false,
+          orden: 0,
+        }),
+        'ARCO',
+      );
+      return;
+    }
+    this.crear(
+      this.mensajeService.crear(this.procesoId, {
+        nombre: this.nombreLibre('New message'),
+        contenido: '',
+        poolOrigenId: poolOrigen,
+        poolDestinoId: poolDestino,
+        nodoOrigenId: origen,
+        nodoDestinoId: id,
+        tipoDestino: null,
+        siFalla: null,
+        nodoManejoErrorId: null,
+        origenExterno: false,
+        campos: [],
+        usoDeLosDatos: null,
+        variable: null,
+        respuestaEsperadaId: null,
+      }),
+      'MENSAJE',
+    );
+  }
+
+  /**
+   * Guarda donde se solto un nodo. Va con la version que tiene ahora, asi que si alguien lo movio entre medias la
+   * API responde 409 y el diagrama se recarga con lo que hay de verdad.
+   */
+  moverNodo(movimiento: MovimientoDeNodo): void {
+    const diagrama: Diagrama | null = this.diagrama;
+    if (!diagrama || !this.puedeEditar) {
+      return;
+    }
+    const actividad = diagrama.actividades.find((candidata) => candidata.id === movimiento.id);
+    const gateway = diagrama.gateways.find((candidato) => candidato.id === movimiento.id);
+    const evento = diagrama.eventos.find((candidato) => candidato.id === movimiento.id);
+    const comun = {
+      laneId: movimiento.laneId,
+      posicionX: movimiento.posicionX,
+      posicionY: movimiento.posicionY,
+    };
+    let peticion$: Observable<unknown> | null = null;
+    if (actividad) {
+      peticion$ = this.actividadService.editar(actividad.id, {
+        ...comun,
+        nombre: actividad.nombre,
+        descripcion: actividad.descripcion,
+        tipoActividad: actividad.tipoActividad,
+        version: actividad.version,
+      });
+    } else if (gateway) {
+      peticion$ = this.gatewayService.editar(gateway.id, {
+        ...comun,
+        nombre: gateway.nombre,
+        tipoGateway: gateway.tipoGateway,
+        version: gateway.version,
+      });
+    } else if (evento) {
+      peticion$ = this.eventoService.editar(evento.id, {
+        ...comun,
+        nombre: evento.nombre,
+        tipoEvento: evento.tipoEvento,
+        version: evento.version,
+      });
+    }
+    peticion$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => this.refrescar(),
+      error: (error: HttpErrorResponse) => {
+        this.error = mensajeDeError(error);
+        // Se recarga igual: el nodo esta dibujado donde se solto y en la API sigue donde estaba
+        this.refrescar();
+      },
+    });
+  }
+
+  private poolDelNodo(id: number): number | null {
+    const diagrama: Diagrama = this.diagrama as Diagrama;
+    const nodo = [...diagrama.actividades, ...diagrama.gateways, ...diagrama.eventos].find(
+      (candidato) => candidato.id === id,
+    );
+    return diagrama.lanes.find((lane) => lane.id === nodo?.laneId)?.poolId ?? null;
   }
 
   // ------------------------------------------------------------------ crear
