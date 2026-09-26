@@ -15,6 +15,7 @@ import { ProcesoFormComponent } from './pages/proceso-form/proceso-form.componen
 import { ProcesosComponent } from './pages/procesos/procesos.component';
 import { RegistroComponent } from './pages/registro/registro.component';
 import { RolesComponent } from './pages/roles/roles.component';
+import { TareasComponent } from './pages/tareas/tareas.component';
 import { UsuariosComponent } from './pages/usuarios/usuarios.component';
 
 // Angular evalua las rutas de arriba hacia abajo: las especificas van primero y el comodin al final
@@ -25,6 +26,7 @@ export const routes: Routes = [
   { path: 'cuenta', component: CuentaComponent, canActivate: [authGuard], title: 'My account · BPMN Process Manager' },
   { path: 'procesos', component: ProcesosComponent, canActivate: [authGuard], title: 'Processes · BPMN Process Manager' },
   { path: 'casos', component: CasosComponent, canActivate: [authGuard], title: 'Cases · BPMN Process Manager' },
+  { path: 'tareas', component: TareasComponent, canActivate: [authGuard], title: 'Task tray · BPMN Process Manager' },
   { path: 'usuarios', component: UsuariosComponent, canActivate: [authGuard], title: 'Users · BPMN Process Manager' },
   { path: 'roles', component: RolesComponent, canActivate: [authGuard], title: 'Process roles · BPMN Process Manager' },
   {
