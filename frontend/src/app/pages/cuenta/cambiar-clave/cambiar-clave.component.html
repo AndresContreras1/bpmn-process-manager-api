@@ -1,0 +1,30 @@
+<form [formGroup]="claveForm" (ngSubmit)="guardar()" novalidate id="cambiar-clave">
+  @if (obligatorio()) {
+    <div class="alert alert-warning" role="alert" id="cambiar-clave-obligatorio">
+      You signed in with a temporary password. Until you change it you cannot do anything else.
+    </div>
+  }
+  @if (aviso) {
+    <div class="alert alert-success" role="status" id="cambiar-clave-aviso">{{ aviso }}</div>
+  }
+  @if (error) {
+    <div class="alert alert-danger" role="alert" id="cambiar-clave-error">{{ error }}</div>
+  }
+
+  <div class="mb-2">
+    <label class="form-label small" for="cambiar-clave-actual">Current password</label>
+    <input type="password" class="form-control" id="cambiar-clave-actual" formControlName="actual"
+           autocomplete="current-password">
+    <app-error-campo [control]="claveForm.get('actual')" />
+  </div>
+  <div class="mb-3">
+    <label class="form-label small" for="cambiar-clave-nueva">New password</label>
+    <input type="password" class="form-control" id="cambiar-clave-nueva" formControlName="nueva"
+           autocomplete="new-password">
+    <div class="form-text small">At least eight characters.</div>
+    <app-error-campo [control]="claveForm.get('nueva')" />
+  </div>
+  <button type="submit" class="btn btn-primary" id="cambiar-clave-guardar" [disabled]="enviando">
+    {{ enviando ? 'Changing…' : 'Change the password' }}
+  </button>
+</form>

@@ -33,6 +33,31 @@
                   <i class="fa-solid fa-id-badge" aria-hidden="true"></i> My account
                 </a>
               </li>
+              <!-- Del observable y no de una foto al construirse: el navbar vive desde antes de que nadie entre -->
+              @if (usuario.rolAcceso === 'ADMINISTRADOR') {
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header">Administration</h6></li>
+                <li>
+                  <a class="dropdown-item" routerLink="/usuarios" id="navbar-usuarios">
+                    <i class="fa-solid fa-users" aria-hidden="true"></i> Users
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" routerLink="/roles" id="navbar-roles">
+                    <i class="fa-solid fa-user-tag" aria-hidden="true"></i> Process roles
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" routerLink="/configuracion" id="navbar-configuracion">
+                    <i class="fa-solid fa-sliders" aria-hidden="true"></i> Store settings
+                  </a>
+                </li>
+              }
+              <li>
+                <a class="dropdown-item" routerLink="/historial" id="navbar-historial">
+                  <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Store history
+                </a>
+              </li>
               <li><hr class="dropdown-divider"></li>
               <li>
                 <button type="button" class="dropdown-item" id="navbar-salir" (click)="cerrarSesion()">

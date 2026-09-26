@@ -14,6 +14,7 @@ import { AuthService } from '../../service/auth.service';
 })
 export class NavbarComponent {
   private readonly authService: AuthService = inject(AuthService);
+
   private readonly router: Router = inject(Router);
 
   readonly usuario$: Observable<Usuario | null> = this.authService.usuario$;

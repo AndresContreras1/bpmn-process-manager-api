@@ -58,6 +58,10 @@
             </button>
           }
           @if (esAdministrador) {
+            <a class="btn btn-outline-secondary" [routerLink]="['/procesos', detalle.proceso.id, 'compartir']"
+               id="proceso-detalle-compartir">
+              <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Share
+            </a>
             <button type="button" class="btn btn-outline-danger" id="proceso-detalle-eliminar" [disabled]="enviando"
                     data-bs-toggle="modal" data-bs-target="#modal-eliminar">
               <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete

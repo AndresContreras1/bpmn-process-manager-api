@@ -7,6 +7,18 @@
   }
 
   @if (usuario$ | async; as usuario) {
+    @if (claveTemporal) {
+      <div class="row justify-content-center">
+        <div class="col-lg-6" id="cuenta-clave-obligatoria">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+              <h1 class="h5 fw-bold">Change your password</h1>
+              <app-cambiar-clave [obligatorio]="true" (cambiada)="claveCambiada()" />
+            </div>
+          </div>
+        </div>
+      </div>
+    } @else {
     <div class="row g-4">
       <div class="col-lg-5">
         <div class="card border-0 shadow-sm h-100">
@@ -52,6 +64,19 @@
           </div>
         </div>
       </div>
+
+      <div class="col-12">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Password</h2>
+            <p class="small text-body-secondary">
+              Changing it closes every session you have open, this one included, and opens a new one here.
+            </p>
+            <app-cambiar-clave />
+          </div>
+        </div>
+      </div>
     </div>
+    }
   }
 </div>

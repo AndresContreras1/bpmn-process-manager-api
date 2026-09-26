@@ -4,6 +4,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 
 import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
+import { TokenService } from '../../service/token.service';
+import { CambiarClaveComponent } from './cambiar-clave/cambiar-clave.component';
 import { AuthService } from '../../service/auth.service';
 
 /** Una accion de la aplicacion y los roles que pueden hacerla: la misma matriz que aplica la API. */
@@ -14,7 +16,7 @@ interface Permiso {
 
 @Component({
   selector: 'app-cuenta',
-  imports: [AsyncPipe, RouterLink],
+  imports: [AsyncPipe, RouterLink, CambiarClaveComponent],
   templateUrl: './cuenta.component.html',
   styleUrl: './cuenta.component.scss',
 })
@@ -31,9 +33,19 @@ export class CuentaComponent implements OnInit {
     { accion: 'Delete processes and diagram elements', roles: ['ADMINISTRADOR'] },
     { accion: 'Manage users and process roles', roles: ['ADMINISTRADOR'] },
   ];
+  private readonly tokenService: TokenService = inject(TokenService);
+
   bienvenida: boolean = false;
+  /** True mientras la clave siga siendo la temporal con la que entro. */
+  claveTemporal: boolean = false;
 
   ngOnInit(): void {
     this.bienvenida = this.route.snapshot.queryParamMap.has('bienvenida');
+    this.claveTemporal = this.tokenService.obtenerUsuario()?.debeCambiarClave === true;
+  }
+
+  /** La API devolvio una sesion nueva y el usuario guardado ya no debe cambiar nada. */
+  claveCambiada(): void {
+    this.claveTemporal = false;
   }
 }

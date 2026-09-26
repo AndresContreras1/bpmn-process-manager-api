@@ -8,9 +8,11 @@ import { EMPTY, Subject, catchError, debounceTime, switchMap, tap } from 'rxjs';
 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
+import { ProcesoRecibido } from '../../models/compartir.model';
 import { PageResponse } from '../../models/page-response.model';
 import { CampoOrden, EstadoProceso, FiltrosProceso, NOMBRE_ESTADO, Proceso } from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
+import { CompartirService } from '../../service/compartir.service';
 import { ProcesoService } from '../../service/proceso.service';
 
 /** Columna de la tabla que ordena la lista al hacer clic en su titulo. */
@@ -29,6 +31,7 @@ interface ColumnaOrdenable {
 export class ProcesosComponent implements OnInit {
   private readonly procesoService: ProcesoService = inject(ProcesoService);
   private readonly authService: AuthService = inject(AuthService);
+  private readonly compartirService: CompartirService = inject(CompartirService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
@@ -63,6 +66,8 @@ export class ProcesosComponent implements OnInit {
   desactualizado: string | null = null;
   // Proceso sobre el que se abrio el modal de publicar o el de borrar
   seleccionado: Proceso | null = null;
+  /** Los procesos que otras tiendas comparten con la tuya: se leen, no se tocan. */
+  recibidos: ProcesoRecibido[] = [];
 
   ngOnInit(): void {
     if (this.route.snapshot.queryParamMap.has('eliminado')) {
@@ -97,6 +102,13 @@ export class ProcesosComponent implements OnInit {
         this.pagina = pagina;
         this.cargando = false;
       });
+    this.compartirService
+      .recibidos(0)
+      .pipe(
+        catchError(() => EMPTY),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((pagina: PageResponse<ProcesoRecibido>) => (this.recibidos = pagina.content));
     this.buscar();
   }
 
