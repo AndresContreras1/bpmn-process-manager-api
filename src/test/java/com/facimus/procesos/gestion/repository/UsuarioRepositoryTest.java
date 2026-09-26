@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,8 +23,9 @@ import com.facimus.procesos.config.AuditoriaConfig;
 import com.facimus.procesos.gestion.model.Usuario;
 
 /**
- * Las consultas de usuarios contra la base: las que se acotan a una tienda y las dos del login, que no la conocen
- * todavia. El conteo de administradores activos es el que sostiene la regla de no dejar la tienda sin administrador.
+ * Las consultas de usuarios contra la base: las que se acotan a una tienda, las dos del login -que no la conocen
+ * todavia- y los filtros del listado. El conteo de administradores activos es el que sostiene la regla de no dejar
+ * la tienda sin administrador.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -92,12 +94,43 @@ class UsuarioRepositoryTest {
         guardar(usuario(tienda, "carla@demo.com", RolAcceso.EDITOR, false));
         guardar(usuario(otraTienda, "elena@partner.com", RolAcceso.EDITOR, true));
 
-        var pagina = usuarioRepository.findAllByEmpresaIdAndActivoTrue(tienda.getId(),
+        var pagina = usuarioRepository.findAll(UsuarioSpecifications.conFiltros(tienda.getId(), null, false),
                 PageRequest.of(0, 10, Sort.by("email")));
 
         assertThat(pagina.getContent()).extracting(Usuario::getEmail).containsExactly("ada@demo.com",
                 "bruno@demo.com");
         assertThat(pagina.getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("HU-02: el nombre filtra por una parte, sin distinguir mayusculas ni espacios de sobra")
+    void conFiltros_porUnaParteDelNombre() {
+        guardar(usuario(tienda, "ada@demo.com", RolAcceso.ADMINISTRADOR, true));
+        guardar(usuario(tienda, "bruno@demo.com", RolAcceso.EDITOR, true));
+        guardar(usuario(otraTienda, "bruno@partner.com", RolAcceso.EDITOR, true));
+
+        assertThat(buscar("BRU", false)).containsExactly("bruno@demo.com");
+        assertThat(buscar("  bru  ", false)).containsExactly("bruno@demo.com");
+        assertThat(buscar("   ", false)).containsExactlyInAnyOrder("ada@demo.com", "bruno@demo.com");
+        assertThat(buscar("nadie", false)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Los desactivados solo salen si se piden: es lo que permite volver a darles de alta")
+    void conFiltros_incluirInactivos_traeLosDesactivados() {
+        guardar(usuario(tienda, "ada@demo.com", RolAcceso.ADMINISTRADOR, true));
+        guardar(usuario(tienda, "carla@demo.com", RolAcceso.EDITOR, false));
+
+        assertThat(buscar(null, false)).containsExactly("ada@demo.com");
+        assertThat(buscar(null, true)).containsExactlyInAnyOrder("ada@demo.com", "carla@demo.com");
+        assertThat(buscar("car", true)).containsExactly("carla@demo.com");
+    }
+
+    private List<String> buscar(String nombre, boolean incluirInactivos) {
+        return usuarioRepository.findAll(UsuarioSpecifications.conFiltros(tienda.getId(), nombre, incluirInactivos))
+                .stream()
+                .map(Usuario::getEmail)
+                .toList();
     }
 
     private Usuario guardar(Usuario usuario) {
