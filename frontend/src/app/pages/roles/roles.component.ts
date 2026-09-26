@@ -92,9 +92,14 @@ export class RolesComponent implements OnInit {
   }
 
   cancelar(): void {
+    this.vaciarFormulario();
+    this.limpiarMensajes();
+  }
+
+  /** Vacia el formulario sin tocar los mensajes: guardar deja uno puesto y no puede borrarselo a si mismo. */
+  private vaciarFormulario(): void {
     this.editando = null;
     this.rolForm.reset({ nombre: '', descripcion: '' });
-    this.limpiarMensajes();
   }
 
   guardar(): void {
@@ -117,7 +122,7 @@ export class RolesComponent implements OnInit {
       .subscribe({
         next: (rol: RolProceso) => {
           this.aviso = this.editando ? `"${rol.nombre}" was saved.` : `"${rol.nombre}" was created.`;
-          this.cancelar();
+          this.vaciarFormulario();
           this.buscar();
         },
         error: (error: HttpErrorResponse) => {
