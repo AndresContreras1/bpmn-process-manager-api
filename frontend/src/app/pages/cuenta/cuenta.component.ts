@@ -38,6 +38,8 @@ export class CuentaComponent implements OnInit {
   bienvenida: boolean = false;
   /** True mientras la clave siga siendo la temporal con la que entro. */
   claveTemporal: boolean = false;
+  /** Lo que queda dicho cuando la tarjeta obligatoria desaparece llevandose su propio mensaje. */
+  avisoDeClave: string | null = null;
 
   ngOnInit(): void {
     this.bienvenida = this.route.snapshot.queryParamMap.has('bienvenida');
@@ -46,6 +48,10 @@ export class CuentaComponent implements OnInit {
 
   /** La API devolvio una sesion nueva y el usuario guardado ya no debe cambiar nada. */
   claveCambiada(): void {
+    if (this.claveTemporal) {
+      // Cambiar la clave obligatoria cierra la tarjeta que lo confirmaba: sin esto no quedaria nada dicho
+      this.avisoDeClave = 'Your password was changed, and the sessions you had open elsewhere were closed.';
+    }
     this.claveTemporal = false;
   }
 }

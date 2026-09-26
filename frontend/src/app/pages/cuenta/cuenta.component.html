@@ -6,6 +6,12 @@
     </div>
   }
 
+  @if (avisoDeClave) {
+    <div class="alert alert-success" role="status" id="cuenta-clave-cambiada">
+      <i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ avisoDeClave }}
+    </div>
+  }
+
   @if (usuario$ | async; as usuario) {
     @if (claveTemporal) {
       <div class="row justify-content-center">

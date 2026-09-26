@@ -19,7 +19,7 @@
       } @else if (pagina && pagina.content.length === 0) {
         <p class="text-body-secondary" id="historial-vacio">Nothing has happened yet.</p>
       } @else if (pagina) {
-        <p class="small text-body-secondary" id="historial-cuenta">{{ pagina.totalElements }} changes recorded.</p>
+        <p class="small text-body-secondary" id="historial-cuenta">{{ pagina.totalElements }} {{ pagina.totalElements === 1 ? 'change' : 'changes' }} recorded.</p>
         <ol class="list-unstyled mb-0">
           @for (cambio of pagina.content; track cambio.id) {
             <li class="d-flex gap-3 mb-3" data-testid="historial-cambio">
