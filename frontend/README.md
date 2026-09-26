@@ -114,6 +114,9 @@ The detail page asks for the process and for its whole diagram in parallel (`for
 - The page says which of three cases you are in: the working copy, the working copy with changes that are not
   published yet —which is not what runs— or a published version, which cannot change because the cases that started
   on it keep running on it.
+- A published version is the one thing that can be changed about a version: an administrator can **retire** it from
+  that same banner. Nothing is deleted —the cases that started on it keep running on it— and the process falls back
+  to the previous version that is still standing, or to none, which the page then says.
 - A guest store gets one door only: `GET /procesos/{id}/diagrama`. The detail, the history and the versions all
   answer `404` to it, so the header falls back to the process that travels inside the diagram, and edit, publish and
   delete are hidden: a role in your own store is not a role in theirs. There is no screen yet that lists what other
@@ -154,18 +157,23 @@ the same screen without the palette, the forms or the buttons.
 Six screens that used to need Postman. The navbar shows the administration ones only to an administrator, taking
 the role from the observable rather than from a snapshot, because the navbar is built before anyone signs in.
 
-- **Users** (`/usuarios`): sort, add, change a role, take access away, reset a password, and choose which process
-  roles a person answers for, which is where their task tray comes from. Somebody added here gets a temporary
-  password that the API invents and returns **once**; the screen shows it on its own and says so, because if it is
-  lost the only way back is resetting it. There is no search box and nothing to bring somebody back: `GET
-  /usuarios` neither filters by name nor answers with the people who are no longer active. And nobody is offered
+- **Users** (`/usuarios`): search by name, sort by any of the three columns, add, change a role, take access away,
+  bring somebody back, reset a password, and choose which process roles a person answers for, which is where their
+  task tray comes from. Somebody added here gets a temporary password that the API invents and returns **once**; the
+  screen shows it on its own and says so, because if it is lost the only way back is resetting it. Nobody is offered
   the button to deactivate themselves, because the API refuses it.
+- **Taking access away is not deleting somebody.** They leave the list, which is the list of who can sign in, and
+  **Show deactivated** brings them into view with a badge and a *Reactivate* button. The panel of process roles
+  opens with the ones the person already answers for already ticked: saving sends the whole list, so opening it
+  blank and saving would have taken every role away.
 - **Process roles** (`/roles`): the list says which ones a lane is using, and Delete is disabled on those, because
   the API refuses them with a `409`.
 - **Sharing** (`/procesos/:id/compartir`): by tax id, which is how a store is known to other stores. It is a
   read-only door to the version in force of that one diagram. What other stores share with you is listed on the
   process list, which is how a guest reaches it.
-- **Account** (`/cuenta`): changing your own password closes every session of yours and opens a new one here,
+- **Account** (`/cuenta`): the store you belong to, with its name, its tax id, its contact and the day it was
+  registered, from `GET /empresas/actual` —before, the card said "Store ID: 1", which tells nobody anything.
+  Changing your own password closes every session of yours and opens a new one here,
   because that is what the API answers. Somebody who signed in with a temporary password is sent here by the route
   guard and kept here until they change it, since the API answers `403` to everything else.
 - **Store settings** (`/configuracion`): who may change the structure of a diagram. The simulation parameters are
@@ -249,6 +257,10 @@ src/
 
 ## Conventions
 
+- **Every screen is its own bundle.** The routes load their component with `loadComponent`, so opening the app
+  downloads the shell, the front page and the login, and a screen arrives when somebody goes to it. The initial
+  bundle went from 1.03 MB to 771 kB with that one change, which also put it back under the 900 kB budget the build
+  checks; the diagram editor, the biggest screen and the one fewest people open, is 56 kB of its own.
 - Services return typed observables, also for create and delete. A component updates its list only after the API
   confirms the change.
 - No nested subscriptions: `switchMap` for route parameters and `forkJoin` for parallel calls. Subscriptions end with
@@ -256,6 +268,8 @@ src/
 - Create and edit screens use reactive forms with `Validators`.
 - Unique elements carry an `id` and repeated ones a `data-testid`, so browser tests find them without relying on styles
   or on the page structure.
+- **What sorts a table is a button**, styled to look like a column title, with `aria-sort` on the cell and an arrow
+  that says which way it goes. A `(click)` on the `<th>` works with a mouse and does not exist for a keyboard.
 - There are no unit tests in this project. The tests of the web app are end to end, in [`../e2e/`](../e2e/), and
   they drive a real browser against the stack of containers.
 - Enum values are turned into lists with `Object.keys` and typed, so a template can index the map of names without
