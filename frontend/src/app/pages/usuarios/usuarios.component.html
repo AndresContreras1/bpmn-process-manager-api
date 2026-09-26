@@ -71,20 +71,47 @@
       <div class="col-lg-8">
         <div class="card border-0 shadow-sm">
           <div class="card-body p-4">
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+              <div class="flex-grow-1" style="min-width: 14rem;">
+                <label class="visually-hidden" for="usuarios-buscar">Search by name</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+                  <input type="search" class="form-control" id="usuarios-buscar" placeholder="Search by name"
+                         [(ngModel)]="filtros.nombre" (ngModelChange)="filtrar()">
+                </div>
+              </div>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="usuarios-inactivos"
+                       [(ngModel)]="filtros.incluirInactivos" (ngModelChange)="filtrar()">
+                <label class="form-check-label small" for="usuarios-inactivos">Show deactivated</label>
+              </div>
+            </div>
             @if (cargando) {
               <div class="text-center text-body-secondary py-4" id="usuarios-cargando">
                 <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading…
               </div>
             } @else if (pagina && pagina.content.length === 0) {
-              <p class="text-body-secondary mb-0" id="usuarios-vacio">No users to show.</p>
+              <p class="text-body-secondary mb-0" id="usuarios-vacio">
+                @if (filtros.nombre.trim() !== '') {
+                  Nobody here is called "{{ filtros.nombre }}".
+                } @else {
+                  No users to show.
+                }
+              </p>
             } @else if (pagina) {
               <div class="table-responsive">
                 <table class="table align-middle">
                   <thead>
                     <tr>
-                      <th scope="col" class="ordenable" (click)="ordenarPor('nombre')">Name</th>
-                      <th scope="col" class="ordenable d-none d-md-table-cell" (click)="ordenarPor('email')">Email</th>
-                      <th scope="col" class="ordenable" (click)="ordenarPor('rolAcceso')">Role</th>
+                      @for (columna of columnas; track columna.campo) {
+                        <th scope="col" [class]="columna.clase" [attr.aria-sort]="ariaOrden(columna.campo)">
+                          <button type="button" class="btn btn-link btn-orden" [id]="'usuarios-orden-' + columna.campo"
+                                  (click)="ordenarPor(columna.campo)">
+                            {{ columna.titulo }}
+                            <i class="fa-solid" [class]="iconoOrden(columna.campo)" aria-hidden="true"></i>
+                          </button>
+                        </th>
+                      }
                       <th scope="col" class="text-end">Actions</th>
                     </tr>
                   </thead>
@@ -96,6 +123,9 @@
                           @if (esYo(usuario)) {
                             <span class="badge text-bg-light border ms-1">you</span>
                           }
+                          @if (!usuario.activo) {
+                            <span class="badge text-bg-secondary ms-1" data-testid="usuario-inactivo">deactivated</span>
+                          }
                           @if (usuario.debeCambiarClave) {
                             <span class="badge text-bg-warning ms-1">must change the password</span>
                           }
@@ -104,7 +134,7 @@
                         <td>
                           <select class="form-select form-select-sm" [value]="usuario.rolAcceso"
                                   [attr.aria-label]="'Role of ' + usuario.nombre" data-testid="usuario-rol"
-                                  (change)="cambiarRol(usuario, $event)">
+                                  [disabled]="!usuario.activo" (change)="cambiarRol(usuario, $event)">
                             @for (rol of roles; track rol) {
                               <option [value]="rol" [selected]="rol === usuario.rolAcceso">{{ nombreRol[rol] }}</option>
                             }
@@ -116,7 +146,10 @@
                                     (click)="abrirRoles(usuario)">Process roles</button>
                             <button type="button" class="btn btn-outline-secondary" data-testid="usuario-clave"
                                     (click)="restablecerClave(usuario)">Reset the password</button>
-                            @if (!esYo(usuario)) {
+                            @if (!usuario.activo) {
+                              <button type="button" class="btn btn-outline-success" data-testid="usuario-alta"
+                                      (click)="reactivar(usuario)">Reactivate</button>
+                            } @else if (!esYo(usuario)) {
                               <button type="button" class="btn btn-outline-danger" data-testid="usuario-baja"
                                       data-bs-toggle="modal" data-bs-target="#modal-baja-usuario"
                                       (click)="paraBaja = usuario">Deactivate</button>
@@ -130,7 +163,12 @@
                             <p class="small fw-semibold mb-2">
                               Which process roles {{ usuario.nombre }} answers for. Their task tray comes from this.
                             </p>
-                            @if (rolesDeProceso.length === 0) {
+                            @if (cargandoRoles) {
+                              <p class="small text-body-secondary mb-0" id="usuarios-cargando-roles">
+                                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                Reading the ones they already answer for…
+                              </p>
+                            } @else if (rolesDeProceso.length === 0) {
                               <p class="small text-body-secondary mb-0">Your store has no process roles yet.</p>
                             } @else {
                               <div class="d-flex flex-wrap gap-3 mb-2">
@@ -174,5 +212,5 @@
 
 <app-modal-confirmar idModal="modal-baja-usuario" titulo="Deactivate this person?" textoBoton="Deactivate"
                      [peligro]="true"
-                     mensaje="They stop being able to sign in and leave this list, which only shows who can."
+                     mensaje="They stop being able to sign in. Tick Show deactivated to find them and bring them back."
                      (confirmar)="confirmarBaja()" />

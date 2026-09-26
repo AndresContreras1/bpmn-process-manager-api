@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { EMPTY, Subject, catchError, debounceTime, finalize, switchMap, tap } from 'rxjs';
 
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
@@ -9,10 +9,17 @@ import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-
 import { marcarErroresDelServidor, mensajeDeError } from '../../helpers/errores-api';
 import { PageResponse } from '../../models/page-response.model';
 import { RolProceso } from '../../models/rol-proceso.model';
-import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
+import { NOMBRE_ROL, RolAcceso, RolDeUsuario, Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
 import { RolProcesoService } from '../../service/rol-proceso.service';
 import { FiltrosUsuario, UsuarioService } from '../../service/usuario.service';
+
+/** Una columna por la que la API deja ordenar el listado. */
+interface Columna {
+  campo: 'nombre' | 'email' | 'rolAcceso';
+  titulo: string;
+  clase: string;
+}
 
 /**
  * Los usuarios de la tienda. Solo un administrador entra aqui; la API responde 403 a los demas, asi que la
@@ -20,7 +27,7 @@ import { FiltrosUsuario, UsuarioService } from '../../service/usuario.service';
  */
 @Component({
   selector: 'app-usuarios',
-  imports: [ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
+  imports: [FormsModule, ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
   templateUrl: './usuarios.component.html',
   styleUrl: './usuarios.component.scss',
 })
@@ -34,6 +41,11 @@ export class UsuariosComponent implements OnInit {
 
   readonly nombreRol: Record<RolAcceso, string> = NOMBRE_ROL;
   readonly roles: RolAcceso[] = ['ADMINISTRADOR', 'EDITOR', 'SOLO_LECTURA'];
+  readonly columnas: Columna[] = [
+    { campo: 'nombre', titulo: 'Name', clase: '' },
+    { campo: 'email', titulo: 'Email', clase: 'd-none d-md-table-cell' },
+    { campo: 'rolAcceso', titulo: 'Role', clase: '' },
+  ];
   readonly esAdministrador: boolean = this.authService.esAdministrador();
   /** Quien esta mirando: la API no le deja desactivarse a si mismo, asi que no se le ofrece. */
   private readonly yo: number | null = this.authService.usuarioActual()?.id ?? null;
@@ -44,7 +56,7 @@ export class UsuariosComponent implements OnInit {
     rolAcceso: new FormControl<RolAcceso>('EDITOR', Validators.required),
   });
 
-  filtros: FiltrosUsuario = { pagina: 0, orden: 'nombre', direccion: 'asc' };
+  filtros: FiltrosUsuario = { pagina: 0, orden: 'nombre', direccion: 'asc', nombre: '', incluirInactivos: false };
   pagina: PageResponse<Usuario> | null = null;
   rolesDeProceso: RolProceso[] = [];
   /** La persona cuyo panel de roles esta abierto. */
@@ -53,6 +65,8 @@ export class UsuariosComponent implements OnInit {
   paraBaja: Usuario | null = null;
   rolesElegidos: number[] = [];
   cargando: boolean = true;
+  /** Mientras se leen los roles que la persona ya tiene: sin ellos, guardar seria quitarselos. */
+  cargandoRoles: boolean = false;
   enviando: boolean = false;
   error: string | null = null;
   aviso: string | null = null;
@@ -96,6 +110,26 @@ export class UsuariosComponent implements OnInit {
 
   buscar(): void {
     this.busqueda$.next();
+  }
+
+  /** Al cambiar un filtro se vuelve a la primera pagina: la tercera de la busqueda anterior no significa nada. */
+  filtrar(): void {
+    this.filtros.pagina = 0;
+    this.seleccionado = null;
+    this.buscar();
+  }
+
+  /** La flecha dice por donde va el orden; sin orden en esa columna, el icono neutro invita a usarla. */
+  iconoOrden(campo: Columna['campo']): string {
+    if (this.filtros.orden !== campo) {
+      return 'fa-sort text-body-tertiary';
+    }
+    return this.filtros.direccion === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
+  }
+
+  /** Lo mismo para quien no ve el icono: aria-sort va en la celda, no en el boton. */
+  ariaOrden(campo: Columna['campo']): string {
+    return this.filtros.orden === campo ? (this.filtros.direccion === 'asc' ? 'ascending' : 'descending') : 'none';
   }
 
   ordenarPor(campo: string): void {
@@ -185,6 +219,21 @@ export class UsuariosComponent implements OnInit {
       });
   }
 
+  /** Volver a darle de alta: la fila nunca se borro, asi que basta con volver a ponerla activa. */
+  reactivar(usuario: Usuario): void {
+    this.limpiarMensajes();
+    this.usuarioService
+      .actualizar(usuario.id, { nombre: null, rolAcceso: null, activo: true, version: usuario.version })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.aviso = `${usuario.nombre} can sign in again.`;
+          this.buscar();
+        },
+        error: (error: HttpErrorResponse) => this.mostrarError(error),
+      });
+  }
+
   restablecerClave(usuario: Usuario): void {
     this.limpiarMensajes();
     this.usuarioService
@@ -201,11 +250,33 @@ export class UsuariosComponent implements OnInit {
       });
   }
 
-  /** Abre el panel de los roles de proceso de un usuario: de ahi sale su bandeja de tareas. */
+  /**
+   * Abre el panel de los roles de proceso de un usuario: de ahi sale su bandeja de tareas. Lo primero es leer los
+   * que ya atiende y dejarlos marcados, porque guardar manda la lista entera: abrir el panel en blanco y guardar
+   * le quitaria todos sin que nadie lo hubiera pedido. Si esa lectura falla, el panel no se abre.
+   */
   abrirRoles(usuario: Usuario): void {
-    this.seleccionado = this.seleccionado?.id === usuario.id ? null : usuario;
-    this.rolesElegidos = [];
     this.limpiarMensajes();
+    if (this.seleccionado?.id === usuario.id) {
+      this.seleccionado = null;
+      return;
+    }
+    this.seleccionado = usuario;
+    this.rolesElegidos = [];
+    this.cargandoRoles = true;
+    this.usuarioService
+      .rolesDeProcesoDe(usuario.id)
+      .pipe(
+        finalize(() => (this.cargandoRoles = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (roles: RolDeUsuario[]) => (this.rolesElegidos = roles.map((rol: RolDeUsuario) => rol.id)),
+        error: (error: HttpErrorResponse) => {
+          this.seleccionado = null;
+          this.error = mensajeDeError(error);
+        },
+      });
   }
 
   alternarRol(id: number): void {
