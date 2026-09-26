@@ -4,7 +4,6 @@ import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-
 import { Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
 
