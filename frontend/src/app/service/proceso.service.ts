@@ -4,7 +4,13 @@ import { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { PageResponse } from '../models/page-response.model';
-import { FiltrosProceso, Proceso, ProcesoDetalle, ProcesoRequest } from '../models/proceso.model';
+import {
+  EditarProcesoRequest,
+  FiltrosProceso,
+  Proceso,
+  ProcesoDetalle,
+  ProcesoRequest,
+} from '../models/proceso.model';
 
 /** Procesos de la tienda del usuario: la API solo devuelve los de su empresa. */
 @Injectable({ providedIn: 'root' })
@@ -38,12 +44,14 @@ export class ProcesoService {
     return this.http.post<Proceso>(this.url, solicitud);
   }
 
-  editar(id: number, solicitud: ProcesoRequest): Observable<Proceso> {
+  /** La version va en el cuerpo: es la del ultimo GET, y si alguien guardo desde entonces la API responde 409. */
+  editar(id: number, solicitud: EditarProcesoRequest): Observable<Proceso> {
     return this.http.put<Proceso>(`${this.url}/${id}`, solicitud);
   }
 
-  publicar(id: number): Observable<Proceso> {
-    return this.http.patch<Proceso>(`${this.url}/${id}`, { estado: 'PUBLICADO' });
+  /** Publicar es un cambio de estado, y como todo cambio se hace sobre una version conocida. */
+  publicar(id: number, version: number): Observable<Proceso> {
+    return this.http.patch<Proceso>(`${this.url}/${id}`, { estado: 'PUBLICADO', version });
   }
 
   eliminar(id: number): Observable<void> {

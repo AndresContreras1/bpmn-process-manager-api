@@ -6,7 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable, finalize } from 'rxjs';
 
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
-import { marcarErroresDelServidor, mensajeDeError } from '../../helpers/errores-api';
+import { esConflictoDeVersion, marcarErroresDelServidor, mensajeDeError } from '../../helpers/errores-api';
 import { Proceso, ProcesoDetalle, ProcesoRequest } from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
 import { ProcesoService } from '../../service/proceso.service';
@@ -38,6 +38,10 @@ export class ProcesoFormComponent implements OnInit {
   enviando: boolean = false;
   noEncontrado: boolean = false;
   error: string | null = null;
+  conflicto: boolean = false;
+
+  // La version del ultimo GET; se reenvia al guardar para que la API sepa sobre que se edito
+  private version: number | null = null;
 
   ngOnInit(): void {
     const id: string | null = this.route.snapshot.paramMap.get('id');
@@ -46,6 +50,48 @@ export class ProcesoFormComponent implements OnInit {
     }
     this.isEdit = true;
     this.procesoId = Number(id);
+    this.cargar();
+  }
+
+  /** Descarta lo escrito y deja el formulario en la version que hay ahora en la API. */
+  recargar(): void {
+    this.conflicto = false;
+    this.error = null;
+    this.cargar();
+  }
+
+  guardar(): void {
+    this.enviando = true;
+    this.error = null;
+    this.conflicto = false;
+    const valores = this.procesoForm.value;
+    const solicitud: ProcesoRequest = {
+      nombre: valores.nombre ?? '',
+      categoria: valores.categoria ?? '',
+      descripcion: valores.descripcion ?? '',
+    };
+    if (this.procesoId !== null && this.version === null) {
+      // El proceso no se llego a cargar. Sin version no se puede editar, y crear otro seria peor
+      this.enviando = false;
+      this.error = 'The process could not be loaded, so the change cannot be saved. Reload the page.';
+      return;
+    }
+    const guardado$: Observable<Proceso> =
+      this.procesoId === null
+        ? this.procesoService.crear(solicitud)
+        : this.procesoService.editar(this.procesoId, { ...solicitud, version: this.version as number });
+    guardado$.pipe(finalize(() => (this.enviando = false))).subscribe({
+      next: (proceso: Proceso) =>
+        this.router.navigate(['/procesos', proceso.id], { queryParams: this.isEdit ? { editado: 1 } : { creado: 1 } }),
+      error: (error: HttpErrorResponse) => this.mostrarError(error),
+    });
+  }
+
+  /** Pide el proceso y deja el formulario con sus valores y su version. */
+  private cargar(): void {
+    if (this.procesoId === null) {
+      return;
+    }
     this.cargando = true;
     this.procesoService
       .obtener(this.procesoId)
@@ -55,8 +101,9 @@ export class ProcesoFormComponent implements OnInit {
       )
       .subscribe({
         next: (detalle: ProcesoDetalle) => {
-          const { nombre, categoria, descripcion } = detalle.proceso;
+          const { nombre, categoria, descripcion, version } = detalle.proceso;
           this.procesoForm.patchValue({ nombre, categoria, descripcion });
+          this.version = version;
         },
         error: (error: HttpErrorResponse) => {
           // 404: el proceso es de otra tienda o ya se borro. 400: el id de la ruta no es un numero
@@ -69,30 +116,13 @@ export class ProcesoFormComponent implements OnInit {
       });
   }
 
-  guardar(): void {
-    this.enviando = true;
-    this.error = null;
-    const valores = this.procesoForm.value;
-    const solicitud: ProcesoRequest = {
-      nombre: valores.nombre ?? '',
-      categoria: valores.categoria ?? '',
-      descripcion: valores.descripcion ?? '',
-    };
-    const guardado$: Observable<Proceso> =
-      this.procesoId === null
-        ? this.procesoService.crear(solicitud)
-        : this.procesoService.editar(this.procesoId, solicitud);
-    guardado$.pipe(finalize(() => (this.enviando = false))).subscribe({
-      next: (proceso: Proceso) =>
-        this.router.navigate(['/procesos', proceso.id], { queryParams: this.isEdit ? { editado: 1 } : { creado: 1 } }),
-      error: (error: HttpErrorResponse) => this.mostrarError(error),
-    });
-  }
-
   private mostrarError(error: HttpErrorResponse): void {
     if (error.status === 404) {
       // Otro usuario lo borro mientras se editaba
       this.noEncontrado = true;
+    } else if (esConflictoDeVersion(error)) {
+      // Alguien guardo entre el GET y el PUT. Lo escrito sigue en pantalla: recargar es decision del usuario
+      this.conflicto = true;
     } else if (error.status === 409) {
       // El nombre es unico entre los procesos activos de la tienda
       this.procesoForm.get('nombre')?.setErrors({ servidor: 'Another active process of your store already uses this name.' });

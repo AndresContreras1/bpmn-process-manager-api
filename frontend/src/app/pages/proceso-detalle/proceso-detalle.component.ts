@@ -6,7 +6,7 @@ import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { EMPTY, Observable, catchError, finalize, forkJoin, map, of, switchMap, tap } from 'rxjs';
 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
-import { mensajeDeError } from '../../helpers/errores-api';
+import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
 import { Diagrama } from '../../models/diagrama.model';
 import { EstadoProceso, NOMBRE_ESTADO, Proceso, ProcesoDetalle, cambioEnIngles } from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
@@ -85,10 +85,7 @@ export class ProcesoDetalleComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((carga: Carga) => {
-        this.detalle = carga.detalle;
-        this.diagrama = carga.diagrama;
-        this.lienzo = carga.diagrama ? dibujarDiagrama(carga.diagrama) : null;
-        this.nodoElegido = null;
+        this.mostrar(carga);
         this.cargando = false;
       });
   }
@@ -108,7 +105,7 @@ export class ProcesoDetalleComponent implements OnInit {
     this.error = null;
     // Publicar y volver a pedir el detalle, encadenados: el historial suma el cambio
     this.procesoService
-      .publicar(proceso.id)
+      .publicar(proceso.id, proceso.version)
       .pipe(
         switchMap(() => this.procesoService.obtener(proceso.id)),
         finalize(() => (this.enviando = false)),
@@ -118,7 +115,7 @@ export class ProcesoDetalleComponent implements OnInit {
           this.detalle = detalle;
           this.aviso = 'The process is now published.';
         },
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+        error: (error: HttpErrorResponse) => this.noSePudoPublicar(proceso.id, error),
       });
   }
 
@@ -136,6 +133,30 @@ export class ProcesoDetalleComponent implements OnInit {
         next: () => this.router.navigate(['/procesos'], { queryParams: { eliminado: 1 } }),
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
+  }
+
+  /**
+   * Un conflicto de version dice que alguien guardo entre la carga de la pagina y el boton. Aqui no hay nada
+   * escrito que perder, asi que la pagina se recarga sola y el aviso explica por que el estado no cambio.
+   */
+  private noSePudoPublicar(id: number, error: HttpErrorResponse): void {
+    if (!esConflictoDeVersion(error)) {
+      this.error = mensajeDeError(error);
+      return;
+    }
+    this.error = 'Someone saved a change before you, so the process was not published. This page now shows the '
+      + 'latest version: check it and publish again.';
+    this.cargar(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((carga: Carga) => this.mostrar(carga));
+  }
+
+  /** Deja en pantalla lo que llego: el proceso, su diagrama ya calculado y ningun nodo abierto. */
+  private mostrar(carga: Carga): void {
+    this.detalle = carga.detalle;
+    this.diagrama = carga.diagrama;
+    this.lienzo = carga.diagrama ? dibujarDiagrama(carga.diagrama) : null;
+    this.nodoElegido = null;
   }
 
   /**

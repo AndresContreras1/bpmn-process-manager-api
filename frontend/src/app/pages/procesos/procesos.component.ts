@@ -7,7 +7,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Subject, catchError, debounceTime, switchMap, tap } from 'rxjs';
 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
-import { mensajeDeError } from '../../helpers/errores-api';
+import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
 import { PageResponse } from '../../models/page-response.model';
 import { CampoOrden, EstadoProceso, FiltrosProceso, NOMBRE_ESTADO, Proceso } from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
@@ -59,6 +59,8 @@ export class ProcesosComponent implements OnInit {
   cargando: boolean = true;
   error: string | null = null;
   aviso: string | null = null;
+  // Vive aparte de error porque la busqueda lo limpia: este aviso tiene que sobrevivir a la recarga de la lista
+  desactualizado: string | null = null;
   // Proceso sobre el que se abrio el modal de publicar o el de borrar
   seleccionado: Proceso | null = null;
 
@@ -152,13 +154,22 @@ export class ProcesosComponent implements OnInit {
       return;
     }
     this.limpiarMensajes();
-    this.procesoService.publicar(proceso.id).subscribe({
+    this.procesoService.publicar(proceso.id, proceso.version).subscribe({
       // La lista se vuelve a pedir con la respuesta de la API: el proceso cambia de estado y sube por su fecha
       next: (publicado: Proceso) => {
         this.aviso = `"${publicado.nombre}" is now published.`;
         this.buscar();
       },
-      error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+      error: (error: HttpErrorResponse) => {
+        // Si la version de la fila ya no vale, la lista se recarga: con la version nueva el boton vuelve a servir
+        if (esConflictoDeVersion(error)) {
+          this.desactualizado = `"${proceso.nombre}" changed while this list was open, so it was not published. `
+            + 'The list is up to date now: try again.';
+          this.buscar();
+        } else {
+          this.error = mensajeDeError(error);
+        }
+      },
     });
   }
 
@@ -180,5 +191,6 @@ export class ProcesosComponent implements OnInit {
   private limpiarMensajes(): void {
     this.aviso = null;
     this.error = null;
+    this.desactualizado = null;
   }
 }

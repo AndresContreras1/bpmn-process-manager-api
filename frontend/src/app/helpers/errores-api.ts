@@ -15,6 +15,14 @@ export function mensajeDeError(error: HttpErrorResponse): string {
   return problema?.detail ?? 'Something went wrong. Please try again.';
 }
 
+/**
+ * Un 409 tiene varios motivos —un nombre repetido, una regla de negocio, un dato unico— y el titulo del
+ * ProblemDetail es lo que los separa. Este es el de editar sobre una version que ya cambio.
+ */
+export function esConflictoDeVersion(error: HttpErrorResponse): boolean {
+  return error.status === 409 && (error.error as ProblemDetail | null)?.title === 'Conflicto de versión';
+}
+
 /** Marca cada control con el mensaje que la API devolvio para ese campo en el mapa errors de un 400. */
 export function marcarErroresDelServidor(formulario: FormGroup, error: HttpErrorResponse): void {
   const errores: Record<string, string> = (error.error as ProblemDetail | null)?.errors ?? {};

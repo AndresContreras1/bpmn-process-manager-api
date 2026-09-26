@@ -36,6 +36,17 @@
             @if (error) {
               <div class="alert alert-danger" role="alert" id="proceso-form-error">{{ error }}</div>
             }
+            @if (conflicto) {
+              <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert"
+                   id="proceso-form-conflicto">
+                <span class="flex-grow-1">
+                  Someone saved a change to this process before you, so it was not saved. Reload it to see the
+                  current values; what you typed here will be replaced.
+                </span>
+                <button type="button" class="btn btn-sm btn-warning" id="proceso-form-recargar"
+                        (click)="recargar()">Reload</button>
+              </div>
+            }
 
             @if (cargando) {
               <div class="text-center text-body-secondary py-5" id="proceso-form-cargando">
