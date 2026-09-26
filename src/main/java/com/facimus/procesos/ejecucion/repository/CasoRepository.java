@@ -13,7 +13,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.facimus.procesos.common.RepositorioTenant;
+import com.facimus.procesos.ejecucion.dto.response.CasosPorEstadoResponse;
 import com.facimus.procesos.ejecucion.model.Caso;
+import com.facimus.procesos.ejecucion.model.EstadoCaso;
 
 import jakarta.persistence.LockModeType;
 
@@ -34,6 +36,39 @@ public interface CasoRepository extends RepositorioTenant<Caso>, JpaSpecificatio
 
     /** Los casos de un proceso que todavia tienen tokens vivos. */
     List<Caso> abiertosPorProceso(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId);
+
+    /**
+     * Los casos por estado, de un proceso o de toda la tienda. Es una consulta agrupada y no una por estado: el
+     * tablero se pinta entero de una vez o no vale la pena.
+     */
+    @Query("""
+            select new com.facimus.procesos.ejecucion.dto.response.CasosPorEstadoResponse(c.estado, count(c))
+            from Caso c
+            where c.empresa.id = :empresaId
+              and (:procesoId is null or c.proceso.id = :procesoId)
+            group by c.estado
+            order by c.estado
+            """)
+    List<CasosPorEstadoResponse> casosPorEstado(@Param("empresaId") Long empresaId,
+            @Param("procesoId") Long procesoId);
+
+    /**
+     * Lo que tardo cada pedido terminado, en ticks, en orden. El promedio y el p95 se sacan de esta lista en
+     * memoria: son los pedidos de una tienda, no de todas, y calcular un percentil en SQL saldria distinto en H2
+     * y en PostgreSQL, que es justo lo que no se quiere de un numero que se publica.
+     */
+    @Query("""
+            select c.tickFin - c.tickInicio from Caso c
+            where c.empresa.id = :empresaId
+              and (:procesoId is null or c.proceso.id = :procesoId)
+              and c.estado = com.facimus.procesos.ejecucion.model.EstadoCaso.TERMINADO
+              and c.tickFin is not null
+            order by c.tickFin - c.tickInicio
+            """)
+    List<Integer> ticksDeCiclo(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId);
+
+    /** Cuantos hay en un estado en toda la instalacion: es lo que publica el medidor de Actuator. */
+    long countByEstado(EstadoCaso estado);
 
     /** Cuantos casos lleva un proceso: es por donde siguen numerando las tandas de pedidos simulados. */
     long countByEmpresaIdAndProcesoId(Long empresaId, Long procesoId);

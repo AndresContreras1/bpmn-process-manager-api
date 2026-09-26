@@ -5,9 +5,11 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.facimus.procesos.common.RepositorioTenant;
+import com.facimus.procesos.ejecucion.dto.response.MensajesPorResultadoResponse;
 import com.facimus.procesos.ejecucion.model.MensajeEntrante;
 import com.facimus.procesos.ejecucion.model.ResultadoCorrelacion;
 
@@ -27,8 +29,29 @@ public interface MensajeEntranteRepository extends RepositorioTenant<MensajeEntr
      */
     List<MensajeEntrante> pendientesDeLaTienda(@Param("empresaId") Long empresaId, @Param("tick") int tick);
 
+    /** Lo que llego, por lo que se hizo con ello. Una consulta agrupada, no una por resultado. */
+    @Query("""
+            select new com.facimus.procesos.ejecucion.dto.response.MensajesPorResultadoResponse(
+                    m.resultado, count(m))
+            from MensajeEntrante m
+            where m.empresa.id = :empresaId
+              and (:procesoId is null or m.proceso.id = :procesoId)
+            group by m.resultado
+            order by m.resultado
+            """)
+    List<MensajesPorResultadoResponse> entrantesPorResultado(@Param("empresaId") Long empresaId,
+            @Param("procesoId") Long procesoId);
+
     /** Cuantos hay con ese resultado, para el panel de simulacion. */
     long countByEmpresaIdAndResultado(Long empresaId, ResultadoCorrelacion resultado);
+
+    /** Los que en toda la instalacion siguen esperando algo: lo que publica el medidor de Actuator. */
+    @Query("""
+            select count(m) from MensajeEntrante m
+            where m.resultado in (com.facimus.procesos.ejecucion.model.ResultadoCorrelacion.EN_ESPERA,
+                                  com.facimus.procesos.ejecucion.model.ResultadoCorrelacion.PROGRAMADO)
+            """)
+    long contarPendientes();
 
     /** Si ese mensaje ya entro: repetir la clave externa responde lo de la primera vez, no lo procesa otra vez. */
     Optional<MensajeEntrante> findByEmpresaIdAndClaveExterna(Long empresaId, String claveExterna);

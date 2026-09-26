@@ -208,6 +208,10 @@ class AutorizacionPorRolTest {
             EDITOR        | POST   | /api/v1/simulacion/pedidos     | 403
             SOLO_LECTURA  | POST   | /api/v1/simulacion/pedidos     | 403
 
+            # Tablero: lo lee cualquier rol, como el resto de lo que solo mira
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 200
+            SOLO_LECTURA  | GET    | /api/v1/empresas/actual/tablero | 200
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)

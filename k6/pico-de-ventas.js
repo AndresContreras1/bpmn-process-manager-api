@@ -59,9 +59,22 @@ export function setup() {
   const rol = http.post(`${BASE}/api/v1/roles`,
     JSON.stringify({ nombre: 'Warehouse', descripcion: 'Almacen' }), json(token));
   const lane = http.post(`${BASE}/api/v1/pools/${tienda}/lanes`,
-    JSON.stringify({ nombre: 'Picking', rolProcesoId: rol.json('id') }), json(token));
-  http.post(`${BASE}/api/v1/lanes/${lane.json('id')}/actividades`,
-    JSON.stringify({ nombre: 'Pick items', descripcion: 'Recoger', posicionX: 10, posicionY: 20 }), json(token));
+    JSON.stringify({ nombre: 'Picking', rolProcesoId: rol.json('id') }), json(token)).json('id');
+
+  // Un diagrama que se pueda publicar: inicio, la actividad y un fin, unidos. Hasta ahora esto era solo la
+  // actividad suelta, el diagnostico lo rechazaba con E-02 y el check de abajo fallaba en cada corrida sin que
+  // nadie lo viera, porque un check fallido entre miles deja el ratio por encima del umbral.
+  const inicio = http.post(`${BASE}/api/v1/lanes/${lane}/eventos`,
+    JSON.stringify({ nombre: 'Order received', tipoEvento: 'INICIO', posicionX: 10, posicionY: 20 }),
+    json(token)).json('id');
+  const recoger = http.post(`${BASE}/api/v1/lanes/${lane}/actividades`,
+    JSON.stringify({ nombre: 'Pick items', descripcion: 'Recoger', posicionX: 160, posicionY: 20 }),
+    json(token)).json('id');
+  const fin = http.post(`${BASE}/api/v1/lanes/${lane}/eventos`,
+    JSON.stringify({ nombre: 'Order picked', tipoEvento: 'FIN', posicionX: 320, posicionY: 20 }),
+    json(token)).json('id');
+  http.post(`${BASE}/api/v1/arcos`, JSON.stringify({ origenId: inicio, destinoId: recoger }), json(token));
+  http.post(`${BASE}/api/v1/arcos`, JSON.stringify({ origenId: recoger, destinoId: fin }), json(token));
 
   const publicado = http.patch(`${BASE}/api/v1/procesos/${procesoId}`,
     JSON.stringify({ estado: 'PUBLICADO', version: proceso.json('version') }), json(token));

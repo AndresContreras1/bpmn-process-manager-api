@@ -168,6 +168,13 @@ jobs:
           docker run --rm -i --network host -e BASE_URL=http://localhost:8081 \
             grafana/k6:0.54.0 run - < k6/pico-de-ventas.js
 
+      - name: Run the order peak against the stack
+        run: |
+          # The other one loads reading the model; this one loads running it, which is what writes to the
+          # database: opening cases, filling trays and locking rows.
+          docker run --rm -i --network host -e BASE_URL=http://localhost:8081 \
+            grafana/k6:0.54.0 run - < k6/pico-de-pedidos.js
+
       - name: Show the stack logs
         if: failure()
         run: docker compose logs
