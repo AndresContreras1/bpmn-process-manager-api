@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Modulo aparte a proposito: no cuelga del pom raiz, asi que `./mvnw verify` no lo ve y las pruebas de punta a punta
+  no alargan el build normal. Se corren solas, contra un stack que ya este levantado:
+
+    docker compose up -d (con build y wait)
+    ./mvnw -f e2e/pom.xml test
+
+  Selenium 4 trae Selenium Manager, que se baja el driver que le toque al Chrome instalado: no hace falta
+  WebDriverManager ni tener el chromedriver a mano.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.facimus</groupId>
+    <artifactId>bpmn-process-manager-e2e</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>BPMN Process Manager E2E</name>
+    <description>Pruebas de punta a punta de la aplicacion web, con Selenium contra el stack de compose</description>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <selenium.version>4.27.0</selenium.version>
+        <junit.version>5.11.4</junit.version>
+        <jackson.version>2.18.2</jackson.version>
+        <surefire.version>3.5.2</surefire.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>${selenium.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Los datos de cada prueba se crean por la API. El cliente HTTP viene con Java; esto solo lee el JSON. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+                <configuration>
+                    <!-- Una clase por escenario y cada una con su tienda: pueden correr en paralelo sin pisarse -->
+                    <parallel>classes</parallel>
+                    <threadCount>2</threadCount>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
