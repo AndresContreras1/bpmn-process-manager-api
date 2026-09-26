@@ -35,6 +35,9 @@ public interface CasoRepository extends RepositorioTenant<Caso>, JpaSpecificatio
     /** Los casos de un proceso que todavia tienen tokens vivos. */
     List<Caso> abiertosPorProceso(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId);
 
+    /** Cuantos casos lleva un proceso: es por donde siguen numerando las tandas de pedidos simulados. */
+    long countByEmpresaIdAndProcesoId(Long empresaId, Long procesoId);
+
     /** Los casos de un proceso con esa referencia: por aqui encuentra su caso un mensaje que llega. */
     List<Caso> porReferencia(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId,
             @Param("referencia") String referencia);

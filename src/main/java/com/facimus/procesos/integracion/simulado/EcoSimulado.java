@@ -6,6 +6,7 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 import com.facimus.procesos.ejecucion.puerto.MensajeParaElSocio;
+import com.facimus.procesos.ejecucion.puerto.ParametrosDeSimulacion;
 import com.facimus.procesos.ejecucion.puerto.RespuestaDelSocio;
 import com.facimus.procesos.ejecucion.puerto.RespuestaEntrante;
 import com.facimus.procesos.ejecucion.puerto.SocioSimulado;
@@ -27,12 +28,18 @@ class EcoSimulado implements SocioSimulado {
         return Integracion.NINGUNA;
     }
 
+    /** Un participante sin socio propio contesta enseguida: no hay nada que simular sobre lo que tarda. */
+    @Override
+    public int latencia(ParametrosDeSimulacion parametros) {
+        return 1;
+    }
+
     @Override
     public RespuestaDelSocio recibir(MensajeParaElSocio mensaje) {
         if (mensaje.respuestaEsperada() == null) {
             return RespuestaDelSocio.llego();
         }
         return RespuestaDelSocio.llegoYContesta(List.of(
-                new RespuestaEntrante(mensaje.respuestaEsperada(), mensaje.clave(), Map.of())));
+                RespuestaEntrante.ahora(mensaje.respuestaEsperada(), mensaje.clave(), Map.of())));
     }
 }

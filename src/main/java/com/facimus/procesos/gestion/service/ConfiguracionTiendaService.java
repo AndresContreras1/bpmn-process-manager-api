@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
+import com.facimus.procesos.gestion.model.ParametrosSimulacion;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
 
 /** D16: lo que cada tienda decide sobre si misma, y la regla que de ahi sale (R-46). */
@@ -14,9 +15,12 @@ public interface ConfiguracionTiendaService {
 
     ConfiguracionTiendaResponse obtener(Long empresaId);
 
-    /** Un modo nulo deja el que tenia: el cuerpo de la edicion crecio y los clientes de antes no lo mandan. */
+    /**
+     * Un modo o unos parametros nulos dejan los que tenia: el cuerpo de la edicion crecio y los clientes de antes
+     * no los mandan. Los parametros, en cambio, se mandan enteros o no se mandan.
+     */
     ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
-            ModoSimulacion modo, Long version);
+            ModoSimulacion modo, ParametrosSimulacion parametros, Long version);
 
     /** D8: en que tick va la simulacion de esta tienda. */
     int reloj(Long empresaId);

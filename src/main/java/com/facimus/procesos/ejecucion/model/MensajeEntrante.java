@@ -47,10 +47,12 @@ import lombok.experimental.SuperBuilder;
           and m.proceso.id = :procesoId
           and (:resultado is null or m.resultado = :resultado)
         """)
-@NamedQuery(name = "MensajeEntrante.enEsperaDeLaTienda", query = """
+@NamedQuery(name = "MensajeEntrante.pendientesDeLaTienda", query = """
         select m from MensajeEntrante m
         where m.empresa.id = :empresaId
-          and m.resultado = com.facimus.procesos.ejecucion.model.ResultadoCorrelacion.EN_ESPERA
+          and (m.resultado = com.facimus.procesos.ejecucion.model.ResultadoCorrelacion.EN_ESPERA
+               or (m.resultado = com.facimus.procesos.ejecucion.model.ResultadoCorrelacion.PROGRAMADO
+                   and m.tickDisponible <= :tick))
         order by m.id
         """)
 @Getter
@@ -99,6 +101,10 @@ public class MensajeEntrante extends EntidadEmpresa {
 
     @Column(nullable = false, updatable = false)
     private int tick;
+
+    /** A partir de que tick se puede mirar. Solo lo usa el que un socio dejo dicho para mas adelante. */
+    @Column(name = "tick_disponible", nullable = false, updatable = false)
+    private int tickDisponible;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime fecha;

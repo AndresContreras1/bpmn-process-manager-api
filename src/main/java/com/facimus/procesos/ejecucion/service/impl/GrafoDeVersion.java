@@ -117,12 +117,12 @@ final class GrafoDeVersion {
         for (MensajeResponse mensaje : diagrama.mensajes()) {
             CorrelacionResponse clave = correlaciones.get(mensaje.id());
             mensajes.add(new MensajeDeLaVersion(mensaje.id(), mensaje.nombre(), mensaje.nodoOrigenId(),
-                    mensaje.nodoDestinoId(), nombreDePool.get(mensaje.poolDestinoId()),
-                    integracionDePool.get(mensaje.poolDestinoId()), mensaje.tipoDestino(), mensaje.siFalla(),
-                    mensaje.nodoManejoErrorId(), mensaje.campos() == null ? List.of() : mensaje.campos(),
-                    mensaje.variable(), nombreDeMensaje.get(mensaje.respuestaEsperadaId()),
-                    clave == null ? null : clave.campo(), clave == null ? null : clave.sinCaso(),
-                    mensaje.origenExterno()));
+                    mensaje.nodoDestinoId(), mensaje.poolOrigenId(), mensaje.poolDestinoId(),
+                    nombreDePool.get(mensaje.poolDestinoId()), integracionDePool.get(mensaje.poolDestinoId()),
+                    mensaje.tipoDestino(), mensaje.siFalla(), mensaje.nodoManejoErrorId(),
+                    mensaje.campos() == null ? List.of() : mensaje.campos(), mensaje.variable(),
+                    nombreDeMensaje.get(mensaje.respuestaEsperadaId()), clave == null ? null : clave.campo(),
+                    clave == null ? null : clave.sinCaso(), mensaje.origenExterno()));
         }
         return List.copyOf(mensajes);
     }
@@ -253,6 +253,18 @@ final class GrafoDeVersion {
     Optional<MensajeDeLaVersion> mensajeQueManda(Long nodoId) {
         return mensajes.stream()
                 .filter(mensaje -> nodoId.equals(mensaje.nodoOrigenId()))
+                .findFirst();
+    }
+
+    /**
+     * Lo que el participante del otro lado de un mensaje manda por su cuenta, sin que nadie se lo pida: la
+     * confirmacion de entrega del transportista es uno. Son los mensajes de origen externo que salen de su pool.
+     */
+    Optional<MensajeDeLaVersion> avisoDe(MensajeDeLaVersion saliente) {
+        return mensajes.stream()
+                .filter(MensajeDeLaVersion::origenExterno)
+                .filter(aviso -> aviso.poolOrigenId() != null
+                        && aviso.poolOrigenId().equals(saliente.poolDestinoId()))
                 .findFirst();
     }
 

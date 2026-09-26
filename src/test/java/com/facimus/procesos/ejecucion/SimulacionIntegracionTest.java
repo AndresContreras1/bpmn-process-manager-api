@@ -33,10 +33,13 @@ import com.facimus.procesos.ejecucion.service.DatosDelEntrante;
 import com.facimus.procesos.ejecucion.service.MensajeriaService;
 import com.facimus.procesos.ejecucion.service.SimulacionService;
 import com.facimus.procesos.ejecucion.service.TareaService;
+import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
+import com.facimus.procesos.gestion.model.ParametrosSimulacion;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.Integracion;
 
 /**
@@ -119,6 +122,23 @@ class SimulacionIntegracionTest {
     }
 
     @Test
+    @DisplayName("Un mensaje vence cuando su socio dice que tarda, no cuando le toca a cualquiera")
+    void elVencimiento_loDiceElSocio() {
+        conRespuestaDePagosEn(4);
+        Long procesoId = tienda.publicar(empresaId, adminId, "Order fulfillment with a slow gateway");
+        Long casoId = unPedidoEsperandoLaPasarela(procesoId, "ORD-1700");
+
+        MensajeSalienteResponse saliente = mensajeriaService.salientesDelCaso(empresaId, casoId).getFirst();
+
+        assertThat(saliente.tickEntrega()).isEqualTo(saliente.tickCreacion() + 4);
+        simulacionService.tick(empresaId, 1);
+        assertThat(casoService.obtener(empresaId, casoId).caso().estado()).isEqualTo(EstadoCaso.ABIERTO);
+        simulacionService.tick(empresaId, 3);
+        assertThat(casoService.obtener(empresaId, casoId).caso().estado()).isEqualTo(EstadoCaso.TERMINADO);
+        conRespuestaDePagosEn(1);
+    }
+
+    @Test
     @DisplayName("El panel dice en que tick va la tienda y que queda pendiente, por socio")
     void elPanel_cuentaLoQueQueda() {
         Long procesoId = tienda.publicar(empresaId, adminId, "Order fulfillment on the dashboard");
@@ -191,6 +211,40 @@ class SimulacionIntegracionTest {
     }
 
     @Test
+    @DisplayName("Un aviso que no llega y dice FINALIZAR deja el pedido fallido, sin que nadie lo cancele")
+    void avisoQueNoLlega_dejaElPedidoFallido() {
+        conFalloDeNotificaciones(100);
+        Long procesoId = tienda.publicarConAviso(empresaId, adminId, "Order fulfillment with a lost notice",
+                AccionSiFalla.FINALIZAR);
+        Long casoId = unPedidoEsperandoElAviso(procesoId, "ORD-1500");
+
+        simulacionService.tick(empresaId, 1);
+
+        CasoDetalleResponse caso = casoService.obtener(empresaId, casoId);
+        assertThat(caso.caso().estado()).isEqualTo(EstadoCaso.FALLIDO);
+        assertThat(mensajeriaService.salientesDelCaso(empresaId, casoId)).singleElement()
+                .returns(EstadoMensajeSaliente.FALLIDO, MensajeSalienteResponse::estado)
+                .returns("el destinatario no la recibio", MensajeSalienteResponse::error);
+        conFalloDeNotificaciones(0);
+    }
+
+    @Test
+    @DisplayName("El mismo aviso perdido, si el mensaje dice CONTINUAR, deja el pedido donde estaba")
+    void avisoQueNoLlega_conContinuar_noMueveElPedido() {
+        conFalloDeNotificaciones(100);
+        Long procesoId = tienda.publicarConAviso(empresaId, adminId, "Order fulfillment that carries on",
+                AccionSiFalla.CONTINUAR);
+        Long casoId = unPedidoEsperandoElAviso(procesoId, "ORD-1600");
+
+        simulacionService.tick(empresaId, 1);
+
+        assertThat(casoService.obtener(empresaId, casoId).caso().estado()).isEqualTo(EstadoCaso.ABIERTO);
+        assertThat(mensajeriaService.salientesDelCaso(empresaId, casoId)).singleElement()
+                .returns(EstadoMensajeSaliente.FALLIDO, MensajeSalienteResponse::estado);
+        conFalloDeNotificaciones(0);
+    }
+
+    @Test
     @DisplayName("El reloj se mueve entre uno y cien ticks por vez: no vale quedarse quieto ni saltar un ano")
     void elTick_tieneLimites() {
         assertThatThrownBy(() -> simulacionService.tick(empresaId, 0))
@@ -198,6 +252,30 @@ class SimulacionIntegracionTest {
                 .hasMessageContaining("entre 1 y 100");
         assertThatThrownBy(() -> simulacionService.tick(empresaId, 101))
                 .isInstanceOf(ReglaNegocioException.class);
+    }
+
+    /** Fija cuantos ticks tarda la pasarela en contestar. */
+    private void conRespuestaDePagosEn(int ticks) {
+        ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(empresaId);
+        configuracionTiendaService.editar(empresaId, adminId, antes.politicaEstructura(), null,
+                ParametrosSimulacion.builder().ticksRespuestaPagos(ticks).tasaRechazoPagos(0).build(),
+                antes.version());
+    }
+
+    /** Fija cuantas notificaciones de cada cien no llegan. */
+    private void conFalloDeNotificaciones(int tasa) {
+        ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(empresaId);
+        configuracionTiendaService.editar(empresaId, adminId, antes.politicaEstructura(), null,
+                ParametrosSimulacion.builder().tasaFalloNotificaciones(tasa).build(), antes.version());
+    }
+
+    /** Un pedido al que ventas ya lo reviso, con el aviso al cliente esperando en la bandeja de salida. */
+    private Long unPedidoEsperandoElAviso(Long procesoId, String referencia) {
+        Long casoId = mensajeriaService.recibir(empresaId, procesoId,
+                        DatosDelEntrante.aMano(TiendaConMensajeria.PEDIDO, null, Map.of("orderId", referencia), null))
+                .casoId();
+        completarLaTareaDe(procesoId, casoId);
+        return casoId;
     }
 
     /** Un pedido abierto por mensaje al que ventas ya lo reviso: esta esperando la respuesta de la pasarela. */

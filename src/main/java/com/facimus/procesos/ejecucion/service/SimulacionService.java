@@ -1,6 +1,9 @@
 package com.facimus.procesos.ejecucion.service;
 
+import java.util.Map;
+
 import com.facimus.procesos.ejecucion.dto.response.PanelDeSimulacionResponse;
+import com.facimus.procesos.ejecucion.dto.response.PedidosSimuladosResponse;
 
 /** D8: el reloj de la tienda y lo que pasa cuando se mueve. */
 public interface SimulacionService {
@@ -13,4 +16,10 @@ public interface SimulacionService {
      * propia transaccion, con su caso bloqueado (D3): un tick que mueve veinte pedidos no los mueve a la vez.
      */
     PanelDeSimulacionResponse tick(Long empresaId, int ticks);
+
+    /**
+     * Una tanda de pedidos del cliente simulado. Entran por la misma puerta que cualquier otro mensaje, asi que un
+     * pedido simulado y uno de verdad recorren el mismo camino: el proceso no sabe de donde vino.
+     */
+    PedidosSimuladosResponse pedidos(Long empresaId, Long procesoId, int cantidad, Map<String, Object> plantilla);
 }

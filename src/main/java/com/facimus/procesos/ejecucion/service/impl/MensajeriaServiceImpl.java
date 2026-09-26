@@ -165,7 +165,9 @@ public class MensajeriaServiceImpl implements MensajeriaService {
         return switch (correlacion.resultado()) {
             case ENTREGADO_A_CASO -> entregar(correlacion, mensaje, datos, momento);
             case CASO_NUEVO -> abrirCaso(version, vigente, correlacion, mensaje, datos, clave, momento);
-            case EN_ESPERA, DESCARTADO -> correlacion.elCaso().orElse(null);
+            // PROGRAMADO no sale nunca de la correlacion: lo pone el socio al dejar dicha una respuesta que tarda,
+            // y para cuando se mira, ya es una de las otras cuatro.
+            case EN_ESPERA, PROGRAMADO, DESCARTADO -> correlacion.elCaso().orElse(null);
         };
     }
 

@@ -226,9 +226,24 @@ class MensajeriaRepositoryTest {
             entrante("Payment authorization result", "ORD-1", null, ResultadoCorrelacion.ENTREGADO_A_CASO);
             otraTiendaConSuEntranteEnEspera();
 
-            assertThat(mensajeEntranteRepository.enEsperaDeLaTienda(tienda.getId()))
+            assertThat(mensajeEntranteRepository.pendientesDeLaTienda(tienda.getId(), 0))
                     .extracting(MensajeEntrante::getId)
                     .containsExactly(esperando.getId(), deOtroProceso.getId());
+        }
+
+        @Test
+        @DisplayName("Lo que un socio dejo dicho para mas adelante no se mira hasta que el reloj llega a su tick")
+        void loProgramado_noSeMiraAntesDeTiempo() {
+            MensajeEntrante programado = mensajeEntranteRepository.save(MensajeEntrante.builder()
+                    .empresa(tienda).proceso(proceso).nombre("Shipment confirmation").clave("ORD-1")
+                    .cuerpo(CUERPO).origen(OrigenMensajeEntrante.SIMULADOR_TRANSPORTE)
+                    .resultado(ResultadoCorrelacion.PROGRAMADO).tick(1).tickDisponible(4)
+                    .fecha(LocalDateTime.now()).build());
+            em.flush();
+
+            assertThat(mensajeEntranteRepository.pendientesDeLaTienda(tienda.getId(), 3)).isEmpty();
+            assertThat(mensajeEntranteRepository.pendientesDeLaTienda(tienda.getId(), 4))
+                    .extracting(MensajeEntrante::getId).containsExactly(programado.getId());
         }
 
         @Test

@@ -19,6 +19,7 @@ import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.ConfiguracionTiendaRequest;
+import com.facimus.procesos.gestion.dto.request.ParametrosSimulacionRequest;
 import com.facimus.procesos.gestion.dto.request.RegistroEmpresaRequest;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
@@ -118,7 +119,8 @@ public class EmpresaController {
             @Validated @RequestBody ConfiguracionTiendaRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(configuracionTiendaService.editar(principal.empresaId(), principal.usuarioId(),
-                request.politicaEstructura(), request.modoSimulacion(), request.version()));
+                request.politicaEstructura(), request.modoSimulacion(),
+                ParametrosSimulacionRequest.aModelo(request.simulacion()), request.version()));
     }
 
     @Operation(summary = "Get a store",
