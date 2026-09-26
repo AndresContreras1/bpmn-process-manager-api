@@ -93,23 +93,41 @@ class CompartirYAdministrarTest extends PruebaE2E {
     @Test
     @DisplayName("quien no es administrador no ve la administracion")
     void sinRolNoHayAdministracion() {
-        ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Lectora", nitDe("solo-lectura"),
-                correoDe("lectora"), "lectora12345");
-        entrar(tienda);
+        // Quien registra una tienda es su administrador, asi que para probar lo contrario hace falta otra persona
+        ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Con Editora", nitDe("sin-rol"),
+                correoDe("con-editora"), "duena12345");
+        String correoEditora = correoDe("editora");
+        api.crearUsuario("Eva Editora", correoEditora, "editora12345", "EDITOR");
 
-        // El administrador si la ve: es el contraste que da sentido a la comprobacion de abajo
-        assertFalse(navegador.findElements(org.openqa.selenium.By.id("navbar-usuarios")).isEmpty(),
+        // El administrador si la ve: es el contraste que da sentido a las comprobaciones de abajo
+        entrar(tienda);
+        assertFalse(navegador.findElements(Paginas.Navbar.USUARIOS).isEmpty(),
                 "el administrador de la tienda tiene que ver la administracion");
 
+        // Y la editora, que entra con su propia clave, no
+        salir();
+        entrarCon(correoEditora, "editora12345");
+        assertTrue(navegador.findElements(Paginas.Navbar.USUARIOS).isEmpty(),
+                "una editora no puede ver el menu de usuarios");
+        assertTrue(navegador.findElements(Paginas.Navbar.HISTORIAL).isEmpty(),
+                "ni el del historial, que la API solo le abre al administrador");
+
+        // Y si llega por la URL, la pantalla se lo dice en vez de ensenarle un error de la API
         ir("/usuarios");
-        assertEquals(0, navegador.findElements(org.openqa.selenium.By.id("usuarios-solo-admin")).size(),
-                "y no puede toparse con el aviso de que no puede");
+        assertTrue(visible(Paginas.Usuarios.SOLO_ADMIN).isDisplayed(),
+                "la pantalla de usuarios tiene que decirle que es solo del administrador");
+        assertEquals(0, navegador.findElements(Paginas.Usuarios.FILA).size(),
+                "y no ensenarle ni una fila");
     }
 
     private void entrar(ApiDeDatos.Tienda tienda) {
+        entrarCon(tienda.correo(), tienda.clave());
+    }
+
+    private void entrarCon(String correo, String clave) {
         ir("/login");
-        escribir(Paginas.Login.EMAIL, tienda.correo());
-        escribir(Paginas.Login.CLAVE, tienda.clave());
+        escribir(Paginas.Login.EMAIL, correo);
+        escribir(Paginas.Login.CLAVE, clave);
         pulsable(Paginas.Login.ENTRAR).click();
         esperarUrl("/procesos");
     }

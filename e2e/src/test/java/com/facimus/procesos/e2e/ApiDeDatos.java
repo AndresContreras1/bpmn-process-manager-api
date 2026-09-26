@@ -50,6 +50,16 @@ class ApiDeDatos {
                 """.formatted(nombre, descripcion, categoria)).get("id").asLong();
     }
 
+    /**
+     * Da de alta a alguien con su propia clave. Con una clave puesta no hay temporal, y por lo tanto tampoco el
+     * cambio obligatorio: la prueba puede entrar con ella y trabajar.
+     */
+    void crearUsuario(String nombre, String correo, String clave, String rol) {
+        post("/usuarios", """
+                {"nombre":"%s","email":"%s","password":"%s","rolAcceso":"%s"}
+                """.formatted(nombre, correo, clave, rol));
+    }
+
     long crearRol(String nombre) {
         return post("/roles", """
                 {"nombre":"%s","descripcion":"Creado por una prueba de punta a punta"}

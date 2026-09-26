@@ -14,6 +14,12 @@ final class Paginas {
     private Paginas() {
     }
 
+    /** El menu de la cuenta, donde vive la administracion. */
+    static final class Navbar {
+        static final By USUARIOS = By.id("navbar-usuarios");
+        static final By HISTORIAL = By.id("navbar-historial");
+    }
+
     /** Entrar. */
     static final class Login {
         static final By EMAIL = By.id("login-email");
@@ -74,6 +80,7 @@ final class Paginas {
         static final By CREAR = By.id("usuarios-crear");
         static final By CLAVE_TEMPORAL = By.id("usuarios-clave-temporal");
         static final By FILA = By.cssSelector("[data-testid='usuario']");
+        static final By SOLO_ADMIN = By.id("usuarios-solo-admin");
     }
 
     /** Roles de proceso. */
