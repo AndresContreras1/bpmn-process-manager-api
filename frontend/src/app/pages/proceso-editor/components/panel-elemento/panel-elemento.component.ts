@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, input, output } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, input, output } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, finalize } from 'rxjs';
 
@@ -64,6 +65,7 @@ export class PanelElementoComponent {
   private readonly arcoService: ArcoService = inject(ArcoService);
   private readonly mensajeService: MensajeService = inject(MensajeService);
   private readonly correlacionService: CorrelacionService = inject(CorrelacionService);
+  private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   readonly seleccion = input.required<Seleccion>();
   readonly diagrama = input.required<Diagrama>();
@@ -144,13 +146,18 @@ export class PanelElementoComponent {
       this.enviando = false;
       return;
     }
-    peticion$.pipe(finalize(() => (this.enviando = false))).subscribe({
-      next: () => {
-        this.aviso = 'Saved.';
-        this.guardado.emit();
-      },
-      error: (error: HttpErrorResponse) => this.mostrarError(error),
-    });
+    peticion$
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          this.aviso = 'Saved.';
+          this.guardado.emit();
+        },
+        error: (error: HttpErrorResponse) => this.mostrarError(error),
+      });
   }
 
   private peticionDeGuardado(): Observable<unknown> | null {
@@ -183,9 +190,13 @@ export class PanelElementoComponent {
     }
     this.enviando = true;
     this.error = null;
+    this.aviso = null;
     this.correlacionService
       .definir(this.seleccion().id, grupo.getRawValue())
-      .pipe(finalize(() => (this.enviando = false)))
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: () => {
           this.aviso = 'Correlation saved.';
