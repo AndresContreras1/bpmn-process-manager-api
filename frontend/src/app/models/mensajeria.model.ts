@@ -60,14 +60,6 @@ export interface MensajesDelCaso {
   entrantes: MensajeEntrante[];
 }
 
-/** Un mensaje que entra al proceso a mano, como si lo mandara el otro participante. */
-export interface MensajeEntranteRequest {
-  nombre: string;
-  clave: string | null;
-  cuerpo: Datos;
-  claveExterna: string | null;
-}
-
 export const NOMBRE_ESTADO_SALIENTE: Record<EstadoMensajeSaliente, string> = {
   PENDIENTE: 'Waiting for the clock',
   ENTREGADO: 'Delivered',

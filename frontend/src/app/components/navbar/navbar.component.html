@@ -35,6 +35,11 @@
                   <i class="fa-solid fa-list-check" aria-hidden="true"></i> Task tray
                 </a>
               </li>
+              <li>
+                <a class="dropdown-item" routerLink="/tablero" id="navbar-tablero">
+                  <i class="fa-solid fa-chart-column" aria-hidden="true"></i> Dashboard
+                </a>
+              </li>
               @if (usuario.rolAcceso === 'ADMINISTRADOR') {
                 <li><hr class="dropdown-divider"></li>
                 <li>

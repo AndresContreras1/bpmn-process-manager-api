@@ -1,0 +1,210 @@
+<div class="container py-5" id="tablero">
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
+    <div>
+      <h1 class="h3 fw-bold mb-1" id="tablero-titulo">Dashboard</h1>
+      <p class="text-body-secondary mb-0">
+        How the operation is going in <span id="tablero-mirando">{{ mirando }}</span>, counted in ticks of the
+        store's clock.
+      </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-end">
+      <div>
+        <label class="form-label small" for="tablero-proceso">Showing</label>
+        <select class="form-select" id="tablero-proceso" name="procesoId" [(ngModel)]="procesoId"
+                (ngModelChange)="pedir()">
+          <option value="">The whole store</option>
+          @for (proceso of procesos; track proceso.id) {
+            <option [ngValue]="proceso.id">{{ proceso.nombre }}</option>
+          }
+        </select>
+      </div>
+      <button type="button" class="btn btn-outline-secondary" id="tablero-recargar" [disabled]="cargando"
+              (click)="pedir()">
+        <i class="fa-solid fa-rotate" aria-hidden="true"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger" role="alert" id="tablero-error">{{ error }}</div>
+  }
+
+  @if (!tablero) {
+    @if (cargando) {
+      <div class="text-center text-body-secondary py-5" id="tablero-cargando">
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Counting…
+      </div>
+    }
+  } @else {
+    <div class="row g-3 mb-4" [class.opacity-50]="cargando" [attr.aria-busy]="cargando">
+      <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3 p-md-4">
+            <div class="small text-uppercase text-body-secondary fw-semibold">Cases</div>
+            <div class="display-6 fw-bold" id="tablero-casos">{{ tablero.casos }}</div>
+            <a class="small" routerLink="/casos" [queryParams]="filtroDeCasos" id="tablero-ver-casos">See them</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3 p-md-4">
+            <div class="small text-uppercase text-body-secondary fw-semibold">Finished</div>
+            <div class="display-6 fw-bold" id="tablero-terminados">{{ tablero.ciclo.terminados }}</div>
+            <div class="small text-body-secondary">the only ones the times are made of</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3 p-md-4">
+            <div class="small text-uppercase text-body-secondary fw-semibold">Average ticks</div>
+            <div class="display-6 fw-bold" id="tablero-medio">{{ tablero.ciclo.medio | number: '1.0-1' }}</div>
+            <div class="small text-body-secondary">from opening to finishing</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3 p-md-4">
+            <div class="small text-uppercase text-body-secondary fw-semibold">p95 ticks</div>
+            <div class="display-6 fw-bold" id="tablero-p95">{{ tablero.ciclo.p95 }}</div>
+            <div class="small text-body-secondary">nineteen out of twenty stay under it</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4" [class.opacity-50]="cargando">
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3 p-md-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Cases by state</h2>
+            @if (tablero.casosPorEstado.length === 0) {
+              <p class="text-body-secondary mb-0" id="tablero-sin-casos">Nothing has run yet.</p>
+            } @else {
+              <table class="table table-sm align-middle mb-0" id="tablero-por-estado">
+                <tbody>
+                  @for (fila of tablero.casosPorEstado; track fila.estado) {
+                    <tr data-testid="tablero-estado">
+                      <td><span class="badge" [class]="colorEstado[fila.estado]">{{ nombreEstado[fila.estado] }}</span></td>
+                      <td class="text-end fw-semibold">{{ fila.cantidad }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3 p-md-4">
+            <div class="d-flex align-items-center justify-content-between">
+              <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-0">Work waiting in each tray</h2>
+              <a class="small" routerLink="/tareas" id="tablero-ver-tareas">Open the tray</a>
+            </div>
+            @if (tablero.tareasPorRol.length === 0) {
+              <p class="text-body-secondary mb-0 mt-2" id="tablero-sin-tareas">Nobody is waiting on anything.</p>
+            } @else {
+              <table class="table table-sm align-middle mb-0 mt-2" id="tablero-por-rol">
+                <tbody>
+                  @for (fila of tablero.tareasPorRol; track fila.rolProcesoId) {
+                    <tr data-testid="tablero-rol">
+                      <td>{{ fila.rolNombre }}</td>
+                      <td class="text-end fw-semibold">{{ fila.tareas }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3 p-md-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Messages sent</h2>
+            @if (tablero.salientes.length === 0) {
+              <p class="text-body-secondary mb-0" id="tablero-sin-salientes">No message has gone out.</p>
+            } @else {
+              <table class="table table-sm align-middle mb-0" id="tablero-salientes">
+                <tbody>
+                  @for (fila of tablero.salientes; track fila.estado) {
+                    <tr data-testid="tablero-saliente">
+                      <td>{{ nombreEstadoSaliente[fila.estado] }}</td>
+                      <td class="text-end fw-semibold">{{ fila.cantidad }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3 p-md-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Messages received</h2>
+            @if (tablero.entrantes.length === 0) {
+              <p class="text-body-secondary mb-0" id="tablero-sin-entrantes">Nothing has arrived.</p>
+            } @else {
+              <table class="table table-sm align-middle mb-0" id="tablero-entrantes">
+                <tbody>
+                  @for (fila of tablero.entrantes; track fila.resultado) {
+                    <tr data-testid="tablero-entrante">
+                      <td>{{ nombreResultado[fila.resultado] }}</td>
+                      <td class="text-end fw-semibold">{{ fila.cantidad }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-3 p-md-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">What did not go as expected</h2>
+            @if (!algoSalioMal) {
+              <p class="text-body-secondary mb-0" id="tablero-todo-bien">
+                Nothing so far: no delivery failed, no gateway was left without a path, no condition asked for a
+                variable that was not there.
+              </p>
+            } @else {
+              <div class="row text-center g-3" id="tablero-lo-que-salio-mal">
+                <div class="col-md-4">
+                  <div class="border rounded-3 py-3">
+                    <div class="h4 fw-bold mb-0" id="tablero-envios-fallidos">
+                      {{ tablero.loQueSalioMal.enviosFallidos }}
+                    </div>
+                    <div class="small text-body-secondary">messages that did not reach the partner</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="border rounded-3 py-3">
+                    <div class="h4 fw-bold mb-0" id="tablero-sin-camino">{{ tablero.loQueSalioMal.sinCamino }}</div>
+                    <div class="small text-body-secondary">gateways left without a path</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="border rounded-3 py-3">
+                    <div class="h4 fw-bold mb-0" id="tablero-variables-ausentes">
+                      {{ tablero.loQueSalioMal.variablesAusentes }}
+                    </div>
+                    <div class="small text-body-secondary">conditions that asked for a missing variable</div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>
