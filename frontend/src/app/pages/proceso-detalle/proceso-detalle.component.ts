@@ -130,7 +130,8 @@ export class ProcesoDetalleComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (diagrama: Diagrama) => this.mostrar({ detalle: this.detalle as ProcesoDetalle, diagrama, versiones: this.versiones }),
+        next: (diagrama: Diagrama) =>
+          this.mostrar({ detalle: this.detalle as ProcesoDetalle, diagrama, versiones: this.versiones }),
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
   }
@@ -151,17 +152,24 @@ export class ProcesoDetalleComponent implements OnInit {
     this.enviando = true;
     this.aviso = null;
     this.error = null;
-    // Publicar y volver a pedir el detalle, encadenados: el historial suma el cambio
+    // Publicar y volver a pedirlo, encadenados: el historial suma el cambio y las versiones, la nueva
     this.procesoService
       .publicar(proceso.id, proceso.version)
       .pipe(
-        switchMap(() => this.procesoService.obtener(proceso.id)),
+        switchMap(() =>
+          forkJoin({
+            detalle: this.procesoService.obtener(proceso.id),
+            // Si la lista falla se queda la que hay: el proceso se publico igual, y eso es lo que se cuenta
+            versiones: this.versionService.listar(proceso.id).pipe(catchError(() => of(this.versiones))),
+          }),
+        ),
         finalize(() => (this.enviando = false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (detalle: ProcesoDetalle) => {
-          this.detalle = detalle;
+        next: (publicado: { detalle: ProcesoDetalle; versiones: Version[] }) => {
+          this.detalle = publicado.detalle;
+          this.versiones = publicado.versiones;
           this.aviso = 'The process is now published.';
         },
         error: (error: HttpErrorResponse) => this.noSePudoPublicar(proceso.id, error),
