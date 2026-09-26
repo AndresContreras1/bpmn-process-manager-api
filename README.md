@@ -1,11 +1,13 @@
 # BPMN Process Manager API
 
-**Model, validate and share the workflows behind every online order.**
+**Model, validate and run the workflows behind every online order.**
 
-BPMN Process Manager is a multi-tenant platform where online stores document how their orders move, from checkout to
-delivery, payments and returns, as BPMN process diagrams. Each store works in a private workspace, its team gets
-role-based access, and every change is validated and recorded. This repository contains the REST API and an Angular
-web app built on top of it.
+BPMN Process Manager is a multi-tenant platform where online stores draw how their orders move — from checkout to
+delivery, payments and returns — as BPMN process diagrams, and then run them. A published diagram becomes an
+immutable version; orders open on it as cases, wait in the trays of the people who have to move them, exchange
+messages with payments, shipping and notification partners, and end up counted on an operations dashboard. Each
+store works in a private workspace with role-based access, and every change is validated and recorded. This
+repository holds the REST API and the Angular web app built on it.
 
 [![CI](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-007396?logo=openjdk&logoColor=white)
@@ -15,10 +17,57 @@ web app built on top of it.
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-prod-4169E1?logo=postgresql&logoColor=white)
 ![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-1163-success?logo=junit5&logoColor=white)
+![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
+[![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
 > [!NOTE]
-> The platform designs and validates processes. It does not execute them: there are no live orders, rule engines, or
-> calls to real payment providers or carriers.
+> Orders run on a clock made of ticks that somebody moves on purpose, against simulated partners. Nothing here calls
+> a real payment provider or carrier, and that is the point: the same store, the same seed and the same steps always
+> decide the same way, so a demo and a test can be replayed exactly.
+
+## What it does
+
+```mermaid
+flowchart LR
+    M["<b>Model</b><br/>pools, lanes, steps,<br/>flows and messages"]
+    D["<b>Diagnose</b><br/>15 errors that block<br/>publishing, 14 warnings"]
+    P["<b>Publish</b><br/>an immutable version,<br/>fingerprinted"]
+    R["<b>Run</b><br/>cases, trays, messages<br/>and the store's clock"]
+    W["<b>Watch</b><br/>dashboard, case timeline<br/>and Actuator gauges"]
+
+    M --> D --> P --> R --> W
+    W -. "what the numbers say<br/>goes back into the diagram" .-> M
+```
+
+A store draws its process, the diagnosis refuses to publish one that would not run, and publishing freezes the
+diagram into a version. From then on an order is a case walking that exact version: it stops where a person has to
+act, sends what the diagram says it sends, waits for the answer, and closes. Publishing again does not move an
+order that is already running — it finishes on the diagram it started with.
+
+## Run it
+
+```bash
+./mvnw spring-boot:run
+```
+
+That is the whole thing: `http://localhost:8080`, an H2 file under `./data`, and *Demo Store* already seeded with a
+published order-fulfillment process. Swagger UI is at `/swagger-ui.html`.
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" \
+  -d '{"email":"admin@demo.com","password":"admin123"}' | jq -r .accessToken)
+curl -s http://localhost:8080/api/v1/procesos -H "Authorization: Bearer $TOKEN"
+```
+
+For something closer to production — PostgreSQL 16, the `prod` profile, a health check the container waits on:
+
+```bash
+cp .env.example .env     # DB_PASSWORD and JWT_SECRET have no default on purpose
+docker compose up -d --build
+```
+
+[Getting started](#getting-started) has the rest: the web app, the Postman collection and the operations endpoints.
 
 ## Contents
 
@@ -42,6 +91,7 @@ web app built on top of it.
 13. [Design decisions](#design-decisions)
 14. [Roadmap](#roadmap)
 15. [Credits](#credits)
+16. [License](#license)
 
 ## Overview
 
@@ -137,6 +187,46 @@ detail and forms, publishing, and a diagram viewer. Modeling the diagram itself 
 The platform starts with a demo store, *Demo Store*. It has a published *Order fulfillment* process that uses every
 element of the notation, and a draft *Returns and refunds* process that is ready to be modeled. Sign in as
 `admin@demo.com` with the password `admin123` (see [Getting started](#getting-started)).
+
+```mermaid
+flowchart LR
+    customer(["Customer<br/><i>black box</i>"])
+    gateway(["Payment gateway<br/><i>black box</i>"])
+    carrier(["Carrier<br/><i>black box</i>"])
+
+    subgraph store["Demo Store"]
+        subgraph sales["Sales"]
+            s1(["Order<br/>received"])
+            s2["Receive order"]
+            s3["Request payment<br/>authorization"]
+            s4(["Payment result<br/>received"])
+            s5{"Payment<br/>approved?"}
+            s6["Cancel order"]
+            s7(["Order<br/>cancelled"])
+        end
+        subgraph warehouse["Warehouse"]
+            w1["Pick and pack<br/>items"]
+            w2["Ship order"]
+            w3(["Shipment<br/>confirmed"])
+            w4(["Order<br/>shipped"])
+        end
+    end
+
+    s1 --> s2 --> s3 --> s4 --> s5
+    s5 -- "declined" --> s6
+    s6 --> s7
+    s5 -- "default" --> w1
+    w1 --> w2 --> w3 --> w4
+
+    customer -. "Order placed" .-> s1
+    s3 -. "Payment authorization request" .-> gateway
+    gateway -. "Payment authorization result" .-> s4
+    w2 -. "Shipment request" .-> carrier
+    carrier -. "Shipment confirmation" .-> w3
+```
+
+Solid arrows are the sequence flow, dotted ones the messages. The two lanes are the two trays: *Sales* sees steps 2
+and 6, *Warehouse* sees 8 and 9, and a case sits in one of them until somebody completes it.
 
 **Participants**
 
@@ -1013,6 +1103,35 @@ only on the port `ejecucion` publishes. Each business module is layered as contr
 service implementation → repository → model, with `dto` for the module's contract and `mapper` for the MapStruct
 translations.
 
+```mermaid
+flowchart BT
+    common["<b>common</b><br/>tenant base entity · identity<br/>errors · pagination · conditions"]
+    gestion["<b>gestion</b><br/>stores · users · sessions<br/>processes · process roles"]
+    security["<b>security</b><br/>filter chain · JWT<br/>login and its rate limit"]
+    modelado["<b>modelado</b><br/>pools · lanes · nodes · flows<br/>messages · diagnosis"]
+
+    subgraph ejec["ejecucion"]
+        motor["cases · steps · trays · timeline<br/>message trays · clock · engine"]
+        puerto(["<b>puerto</b><br/><i>a partner receives a<br/>message and answers</i>"])
+    end
+
+    integracion["<b>integracion</b><br/>simulated gateway, carrier,<br/>notifier and customer"]
+
+    gestion --> common
+    security --> common
+    security --> gestion
+    modelado --> common
+    modelado --> gestion
+    modelado --> security
+    motor --> modelado
+    motor --> puerto
+    integracion --> puerto
+```
+
+An arrow means *depends on*. The only one that points the other way is the last: `ejecucion` publishes the port and
+`integracion` implements it, so the engine asks for the partner of a kind of participant and works with whatever it
+is given. ArchUnit checks every one of these arrows, and the absence of the ones that are not drawn.
+
 | Package | Responsibility |
 |---|---|
 | `common` | What every module needs: the store and the access role, the authenticated identity (`ApiPrincipal`), the tenant base entity and the tenant-aware repository contract, business exceptions, Problem Details, pagination |
@@ -1031,6 +1150,33 @@ translations.
 4. Every lookup by id goes through `findByIdAndEmpresaId`, so a resource from another store does not exist for the
    caller.
 5. The service maps the result to a DTO inside its transaction. Entities never reach the controller.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant F as JWT filter
+    participant A as Role rules
+    participant K as Controller
+    participant S as Service
+    participant R as Repository
+
+    C->>F: Authorization: Bearer ...
+    F->>F: signature, expiry, closed session
+    F--xC: 401 with a Problem Details body
+    F->>A: ApiPrincipal(usuarioId, empresaId, rol)
+    A--xC: 403 when the role cannot do this
+    A->>K: @AuthenticationPrincipal
+    K->>S: empresaId passed explicitly
+    S->>R: findByIdAndEmpresaId(id, empresaId)
+    R-->>S: the row, or nothing
+    S--xC: 404 when it belongs to another store
+    S-->>K: DTO mapped inside the transaction
+    K-->>C: 200
+```
+
+The `404` at the end is the whole multi-tenancy policy in one line: a resource of another store does not answer
+`403`, because that would confirm it exists. It does not exist for the caller.
 
 ### Module boundaries
 
@@ -1262,3 +1408,7 @@ My contributions to the team version:
 
 This repository is my personal continuation of the project. It evolves independently from the team version, is now
 oriented to e-commerce operations, and follows the roadmap above.
+
+## License
+
+[MIT](LICENSE). Use it, read it, take what is useful.
