@@ -472,7 +472,7 @@ are set.
 | `GET /actuator/health` | Anyone | `UP` or `DOWN`, with no detail of what runs behind it |
 | `GET /actuator/health/liveness` · `/readiness` | Anyone | The probes a container or an orchestrator polls; readiness covers the database |
 | `GET /actuator/info` | Anyone | The name and version of the running build |
-| `GET /actuator/metrics` | Administrator | JVM, pool and HTTP metrics, one by one |
+| `GET /actuator/metrics` | Administrator | JVM, pool and HTTP metrics one by one, the four gauges of the operation, and the hits and misses of the published-version cache |
 
 Nothing else is exposed: any other Actuator endpoint answers `404`.
 
@@ -505,6 +505,8 @@ The tests tagged `postgres` leave the profile's database aside and run against a
 | `LIMPIEZA_RETENCION_SESIONES` | How long a dead session and its expired refresh tokens are kept. Never shorter than the access token lifetime. | `7d` |
 | `LIMPIEZA_RETENCION_IDEMPOTENCIA` | How long a spent idempotency key is kept | `24h` |
 | `SIMULACION_TICK` | How often the clock of the stores that asked for it advances one tick. A store in `MANUAL`, which is the default, never moves by itself. | `30s` |
+| `CACHE_VERSIONES` | Keeps what a published version says in memory. `false` turns it off and the API answers the same, only slower. | `true` |
+| `CACHE_VERSIONES_MAXIMO` · `CACHE_VERSIONES_INACTIVIDAD` | Versions each cache remembers at a time, and how long an unused entry is kept | `200` · `2h` |
 | `DB_POOL_SIZE` | Connections to PostgreSQL, the real ceiling of concurrent work (`prod`) | `10` |
 | `SERVER_THREADS` | Threads that serve requests; the rest queue up (`prod`) | `200` |
 | `GEMINI_API_KEY` | Key for the AI review. Without it the review answers `503` and nothing else changes. | None |
@@ -820,6 +822,59 @@ curl -s http://localhost:8080/api/v1/procesos/1/versiones/1/diagrama -H "Authori
 A version that should not be used any more is retired by an administrator with
 `PATCH /api/v1/procesos/{id}/versiones/{n}` and `{ "estado": "RETIRADA" }`. Nothing is deleted: the cases that were
 opened with a version are read against it.
+
+### What is kept in memory
+
+A published version never changes: publishing freezes the diagram and retiring a version does not rewrite it. So
+what a version *says* is kept in memory — the JSON of its diagram, and the graph the engine walks, with the
+conditions of its flows already compiled and the reachable set of every node already worked out — and what
+*changes* is never kept: which version is in force, and whether whoever is asking may read that process, are
+questions the database answers on every single request. That is why there is no invalidation to get wrong. Nothing
+has to be evicted when a version is published or retired, because the key is the version and not the process, and
+a request that arrives one millisecond after a publish cannot be served the previous diagram.
+
+**The key starts with the store.** Version ids are unique across the whole system, so today it is not needed to
+find the right entry; it is needed so that a key written tomorrow, for a resource whose ids do repeat between
+stores, cannot hand one store what another one put there. An ArchUnit rule fails the build if a cache key does not
+name the store — storing is also a way of reading.
+
+**Running a case, a hit costs no query at all.** The version arrives as a lazy proxy, because it comes from the
+case; its id is known without waking it and its diagram is only read when the cache misses. A test counts the
+statements: the first read costs one, the second costs zero, and the graph that comes back is the same object.
+
+| `k6/pico-de-pedidos.js` · ten virtual users · forty seconds | p95 of each run | req/s of each run |
+|---|---|---|
+| Three-node process · cache off · 2 runs | 33.7 · 36.9 ms | 264 · 281 |
+| Three-node process · cache on · 2 runs | 31.7 · 35.1 ms | 274 · 295 |
+| Thirty-three-node process (`PASOS=30`) · cache off · 4 runs | 29.2 · 29.4 · 31.9 · 32.2 ms | 281 · 290 · 304 · 306 |
+| Thirty-three-node process (`PASOS=30`) · cache on · 4 runs | 28.7 · 31.3 · 31.5 · 32.2 ms | 286 · 287 · 294 · 311 |
+
+**The ranges overlap, and that is the result.** Same image, same data, runs alternating so that a machine warming
+up cannot be mistaken for a change; the only difference between them is the environment variable. Two runs of the
+same configuration differ by more than the two configurations differ from each other, so publishing one of those
+pairs as a speed-up would be publishing noise. On a laptop, against Docker Desktop, with ten virtual users and a
+database in another container, the time goes to the database and to the network — not to parsing a diagram.
+
+So what this cache is measured by is not a p95, it is a count that no machine can move: completing a task,
+advancing an order or delivering a message used to read the version row and build its graph **every single time**.
+Now the first one does and the rest read nothing, and a test asserts exactly that — one statement, then zero. The
+milliseconds show up in a load profile this laptop cannot produce: many stores, big diagrams, and a database that
+is not the bottleneck.
+
+Both rows come out of the same script. `PASOS` lengthens the chain of the process it builds with that many more
+tasks, so the same peak runs over a diagram ten times bigger while the operations stay identical:
+
+```bash
+# The stack, and then the peak inside its network: --network host does not reach the host on Docker Desktop
+docker compose up -d --wait db api
+docker run --rm -i --network bpmn-process-manager-api_default -e BASE_URL=http://api:8080 -e PASOS=30   grafana/k6:0.54.0 run - < k6/pico-de-pedidos.js
+```
+
+Actuator counts the hits next to the operation gauges: `cache.gets` tagged `cache=grafos-de-version` or
+`cache=definiciones-de-version` and `result=hit` or `miss`, `cache.size`, `cache.evictions`. And
+`CACHE_VERSIONES=false` turns the whole thing off — the API answers exactly the same, only reading and parsing
+again every time — which is how the test suite runs, so that no test can be reading what the one before it left
+behind.
 
 ### Running a process
 
@@ -1247,18 +1302,18 @@ stacking, at the top level and inside each module.
 ./mvnw verify
 ```
 
-The build runs 1163 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
+The build runs 1171 tests and a JaCoCo coverage gate. The HTML report is written to `target/site/jacoco/index.html`.
 
 | Suite | Tests | Scope |
 |---|---:|---|
-| Architecture (ArchUnit) | 39 | Layering, module boundaries and cycles between packages at both levels, DTOs and mappers, tenant isolation, JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, a simulated partner that cannot reach into the engine or open a connection, a port that cannot mention an entity, anything that runs on its own living in `config`, and a declared profile in every `@SpringBootTest` and persistence slice |
+| Architecture (ArchUnit) | 40 | Layering, module boundaries and cycles between packages at both levels, DTOs and mappers, tenant isolation — in the database and in memory, where every cache key has to name the store — JPA mapping (inheritance, its own soft delete per subtype, enums, lazy associations), no `HttpSession`, a simulated partner that cannot reach into the engine or open a connection, a port that cannot mention an entity, anything that runs on its own living in `config`, and a declared profile in every `@SpringBootTest` and persistence slice |
 | Controller slices (`@WebMvcTest`) | 191 | Routes, status codes, JSON shape and validation, with the real security rules |
 | Service unit tests (Mockito) | 429 | Business rules of the three modules, with the repositories mocked: what each service accepts, what it refuses and what it drags along; the diagnosis catalogue, with a test that fires each code over a diagram that is right everywhere else and one that proves the healthy diagram fires none; the language of the conditions, compiled and evaluated, operator by operator; the graph a published version turns into; the engine, with one test per row of the table of what each node does, on diagrams built in memory, messages included: what a node sends, what it waits for and what each `siFalla` does when a send does not arrive; the fingerprint of a diagram, which has to change with any change of any element and stay put with everything else; the AI review against a stubbed HTTP server: what it asks for, what it accepts as an answer and what it refuses; the four simulated partners, one suite each, with the seed proving that the same store and the same steps always decide the same way; and the cycle time over lists counted by hand, where out of twenty orders one slow one does not move the p95 and two do |
-| Repository slices (`@DataJpaTest`) | 67 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, the versions, with one number per process and a whole diagram in the column, and the named queries of the execution and of the two message trays, which do not exist as code: a renamed one does not start the application |
+| Repository slices (`@DataJpaTest`) | 68 | The hand-written queries against the real Flyway schema: the read gate for shared processes, the search filters, the ordering and role-usage queries, soft delete, the partial unique indexes, the check constraints of the flow-node table and of the default flow, the message with its anchors, its answer and its fields stored as JSON, the versions, with one number per process and a whole diagram in the column — and the two that feed the cache, which answer which version is in force and what one says without crossing stores — and the named queries of the execution and of the two message trays, which do not exist as code: a renamed one does not start the application |
 | Security and isolation (`@SpringBootTest`) | 253 | The two-store IDOR suite, one block of it for cases, tasks, their timeline and the message trays, read-only sharing (HU-23), the role matrix with the error body behind every `403` and `404`, JWT tampering and expiry, sessions, the login limit, idempotency keys, the last active administrator under concurrent changes, temporary passwords and the change they force, passwords that never reach a response, and end-to-end `401`, `403`, `429` and firewall `400` responses |
-| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 39 | What `dev` and `prod` expose, what runs on its own in each one and what does not run in `test`, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, the four gauges of the operation included, and the demo data read through the API |
+| Profiles, schema, queries, API contract and demo data (`@SpringBootTest`) | 44 | What `dev` and `prod` expose, what runs on its own in each one and what does not run in `test`, the size of the connection and thread pools, the Flyway migrations and unique indexes, SQL statement counts that catch N+1 queries and prove that the JWT filter runs no SQL, the OpenAPI contract, what Actuator publishes and to whom, the four gauges of the operation included, the demo data read through the API, and the cache of what is published: that the second read costs no query, that a version published or retired is seen at once, that a warm entry does not skip the permission check, and that Actuator counts the hits |
 | Module integration (`@SpringBootTest`) | 143 | Process-role usage across modules, who sees which tray, the order of pools and lanes, the whole diagram, publishing into versions and the draft that goes ahead of them, the store history and the structure policy, optimistic locking on every edit, auditing, soft delete, the modeling history, the BPMN consistency rules, an order from opening to finishing through both trays, two people completing the same task at the same time, the four endings of the correlation of a message, the store's clock and what each tick delivers, and the whole demo order end to end: it arrives as a message, two people move it, the clock delivers what it sent and the partners answer, and it finishes shipped — twenty of them at a time, and every one of them cancelled instead when the rejection rate says so; and the dashboard over figures counted by hand, with a statement count that keeps it at six queries however many orders there are, and an order cancelled on purpose to prove that the cycle time counts only the ones that finished |
-| Application context | 2 | The full context starts in the `test` profile, without the demo store |
+| Application context | 3 | The full context starts in the `test` profile, without the demo store and without the cache |
 | PostgreSQL 16 (Testcontainers) | 79 | What only the production engine can answer: the partial unique indexes behind the name of a process and the pair of nodes of a flow, which H2 has to replace with a generated column, and the `text` columns that hold a published diagram, the variables of a case and the bodies of the messages. The migration, repository, version, publishing, execution, messaging, simulation and whole-demo suites run again here, unchanged, and the context starts with `validate`, so every entity is checked against the schema Flyway leaves behind |
 
 The PostgreSQL row is the only one `./mvnw verify` does not run: it needs a Docker daemon, and a build that
@@ -1375,7 +1430,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 **Peak-traffic readiness**
 - [x] k6 load tests that simulate a sales peak and an order peak, with thresholds in CI
 - [x] Connection-pool and thread-pool sizing, moved by environment variables
-- [ ] Second-level cache for published processes, once the load test says where the time goes
+- [x] In-memory cache of what a published version says, keyed by store and version, with no invalidation to get wrong
 - [x] `Pageable`-based pagination with stable sorting for every collection that can grow
 
 **Consistency under concurrency**
