@@ -129,7 +129,7 @@ public class SimulacionServiceImpl implements SimulacionService {
      * pedidos simulados no tiene sentido: los abre quien quiera, uno por uno.
      */
     private String mensajeQueAbreElProceso(Long empresaId, Long procesoId) {
-        GrafoDeVersion vigente = grafos.del(versionService.vigente(empresaId, procesoId)
+        GrafoDeVersion vigente = grafos.del(empresaId, versionService.vigente(empresaId, procesoId)
                 .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada "
                         + "vigente.")));
         return vigente.inicioPorMensaje()

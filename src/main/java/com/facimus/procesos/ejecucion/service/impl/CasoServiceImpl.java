@@ -60,7 +60,7 @@ public class CasoServiceImpl implements CasoService {
             Map<String, Object> variables) {
         VersionProceso version = versionService.vigente(empresaId, procesoId)
                 .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada vigente."));
-        GrafoDeVersion grafo = grafos.del(version);
+        GrafoDeVersion grafo = grafos.del(empresaId, version);
         NodoDeLaVersion inicio = grafo.inicioAMano().orElseThrow(() -> new ReglaNegocioException(porDondeEmpieza(
                 grafo)));
 
@@ -157,7 +157,8 @@ public class CasoServiceImpl implements CasoService {
                     actividadCasoRepository.save(paso);
                 });
         caso.setEstado(EstadoCaso.ABIERTO);
-        motor.avanzar(caso, grafos.del(caso.getVersionProceso()), new Momento(reloj.ahora(empresaId), usuarioId));
+        motor.avanzar(caso, grafos.del(empresaId, caso.getVersionProceso()),
+                new Momento(reloj.ahora(empresaId), usuarioId));
         return casoMapper.toResponse(caso);
     }
 
