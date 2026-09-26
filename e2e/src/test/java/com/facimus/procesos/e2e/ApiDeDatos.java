@@ -22,6 +22,7 @@ class ApiDeDatos {
     private final ObjectMapper json = new ObjectMapper();
     private final String api;
     private String token;
+    private long usuarioId;
 
     ApiDeDatos(String api) {
         this.api = api;
@@ -42,6 +43,27 @@ class ApiDeDatos {
                 {"email":"%s","password":"%s"}
                 """.formatted(correo, clave));
         token = sesion.get("accessToken").asText();
+        usuarioId = sesion.get("usuario").get("id").asLong();
+    }
+
+    /** Quien esta dentro con esta sesion: hace falta para darle roles de proceso y que tenga bandeja. */
+    long usuarioId() {
+        return usuarioId;
+    }
+
+    /** Publica el proceso sobre la version que tenga ahora, que es lo que la API compara. */
+    void publicar(long procesoId) {
+        long version = get("/procesos/" + procesoId).get("proceso").get("version").asLong();
+        patch("/procesos/" + procesoId, """
+                {"estado":"PUBLICADO","version":%d}
+                """.formatted(version));
+    }
+
+    /** Los roles de proceso que atiende alguien: de ahi sale su bandeja. */
+    void rolesDeUsuario(long usuarioId, long rolId) {
+        put("/usuarios/" + usuarioId + "/roles-proceso", """
+                {"rolesProcesoIds":[%d]}
+                """.formatted(rolId));
     }
 
     long crearProceso(String nombre, String descripcion, String categoria) {
@@ -102,6 +124,14 @@ class ApiDeDatos {
 
     JsonNode post(String ruta, String cuerpo) {
         return enviar(peticion(ruta).POST(HttpRequest.BodyPublishers.ofString(cuerpo)));
+    }
+
+    JsonNode patch(String ruta, String cuerpo) {
+        return enviar(peticion(ruta).method("PATCH", HttpRequest.BodyPublishers.ofString(cuerpo)));
+    }
+
+    JsonNode put(String ruta, String cuerpo) {
+        return enviar(peticion(ruta).PUT(HttpRequest.BodyPublishers.ofString(cuerpo)));
     }
 
     private HttpRequest.Builder peticion(String ruta) {

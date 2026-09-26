@@ -9,6 +9,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
@@ -16,6 +18,7 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 /**
@@ -75,6 +78,16 @@ abstract class PruebaE2E {
         return espera.until(ExpectedConditions.elementToBeClickable(donde));
     }
 
+    /**
+     * Manda un formulario desde el teclado, con Enter sobre uno de sus campos.
+     *
+     * Hace falta cuando el boton queda mas abajo del borde de la ventana: el navegador sin pantalla no desplaza la
+     * pagina por su cuenta y el clic se pierde. Una persona pulsa Enter igual, asi que la prueba tampoco miente.
+     */
+    protected void enviarConEnter(By campo) {
+        visible(campo).sendKeys(Keys.ENTER);
+    }
+
     protected WebElement visible(By donde) {
         return espera.until(ExpectedConditions.visibilityOfElementLocated(donde));
     }
@@ -83,6 +96,30 @@ abstract class PruebaE2E {
         WebElement campo = visible(donde);
         campo.clear();
         campo.sendKeys(texto);
+    }
+
+    /** Entra con el administrador de una tienda recien registrada. */
+    protected void entrar(ApiDeDatos.Tienda tienda) {
+        entrarCon(tienda.correo(), tienda.clave());
+    }
+
+    /** Entra con cualquiera: hace falta para probar lo que ve quien no es administrador. */
+    protected void entrarCon(String correo, String clave) {
+        ir("/login");
+        escribir(Paginas.Login.EMAIL, correo);
+        escribir(Paginas.Login.CLAVE, clave);
+        pulsable(Paginas.Login.ENTRAR).click();
+        esperarUrl("/procesos");
+    }
+
+    /** Sale sin pasar por el menu: la sesion vive en localStorage y borrarla es salir. */
+    protected void salir() {
+        ((JavascriptExecutor) navegador).executeScript("localStorage.clear()");
+    }
+
+    /** Elige una opcion de un desplegable por el texto que se lee, que es lo unico estable de un option. */
+    protected void elegir(By donde, String texto) {
+        new Select(visible(donde)).selectByVisibleText(texto);
     }
 
     protected String textoDe(By donde) {
