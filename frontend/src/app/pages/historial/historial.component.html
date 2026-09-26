@@ -4,6 +4,11 @@
       <h1 class="h4 fw-bold mb-0">Store history</h1>
       <p class="text-body-secondary">Every change anyone made, with who made it and when.</p>
 
+      @if (!esAdministrador) {
+        <div class="alert alert-info" role="alert" id="historial-solo-admin">
+          Only an administrator can read the history of a store.
+        </div>
+      }
       @if (error) {
         <div class="alert alert-danger" role="alert" id="historial-error">{{ error }}</div>
       }
@@ -21,7 +26,7 @@
               <div>
                 <div>{{ cambioEnIngles(cambio.descripcionCambio) }}</div>
                 <div class="small text-body-secondary">
-                  {{ cambio.autorNombre ?? 'The system' }} · {{ cambio.fechaCambio | date: 'medium' }}
+                  {{ cambio.autorNombre }} · {{ cambio.fechaCambio | date: 'medium' }}
                 </div>
               </div>
             </li>

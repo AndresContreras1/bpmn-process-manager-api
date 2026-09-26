@@ -7,6 +7,7 @@ import { finalize } from 'rxjs';
 import { mensajeDeError } from '../../helpers/errores-api';
 import { PageResponse } from '../../models/page-response.model';
 import { HistorialCambio, cambioEnIngles } from '../../models/proceso.model';
+import { AuthService } from '../../service/auth.service';
 import { ConfiguracionService } from '../../service/configuracion.service';
 
 /** Todo lo que ha pasado en la tienda, de lo mas nuevo a lo mas viejo. */
@@ -20,13 +21,19 @@ export class HistorialComponent implements OnInit {
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   readonly cambioEnIngles: (descripcion: string) => string = cambioEnIngles;
+  /** La API responde 403 al que no es administrador, asi que la pantalla no lo intenta. */
+  readonly esAdministrador: boolean = inject(AuthService).esAdministrador();
 
   pagina: PageResponse<HistorialCambio> | null = null;
   cargando: boolean = true;
   error: string | null = null;
 
   ngOnInit(): void {
-    this.cargar(0);
+    if (this.esAdministrador) {
+      this.cargar(0);
+    } else {
+      this.cargando = false;
+    }
   }
 
   cargar(pagina: number): void {
