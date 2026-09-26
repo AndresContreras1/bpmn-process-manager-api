@@ -1,4 +1,15 @@
-import { Diagrama, Mensaje, NOMBRE_PARTICIPANTE, Pool, TipoGateway, TipoParticipante } from '../../../../models/diagrama.model';
+import {
+  Diagrama,
+  Evento,
+  Mensaje,
+  NOMBRE_EVENTO,
+  NOMBRE_PARTICIPANTE,
+  Pool,
+  TipoEvento,
+  TipoGateway,
+  TipoParticipante,
+  terminaElProceso,
+} from '../../../../models/diagrama.model';
 
 // Medidas del dibujo, en las mismas unidades de posicionX y posicionY
 const MARGEN = 16;
@@ -6,6 +17,7 @@ const FRANJA = 30; // ancho de la franja con el nombre de un pool o de un lane
 const ANCHO_TAREA = 128;
 const ALTO_TAREA = 56;
 const LADO_GATEWAY = 50;
+const RADIO_EVENTO = 18;
 const RELLENO_X = 48; // espacio entre las franjas y el primer nodo, y despues del ultimo
 const RELLENO_ARRIBA = 24;
 const RELLENO_ABAJO = 40; // mas espacio abajo: el nombre de un gateway va debajo del rombo
@@ -69,6 +81,27 @@ export interface GatewayDibujo {
   texto: TextoDibujo;
 }
 
+/**
+ * Un evento, con la notacion de BPMN: circulo fino si arranca el proceso, doble si espera un mensaje en mitad del
+ * flujo y grueso si termina un camino. Los tres que llevan mensaje muestran un sobre, relleno solo cuando lo manda.
+ */
+export interface EventoDibujo {
+  id: number;
+  nombre: string;
+  tipo: TipoEvento;
+  titulo: string;
+  /** Que circulo le toca: uno fino, uno doble o uno grueso. */
+  clase: 'inicio' | 'intermedio' | 'fin';
+  cx: number;
+  cy: number;
+  radio: number;
+  doble: boolean;
+  grueso: boolean;
+  sobre: string | null;
+  sobreRelleno: boolean;
+  texto: TextoDibujo;
+}
+
 export interface ArcoDibujo {
   id: number;
   ruta: string;
@@ -85,10 +118,14 @@ export interface MensajeDibujo {
   contenido: string;
   origen: string;
   destino: string;
+  /** Nombre del nodo del que sale y al que entra, cuando el pool no es una caja negra. */
+  desde: string | null;
+  hasta: string | null;
   claves: string[];
-  x: number;
-  y1: number;
-  y2: number;
+  ruta: string;
+  salidaX: number;
+  salidaY: number;
+  numeroX: number;
   numeroY: number;
 }
 
@@ -101,6 +138,7 @@ export interface Lienzo {
   lanes: LaneDibujo[];
   actividades: ActividadDibujo[];
   gateways: GatewayDibujo[];
+  eventos: EventoDibujo[];
   arcos: ArcoDibujo[];
   mensajes: MensajeDibujo[];
 }
@@ -120,7 +158,10 @@ interface NodoUbicado {
  * nodos y ningun nodo se dibuja fuera de su lane.
  */
 export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
-  const posicionesX: number[] = [...diagrama.actividades, ...diagrama.gateways].map((nodo) => nodo.posicionX);
+  // Los eventos entran en la cuenta: el de inicio suele ser el nodo mas a la izquierda de todo el diagrama
+  const posicionesX: number[] = [...diagrama.actividades, ...diagrama.gateways, ...diagrama.eventos].map(
+    (nodo) => nodo.posicionX,
+  );
   const minX: number = posicionesX.length ? Math.min(...posicionesX) : 0;
   const maxX: number = posicionesX.length ? Math.max(...posicionesX) : 0;
   const anchoPool: number = Math.max(2 * FRANJA + maxX - minX + ANCHO_TAREA + 2 * RELLENO_X, ANCHO_MINIMO);
@@ -134,6 +175,7 @@ export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
     lanes: [],
     actividades: [],
     gateways: [],
+    eventos: [],
     arcos: [],
     mensajes: [],
   };
@@ -153,7 +195,8 @@ export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
       for (const lane of lanes) {
         const actividades = diagrama.actividades.filter((actividad) => actividad.laneId === lane.id);
         const gateways = diagrama.gateways.filter((gateway) => gateway.laneId === lane.id);
-        const posicionesY: number[] = [...actividades, ...gateways].map((nodo) => nodo.posicionY);
+        const eventos = diagrama.eventos.filter((evento) => evento.laneId === lane.id);
+        const posicionesY: number[] = [...actividades, ...gateways, ...eventos].map((nodo) => nodo.posicionY);
         const minY: number = posicionesY.length ? Math.min(...posicionesY) : 0;
         const alto: number = posicionesY.length
           ? RELLENO_ARRIBA + Math.max(...posicionesY) - minY + ALTO_TAREA + RELLENO_ABAJO
@@ -200,6 +243,18 @@ export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
           });
           ubicados.set(gateway.id, { cx, cy, medioAncho: medio, medioAlto: medio, esGateway: true });
         }
+        for (const evento of eventos) {
+          const cx: number = xDe(evento.posicionX);
+          const cy: number = yDe(evento.posicionY);
+          lienzo.eventos.push(dibujarEvento(evento, cx, cy));
+          ubicados.set(evento.id, {
+            cx,
+            cy,
+            medioAncho: RADIO_EVENTO,
+            medioAlto: RADIO_EVENTO,
+            esGateway: false,
+          });
+        }
         yLane += alto;
       }
     }
@@ -236,15 +291,22 @@ export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
     }
   }
 
-  lienzo.mensajes = dibujarMensajes(diagrama, cajasDePool, anchoPool);
+  lienzo.mensajes = dibujarMensajes(diagrama, cajasDePool, ubicados, anchoPool);
   return lienzo;
 }
 
 /**
- * Los mensajes se reparten a lo ancho del lienzo, uno por columna, y bajan (o suben) del borde del pool de origen al
- * del destino. Cada uno lleva un numero que remite a la lista de mensajes debajo del dibujo.
+ * Cada mensaje sale del nodo al que esta anclado y entra en el nodo que lo espera, cruzando el hueco entre los pools.
+ * Un extremo en una caja negra no tiene nodo, y entonces ese lado arranca (o termina) en el borde del pool: los
+ * mensajes que no tienen ningun nodo se reparten a lo ancho, como antes, para que no se monten unos sobre otros.
+ * Cada uno lleva un numero que remite a la lista de mensajes debajo del dibujo.
  */
-function dibujarMensajes(diagrama: Diagrama, cajas: Map<number, PoolDibujo>, anchoPool: number): MensajeDibujo[] {
+function dibujarMensajes(
+  diagrama: Diagrama,
+  cajas: Map<number, PoolDibujo>,
+  ubicados: Map<number, NodoUbicado>,
+  anchoPool: number,
+): MensajeDibujo[] {
   const mensajes: Mensaje[] = [...diagrama.mensajes]
     .filter((mensaje) => {
       const origen = cajas.get(mensaje.poolOrigenId);
@@ -252,14 +314,32 @@ function dibujarMensajes(diagrama: Diagrama, cajas: Map<number, PoolDibujo>, anc
       return origen !== undefined && destino !== undefined && origen !== destino;
     })
     .sort((a, b) => a.id - b.id);
-  const inicio: number = MARGEN + 2 * FRANJA + 24;
-  const paso: number = (anchoPool - 2 * FRANJA - 48) / Math.max(mensajes.length, 1);
 
-  return mensajes.map((mensaje: Mensaje, indice: number) => {
+  // Las columnas solo hacen falta para los mensajes sin ningun nodo anclado, y se reparten entre ellos
+  const sueltos: number[] = mensajes
+    .filter((mensaje) => !ubicados.has(mensaje.nodoOrigenId ?? -1) && !ubicados.has(mensaje.nodoDestinoId ?? -1))
+    .map((mensaje) => mensaje.id);
+  const inicio: number = MARGEN + 2 * FRANJA + 24;
+  const paso: number = (anchoPool - 2 * FRANJA - 48) / Math.max(sueltos.length, 1);
+
+  const dibujos: MensajeDibujo[] = mensajes.map((mensaje: Mensaje, indice: number) => {
     const origen = cajas.get(mensaje.poolOrigenId) as PoolDibujo;
     const destino = cajas.get(mensaje.poolDestinoId) as PoolDibujo;
     const baja: boolean = destino.y > origen.y;
-    const y1: number = baja ? origen.y + origen.alto : origen.y;
+    const hacia: number = baja ? 1 : -1;
+    const columna: number = inicio + paso * (sueltos.indexOf(mensaje.id) + 0.5);
+    const desde: NodoUbicado | undefined = ubicados.get(mensaje.nodoOrigenId ?? -1);
+    const hasta: NodoUbicado | undefined = ubicados.get(mensaje.nodoDestinoId ?? -1);
+
+    // El hueco que hay justo despues del pool de origen: por ahi corre el tramo horizontal y va el numero
+    const yHueco: number = baja
+      ? origen.y + origen.alto + SEPARACION / 2
+      : origen.y - SEPARACION / 2;
+    const x1: number = desde ? desde.cx : hasta ? hasta.cx : columna;
+    const x2: number = hasta ? hasta.cx : x1;
+    const y1: number = desde ? desde.cy + hacia * desde.medioAlto : baja ? origen.y + origen.alto : origen.y;
+    const y2: number = hasta ? hasta.cy - hacia * hasta.medioAlto : baja ? destino.y : destino.y + destino.alto;
+
     return {
       id: mensaje.id,
       numero: indice + 1,
@@ -267,15 +347,77 @@ function dibujarMensajes(diagrama: Diagrama, cajas: Map<number, PoolDibujo>, anc
       contenido: mensaje.contenido,
       origen: origen.nombre,
       destino: destino.nombre,
+      desde: nombreDeNodo(diagrama, mensaje.nodoOrigenId),
+      hasta: nombreDeNodo(diagrama, mensaje.nodoDestinoId),
       claves: diagrama.correlaciones
         .filter((correlacion) => correlacion.mensajeId === mensaje.id)
         .map((correlacion) => correlacion.criterio),
-      x: inicio + paso * (indice + 0.5),
-      y1,
-      y2: baja ? destino.y : destino.y + destino.alto,
-      numeroY: y1 + (baja ? SEPARACION : -SEPARACION) / 2,
+      ruta: x1 === x2 ? `M ${x1} ${y1} V ${y2}` : `M ${x1} ${y1} V ${yHueco} H ${x2} V ${y2}`,
+      salidaX: x1,
+      salidaY: y1,
+      numeroX: (x1 + x2) / 2,
+      numeroY: yHueco,
     };
   });
+  return separarMensajesQueSeMontan(dibujos);
+}
+
+/**
+ * Dos mensajes que salen del mismo nodo al mismo nodo caerian encima uno del otro. Se abren en abanico moviendo su
+ * numero, que es lo que hay que poder leer; la ruta se queda donde esta, porque nace y muere en un nodo concreto.
+ */
+function separarMensajesQueSeMontan(dibujos: MensajeDibujo[]): MensajeDibujo[] {
+  const porColumna = new Map<string, MensajeDibujo[]>();
+  for (const dibujo of dibujos) {
+    const clave: string = `${Math.round(dibujo.numeroX)}|${Math.round(dibujo.numeroY)}`;
+    porColumna.set(clave, [...(porColumna.get(clave) ?? []), dibujo]);
+  }
+  for (const juntos of porColumna.values()) {
+    if (juntos.length > 1) {
+      juntos.forEach((dibujo: MensajeDibujo, indice: number) => {
+        dibujo.numeroX += (indice - (juntos.length - 1) / 2) * 24;
+      });
+    }
+  }
+  return dibujos;
+}
+
+/** El nombre de una tarea, un gateway o un evento por su id; los tres comparten numeracion. */
+function nombreDeNodo(diagrama: Diagrama, id: number | null): string | null {
+  if (id === null) {
+    return null;
+  }
+  const nodo = [...diagrama.actividades, ...diagrama.gateways, ...diagrama.eventos].find(
+    (candidato) => candidato.id === id,
+  );
+  return nodo?.nombre ?? null;
+}
+
+/** Un evento ya ubicado: el circulo que le toca por su tipo, su sobre si lleva mensaje y su nombre debajo. */
+function dibujarEvento(evento: Evento, cx: number, cy: number): EventoDibujo {
+  const conMensaje: boolean = evento.tipoEvento !== 'INICIO' && evento.tipoEvento !== 'FIN';
+  return {
+    id: evento.id,
+    nombre: evento.nombre,
+    tipo: evento.tipoEvento,
+    titulo: `${evento.nombre} · ${NOMBRE_EVENTO[evento.tipoEvento]}`,
+    clase: evento.tipoEvento === 'MENSAJE_INTERMEDIO' ? 'intermedio' : terminaElProceso(evento.tipoEvento) ? 'fin' : 'inicio',
+    cx,
+    cy,
+    radio: RADIO_EVENTO,
+    doble: evento.tipoEvento === 'MENSAJE_INTERMEDIO',
+    grueso: terminaElProceso(evento.tipoEvento),
+    sobre: conMensaje ? sobre(cx, cy) : null,
+    // En BPMN el sobre relleno es el que manda el mensaje, y el hueco el que lo espera
+    sobreRelleno: evento.tipoEvento === 'MENSAJE_FIN',
+    // El nombre va debajo del circulo, centrado: es lo unico que no cabe dentro
+    texto: { lineas: partirTexto(evento.nombre, 20, 2), x: cx, y: cy + RADIO_EVENTO + 14 },
+  };
+}
+
+/** Un sobre dentro del circulo: el rectangulo y la solapa. */
+function sobre(cx: number, cy: number): string {
+  return `M ${cx - 8} ${cy - 5} h 16 v 10 h -16 z M ${cx - 8} ${cy - 5} L ${cx} ${cy + 1} L ${cx + 8} ${cy - 5}`;
 }
 
 /** Ruta en angulo recto de un nodo a otro, y donde va su etiqueta. */
