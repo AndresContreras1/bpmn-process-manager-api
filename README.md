@@ -178,9 +178,11 @@ on the wall and what the store actually does are the same thing.
 11. **Keep track.** Every change is recorded in the process history with its author and date. Deleted items are
     retired, not erased, so the record stays complete.
 
-The web app in [`frontend/`](frontend/) covers signing in, store registration, the account page, the process list,
-detail and forms, publishing, and a diagram viewer. Modeling the diagram itself is done through the
-[API](#api-reference).
+The web app in [`frontend/`](frontend/) covers all of it: signing in and registering a store, the process list and
+its detail, the diagram viewer with its published versions, a modelling editor with a live diagnosis, the
+administration of users, roles, sharing and settings, and the operation —cases with their timeline, the tray of
+tasks, the simulation clock and the dashboard. The [API](#api-reference) is still the whole contract underneath,
+and the [Postman collection](postman/) walks it end to end.
 
 ## Example: order fulfillment
 

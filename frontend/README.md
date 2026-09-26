@@ -87,6 +87,7 @@ The detail page asks for the process and for its whole diagram in parallel (`for
 
 - The diagram is plain SVG drawn by the `diagrama-bpmn` component, without a BPMN library. `lienzo.ts` places every
   element first, and the component only draws what it receives.
+- The same component draws a case in motion, with `nodosActivos` and `nodosRecorridos`: see [Operation](#operation).
 - Events follow the notation: a thin circle where the process starts, a double one where it waits for a message, a
   thick one where a path ends, and an envelope on the three that carry a message, filled only on the one that sends
   it. They take part in the layout like any other node, so they widen the pool and raise their lane.
@@ -172,6 +173,43 @@ the role from the observable rather than from a snapshot, because the navbar is 
 - **Store history** (`/historial`): everything that happened, paged, newest first. For administrators
   only, like the three above, because that is what the API allows.
 
+## Operation
+
+Five screens for a store that is running. They are the ones that turn the execution the API had into something
+somebody can watch.
+
+- **Cases** (`/casos`): every order running on a published version, filtered by process, state or the exact
+  reference, and sorted by any of the three. Opening one by hand is a panel on the same screen: the process, the
+  reference its messages will be matched by, and the variables the gateways will read. A process that starts with a
+  message is not opened here, and the panel says so: its message opens it.
+- **A case** (`/casos/:id`): the screen that answers *why is it stopped*. It draws the diagram of the version the
+  case runs on, not today's working copy, and marks what it already went through in green and where its tokens are
+  right now with a pulse. Under it, the timeline, the variables, every step with its state, and the messages it
+  sent and received with the reason one did not arrive. An administrator can replace the variables —what a case
+  with no path was usually missing— and try again.
+- **Task tray** (`/tareas`): what the open cases are waiting for somebody to do. It starts with the tasks of the
+  process roles the person answers for, and says so when it is empty, because someone with no roles has no tray.
+  Completing a task takes free key-value data, which lands in the variables of the case under
+  `tarea.<nameInCamel>`, so a gateway further on can ask for it.
+- **Simulation** (`/simulacion`, administrators): the clock, a batch of orders from the simulated customer, and how
+  the partners answer —the seed, the rates and the ticks each one takes. Moving the clock writes on the same row as
+  the settings, so the panel reads them again right after a tick; otherwise saving the partners next would answer
+  `409`.
+- **Dashboard** (`/tablero`): the same numbers for one process or for the whole store. Cases by state, how long a
+  finished order took in ticks (average and p95, both made only of the finished ones), the work waiting in each
+  tray, the messages that went out and came in, and what did not go as expected.
+
+The canvas is the viewer's again, with two more inputs: `nodosActivos` and `nodosRecorridos`. A case and a diagram
+have to be the same drawing, and the only thing a case adds is where it is.
+
+The free key-value editor —variables, what a task hands over, what every order of a batch carries— reads what was
+typed: a number stays a number, `true` and `false` are booleans, something that starts with a brace is parsed as
+JSON, and the rest travels as text. Gateway conditions compare numbers, so guessing wrong there is not cosmetic.
+
+The timeline of a case shows the kind of every line in English and the sentence as the API writes it, in Spanish,
+because those sentences carry names and numbers inside. It is the same decision the diagnosis of the editor took,
+and the same place to fix it: the API.
+
 ## In a container
 
 `frontend/Dockerfile` compiles the app with Node and serves it with NGINX; Node only exists in the build stage. The
@@ -202,6 +240,8 @@ src/
 │   ├── pages/         one folder per page, with a components/ folder for pieces only that page uses
 │   ├── models/        interfaces that mirror the API's DTOs, with the same field names
 │   ├── service/       services that call the API and return observables
+│   ├── helpers/       plain functions several screens share: API errors, free key-value data
+│   ├── guards/        who may open a route
 │   └── interceptors/  HTTP interceptors
 ├── environments/      the API URL for development and production
 └── styles.scss        Bootstrap variables and global styles
