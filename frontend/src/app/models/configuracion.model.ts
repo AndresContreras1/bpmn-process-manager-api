@@ -29,13 +29,13 @@ export interface ConfiguracionTienda {
 }
 
 /**
- * Lo que se manda al guardarla. `simulacion` viaja vacia cuando solo se cambia la politica: los parametros de
- * los socios se ajustan desde la simulacion, no desde aqui.
+ * Lo que se manda al guardarla. `simulacion` viaja vacia cuando solo se cambia la politica, y entera cuando se
+ * ajustan los socios desde el panel de simulacion: la API la toma completa o no la toma.
  */
 export interface ConfiguracionTiendaRequest {
   politicaEstructura: PoliticaEstructura;
   modoSimulacion: ModoSimulacion | null;
-  simulacion: null;
+  simulacion: ParametrosSimulacion | null;
   version: number;
 }
 
