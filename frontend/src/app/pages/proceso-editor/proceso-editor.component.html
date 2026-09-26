@@ -41,6 +41,69 @@
       <div class="row g-3">
         <!-- ------------------------------------------------------------------ el esquema -->
         <div class="col-lg-3 col-xl-2">
+          @if (puedeEditar) {
+            <div class="card border-0 shadow-sm mb-3">
+              <div class="card-body p-3">
+                <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Add</h2>
+                <p class="small text-body-secondary">Nodes go into the lane you have picked.</p>
+                <div class="d-grid gap-2 mb-2">
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="paleta-participante"
+                          (click)="agregarPool()">Participant</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="paleta-lane"
+                          (click)="agregarLane()">Lane</button>
+                </div>
+                <div class="d-flex gap-1 mb-1">
+                  <select class="form-select form-select-sm" aria-label="Kind of task"
+                          [(ngModel)]="nuevaActividad" id="paleta-tipo-actividad">
+                    @for (tipo of tiposActividad; track tipo) {
+                      <option [ngValue]="tipo">{{ nombreActividad[tipo] }}</option>
+                    }
+                  </select>
+                  <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="paleta-actividad"
+                          (click)="agregarActividad()">Add</button>
+                </div>
+                <div class="d-flex gap-1 mb-1">
+                  <select class="form-select form-select-sm" aria-label="Kind of gateway"
+                          [(ngModel)]="nuevoGateway" id="paleta-tipo-gateway">
+                    @for (tipo of tiposGateway; track tipo) {
+                      <option [ngValue]="tipo">{{ nombreGateway[tipo] }}</option>
+                    }
+                  </select>
+                  <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="paleta-gateway"
+                          (click)="agregarGateway()">Add</button>
+                </div>
+                <div class="d-flex gap-1 mb-2">
+                  <select class="form-select form-select-sm" aria-label="Kind of event"
+                          [(ngModel)]="nuevoEvento" id="paleta-tipo-evento">
+                    @for (tipo of tiposEvento; track tipo) {
+                      <option [ngValue]="tipo">{{ nombreEvento[tipo] }}</option>
+                    }
+                  </select>
+                  <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="paleta-evento"
+                          (click)="agregarEvento()">Add</button>
+                </div>
+
+                <h3 class="h6 small text-uppercase text-body-secondary fw-semibold mt-3">Message flow</h3>
+                <select class="form-select form-select-sm mb-1" aria-label="From which participant"
+                        [(ngModel)]="mensajeOrigen" id="paleta-mensaje-origen">
+                  <option [ngValue]="null">From…</option>
+                  @for (pool of diagrama.pools; track pool.id) {
+                    <option [ngValue]="pool.id">{{ pool.nombre }}</option>
+                  }
+                </select>
+                <select class="form-select form-select-sm mb-1" aria-label="To which participant"
+                        [(ngModel)]="mensajeDestino" id="paleta-mensaje-destino">
+                  <option [ngValue]="null">To…</option>
+                  @for (pool of diagrama.pools; track pool.id) {
+                    <option [ngValue]="pool.id">{{ pool.nombre }}</option>
+                  }
+                </select>
+                <button type="button" class="btn btn-sm btn-outline-primary w-100" id="paleta-mensaje"
+                        (click)="agregarMensaje()">Add the message flow</button>
+              </div>
+            </div>
+          }
+
           <div class="card border-0 shadow-sm h-100">
             <div class="card-body p-3">
               <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Outline</h2>
@@ -143,6 +206,13 @@
                 </p>
                 <app-panel-elemento class="d-block mt-3" [seleccion]="seleccion" [diagrama]="diagrama"
                                     [roles]="roles" [puedeEditar]="puedeEditar" (guardado)="refrescar()" />
+                @if (puedeEditar) {
+                  <button type="button" class="btn btn-outline-danger btn-sm w-100 mt-2" id="proceso-editor-borrar"
+                          data-bs-toggle="modal" data-bs-target="#modal-borrar-elemento"
+                          (click)="prepararBorrado()">
+                    <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete
+                  </button>
+                }
               } @else {
                 <p class="small text-body-secondary mb-0" id="proceso-editor-sin-eleccion">
                   Pick something in the outline or in the diagram.
@@ -191,3 +261,6 @@
     }
   }
 </div>
+
+<app-modal-confirmar idModal="modal-borrar-elemento" titulo="Delete this element?" textoBoton="Delete"
+                     [peligro]="true" [mensaje]="impacto" (confirmar)="confirmarBorrado()" />
