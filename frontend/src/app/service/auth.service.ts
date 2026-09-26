@@ -47,6 +47,16 @@ export class AuthService {
   }
 
   /**
+   * Cambia la contrasena y abre una sesion nueva: la API cierra todas las de este usuario, esta incluida, y los
+   * tokens que devuelve son los que hay que quedarse.
+   */
+  cambiarClave(actual: string, nueva: string): Observable<LoginResponse> {
+    return this.http
+      .post<LoginResponse>(`${this.url}/password`, { actual, nueva })
+      .pipe(tap((respuesta: LoginResponse) => this.guardarSesion(respuesta)));
+  }
+
+  /**
    * Avisa a la API y borra la sesion del navegador, aunque la llamada falle (por ejemplo, con el token vencido).
    * El token de refresco va en el cuerpo para que la API cierre tambien su sesion y no quede uno usable.
    */
