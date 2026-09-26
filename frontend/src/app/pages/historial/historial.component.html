@@ -1,0 +1,45 @@
+<div class="container py-5" id="historial">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <h1 class="h4 fw-bold mb-0">Store history</h1>
+      <p class="text-body-secondary">Every change anyone made, with who made it and when.</p>
+
+      @if (error) {
+        <div class="alert alert-danger" role="alert" id="historial-error">{{ error }}</div>
+      }
+      @if (cargando) {
+        <div class="text-center text-body-secondary py-4" id="historial-cargando">
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading…
+        </div>
+      } @else if (pagina && pagina.content.length === 0) {
+        <p class="text-body-secondary" id="historial-vacio">Nothing has happened yet.</p>
+      } @else if (pagina) {
+        <p class="small text-body-secondary" id="historial-cuenta">{{ pagina.totalElements }} changes recorded.</p>
+        <ol class="list-unstyled mb-0">
+          @for (cambio of pagina.content; track cambio.id) {
+            <li class="d-flex gap-3 mb-3" data-testid="historial-cambio">
+              <div>
+                <div>{{ cambioEnIngles(cambio.descripcionCambio) }}</div>
+                <div class="small text-body-secondary">
+                  {{ cambio.autorNombre ?? 'The system' }} · {{ cambio.fechaCambio | date: 'medium' }}
+                </div>
+              </div>
+            </li>
+          }
+        </ol>
+
+        @if (pagina.totalPages > 1) {
+          <nav aria-label="Pages of the history" class="mt-3">
+            <ul class="pagination pagination-sm mb-0">
+              @for (numero of [].constructor(pagina.totalPages); track $index) {
+                <li class="page-item" [class.active]="$index === pagina.page">
+                  <button type="button" class="page-link" (click)="cargar($index)">{{ $index + 1 }}</button>
+                </li>
+              }
+            </ul>
+          </nav>
+        }
+      }
+    </div>
+  </div>
+</div>

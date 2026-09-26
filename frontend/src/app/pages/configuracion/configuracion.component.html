@@ -1,0 +1,60 @@
+<div class="container py-5" id="configuracion">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <h1 class="h4 fw-bold mb-0">Store settings</h1>
+      <p class="text-body-secondary">What holds for every process of your store.</p>
+
+      @if (aviso) {
+        <div class="alert alert-success" role="status" id="configuracion-aviso">{{ aviso }}</div>
+      }
+      @if (error) {
+        <div class="alert alert-danger" role="alert" id="configuracion-error">{{ error }}</div>
+      }
+
+      @if (cargando) {
+        <div class="text-center text-body-secondary py-4" id="configuracion-cargando">
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading…
+        </div>
+      } @else if (configuracion) {
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Who may change the structure</h2>
+            <p class="small text-body-secondary">
+              Adding, moving or removing participants, lanes, tasks, gateways, events and flows. Writing what they
+              say —names, descriptions, conditions— is not structure, and editors can always do that.
+            </p>
+            @for (opcion of politicas; track opcion) {
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="politica" [id]="'politica-' + opcion"
+                       [value]="opcion" [(ngModel)]="politica" [disabled]="!esAdministrador">
+                <label class="form-check-label" [for]="'politica-' + opcion">{{ nombrePolitica[opcion] }}</label>
+              </div>
+            }
+
+            @if (esAdministrador) {
+              <button type="button" class="btn btn-primary mt-3" id="configuracion-guardar"
+                      [disabled]="enviando || politica === configuracion.politicaEstructura" (click)="guardar()">
+                {{ enviando ? 'Saving…' : 'Save' }}
+              </button>
+            } @else {
+              <p class="small text-body-secondary mb-0 mt-3" id="configuracion-solo-admin">
+                Only an administrator can change this.
+              </p>
+            }
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-3">
+          <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Simulation</h2>
+            <p class="small text-body-secondary mb-0">
+              The store clock is at tick {{ configuracion.reloj }} and runs in
+              <span class="fw-semibold">{{ configuracion.modoSimulacion === 'MANUAL' ? 'manual' : 'automatic' }}</span>
+              mode. The clock and the simulated partners are set from the operations screens.
+            </p>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

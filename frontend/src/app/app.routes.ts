@@ -10,6 +10,9 @@ import { ProcesoEditorComponent } from './pages/proceso-editor/proceso-editor.co
 import { ProcesoFormComponent } from './pages/proceso-form/proceso-form.component';
 import { ProcesosComponent } from './pages/procesos/procesos.component';
 import { RegistroComponent } from './pages/registro/registro.component';
+import { ConfiguracionComponent } from './pages/configuracion/configuracion.component';
+import { HistorialComponent } from './pages/historial/historial.component';
+import { RolesComponent } from './pages/roles/roles.component';
 import { UsuariosComponent } from './pages/usuarios/usuarios.component';
 
 // Angular evalua las rutas de arriba hacia abajo: las especificas van primero y el comodin al final
@@ -20,6 +23,14 @@ export const routes: Routes = [
   { path: 'cuenta', component: CuentaComponent, canActivate: [authGuard], title: 'My account · BPMN Process Manager' },
   { path: 'procesos', component: ProcesosComponent, canActivate: [authGuard], title: 'Processes · BPMN Process Manager' },
   { path: 'usuarios', component: UsuariosComponent, canActivate: [authGuard], title: 'Users · BPMN Process Manager' },
+  { path: 'roles', component: RolesComponent, canActivate: [authGuard], title: 'Process roles · BPMN Process Manager' },
+  {
+    path: 'configuracion',
+    component: ConfiguracionComponent,
+    canActivate: [authGuard],
+    title: 'Store settings · BPMN Process Manager',
+  },
+  { path: 'historial', component: HistorialComponent, canActivate: [authGuard], title: 'Store history · BPMN Process Manager' },
   // nuevo va antes de :id, o Angular tomaria "nuevo" como el id de un proceso
   {
     path: 'procesos/nuevo',
