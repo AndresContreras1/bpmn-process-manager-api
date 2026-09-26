@@ -121,9 +121,15 @@ export default function (datos) {
     const tareas = bandeja.json('content') || [];
     if (tareas.length > 0) {
       // Puede que otra persona del pico la haya completado entre la consulta y esto: un 409 no es un fallo,
-      // es exactamente lo que la regla de una tarea por persona tiene que responder.
+      // es exactamente lo que la regla de una tarea por persona tiene que responder. Hay que decirselo tambien a
+      // http_req_failed, que por su cuenta cuenta como fallo cualquier respuesta de 400 para arriba: con diez
+      // personas peleando por la primera tarea de la bandeja, esos 409 son la mayoria de las respuestas.
       const completar = http.post(`${BASE}/api/v1/tareas/${tareas[0].id}/completar`,
-        JSON.stringify({}), { ...cabeceras, tags: { operacion: 'completar' } });
+        JSON.stringify({}), {
+          ...cabeceras,
+          tags: { operacion: 'completar' },
+          responseCallback: http.expectedStatuses(200, 409),
+        });
       check(completar, { 'completar responde 200 o 409': (r) => r.status === 200 || r.status === 409 });
     }
 
