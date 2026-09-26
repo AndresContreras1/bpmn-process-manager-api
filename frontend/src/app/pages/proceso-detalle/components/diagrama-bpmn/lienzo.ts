@@ -118,7 +118,10 @@ export interface MensajeDibujo {
   contenido: string;
   origen: string;
   destino: string;
-  /** Nombre del nodo del que sale y al que entra, cuando el pool no es una caja negra. */
+  /** Nodo del que sale y al que entra; vacios cuando ese lado es una caja negra. */
+  nodoOrigenId: number | null;
+  nodoDestinoId: number | null;
+  /** Nombre de esos nodos, para el titulo del dibujo. */
   desde: string | null;
   hasta: string | null;
   claves: string[];
@@ -347,6 +350,8 @@ function dibujarMensajes(
       contenido: mensaje.contenido,
       origen: origen.nombre,
       destino: destino.nombre,
+      nodoOrigenId: mensaje.nodoOrigenId,
+      nodoDestinoId: mensaje.nodoDestinoId,
       desde: nombreDeNodo(diagrama, mensaje.nodoOrigenId),
       hasta: nombreDeNodo(diagrama, mensaje.nodoDestinoId),
       claves: diagrama.correlaciones

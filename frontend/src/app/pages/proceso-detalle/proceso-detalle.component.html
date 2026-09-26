@@ -165,10 +165,59 @@
                       }
                     </div>
                   </div>
+                  @if (nodoElegido.envia.length || nodoElegido.espera.length) {
+                    <div class="row g-3 mt-0 small" id="diagrama-detalle-mensajes">
+                      @if (nodoElegido.envia.length) {
+                        <div class="col-md-6">
+                          <div class="fw-semibold mb-1">Sends</div>
+                          <ul class="list-unstyled mb-0">
+                            @for (mensaje of nodoElegido.envia; track mensaje.numero) {
+                              <li class="mb-2" data-testid="mensaje-enviado">
+                                <span class="badge text-bg-primary">{{ mensaje.numero }}</span>
+                                {{ mensaje.nombre }}
+                                <span class="text-body-secondary">to {{ mensaje.participante }}</span>
+                                @if (mensaje.comoViaja) {
+                                  <div class="text-body-secondary">Travels as a {{ mensaje.comoViaja }}.</div>
+                                }
+                                @if (mensaje.siFalla) {
+                                  <div class="text-body-secondary">If it cannot be delivered,
+                                    {{ mensaje.siFalla }}.</div>
+                                }
+                                @if (mensaje.campos.length) {
+                                  <div class="text-body-secondary">Carries {{ mensaje.campos.join(', ') }}.</div>
+                                }
+                              </li>
+                            }
+                          </ul>
+                        </div>
+                      }
+                      @if (nodoElegido.espera.length) {
+                        <div class="col-md-6">
+                          <div class="fw-semibold mb-1">Waits for</div>
+                          <ul class="list-unstyled mb-0">
+                            @for (mensaje of nodoElegido.espera; track mensaje.numero) {
+                              <li class="mb-2" data-testid="mensaje-esperado">
+                                <span class="badge text-bg-primary">{{ mensaje.numero }}</span>
+                                {{ mensaje.nombre }}
+                                <span class="text-body-secondary">from {{ mensaje.participante }}</span>
+                                @if (mensaje.variable) {
+                                  <div class="text-body-secondary">Its body becomes
+                                    <code>{{ mensaje.variable }}</code>.</div>
+                                }
+                                @if (mensaje.correlacion) {
+                                  <div class="text-body-secondary">Matched by {{ mensaje.correlacion }}.</div>
+                                }
+                              </li>
+                            }
+                          </ul>
+                        </div>
+                      }
+                    </div>
+                  }
                 </div>
-              } @else if (diagrama.actividades.length + diagrama.gateways.length > 0) {
+              } @else if (diagrama.actividades.length + diagrama.gateways.length + diagrama.eventos.length > 0) {
                 <p class="small text-body-secondary mt-3 mb-0" id="diagrama-ayuda">
-                  Select a task or a gateway to see its details.
+                  Select a task, a gateway or an event to see its details.
                 </p>
               } @else {
                 <p class="small text-body-secondary mt-3 mb-0" id="diagrama-vacio">
@@ -184,7 +233,8 @@
                       <span class="numero rounded-circle flex-shrink-0" aria-hidden="true">{{ mensaje.numero }}</span>
                       <div class="small">
                         <span class="fw-semibold">{{ mensaje.nombre }}</span>
-                        <span class="text-body-secondary"> · {{ mensaje.origen }} → {{ mensaje.destino }}</span>
+                        <span class="text-body-secondary"> · {{ mensaje.desde ?? mensaje.origen }} →
+                          {{ mensaje.hasta ?? mensaje.destino }}</span>
                         <div class="text-body-secondary">{{ mensaje.contenido }}</div>
                         @if (mensaje.claves.length) {
                           <div class="text-body-secondary">

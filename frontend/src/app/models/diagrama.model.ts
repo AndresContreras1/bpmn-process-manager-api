@@ -163,6 +163,14 @@ export const NOMBRE_SI_FALLA: Record<AccionSiFalla, string> = {
   FINALIZAR: 'the process ends',
 };
 
+/** El tipo de un campo del mensaje. La API los nombra en espanol, como el historial de cambios. */
+export const NOMBRE_TIPO_DATO: Record<TipoDeDato, string> = {
+  TEXTO: 'text',
+  NUMERO: 'number',
+  FECHA: 'date',
+  BOOLEANO: 'yes/no',
+};
+
 /** Que hace un mensaje que llega y no corresponde a ningun caso abierto. */
 export const NOMBRE_SIN_CASO: Record<PoliticaSinCaso, string> = {
   DESCARTAR: 'it is discarded',

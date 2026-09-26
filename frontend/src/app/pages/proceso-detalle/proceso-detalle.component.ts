@@ -90,9 +90,12 @@ export class ProcesoDetalleComponent implements OnInit {
       });
   }
 
-  /** Muestra el detalle de la tarea o el gateway elegido; elegirlo otra vez lo cierra. */
+  /** Muestra el detalle de la tarea, el gateway o el evento elegido; elegirlo otra vez lo cierra. */
   elegirNodo(id: number): void {
-    this.nodoElegido = this.diagrama && this.nodoElegido?.id !== id ? detallarNodo(this.diagrama, id) : null;
+    this.nodoElegido =
+      this.diagrama && this.lienzo && this.nodoElegido?.id !== id
+        ? detallarNodo(this.diagrama, id, this.lienzo.mensajes)
+        : null;
   }
 
   publicar(): void {
