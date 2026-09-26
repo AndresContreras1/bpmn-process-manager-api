@@ -46,6 +46,7 @@ public class CasoServiceImpl implements CasoService {
     private final VersionService versionService;
     private final GrafosDeVersion grafos;
     private final MotorDeProcesos motor;
+    private final RelojDeLaTienda reloj;
     private final Bitacora bitacora;
     private final CasoMapper casoMapper;
 
@@ -63,6 +64,7 @@ public class CasoServiceImpl implements CasoService {
         NodoDeLaVersion inicio = grafo.inicioAMano().orElseThrow(() -> new ReglaNegocioException(porDondeEmpieza(
                 grafo)));
 
+        Momento momento = new Momento(reloj.ahora(empresaId), usuarioId);
         Caso caso = casoRepository.save(Caso.builder()
                 .empresa(version.getEmpresa())
                 .proceso(version.getProceso())
@@ -70,8 +72,9 @@ public class CasoServiceImpl implements CasoService {
                 .referencia(referencia)
                 .estado(EstadoCaso.ABIERTO)
                 .variables(casoMapper.aJson(variables))
+                .tickInicio(momento.tick())
                 .build());
-        motor.arrancar(caso, grafo, inicio, usuarioId);
+        motor.arrancar(caso, grafo, inicio, momento);
         return casoMapper.toResponse(caso);
     }
 
@@ -79,7 +82,8 @@ public class CasoServiceImpl implements CasoService {
     private static String porDondeEmpieza(GrafoDeVersion grafo) {
         return grafo.inicioPorMensaje()
                 .map(inicio -> "Este proceso se inicia con el mensaje \""
-                        + grafo.mensajeQueEspera(inicio.id()).orElse(inicio.nombre())
+                        + grafo.mensajeQueEspera(inicio.id()).map(MensajeDeLaVersion::nombre)
+                                .orElse(inicio.nombre())
                         + "\"; envíelo como mensaje entrante.")
                 .orElse("La versión publicada no tiene ningún evento de inicio.");
     }
@@ -114,9 +118,11 @@ public class CasoServiceImpl implements CasoService {
         if (caso.getEstado().estaCerrado()) {
             throw new ReglaNegocioException("El caso ya está cerrado.");
         }
-        motor.apagarTokens(caso);
-        cerrar(caso, EstadoCaso.CANCELADO);
-        bitacora.anotar(caso, TipoEventoCaso.CASO_CANCELADO, "El caso se cancelo antes de terminar.", usuarioId);
+        Momento momento = new Momento(reloj.ahora(empresaId), usuarioId);
+        motor.apagarTokens(caso, momento);
+        cerrar(caso, EstadoCaso.CANCELADO, momento);
+        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.CASO_CANCELADO,
+                "El caso se cancelo antes de terminar.", usuarioId);
         return casoMapper.toResponse(caso);
     }
 
@@ -151,13 +157,13 @@ public class CasoServiceImpl implements CasoService {
                     actividadCasoRepository.save(paso);
                 });
         caso.setEstado(EstadoCaso.ABIERTO);
-        motor.avanzar(caso, grafos.del(caso.getVersionProceso()), usuarioId);
+        motor.avanzar(caso, grafos.del(caso.getVersionProceso()), new Momento(reloj.ahora(empresaId), usuarioId));
         return casoMapper.toResponse(caso);
     }
 
-    private void cerrar(Caso caso, EstadoCaso estado) {
+    private void cerrar(Caso caso, EstadoCaso estado, Momento momento) {
         caso.setEstado(estado);
-        caso.setTickFin(caso.getTickInicio());
+        caso.setTickFin(momento.tick());
         caso.setFechaFin(LocalDateTime.now());
         casoRepository.save(caso);
     }

@@ -10,7 +10,12 @@ import org.junit.jupiter.api.Test;
 
 import com.facimus.procesos.common.condiciones.Condicion;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
+import com.facimus.procesos.modelado.model.AccionSiFalla;
+import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.Integracion;
+import com.facimus.procesos.modelado.model.PoliticaSinCaso;
+import com.facimus.procesos.modelado.model.TipoDeDato;
+import com.facimus.procesos.modelado.model.TipoDestino;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
@@ -270,13 +275,101 @@ class GrafoDeVersionTest {
 
     @Test
     @DisplayName("El nodo que espera un mensaje dice cual, que es lo que se responde a quien intenta abrir el caso")
-    void mensajeQueEspera_diceSuNombre() {
+    void mensajeQueEspera_diceCual() {
         DiagramaArmado armado = DiagramaArmado.demo();
 
         GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
 
-        assertThat(grafo.mensajeQueEspera(armado.id("Order received"))).contains("Order placed");
+        assertThat(grafo.mensajeQueEspera(armado.id("Order received")))
+                .map(MensajeDeLaVersion::nombre).contains("Order placed");
         assertThat(grafo.mensajeQueEspera(armado.id("Receive order"))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("El nodo que manda un mensaje dice cual, con lo que hace falta para mandarlo")
+    void mensajeQueManda_traeAQuienVaYComoSeManda() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.datosDelMensaje("Payment authorization request", "payment",
+                new CampoDeMensaje("orderId", TipoDeDato.TEXTO), new CampoDeMensaje("total", TipoDeDato.NUMERO));
+
+        MensajeDeLaVersion mensaje = GrafoDeVersion.de(armado.diagrama())
+                .mensajeQueManda(armado.id("Request payment authorization")).orElseThrow();
+
+        assertThat(mensaje.nombre()).isEqualTo("Payment authorization request");
+        assertThat(mensaje.poolDestinoNombre()).isEqualTo("Payment gateway");
+        assertThat(mensaje.integracion()).isEqualTo(Integracion.PAGOS);
+        assertThat(mensaje.tipoDestino()).isEqualTo(TipoDestino.SERVICIO_WEB);
+        assertThat(mensaje.campos()).extracting(CampoDeMensaje::nombre).containsExactly("orderId", "total");
+        assertThat(mensaje.variableODelNombre()).isEqualTo("payment");
+        assertThat(mensaje.respuestaEsperada()).isEqualTo("Payment authorization result");
+        assertThat(mensaje.campoDeCorrelacion()).isEqualTo("orderId");
+    }
+
+    @Test
+    @DisplayName("Un mensaje que puede fallar dice que hacer y por donde seguir")
+    void siFalla_traeSuActividadDeError() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        // El aviso lleva actividad de error puesta y aun asi dice CONTINUAR: es la unica forma de distinguir que se
+        // mira lo que hay que hacer y no si hay actividad a donde ir.
+        armado.mensaje("Delivery reminder", TIENDA, "Customer", "Pick and pack items", null, TipoDestino.CORREO,
+                AccionSiFalla.CONTINUAR, "Cancel order", false);
+
+        GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
+        MensajeDeLaVersion autorizacion = grafo.mensajePorNombre("Payment authorization request").orElseThrow();
+        MensajeDeLaVersion aviso = grafo.mensajePorNombre("Delivery reminder").orElseThrow();
+
+        assertThat(autorizacion.siFallaOContinuar()).isEqualTo(AccionSiFalla.MANEJAR_ERROR);
+        assertThat(autorizacion.nodoQueManejaElError()).contains(armado.id("Cancel order"));
+        assertThat(aviso.siFallaOContinuar()).isEqualTo(AccionSiFalla.CONTINUAR);
+        assertThat(aviso.nodoManejoErrorId()).isEqualTo(armado.id("Cancel order"));
+        assertThat(aviso.nodoQueManejaElError()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Un mensaje sin clave ni politica se trata como el que se descarta, no como el que abre casos")
+    void mensajeSinCorrelacion_seDescarta() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.quitarCorrelacionDe("Shipment confirmation");
+
+        MensajeDeLaVersion mensaje = GrafoDeVersion.de(armado.diagrama())
+                .mensajePorNombre("Shipment confirmation").orElseThrow();
+
+        assertThat(mensaje.campoDeCorrelacion()).isNull();
+        assertThat(mensaje.sinCasoODescartar()).isEqualTo(PoliticaSinCaso.DESCARTAR);
+        assertThat(mensaje.origenExterno()).isTrue();
+    }
+
+    @Test
+    @DisplayName("El mensaje que abre el caso dice que lo abre, que es lo que decide que hacer con un entrante")
+    void mensajeDeInicio_diceQueAbreCaso() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+
+        MensajeDeLaVersion mensaje = GrafoDeVersion.de(armado.diagrama())
+                .mensajePorNombre("Order placed").orElseThrow();
+
+        assertThat(mensaje.sinCasoODescartar()).isEqualTo(PoliticaSinCaso.INICIAR_CASO);
+        assertThat(mensaje.nodoDestinoId()).isEqualTo(armado.id("Order received"));
+        assertThat(mensaje.nodoOrigenId()).isNull();
+    }
+
+    @Test
+    @DisplayName("Un mensaje sin variable entra a las variables del caso bajo su propio nombre en camello")
+    void mensajeSinVariable_usaSuNombre() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+
+        MensajeDeLaVersion mensaje = GrafoDeVersion.de(armado.diagrama())
+                .mensajePorNombre("Payment authorization result").orElseThrow();
+
+        assertThat(mensaje.variable()).isNull();
+        assertThat(mensaje.variableODelNombre()).isEqualTo("paymentAuthorizationResult");
+    }
+
+    @Test
+    @DisplayName("Un nombre que no es de ningun mensaje del proceso no lo encuentra")
+    void mensajePorNombre_deOtroProceso_noExiste() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+
+        assertThat(GrafoDeVersion.de(armado.diagrama()).mensajePorNombre("Refund requested")).isEmpty();
     }
 
     /** Lo minimo que se puede publicar: el pool de la tienda, una lane y un evento de inicio. */

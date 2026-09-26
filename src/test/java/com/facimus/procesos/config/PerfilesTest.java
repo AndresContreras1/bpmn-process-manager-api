@@ -57,6 +57,28 @@ class PerfilesTest {
         void dev_programaLaPurga() {
             assertThat(context.getBeanNamesForType(LimpiezaConfig.class)).isNotEmpty();
         }
+
+        @Test
+        @DisplayName("dev programa el reloj de las tiendas que pidieron que corriera solo")
+        void dev_programaElRelojDeLaSimulacion() {
+            assertThat(context.getBeanNamesForType(SimulacionConfig.class)).isNotEmpty();
+        }
+    }
+
+    @Nested
+    @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:perfil-test")
+    @ActiveProfiles("test")
+    class Test_ {
+
+        @Autowired
+        private ApplicationContext context;
+
+        @Test
+        @DisplayName("test no programa nada: ni la purga ni el reloj corren por detras de una prueba")
+        void test_noProgramaNada() {
+            assertThat(context.getBeanNamesForType(LimpiezaConfig.class)).isEmpty();
+            assertThat(context.getBeanNamesForType(SimulacionConfig.class)).isEmpty();
+        }
     }
 
     @Nested

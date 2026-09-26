@@ -87,6 +87,13 @@ class EsquemaEnPostgresTest {
         assertThat(tipoDeColumna("actividades_caso", "datos_salida")).isEqualTo("text YES");
     }
 
+    @Test
+    @DisplayName("V20: el cuerpo de un mensaje es text en las dos bandejas, y siempre viene lleno")
+    void v20_losCuerposDeLosMensajesSonText() {
+        assertThat(tipoDeColumna("mensajes_salientes", "cuerpo")).isEqualTo("text NO");
+        assertThat(tipoDeColumna("mensajes_entrantes", "cuerpo")).isEqualTo("text NO");
+    }
+
     /** El tipo de una columna y si acepta nulos, como los declara el catalogo del motor. */
     private String tipoDeColumna(String tabla, String columna) {
         return jdbcTemplate.queryForObject("""

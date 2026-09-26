@@ -190,6 +190,21 @@ class AutorizacionPorRolTest {
             EDITOR        | POST   | /api/v1/tareas/{id}/asignar    | 404
             SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/asignar    | 403
 
+            # Mensajeria: las bandejas las lee cualquier rol; mandar un mensaje es de administrador y editor
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/bandeja-salida   | 200
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/bandeja-entrada  | 200
+            SOLO_LECTURA  | GET    | /api/v1/casos/{id}/mensajes            | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/mensajes-entrantes | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/mensajes-entrantes | 403
+
+            # Simulacion: mover el reloj cambia todos los casos de la tienda a la vez, asi que es del administrador
+            ADMINISTRADOR | GET    | /api/v1/simulacion             | 200
+            EDITOR        | GET    | /api/v1/simulacion             | 403
+            SOLO_LECTURA  | GET    | /api/v1/simulacion             | 403
+            ADMINISTRADOR | POST   | /api/v1/simulacion/tick        | 200
+            EDITOR        | POST   | /api/v1/simulacion/tick        | 403
+            SOLO_LECTURA  | POST   | /api/v1/simulacion/tick        | 403
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)
@@ -211,6 +226,11 @@ class AutorizacionPorRolTest {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"rolesProcesoIds\":[]}");
         } else if (ruta.equals("/api/v1/casos/{id}/variables")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"variables\":{},\"version\":0}");
+        } else if (ruta.equals("/api/v1/procesos/{id}/mensajes-entrantes")) {
+            // Con nombre, para que el editor pase la autorizacion y choque con que el proceso no existe.
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"nombre\":\"Order placed\"}");
+        } else if (ruta.equals("/api/v1/simulacion/tick")) {
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"ticks\":1}");
         } else if (metodo != HttpMethod.GET && (ruta.startsWith("/api/v1/tareas/")
                 || ruta.equals("/api/v1/procesos/{id}/casos"))) {
             // Llevan cuerpo: sin el, la peticion fallaria por el cuerpo y no por la regla de roles, que es lo que

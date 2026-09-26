@@ -1,10 +1,12 @@
 package com.facimus.procesos.arquitectura;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 import org.mapstruct.Mapper;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RestController;
@@ -103,6 +105,39 @@ class EmpaquetadoTest {
             .resideInAnyPackage("org.springframework.expression..", "javax.script..", "jdk.dynalink..")
             .because("D6: una condicion la escribe un usuario, y se lee con la gramatica del proyecto; SpEL o un "
                     + "motor de scripts permitirian llamar metodos desde ese texto");
+
+    @ArchTest
+    static final ArchRule lo_que_corre_solo_vive_en_config = methods()
+            .that().areAnnotatedWith(Scheduled.class)
+            .should().beDeclaredInClassesThat().resideInAPackage("..config..")
+            .because("un trabajo que corre por su cuenta se registra en un solo sitio y fuera del perfil test: "
+                    + "una prueba no puede tener algo por detras moviendole el reloj o borrandole filas");
+
+    @ArchTest
+    static final ArchRule los_simulados_no_miran_dentro_del_motor = noClasses()
+            .that().resideInAPackage("..integracion..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("..ejecucion.service..", "..ejecucion.repository..", "..ejecucion.model..",
+                    "..ejecucion.controller..", "..ejecucion.dto..", "..gestion..", "..security..")
+            .because("D7: un socio simulado recibe un mensaje y contesta; no sabe de casos, ni de bandejas, ni de "
+                    + "quien lo llamo, y solo habla por su puerto");
+
+    @ArchTest
+    static final ArchRule los_simulados_no_hacen_red = noClasses()
+            .that().resideInAPackage("..integracion..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("java.net..", "org.springframework.web.client..",
+                    "org.springframework.web.reactive..")
+            .because("D7: no hay socios de verdad. Uno que abriera una conexion dejaria de ser una simulacion, y "
+                    + "las pruebas pasarian a depender de que algo de fuera conteste");
+
+    @ArchTest
+    static final ArchRule los_puertos_no_hablan_de_la_base = noClasses()
+            .that().resideInAPackage("..puerto..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("..service..", "..repository..", "..controller..", "..ejecucion.model..")
+            .because("un puerto es el contrato con lo de fuera: si hablara de entidades, quien lo implemente "
+                    + "tendria que conocer la base de datos de la ejecucion");
 
     @ArchTest
     static final ArchRule paquetes_de_cada_modulo_sin_ciclos = slices()

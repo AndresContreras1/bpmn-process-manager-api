@@ -61,6 +61,8 @@ class TareaServiceTest {
     private static final Long EDITOR = 3L;
     private static final Long TAREA_ID = 77L;
     private static final Long CASO_ID = 42L;
+    /** El tick en que la tienda esta cuando se completa la tarea. */
+    private static final int TICK = 4;
 
     @Mock
     private ActividadCasoRepository actividadCasoRepository;
@@ -81,6 +83,9 @@ class TareaServiceTest {
     private MotorDeProcesos motor;
 
     @Mock
+    private RelojDeLaTienda reloj;
+
+    @Mock
     private Bitacora bitacora;
 
     @Mock
@@ -98,7 +103,8 @@ class TareaServiceTest {
     @BeforeEach
     void laTiendaYSuCaso() {
         tareaService = new TareaServiceImpl(actividadCasoRepository, casoRepository, usuarioService,
-                membresiaRolService, grafos, motor, bitacora, casoMapper, json);
+                membresiaRolService, grafos, motor, reloj, bitacora, casoMapper, json);
+        given(reloj.ahora(TIENDA_ID)).willReturn(TICK);
         tienda = Empresa.builder().id(TIENDA_ID).nombre("Demo Store").build();
         Proceso proceso = Proceso.builder().id(10L).empresa(tienda).nombre("Order fulfillment")
                 .estado(EstadoProceso.PUBLICADO).activo(true).build();
@@ -166,7 +172,8 @@ class TareaServiceTest {
 
         assertThat(tarea.getEstado()).isEqualTo(EstadoActividadCaso.COMPLETADA);
         assertThat(tarea.getDatosSalida()).isNull();
-        verify(motor).seguirDesde(eq(caso), any(GrafoDeVersion.class), eq(tarea.getNodoId()), eq(EDITOR));
+        verify(motor).seguirDesde(eq(caso), any(GrafoDeVersion.class), eq(tarea.getNodoId()),
+                eq(new Momento(TICK, EDITOR)));
     }
 
     @Test

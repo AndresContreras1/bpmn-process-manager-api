@@ -118,7 +118,7 @@ class ConfiguracionTiendaIntegracionTest {
         ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(empresaId);
 
         ConfiguracionTiendaResponse despues = configuracionTiendaService.editar(empresaId, adminId,
-                PoliticaEstructura.SOLO_ADMINISTRADOR, antes.version());
+                PoliticaEstructura.SOLO_ADMINISTRADOR, null, antes.version());
 
         assertThat(despues.politicaEstructura()).isEqualTo(PoliticaEstructura.SOLO_ADMINISTRADOR);
         assertThat(despues.version()).isEqualTo(antes.version() + 1);
@@ -127,7 +127,7 @@ class ConfiguracionTiendaIntegracionTest {
                 .contains("La estructura de los diagramas queda reservada a los administradores.");
 
         assertThatThrownBy(() -> configuracionTiendaService.editar(empresaId, adminId,
-                PoliticaEstructura.ADMINISTRADOR_Y_EDITOR, antes.version()))
+                PoliticaEstructura.ADMINISTRADOR_Y_EDITOR, null, antes.version()))
                 .isInstanceOf(ConflictoDeVersionException.class);
         reservar(PoliticaEstructura.ADMINISTRADOR_Y_EDITOR);
     }
@@ -145,7 +145,7 @@ class ConfiguracionTiendaIntegracionTest {
     }
 
     private void reservar(PoliticaEstructura politica) {
-        configuracionTiendaService.editar(empresaId, adminId, politica,
+        configuracionTiendaService.editar(empresaId, adminId, politica, null,
                 configuracionTiendaService.obtener(empresaId).version());
     }
 

@@ -18,12 +18,15 @@ import com.facimus.procesos.common.condiciones.EvaluadorDeCondiciones;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
+import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 
 /**
@@ -43,17 +46,17 @@ final class GrafoDeVersion {
     private final Map<Long, NodoDeLaVersion> nodos;
     private final Map<Long, List<ArcoDeLaVersion>> salidas;
     private final Map<Long, List<ArcoDeLaVersion>> entradas;
-    private final Map<Long, String> mensajesQueEsperan;
+    private final List<MensajeDeLaVersion> mensajes;
     private final Map<Long, Set<Long>> alcanzablesDesde;
 
     private GrafoDeVersion(Long poolDeLaTienda, Map<Long, NodoDeLaVersion> nodos,
             Map<Long, List<ArcoDeLaVersion>> salidas, Map<Long, List<ArcoDeLaVersion>> entradas,
-            Map<Long, String> mensajesQueEsperan) {
+            List<MensajeDeLaVersion> mensajes) {
         this.poolDeLaTienda = poolDeLaTienda;
         this.nodos = nodos;
         this.salidas = salidas;
         this.entradas = entradas;
-        this.mensajesQueEsperan = mensajesQueEsperan;
+        this.mensajes = mensajes;
         this.alcanzablesDesde = alcanzables(nodos.keySet(), salidas);
     }
 
@@ -88,11 +91,40 @@ final class GrafoDeVersion {
             entradas.computeIfAbsent(arco.destinoId(), sinArcos -> new ArrayList<>()).add(salida);
         }
         salidas.values().forEach(lista -> lista.sort(POR_ORDEN));
-        Map<Long, String> mensajesQueEsperan = new LinkedHashMap<>();
-        diagrama.mensajes().stream()
-                .filter(mensaje -> mensaje.nodoDestinoId() != null && nodos.containsKey(mensaje.nodoDestinoId()))
-                .forEach(mensaje -> mensajesQueEsperan.putIfAbsent(mensaje.nodoDestinoId(), mensaje.nombre()));
-        return new GrafoDeVersion(pool, nodos, salidas, entradas, mensajesQueEsperan);
+        return new GrafoDeVersion(pool, nodos, salidas, entradas, mensajesDelDiagrama(diagrama));
+    }
+
+    /**
+     * Los mensajes de la version, con lo que cada uno necesita para enviarse o para encontrar su caso: el
+     * participante del otro lado con su clase de socio, la clave de correlacion y con que mensaje se contesta.
+     *
+     * <p>Entran todos los del proceso, no solo los anclados: un entrante llega diciendo su nombre, y hay que poder
+     * reconocerlo aunque el nodo que lo espera se haya quedado sin dibujar.
+     */
+    private static List<MensajeDeLaVersion> mensajesDelDiagrama(DiagramaResponse diagrama) {
+        Map<Long, String> nombreDePool = new HashMap<>();
+        Map<Long, Integracion> integracionDePool = new HashMap<>();
+        for (PoolResponse pool : diagrama.pools()) {
+            nombreDePool.put(pool.id(), pool.nombre());
+            integracionDePool.put(pool.id(), pool.integracion());
+        }
+        Map<Long, CorrelacionResponse> correlaciones = new HashMap<>();
+        diagrama.correlaciones().forEach(clave -> correlaciones.putIfAbsent(clave.mensajeId(), clave));
+        Map<Long, String> nombreDeMensaje = new HashMap<>();
+        diagrama.mensajes().forEach(mensaje -> nombreDeMensaje.put(mensaje.id(), mensaje.nombre()));
+
+        List<MensajeDeLaVersion> mensajes = new ArrayList<>();
+        for (MensajeResponse mensaje : diagrama.mensajes()) {
+            CorrelacionResponse clave = correlaciones.get(mensaje.id());
+            mensajes.add(new MensajeDeLaVersion(mensaje.id(), mensaje.nombre(), mensaje.nodoOrigenId(),
+                    mensaje.nodoDestinoId(), nombreDePool.get(mensaje.poolDestinoId()),
+                    integracionDePool.get(mensaje.poolDestinoId()), mensaje.tipoDestino(), mensaje.siFalla(),
+                    mensaje.nodoManejoErrorId(), mensaje.campos() == null ? List.of() : mensaje.campos(),
+                    mensaje.variable(), nombreDeMensaje.get(mensaje.respuestaEsperadaId()),
+                    clave == null ? null : clave.campo(), clave == null ? null : clave.sinCaso(),
+                    mensaje.origenExterno()));
+        }
+        return List.copyOf(mensajes);
     }
 
     /** Un gateway evalua sus salidas por el orden que se les dio, y el id desempata: siempre deciden igual. */
@@ -207,8 +239,27 @@ final class GrafoDeVersion {
         return alcanzablesDesde.getOrDefault(desde, Set.of()).contains(hasta);
     }
 
-    /** El nombre del mensaje que un nodo espera, si es de los que esperan uno. */
-    Optional<String> mensajeQueEspera(Long nodoId) {
-        return Optional.ofNullable(mensajesQueEsperan.get(nodoId));
+    /** El mensaje que un nodo espera, si es de los que esperan uno. */
+    Optional<MensajeDeLaVersion> mensajeQueEspera(Long nodoId) {
+        return mensajes.stream()
+                .filter(mensaje -> nodoId.equals(mensaje.nodoDestinoId()))
+                .findFirst();
+    }
+
+    /**
+     * El mensaje que un nodo manda al pasar por el. Es lo que convierte una actividad de envio en un envio y no en
+     * un paso que se completa solo: sin mensaje anclado no hay a quien mandarle nada.
+     */
+    Optional<MensajeDeLaVersion> mensajeQueManda(Long nodoId) {
+        return mensajes.stream()
+                .filter(mensaje -> nodoId.equals(mensaje.nodoOrigenId()))
+                .findFirst();
+    }
+
+    /** El mensaje que se llama asi. Es por donde entra uno que llega, que trae su nombre y no un id. */
+    Optional<MensajeDeLaVersion> mensajePorNombre(String nombre) {
+        return mensajes.stream()
+                .filter(mensaje -> mensaje.nombre().equals(nombre))
+                .findFirst();
     }
 }

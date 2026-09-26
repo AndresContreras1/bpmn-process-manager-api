@@ -51,4 +51,19 @@ record NodoDeLaVersion(Long id, String nombre, TipoNodoCaso tipo, String subtipo
     boolean eligePorCondicion() {
         return esGateway() && TipoGateway.valueOf(subtipo).eligePorCondicion();
     }
+
+    /**
+     * El nodo que, cuando un token llega, se queda esperando un mensaje. El inicio por mensaje no cuenta: ahi el
+     * token esta justamente porque el mensaje ya llego.
+     */
+    boolean esperaUnMensaje() {
+        return esActividad() && TipoActividad.valueOf(subtipo).puedeRecibir()
+                || esEvento() && TipoEvento.MENSAJE_INTERMEDIO.name().equals(subtipo);
+    }
+
+    /** El nodo que manda su mensaje anclado al pasar por el: envio, servicio y el fin que termina mandando. */
+    boolean puedeEnviar() {
+        return esActividad() && TipoActividad.valueOf(subtipo).puedeEnviar()
+                || esEvento() && TipoEvento.valueOf(subtipo).puedeEnviar();
+    }
 }

@@ -85,6 +85,10 @@ public class SecurityConfig {
                         // El gobierno de la tienda es del administrador: su historial y su configuracion.
                         .requestMatchers("/api/v1/empresas/actual/historial",
                                 "/api/v1/empresas/actual/configuracion").hasAuthority(ADMINISTRADOR)
+                        // D8: mover el reloj cambia lo que les pasa a todos los casos de la tienda a la vez,
+                        // asi que la simulacion entera es del administrador, tambien para mirarla.
+                        .requestMatchers("/api/v1/simulacion", "/api/v1/simulacion/**")
+                        .hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").authenticated()
                         .requestMatchers("/api/v1/roles/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/compartidos").hasAuthority(ADMINISTRADOR)
