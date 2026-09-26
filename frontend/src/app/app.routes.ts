@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './guards/auth.guard';
+import { CasosComponent } from './pages/casos/casos.component';
 import { CompartirComponent } from './pages/compartir/compartir.component';
 import { ConfiguracionComponent } from './pages/configuracion/configuracion.component';
 import { CuentaComponent } from './pages/cuenta/cuenta.component';
@@ -23,6 +24,7 @@ export const routes: Routes = [
   { path: 'registro', component: RegistroComponent, title: 'Create a store · BPMN Process Manager' },
   { path: 'cuenta', component: CuentaComponent, canActivate: [authGuard], title: 'My account · BPMN Process Manager' },
   { path: 'procesos', component: ProcesosComponent, canActivate: [authGuard], title: 'Processes · BPMN Process Manager' },
+  { path: 'casos', component: CasosComponent, canActivate: [authGuard], title: 'Cases · BPMN Process Manager' },
   { path: 'usuarios', component: UsuariosComponent, canActivate: [authGuard], title: 'Users · BPMN Process Manager' },
   { path: 'roles', component: RolesComponent, canActivate: [authGuard], title: 'Process roles · BPMN Process Manager' },
   {
