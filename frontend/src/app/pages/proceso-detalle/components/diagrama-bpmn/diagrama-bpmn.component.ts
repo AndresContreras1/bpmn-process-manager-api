@@ -38,12 +38,24 @@ export class DiagramaBpmnComponent {
   titulo = input.required<string>();
   seleccionadoId = input<number | null>(null);
   editable = input<boolean>(false);
+  /** Los nodos donde un caso tiene un token vivo ahora mismo: es lo que se resalta. */
+  nodosActivos = input<number[]>([]);
+  /** Los nodos por los que ese caso ya paso, para que se lea el camino y no solo el punto. */
+  nodosRecorridos = input<number[]>([]);
   seleccionar = output<number>();
   mover = output<MovimientoDeNodo>();
 
   private readonly svg = viewChild<ElementRef<SVGSVGElement>>('svg');
 
   arrastre: Arrastre | null = null;
+
+  estaActivo(id: number): boolean {
+    return this.nodosActivos().includes(id);
+  }
+
+  fueRecorrido(id: number): boolean {
+    return this.nodosRecorridos().includes(id);
+  }
 
   /**
    * El clic del raton solo elige cuando no se puede arrastrar: en el editor, empezarArrastre corta el evento para
