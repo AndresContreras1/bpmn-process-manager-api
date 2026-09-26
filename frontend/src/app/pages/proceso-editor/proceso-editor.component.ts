@@ -3,7 +3,18 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { EMPTY, Observable, Subject, catchError, debounceTime, forkJoin, of, startWith, switchMap } from 'rxjs';
+import {
+  EMPTY,
+  Observable,
+  Subject,
+  catchError,
+  debounceTime,
+  finalize,
+  forkJoin,
+  of,
+  startWith,
+  switchMap,
+} from 'rxjs';
 
 import { mensajeDeError } from '../../helpers/errores-api';
 import {
@@ -17,7 +28,7 @@ import {
   TipoEvento,
   TipoGateway,
 } from '../../models/diagrama.model';
-import { Diagnostico, Hallazgo, TipoElemento } from '../../models/diagnostico.model';
+import { Diagnostico, Hallazgo, Revision, TipoElemento } from '../../models/diagnostico.model';
 import { Proceso } from '../../models/proceso.model';
 import { RolProceso } from '../../models/rol-proceso.model';
 import { AuthService } from '../../service/auth.service';
@@ -31,6 +42,7 @@ import { MensajeService } from '../../service/mensaje.service';
 import { PoolService } from '../../service/pool.service';
 import { DiagramaService } from '../../service/diagrama.service';
 import { ProcesoService } from '../../service/proceso.service';
+import { RevisionService } from '../../service/revision.service';
 import { RolProcesoService } from '../../service/rol-proceso.service';
 import {
   DiagramaBpmnComponent,
@@ -79,6 +91,7 @@ export class ProcesoEditorComponent implements OnInit {
   private readonly gatewayService: GatewayService = inject(GatewayService);
   private readonly eventoService: EventoService = inject(EventoService);
   private readonly mensajeService: MensajeService = inject(MensajeService);
+  private readonly revisionService: RevisionService = inject(RevisionService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
@@ -118,6 +131,17 @@ export class ProcesoEditorComponent implements OnInit {
   /** Mientras se conecta, un clic en un nodo no lo elige: marca el origen y despues el destino. */
   conectando: boolean = false;
   origenConexion: number | null = null;
+
+  publicando: boolean = false;
+  publicado: string | null = null;
+  revisando: boolean = false;
+  revision: Revision | null = null;
+  errorRevision: string | null = null;
+
+  /** Un diagrama con errores no se publica; las advertencias no lo impiden. */
+  get sePuedePublicar(): boolean {
+    return this.diagnostico !== null && this.diagnostico.errores === 0;
+  }
 
   // Cada cambio confirmado por la API emite aqui; el debounce junta los que llegan seguidos
   private readonly cambios$ = new Subject<void>();
@@ -290,6 +314,87 @@ export class ProcesoEditorComponent implements OnInit {
         this.refrescar();
       },
     });
+  }
+
+  /**
+   * Publica el diagrama como una version nueva. El diagnostico ya dice si se puede: los errores lo impiden y las
+   * advertencias no, asi que el boton no esta para averiguarlo, sino para hacerlo.
+   */
+  publicar(): void {
+    const proceso: Proceso | null = this.proceso;
+    if (!proceso) {
+      return;
+    }
+    this.publicando = true;
+    this.publicado = null;
+    this.error = null;
+    this.procesoService
+      .publicar(proceso.id, proceso.version)
+      .pipe(
+        finalize(() => (this.publicando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (publicado: Proceso) => {
+          this.publicado = `Published as version ${publicado.versionPublicada ?? ''}.`.replace(' .', '.');
+          this.refrescar();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.error = mensajeDeError(error);
+          this.refrescar();
+        },
+      });
+  }
+
+  /**
+   * La segunda opinion. Es consejo y no cambia nada, cuesta una llamada al modelo y la API la limita por tienda,
+   * asi que cada respuesta que no sea un 200 dice algo distinto y hay que contarlo, no esconderlo.
+   */
+  revisar(): void {
+    this.revisando = true;
+    this.errorRevision = null;
+    this.revisionService
+      .revisar(this.procesoId)
+      .pipe(
+        finalize(() => (this.revisando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (revision: Revision) => (this.revision = revision),
+        error: (error: HttpErrorResponse) => {
+          this.errorRevision =
+            error.status === 503
+              ? 'The AI review is not set up in this installation.'
+              : error.status === 429
+                ? 'Your store has asked for too many reviews. Try again later.'
+                : mensajeDeError(error);
+        },
+      });
+  }
+
+  /** Sube o baja una lane dentro de su pool y manda el orden entero, que es lo que la API espera. */
+  moverLane(lane: Lane, direccion: number): void {
+    const diagrama: Diagrama | null = this.diagrama;
+    if (!diagrama) {
+      return;
+    }
+    const hermanas: Lane[] = diagrama.lanes
+      .filter((candidata) => candidata.poolId === lane.poolId)
+      .sort((a, b) => a.orden - b.orden);
+    const desde: number = hermanas.findIndex((candidata) => candidata.id === lane.id);
+    const hasta: number = desde + direccion;
+    if (hasta < 0 || hasta >= hermanas.length) {
+      return;
+    }
+    const ids: number[] = hermanas.map((candidata) => candidata.id);
+    [ids[desde], ids[hasta]] = [ids[hasta], ids[desde]];
+    this.laneService
+      .ordenar(lane.poolId, { ids })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.refrescar(),
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+      });
   }
 
   private poolDelNodo(id: number): number | null {

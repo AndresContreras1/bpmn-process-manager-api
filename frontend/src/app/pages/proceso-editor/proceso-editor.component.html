@@ -20,8 +20,17 @@
           Model the diagram. Every change is saved as soon as the API confirms it.
         </p>
       </div>
-      <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/procesos', procesoId]"
-         id="proceso-editor-volver">Back to the process</a>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        @if (puedeEditar) {
+          <button type="button" class="btn btn-success btn-sm" id="proceso-editor-publicar"
+                  [disabled]="publicando || !sePuedePublicar" (click)="publicar()">
+            <i class="fa-solid fa-rocket" aria-hidden="true"></i>
+            {{ publicando ? 'Publishing…' : 'Publish' }}
+          </button>
+        }
+        <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/procesos', procesoId]"
+           id="proceso-editor-volver">Back to the process</a>
+      </div>
     </div>
 
     @if (!puedeEditar) {
@@ -31,6 +40,9 @@
     }
     @if (error) {
       <div class="alert alert-danger" role="alert" id="proceso-editor-error">{{ error }}</div>
+    }
+    @if (publicado) {
+      <div class="alert alert-success" role="status" id="proceso-editor-publicado">{{ publicado }}</div>
     }
 
     @if (cargando) {
@@ -124,6 +136,16 @@
                           <button type="button" class="enlace" data-testid="esquema-lane"
                                   [class.elegido]="seleccion?.tipo === 'LANE' && seleccion?.id === lane.id"
                                   (click)="elegir({ tipo: 'LANE', id: lane.id })">{{ lane.nombre }}</button>
+                          @if (puedeEditar && rama.lanes.length > 1) {
+                            <button type="button" class="enlace ms-1 text-body-tertiary" data-testid="lane-subir"
+                                    [attr.aria-label]="'Move ' + lane.nombre + ' up'" (click)="moverLane(lane, -1)">
+                              <i class="fa-solid fa-caret-up" aria-hidden="true"></i>
+                            </button>
+                            <button type="button" class="enlace text-body-tertiary" data-testid="lane-bajar"
+                                    [attr.aria-label]="'Move ' + lane.nombre + ' down'" (click)="moverLane(lane, 1)">
+                              <i class="fa-solid fa-caret-down" aria-hidden="true"></i>
+                            </button>
+                          }
                           <ul class="list-unstyled ms-3">
                             @for (evento of diagrama.eventos; track evento.id) {
                               @if (evento.laneId === lane.id) {
@@ -242,6 +264,46 @@
               }
             </div>
           </div>
+
+          @if (puedeEditar) {
+            <div class="card border-0 shadow-sm mb-3" id="proceso-editor-revision">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                  <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-0">Second opinion</h2>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="proceso-editor-revisar"
+                          [disabled]="revisando" (click)="revisar()">
+                    {{ revisando ? 'Asking…' : 'Ask' }}
+                  </button>
+                </div>
+                <p class="small text-body-secondary mb-0 mt-1">
+                  Advice from a model about the diagram. It changes nothing, and the diagnosis above is the one that
+                  decides whether this can be published.
+                </p>
+                @if (errorRevision) {
+                  <p class="small text-body-secondary mb-0 mt-2" id="proceso-editor-revision-error">
+                    {{ errorRevision }}
+                  </p>
+                }
+                @if (revision) {
+                  <p class="small mb-1 mt-2" id="proceso-editor-revision-resumen">{{ revision.resumen }}</p>
+                  @if (revision.reutilizada) {
+                    <p class="small text-body-tertiary mb-1">
+                      The diagram has not changed since the last review, so this is that one.
+                    </p>
+                  }
+                  <ul class="list-unstyled small mb-0">
+                    @for (hallazgo of revision.hallazgos; track $index) {
+                      <li class="mb-2" data-testid="hallazgo-ia">
+                        <span class="fw-semibold">{{ hallazgo.elemento ?? 'The process' }}</span>
+                        <div class="text-body-secondary">{{ hallazgo.problema }}</div>
+                        <div class="text-body-tertiary">{{ hallazgo.sugerencia }}</div>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </div>
+          }
 
           <div class="card border-0 shadow-sm">
             <div class="card-body p-3">

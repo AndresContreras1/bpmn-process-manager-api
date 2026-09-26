@@ -45,6 +45,16 @@ export class DiagramaBpmnComponent {
 
   arrastre: Arrastre | null = null;
 
+  /**
+   * El clic del raton solo elige cuando no se puede arrastrar: en el editor, empezarArrastre corta el evento para
+   * que el navegador no seleccione texto, y con eso se lleva por delante el click. Ahi elige soltar.
+   */
+  elegirConClic(id: number): void {
+    if (!this.editable()) {
+      this.seleccionar.emit(id);
+    }
+  }
+
   elegir(id: number, evento?: Event): void {
     // Con la barra espaciadora el navegador bajaria la pagina
     evento?.preventDefault();
@@ -92,6 +102,8 @@ export class DiagramaBpmnComponent {
     }
     (evento.target as Element).closest('svg')?.releasePointerCapture(evento.pointerId);
     if (Math.abs(arrastre.dx) < 3 && Math.abs(arrastre.dy) < 3) {
+      // No fue una mudanza: fue un clic, y en el editor este es el unico sitio donde se entera
+      this.seleccionar.emit(arrastre.id);
       return;
     }
     const centro = this.centroDe(arrastre.id);

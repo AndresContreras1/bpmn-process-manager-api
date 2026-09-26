@@ -67,7 +67,7 @@
       <g class="nodo" data-testid="nodo-actividad" tabindex="0" role="button"
          [class.seleccionado]="actividad.id === seleccionadoId()" [attr.aria-pressed]="actividad.id === seleccionadoId()"
          [attr.aria-label]="'Task: ' + actividad.nombre" [attr.transform]="desplazamiento(actividad.id)"
-         (pointerdown)="empezarArrastre(actividad.id, $event)" (click)="elegir(actividad.id)"
+         (pointerdown)="empezarArrastre(actividad.id, $event)" (click)="elegirConClic(actividad.id)"
          (keydown.enter)="elegir(actividad.id, $event)" (keydown.space)="elegir(actividad.id, $event)">
         <rect class="tarea" rx="10" [attr.x]="actividad.x" [attr.y]="actividad.y" [attr.width]="actividad.ancho"
               [attr.height]="actividad.alto" />
@@ -84,7 +84,7 @@
       <g class="nodo" data-testid="nodo-gateway" tabindex="0" role="button"
          [class.seleccionado]="gateway.id === seleccionadoId()" [attr.aria-pressed]="gateway.id === seleccionadoId()"
          [attr.aria-label]="'Gateway: ' + gateway.nombre" [attr.transform]="desplazamiento(gateway.id)"
-         (pointerdown)="empezarArrastre(gateway.id, $event)" (click)="elegir(gateway.id)"
+         (pointerdown)="empezarArrastre(gateway.id, $event)" (click)="elegirConClic(gateway.id)"
          (keydown.enter)="elegir(gateway.id, $event)" (keydown.space)="elegir(gateway.id, $event)">
         <polygon class="gateway" [attr.points]="gateway.puntos" />
         <path class="marca" [attr.d]="gateway.marca" />
@@ -101,7 +101,7 @@
       <g class="nodo evento" data-testid="nodo-evento" tabindex="0" role="button"
          [class.seleccionado]="evento.id === seleccionadoId()" [attr.aria-pressed]="evento.id === seleccionadoId()"
          [attr.aria-label]="evento.titulo" [attr.transform]="desplazamiento(evento.id)"
-         (pointerdown)="empezarArrastre(evento.id, $event)" (click)="elegir(evento.id)"
+         (pointerdown)="empezarArrastre(evento.id, $event)" (click)="elegirConClic(evento.id)"
          (keydown.enter)="elegir(evento.id, $event)" (keydown.space)="elegir(evento.id, $event)">
         <circle class="borde-evento" [class]="'borde-evento evento-' + evento.clase" [attr.cx]="evento.cx"
                 [attr.cy]="evento.cy" [attr.r]="evento.radio" />
