@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { EMPTY, Subject, catchError, debounceTime, finalize, switchMap, tap } from 'rxjs';
 
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
@@ -20,7 +20,7 @@ import { FiltrosUsuario, UsuarioService } from '../../service/usuario.service';
  */
 @Component({
   selector: 'app-usuarios',
-  imports: [FormsModule, ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
+  imports: [ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
   templateUrl: './usuarios.component.html',
   styleUrl: './usuarios.component.scss',
 })
@@ -35,6 +35,8 @@ export class UsuariosComponent implements OnInit {
   readonly nombreRol: Record<RolAcceso, string> = NOMBRE_ROL;
   readonly roles: RolAcceso[] = ['ADMINISTRADOR', 'EDITOR', 'SOLO_LECTURA'];
   readonly esAdministrador: boolean = this.authService.esAdministrador();
+  /** Quien esta mirando: la API no le deja desactivarse a si mismo, asi que no se le ofrece. */
+  private readonly yo: number | null = this.authService.usuarioActual()?.id ?? null;
 
   readonly altaForm = new FormGroup({
     nombre: new FormControl('', [Validators.required, Validators.maxLength(120)]),
@@ -42,10 +44,13 @@ export class UsuariosComponent implements OnInit {
     rolAcceso: new FormControl<RolAcceso>('EDITOR', Validators.required),
   });
 
-  filtros: FiltrosUsuario = { nombre: '', pagina: 0, orden: 'nombre', direccion: 'asc' };
+  filtros: FiltrosUsuario = { pagina: 0, orden: 'nombre', direccion: 'asc' };
   pagina: PageResponse<Usuario> | null = null;
   rolesDeProceso: RolProceso[] = [];
+  /** La persona cuyo panel de roles esta abierto. */
   seleccionado: Usuario | null = null;
+  /** La persona de la que habla el modal de baja, que no es la misma cosa. */
+  paraBaja: Usuario | null = null;
   rolesElegidos: number[] = [];
   cargando: boolean = true;
   enviando: boolean = false;
@@ -88,11 +93,6 @@ export class UsuariosComponent implements OnInit {
     this.busqueda$.next();
   }
 
-  filtrar(): void {
-    this.filtros.pagina = 0;
-    this.buscar();
-  }
-
   ordenarPor(campo: string): void {
     if (this.filtros.orden === campo) {
       this.filtros.direccion = this.filtros.direccion === 'asc' ? 'desc' : 'asc';
@@ -100,7 +100,12 @@ export class UsuariosComponent implements OnInit {
       this.filtros.orden = campo;
       this.filtros.direccion = 'asc';
     }
-    this.filtrar();
+    this.filtros.pagina = 0;
+    this.buscar();
+  }
+
+  esYo(usuario: Usuario): boolean {
+    return usuario.id === this.yo;
   }
 
   irAPagina(pagina: number): void {
@@ -124,7 +129,10 @@ export class UsuariosComponent implements OnInit {
         password: null,
         rolAcceso: valores.rolAcceso ?? 'EDITOR',
       })
-      .pipe(finalize(() => (this.enviando = false)))
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: (creado: Usuario) => {
           this.claveTemporal = creado.claveTemporal
@@ -137,7 +145,9 @@ export class UsuariosComponent implements OnInit {
       });
   }
 
-  cambiarRol(usuario: Usuario, rolAcceso: RolAcceso): void {
+  /** El desplegable manda el evento del DOM; el rol se saca aqui para que la plantilla no tenga que castear. */
+  cambiarRol(usuario: Usuario, evento: Event): void {
+    const rolAcceso: RolAcceso = (evento.target as HTMLSelectElement).value as RolAcceso;
     this.limpiarMensajes();
     this.usuarioService
       .actualizar(usuario.id, { nombre: null, rolAcceso, activo: null, version: usuario.version })
@@ -152,7 +162,7 @@ export class UsuariosComponent implements OnInit {
   }
 
   confirmarBaja(): void {
-    const usuario: Usuario | null = this.seleccionado;
+    const usuario: Usuario | null = this.paraBaja;
     if (!usuario) {
       return;
     }
@@ -162,21 +172,8 @@ export class UsuariosComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aviso = `${usuario.nombre} can no longer sign in.`;
-          this.buscar();
-        },
-        error: (error: HttpErrorResponse) => this.mostrarError(error),
-      });
-  }
-
-  reactivar(usuario: Usuario): void {
-    this.limpiarMensajes();
-    this.usuarioService
-      .actualizar(usuario.id, { nombre: null, rolAcceso: null, activo: true, version: usuario.version })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => {
-          this.aviso = `${usuario.nombre} can sign in again.`;
+          this.aviso = `${usuario.nombre} can no longer sign in, and left the list.`;
+          this.paraBaja = null;
           this.buscar();
         },
         error: (error: HttpErrorResponse) => this.mostrarError(error),
@@ -221,7 +218,10 @@ export class UsuariosComponent implements OnInit {
     this.limpiarMensajes();
     this.usuarioService
       .rolesDeProceso(usuario.id, this.rolesElegidos)
-      .pipe(finalize(() => (this.enviando = false)))
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: () => {
           this.aviso = `The process roles of ${usuario.nombre} were saved.`;

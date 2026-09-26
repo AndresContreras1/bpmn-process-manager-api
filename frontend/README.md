@@ -153,10 +153,12 @@ the same screen without the palette, the forms or the buttons.
 Six screens that used to need Postman. The navbar shows the administration ones only to an administrator, taking
 the role from the observable rather than from a snapshot, because the navbar is built before anyone signs in.
 
-- **Users** (`/usuarios`): search, sort, add, change a role, take access away and give it back, reset a password,
-  and choose which process roles a person answers for, which is where their task tray comes from. Somebody added
-  here gets a temporary password that the API invents and returns **once**; the screen shows it on its own and says
-  so, because if it is lost the only way back is resetting it.
+- **Users** (`/usuarios`): sort, add, change a role, take access away, reset a password, and choose which process
+  roles a person answers for, which is where their task tray comes from. Somebody added here gets a temporary
+  password that the API invents and returns **once**; the screen shows it on its own and says so, because if it is
+  lost the only way back is resetting it. There is no search box and nothing to bring somebody back: `GET
+  /usuarios` neither filters by name nor answers with the people who are no longer active. And nobody is offered
+  the button to deactivate themselves, because the API refuses it.
 - **Process roles** (`/roles`): the list says which ones a lane is using, and Delete is disabled on those, because
   the API refuses them with a `409`.
 - **Sharing** (`/procesos/:id/compartir`): by tax id, which is how a store is known to other stores. It is a
@@ -167,7 +169,8 @@ the role from the observable rather than from a snapshot, because the navbar is 
   guard and kept here until they change it, since the API answers `403` to everything else.
 - **Store settings** (`/configuracion`): who may change the structure of a diagram. The simulation parameters are
   saved empty on purpose; they belong to running processes.
-- **Store history** (`/historial`): everything that happened, paged, newest first.
+- **Store history** (`/historial`): everything that happened, paged, newest first. For administrators
+  only, like the three above, because that is what the API allows.
 
 ## Where things go
 

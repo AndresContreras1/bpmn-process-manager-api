@@ -6,9 +6,11 @@ import { environment } from '../../environments/environment';
 import { PageResponse } from '../models/page-response.model';
 import { ActualizarUsuarioRequest, CrearUsuarioRequest, RolDeUsuario, Usuario } from '../models/usuario.model';
 
-/** Filtros de la lista de usuarios; los vacios no se envian. */
+/**
+ * Como se pide una pagina de usuarios. No hay filtro por nombre: la API ordena y pagina, y no busca, asi que la
+ * pantalla tampoco lo ofrece.
+ */
 export interface FiltrosUsuario {
-  nombre: string;
   pagina: number;
   orden: string;
   direccion: 'asc' | 'desc';
@@ -20,14 +22,12 @@ export class UsuarioService {
   private readonly http: HttpClient = inject(HttpClient);
   private readonly url: string = `${environment.apiUrl}/api/v1/usuarios`;
 
+  /** La API solo devuelve los activos: quien deja de poder entrar deja de salir en la lista. */
   listar(filtros: FiltrosUsuario): Observable<PageResponse<Usuario>> {
     const params: Record<string, string | number> = {
       pagina: filtros.pagina,
       orden: `${filtros.orden},${filtros.direccion}`,
     };
-    if (filtros.nombre.trim()) {
-      params['nombre'] = filtros.nombre.trim();
-    }
     return this.http.get<PageResponse<Usuario>>(this.url, { params });
   }
 

@@ -77,6 +77,11 @@ export class AuthService {
     return this.tokenService.sesionAbierta();
   }
 
+  /** El usuario de la sesion, tal como lo devolvio la API. Null cuando no hay sesion abierta. */
+  usuarioActual(): Usuario | null {
+    return this.usuarioSubject.value;
+  }
+
   tieneRol(...roles: RolAcceso[]): boolean {
     const usuario: Usuario | null = this.usuarioSubject.value;
     return usuario !== null && roles.includes(usuario.rolAcceso);
