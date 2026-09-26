@@ -41,7 +41,7 @@
         </span>
       </div>
 
-      @if (puedeEditar) {
+      @if (puedeEditar && !soloLectura) {
         <div class="d-flex flex-wrap gap-2">
           <a class="btn btn-outline-secondary" [routerLink]="['/procesos', detalle.proceso.id, 'editar']"
              id="proceso-detalle-editar">
@@ -96,15 +96,56 @@
       <div class="col-12">
         <section class="card border-0 shadow-sm" id="proceso-detalle-diagrama">
           <div class="card-body p-4">
-            <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
               <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-0">Diagram</h2>
-              @if (diagrama) {
-                <span class="small text-body-secondary" id="proceso-detalle-conteo">
-                  Tasks: {{ diagrama.actividades.length }} · Gateways: {{ diagrama.gateways.length }} ·
-                  Message flows: {{ diagrama.mensajes.length }}
-                </span>
-              }
+              <div class="d-flex flex-wrap align-items-center gap-3">
+                @if (diagrama) {
+                  <span class="small text-body-secondary" id="proceso-detalle-conteo">
+                    Tasks: {{ diagrama.actividades.length }} · Gateways: {{ diagrama.gateways.length }} ·
+                    Events: {{ diagrama.eventos.length }} · Message flows: {{ diagrama.mensajes.length }}
+                  </span>
+                }
+                @if (versiones.length && !diagrama?.compartido) {
+                  <div class="d-flex align-items-center gap-2">
+                    <label class="small text-body-secondary mb-0" for="proceso-detalle-version">Showing</label>
+                    <select class="form-select form-select-sm w-auto" id="proceso-detalle-version"
+                            [disabled]="cambiandoVersion" [ngModel]="verVersion"
+                            (ngModelChange)="mostrarVersion($event)">
+                      <option [ngValue]="null">Working copy</option>
+                      @for (version of versiones; track version.id) {
+                        <option [ngValue]="version.numero">
+                          Version {{ version.numero }}{{ version.estado === 'VIGENTE' ? ' · in force' : ' · retired' }}
+                        </option>
+                      }
+                    </select>
+                  </div>
+                }
+              </div>
             </div>
+
+            @if (diagrama?.compartido) {
+              <div class="alert alert-info py-2 small" id="proceso-detalle-invitada">
+                This process belongs to another store and is shared with yours, so what you see is the version in
+                force, not their working copy.
+              </div>
+            } @else if (verVersion !== null) {
+              <div class="alert alert-secondary py-2 small d-flex flex-wrap align-items-center gap-2"
+                   id="proceso-detalle-congelado">
+                <span class="flex-grow-1">
+                  Version {{ verVersion }}, exactly as it was published. A published version never changes: the cases
+                  that started on it keep running on it.
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="proceso-detalle-ver-borrador"
+                        (click)="mostrarVersion(null)">Back to the working copy</button>
+              </div>
+            } @else if (detalle.proceso.borradorPendiente) {
+              <div class="alert alert-warning py-2 small" id="proceso-detalle-borrador">
+                This working copy has changes that are not published yet, so it is not what runs.
+                @if (detalle.proceso.versionPublicada) {
+                  Version {{ detalle.proceso.versionPublicada }} is the one in force.
+                }
+              </div>
+            }
 
             @if (diagrama && lienzo) {
               <app-diagrama-bpmn [lienzo]="lienzo" [titulo]="'BPMN diagram of ' + detalle.proceso.nombre"
@@ -262,7 +303,11 @@
         <section class="card border-0 shadow-sm">
           <div class="card-body p-4">
             <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Change history</h2>
-            @if (detalle.historial.length === 0) {
+            @if (soloLectura) {
+              <p class="text-body-secondary mb-0" id="proceso-detalle-historial-ajeno">
+                The history of a process belongs to the store that owns it.
+              </p>
+            } @else if (detalle.historial.length === 0) {
               <p class="text-body-secondary mb-0" id="proceso-detalle-sin-historial">No changes recorded yet.</p>
             } @else {
               <ol class="historial list-unstyled mb-0" id="proceso-detalle-historial">
