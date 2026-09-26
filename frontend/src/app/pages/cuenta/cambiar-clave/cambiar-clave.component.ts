@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, input, output } from '@angular/core';
+import { Component, DestroyRef, inject, input, output } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 
@@ -18,6 +19,7 @@ import { AuthService } from '../../../service/auth.service';
 })
 export class CambiarClaveComponent {
   private readonly authService: AuthService = inject(AuthService);
+  private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   /** True cuando entro con una temporal: hasta cambiarla la API le responde 403 a todo lo demas. */
   readonly obligatorio = input<boolean>(false);
@@ -43,7 +45,10 @@ export class CambiarClaveComponent {
     const valores = this.claveForm.getRawValue();
     this.authService
       .cambiarClave(valores.actual ?? '', valores.nueva ?? '')
-      .pipe(finalize(() => (this.enviando = false)))
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: () => {
           this.aviso = 'Your password was changed. The sessions you had open elsewhere were closed.';

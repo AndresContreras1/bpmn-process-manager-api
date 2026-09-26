@@ -109,21 +109,26 @@ export class RolesComponent implements OnInit {
     const guardado$: Observable<RolProceso> = this.editando
       ? this.rolProcesoService.editar(this.editando.id, { ...datos, version: this.editando.version })
       : this.rolProcesoService.crear(datos);
-    guardado$.pipe(finalize(() => (this.enviando = false))).subscribe({
-      next: (rol: RolProceso) => {
-        this.aviso = this.editando ? `"${rol.nombre}" was saved.` : `"${rol.nombre}" was created.`;
-        this.cancelar();
-        this.buscar();
-      },
-      error: (error: HttpErrorResponse) => {
-        if (error.status === 400) {
-          marcarErroresDelServidor(this.rolForm, error);
-          this.error = 'Check the highlighted fields.';
-        } else {
-          this.error = mensajeDeError(error);
-        }
-      },
-    });
+    guardado$
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (rol: RolProceso) => {
+          this.aviso = this.editando ? `"${rol.nombre}" was saved.` : `"${rol.nombre}" was created.`;
+          this.cancelar();
+          this.buscar();
+        },
+        error: (error: HttpErrorResponse) => {
+          if (error.status === 400) {
+            marcarErroresDelServidor(this.rolForm, error);
+            this.error = 'Check the highlighted fields.';
+          } else {
+            this.error = mensajeDeError(error);
+          }
+        },
+      });
   }
 
   confirmarBorrado(): void {

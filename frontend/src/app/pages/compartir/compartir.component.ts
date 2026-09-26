@@ -66,7 +66,10 @@ export class CompartirComponent implements OnInit {
     this.limpiarMensajes();
     this.compartirService
       .compartir(this.procesoId, this.nitForm.getRawValue().nit ?? '')
-      .pipe(finalize(() => (this.enviando = false)))
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: (invitada: EmpresaInvitada) => {
           this.aviso = `${invitada.nombre} can now read this process.`;

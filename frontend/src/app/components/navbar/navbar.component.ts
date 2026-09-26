@@ -1,5 +1,6 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Observable, finalize } from 'rxjs';
 
@@ -14,8 +15,8 @@ import { AuthService } from '../../service/auth.service';
 })
 export class NavbarComponent {
   private readonly authService: AuthService = inject(AuthService);
-
   private readonly router: Router = inject(Router);
+  private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   readonly usuario$: Observable<Usuario | null> = this.authService.usuario$;
   readonly nombreRol: Record<RolAcceso, string> = NOMBRE_ROL;
@@ -25,7 +26,10 @@ export class NavbarComponent {
     // La sesion local se borra en el logout aunque la API no responda; luego se vuelve al login
     this.authService
       .logout()
-      .pipe(finalize(() => this.router.navigate(['/login'])))
+      .pipe(
+        finalize(() => this.router.navigate(['/login'])),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({ error: () => undefined });
   }
 }
