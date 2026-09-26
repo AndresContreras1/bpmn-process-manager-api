@@ -408,6 +408,18 @@ The browser only ever talks to the web container: NGINX serves the compiled app 
 configure, and the same image runs anywhere without being rebuilt. The API keeps its own port for the Postman
 collection and for curl, but nothing in the browser uses it.
 
+### End-to-end tests
+
+```bash
+docker compose up -d --build --wait
+./mvnw -B -f e2e/pom.xml test
+```
+
+A separate Maven module that does not hang from this pom, so `./mvnw verify` never runs it and the normal build
+stays as fast as it was. It drives a headless Chrome against the stack above: signing in, creating a process,
+fixing a diagram in the editor until the diagnosis lets it be published, sharing it and reading it as the other
+store, and administering roles and users. [e2e/README.md](e2e/README.md) says what each scenario covers.
+
 ### Postman collection
 
 The [Postman collection](postman/) covers a second scenario, in which *Acme Store* models how it hands orders over to
