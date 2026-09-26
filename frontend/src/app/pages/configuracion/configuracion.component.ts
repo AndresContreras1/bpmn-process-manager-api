@@ -38,6 +38,10 @@ export class ConfiguracionComponent implements OnInit {
   aviso: string | null = null;
 
   ngOnInit(): void {
+    if (!this.esAdministrador) {
+      this.cargando = false;
+      return;
+    }
     this.configuracionService
       .obtener()
       .pipe(

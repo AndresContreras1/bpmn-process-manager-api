@@ -60,6 +60,11 @@ export class UsuariosComponent implements OnInit {
   claveTemporal: { usuario: string; clave: string } | null = null;
 
   ngOnInit(): void {
+    if (!this.esAdministrador) {
+      // La API responde 403 a los demas, y la pantalla ya lo dice: pedirlo solo ensuciaria el registro
+      this.cargando = false;
+      return;
+    }
     this.busqueda$
       .pipe(
         debounceTime(250),

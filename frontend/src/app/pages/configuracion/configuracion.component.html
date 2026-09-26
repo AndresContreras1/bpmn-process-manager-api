@@ -4,6 +4,11 @@
       <h1 class="h4 fw-bold mb-0">Store settings</h1>
       <p class="text-body-secondary">What holds for every process of your store.</p>
 
+      @if (!esAdministrador) {
+        <div class="alert alert-info" role="alert" id="configuracion-solo-admin">
+          Only an administrator can read or change the settings of a store.
+        </div>
+      }
       @if (aviso) {
         <div class="alert alert-success" role="status" id="configuracion-aviso">{{ aviso }}</div>
       }
