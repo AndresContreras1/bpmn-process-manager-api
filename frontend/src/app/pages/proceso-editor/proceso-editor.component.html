@@ -1,0 +1,352 @@
+<div class="container-fluid py-4" id="proceso-editor">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+      <li class="breadcrumb-item"><a routerLink="/procesos">Processes</a></li>
+      <li class="breadcrumb-item"><a [routerLink]="['/procesos', procesoId]">Process</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Model</li>
+    </ol>
+  </nav>
+
+  @if (noEncontrado) {
+    <div class="alert alert-warning" role="alert" id="proceso-editor-no-encontrado">
+      This process does not exist in your store.
+      <a routerLink="/procesos" class="alert-link">Back to processes</a>
+    </div>
+  } @else {
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <div>
+        <h1 class="h4 fw-bold mb-0" id="proceso-editor-titulo">{{ proceso?.nombre ?? 'Loading…' }}</h1>
+        <p class="text-body-secondary small mb-0">
+          Model the diagram. Every change is saved as soon as the API confirms it.
+        </p>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        @if (puedeEditar) {
+          <button type="button" class="btn btn-success btn-sm" id="proceso-editor-publicar"
+                  [disabled]="publicando || !sePuedePublicar" (click)="publicar()">
+            <i class="fa-solid fa-rocket" aria-hidden="true"></i>
+            {{ publicando ? 'Publishing…' : 'Publish' }}
+          </button>
+        }
+        <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/procesos', procesoId]"
+           id="proceso-editor-volver">Back to the process</a>
+      </div>
+    </div>
+
+    @if (!puedeEditar) {
+      <div class="alert alert-info" role="alert" id="proceso-editor-solo-lectura">
+        Your role can read this diagram but not change it. Everything below is shown for reading.
+      </div>
+    }
+    @if (error) {
+      <div class="alert alert-danger" role="alert" id="proceso-editor-error">{{ error }}</div>
+    }
+    @if (publicado) {
+      <div class="alert alert-success" role="status" id="proceso-editor-publicado">{{ publicado }}</div>
+    }
+
+    @if (cargando) {
+      <div class="text-center text-body-secondary py-5" id="proceso-editor-cargando">
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading the diagram…
+      </div>
+    } @else if (diagrama && lienzo) {
+      <div class="row g-3">
+        <!-- ------------------------------------------------------------------ el esquema -->
+        <div class="col-lg-3 col-xl-2">
+          @if (puedeEditar) {
+            <div class="card border-0 shadow-sm mb-3">
+              <div class="card-body p-3">
+                <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Add</h2>
+                <p class="small text-body-secondary">Nodes go into the lane you have picked.</p>
+                <div class="d-grid gap-2 mb-2">
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="paleta-participante"
+                          (click)="agregarPool()">Participant</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="paleta-lane"
+                          (click)="agregarLane()">Lane</button>
+                </div>
+                <div class="d-flex gap-1 mb-1">
+                  <select class="form-select form-select-sm" aria-label="Kind of task"
+                          [(ngModel)]="nuevaActividad" id="paleta-tipo-actividad">
+                    @for (tipo of tiposActividad; track tipo) {
+                      <option [ngValue]="tipo">{{ nombreActividad[tipo] }}</option>
+                    }
+                  </select>
+                  <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="paleta-actividad"
+                          (click)="agregarActividad()">Add</button>
+                </div>
+                <div class="d-flex gap-1 mb-1">
+                  <select class="form-select form-select-sm" aria-label="Kind of gateway"
+                          [(ngModel)]="nuevoGateway" id="paleta-tipo-gateway">
+                    @for (tipo of tiposGateway; track tipo) {
+                      <option [ngValue]="tipo">{{ nombreGateway[tipo] }}</option>
+                    }
+                  </select>
+                  <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="paleta-gateway"
+                          (click)="agregarGateway()">Add</button>
+                </div>
+                <div class="d-flex gap-1 mb-2">
+                  <select class="form-select form-select-sm" aria-label="Kind of event"
+                          [(ngModel)]="nuevoEvento" id="paleta-tipo-evento">
+                    @for (tipo of tiposEvento; track tipo) {
+                      <option [ngValue]="tipo">{{ nombreEvento[tipo] }}</option>
+                    }
+                  </select>
+                  <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="paleta-evento"
+                          (click)="agregarEvento()">Add</button>
+                </div>
+
+                <h3 class="h6 small text-uppercase text-body-secondary fw-semibold mt-3">Message flow</h3>
+                <select class="form-select form-select-sm mb-1" aria-label="From which participant"
+                        [(ngModel)]="mensajeOrigen" id="paleta-mensaje-origen">
+                  <option [ngValue]="null">From…</option>
+                  @for (pool of diagrama.pools; track pool.id) {
+                    <option [ngValue]="pool.id">{{ pool.nombre }}</option>
+                  }
+                </select>
+                <select class="form-select form-select-sm mb-1" aria-label="To which participant"
+                        [(ngModel)]="mensajeDestino" id="paleta-mensaje-destino">
+                  <option [ngValue]="null">To…</option>
+                  @for (pool of diagrama.pools; track pool.id) {
+                    <option [ngValue]="pool.id">{{ pool.nombre }}</option>
+                  }
+                </select>
+                <button type="button" class="btn btn-sm btn-outline-primary w-100" id="paleta-mensaje"
+                        (click)="agregarMensaje()">Add the message flow</button>
+              </div>
+            </div>
+          }
+
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Outline</h2>
+              <ul class="esquema list-unstyled small mb-0" id="proceso-editor-esquema">
+                @for (rama of esquema; track rama.pool.id) {
+                  <li class="mb-2">
+                    <button type="button" class="enlace fw-semibold" data-testid="esquema-pool"
+                            [class.elegido]="seleccion?.tipo === 'POOL' && seleccion?.id === rama.pool.id"
+                            (click)="elegir({ tipo: 'POOL', id: rama.pool.id })">
+                      {{ rama.pool.nombre }}
+                    </button>
+                    @if (rama.pool.cajaNegra) {
+                      <span class="text-body-secondary">· black box</span>
+                    }
+                    <ul class="list-unstyled ms-3">
+                      @for (lane of rama.lanes; track lane.id) {
+                        <li>
+                          <button type="button" class="enlace" data-testid="esquema-lane"
+                                  [class.elegido]="seleccion?.tipo === 'LANE' && seleccion?.id === lane.id"
+                                  (click)="elegir({ tipo: 'LANE', id: lane.id })">{{ lane.nombre }}</button>
+                          @if (puedeEditar && rama.lanes.length > 1) {
+                            <button type="button" class="enlace ms-1 text-body-tertiary" data-testid="lane-subir"
+                                    [attr.aria-label]="'Move ' + lane.nombre + ' up'" (click)="moverLane(lane, -1)">
+                              <i class="fa-solid fa-caret-up" aria-hidden="true"></i>
+                            </button>
+                            <button type="button" class="enlace text-body-tertiary" data-testid="lane-bajar"
+                                    [attr.aria-label]="'Move ' + lane.nombre + ' down'" (click)="moverLane(lane, 1)">
+                              <i class="fa-solid fa-caret-down" aria-hidden="true"></i>
+                            </button>
+                          }
+                          <ul class="list-unstyled ms-3">
+                            @for (evento of diagrama.eventos; track evento.id) {
+                              @if (evento.laneId === lane.id) {
+                                <li>
+                                  <button type="button" class="enlace" data-testid="esquema-nodo"
+                                          [class.elegido]="seleccion?.tipo === 'EVENTO' && seleccion?.id === evento.id"
+                                          (click)="elegir({ tipo: 'EVENTO', id: evento.id })">
+                                    <i class="fa-regular fa-circle" aria-hidden="true"></i> {{ evento.nombre }}
+                                  </button>
+                                </li>
+                              }
+                            }
+                            @for (actividad of diagrama.actividades; track actividad.id) {
+                              @if (actividad.laneId === lane.id) {
+                                <li>
+                                  <button type="button" class="enlace" data-testid="esquema-nodo"
+                                          [class.elegido]="seleccion?.tipo === 'ACTIVIDAD' && seleccion?.id === actividad.id"
+                                          (click)="elegir({ tipo: 'ACTIVIDAD', id: actividad.id })">
+                                    <i class="fa-regular fa-square" aria-hidden="true"></i> {{ actividad.nombre }}
+                                  </button>
+                                </li>
+                              }
+                            }
+                            @for (gateway of diagrama.gateways; track gateway.id) {
+                              @if (gateway.laneId === lane.id) {
+                                <li>
+                                  <button type="button" class="enlace" data-testid="esquema-nodo"
+                                          [class.elegido]="seleccion?.tipo === 'GATEWAY' && seleccion?.id === gateway.id"
+                                          (click)="elegir({ tipo: 'GATEWAY', id: gateway.id })">
+                                    <i class="fa-solid fa-diamond" aria-hidden="true"></i> {{ gateway.nombre }}
+                                  </button>
+                                </li>
+                              }
+                            }
+                          </ul>
+                        </li>
+                      }
+                    </ul>
+                  </li>
+                }
+              </ul>
+
+              @if (lienzo.mensajes.length) {
+                <h2 class="h6 text-uppercase text-body-secondary fw-semibold mt-3">Message flows</h2>
+                <ul class="esquema list-unstyled small mb-0">
+                  @for (mensaje of lienzo.mensajes; track mensaje.id) {
+                    <li>
+                      <button type="button" class="enlace" data-testid="esquema-mensaje"
+                              [class.elegido]="seleccion?.tipo === 'MENSAJE' && seleccion?.id === mensaje.id"
+                              (click)="elegir({ tipo: 'MENSAJE', id: mensaje.id })">
+                        {{ mensaje.numero }}. {{ mensaje.nombre }}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------------------------------ el lienzo -->
+        <div class="col-lg-9 col-xl-7">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+              @if (puedeEditar) {
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <button type="button" class="btn btn-sm" id="proceso-editor-conectar"
+                          [class.btn-primary]="conectando" [class.btn-outline-primary]="!conectando"
+                          (click)="alternarConexion()">
+                    <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
+                    {{ conectando ? 'Cancel' : 'Connect two nodes' }}
+                  </button>
+                  @if (conectando) {
+                    <span class="small text-body-secondary" id="proceso-editor-conectando">
+                      {{ origenConexion === null
+                        ? 'Click the node the flow leaves from.'
+                        : 'Now click the node it goes to.' }}
+                      Two nodes of the same participant make a sequence flow; of different ones, a message flow.
+                    </span>
+                  } @else {
+                    <span class="small text-body-secondary">Drag a node to move it, or onto another lane.</span>
+                  }
+                </div>
+              }
+              <app-diagrama-bpmn [lienzo]="lienzo" [titulo]="'BPMN diagram of ' + (proceso?.nombre ?? '')"
+                                 [seleccionadoId]="conectando ? origenConexion : nodoElegidoId"
+                                 [editable]="puedeEditar && !conectando" (seleccionar)="elegirNodo($event)"
+                                 (mover)="moverNodo($event)" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------------------------------ el panel -->
+        <div class="col-xl-3">
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-3">
+              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Selected</h2>
+              @if (seleccion) {
+                <p class="mb-0" id="proceso-editor-elegido">
+                  <span class="badge text-bg-light border">{{ nombreElemento[seleccion.tipo] }}</span>
+                  <span class="fw-semibold ms-1">{{ nombreElegido }}</span>
+                </p>
+                <app-panel-elemento class="d-block mt-3" [seleccion]="seleccion" [diagrama]="diagrama"
+                                    [roles]="roles" [puedeEditar]="puedeEditar" (guardado)="refrescar()" />
+                @if (puedeEditar) {
+                  <button type="button" class="btn btn-outline-danger btn-sm w-100 mt-2" id="proceso-editor-borrar"
+                          data-bs-toggle="modal" data-bs-target="#modal-borrar-elemento"
+                          (click)="prepararBorrado()">
+                    <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete
+                  </button>
+                }
+              } @else {
+                <p class="small text-body-secondary mb-0" id="proceso-editor-sin-eleccion">
+                  Pick something in the outline or in the diagram.
+                </p>
+              }
+            </div>
+          </div>
+
+          @if (puedeEditar) {
+            <div class="card border-0 shadow-sm mb-3" id="proceso-editor-revision">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                  <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-0">Second opinion</h2>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="proceso-editor-revisar"
+                          [disabled]="revisando" (click)="revisar()">
+                    {{ revisando ? 'Asking…' : 'Ask' }}
+                  </button>
+                </div>
+                <p class="small text-body-secondary mb-0 mt-1">
+                  Advice from a model about the diagram. It changes nothing, and the diagnosis above is the one that
+                  decides whether this can be published.
+                </p>
+                @if (errorRevision) {
+                  <p class="small text-body-secondary mb-0 mt-2" id="proceso-editor-revision-error">
+                    {{ errorRevision }}
+                  </p>
+                }
+                @if (revision) {
+                  <p class="small mb-1 mt-2" id="proceso-editor-revision-resumen">{{ revision.resumen }}</p>
+                  @if (revision.reutilizada) {
+                    <p class="small text-body-tertiary mb-1">
+                      The diagram has not changed since the last review, so this is that one.
+                    </p>
+                  }
+                  <ul class="list-unstyled small mb-0">
+                    @for (hallazgo of revision.hallazgos; track $index) {
+                      <li class="mb-2" data-testid="hallazgo-ia">
+                        <span class="fw-semibold">{{ hallazgo.elemento ?? 'The process' }}</span>
+                        <div class="text-body-secondary">{{ hallazgo.problema }}</div>
+                        <div class="text-body-tertiary">{{ hallazgo.sugerencia }}</div>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </div>
+          }
+
+          <div class="card border-0 shadow-sm">
+            <div class="card-body p-3">
+              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Diagnosis</h2>
+              @if (!diagnostico) {
+                <p class="small text-body-secondary mb-0" id="proceso-editor-sin-diagnostico">
+                  The diagnosis could not be read. The diagram can still be edited.
+                </p>
+              } @else {
+                <p class="small mb-2" id="proceso-editor-cuenta">
+                  <span class="badge text-bg-danger">{{ diagnostico.errores }}</span>
+                  {{ diagnostico.errores === 1 ? 'error' : 'errors' }} ·
+                  <span class="badge text-bg-warning">{{ diagnostico.advertencias }}</span>
+                  {{ diagnostico.advertencias === 1 ? 'warning' : 'warnings' }}
+                </p>
+                @if (diagnostico.hallazgos.length === 0) {
+                  <p class="small text-success mb-0" id="proceso-editor-limpio">
+                    Nothing to fix. This diagram can be published.
+                  </p>
+                } @else {
+                  <ul class="list-unstyled small mb-0" id="proceso-editor-hallazgos">
+                    @for (hallazgo of diagnostico.hallazgos; track $index) {
+                      <li class="mb-2" data-testid="hallazgo">
+                        <button type="button" class="enlace text-start" (click)="irAlHallazgo(hallazgo)"
+                                [disabled]="hallazgo.elementoId === null">
+                          <span class="badge" [class.text-bg-danger]="hallazgo.codigo.startsWith('E')"
+                                [class.text-bg-warning]="!hallazgo.codigo.startsWith('E')">{{ hallazgo.codigo }}</span>
+                          <span class="fw-semibold ms-1">{{ elementoEnIngles(hallazgo.elemento) ?? 'The process' }}</span>
+                        </button>
+                        <div class="text-body-secondary">{{ hallazgo.problema }}</div>
+                        <div class="text-body-tertiary">{{ hallazgo.sugerencia }}</div>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>
+
+<app-modal-confirmar idModal="modal-borrar-elemento" titulo="Delete this element?" textoBoton="Delete"
+                     [peligro]="true" [mensaje]="impacto" (confirmar)="confirmarBorrado()" />

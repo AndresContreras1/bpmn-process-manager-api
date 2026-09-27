@@ -1,0 +1,294 @@
+<form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate id="panel-elemento">
+  @if (error) {
+    <div class="alert alert-danger py-2 small" role="alert" id="panel-elemento-error">{{ error }}</div>
+  }
+  @if (aviso) {
+    <div class="alert alert-success py-2 small" role="status" id="panel-elemento-aviso">{{ aviso }}</div>
+  }
+
+  @switch (seleccion().tipo) {
+    <!-- ------------------------------------------------------------------ participante -->
+    @case ('POOL') {
+      <div class="mb-2">
+        <label class="form-label small" for="panel-pool-nombre">Name</label>
+        <input type="text" class="form-control form-control-sm" id="panel-pool-nombre" formControlName="nombre">
+        <app-error-campo [control]="formulario.get('nombre')" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-pool-tipo">Kind</label>
+        <select class="form-select form-select-sm" id="panel-pool-tipo" formControlName="tipoParticipante">
+          @for (tipo of tiposParticipante; track tipo) {
+            <option [value]="tipo">{{ nombreParticipante[tipo] }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-pool-integracion">Simulated partner</label>
+        <select class="form-select form-select-sm" id="panel-pool-integracion" formControlName="integracion">
+          @for (integracion of integraciones; track integracion) {
+            <option [value]="integracion">{{ nombreIntegracion[integracion] }}</option>
+          }
+        </select>
+        <div class="form-text small">Who answers for this participant when the process runs.</div>
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="panel-pool-caja" formControlName="cajaNegra">
+        <label class="form-check-label small" for="panel-pool-caja">
+          Black box: its inside is not modelled
+        </label>
+      </div>
+    }
+
+    <!-- ------------------------------------------------------------------ lane -->
+    @case ('LANE') {
+      <div class="mb-2">
+        <label class="form-label small" for="panel-lane-nombre">Name</label>
+        <input type="text" class="form-control form-control-sm" id="panel-lane-nombre" formControlName="nombre">
+        <app-error-campo [control]="formulario.get('nombre')" />
+      </div>
+      <div class="mb-3">
+        <label class="form-label small" for="panel-lane-rol">Role that does this work</label>
+        <select class="form-select form-select-sm" id="panel-lane-rol" formControlName="rolProcesoId">
+          @for (rol of roles(); track rol.id) {
+            <option [ngValue]="rol.id">{{ rol.nombre }}</option>
+          }
+        </select>
+        <app-error-campo [control]="formulario.get('rolProcesoId')" />
+      </div>
+    }
+
+    <!-- ------------------------------------------------------------------ tarea -->
+    @case ('ACTIVIDAD') {
+      <div class="mb-2">
+        <label class="form-label small" for="panel-actividad-nombre">Name</label>
+        <input type="text" class="form-control form-control-sm" id="panel-actividad-nombre" formControlName="nombre">
+        <app-error-campo [control]="formulario.get('nombre')" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-actividad-tipo">Kind</label>
+        <select class="form-select form-select-sm" id="panel-actividad-tipo" formControlName="tipoActividad">
+          @for (tipo of tiposActividad; track tipo) {
+            <option [value]="tipo">{{ nombreActividad[tipo] }}</option>
+          }
+        </select>
+        <div class="form-text small">Only a send or service task sends messages, and only a receive task waits.</div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-actividad-lane">Lane</label>
+        <select class="form-select form-select-sm" id="panel-actividad-lane" formControlName="laneId">
+          @for (lane of lanesDelPool(); track lane.id) {
+            <option [ngValue]="lane.id">{{ lane.nombre }}</option>
+          }
+        </select>
+        <div class="form-text small">Moving it to another lane changes the role that does it.</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small" for="panel-actividad-descripcion">Description</label>
+        <textarea class="form-control form-control-sm" id="panel-actividad-descripcion" rows="3"
+                  formControlName="descripcion"></textarea>
+        <app-error-campo [control]="formulario.get('descripcion')" />
+      </div>
+    }
+
+    <!-- ------------------------------------------------------------------ gateway -->
+    @case ('GATEWAY') {
+      <div class="mb-2">
+        <label class="form-label small" for="panel-gateway-nombre">Name</label>
+        <input type="text" class="form-control form-control-sm" id="panel-gateway-nombre" formControlName="nombre">
+        <app-error-campo [control]="formulario.get('nombre')" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-gateway-tipo">Kind</label>
+        <select class="form-select form-select-sm" id="panel-gateway-tipo" formControlName="tipoGateway">
+          @for (tipo of tiposGateway; track tipo) {
+            <option [value]="tipo">{{ nombreGateway[tipo] }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small" for="panel-gateway-lane">Lane</label>
+        <select class="form-select form-select-sm" id="panel-gateway-lane" formControlName="laneId">
+          @for (lane of lanesDelPool(); track lane.id) {
+            <option [ngValue]="lane.id">{{ lane.nombre }}</option>
+          }
+        </select>
+      </div>
+    }
+
+    <!-- ------------------------------------------------------------------ evento -->
+    @case ('EVENTO') {
+      <div class="mb-2">
+        <label class="form-label small" for="panel-evento-nombre">Name</label>
+        <input type="text" class="form-control form-control-sm" id="panel-evento-nombre" formControlName="nombre">
+        <app-error-campo [control]="formulario.get('nombre')" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-evento-tipo">Kind</label>
+        <select class="form-select form-select-sm" id="panel-evento-tipo" formControlName="tipoEvento">
+          @for (tipo of tiposEvento; track tipo) {
+            <option [value]="tipo">{{ nombreEvento[tipo] }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small" for="panel-evento-lane">Lane</label>
+        <select class="form-select form-select-sm" id="panel-evento-lane" formControlName="laneId">
+          @for (lane of lanesDelPool(); track lane.id) {
+            <option [ngValue]="lane.id">{{ lane.nombre }}</option>
+          }
+        </select>
+      </div>
+    }
+
+    <!-- ------------------------------------------------------------------ flujo de secuencia -->
+    @case ('ARCO') {
+      <div class="mb-2">
+        <label class="form-label small" for="panel-arco-etiqueta">Label</label>
+        <input type="text" class="form-control form-control-sm" id="panel-arco-etiqueta" formControlName="etiqueta">
+        <app-error-campo [control]="formulario.get('etiqueta')" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-arco-condicion">Condition</label>
+        <input type="text" class="form-control form-control-sm font-monospace" id="panel-arco-condicion"
+               formControlName="condicion" placeholder="payment.status == APPROVED">
+        <div class="form-text small">
+          A comparison the engine can read. Leave it empty on the flow that is taken when nothing else matches.
+        </div>
+        <app-error-campo [control]="formulario.get('condicion')" />
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="panel-arco-defecto" formControlName="porDefecto">
+        <label class="form-check-label small" for="panel-arco-defecto">
+          Default flow: taken when no condition matches
+        </label>
+      </div>
+    }
+
+    <!-- ------------------------------------------------------------------ flujo de mensaje -->
+    @case ('MENSAJE') {
+      <div class="mb-2">
+        <label class="form-label small" for="panel-mensaje-nombre">Name</label>
+        <input type="text" class="form-control form-control-sm" id="panel-mensaje-nombre" formControlName="nombre">
+        <app-error-campo [control]="formulario.get('nombre')" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-mensaje-contenido">What travels inside</label>
+        <textarea class="form-control form-control-sm" id="panel-mensaje-contenido" rows="2"
+                  formControlName="contenido"></textarea>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-mensaje-origen">Leaves from</label>
+        <select class="form-select form-select-sm" id="panel-mensaje-origen" formControlName="nodoOrigenId">
+          <option [ngValue]="null">Nothing: that side is a black box</option>
+          @for (nodo of nodos(); track nodo.id) {
+            <option [ngValue]="nodo.id">{{ nodo.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-mensaje-destino">Waited for by</label>
+        <select class="form-select form-select-sm" id="panel-mensaje-destino" formControlName="nodoDestinoId">
+          <option [ngValue]="null">Nothing: that side is a black box</option>
+          @for (nodo of nodos(); track nodo.id) {
+            <option [ngValue]="nodo.id">{{ nodo.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-mensaje-como">How it travels</label>
+        <select class="form-select form-select-sm" id="panel-mensaje-como" formControlName="tipoDestino">
+          <option [ngValue]="null">Not said</option>
+          <option value="CORREO">email</option>
+          <option value="SERVICIO_WEB">web service</option>
+          <option value="COLA">queue</option>
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-mensaje-falla">If it cannot be delivered</label>
+        <select class="form-select form-select-sm" id="panel-mensaje-falla" formControlName="siFalla">
+          <option [ngValue]="null">Not said</option>
+          <option value="CONTINUAR">the process carries on</option>
+          <option value="MANEJAR_ERROR">it goes to a task that handles it</option>
+          <option value="FINALIZAR">the process ends</option>
+        </select>
+      </div>
+      @if (formulario.get('siFalla')?.value === 'MANEJAR_ERROR') {
+        <div class="mb-2">
+          <label class="form-label small" for="panel-mensaje-manejo">Task that handles it</label>
+          <select class="form-select form-select-sm" id="panel-mensaje-manejo" formControlName="nodoManejoErrorId">
+            <option [ngValue]="null">Not chosen</option>
+            @for (nodo of nodos(); track nodo.id) {
+              <option [ngValue]="nodo.id">{{ nodo.nombre }}</option>
+            }
+          </select>
+        </div>
+      }
+      <div class="mb-2">
+        <label class="form-label small" for="panel-mensaje-variable">Its body becomes the variable</label>
+        <input type="text" class="form-control form-control-sm font-monospace" id="panel-mensaje-variable"
+               formControlName="variable" placeholder="payment">
+      </div>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="panel-mensaje-externo" formControlName="origenExterno">
+        <label class="form-check-label small" for="panel-mensaje-externo">
+          It arrives from outside, so a case can start with it
+        </label>
+      </div>
+
+      <div class="mb-3" formArrayName="campos">
+        <div class="d-flex align-items-center justify-content-between">
+          <label class="form-label small mb-0">Fields it carries</label>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="panel-mensaje-agregar-campo"
+                  [disabled]="!puedeEditar()" (click)="agregarCampo()">Add</button>
+        </div>
+        @for (campo of campos.controls; track $index) {
+          <div class="d-flex gap-1 mt-1" [formGroupName]="$index" data-testid="campo-mensaje">
+            <input type="text" class="form-control form-control-sm" formControlName="nombre" placeholder="orderId">
+            <select class="form-select form-select-sm w-auto" formControlName="tipo">
+              @for (tipo of tiposDato; track tipo) {
+                <option [value]="tipo">{{ tipo }}</option>
+              }
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-danger" [disabled]="!puedeEditar()"
+                    (click)="quitarCampo($index)" aria-label="Remove the field">&times;</button>
+          </div>
+        }
+      </div>
+    }
+  }
+
+  @if (puedeEditar()) {
+    <button type="submit" class="btn btn-primary btn-sm w-100" id="panel-elemento-guardar" [disabled]="enviando">
+      {{ enviando ? 'Saving…' : 'Save' }}
+    </button>
+  }
+
+  <!-- La correlacion es otro recurso y se guarda aparte, con su propio PUT y su propia version -->
+  @if (seleccion().tipo === 'MENSAJE') {
+    <div class="border-top mt-3 pt-3" formGroupName="correlacion" id="panel-correlacion">
+      <h3 class="h6 fw-semibold">Correlation</h3>
+      <p class="small text-body-secondary">Which field of the body says what case a message that arrives belongs to.</p>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-correlacion-criterio">Key</label>
+        <input type="text" class="form-control form-control-sm font-monospace" id="panel-correlacion-criterio"
+               formControlName="criterio" placeholder="orderId">
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-correlacion-campo">Field that carries it</label>
+        <input type="text" class="form-control form-control-sm font-monospace" id="panel-correlacion-campo"
+               formControlName="campo" placeholder="orderId">
+      </div>
+      <div class="mb-2">
+        <label class="form-label small" for="panel-correlacion-sincaso">With no open case</label>
+        <select class="form-select form-select-sm" id="panel-correlacion-sincaso" formControlName="sinCaso">
+          <option value="DESCARTAR">it is discarded</option>
+          <option value="INICIAR_CASO">it opens a new case</option>
+        </select>
+      </div>
+      @if (puedeEditar()) {
+        <button type="button" class="btn btn-outline-primary btn-sm w-100" id="panel-correlacion-guardar"
+                [disabled]="enviando" (click)="guardarCorrelacion()">Save the correlation</button>
+      }
+    </div>
+  }
+</form>

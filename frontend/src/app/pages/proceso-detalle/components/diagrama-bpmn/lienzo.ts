@@ -60,6 +60,11 @@ export interface LaneDibujo {
   ancho: number;
   alto: number;
   etiqueta: string;
+  /**
+   * El y del lienzo que corresponde a posicionY 0 en esta lane: `posicionY = cy - origenY`. Con esto se puede
+   * deshacer la cuenta que hizo el dibujo, que es lo que necesita el editor cuando alguien suelta un nodo.
+   */
+  origenY: number;
 }
 
 export interface ActividadDibujo {
@@ -67,6 +72,8 @@ export interface ActividadDibujo {
   nombre: string;
   x: number;
   y: number;
+  cx: number;
+  cy: number;
   ancho: number;
   alto: number;
   texto: TextoDibujo;
@@ -76,6 +83,8 @@ export interface GatewayDibujo {
   id: number;
   nombre: string;
   tipo: TipoGateway;
+  cx: number;
+  cy: number;
   puntos: string;
   marca: string;
   texto: TextoDibujo;
@@ -137,6 +146,8 @@ export interface Lienzo {
   ancho: number;
   alto: number;
   anchoMinimo: number;
+  /** El x del lienzo que corresponde a posicionX 0: `posicionX = cx - origenX`, comun a todas las lanes. */
+  origenX: number;
   pools: PoolDibujo[];
   lanes: LaneDibujo[];
   actividades: ActividadDibujo[];
@@ -174,6 +185,7 @@ export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
     ancho: anchoPool + 2 * MARGEN,
     alto: 0,
     anchoMinimo: 0,
+    origenX: MARGEN + 2 * FRANJA + RELLENO_X + ANCHO_TAREA / 2 - minX,
     pools: [],
     lanes: [],
     actividades: [],
@@ -215,6 +227,7 @@ export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
           ancho: anchoPool - FRANJA,
           alto,
           etiqueta: recortar(lane.nombre, caracteresEnFranja(alto)),
+          origenY: yLane + RELLENO_ARRIBA + ALTO_TAREA / 2 - minY,
         });
         for (const actividad of actividades) {
           const cx: number = xDe(actividad.posicionX);
@@ -225,6 +238,8 @@ export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
             nombre: actividad.nombre,
             x: cx - ANCHO_TAREA / 2,
             y: cy - ALTO_TAREA / 2,
+            cx,
+            cy,
             ancho: ANCHO_TAREA,
             alto: ALTO_TAREA,
             texto: { lineas, x: cx, y: cy - ((lineas.length - 1) * ALTO_LINEA) / 2 + 4 },
@@ -239,6 +254,8 @@ export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
             id: gateway.id,
             nombre: gateway.nombre,
             tipo: gateway.tipoGateway,
+            cx,
+            cy,
             puntos: `${cx},${cy - medio} ${cx + medio},${cy} ${cx},${cy + medio} ${cx - medio},${cy}`,
             marca: marcaDeGateway(gateway.tipoGateway, cx, cy),
             // El nombre va abajo a la izquierda del rombo: la salida de abajo no lo cruza

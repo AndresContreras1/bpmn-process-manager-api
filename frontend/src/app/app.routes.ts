@@ -6,6 +6,7 @@ import { InicioComponent } from './pages/inicio/inicio.component';
 import { LoginComponent } from './pages/login/login.component';
 import { NoEncontradaComponent } from './pages/no-encontrada/no-encontrada.component';
 import { ProcesoDetalleComponent } from './pages/proceso-detalle/proceso-detalle.component';
+import { ProcesoEditorComponent } from './pages/proceso-editor/proceso-editor.component';
 import { ProcesoFormComponent } from './pages/proceso-form/proceso-form.component';
 import { ProcesosComponent } from './pages/procesos/procesos.component';
 import { RegistroComponent } from './pages/registro/registro.component';
@@ -29,6 +30,12 @@ export const routes: Routes = [
     component: ProcesoFormComponent,
     canActivate: [authGuard],
     title: 'Edit process · BPMN Process Manager',
+  },
+  {
+    path: 'procesos/:id/editar-diagrama',
+    component: ProcesoEditorComponent,
+    canActivate: [authGuard],
+    title: 'Model the diagram · BPMN Process Manager',
   },
   {
     path: 'procesos/:id',

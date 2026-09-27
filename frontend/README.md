@@ -118,6 +118,36 @@ The detail page asks for the process and for its whole diagram in parallel (`for
   delete are hidden: a role in your own store is not a role in theirs. There is no screen yet that lists what other
   stores share with you, so a guest reaches that page by URL; the list belongs to the sharing work of F6.
 
+## Diagram editor
+
+`/procesos/:id/editar-diagrama`, reachable from the process with the Model button. A role that can only read sees
+the same screen without the palette, the forms or the buttons.
+
+- **The canvas is the viewer's**, with an `editable` input. Two components would have meant two drawings of the same
+  diagram, and they would have drifted.
+- **The outline on the left** lists participants, lanes, the nodes inside each lane and the message flows. The canvas
+  can only be clicked on nodes, so everything else is picked there. Lanes move up and down with buttons: the whole
+  order is sent, and a button can be reached with a keyboard.
+- **One reactive form per kind**, with the exact fields of its request and `version` hidden — never shown, never
+  typed, sent back as it arrived, which is what the API compares. Moving a node between lanes is a field in its
+  form, and the lanes offered are the ones of its own participant.
+- **Dragging** a node saves where it was dropped, and dropping it on another lane changes the role that does the
+  work. Turning a pixel into the position the API stores means undoing the arithmetic the drawing did, so `lienzo.ts`
+  publishes the origins it used. The canvas listens to pointer events, so a finger works and a synthetic mouse drag
+  does not.
+- **Connecting** asks for two nodes: same participant, sequence flow; different participants, message flow anchored
+  to both. A sequence flow never crosses from one pool to another.
+- **The diagnosis is asked for again after every change**, together with the diagram, through one subject with a
+  debounce. Errors block publishing and warnings do not, so the Publish button is disabled while there is an error.
+  Clicking a finding selects the element it is about: that needs the type as well as the id, because ids repeat
+  across tables, and the type comes from the word the API puts in front of the name.
+- **Deleting asks first what would be left.** The API can diagnose the diagram without a given element, and the
+  confirmation says "takes the diagram from 2 to 13 errors", because deleting a node takes its flows with it.
+- **The second opinion** from the model sits next to the diagnosis, marked as advice that changes nothing. With no
+  key configured the API answers `503` and the panel says the review is not set up here.
+- The findings keep the API's wording, in Spanish; only the class in front of the name is translated, because the
+  sentences carry data inside them.
+
 ## Where things go
 
 ```
@@ -142,3 +172,5 @@ src/
 - Unique elements carry an `id` and repeated ones a `data-testid`, so browser tests find them without relying on styles
   or on the page structure.
 - There are no unit tests in this project: end-to-end tests with Selenium will live in a separate `e2e/` project.
+- Enum values are turned into lists with `Object.keys` and typed, so a template can index the map of names without
+  a cast. There is no `$any` in a template.

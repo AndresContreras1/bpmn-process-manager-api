@@ -47,6 +47,10 @@
              id="proceso-detalle-editar">
             <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
           </a>
+          <a class="btn btn-outline-primary" [routerLink]="['/procesos', detalle.proceso.id, 'editar-diagrama']"
+             id="proceso-detalle-modelar">
+            <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Model
+          </a>
           @if (detalle.proceso.estado === 'BORRADOR') {
             <button type="button" class="btn btn-success" id="proceso-detalle-publicar" [disabled]="enviando"
                     data-bs-toggle="modal" data-bs-target="#modal-publicar">

@@ -172,6 +172,16 @@
   outline: none;
 }
 
+// En el editor los nodos se arrastran, y el cursor lo dice
+.editable .nodo {
+  cursor: grab;
+  touch-action: none;
+}
+
+.editable .nodo:active {
+  cursor: grabbing;
+}
+
 .nodo:hover .tarea,
 .nodo:hover .gateway,
 .nodo:focus-visible .tarea,
