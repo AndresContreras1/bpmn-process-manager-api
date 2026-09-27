@@ -14,4 +14,9 @@ export class EmpresaService {
   registrar(solicitud: RegistroEmpresaRequest): Observable<Empresa> {
     return this.http.post<Empresa>(this.url, solicitud);
   }
+
+  /** La tienda de quien entro, que sale del token: nadie puede pedir la de otra. */
+  actual(): Observable<Empresa> {
+    return this.http.get<Empresa>(`${this.url}/actual`);
+  }
 }

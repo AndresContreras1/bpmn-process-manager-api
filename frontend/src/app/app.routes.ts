@@ -1,92 +1,126 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './guards/auth.guard';
-import { CasoDetalleComponent } from './pages/caso-detalle/caso-detalle.component';
-import { CasosComponent } from './pages/casos/casos.component';
-import { CompartirComponent } from './pages/compartir/compartir.component';
-import { ConfiguracionComponent } from './pages/configuracion/configuracion.component';
-import { CuentaComponent } from './pages/cuenta/cuenta.component';
-import { HistorialComponent } from './pages/historial/historial.component';
 import { InicioComponent } from './pages/inicio/inicio.component';
 import { LoginComponent } from './pages/login/login.component';
-import { NoEncontradaComponent } from './pages/no-encontrada/no-encontrada.component';
-import { ProcesoDetalleComponent } from './pages/proceso-detalle/proceso-detalle.component';
-import { ProcesoEditorComponent } from './pages/proceso-editor/proceso-editor.component';
-import { ProcesoFormComponent } from './pages/proceso-form/proceso-form.component';
-import { ProcesosComponent } from './pages/procesos/procesos.component';
-import { RegistroComponent } from './pages/registro/registro.component';
-import { RolesComponent } from './pages/roles/roles.component';
-import { SimulacionComponent } from './pages/simulacion/simulacion.component';
-import { TableroComponent } from './pages/tablero/tablero.component';
-import { TareasComponent } from './pages/tareas/tareas.component';
-import { UsuariosComponent } from './pages/usuarios/usuarios.component';
 
-// Angular evalua las rutas de arriba hacia abajo: las especificas van primero y el comodin al final
+/*
+ * Angular evalua las rutas de arriba hacia abajo: las especificas van primero y el comodin al final.
+ *
+ * Cada pantalla llega cuando alguien entra en ella, no al abrir la aplicacion: asi el paquete inicial lleva el
+ * armazon y poco mas, en vez de las veintiuna pantallas juntas -incluido el editor de diagramas, que es la mas
+ * grande y la que menos gente abre-. Las dos que siguen viajando dentro son la portada y el login, que es lo
+ * primero que ve cualquiera: cargarlas aparte costaria una peticion mas justo en el primer segundo.
+ */
 export const routes: Routes = [
   { path: '', component: InicioComponent, title: 'BPMN Process Manager' },
   { path: 'login', component: LoginComponent, title: 'Sign in · BPMN Process Manager' },
-  { path: 'registro', component: RegistroComponent, title: 'Create a store · BPMN Process Manager' },
-  { path: 'cuenta', component: CuentaComponent, canActivate: [authGuard], title: 'My account · BPMN Process Manager' },
-  { path: 'procesos', component: ProcesosComponent, canActivate: [authGuard], title: 'Processes · BPMN Process Manager' },
-  { path: 'casos', component: CasosComponent, canActivate: [authGuard], title: 'Cases · BPMN Process Manager' },
+  {
+    path: 'registro',
+    loadComponent: () => import('./pages/registro/registro.component').then((modulo) => modulo.RegistroComponent),
+    title: 'Create a store · BPMN Process Manager',
+  },
+  {
+    path: 'cuenta',
+    loadComponent: () => import('./pages/cuenta/cuenta.component').then((modulo) => modulo.CuentaComponent),
+    canActivate: [authGuard],
+    title: 'My account · BPMN Process Manager',
+  },
+  {
+    path: 'procesos',
+    loadComponent: () => import('./pages/procesos/procesos.component').then((modulo) => modulo.ProcesosComponent),
+    canActivate: [authGuard],
+    title: 'Processes · BPMN Process Manager',
+  },
+  {
+    path: 'casos',
+    loadComponent: () => import('./pages/casos/casos.component').then((modulo) => modulo.CasosComponent),
+    canActivate: [authGuard],
+    title: 'Cases · BPMN Process Manager',
+  },
   {
     path: 'casos/:id',
-    component: CasoDetalleComponent,
+    loadComponent: () => import('./pages/caso-detalle/caso-detalle.component').then((modulo) => modulo.CasoDetalleComponent),
     canActivate: [authGuard],
     title: 'Case · BPMN Process Manager',
   },
   {
     path: 'simulacion',
-    component: SimulacionComponent,
+    loadComponent: () => import('./pages/simulacion/simulacion.component').then((modulo) => modulo.SimulacionComponent),
     canActivate: [authGuard],
     title: 'Simulation · BPMN Process Manager',
   },
-  { path: 'tablero', component: TableroComponent, canActivate: [authGuard], title: 'Dashboard · BPMN Process Manager' },
-  { path: 'tareas', component: TareasComponent, canActivate: [authGuard], title: 'Task tray · BPMN Process Manager' },
-  { path: 'usuarios', component: UsuariosComponent, canActivate: [authGuard], title: 'Users · BPMN Process Manager' },
-  { path: 'roles', component: RolesComponent, canActivate: [authGuard], title: 'Process roles · BPMN Process Manager' },
+  {
+    path: 'tablero',
+    loadComponent: () => import('./pages/tablero/tablero.component').then((modulo) => modulo.TableroComponent),
+    canActivate: [authGuard],
+    title: 'Dashboard · BPMN Process Manager',
+  },
+  {
+    path: 'tareas',
+    loadComponent: () => import('./pages/tareas/tareas.component').then((modulo) => modulo.TareasComponent),
+    canActivate: [authGuard],
+    title: 'Task tray · BPMN Process Manager',
+  },
+  {
+    path: 'usuarios',
+    loadComponent: () => import('./pages/usuarios/usuarios.component').then((modulo) => modulo.UsuariosComponent),
+    canActivate: [authGuard],
+    title: 'Users · BPMN Process Manager',
+  },
+  {
+    path: 'roles',
+    loadComponent: () => import('./pages/roles/roles.component').then((modulo) => modulo.RolesComponent),
+    canActivate: [authGuard],
+    title: 'Process roles · BPMN Process Manager',
+  },
   {
     path: 'configuracion',
-    component: ConfiguracionComponent,
+    loadComponent: () => import('./pages/configuracion/configuracion.component').then((modulo) => modulo.ConfiguracionComponent),
     canActivate: [authGuard],
     title: 'Store settings · BPMN Process Manager',
   },
   {
     path: 'historial',
-    component: HistorialComponent,
+    loadComponent: () => import('./pages/historial/historial.component').then((modulo) => modulo.HistorialComponent),
     canActivate: [authGuard],
     title: 'Store history · BPMN Process Manager',
   },
   // nuevo va antes de :id, o Angular tomaria "nuevo" como el id de un proceso
   {
     path: 'procesos/nuevo',
-    component: ProcesoFormComponent,
+    loadComponent: () => import('./pages/proceso-form/proceso-form.component').then((modulo) => modulo.ProcesoFormComponent),
     canActivate: [authGuard],
     title: 'New process · BPMN Process Manager',
   },
   {
     path: 'procesos/:id/editar',
-    component: ProcesoFormComponent,
+    loadComponent: () => import('./pages/proceso-form/proceso-form.component').then((modulo) => modulo.ProcesoFormComponent),
     canActivate: [authGuard],
     title: 'Edit process · BPMN Process Manager',
   },
   {
     path: 'procesos/:id/compartir',
-    component: CompartirComponent,
+    loadComponent: () => import('./pages/compartir/compartir.component').then((modulo) => modulo.CompartirComponent),
     canActivate: [authGuard],
     title: 'Share the process · BPMN Process Manager',
   },
   {
     path: 'procesos/:id/editar-diagrama',
-    component: ProcesoEditorComponent,
+    loadComponent: () => import('./pages/proceso-editor/proceso-editor.component').then((modulo) => modulo.ProcesoEditorComponent),
     canActivate: [authGuard],
     title: 'Model the diagram · BPMN Process Manager',
   },
   {
     path: 'procesos/:id',
-    component: ProcesoDetalleComponent,
+    loadComponent: () => import('./pages/proceso-detalle/proceso-detalle.component').then((modulo) => modulo.ProcesoDetalleComponent),
     canActivate: [authGuard],
     title: 'Process · BPMN Process Manager',
   },
-  { path: '**', component: NoEncontradaComponent, title: 'Page not found · BPMN Process Manager' },
+  {
+    path: '**',
+    loadComponent: () => import('./pages/no-encontrada/no-encontrada.component').then(
+      (modulo) => modulo.NoEncontradaComponent),
+    title: 'Page not found · BPMN Process Manager',
+  },
 ];

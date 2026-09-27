@@ -1,10 +1,13 @@
-import { AsyncPipe } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { AsyncPipe, DatePipe } from '@angular/common';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Observable } from 'rxjs';
+import { EMPTY, Observable, catchError } from 'rxjs';
 
+import { Empresa } from '../../models/empresa.model';
 import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
+import { EmpresaService } from '../../service/empresa.service';
 import { TokenService } from '../../service/token.service';
 import { CambiarClaveComponent } from './cambiar-clave/cambiar-clave.component';
 
@@ -16,14 +19,16 @@ interface Permiso {
 
 @Component({
   selector: 'app-cuenta',
-  imports: [AsyncPipe, RouterLink, CambiarClaveComponent],
+  imports: [AsyncPipe, DatePipe, RouterLink, CambiarClaveComponent],
   templateUrl: './cuenta.component.html',
   styleUrl: './cuenta.component.scss',
 })
 export class CuentaComponent implements OnInit {
   private readonly authService: AuthService = inject(AuthService);
+  private readonly empresaService: EmpresaService = inject(EmpresaService);
   private readonly tokenService: TokenService = inject(TokenService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
+  private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   readonly usuario$: Observable<Usuario | null> = this.authService.usuario$;
   readonly nombreRol: Record<RolAcceso, string> = NOMBRE_ROL;
@@ -35,6 +40,8 @@ export class CuentaComponent implements OnInit {
     { accion: 'Manage users and process roles', roles: ['ADMINISTRADOR'] },
   ];
 
+  /** La tienda a la que pertenece la cuenta. Si no llega, la tarjeta ensena su id y ya. */
+  empresa: Empresa | null = null;
   bienvenida: boolean = false;
   /** True mientras la clave siga siendo la temporal con la que entro. */
   claveTemporal: boolean = false;
@@ -44,6 +51,17 @@ export class CuentaComponent implements OnInit {
   ngOnInit(): void {
     this.bienvenida = this.route.snapshot.queryParamMap.has('bienvenida');
     this.claveTemporal = this.tokenService.obtenerUsuario()?.debeCambiarClave === true;
+    if (this.claveTemporal) {
+      // Con una clave temporal la API solo deja cambiarla: pedir la tienda contestaria 403 y ensuciaria el log
+      return;
+    }
+    this.empresaService
+      .actual()
+      .pipe(
+        catchError(() => EMPTY),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((empresa: Empresa) => (this.empresa = empresa));
   }
 
   /** La API devolvio una sesion nueva y el usuario guardado ya no debe cambiar nada. */

@@ -59,6 +59,11 @@ export class ProcesoDetalleComponent implements OnInit {
     return this.diagrama?.compartido === true;
   }
 
+  /** La version que se esta mirando, cuando se mira una publicada: de ahi sale si todavia se puede retirar. */
+  get versionVista(): Version | null {
+    return this.versiones.find((version: Version) => version.numero === this.verVersion) ?? null;
+  }
+
   detalle: ProcesoDetalle | null = null;
   diagrama: Diagrama | null = null;
   versiones: Version[] = [];
@@ -176,6 +181,35 @@ export class ProcesoDetalleComponent implements OnInit {
       });
   }
 
+  /**
+   * Retirar la version que se esta mirando. Despues se vuelve a pedir todo: el proceso pasa a la version anterior
+   * que siga en pie -o se queda sin ninguna- y el historial suma la linea, asi que recargar es lo honesto.
+   */
+  retirar(): void {
+    const proceso: Proceso | undefined = this.detalle?.proceso;
+    const numero: number | null = this.verVersion;
+    if (!proceso || numero === null) {
+      return;
+    }
+    this.enviando = true;
+    this.aviso = null;
+    this.error = null;
+    this.versionService
+      .retirar(proceso.id, numero)
+      .pipe(
+        switchMap(() => this.cargar(proceso.id)),
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (carga: Carga) => {
+          this.mostrar(carga);
+          this.aviso = `Version ${numero} was retired. New cases will start on whatever is in force now.`;
+        },
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+      });
+  }
+
   eliminar(): void {
     const proceso: Proceso | undefined = this.detalle?.proceso;
     if (!proceso) {
@@ -223,11 +257,21 @@ export class ProcesoDetalleComponent implements OnInit {
   /**
    * Pide en paralelo los datos del proceso y su diagrama. Si solo falla el diagrama, la pagina se muestra igual y
    * avisa en su lugar; si falla el proceso, el error sigue hacia ngOnInit.
+   *
+   * <p>El fallo del detalle se guarda en vez de tragarse: si al final no hay nada que mostrar, lo que se lanza es
+   * el error de verdad y no un 404 inventado. Con la API caida, la pantalla tiene que decir que no pudo cargar,
+   * no que el proceso no existe.
    */
   private cargar(id: number): Observable<Carga> {
     this.verVersion = null;
+    let falloDelDetalle: HttpErrorResponse | null = null;
     return forkJoin({
-      detalle: this.procesoService.obtener(id).pipe(catchError(() => of(null))),
+      detalle: this.procesoService.obtener(id).pipe(
+        catchError((error: HttpErrorResponse) => {
+          falloDelDetalle = error;
+          return of(null);
+        }),
+      ),
       diagrama: this.diagramaService.obtener(id).pipe(catchError(() => of(null))),
       // Una invitada no puede listar las versiones del proceso de otra tienda: sin lista, no hay selector
       versiones: this.versionService.listar(id).pipe(catchError(() => of([] as Version[]))),
@@ -238,7 +282,7 @@ export class ProcesoDetalleComponent implements OnInit {
         const detalle: ProcesoDetalle | null =
           respuesta.detalle ?? (respuesta.diagrama ? { proceso: respuesta.diagrama.proceso, historial: [] } : null);
         return detalle === null
-          ? throwError(() => new HttpErrorResponse({ status: 404 }))
+          ? throwError(() => falloDelDetalle ?? new HttpErrorResponse({ status: 404 }))
           : of({ detalle, diagrama: respuesta.diagrama, versiones: respuesta.versiones });
       }),
     );

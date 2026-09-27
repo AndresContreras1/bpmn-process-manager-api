@@ -153,6 +153,12 @@
                   Version {{ verVersion }}, exactly as it was published. A published version never changes: the cases
                   that started on it keep running on it.
                 </span>
+                @if (esAdministrador && versionVista?.estado === 'VIGENTE') {
+                  <button type="button" class="btn btn-sm btn-outline-danger" id="proceso-detalle-retirar"
+                          [disabled]="enviando" data-bs-toggle="modal" data-bs-target="#modal-retirar">
+                    Retire this version
+                  </button>
+                }
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="proceso-detalle-ver-borrador"
                         (click)="mostrarVersion(null)">Back to the working copy</button>
               </div>
@@ -356,6 +362,12 @@
 <app-modal-confirmar idModal="modal-publicar" titulo="Publish this process?" textoBoton="Publish"
                      [mensaje]="'“' + (detalle?.proceso?.nombre ?? '') + '” will be published. A published process cannot go back to draft.'"
                      (confirmar)="publicar()" />
+
+<app-modal-confirmar idModal="modal-retirar" titulo="Retire this version?" textoBoton="Retire" [peligro]="true"
+                     mensaje="No new case will start on it. Nothing is deleted: the cases that started on this
+                              version keep running on it, and the process falls back to the previous one that is
+                              still standing."
+                     (confirmar)="retirar()" />
 
 <app-modal-confirmar idModal="modal-eliminar" titulo="Delete this process?" textoBoton="Delete" [peligro]="true"
                      [mensaje]="'“' + (detalle?.proceso?.nombre ?? '') + '” will leave every list. Its change history is kept.'"

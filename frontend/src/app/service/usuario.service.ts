@@ -7,13 +7,15 @@ import { PageResponse } from '../models/page-response.model';
 import { ActualizarUsuarioRequest, CrearUsuarioRequest, RolDeUsuario, Usuario } from '../models/usuario.model';
 
 /**
- * Como se pide una pagina de usuarios. No hay filtro por nombre: la API ordena y pagina, y no busca, asi que la
- * pantalla tampoco lo ofrece.
+ * Como se pide una pagina de usuarios: una parte del nombre, y si se quiere ver tambien a quien esta desactivado.
+ * Los dos filtros son los que la API acepta desde que se le anadieron; la pantalla no ofrece nada mas.
  */
 export interface FiltrosUsuario {
   pagina: number;
   orden: string;
   direccion: 'asc' | 'desc';
+  nombre: string;
+  incluirInactivos: boolean;
 }
 
 /** Los usuarios de la tienda. Solo un administrador los administra; la API responde 403 a los demas. */
@@ -22,12 +24,21 @@ export class UsuarioService {
   private readonly http: HttpClient = inject(HttpClient);
   private readonly url: string = `${environment.apiUrl}/api/v1/usuarios`;
 
-  /** La API solo devuelve los activos: quien deja de poder entrar deja de salir en la lista. */
+  /**
+   * Por defecto la API devuelve solo los activos; con incluirInactivos salen tambien los que ya no pueden entrar,
+   * que es de donde se los reactiva. El nombre vacio no se manda: un filtro en blanco no es un filtro.
+   */
   listar(filtros: FiltrosUsuario): Observable<PageResponse<Usuario>> {
-    const params: Record<string, string | number> = {
+    const params: Record<string, string | number | boolean> = {
       pagina: filtros.pagina,
       orden: `${filtros.orden},${filtros.direccion}`,
     };
+    if (filtros.nombre.trim() !== '') {
+      params['nombre'] = filtros.nombre.trim();
+    }
+    if (filtros.incluirInactivos) {
+      params['incluirInactivos'] = true;
+    }
     return this.http.get<PageResponse<Usuario>>(this.url, { params });
   }
 
@@ -49,6 +60,12 @@ export class UsuarioService {
     return this.http.delete<void>(`${this.url}/${id}`);
   }
 
+  /** Los roles de proceso que la persona ya atiende: es lo que el panel tiene que ensenar marcado. */
+  rolesDeProcesoDe(id: number): Observable<RolDeUsuario[]> {
+    return this.http.get<RolDeUsuario[]>(`${this.url}/${id}/roles-proceso`);
+  }
+
+  /** Reemplaza la lista entera: lo que se manda es lo que la persona queda teniendo. */
   rolesDeProceso(id: number, ids: number[]): Observable<RolDeUsuario[]> {
     return this.http.put<RolDeUsuario[]>(`${this.url}/${id}/roles-proceso`, { rolesProcesoIds: ids });
   }

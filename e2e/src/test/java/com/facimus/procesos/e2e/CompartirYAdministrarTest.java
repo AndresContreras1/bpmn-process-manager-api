@@ -91,6 +91,49 @@ class CompartirYAdministrarTest extends PruebaE2E {
     }
 
     @Test
+    @DisplayName("el buscador encuentra a una persona, la baja se deshace y el panel de roles no miente")
+    void buscarDarDeBajaYVolverADarDeAlta() {
+        ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Equipo", nitDe("equipo"),
+                correoDe("equipo"), "admin12345");
+        api.crearRol("Sales");
+        api.crearUsuario("Bruno Bodega", correoDe("bruno"), "bruno12345", "EDITOR");
+        entrar(tienda);
+
+        // El buscador: con la tienda entera en pantalla, escribir un nombre deja una sola fila
+        ir("/usuarios");
+        esperarFilas(Paginas.Usuarios.FILA, 2);
+
+        escribir(Paginas.Usuarios.BUSCAR, "bruno");
+        esperarFilas(Paginas.Usuarios.FILA, 1);
+        esperarTexto(Paginas.Usuarios.FILA, "Bruno Bodega");
+
+        // El panel de roles ensena los que ya atiende, no una lista en blanco: guardar manda la lista entera
+        pulsable(Paginas.Usuarios.ROLES).click();
+        assertFalse(visible(Paginas.Usuarios.CAJA_DE_ROL).isSelected(), "todavia no atiende ningun rol");
+        pulsable(Paginas.Usuarios.CAJA_DE_ROL).click();
+        pulsable(Paginas.Usuarios.GUARDAR_ROLES).click();
+        esperarTexto(Paginas.Usuarios.AVISO, "process roles");
+        pulsable(Paginas.Usuarios.ROLES).click();
+        assertTrue(visible(Paginas.Usuarios.CAJA_DE_ROL).isSelected(),
+                "al volver a abrirlo tiene que estar marcado: en blanco, guardar le quitaria el rol");
+
+        // La baja saca a la persona del listado de todos los dias, y el vacio dice que se estaba buscando
+        pulsable(Paginas.Usuarios.BAJA).click();
+        pulsable(Paginas.Usuarios.CONFIRMAR_BAJA).click();
+        esperarTexto(Paginas.Usuarios.AVISO, "no longer sign in");
+        esperarTexto(Paginas.Usuarios.VACIO, "bruno");
+
+        // Y se deshace desde la misma pantalla, que es lo que la API no dejaba hacer hasta ahora
+        pulsable(Paginas.Usuarios.INACTIVOS).click();
+        esperarTexto(Paginas.Usuarios.FILA, "deactivated");
+        pulsable(Paginas.Usuarios.ALTA).click();
+        esperarTexto(Paginas.Usuarios.AVISO, "can sign in again");
+        esperarFilas(Paginas.Usuarios.ALTA, 0);
+        assertTrue(navegador.findElements(Paginas.Usuarios.ALTA).isEmpty(),
+                "ya esta activa: no hay nada que reactivar");
+    }
+
+    @Test
     @DisplayName("quien no es administrador no ve la administracion")
     void sinRolNoHayAdministracion() {
         // Quien registra una tienda es su administrador, asi que para probar lo contrario hace falta otra persona

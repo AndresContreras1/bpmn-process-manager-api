@@ -54,6 +54,9 @@ final class Paginas {
         static final By EDITAR = By.id("proceso-detalle-editar");
         static final By CONTEO = By.id("proceso-detalle-conteo");
         static final By VERSION = By.id("proceso-detalle-version");
+        static final By CONGELADO = By.id("proceso-detalle-congelado");
+        static final By RETIRAR = By.id("proceso-detalle-retirar");
+        static final By CONFIRMAR_RETIRO = By.id("modal-retirar-confirmar");
         static final By INVITADA = By.id("proceso-detalle-invitada");
         static final By AVISO = By.id("proceso-detalle-aviso");
     }
@@ -81,6 +84,16 @@ final class Paginas {
         static final By CLAVE_TEMPORAL = By.id("usuarios-clave-temporal");
         static final By FILA = By.cssSelector("[data-testid='usuario']");
         static final By SOLO_ADMIN = By.id("usuarios-solo-admin");
+        static final By AVISO = By.id("usuarios-aviso");
+        static final By BUSCAR = By.id("usuarios-buscar");
+        static final By INACTIVOS = By.id("usuarios-inactivos");
+        static final By VACIO = By.id("usuarios-vacio");
+        static final By BAJA = By.cssSelector("[data-testid='usuario-baja']");
+        static final By ALTA = By.cssSelector("[data-testid='usuario-alta']");
+        static final By CONFIRMAR_BAJA = By.id("modal-baja-usuario-confirmar");
+        static final By ROLES = By.cssSelector("[data-testid='usuario-roles']");
+        static final By CAJA_DE_ROL = By.cssSelector("[data-testid='usuario-panel-roles'] input[type='checkbox']");
+        static final By GUARDAR_ROLES = By.id("usuarios-guardar-roles");
     }
 
     /** Roles de proceso. */

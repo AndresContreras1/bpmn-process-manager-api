@@ -102,6 +102,16 @@ export class DiagramaBpmnComponent {
   }
 
   /**
+   * El navegador puede quitarle el puntero a la pagina a media mudanza -un gesto que pasa a ser un desplazamiento,
+   * una ventana que pierde el foco- y entonces manda pointercancel en vez de pointerup. Eso no es soltar el nodo
+   * donde estaba el dedo: es no haberlo movido. El arrastre se olvida y el nodo se queda donde estaba.
+   */
+  cancelarArrastre(evento: PointerEvent): void {
+    this.arrastre = null;
+    (evento.target as Element).closest('svg')?.releasePointerCapture(evento.pointerId);
+  }
+
+  /**
    * Al soltar se deshace la cuenta que hizo el dibujo: la posicion que guarda la API sale de restar el origen del
    * lienzo, y la lane es aquella sobre la que cayo el nodo. Un arrastre de menos de tres unidades es un clic con
    * mal pulso, no una mudanza, y no se manda nada.

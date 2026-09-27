@@ -68,6 +68,14 @@ class ModelarYPublicarTest extends PruebaE2E {
                 "el visor tiene que contar la tarea que se acaba de modelar");
         assertTrue(textoDe(Paginas.Detalle.CONTEO).contains("Events: 2"),
                 "y los dos eventos, que antes de F4b no se dibujaban");
+
+        // Y la vuelta atras: retirar la version que se acaba de publicar, que es lo unico que se le puede cambiar
+        elegir(Paginas.Detalle.VERSION, "Version 1 \u00b7 in force");
+        esperarTexto(Paginas.Detalle.CONGELADO, "exactly as it was published");
+        pulsable(Paginas.Detalle.RETIRAR).click();
+        pulsable(Paginas.Detalle.CONFIRMAR_RETIRO).click();
+        esperarTexto(Paginas.Detalle.AVISO, "was retired");
+        elegir(Paginas.Detalle.VERSION, "Version 1 \u00b7 retired");
     }
 
     /** Dos clics en el lienzo: el modo de conectar no elige nodos, los une. */

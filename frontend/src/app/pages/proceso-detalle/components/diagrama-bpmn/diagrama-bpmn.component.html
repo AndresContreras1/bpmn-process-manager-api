@@ -3,7 +3,8 @@
        [class.editable]="editable()"
        [attr.viewBox]="'0 0 ' + lienzo().ancho + ' ' + lienzo().alto"
        [style.max-width.px]="lienzo().ancho" [style.min-width.px]="lienzo().anchoMinimo"
-       (pointermove)="seguirArrastre($event)" (pointerup)="soltar($event)" (pointercancel)="soltar($event)">
+       (pointermove)="seguirArrastre($event)" (pointerup)="soltar($event)"
+       (pointercancel)="cancelarArrastre($event)">
     <title id="diagrama-bpmn-titulo">{{ titulo() }}</title>
     <defs>
       <marker id="diagrama-flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
