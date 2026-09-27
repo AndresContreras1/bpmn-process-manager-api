@@ -1,0 +1,5 @@
+# El repositorio se clona en Windows con autocrlf, asi que estos ficheros llegarian con saltos de linea de Windows
+# al arbol de trabajo. Los tres los lee Linux dentro de un contenedor, y ahi el \r sobra: se fijan a saltos Unix.
+Dockerfile text eol=lf
+nginx.conf text eol=lf
+*.sh text eol=lf

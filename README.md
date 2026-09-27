@@ -388,6 +388,26 @@ npm start
 The app opens on `http://localhost:4200`, and the Angular dev server forwards the `/api` calls to the API on port
 8080. [frontend/README.md](frontend/README.md) describes its structure and conventions.
 
+### The whole stack with one command
+
+Database, API and web app together, each in its own container:
+
+```bash
+cp .env.example .env   # fill in DB_PASSWORD and JWT_SECRET
+docker compose up -d --build --wait
+```
+
+`--wait` comes back when all three report healthy, and the app is then on `http://localhost` (or on `WEB_PORT`).
+
+**The stack starts empty.** It runs the `prod` profile, and the demo store belongs to `dev`, so there is nothing to
+sign in with yet: create your store from the app, or with `POST /api/v1/empresas`, and the account you give it is
+its first administrator. To poke at the demo data instead, run the API with `dev` as described above.
+
+The browser only ever talks to the web container: NGINX serves the compiled app and forwards everything under
+`/api` to the API inside the network. So the production build has no absolute API URL in it, there is no CORS to
+configure, and the same image runs anywhere without being rebuilt. The API keeps its own port for the Postman
+collection and for curl, but nothing in the browser uses it.
+
 ### Postman collection
 
 The [Postman collection](postman/) covers a second scenario, in which *Acme Store* models how it hands orders over to

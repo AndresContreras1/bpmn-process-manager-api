@@ -1,0 +1,8 @@
+# Lo que no tiene que entrar en el contexto de la imagen: se instala o se compila dentro.
+node_modules
+dist
+.angular
+.vscode
+*.log
+README.md
+proxy.conf.json
