@@ -216,6 +216,7 @@ src/
 - Create and edit screens use reactive forms with `Validators`.
 - Unique elements carry an `id` and repeated ones a `data-testid`, so browser tests find them without relying on styles
   or on the page structure.
-- There are no unit tests in this project: end-to-end tests with Selenium will live in a separate `e2e/` project.
+- There are no unit tests in this project. The tests of the web app are end to end, in [`../e2e/`](../e2e/), and
+  they drive a real browser against the stack of containers.
 - Enum values are turned into lists with `Object.keys` and typed, so a template can index the map of names without
   a cast. There is no `$any` in a template.
