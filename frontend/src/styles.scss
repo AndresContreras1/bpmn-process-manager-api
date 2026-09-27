@@ -12,3 +12,14 @@ $font-family-sans-serif: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetic
 .navbar-brand i {
   font-size: 1.25rem;
 }
+
+// Los titulos de las columnas que ordenan una tabla son botones con el aspecto de un titulo. Lo usan la lista de
+// procesos y la de casos, asi que vive aqui y no en una sola pantalla.
+.btn-orden {
+  padding: 0;
+  border: 0;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}

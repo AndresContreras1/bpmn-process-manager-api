@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { PageResponse } from '../models/page-response.model';
@@ -34,6 +34,16 @@ export class ProcesoService {
       params['categoria'] = filtros.categoria;
     }
     return this.http.get<PageResponse<Proceso>>(this.url, { params });
+  }
+
+  /**
+   * Todos los procesos en una sola pagina, por nombre. Las pantallas de operacion los necesitan enteros para el
+   * desplegable que elige de que proceso se habla, y una tienda tiene pocos.
+   */
+  paraElegir(): Observable<Proceso[]> {
+    return this.http
+      .get<PageResponse<Proceso>>(this.url, { params: { pagina: 0, tamano: 50, orden: 'nombre,asc' } })
+      .pipe(map((pagina: PageResponse<Proceso>) => pagina.content));
   }
 
   obtener(id: number): Observable<ProcesoDetalle> {

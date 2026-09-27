@@ -119,20 +119,4 @@ class CompartirYAdministrarTest extends PruebaE2E {
         assertEquals(0, navegador.findElements(Paginas.Usuarios.FILA).size(),
                 "y no ensenarle ni una fila");
     }
-
-    private void entrar(ApiDeDatos.Tienda tienda) {
-        entrarCon(tienda.correo(), tienda.clave());
-    }
-
-    private void entrarCon(String correo, String clave) {
-        ir("/login");
-        escribir(Paginas.Login.EMAIL, correo);
-        escribir(Paginas.Login.CLAVE, clave);
-        pulsable(Paginas.Login.ENTRAR).click();
-        esperarUrl("/procesos");
-    }
-
-    private void salir() {
-        ((org.openqa.selenium.JavascriptExecutor) navegador).executeScript("localStorage.clear()");
-    }
 }

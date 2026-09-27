@@ -39,6 +39,16 @@
         <span class="text-body-secondary" id="proceso-detalle-categoria">
           <i class="fa-solid fa-tag" aria-hidden="true"></i> {{ detalle.proceso.categoria }}
         </span>
+        <!-- Un proceso sin version publicada no tiene casos que mirar, y una invitada ve los de su propia tienda -->
+        @if (detalle.proceso.versionPublicada !== null && !soloLectura) {
+          <div class="small mt-1">
+            <a [routerLink]="['/casos']" [queryParams]="{ procesoId: detalle.proceso.id }"
+               id="proceso-detalle-casos">Its cases</a>
+            ·
+            <a [routerLink]="['/tablero']" [queryParams]="{ procesoId: detalle.proceso.id }"
+               id="proceso-detalle-tablero">How it is going</a>
+          </div>
+        }
       </div>
 
       @if (puedeEditar && !soloLectura) {

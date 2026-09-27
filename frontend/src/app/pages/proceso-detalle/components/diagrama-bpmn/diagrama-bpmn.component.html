@@ -65,7 +65,8 @@
 
     @for (actividad of lienzo().actividades; track actividad.id) {
       <g class="nodo" data-testid="nodo-actividad" tabindex="0" role="button"
-         [class.seleccionado]="actividad.id === seleccionadoId()" [attr.aria-pressed]="actividad.id === seleccionadoId()"
+         [class.seleccionado]="actividad.id === seleccionadoId()" [class.activo]="estaActivo(actividad.id)"
+         [class.recorrido]="fueRecorrido(actividad.id)" [attr.aria-pressed]="actividad.id === seleccionadoId()"
          [attr.aria-label]="'Task: ' + actividad.nombre" [attr.transform]="desplazamiento(actividad.id)"
          (pointerdown)="empezarArrastre(actividad.id, $event)" (click)="elegirConClic(actividad.id)"
          (keydown.enter)="elegir(actividad.id, $event)" (keydown.space)="elegir(actividad.id, $event)">
@@ -82,7 +83,8 @@
 
     @for (gateway of lienzo().gateways; track gateway.id) {
       <g class="nodo" data-testid="nodo-gateway" tabindex="0" role="button"
-         [class.seleccionado]="gateway.id === seleccionadoId()" [attr.aria-pressed]="gateway.id === seleccionadoId()"
+         [class.seleccionado]="gateway.id === seleccionadoId()" [class.activo]="estaActivo(gateway.id)"
+         [class.recorrido]="fueRecorrido(gateway.id)" [attr.aria-pressed]="gateway.id === seleccionadoId()"
          [attr.aria-label]="'Gateway: ' + gateway.nombre" [attr.transform]="desplazamiento(gateway.id)"
          (pointerdown)="empezarArrastre(gateway.id, $event)" (click)="elegirConClic(gateway.id)"
          (keydown.enter)="elegir(gateway.id, $event)" (keydown.space)="elegir(gateway.id, $event)">
@@ -99,7 +101,8 @@
 
     @for (evento of lienzo().eventos; track evento.id) {
       <g class="nodo evento" data-testid="nodo-evento" tabindex="0" role="button"
-         [class.seleccionado]="evento.id === seleccionadoId()" [attr.aria-pressed]="evento.id === seleccionadoId()"
+         [class.seleccionado]="evento.id === seleccionadoId()" [class.activo]="estaActivo(evento.id)"
+         [class.recorrido]="fueRecorrido(evento.id)" [attr.aria-pressed]="evento.id === seleccionadoId()"
          [attr.aria-label]="evento.titulo" [attr.transform]="desplazamiento(evento.id)"
          (pointerdown)="empezarArrastre(evento.id, $event)" (click)="elegirConClic(evento.id)"
          (keydown.enter)="elegir(evento.id, $event)" (keydown.space)="elegir(evento.id, $event)">

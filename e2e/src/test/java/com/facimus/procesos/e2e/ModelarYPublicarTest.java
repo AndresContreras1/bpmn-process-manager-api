@@ -90,12 +90,4 @@ class ModelarYPublicarTest extends PruebaE2E {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("No hay ningun nodo llamado \"" + nombre + "\" en el diagrama"));
     }
-
-    private void entrar(ApiDeDatos.Tienda tienda) {
-        ir("/login");
-        escribir(Paginas.Login.EMAIL, tienda.correo());
-        escribir(Paginas.Login.CLAVE, tienda.clave());
-        pulsable(Paginas.Login.ENTRAR).click();
-        esperarUrl("/procesos");
-    }
 }

@@ -206,3 +206,47 @@
   stroke-width: 3.5;
 }
 
+// Un caso en marcha sobre el diagrama de su version: por donde paso, y donde esta parado ahora.
+// Lo recorrido se apaga un poco; lo activo late, porque es lo unico que hay que buscar con la vista.
+.nodo.recorrido .tarea,
+.nodo.recorrido .gateway {
+  fill: var(--bs-success-bg-subtle);
+  stroke: var(--bs-success-border-subtle);
+}
+
+.nodo.recorrido.evento > .borde-evento {
+  stroke: var(--bs-success-border-subtle);
+}
+
+.nodo.activo .tarea,
+.nodo.activo .gateway {
+  fill: var(--bs-warning-bg-subtle);
+  stroke: var(--bs-warning);
+  stroke-width: 3.5;
+}
+
+.nodo.activo.evento > .borde-evento:first-of-type {
+  stroke: var(--bs-warning);
+  stroke-width: 3.5;
+}
+
+.nodo.activo .tarea,
+.nodo.activo .gateway,
+.nodo.activo.evento > .borde-evento:first-of-type {
+  animation: late 1.6s ease-in-out infinite;
+}
+
+@keyframes late {
+  50% {
+    stroke-opacity: 0.35;
+  }
+}
+
+// Quien pidio que no se le muevan las cosas en pantalla no quiere un latido
+@media (prefers-reduced-motion: reduce) {
+  .nodo.activo .tarea,
+  .nodo.activo .gateway,
+  .nodo.activo.evento > .borde-evento:first-of-type {
+    animation: none;
+  }
+}

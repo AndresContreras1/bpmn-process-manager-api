@@ -92,6 +92,61 @@ final class Paginas {
         static final By AVISO = By.id("roles-aviso");
     }
 
+    /** La lista de casos y el panel de abrir uno. */
+    static final class Casos {
+        static final By ABRIR_PANEL = By.id("casos-abrir-panel");
+        static final By PROCESO = By.id("casos-abrir-proceso");
+        static final By REFERENCIA = By.id("casos-abrir-referencia");
+        static final By ENVIAR = By.id("casos-abrir-enviar");
+        static final By FILA = By.cssSelector("[data-testid='caso-referencia']");
+        static final By VACIO = By.id("casos-vacio");
+    }
+
+    /** Un caso por dentro. */
+    static final class Caso {
+        static final By REFERENCIA = By.id("caso-detalle-referencia");
+        static final By ESTADO = By.id("caso-detalle-estado");
+        static final By EVENTO = By.cssSelector("[data-testid='caso-evento']");
+        static final By PASO = By.cssSelector("[data-testid='caso-paso']");
+        static final By ACTIVO = By.cssSelector("#diagrama-bpmn .nodo.activo");
+        static final By RECORRIDO = By.cssSelector("#diagrama-bpmn .nodo.recorrido");
+        static final By VARIABLE = By.cssSelector("[data-testid='caso-variable-valor']");
+    }
+
+    /** La bandeja de tareas. */
+    static final class Tareas {
+        static final By MIAS = By.id("tareas-mias");
+        static final By FILA = By.cssSelector("[data-testid='tarea-fila']");
+        static final By NODO = By.cssSelector("[data-testid='tarea-nodo']");
+        static final By TOMAR = By.cssSelector("[data-testid='tarea-tomar']");
+        static final By COMPLETAR = By.cssSelector("[data-testid='tarea-completar']");
+        static final By DATO_NUEVO = By.cssSelector("[data-testid='tarea-dato-nuevo']");
+        static final By DATO_CLAVE = By.cssSelector("[data-testid='tarea-dato-clave']");
+        static final By DATO_VALOR = By.cssSelector("[data-testid='tarea-dato-valor']");
+        static final By CONFIRMAR = By.id("tareas-confirmar");
+        static final By AVISO = By.id("tareas-aviso");
+        static final By VACIO = By.id("tareas-vacio");
+    }
+
+    /** El panel de simulacion. */
+    static final class Simulacion {
+        static final By RELOJ = By.id("simulacion-reloj");
+        static final By TICKS = By.id("simulacion-ticks");
+        static final By AVANZAR = By.id("simulacion-avanzar");
+        static final By AVISO = By.id("simulacion-aviso");
+        static final By ENTREGA = By.id("simulacion-ticks-entrega");
+        static final By GUARDAR_SOCIOS = By.id("simulacion-guardar-socios");
+        static final By SOLO_ADMIN = By.id("simulacion-solo-admin");
+    }
+
+    /** El tablero de la operacion. */
+    static final class Tablero {
+        static final By PROCESO = By.id("tablero-proceso");
+        static final By CASOS = By.id("tablero-casos");
+        static final By TERMINADOS = By.id("tablero-terminados");
+        static final By TODO_BIEN = By.id("tablero-todo-bien");
+    }
+
     /** Compartir un proceso. */
     static final class Compartir {
         static final By NIT = By.id("compartir-nit");
