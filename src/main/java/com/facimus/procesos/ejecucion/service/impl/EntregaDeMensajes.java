@@ -75,7 +75,7 @@ class EntregaDeMensajes {
         if (!saliente.getEstado().estaPendiente()) {
             return;
         }
-        GrafoDeVersion grafo = grafos.del(caso.getVersionProceso());
+        GrafoDeVersion grafo = grafos.del(empresaId, caso.getVersionProceso());
         Optional<MensajeDeLaVersion> definicion = grafo.mensajePorNombre(saliente.getNombre());
         RespuestaDelSocio respuesta = socios.paraA(saliente.getIntegracion())
                 .recibir(new MensajeParaElSocio(caso.getId(), saliente.getNombre(), saliente.getClave(),

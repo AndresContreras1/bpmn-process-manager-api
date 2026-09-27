@@ -71,7 +71,7 @@ public class MensajeriaServiceImpl implements MensajeriaService {
         }
         VersionProceso version = versionService.vigente(empresaId, procesoId)
                 .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada vigente."));
-        GrafoDeVersion vigente = grafos.del(version);
+        GrafoDeVersion vigente = grafos.del(empresaId, version);
         MensajeDeLaVersion mensaje = vigente.mensajePorNombre(datos.nombre())
                 .filter(candidato -> loRecibeLaTienda(vigente, candidato))
                 .orElseThrow(() -> new ReglaNegocioException("La versión publicada del proceso no recibe ningún "
@@ -111,7 +111,7 @@ public class MensajeriaServiceImpl implements MensajeriaService {
         Long procesoId = entrante.getProceso().getId();
         VersionProceso version = versionService.vigente(empresaId, procesoId)
                 .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada vigente."));
-        GrafoDeVersion vigente = grafos.del(version);
+        GrafoDeVersion vigente = grafos.del(empresaId, version);
         Optional<MensajeDeLaVersion> mensaje = vigente.mensajePorNombre(entrante.getNombre())
                 .filter(candidato -> loRecibeLaTienda(vigente, candidato));
         if (mensaje.isEmpty()) {
@@ -180,7 +180,8 @@ public class MensajeriaServiceImpl implements MensajeriaService {
         caso.setVariables(variables.comoJson());
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.MENSAJE_RECIBIDO, "Llego \"" + mensaje.nombre()
                 + "\" y \"" + correlacion.token().getNodoNombre() + "\" deja de esperarlo.");
-        motor.mensajeRecibido(caso, grafos.del(caso.getVersionProceso()), correlacion.token(), momento);
+        motor.mensajeRecibido(caso, grafos.del(caso.getEmpresa().getId(), caso.getVersionProceso()),
+                correlacion.token(), momento);
         return caso;
     }
 

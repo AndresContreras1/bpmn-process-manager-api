@@ -27,6 +27,10 @@ import lombok.RequiredArgsConstructor;
 /**
  * Una version publicada no se edita ni se borra: se agrega y, si deja de servir, se retira. El proceso guarda cual
  * es la vigente y con que huella, para no tener que consultarlas cada vez que alguien lo lee.
+ *
+ * <p>De ahi que el diagrama de una version se pueda guardar en memoria (D19) y la respuesta sea siempre la de hoy:
+ * lo que se guarda es el texto de una version -que no cambia nunca- y lo que se pregunta cada vez es cual es la
+ * version que toca, que es lo unico que publicar o retirar mueve.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 public class VersionServiceImpl implements VersionService {
 
     private final VersionProcesoRepository versionProcesoRepository;
+    private final DefinicionesDeVersion definiciones;
     private final ProcesoRepository procesoRepository;
     private final UsuarioRepository usuarioRepository;
     private final HistorialCambioService historialCambioService;
@@ -74,15 +79,16 @@ public class VersionServiceImpl implements VersionService {
 
     @Override
     public String definicion(Long empresaId, Long procesoId, int numero) {
-        return buscar(empresaId, procesoId, numero).getDefinicion();
+        exigirProceso(empresaId, procesoId);
+        return definiciones.de(empresaId, versionProcesoRepository.idDeLaVersion(procesoId, numero, empresaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada.")));
     }
 
     @Override
     public Optional<String> definicionVigente(Long empresaPropietariaId, Long procesoId) {
         return versionProcesoRepository
-                .findFirstByProcesoIdAndEmpresaIdAndEstadoOrderByNumeroDesc(procesoId, empresaPropietariaId,
-                        EstadoVersion.VIGENTE)
-                .map(VersionProceso::getDefinicion);
+                .idDeLaVigente(procesoId, empresaPropietariaId, EstadoVersion.VIGENTE)
+                .map(versionId -> definiciones.de(empresaPropietariaId, versionId));
     }
 
     /**

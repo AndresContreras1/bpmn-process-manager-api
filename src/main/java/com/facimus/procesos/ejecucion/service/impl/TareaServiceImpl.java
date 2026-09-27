@@ -104,7 +104,7 @@ public class TareaServiceImpl implements TareaService {
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_COMPLETADA,
                 "\"" + tarea.getNodoNombre() + "\" se completo.", usuarioId);
 
-        motor.seguirDesde(caso, grafos.del(caso.getVersionProceso()), tarea.getNodoId(), momento);
+        motor.seguirDesde(caso, grafos.del(empresaId, caso.getVersionProceso()), tarea.getNodoId(), momento);
         return casoMapper.toTarea(tarea);
     }
 

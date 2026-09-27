@@ -2,11 +2,14 @@
 // El otro guion (pico-de-ventas.js) carga la lectura del modelo; este carga la ejecucion, que es lo que toca la
 // base de verdad: abre casos, escribe bandejas, bloquea filas.
 //   docker run --rm -i --network host -e BASE_URL=http://localhost:8080 grafana/k6 run - < k6/pico-de-pedidos.js
+// PASOS alarga la cadena del proceso con tantas tareas mas: sirve para medir lo que cuesta un diagrama grande
+// -armar su grafo es una busqueda en anchura por nodo- con la operacion sin cambiar. Por defecto, cero.
 import http from 'k6/http';
 import { check, group } from 'k6';
 
 const BASE = __ENV.BASE_URL || 'http://localhost:8080';
 const CLAVE = 'carga12345';
+const PASOS = Number(__ENV.PASOS || 0);
 
 export const options = {
   // El pico: diez personas atendiendo pedidos a la vez, sostenido y bajando.
@@ -74,11 +77,21 @@ export function setup() {
     nombre: 'Receive order', descripcion: 'Revisar el pedido', tipoActividad: 'USUARIO',
     posicionX: 160, posicionY: 80,
   }), json(token)).json('id');
+  // La cadena de pasos de mas, si se pidio: el pedido pasa por todas, una por iteracion.
+  let ultimo = revisar;
+  for (let paso = 1; paso <= PASOS; paso++) {
+    const siguiente = http.post(`${BASE}/api/v1/lanes/${lane}/actividades`, JSON.stringify({
+      nombre: `Step ${paso}`, descripcion: 'Un paso mas de la cadena', tipoActividad: 'USUARIO',
+      posicionX: 320 + paso * 160, posicionY: 80,
+    }), json(token)).json('id');
+    http.post(`${BASE}/api/v1/arcos`, JSON.stringify({ origenId: ultimo, destinoId: siguiente }), json(token));
+    ultimo = siguiente;
+  }
   const fin = http.post(`${BASE}/api/v1/lanes/${lane}/eventos`, JSON.stringify({
-    nombre: 'Order handled', tipoEvento: 'FIN', posicionX: 320, posicionY: 80,
+    nombre: 'Order handled', tipoEvento: 'FIN', posicionX: 480 + PASOS * 160, posicionY: 80,
   }), json(token)).json('id');
   http.post(`${BASE}/api/v1/arcos`, JSON.stringify({ origenId: inicio, destinoId: revisar }), json(token));
-  http.post(`${BASE}/api/v1/arcos`, JSON.stringify({ origenId: revisar, destinoId: fin }), json(token));
+  http.post(`${BASE}/api/v1/arcos`, JSON.stringify({ origenId: ultimo, destinoId: fin }), json(token));
 
   const mensaje = http.post(`${BASE}/api/v1/procesos/${procesoId}/mensajes`, JSON.stringify({
     nombre: 'Order placed', contenido: 'Lo que el cliente compro', poolOrigenId: cliente, poolDestinoId: tienda,

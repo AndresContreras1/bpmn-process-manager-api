@@ -216,7 +216,7 @@ class CasoServiceTest {
         given(casoRepository.bloquear(CASO_ID, TIENDA_ID)).willReturn(Optional.of(caso));
         given(actividadCasoRepository.findAllByCasoIdAndEmpresaIdAndEstadoOrderByIdAsc(CASO_ID, TIENDA_ID,
                 EstadoActividadCaso.EN_ESPERA)).willReturn(List.of(gateway, tarea));
-        given(grafos.del(version)).willReturn(GrafoDeVersion.de(conInicioAMano().diagrama()));
+        given(grafos.del(TIENDA_ID, version)).willReturn(GrafoDeVersion.de(conInicioAMano().diagrama()));
 
         casoService.reintentar(TIENDA_ID, ADMIN, CASO_ID);
 
@@ -257,7 +257,7 @@ class CasoServiceTest {
 
     private void conGrafo(DiagramaArmado armado) {
         given(versionService.vigente(TIENDA_ID, PROCESO_ID)).willReturn(Optional.of(version));
-        given(grafos.del(version)).willReturn(GrafoDeVersion.de(armado.diagrama()));
+        given(grafos.del(TIENDA_ID, version)).willReturn(GrafoDeVersion.de(armado.diagrama()));
     }
 
     /** Lo minimo que se abre a mano: pool de la tienda, una lane, un inicio y una tarea. */

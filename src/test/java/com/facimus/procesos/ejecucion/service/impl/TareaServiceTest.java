@@ -116,7 +116,7 @@ class TareaServiceTest {
         given(actividadCasoRepository.save(any(ActividadCaso.class))).willAnswer(l -> l.getArgument(0));
         given(actividadCasoRepository.casoDe(TAREA_ID, TIENDA_ID)).willReturn(Optional.of(CASO_ID));
         given(casoRepository.bloquear(CASO_ID, TIENDA_ID)).willReturn(Optional.of(caso));
-        given(grafos.del(version)).willReturn(GrafoDeVersion.de(unProcesoConTarea().diagrama()));
+        given(grafos.del(TIENDA_ID, version)).willReturn(GrafoDeVersion.de(unProcesoConTarea().diagrama()));
     }
 
     @Test

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -32,5 +33,12 @@ class ProcesosApplicationTests {
     void perfilTest_arrancaSinDatosDemo() {
         assertThat(context.getBeanNamesForType(DatosDemoInitializer.class)).isEmpty();
         assertThat(empresaRepository.existsByNit("900123456-1")).isFalse();
+    }
+
+    // Sin cache no hay gestor: @EnableCaching viene con CacheConfig, y CacheConfig no se carga si esta apagada.
+    @Test
+    @DisplayName("El perfil test arranca sin la cache: una prueba tiene que estar viendo la base")
+    void perfilTest_arrancaSinCache() {
+        assertThat(context.getBeanNamesForType(CacheManager.class)).isEmpty();
     }
 }

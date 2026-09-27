@@ -2,6 +2,7 @@ package com.facimus.procesos.ejecucion.service.impl;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -37,8 +38,9 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
  * intercambian mensajes, pero su interior, si lo tienen dibujado, es documentacion y no se ejecuta.
  *
  * <p>Se construye a partir de la instantanea de la version, nunca del modelo vivo, y es inmutable: la misma version
- * siempre da el mismo grafo. Hoy se arma cada vez que hace falta; como no cambia nunca, es el candidato de la cache
- * de segundo nivel, que espera a que el PR de carga diga cuanto cuesta armarlo (D19).
+ * siempre da el mismo grafo. Por eso se guarda en memoria en vez de armarse en cada peticion (D19), y por eso lo
+ * comparten los hilos que atienden peticiones: nada de lo que hay dentro cambia despues de armarlo, ni las listas
+ * de arcos, que se ordenan antes de entrar y ya no se vuelven a tocar.
  */
 final class GrafoDeVersion {
 
@@ -53,9 +55,9 @@ final class GrafoDeVersion {
             Map<Long, List<ArcoDeLaVersion>> salidas, Map<Long, List<ArcoDeLaVersion>> entradas,
             List<MensajeDeLaVersion> mensajes) {
         this.poolDeLaTienda = poolDeLaTienda;
-        this.nodos = nodos;
-        this.salidas = salidas;
-        this.entradas = entradas;
+        this.nodos = Collections.unmodifiableMap(nodos);
+        this.salidas = sinPoderTocarlo(salidas);
+        this.entradas = sinPoderTocarlo(entradas);
         this.mensajes = mensajes;
         this.alcanzablesDesde = alcanzables(nodos.keySet(), salidas);
     }
@@ -127,6 +129,17 @@ final class GrafoDeVersion {
         return List.copyOf(mensajes);
     }
 
+    /**
+     * Lo mismo que llego, pero sin manera de cambiarlo: el grafo se comparte entre hilos y una lista de arcos que
+     * alguien reordenara por su cuenta cambiaria por donde se va un gateway en los casos de los demas. Conserva el
+     * orden de insercion, que en los nodos es el que decide cual es el inicio.
+     */
+    private static Map<Long, List<ArcoDeLaVersion>> sinPoderTocarlo(Map<Long, List<ArcoDeLaVersion>> arcos) {
+        Map<Long, List<ArcoDeLaVersion>> copia = new LinkedHashMap<>();
+        arcos.forEach((nodoId, lista) -> copia.put(nodoId, List.copyOf(lista)));
+        return Collections.unmodifiableMap(copia);
+    }
+
     /** Un gateway evalua sus salidas por el orden que se les dio, y el id desempata: siempre deciden igual. */
     private static final Comparator<ArcoDeLaVersion> POR_ORDEN =
             Comparator.comparingInt(ArcoDeLaVersion::orden).thenComparing(ArcoDeLaVersion::id);
@@ -190,9 +203,9 @@ final class GrafoDeVersion {
                     }
                 }
             }
-            alcance.put(nodo, vistos);
+            alcance.put(nodo, Set.copyOf(vistos));
         }
-        return alcance;
+        return Collections.unmodifiableMap(alcance);
     }
 
     /** El pool de la tienda, el unico que se ejecuta. Vacio en un diagrama que no lo tiene. */
