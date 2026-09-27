@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
@@ -58,7 +59,8 @@ class UsuarioControllerTest {
     void listar_como_admin() throws Exception {
         UsuarioResponse u = crearUsuario(1L, "Ana", "ana@acme.com", RolAcceso.EDITOR);
         ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
-        given(usuarioService.buscar(eq(1L), pagina.capture())).willReturn(new PageResponse<>(List.of(u), 0, 10, 1, 1));
+        given(usuarioService.buscar(eq(1L), isNull(), eq(false), pagina.capture()))
+                .willReturn(new PageResponse<>(List.of(u), 0, 10, 1, 1));
 
         mockMvc.perform(get("/api/v1/usuarios").with(principal(RolAcceso.ADMINISTRADOR)))
                 .andExpect(status().isOk())
@@ -66,6 +68,23 @@ class UsuarioControllerTest {
 
         assertThat(pagina.getValue().getPageSize()).isEqualTo(10);
         assertThat(pagina.getValue().getSort()).containsExactly(Sort.Order.asc("nombre"), Sort.Order.asc("id"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/usuarios?nombre=&incluirInactivos= - los dos filtros llegan al servicio")
+    void listar_conFiltros() throws Exception {
+        UsuarioResponse desactivada = new UsuarioResponse(2L, "Carlota", "carlota@acme.com", RolAcceso.EDITOR, false,
+                1L, 0L, null, null, null, null, false, null);
+        given(usuarioService.buscar(eq(1L), eq("carl"), eq(true), any(Pageable.class)))
+                .willReturn(new PageResponse<>(List.of(desactivada), 0, 10, 1, 1));
+
+        mockMvc.perform(get("/api/v1/usuarios")
+                        .param("nombre", "carl")
+                        .param("incluirInactivos", "true")
+                        .with(principal(RolAcceso.ADMINISTRADOR)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].nombre").value("Carlota"))
+                .andExpect(jsonPath("$.content[0].activo").value(false));
     }
 
     @Test

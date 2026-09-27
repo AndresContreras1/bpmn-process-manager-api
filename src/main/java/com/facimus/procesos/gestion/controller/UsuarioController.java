@@ -51,13 +51,21 @@ public class UsuarioController {
     private final UsuarioService usuarioService;
     private final MembresiaRolService membresiaRolService;
 
-    @Operation(summary = "List active users", description = "Pages of the store's active users, by name by default.")
-    @ApiResponse(responseCode = "200", description = "One page of the store's active users")
+    @Operation(summary = "List users",
+            description = "Pages of the store's users, by name by default. Only the active ones, unless "
+                    + "incluirInactivos asks for the deactivated ones too, which is how one is reactivated.")
+    @ApiResponse(responseCode = "200", description = "One page of the store's users")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @GetMapping
     public ResponseEntity<PageResponse<UsuarioResponse>> listar(
+            @Parameter(description = "Part of the name, ignoring case and surrounding spaces", example = "ana")
+            @RequestParam(required = false) String nombre,
+            // Todo este controlador es de administradores (SecurityConfig), asi que aqui no hay que volver a
+            // preguntar quien mira lo desactivado: no llega nadie mas.
+            @Parameter(description = "Also list the deactivated users")
+            @RequestParam(defaultValue = "false") boolean incluirInactivos,
             @Parameter(description = "Page number, starting at 0")
             @RequestParam(defaultValue = "0") @Min(value = 0, message = Paginacion.PAGINA_INVALIDA) int pagina,
             @Parameter(description = "Items per page, from 1 to 50")
@@ -68,7 +76,8 @@ public class UsuarioController {
             @RequestParam(defaultValue = "nombre,asc") @Pattern(regexp = ORDEN,
                     message = "Orden no permitido. Use nombre, email o rolAcceso, con ,asc o ,desc.") String orden,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        return ResponseEntity.ok(usuarioService.buscar(principal.empresaId(), Paginacion.de(pagina, tamano, orden)));
+        return ResponseEntity.ok(usuarioService.buscar(principal.empresaId(), nombre, incluirInactivos,
+                Paginacion.de(pagina, tamano, orden)));
     }
 
     @Operation(summary = "Create a user", description = "The email cannot belong to a user of any store.")
