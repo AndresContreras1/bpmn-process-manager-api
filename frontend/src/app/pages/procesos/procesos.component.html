@@ -184,3 +184,23 @@
 <app-modal-confirmar idModal="modal-eliminar" titulo="Delete this process?" textoBoton="Delete" [peligro]="true"
                      [mensaje]="'“' + (seleccionado?.nombre ?? '') + '” will leave every list. Its change history is kept.'"
                      (confirmar)="confirmarEliminacion()" />
+
+@if (recibidos.length) {
+  <div class="container pb-5" id="procesos-recibidos">
+    <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Shared with your store</h2>
+    <p class="small text-body-secondary">
+      Processes another store shares with you. You see the version in force of each one, and cannot change it.
+    </p>
+    <ul class="list-group list-group-flush">
+      @for (recibido of recibidos; track recibido.proceso.id) {
+        <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-testid="proceso-recibido">
+          <div class="flex-grow-1">
+            <a [routerLink]="['/procesos', recibido.proceso.id]" class="fw-semibold">{{ recibido.proceso.nombre }}</a>
+            <div class="small text-body-secondary">from {{ recibido.empresaPropietariaNombre }}</div>
+          </div>
+          <span class="badge text-bg-light border">read-only</span>
+        </li>
+      }
+    </ul>
+  </div>
+}

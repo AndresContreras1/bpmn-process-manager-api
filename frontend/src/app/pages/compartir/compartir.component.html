@@ -1,0 +1,80 @@
+<div class="container py-5" id="compartir">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+          <li class="breadcrumb-item"><a routerLink="/procesos">Processes</a></li>
+          <li class="breadcrumb-item"><a [routerLink]="['/procesos', procesoId]">Process</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Share</li>
+        </ol>
+      </nav>
+
+      <h1 class="h4 fw-bold mb-0">Share “{{ nombreProceso }}”</h1>
+      <p class="text-body-secondary">
+        A store you share it with can read the version in force of the diagram, and nothing else. It is a read-only
+        door: they cannot edit it, publish it or see your drafts.
+      </p>
+
+      @if (aviso) {
+        <div class="alert alert-success" role="status" id="compartir-aviso">{{ aviso }}</div>
+      }
+      @if (error) {
+        <div class="alert alert-danger" role="alert" id="compartir-error">{{ error }}</div>
+      }
+
+      @if (esAdministrador) {
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body p-4">
+            <form [formGroup]="nitForm" (ngSubmit)="compartir()" novalidate>
+              <label class="form-label small" for="compartir-nit">Tax id of the other store</label>
+              <div class="d-flex gap-2">
+                <input type="text" class="form-control" id="compartir-nit" formControlName="nit"
+                       placeholder="900123456-1" autocomplete="off">
+                <button type="submit" class="btn btn-primary flex-shrink-0" id="compartir-enviar"
+                        [disabled]="enviando">{{ enviando ? 'Sharing…' : 'Share' }}</button>
+              </div>
+              <app-error-campo [control]="nitForm.get('nit')" />
+              <div class="form-text small">A store is known to other stores by its tax id, not by its name.</div>
+            </form>
+          </div>
+        </div>
+      }
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Shared with</h2>
+          @if (cargando) {
+            <div class="text-body-secondary" id="compartir-cargando">
+              <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading…
+            </div>
+          } @else if (invitadas.length === 0) {
+            <p class="text-body-secondary mb-0" id="compartir-vacio">Nobody yet.</p>
+          } @else {
+            <ul class="list-group list-group-flush">
+              @for (invitada of invitadas; track invitada.empresaId) {
+                <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-testid="invitada">
+                  <div class="flex-grow-1">
+                    <span class="fw-semibold">{{ invitada.nombre }}</span>
+                    <div class="small text-body-secondary">
+                      {{ invitada.nit }} · since {{ invitada.fechaCompartido | date: 'mediumDate' }}
+                    </div>
+                  </div>
+                  @if (esAdministrador) {
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-testid="invitada-quitar"
+                            data-bs-toggle="modal" data-bs-target="#modal-dejar-de-compartir"
+                            (click)="seleccionada = invitada">Stop sharing</button>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<app-modal-confirmar idModal="modal-dejar-de-compartir" titulo="Stop sharing?" textoBoton="Stop sharing"
+                     [peligro]="true"
+                     mensaje="That store stops being able to read this process. Nothing of theirs is deleted, and it can be shared again."
+                     (confirmar)="confirmarRetirada()" />

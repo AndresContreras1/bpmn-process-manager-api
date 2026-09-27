@@ -1,0 +1,10 @@
+// La clave temporal se lee una sola vez: se separa del resto para que no pase desapercibida
+.clave-temporal code {
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+}
+
+.ordenable {
+  cursor: pointer;
+  user-select: none;
+}
