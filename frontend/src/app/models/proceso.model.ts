@@ -10,13 +10,20 @@ export interface Proceso {
   activo: boolean;
   fechaCreacion: string;
   fechaModificacion: string;
+  /** Version leida en el ultimo GET. Se reenvia al editar y al publicar; con una vieja la API responde 409. */
+  version: number;
 }
 
-/** Cuerpo para crear o editar un proceso (ProcesoRequest y EditarProcesoRequest tienen los mismos campos). */
+/** Cuerpo para crear un proceso (ProcesoRequest de la API). */
 export interface ProcesoRequest {
   nombre: string;
   descripcion: string;
   categoria: string;
+}
+
+/** Cuerpo para editar: los mismos campos y la version, que la API exige (EditarProcesoRequest). */
+export interface EditarProcesoRequest extends ProcesoRequest {
+  version: number;
 }
 
 export interface HistorialCambio {

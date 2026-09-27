@@ -17,6 +17,12 @@
       <button type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
     </div>
   }
+  @if (desactualizado) {
+    <div class="alert alert-warning alert-dismissible" role="alert" id="procesos-desactualizado">
+      <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ desactualizado }}
+      <button type="button" class="btn-close" aria-label="Close" (click)="desactualizado = null"></button>
+    </div>
+  }
   @if (error) {
     <div class="alert alert-danger" role="alert" id="procesos-error">{{ error }}</div>
   }

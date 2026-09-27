@@ -38,11 +38,24 @@ npm run build
 
 ## Session
 
-- Signing in stores the JWT and the user it belongs to in `localStorage`, behind a `TokenService`. The demo store
-  signs in with `admin@demo.com` / `admin123`.
+- Signing in stores both tokens and the user they belong to in `localStorage`, behind a `TokenService`. The demo
+  store signs in with `admin@demo.com` / `admin123`.
 - An HTTP interceptor adds `Authorization: Bearer <token>` to every call except sign in and store registration.
-  When the API answers `401`, it clears the session and goes back to the sign-in page.
-- A route guard keeps private pages behind a valid session and remembers the page the user asked for.
+- **The session renews itself.** The access token lives fifteen minutes, so a `401` does not mean the session is
+  over: the interceptor exchanges the refresh token for a new pair and retries the request. The user sees nothing.
+  The sign-in page comes back only when there is no refresh token left or when the renewal is itself rejected, and
+  then it says why (`?sesion=vencida`).
+- A refresh token works **once**, and sending it twice closes the session on purpose, as reuse detection. So the
+  renewal is shared: every request that expires at the same moment waits for the same call. Opening a process runs
+  two requests in parallel, and both are served by one renewal.
+- A session counts as open while the refresh token exists, not while the access token is valid. Tying the route
+  guard to the access token would throw the user out fifteen minutes in, which is the same bug seen from the
+  other side.
+- Every POST made with a session carries an `Idempotency-Key`. The API replays a repeated key instead of creating a
+  second resource, which matters for the retry after a renewal and for a double click. The header is set before the
+  request is signed, so the retry carries the same key.
+- Signing out sends the refresh token, so the API closes that session instead of leaving a token that still renews.
+- A route guard keeps private pages behind an open session and remembers the page the user asked for.
 - `AuthService` publishes the current user through a `BehaviorSubject`, so the navbar and the pages react to sign in
   and sign out.
 
@@ -56,6 +69,12 @@ npm run build
   to the original text for any other.
 - Creating and editing share one reactive form. With an `id` in the route it loads the process and fills the form with
   `patchValue`; a name already used by another active process of the store shows up under the field (`409`).
+- **Every change travels with the version it was made on.** The API has optimistic locking, so the edit sends the
+  `version` that the `GET` returned and publishing sends it with the state. Without it the answer is a plain `400`.
+- A `409` has several meanings and the `title` of the Problem Details tells them apart. `Conflicto de versión` means
+  someone saved first: the form keeps what was typed and offers to reload, because reloading replaces it, while the
+  detail page and the list reload on their own, because there nothing typed is lost. Any other `409` is a rule of the
+  API, such as a repeated name or a diagram that cannot be published yet.
 - The detail page shows the process and its change history. Publishing and deleting ask first in a Bootstrap modal,
   and the page changes only with the API's answer. A published process cannot go back to draft.
 - Buttons follow the user's role: administrators and editors create, edit and publish, only administrators delete,

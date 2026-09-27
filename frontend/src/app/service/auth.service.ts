@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, finalize, tap } from 'rxjs';
+import { BehaviorSubject, Observable, finalize, map, shareReplay, tap } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { LoginRequest, LoginResponse } from '../models/login.model';
@@ -18,18 +18,43 @@ export class AuthService {
   private readonly usuarioSubject = new BehaviorSubject<Usuario | null>(this.usuarioGuardado());
   readonly usuario$: Observable<Usuario | null> = this.usuarioSubject.asObservable();
 
+  // La renovacion en curso, mientras dura: varias peticiones que fallan a la vez esperan esta misma
+  private renovacion$: Observable<string> | null = null;
+
   login(credenciales: LoginRequest): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.url}/login`, credenciales).pipe(
-      tap((respuesta: LoginResponse) => {
-        this.tokenService.guardar(respuesta.accessToken, respuesta.usuario, respuesta.expiresIn);
-        this.usuarioSubject.next(respuesta.usuario);
-      }),
-    );
+    return this.http
+      .post<LoginResponse>(`${this.url}/login`, credenciales)
+      .pipe(tap((respuesta: LoginResponse) => this.guardarSesion(respuesta)));
   }
 
-  /** Avisa a la API y borra la sesion del navegador, aunque la llamada falle (por ejemplo, con el token vencido). */
+  /**
+   * Cambia el token de refresco por un par nuevo y devuelve el token de acceso.
+   *
+   * Se hace una sola llamada aunque varias peticiones venzan al mismo tiempo: el token de refresco es de un solo
+   * uso y mandarlo dos veces cierra la sesion, asi que todas comparten el observable en curso y se olvida al
+   * terminar, para que la proxima vez se renueve de nuevo.
+   */
+  renovar(): Observable<string> {
+    this.renovacion$ ??= this.http
+      .post<LoginResponse>(`${this.url}/refresh`, { refreshToken: this.tokenService.obtenerRefresco() })
+      .pipe(
+        tap((respuesta: LoginResponse) => this.guardarSesion(respuesta)),
+        map((respuesta: LoginResponse) => respuesta.accessToken),
+        finalize(() => (this.renovacion$ = null)),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+    return this.renovacion$;
+  }
+
+  /**
+   * Avisa a la API y borra la sesion del navegador, aunque la llamada falle (por ejemplo, con el token vencido).
+   * El token de refresco va en el cuerpo para que la API cierre tambien su sesion y no quede uno usable.
+   */
   logout(): Observable<void> {
-    return this.http.post<void>(`${this.url}/logout`, {}).pipe(finalize(() => this.cerrarSesionLocal()));
+    const refreshToken: string | null = this.tokenService.obtenerRefresco();
+    return this.http
+      .post<void>(`${this.url}/logout`, refreshToken === null ? null : { refreshToken })
+      .pipe(finalize(() => this.cerrarSesionLocal()));
   }
 
   /** Borra la sesion del navegador. La usan el logout y el interceptor cuando la API responde 401. */
@@ -39,7 +64,7 @@ export class AuthService {
   }
 
   estaAutenticado(): boolean {
-    return this.tokenService.tokenVigente();
+    return this.tokenService.sesionAbierta();
   }
 
   tieneRol(...roles: RolAcceso[]): boolean {
@@ -57,7 +82,12 @@ export class AuthService {
     return this.tieneRol('ADMINISTRADOR');
   }
 
+  private guardarSesion(respuesta: LoginResponse): void {
+    this.tokenService.guardar(respuesta);
+    this.usuarioSubject.next(respuesta.usuario);
+  }
+
   private usuarioGuardado(): Usuario | null {
-    return this.tokenService.tokenVigente() ? this.tokenService.obtenerUsuario() : null;
+    return this.tokenService.sesionAbierta() ? this.tokenService.obtenerUsuario() : null;
   }
 }

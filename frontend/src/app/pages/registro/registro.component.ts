@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize, switchMap } from 'rxjs';
@@ -20,6 +21,7 @@ export class RegistroComponent {
   private readonly empresaService: EmpresaService = inject(EmpresaService);
   private readonly authService: AuthService = inject(AuthService);
   private readonly router: Router = inject(Router);
+  private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   // Los mismos limites que valida la API, para avisar antes de enviar
   readonly registroForm = new FormGroup({
@@ -52,6 +54,7 @@ export class RegistroComponent {
       .pipe(
         switchMap(() => this.authService.login({ email: solicitud.emailAdmin, password: solicitud.passwordAdmin })),
         finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: () => this.router.navigate(['/cuenta'], { queryParams: { bienvenida: 1 } }),
