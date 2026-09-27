@@ -2,16 +2,19 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
-import { EMPTY, Observable, catchError, finalize, forkJoin, map, of, switchMap, tap } from 'rxjs';
+import { EMPTY, Observable, catchError, finalize, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
 import { Diagrama } from '../../models/diagrama.model';
 import { EstadoProceso, NOMBRE_ESTADO, Proceso, ProcesoDetalle, cambioEnIngles } from '../../models/proceso.model';
+import { Version } from '../../models/version.model';
 import { AuthService } from '../../service/auth.service';
 import { DiagramaService } from '../../service/diagrama.service';
 import { ProcesoService } from '../../service/proceso.service';
+import { VersionService } from '../../service/version.service';
 import { DetalleNodo, detallarNodo } from './components/diagrama-bpmn/detalle-nodo';
 import { DiagramaBpmnComponent } from './components/diagrama-bpmn/diagrama-bpmn.component';
 import { Lienzo, dibujarDiagrama } from './components/diagrama-bpmn/lienzo';
@@ -20,18 +23,27 @@ import { Lienzo, dibujarDiagrama } from './components/diagrama-bpmn/lienzo';
 interface Carga {
   detalle: ProcesoDetalle;
   diagrama: Diagrama | null;
+  versiones: Version[];
+}
+
+/** Lo que contestan las tres peticiones antes de decidir si hay pagina que mostrar. */
+interface Respuesta {
+  detalle: ProcesoDetalle | null;
+  diagrama: Diagrama | null;
+  versiones: Version[];
 }
 
 /** Un proceso con sus datos, su diagrama y su historial de cambios, y las acciones que permite el rol del usuario. */
 @Component({
   selector: 'app-proceso-detalle',
-  imports: [DatePipe, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent],
+  imports: [DatePipe, FormsModule, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent],
   templateUrl: './proceso-detalle.component.html',
   styleUrl: './proceso-detalle.component.scss',
 })
 export class ProcesoDetalleComponent implements OnInit {
   private readonly procesoService: ProcesoService = inject(ProcesoService);
   private readonly diagramaService: DiagramaService = inject(DiagramaService);
+  private readonly versionService: VersionService = inject(VersionService);
   private readonly authService: AuthService = inject(AuthService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
@@ -42,8 +54,17 @@ export class ProcesoDetalleComponent implements OnInit {
   readonly puedeEditar: boolean = this.authService.puedeEditar();
   readonly esAdministrador: boolean = this.authService.esAdministrador();
 
+  /** Un proceso de otra tienda no se toca, por mucho rol que se tenga en la propia. */
+  get soloLectura(): boolean {
+    return this.diagrama?.compartido === true;
+  }
+
   detalle: ProcesoDetalle | null = null;
   diagrama: Diagrama | null = null;
+  versiones: Version[] = [];
+  /** Que se esta mirando: null es el modelo de hoy, y un numero, la version publicada con ese numero. */
+  verVersion: number | null = null;
+  cambiandoVersion: boolean = false;
   lienzo: Lienzo | null = null;
   nodoElegido: DetalleNodo | null = null;
   cargando: boolean = true;
@@ -90,9 +111,37 @@ export class ProcesoDetalleComponent implements OnInit {
       });
   }
 
-  /** Muestra el detalle de la tarea o el gateway elegido; elegirlo otra vez lo cierra. */
+  /**
+   * Cambia lo que se dibuja. El modelo de hoy se vuelve a pedir entero; una version publicada se pide a su propio
+   * endpoint, que devuelve el diagrama congelado con la misma forma.
+   */
+  mostrarVersion(numero: number | null): void {
+    const id: number | undefined = this.detalle?.proceso.id;
+    if (id === undefined || numero === this.verVersion) {
+      return;
+    }
+    this.cambiandoVersion = true;
+    this.verVersion = numero;
+    const diagrama$: Observable<Diagrama> =
+      numero === null ? this.diagramaService.obtener(id) : this.versionService.diagrama(id, numero);
+    diagrama$
+      .pipe(
+        finalize(() => (this.cambiandoVersion = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (diagrama: Diagrama) =>
+          this.mostrar({ detalle: this.detalle as ProcesoDetalle, diagrama, versiones: this.versiones }),
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+      });
+  }
+
+  /** Muestra el detalle de la tarea, el gateway o el evento elegido; elegirlo otra vez lo cierra. */
   elegirNodo(id: number): void {
-    this.nodoElegido = this.diagrama && this.nodoElegido?.id !== id ? detallarNodo(this.diagrama, id) : null;
+    this.nodoElegido =
+      this.diagrama && this.lienzo && this.nodoElegido?.id !== id
+        ? detallarNodo(this.diagrama, id, this.lienzo.mensajes)
+        : null;
   }
 
   publicar(): void {
@@ -103,17 +152,24 @@ export class ProcesoDetalleComponent implements OnInit {
     this.enviando = true;
     this.aviso = null;
     this.error = null;
-    // Publicar y volver a pedir el detalle, encadenados: el historial suma el cambio
+    // Publicar y volver a pedirlo, encadenados: el historial suma el cambio y las versiones, la nueva
     this.procesoService
       .publicar(proceso.id, proceso.version)
       .pipe(
-        switchMap(() => this.procesoService.obtener(proceso.id)),
+        switchMap(() =>
+          forkJoin({
+            detalle: this.procesoService.obtener(proceso.id),
+            // Si la lista falla se queda la que hay: el proceso se publico igual, y eso es lo que se cuenta
+            versiones: this.versionService.listar(proceso.id).pipe(catchError(() => of(this.versiones))),
+          }),
+        ),
         finalize(() => (this.enviando = false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (detalle: ProcesoDetalle) => {
-          this.detalle = detalle;
+        next: (publicado: { detalle: ProcesoDetalle; versiones: Version[] }) => {
+          this.detalle = publicado.detalle;
+          this.versiones = publicado.versiones;
           this.aviso = 'The process is now published.';
         },
         error: (error: HttpErrorResponse) => this.noSePudoPublicar(proceso.id, error),
@@ -159,6 +215,7 @@ export class ProcesoDetalleComponent implements OnInit {
   private mostrar(carga: Carga): void {
     this.detalle = carga.detalle;
     this.diagrama = carga.diagrama;
+    this.versiones = carga.versiones;
     this.lienzo = carga.diagrama ? dibujarDiagrama(carga.diagrama) : null;
     this.nodoElegido = null;
   }
@@ -168,9 +225,22 @@ export class ProcesoDetalleComponent implements OnInit {
    * avisa en su lugar; si falla el proceso, el error sigue hacia ngOnInit.
    */
   private cargar(id: number): Observable<Carga> {
+    this.verVersion = null;
     return forkJoin({
-      detalle: this.procesoService.obtener(id),
+      detalle: this.procesoService.obtener(id).pipe(catchError(() => of(null))),
       diagrama: this.diagramaService.obtener(id).pipe(catchError(() => of(null))),
-    });
+      // Una invitada no puede listar las versiones del proceso de otra tienda: sin lista, no hay selector
+      versiones: this.versionService.listar(id).pipe(catchError(() => of([] as Version[]))),
+    }).pipe(
+      switchMap((respuesta: Respuesta) => {
+        // A una invitada la API solo le abre el diagrama: el detalle y el historial le responden 404. El
+        // encabezado sale entonces del proceso que viene dentro del propio diagrama, que es el que ella puede ver.
+        const detalle: ProcesoDetalle | null =
+          respuesta.detalle ?? (respuesta.diagrama ? { proceso: respuesta.diagrama.proceso, historial: [] } : null);
+        return detalle === null
+          ? throwError(() => new HttpErrorResponse({ status: 404 }))
+          : of({ detalle, diagrama: respuesta.diagrama, versiones: respuesta.versiones });
+      }),
+    );
   }
 }

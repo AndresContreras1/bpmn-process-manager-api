@@ -84,6 +84,51 @@
   stroke-width: 1.5;
 }
 
+// Los eventos siguen la convencion de BPMN: circulo fino donde empieza, doble donde espera y grueso donde termina
+.borde-evento {
+  fill: #fff;
+  stroke-width: 1.5;
+}
+
+.evento-inicio {
+  fill: var(--bs-success-bg-subtle);
+  stroke: var(--bs-success);
+}
+
+.evento-intermedio {
+  fill: var(--bs-info-bg-subtle);
+  stroke: var(--bs-info-text-emphasis);
+}
+
+.evento-intermedio.interior {
+  fill: none;
+}
+
+.evento-fin {
+  fill: var(--bs-danger-bg-subtle);
+  stroke: var(--bs-danger);
+  stroke-width: 3.5;
+}
+
+// El sobre hueco espera el mensaje y el relleno lo manda
+.sobre {
+  fill: none;
+  stroke: var(--bs-body-color);
+  stroke-width: 1.2;
+}
+
+.sobre.relleno {
+  fill: var(--bs-body-color);
+  stroke: #fff;
+}
+
+.texto-evento {
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+}
+
 .punta {
   fill: #495057;
 }
@@ -98,6 +143,8 @@
 }
 
 .linea-mensaje {
+  // Ahora es un path y no una linea: sin esto el navegador rellenaria el area que encierra el angulo
+  fill: none;
   stroke: #6c757d;
   stroke-width: 1.5;
   stroke-dasharray: 6 4;
@@ -134,6 +181,17 @@
 
 .nodo.seleccionado .tarea,
 .nodo.seleccionado .gateway {
+  stroke: var(--bs-warning);
+  stroke-width: 3.5;
+}
+
+// Un evento se resalta con el circulo de fuera; el de dentro se queda como esta para que siga leyendose doble
+.nodo.evento:hover > .borde-evento:first-of-type,
+.nodo.evento:focus-visible > .borde-evento:first-of-type {
+  stroke-width: 3;
+}
+
+.nodo.evento.seleccionado > .borde-evento:first-of-type {
   stroke: var(--bs-warning);
   stroke-width: 3.5;
 }

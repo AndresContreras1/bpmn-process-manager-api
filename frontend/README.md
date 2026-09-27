@@ -87,14 +87,36 @@ The detail page asks for the process and for its whole diagram in parallel (`for
 
 - The diagram is plain SVG drawn by the `diagrama-bpmn` component, without a BPMN library. `lienzo.ts` places every
   element first, and the component only draws what it receives.
+- Events follow the notation: a thin circle where the process starts, a double one where it waits for a message, a
+  thick one where a path ends, and an envelope on the three that carry a message, filled only on the one that sends
+  it. They take part in the layout like any other node, so they widen the pool and raise their lane.
 - Customers sit on top, the store in the middle with its lanes, and the other participants below; black-box pools
   show only their name.
 - Each task and gateway takes its x from `posicionX`, shared by every lane so the flow reads from left to right, and
   its y from `posicionY` relative to its lane, so a node never leaves its lane and each lane grows to fit.
 - Sequence flows are drawn with right angles and their labels. Message flows are dashed and numbered, and the list
   under the diagram gives each one its content and correlation key.
-- Clicking a task or a gateway, or focusing it and pressing Enter, opens its details: lane, role, description and the
-  flows that come in and go out, with their conditions.
+- A message flow leaves the node it is anchored to and enters the node that waits for it, rather than running from
+  the border of one pool to the border of the other: which node sends and which one waits is half of what a message
+  flow says. When both ends are anchored to nodes at different x it turns through the gap between the pools. An end
+  inside a black box has no node, and keeps the border.
+- Clicking a task, a gateway or an event, or focusing it and pressing Enter, opens its details: lane, role,
+  description, the flows that come in and go out with their conditions, and what it sends and waits for, each with
+  the number the diagram draws on it. A message there says how it travels, what the process does if it cannot be
+  delivered, the fields it carries, the variable its body becomes and how it is matched to a case.
+- The field types are translated, like the change history: the API names them in Spanish.
+
+### Versions and who is looking
+
+- Publishing freezes the diagram as a version, so the page asks for the versions of the process and lets you pick
+  one. A frozen version is read from `GET /procesos/{id}/versiones/{numero}/diagrama`, which answers the same shape.
+- The page says which of three cases you are in: the working copy, the working copy with changes that are not
+  published yet —which is not what runs— or a published version, which cannot change because the cases that started
+  on it keep running on it.
+- A guest store gets one door only: `GET /procesos/{id}/diagrama`. The detail, the history and the versions all
+  answer `404` to it, so the header falls back to the process that travels inside the diagram, and edit, publish and
+  delete are hidden: a role in your own store is not a role in theirs. There is no screen yet that lists what other
+  stores share with you, so a guest reaches that page by URL; the list belongs to the sharing work of F6.
 
 ## Where things go
 

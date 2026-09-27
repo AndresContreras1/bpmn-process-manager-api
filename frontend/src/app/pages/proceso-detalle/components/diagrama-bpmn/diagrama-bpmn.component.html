@@ -93,16 +93,39 @@
       </g>
     }
 
+    @for (evento of lienzo().eventos; track evento.id) {
+      <g class="nodo evento" data-testid="nodo-evento" tabindex="0" role="button"
+         [class.seleccionado]="evento.id === seleccionadoId()" [attr.aria-pressed]="evento.id === seleccionadoId()"
+         [attr.aria-label]="evento.titulo" (click)="elegir(evento.id)"
+         (keydown.enter)="elegir(evento.id, $event)" (keydown.space)="elegir(evento.id, $event)">
+        <circle class="borde-evento" [class]="'borde-evento evento-' + evento.clase" [attr.cx]="evento.cx"
+                [attr.cy]="evento.cy" [attr.r]="evento.radio" />
+        @if (evento.doble) {
+          <circle class="borde-evento evento-intermedio interior" [attr.cx]="evento.cx" [attr.cy]="evento.cy"
+                  [attr.r]="evento.radio - 4" />
+        }
+        @if (evento.sobre) {
+          <path class="sobre" [class.relleno]="evento.sobreRelleno" [attr.d]="evento.sobre" />
+        }
+        <text class="texto-nodo texto-evento" text-anchor="middle">
+          @for (linea of evento.texto.lineas; track $index) {
+            <tspan [attr.x]="evento.texto.x" [attr.y]="evento.texto.y + $index * 14">{{ linea }}</tspan>
+          }
+        </text>
+        <title>{{ evento.titulo }}</title>
+      </g>
+    }
+
     @for (mensaje of lienzo().mensajes; track mensaje.id) {
       <g data-testid="mensaje">
-        <line class="linea-mensaje" [attr.x1]="mensaje.x" [attr.y1]="mensaje.y1" [attr.x2]="mensaje.x"
-              [attr.y2]="mensaje.y2" marker-end="url(#diagrama-flecha-mensaje)" />
-        <circle class="inicio-mensaje" r="4" [attr.cx]="mensaje.x" [attr.cy]="mensaje.y1" />
-        <circle class="numero-mensaje" r="10" [attr.cx]="mensaje.x" [attr.cy]="mensaje.numeroY" />
-        <text class="texto-numero" text-anchor="middle" [attr.x]="mensaje.x" [attr.y]="mensaje.numeroY + 4">
+        <path class="linea-mensaje" [attr.d]="mensaje.ruta" marker-end="url(#diagrama-flecha-mensaje)" />
+        <circle class="inicio-mensaje" r="4" [attr.cx]="mensaje.salidaX" [attr.cy]="mensaje.salidaY" />
+        <circle class="numero-mensaje" r="10" [attr.cx]="mensaje.numeroX" [attr.cy]="mensaje.numeroY" />
+        <text class="texto-numero" text-anchor="middle" [attr.x]="mensaje.numeroX" [attr.y]="mensaje.numeroY + 4">
           {{ mensaje.numero }}
         </text>
-        <title>{{ mensaje.numero }}. {{ mensaje.nombre }}: {{ mensaje.origen }} → {{ mensaje.destino }}</title>
+        <title>{{ mensaje.numero }}. {{ mensaje.nombre }}: {{ mensaje.desde ?? mensaje.origen }} →
+          {{ mensaje.hasta ?? mensaje.destino }}</title>
       </g>
     }
   </svg>
@@ -116,6 +139,25 @@
   <span class="d-inline-flex align-items-center gap-1">
     <svg width="18" height="18" aria-hidden="true"><polygon class="gateway" points="9,1 17,9 9,17 1,9" /></svg>
     Gateway
+  </span>
+  <span class="d-inline-flex align-items-center gap-1">
+    <svg width="18" height="18" aria-hidden="true">
+      <circle class="borde-evento evento-inicio" cx="9" cy="9" r="8" />
+    </svg>
+    Start
+  </span>
+  <span class="d-inline-flex align-items-center gap-1">
+    <svg width="18" height="18" aria-hidden="true">
+      <circle class="borde-evento evento-fin" cx="9" cy="9" r="7" />
+    </svg>
+    End
+  </span>
+  <span class="d-inline-flex align-items-center gap-1">
+    <svg width="20" height="18" aria-hidden="true">
+      <circle class="borde-evento evento-inicio" cx="9" cy="9" r="8" />
+      <path class="sobre" d="M 4 6 h 10 v 6 h -10 z M 4 6 L 9 10 L 14 6" />
+    </svg>
+    Message event
   </span>
   <span class="d-inline-flex align-items-center gap-1">
     <svg width="30" height="10" aria-hidden="true"><line class="arco" x1="0" y1="5" x2="30" y2="5" /></svg>

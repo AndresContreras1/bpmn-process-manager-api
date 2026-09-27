@@ -12,6 +12,13 @@ export interface Proceso {
   fechaModificacion: string;
   /** Version leida en el ultimo GET. Se reenvia al editar y al publicar; con una vieja la API responde 409. */
   version: number;
+  /** Numero de la version vigente; vacio mientras no se haya publicado nada. */
+  versionPublicada: number | null;
+  /**
+   * True cuando el modelo de hoy ya no es el que se publico. Viene vacio en los listados, porque calcularlo
+   * costaria leer un diagrama entero por fila, y para una invitada, que solo ve lo publicado.
+   */
+  borradorPendiente: boolean | null;
 }
 
 /** Cuerpo para crear un proceso (ProcesoRequest de la API). */
