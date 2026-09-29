@@ -13,7 +13,7 @@ in, store registration, the account page, the process screens and the diagram vi
 ## Run it
 
 Requirements: Node.js 22 or later (Angular 19 warns on Node 24 but builds with it) and the backend running on port
-8080 (see the [root README](../README.md#getting-started)).
+8080 (see [Getting started](../docs/getting-started.md)).
 
 ```bash
 npm ci
