@@ -138,6 +138,8 @@ class MetricasDeNegocioIntegracionTest {
         assertThat(cuenta("casos.eventos", "tipo", "caso_abierto") - abiertos).isEqualTo(1);
         assertThat(cuenta("casos.eventos", "tipo", "tarea_completada") - completadas).isEqualTo(1);
         assertThat(cuenta("casos.eventos", "tipo", "caso_terminado") - terminados).isEqualTo(1);
+        assertThat(registro.find("procesos.motor.avanzar").tag("estado", "terminado").timer()).isNotNull();
+        assertThat(registro.find("procesos.diagnostico").tag("uso", "publicacion").timer()).isNotNull();
     }
 
     @Test

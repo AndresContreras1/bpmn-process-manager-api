@@ -15,6 +15,8 @@ import com.facimus.procesos.modelado.model.Severidad;
 import com.facimus.procesos.modelado.service.DiagnosticoService;
 import com.facimus.procesos.modelado.service.DiagramaService;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -28,12 +30,21 @@ import lombok.RequiredArgsConstructor;
 public class DiagnosticoServiceImpl implements DiagnosticoService {
 
     private final DiagramaService diagramaService;
+    private final ObservationRegistry observaciones;
 
+    /** Es un span de la traza, con el proceso, y un tiempo en las metricas (procesos.diagnostico). */
     @Override
     public DiagnosticoResponse diagnosticar(Long empresaId, Long procesoId, String sinElemento) {
-        if (!StringUtils.hasText(sinElemento)) {
-            return revisar(diagramaService.obtener(empresaId, procesoId));
-        }
+        boolean simula = StringUtils.hasText(sinElemento);
+        return Observation.createNotStarted("procesos.diagnostico", observaciones)
+                .contextualName("diagnosticar el diagrama")
+                .lowCardinalityKeyValue("uso", simula ? "simular-borrado" : "consulta")
+                .highCardinalityKeyValue("proceso.id", String.valueOf(procesoId))
+                .observe(() -> simula ? simular(empresaId, procesoId, sinElemento)
+                        : revisar(diagramaService.obtener(empresaId, procesoId)));
+    }
+
+    private DiagnosticoResponse simular(Long empresaId, Long procesoId, String sinElemento) {
         // Se lee antes de consultar: si no se entiende, no vale la pena armar el diagrama.
         ElementoDelDiagrama elemento = ElementoDelDiagrama.de(sinElemento);
         return simular(diagramaService.obtener(empresaId, procesoId), elemento);

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.ReglaNegocioException;
@@ -30,6 +31,9 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.impl.DiagnosticoServiceImpl;
 
+import io.micrometer.observation.tck.TestObservationRegistry;
+import io.micrometer.observation.tck.TestObservationRegistryAssert;
+
 /**
  * El catalogo del diagnostico, codigo por codigo. Cada prueba parte del proceso de la demo, que cumple todas las
  * reglas, y rompe una sola cosa: lo que sale es el codigo que se espera y sobre el elemento que se rompio. Que el
@@ -44,6 +48,9 @@ class DiagnosticoServiceTest {
     @Mock
     private DiagramaService diagramaService;
 
+    @Spy
+    private TestObservationRegistry observaciones = TestObservationRegistry.create();
+
     @InjectMocks
     private DiagnosticoServiceImpl diagnosticoService;
 
@@ -56,6 +63,19 @@ class DiagnosticoServiceTest {
         assertThat(diagnostico.errores()).isZero();
         assertThat(diagnostico.advertencias()).isZero();
         assertThat(diagnostico.procesoId()).isEqualTo(PROCESO);
+    }
+
+    @Test
+    @DisplayName("Cada diagnostico es un span con el proceso y para que se pidio")
+    void diagnostico_seObservaConElProceso() {
+        diagnosticar(DiagramaArmado.demo());
+
+        TestObservationRegistryAssert.assertThat(observaciones)
+                .hasObservationWithNameEqualTo("procesos.diagnostico").that()
+                .hasBeenStopped()
+                .hasContextualNameEqualTo("diagnosticar el diagrama")
+                .hasLowCardinalityKeyValue("uso", "consulta")
+                .hasHighCardinalityKeyValue("proceso.id", String.valueOf(PROCESO));
     }
 
     @Test
