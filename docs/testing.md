@@ -38,11 +38,15 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 
 | Job | What it checks |
 |---|---|
-| Build & Test | `./mvnw verify` on Ubuntu and Windows. The test results appear as a check, and the coverage report is kept as an artifact. |
+| Build & Test | `./mvnw verify` on Ubuntu and Windows. The test results appear as a check, and the coverage report and the SBOM of the API are kept as artifacts. |
 | Architecture Rules | The ArchUnit suite on its own, with a summary |
 | PostgreSQL Integration | The suites tagged `postgres` against a PostgreSQL 16 container, the same image the Compose stack runs |
-| Docker Image & Load Test | Builds the image, checks that the API answers from the container, brings up the Compose stack in the `prod` profile against PostgreSQL 16, and runs the two k6 load tests against it: one that loads reading the model and one that loads running it |
+| Docker Image & Load Test | Builds the image and scans it with Trivy, checks that the API answers from the container, brings up the Compose stack in the `prod` profile against PostgreSQL 16, and runs the two k6 load tests against it: one that loads reading the model and one that loads running it |
 | SonarCloud Analysis | Static analysis and its quality gate: the job waits for SonarCloud to judge the analysis and goes red when the gate does not pass. Skipped while the token is not configured |
-| Frontend Build | `npm ci` and a production build of the web app |
-| Web Image & Stack | Builds the web image and brings up database, API and web together: NGINX serves the compiled app, a deep link answers with the app instead of a `404`, and the API answers through the web container |
+| Frontend Build | The SBOM of the web app, `npm ci` and a production build |
+| Web Image & Stack | Builds the web image and scans it with Trivy, then brings up database, API and web together: NGINX serves the compiled app, a deep link answers with the app instead of a `404`, and the API answers through the web container |
 | E2E | Drives a headless Chrome against that stack with the Selenium suite of [e2e/](../e2e/README.md), and keeps what the browser saw as an artifact |
+| Supply Chain | Every action is pinned to a commit SHA, and gitleaks finds no secret in the commits of the change |
+| CodeQL | A separate workflow that reads the Java, the TypeScript and the workflows themselves, on every change and every Monday, and publishes what it finds in the Security tab |
+
+[Supply chain](security.md#supply-chain) explains what each of the last checks protects against.
