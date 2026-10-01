@@ -266,6 +266,28 @@
 				<artifactId>sonar-maven-plugin</artifactId>
 				<version>4.0.0.4121</version>
 			</plugin>
+			<!-- Formato: Spotless solo revisa los archivos que un cambio toca frente a origin/main (ratchetFrom), para no
+			     reformatear el repositorio de golpe. Exige higiene y no un estilo nuevo: los imports en los grupos que ya
+			     usa el codigo (estaticos, java, org, com y el resto), sin los que no se usan, sin espacios al final de la
+			     linea y con salto de linea al final del archivo. Un formateador completo reescribia casi todo: medido
+			     sobre el codigo de hoy, Palantir cambiaba 462 de los 519 archivos y un perfil de Eclipse afinado, 146;
+			     estas reglas, 39. ./mvnw spotless:apply deja un cambio en regla y el CI lo comprueba con spotless:check. -->
+			<plugin>
+				<groupId>com.diffplug.spotless</groupId>
+				<artifactId>spotless-maven-plugin</artifactId>
+				<version>3.10.3</version>
+				<configuration>
+					<ratchetFrom>origin/main</ratchetFrom>
+					<java>
+						<removeUnusedImports/>
+						<importOrder>
+							<order>\#,java|javax,org,com,</order>
+						</importOrder>
+						<trimTrailingWhitespace/>
+						<endWithNewline/>
+					</java>
+				</configuration>
+			</plugin>
 			<!-- SBOM en CycloneDX: cada dependencia que lleva la API, con su version, su licencia y su huella. El parent
 			     de Spring Boot trae la configuracion: lo arma en cada build y lo mete en el propio jar
 			     (META-INF/sbom/application.cdx.json), asi que viaja con la imagen, y el CI ademas lo guarda como
