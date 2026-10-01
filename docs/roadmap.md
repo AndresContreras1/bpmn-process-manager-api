@@ -52,6 +52,8 @@
 - [x] Complete Spring profiles: `dev` with seed data, `test` with an isolated in-memory database, and `prod`
 - [x] Repository tests with `@DataJpaTest` and unit tests for every modeling service
 - [x] Coverage gate per package, branches included
+- [x] Mutation testing with PIT over the services, the engine and the conditions, every night, with a floor
+- [x] Spotless over the files each change touches: imports in order and without unused ones, no trailing spaces
 - [x] A SonarCloud quality gate on top of it, which fails the build as soon as the project token is in the repository secrets
 - [x] Docker Compose with PostgreSQL and Actuator health checks
 - [x] Testcontainers-based integration tests against a real PostgreSQL
