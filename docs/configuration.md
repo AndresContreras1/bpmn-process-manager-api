@@ -32,10 +32,14 @@ The tests tagged `postgres` leave the profile's database aside and run against a
 | `CACHE_VERSIONES` | Keeps what a published version says in memory. `false` turns it off and the API answers the same, only slower. | `true` |
 | `CACHE_VERSIONES_MAXIMO` · `CACHE_VERSIONES_INACTIVIDAD` | Versions each cache remembers at a time, and how long an unused entry is kept | `200` · `2h` |
 | `DB_POOL_SIZE` | Connections to PostgreSQL, the real ceiling of concurrent work (`prod`) | `10` |
+| `MANAGEMENT_PORT` | Port of Actuator in `prod`: the probes and Prometheus read it inside the network, and it is not published | `8081` |
 | `SERVER_THREADS` | Threads that serve requests; the rest queue up (`prod`) | `200` |
 | `GEMINI_API_KEY` | Key for the AI review. Without it the review answers `503` and nothing else changes. | None |
 | `GEMINI_MODEL` · `GEMINI_BASE_URL` · `GEMINI_TIMEOUT` | Model, address and how long to wait for it | `gemini-3.8-flash` · Google endpoint · `20s` |
 | `REVISION_MAX_REVIEWS` · `REVISION_WINDOW` | Reviews a store can ask for, and the window that counts them | `10` · `1h` |
+
+In `prod` the logs are JSON in the Elastic Common Schema, one line per event with the `requestId` of the request that
+wrote it; in `dev` they stay in plain text, which is easier to read in a terminal.
 
 On startup, Flyway creates the schema or brings it up to date. The database must exist, and its user needs permission
 to create tables.

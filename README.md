@@ -15,7 +15,7 @@ immutable version that orders run on. This repository holds the REST API and the
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-prod-4169E1?logo=postgresql&logoColor=white)
 ![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-1176-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-1216-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -62,6 +62,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Execution** | Cases that walk a published version, tasks waiting in the tray of each process role, and gateway conditions in a small language of its own that cannot run code. | [Execution](docs/execution.md#running-a-process) |
 | **Messaging and simulation** | Outbox and inbox per process, correlation by key, a clock in ticks per store, and four simulated partners — payments, carrier, notifications, customer — deterministic by seed. | [Simulation](docs/execution.md#messages-and-the-clock) |
 | **Dashboard** | Cases by state, cycle time with average and p95, work waiting per role and what did not go as expected, in six queries however many orders there are. | [Dashboard](docs/execution.md#the-dashboard) |
+| **Operations** | Health probes, Prometheus metrics on a management port of their own with business counters, JSON logs, and a request id in every response, log line and error. | [Operations endpoints](docs/getting-started.md#operations-endpoints) |
 | **Security** | Short-lived JWT with rotating refresh tokens, login rate limit, roles checked in one place, and store isolation enforced by the build. Read-only sharing between stores. | [Security](docs/security.md) |
 | **API contract** | OpenAPI for every operation, Problem Details errors, optimistic locking, idempotency keys and stable pagination. | [API reference](docs/api-reference.md) |
 | **AI review** | An optional second opinion from a language model, answered in a validated schema and limited per store. It only advises. | [AI review](docs/diagnosis-and-versions.md#ai-review) |
@@ -165,7 +166,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **1176 tests** in the build: architecture rules, controller and repository slices, service units, security and
+- **1216 tests** in the build: architecture rules, controller and repository slices, service units, security and
   store isolation, and integration across modules. Another **79** run the same suites against a real PostgreSQL 16
   with Testcontainers.
 - **Coverage gate** with JaCoCo: 96 % of lines and 85 % of branches today, and the build fails below 90 % and 80 %

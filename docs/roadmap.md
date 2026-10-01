@@ -58,6 +58,13 @@
 - [x] Docker Compose with PostgreSQL and Actuator health checks
 - [x] Testcontainers-based integration tests against a real PostgreSQL
 
+**Observability**
+- [x] Actuator on a management port of its own in `prod`, with the metrics in the Prometheus format
+- [x] Business counters: what happens to the cases, the versions published and the failed logins, counted on commit
+- [x] JSON logs in the Elastic Common Schema in `prod`
+- [x] A request id in the `X-Request-Id` header, in every log line and in every Problem Details, errors outside the
+      controllers included
+
 **Supply chain**
 - [x] Every GitHub Action pinned to a commit SHA, with a CI step that fails otherwise, and a read-only token per job
 - [x] Dependabot for Maven, npm, Actions, Docker and Compose, with a seven-day cooldown, and base images pinned by digest
