@@ -11,6 +11,8 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
+import com.facimus.procesos.common.api.Problemas;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.json.JsonMapper;
@@ -28,9 +30,8 @@ public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
             AuthenticationException authException) throws IOException {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED,
+        ProblemDetail problem = Problemas.de(HttpStatus.UNAUTHORIZED, "No autenticado",
                 "Se requiere un token valido para acceder a este recurso.");
-        problem.setTitle("No autenticado");
         problem.setInstance(URI.create(request.getRequestURI()));
 
         response.setStatus(HttpStatus.UNAUTHORIZED.value());

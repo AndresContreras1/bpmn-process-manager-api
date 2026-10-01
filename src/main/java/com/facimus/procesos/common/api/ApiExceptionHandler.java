@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
@@ -189,6 +190,19 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "Ocurrió un error inesperado. Intenta nuevamente más tarde.", req);
     }
 
+    /**
+     * Las respuestas que arma Spring para sus propias excepciones (una ruta que no existe, un metodo que la ruta no
+     * acepta) pasan por aqui: tambien llevan el id de la peticion.
+     */
+    @Override
+    protected ResponseEntity<Object> createResponseEntity(@Nullable Object body, HttpHeaders headers,
+            HttpStatusCode statusCode, WebRequest request) {
+        if (body instanceof ProblemDetail problema) {
+            Problemas.conId(problema);
+        }
+        return super.createResponseEntity(body, headers, statusCode, request);
+    }
+
     /** JSON bien formado pero con un campo que no encaja: se dice cual. Si el JSON esta roto no hay campo que senalar. */
     private static Map<String, String> erroresDeLectura(HttpMessageNotReadableException ex) {
         if (!(ex.getCause() instanceof DatabindException error) || error.getPath().isEmpty()) {
@@ -231,8 +245,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private ProblemDetail construir(HttpStatus status, String titulo, String detalle, WebRequest req) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, detalle);
-        pd.setTitle(titulo);
+        ProblemDetail pd = Problemas.de(status, titulo, detalle);
         pd.setInstance(URI.create(req.getDescription(false).replace("uri=", "")));
         return pd;
     }

@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.facimus.procesos.common.api.Problemas;
 import com.facimus.procesos.common.security.ApiPrincipal;
 
 import jakarta.servlet.FilterChain;
@@ -54,8 +55,7 @@ public class CambioDeClaveFilter extends OncePerRequestFilter {
     }
 
     private void responder(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, MOTIVO);
-        problema.setTitle("Sin permisos");
+        ProblemDetail problema = Problemas.de(HttpStatus.FORBIDDEN, "Sin permisos", MOTIVO);
         problema.setInstance(URI.create(request.getRequestURI()));
 
         response.setStatus(HttpStatus.FORBIDDEN.value());
