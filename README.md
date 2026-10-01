@@ -8,14 +8,14 @@ workspace with role-based access, every change is validated and recorded, and a 
 immutable version that orders run on. This repository holds the REST API and the Angular web app built on it.
 
 [![CI](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml)
-![Java 21](https://img.shields.io/badge/Java-21-007396?logo=openjdk&logoColor=white)
+![Java 25](https://img.shields.io/badge/Java-25-007396?logo=openjdk&logoColor=white)
 ![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white)
 ![Spring Security 7](https://img.shields.io/badge/Spring%20Security-7%20%C2%B7%20JWT-6DB33F?logo=springsecurity&logoColor=white)
 ![Hibernate 7.4](https://img.shields.io/badge/Hibernate-7.4-59666C?logo=hibernate&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-prod-4169E1?logo=postgresql&logoColor=white)
 ![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-1227-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-1229-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -73,7 +73,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 ```mermaid
 flowchart LR
     B(["Browser"]) --> W["<b>web</b><br/>NGINX · Angular 19"]
-    W -- "/api" --> A["<b>api</b><br/>Spring Boot 4.1 · Java 21"]
+    W -- "/api" --> A["<b>api</b><br/>Spring Boot 4.1 · Java 25"]
     A --> D[("<b>db</b><br/>PostgreSQL 16")]
     A -. "optional" .-> G["Gemini<br/>AI review"]
 ```
@@ -104,7 +104,7 @@ store's id, or if a request DTO carries one.
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 21 · Spring Boot 4.1 · Spring Security 7 · JWT (jjwt) · Spring Data JPA · Hibernate 7.4 · MapStruct |
+| Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 · JWT (jjwt) · Spring Data JPA · Hibernate 7.4 · MapStruct |
 | Data | PostgreSQL 16 in `prod` · H2 in `dev` and tests · Flyway migrations, validated by Hibernate |
 | Frontend | Angular 19 standalone · Bootstrap 5 · RxJS · NGINX |
 | Quality | JUnit 5 · Mockito · ArchUnit · Testcontainers · Selenium · k6 · JaCoCo · SonarCloud |
@@ -115,7 +115,7 @@ cache; [Design decisions](docs/design-decisions.md) explains the choices behind 
 
 ## Quick start
 
-**The API with demo data** (JDK 21):
+**The API with demo data** (JDK 25):
 
 ```bash
 ./mvnw spring-boot:run
@@ -166,7 +166,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **1227 tests** in the build: architecture rules, controller and repository slices, service units, security and
+- **1229 tests** in the build: architecture rules, controller and repository slices, service units, security and
   store isolation, and integration across modules. Another **79** run the same suites against a real PostgreSQL 16
   with Testcontainers.
 - **Coverage gate** with JaCoCo: 96 % of lines and 85 % of branches today, and the build fails below 90 % and 80 %
@@ -193,7 +193,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ├── postman/                   collection that tours the API end to end
 ├── docs/                      the detailed documentation
 ├── compose.yaml               db, api and web
-└── Dockerfile                 multi-stage image of the API, run as a non-root user
+└── Dockerfile                 multi-stage image of the API: JRE 25 on Alpine, AOT cache, non-root user
 ```
 
 ## Roadmap
