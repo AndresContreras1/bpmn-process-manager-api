@@ -16,6 +16,7 @@ import org.springframework.boot.tomcat.autoconfigure.TomcatServerProperties;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -118,6 +119,15 @@ class PerfilesTest {
             assertThat(pool.getConnectionTimeout()).isEqualTo(3000);
             assertThat(tomcat.getThreads().getMax()).isEqualTo(200);
             assertThat(tomcat.getAcceptCount()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("prod saca Actuator a su propio puerto y escribe los logs en JSON")
+        void prod_actuatorEnSuPuertoYLogsEnJson() {
+            Environment entorno = context.getEnvironment();
+
+            assertThat(entorno.getProperty("management.server.port", Integer.class)).isEqualTo(8081);
+            assertThat(entorno.getProperty("logging.structured.format.console")).isEqualTo("ecs");
         }
 
         @Test

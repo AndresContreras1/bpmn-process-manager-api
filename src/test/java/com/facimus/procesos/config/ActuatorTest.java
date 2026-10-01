@@ -1,5 +1,6 @@
 package com.facimus.procesos.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -127,6 +128,17 @@ class ActuatorTest {
         mockMvc.perform(get("/actuator/metrics/casos.abiertos")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenEditor))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Lo que lee Prometheus es publico, con los medidores de la operacion y la etiqueta de la aplicacion")
+    void prometheus_esPublicoYLlevaLosMedidores() throws Exception {
+        String metricas = mockMvc.perform(get("/actuator/prometheus"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(metricas).contains("casos_abiertos{application=\"procesos\"}")
+                .contains("tareas_pendientes{application=\"procesos\"}");
     }
 
     @Test
