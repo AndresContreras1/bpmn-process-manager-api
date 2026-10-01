@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.0</version>
+		<version>4.1.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.facimus</groupId>
@@ -18,6 +18,13 @@
 		<java.version>21</java.version>
 		<mapstruct.version>1.6.3</mapstruct.version>
 		<lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+		<!-- Parches de seguridad que Spring Boot 4.1.1 todavia no trae. Trivy los encontro en la imagen: Tomcat 11.0.24
+		     (CVE-2026-65182, critica, y CVE-2026-65905 y CVE-2026-68525) y Jackson 3.1.5 y 2.21.5 (CVE-2026-68497,
+		     CVE-2026-91776 y CVE-2026-91777). Cada linea sobra, y hay que borrarla, cuando la version de Spring Boot
+		     en uso gestione esa misma version o una mas nueva: si no, dejaria la dependencia atras. -->
+		<tomcat.version>11.0.26</tomcat.version>
+		<jackson-bom.version>3.1.7</jackson-bom.version>
+		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
 		<!-- Las pruebas contra PostgreSQL real necesitan Docker, asi que el verify de todos los dias las salta.
 		     El trabajo del CI que las corre vacia esta propiedad: -Dsurefire.excluded.groups= -Dgroups=postgres -->
 		<surefire.excluded.groups>postgres</surefire.excluded.groups>
