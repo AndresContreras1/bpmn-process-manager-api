@@ -1,5 +1,7 @@
 package com.facimus.procesos.common.api.controller;
 
+import java.net.URI;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.webmvc.error.ErrorController;
@@ -40,9 +42,25 @@ public class ErroresController implements ErrorController {
             log.error("Error fuera de los controllers en {}", request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI),
                     (Throwable) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION));
         }
+        ProblemDetail problema = problema(estado);
+        conLaRutaQueFallo(problema, request);
         return ResponseEntity.status(estado)
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(problema(estado));
+                .body(problema);
+    }
+
+    /**
+     * El instance es la ruta que fallo, no /error. Una ruta que ni siquiera es una URI valida (el contenedor rechaza
+     * algunas por eso) se queda sin instance antes que dar una mentira.
+     */
+    private static void conLaRutaQueFallo(ProblemDetail problema, HttpServletRequest request) {
+        if (request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI) instanceof String ruta) {
+            try {
+                problema.setInstance(URI.create(ruta));
+            } catch (IllegalArgumentException rutaQueNoEsUnaUri) {
+                log.debug("La ruta que fallo no es una URI: {}", rutaQueNoEsUnaUri.getMessage());
+            }
+        }
     }
 
     /** Quien pide /error directamente, sin un error detras, no encuentra nada. */

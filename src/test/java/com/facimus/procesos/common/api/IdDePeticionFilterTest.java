@@ -2,6 +2,11 @@ package com.facimus.procesos.common.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -11,16 +16,21 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.server.observation.ServerRequestObservationContext;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.filter.ServerHttpObservationFilter;
 
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.handler.TracingObservationHandler;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 
 /** El id que acompana a cada peticion: de donde sale, a donde llega y cuando se descarta el que trae el cliente. */
 class IdDePeticionFilterTest {
 
-    private final IdDePeticionFilter filtro = new IdDePeticionFilter();
+    private final IdDePeticionFilter filtro = new IdDePeticionFilter(Tracer.NOOP);
 
     @Test
     @DisplayName("Una peticion sin id recibe uno nuevo, que sale en la cabecera y en el log mientras se atiende")
@@ -103,6 +113,46 @@ class IdDePeticionFilterTest {
                         .getProperties().get(Problemas.ID_DE_PETICION)));
 
         assertThat(enElProblema.get()).isEqualTo(respuesta.getHeader(IdDePeticionFilter.CABECERA));
+    }
+
+    @Test
+    @DisplayName("En el despacho de error retoma el span de la peticion que fallo mientras dura, y lo suelta al terminar")
+    void despachoDeError_retomaLaTrazaDeLaPeticion() throws Exception {
+        Tracer tracer = mock(Tracer.class);
+        Span span = mock(Span.class);
+        Tracer.SpanInScope enCurso = mock(Tracer.SpanInScope.class);
+        given(tracer.withSpan(span)).willReturn(enCurso);
+        MockHttpServletRequest peticion = peticionObservadaCon(span);
+        peticion.setDispatcherType(DispatcherType.ERROR);
+
+        new IdDePeticionFilter(tracer).doFilter(peticion, new MockHttpServletResponse(),
+                (req, res) -> verify(enCurso, never()).close());
+
+        verify(tracer).withSpan(span);
+        verify(enCurso).close();
+    }
+
+    @Test
+    @DisplayName("En la peticion no toca la traza: la abre y la cierra su filtro de observacion")
+    void peticion_noTocaLaTraza() throws Exception {
+        Tracer tracer = mock(Tracer.class);
+
+        new IdDePeticionFilter(tracer).doFilter(peticionObservadaCon(mock(Span.class)), new MockHttpServletResponse(),
+                (req, res) -> { });
+
+        verifyNoInteractions(tracer);
+    }
+
+    /** Una peticion como la deja el filtro de observacion de Spring: con su contexto, y en el contexto su span. */
+    private static MockHttpServletRequest peticionObservadaCon(Span span) {
+        MockHttpServletRequest peticion = peticion();
+        ServerRequestObservationContext contexto = new ServerRequestObservationContext(peticion,
+                new MockHttpServletResponse());
+        TracingObservationHandler.TracingContext traza = new TracingObservationHandler.TracingContext();
+        traza.setSpan(span);
+        contexto.put(TracingObservationHandler.TracingContext.class, traza);
+        peticion.setAttribute(ServerHttpObservationFilter.CURRENT_OBSERVATION_CONTEXT_ATTRIBUTE, contexto);
+        return peticion;
     }
 
     private static MockHttpServletRequest peticion() {

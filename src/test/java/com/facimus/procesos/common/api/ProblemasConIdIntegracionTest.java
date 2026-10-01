@@ -176,7 +176,8 @@ class ProblemasConIdIntegracionTest {
                         .requestAttr(RequestDispatcher.ERROR_EXCEPTION, new IllegalStateException(DETALLE_INTERNO)))
                 .andExpect(status().isInternalServerError())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-                .andExpect(jsonPath("$.title").value("Error interno")));
+                .andExpect(jsonPath("$.title").value("Error interno"))
+                .andExpect(jsonPath("$.instance").value("/api/v1/procesos")));
 
         assertThat(resultado.getResponse().getContentAsString()).doesNotContain(DETALLE_INTERNO);
     }

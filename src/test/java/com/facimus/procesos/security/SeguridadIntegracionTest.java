@@ -461,12 +461,13 @@ class SeguridadIntegracionTest {
 
     /** El cuerpo del 401, que no puede cambiar segun el motivo del fallo. */
     /**
-     * Todos los intentos llevan el mismo id de peticion: es lo unico que cambiaria entre dos respuestas, y quien llama
-     * es quien lo pone. Con el mismo id, dos fallos tienen que responder exactamente lo mismo.
+     * Todos los intentos llevan el mismo id de peticion y la misma traza: son lo unico que cambiaria entre dos
+     * respuestas, y los dos los pone quien llama. Con los mismos, dos fallos tienen que responder exactamente lo mismo.
      */
     private String loginFallido(String email, String password) throws Exception {
         return mockMvc.perform(post("/api/v1/auth/login")
                         .header(IdDePeticionFilter.CABECERA, "intento-de-login")
+                        .header("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, password))))
                 .andExpect(status().isUnauthorized())
