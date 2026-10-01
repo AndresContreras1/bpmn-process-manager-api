@@ -54,6 +54,18 @@ services:
       timeout: 3s
       retries: 24
       start_period: 20s
+    # Si alguien tomara el proceso, no tendria donde escribir (solo /tmp, que vive en memoria), ni como ganar
+    # privilegios, ni ninguna capacidad del kernel que usar.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # El apagado espera a que terminen las peticiones en curso (SHUTDOWN_TIMEOUT, 20 s); despues de esto, docker
+    # lo mata.
+    stop_grace_period: 30s
     restart: unless-stopped
 
   web:
@@ -73,6 +85,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+    # Igual que la API: NGINX solo escribe en /tmp (su pid y sus temporales), que vive en memoria.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
 
 volumes:
