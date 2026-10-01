@@ -64,6 +64,8 @@
 - [x] JSON logs in the Elastic Common Schema in `prod`
 - [x] A request id in the `X-Request-Id` header, in every log line and in every Problem Details, errors outside the
       controllers included
+- [x] Tracing with OpenTelemetry: a `traceId` in the logs and the errors, spans of the engine and the diagnosis, and
+      OTLP export with a configurable sampling rate
 
 **Supply chain**
 - [x] Every GitHub Action pinned to a commit SHA, with a CI step that fails otherwise, and a read-only token per job
