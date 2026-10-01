@@ -363,13 +363,29 @@ jobs:
   supply-chain:
     name: Supply Chain
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # gitleaks lists the commits of a pull request through the API
+      pull-requests: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # gitleaks reads the commits, not the files: it needs the history to find a secret that was deleted later
+          fetch-depth: 0
           persist-credentials: false
 
       # A tag can be moved by whoever owns the action; a commit SHA cannot.
       - name: Every action is pinned to a commit SHA
         run: bash .github/scripts/check-pinned-actions.sh
+
+      # A pull request is scanned commit by commit and a push to main scans what it brings. The values that look
+      # like secrets and are not, such as the signing key of a test, are allowed by value in .gitleaks.toml.
+      - name: No secrets in the commits
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_ENABLE_COMMENTS: false
