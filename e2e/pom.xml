@@ -21,7 +21,7 @@
     <description>Pruebas de punta a punta de la aplicacion web, con Selenium contra el stack de compose</description>
 
     <properties>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <selenium.version>4.27.0</selenium.version>
         <junit.version>5.11.4</junit.version>
