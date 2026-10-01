@@ -259,6 +259,15 @@
 				<artifactId>sonar-maven-plugin</artifactId>
 				<version>4.0.0.4121</version>
 			</plugin>
+			<!-- SBOM en CycloneDX: cada dependencia que lleva la API, con su version, su licencia y su huella. El parent
+			     de Spring Boot trae la configuracion: lo arma en cada build y lo mete en el propio jar
+			     (META-INF/sbom/application.cdx.json), asi que viaja con la imagen, y el CI ademas lo guarda como
+			     artefacto. Las dependencias de prueba no entran; Lombok y devtools salen como "optional", porque el jar
+			     no los lleva. -->
+			<plugin>
+				<groupId>org.cyclonedx</groupId>
+				<artifactId>cyclonedx-maven-plugin</artifactId>
+			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
