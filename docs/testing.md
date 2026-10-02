@@ -34,6 +34,37 @@ Current coverage: 96 % of lines and 85 % of branches. The build fails below 85 %
 branches overall, and below 90 % and 80 % in the service packages, where the business rules live. The gate
 leaves out DTOs and Spring configuration: they are records and wiring, and counting them only inflates the number.
 
+## Mutation testing
+
+Coverage says a line ran, not that a test would notice if it were wrong. PIT checks that: it changes the code of the
+rules on purpose, one mutation at a time (a `>` that becomes `>=`, a condition turned around, a value that is no
+longer returned) and runs the tests that cover it. A mutation no test notices is a rule without a real test behind it.
+
+```bash
+./mvnw test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+It mutates the services of the three modules, the engine among them, and the condition language, and runs their
+own tests: the unit tests of each service, the engine's over JPA and the conditions'. Measured on 2026-09-30: 1660
+mutations, 1259 of them caught (76 %), and 91 % of the ones those tests reach. The run fails below 75 %, so a new
+rule has to come with its test. It takes about 50 minutes, so it is not part of `verify`: the pipeline runs it every
+night on `main`, and on any branch from *Run workflow* in the Actions tab. The report is in `target/pit-reports`.
+
+## Format
+
+Spotless keeps imports in the groups the code already uses (static, `java`, `org`, `com` and the rest) and without
+unused ones, and lines without trailing spaces. It only looks at the files a change touches against `origin/main`,
+so the repository is never reformatted in one go:
+
+```bash
+./mvnw spotless:apply   # fixes what a change touched
+./mvnw spotless:check   # what the pipeline runs
+```
+
+It does not impose a full formatter on purpose. Measured over today's code, Palantir Java Format rewrites 462 of the
+519 files and a tuned Eclipse profile 146, because both reflow the lines by their own rules; these rules touch 39,
+each for a real inconsistency.
+
 Every push to `main` and every pull request runs the GitHub Actions pipeline:
 
 | Job | What it checks |
@@ -46,7 +77,9 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 | Frontend Build | The SBOM of the web app, `npm ci` and a production build |
 | Web Image & Stack | Builds the web image and scans it with Trivy, then brings up database, API and web together: NGINX serves the compiled app, a deep link answers with the app instead of a `404`, and the API answers through the web container |
 | E2E | Drives a headless Chrome against that stack with the Selenium suite of [e2e/](../e2e/README.md), and keeps what the browser saw as an artifact |
+| Code Format | `spotless:check` on the files the change touches |
 | Supply Chain | Every action is pinned to a commit SHA, and gitleaks finds no secret in the commits of the change |
 | CodeQL | A separate workflow that reads the Java, the TypeScript and the workflows themselves, on every change and every Monday, and publishes what it finds in the Security tab |
+| Mutation Testing | A separate workflow, every night and by hand: PIT over the rules, with the report kept as an artifact |
 
 [Supply chain](security.md#supply-chain) explains what each of the last checks protects against.

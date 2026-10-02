@@ -266,6 +266,68 @@
 				<artifactId>sonar-maven-plugin</artifactId>
 				<version>4.0.0.4121</version>
 			</plugin>
+			<!-- Formato: Spotless solo revisa los archivos que un cambio toca frente a origin/main (ratchetFrom), para no
+			     reformatear el repositorio de golpe. Exige higiene y no un estilo nuevo: los imports en los grupos que ya
+			     usa el codigo (estaticos, java, org, com y el resto), sin los que no se usan, sin espacios al final de la
+			     linea y con salto de linea al final del archivo. Un formateador completo reescribia casi todo: medido
+			     sobre el codigo de hoy, Palantir cambiaba 462 de los 519 archivos y un perfil de Eclipse afinado, 146;
+			     estas reglas, 39. ./mvnw spotless:apply deja un cambio en regla y el CI lo comprueba con spotless:check. -->
+			<plugin>
+				<groupId>com.diffplug.spotless</groupId>
+				<artifactId>spotless-maven-plugin</artifactId>
+				<version>3.10.3</version>
+				<configuration>
+					<ratchetFrom>origin/main</ratchetFrom>
+					<java>
+						<removeUnusedImports/>
+						<importOrder>
+							<order>\#,java|javax,org,com,</order>
+						</importOrder>
+						<trimTrailingWhitespace/>
+						<endWithNewline/>
+					</java>
+				</configuration>
+			</plugin>
+			<!-- Pruebas de mutacion (PIT): cambia a proposito el codigo de las reglas (los services, que incluyen el motor, y
+			     el lenguaje de las condiciones) y mira si alguna prueba lo nota. Una mutacion que ninguna prueba mata es una
+			     regla sin una prueba de verdad detras. No va en el build de todos los dias porque tarda: el CI la corre de
+			     noche y a mano sobre una rama. El informe queda en target/pit-reports. -->
+			<plugin>
+				<groupId>org.pitest</groupId>
+				<artifactId>pitest-maven</artifactId>
+				<version>1.30.0</version>
+				<dependencies>
+					<dependency>
+						<groupId>org.pitest</groupId>
+						<artifactId>pitest-junit5-plugin</artifactId>
+						<version>1.2.3</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<targetClasses>
+						<param>com.facimus.procesos.*.service.impl.*</param>
+						<param>com.facimus.procesos.common.condiciones.*</param>
+					</targetClasses>
+					<!-- Las pruebas de esos mismos paquetes: las unitarias de cada service, las del motor sobre JPA y las
+					     de las condiciones. Las de integracion ya cubren lo mismo desde fuera y multiplicarian el tiempo. -->
+					<targetTests>
+						<param>com.facimus.procesos.*.service.*</param>
+						<param>com.facimus.procesos.common.condiciones.*</param>
+					</targetTests>
+					<excludedGroups>
+						<param>postgres</param>
+					</excludedGroups>
+					<threads>4</threads>
+					<!-- Medido el 2026-09-30: 1660 mutaciones, 1259 detectadas (76 %) y 91 % de las que las pruebas
+					     alcanzan. Por debajo del 75 % la corrida falla: una regla nueva tiene que llegar con su prueba. -->
+					<mutationThreshold>75</mutationThreshold>
+					<timestampedReports>false</timestampedReports>
+					<outputFormats>
+						<param>HTML</param>
+						<param>XML</param>
+					</outputFormats>
+				</configuration>
+			</plugin>
 			<!-- SBOM en CycloneDX: cada dependencia que lleva la API, con su version, su licencia y su huella. El parent
 			     de Spring Boot trae la configuracion: lo arma en cada build y lo mete en el propio jar
 			     (META-INF/sbom/application.cdx.json), asi que viaja con la imagen, y el CI ademas lo guarda como

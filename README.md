@@ -170,6 +170,8 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
   with Testcontainers.
 - **Coverage gate** with JaCoCo: 96 % of lines and 85 % of branches today, and the build fails below 90 % and 80 %
   in the service packages, where the business rules live.
+- **Mutation testing** with PIT over the services, the engine and the conditions: 76 % of 1660 mutations caught, run
+  every night with a floor of 75 %. Spotless keeps the imports and the whitespace of every changed file in order.
 - **Every pull request** runs nine jobs: build and test on Ubuntu and Windows, architecture rules, PostgreSQL
   integration, Docker image with k6 load tests, SonarCloud quality gate, frontend build, web image with the whole
   stack, Selenium end-to-end tests against it, and the supply chain checks; CodeQL runs beside them.

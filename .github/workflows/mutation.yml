@@ -1,0 +1,49 @@
+name: Mutation Testing
+
+on:
+  schedule:
+    # Every night at 03:41 UTC, on main.
+    - cron: '41 3 * * *'
+  # Any branch, by hand, from the Actions tab: "Run workflow" and pick the branch of a pull request.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pit:
+    name: Mutation Testing (PIT)
+    runs-on: ubuntu-latest
+    # A full run takes about 50 minutes on four cores
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # PIT changes the code of the rules on purpose, one mutation at a time, and runs the tests that cover it: a
+      # mutation that no test notices is a rule without a real test. The job fails below the threshold in the pom.
+      - name: Mutate the rules and check that the tests notice
+        run: ./mvnw -B test-compile org.pitest:pitest-maven:mutationCoverage
+
+      - name: Upload the mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pit-report
+          path: target/pit-reports/
+          if-no-files-found: ignore
+          retention-days: 14
