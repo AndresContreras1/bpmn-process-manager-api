@@ -119,9 +119,20 @@ Errors follow RFC 9457 (Problem Details):
   "title": "Recurso no encontrado",
   "status": 404,
   "detail": "Proceso no encontrado.",
-  "instance": "/api/v1/procesos/99"
+  "instance": "/api/v1/procesos/99",
+  "requestId": "3f2b9c1e-6a4d-4f7e-9b1a-0c2d8e5f7a61"
 }
 ```
+
+Every response carries an `X-Request-Id` header, and every error repeats it as `requestId`: it is the id of the
+request in the logs, so it is what to quote when reporting a problem. A request that already brings an
+`X-Request-Id`, from a proxy in front or from a client, keeps it when it is up to 64 letters, digits, dots,
+underscores or hyphens; otherwise the API assigns a new one. The web container of the Compose stack sends the id
+NGINX gives each request.
+
+Errors that happen outside a controller, such as a failure inside a filter, come back in the same format through
+the server's error page. A `500` never says what failed inside: `"title": "Error interno"` and a generic `detail`,
+while the exception goes to the log under the same `requestId`.
 
 A `400` for specific fields adds an `errors` map, so a client can show each message next to its field. It covers
 failed validations, values of the wrong type (for enums, the message lists the valid values) and fields that the

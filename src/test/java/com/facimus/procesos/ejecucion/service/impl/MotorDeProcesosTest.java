@@ -22,6 +22,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.config.AuditoriaConfig;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
@@ -33,12 +34,12 @@ import com.facimus.procesos.ejecucion.model.EventoCaso;
 import com.facimus.procesos.ejecucion.model.MensajeSaliente;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
-import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
-import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.ejecucion.puerto.MensajeParaElSocio;
 import com.facimus.procesos.ejecucion.puerto.ParametrosDeSimulacion;
 import com.facimus.procesos.ejecucion.puerto.RespuestaDelSocio;
 import com.facimus.procesos.ejecucion.puerto.SocioSimulado;
+import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
+import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
@@ -56,6 +57,7 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.DiagramaArmado;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -100,7 +102,7 @@ class MotorDeProcesosTest {
     @BeforeEach
     void armarElMotorYLaTienda() {
         JsonMapper json = JsonMapper.builder().build();
-        Bitacora bitacora = new Bitacora(eventoCasoRepository);
+        Bitacora bitacora = new Bitacora(eventoCasoRepository, new MetricasDeNegocio(new SimpleMeterRegistry()));
         // Al motor le da igual quien atiende al otro lado: lo unico que necesita del socio es cuanto tarda.
         ParametrosDeLaTienda parametros = mock(ParametrosDeLaTienda.class);
         given(parametros.de(any())).willReturn(ParametrosDeSimulacion.deFabrica());

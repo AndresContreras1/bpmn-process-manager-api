@@ -72,8 +72,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/empresas").permitAll()
                         .requestMatchers("/h2-console/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                 "/error").permitAll()
-                        // El estado y la version son publicos; las metricas, solo para el administrador de la tienda.
-                        .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                        // El estado, la version y lo que lee Prometheus son publicos: en prod, Actuator vive en un
+                        // puerto que solo alcanza la red interna. Las metricas, solo para el administrador.
+                        .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").hasAuthority(ADMINISTRADOR)
                         // Matriz de permisos de las HU: cualquier rol consulta, administrador y editor modifican,
                         // y el administrador se reserva usuarios (HU-02), roles (HU-17 a HU-19), compartir procesos
