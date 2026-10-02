@@ -55,3 +55,10 @@
 - [x] A SonarCloud quality gate on top of it, which fails the build as soon as the project token is in the repository secrets
 - [x] Docker Compose with PostgreSQL and Actuator health checks
 - [x] Testcontainers-based integration tests against a real PostgreSQL
+
+**Supply chain**
+- [x] Every GitHub Action pinned to a commit SHA, with a CI step that fails otherwise, and a read-only token per job
+- [x] Dependabot for Maven, npm, Actions, Docker and Compose, with a seven-day cooldown, and base images pinned by digest
+- [x] CodeQL over Java, TypeScript and the workflows, and gitleaks over every commit
+- [x] Trivy over both images: a fixable critical vulnerability fails the pipeline
+- [x] CycloneDX SBOM of the API, inside the jar, and of the web app

@@ -1,0 +1,8 @@
+# gitleaks: the default rules, plus the values that look like secrets and are not.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Signing keys that only exist to sign tokens inside the tests"
+regexTarget = "match"
+regexes = ['''clave-de-pruebas-de-al-menos-32-bytes''']

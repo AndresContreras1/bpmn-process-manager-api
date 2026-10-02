@@ -6,9 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Every job only reads the repository unless it asks for more in its own block, which replaces this one: a
+# compromised step cannot write anywhere its job does not write.
 permissions:
   contents: read
-  checks: write
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -18,6 +19,10 @@ jobs:
   build-and-test:
     name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      # The test summary is published as a check run
+      checks: write
     strategy:
       fail-fast: false
       matrix:
@@ -28,10 +33,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -42,7 +49,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: dorny/test-reporter@v3
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         with:
           name: Test Results (${{ matrix.os }})
           path: target/surefire-reports/*.xml
@@ -51,23 +58,38 @@ jobs:
 
       - name: Upload JaCoCo coverage report
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: jacoco-report
           path: target/site/jacoco/
           retention-days: 7
 
+      # The build writes the SBOM into the jar; this keeps a copy next to the run that produced it.
+      - name: Upload the SBOM of the API
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-api
+          path: target/classes/META-INF/sbom/application.cdx.json
+          if-no-files-found: error
+
   postgres-integration:
     name: PostgreSQL Integration
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The test summary is published as a check run
+      checks: write
     needs: build-and-test
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -81,7 +103,7 @@ jobs:
 
       - name: PostgreSQL tests summary
         if: always()
-        uses: dorny/test-reporter@v3
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         with:
           name: PostgreSQL Integration
           path: target/surefire-reports/*.xml
@@ -91,14 +113,20 @@ jobs:
   architecture-guard:
     name: Architecture Rules
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The test summary is published as a check run
+      checks: write
     needs: build-and-test
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -109,7 +137,7 @@ jobs:
 
       - name: Architecture tests summary
         if: always()
-        uses: dorny/test-reporter@v3
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         with:
           name: Architecture Rules
           path: target/surefire-reports/*.xml
@@ -120,13 +148,53 @@ jobs:
     name: Docker Image & Load Test
     runs-on: ubuntu-latest
     needs: [build-and-test, architecture-guard]
+    permissions:
+      contents: read
+      # The findings of the image scan go to the Security tab
+      security-events: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Build Docker image
         run: docker build -t bpmn-process-manager-api:${{ github.sha }} .
+
+      # The operating system of the image and every library inside the jar. Only what already has a fix is
+      # reported: a finding nobody can fix yet would only teach everyone to ignore the report.
+      - name: Scan the image for known vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: bpmn-process-manager-api:${{ github.sha }}
+          scanners: vuln
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          format: sarif
+          # Without this, a SARIF report carries every severity and the Security tab fills with noise
+          limit-severities-for-sarif: true
+          output: trivy-api.sarif
+          version: v0.74.0
+
+      - name: Publish the findings in the Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy-api.sarif
+          category: trivy-api-image
+
+      # The gate: a critical vulnerability with a fix stops the pipeline. High ones stay in the Security tab, where
+      # Dependabot and the next pull request pick them up.
+      - name: No critical vulnerability with a fix
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: bpmn-process-manager-api:${{ github.sha }}
+          scanners: vuln
+          ignore-unfixed: true
+          severity: CRITICAL
+          exit-code: '1'
+          version: v0.74.0
 
       - name: Verify the API answers from the container
         run: |
@@ -166,14 +234,14 @@ jobs:
         run: |
           # k6 fails the step by itself when a threshold is not met, so the numbers are a gate and not a report.
           docker run --rm -i --network host -e BASE_URL=http://localhost:8081 \
-            grafana/k6:0.54.0 run - < k6/pico-de-ventas.js
+            grafana/k6:0.54.0@sha256:1f40432b1cbe7234e977f96c362c9bc550a2d2b583d014dd8669fe40d3e9e755 run - < k6/pico-de-ventas.js
 
       - name: Run the order peak against the stack
         run: |
           # The other one loads reading the model; this one loads running it, which is what writes to the
           # database: opening cases, filling trays and locking rows.
           docker run --rm -i --network host -e BASE_URL=http://localhost:8081 \
-            grafana/k6:0.54.0 run - < k6/pico-de-pedidos.js
+            grafana/k6:0.54.0@sha256:1f40432b1cbe7234e977f96c362c9bc550a2d2b583d014dd8669fe40d3e9e755 run - < k6/pico-de-pedidos.js
 
       - name: Show the stack logs
         if: failure()
@@ -197,13 +265,14 @@ jobs:
 
       - name: Checkout
         if: env.SONAR_TOKEN != ''
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup JDK 21
         if: env.SONAR_TOKEN != ''
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -213,7 +282,7 @@ jobs:
       # when the gate does not pass, so a drop in quality stops the pull request instead of just reporting.
       - name: Build, analyze and wait for the quality gate
         if: env.SONAR_TOKEN != ''
-        run: ./mvnw -B verify sonar:sonar -Dsonar.token=$SONAR_TOKEN
+        run: ./mvnw -B verify sonar:sonar -Dsonar.token="$SONAR_TOKEN"
 
   frontend:
     name: Frontend Build
@@ -224,10 +293,30 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # What the compiled app is made of, read from the lockfile before anything is installed: only the production
+      # dependencies end up in the bundle, so only those are listed.
+      - name: SBOM of the web app
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: frontend
+          format: cyclonedx
+          output: sbom-web.cdx.json
+          version: v0.74.0
+
+      - name: Upload the SBOM of the web app
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-web
+          path: sbom-web.cdx.json
+          if-no-files-found: error
 
       - name: Setup Node 22
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
           cache: npm
@@ -243,10 +332,16 @@ jobs:
     name: Web Image & Stack
     runs-on: ubuntu-latest
     needs: [frontend]
+    permissions:
+      contents: read
+      # The findings of the image scan go to the Security tab
+      security-events: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Bring up database, API and web
         run: |
@@ -257,6 +352,36 @@ jobs:
           sed -i "s/^WEB_PORT=.*/WEB_PORT=8082/" .env
           # --wait returns when every service reports healthy, the web one included.
           docker compose up -d --build --wait
+
+      # The same two checks as the API image, on NGINX and the compiled app.
+      - name: Scan the web image for known vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: bpmn-process-manager-web:latest
+          scanners: vuln
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          format: sarif
+          limit-severities-for-sarif: true
+          output: trivy-web.sarif
+          version: v0.74.0
+
+      - name: Publish the findings in the Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy-web.sarif
+          category: trivy-web-image
+
+      - name: No critical vulnerability with a fix in the web image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: bpmn-process-manager-web:latest
+          scanners: vuln
+          ignore-unfixed: true
+          severity: CRITICAL
+          exit-code: '1'
+          version: v0.74.0
 
       - name: NGINX serves the compiled app
         run: |
@@ -291,10 +416,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '21'
@@ -318,7 +445,7 @@ jobs:
 
       - name: Upload what the browser saw
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: E2E screenshots
           path: e2e/target/e2e/
@@ -331,3 +458,33 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down -v
+
+  supply-chain:
+    name: Supply Chain
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # gitleaks lists the commits of a pull request through the API
+      pull-requests: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # gitleaks reads the commits, not the files: it needs the history to find a secret that was deleted later
+          fetch-depth: 0
+          persist-credentials: false
+
+      # A tag can be moved by whoever owns the action; a commit SHA cannot.
+      - name: Every action is pinned to a commit SHA
+        run: bash .github/scripts/check-pinned-actions.sh
+
+      # A pull request is scanned commit by commit and a push to main scans what it brings. The values that look
+      # like secrets and are not, such as the signing key of a test, are allowed by value in .gitleaks.toml.
+      - name: No secrets in the commits
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_ENABLE_COMMENTS: false

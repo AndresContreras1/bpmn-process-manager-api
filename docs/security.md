@@ -104,3 +104,22 @@ another temporary password.
 
 There is no email delivery: whoever creates the user passes the temporary password along by whatever means they
 have. The database never keeps it in the clear.
+
+## Supply chain
+
+What the product is built from is checked as carefully as what it does. Each control answers a way a dependency,
+a build step or a leaked key has compromised other projects:
+
+| Control | What it prevents |
+|---|---|
+| Every GitHub Action pinned to a commit SHA, and a CI step that fails otherwise | A tag is a pointer its owner can move to other code; a 40-character SHA cannot be moved. That is how 76 tags of `trivy-action` ran a credential stealer in March 2026 |
+| Each job gets a read-only token and asks for more in its own block; checkouts do not keep the token | A compromised step can only write where its job writes, and cannot read the token from the repository's git configuration |
+| Dependabot for Maven, npm, GitHub Actions, Docker and Compose, weekly, with a seven-day cooldown | Dependencies fall behind silently; a release younger than a week is not offered, because most malicious ones are found and pulled within that time |
+| Base images pinned by digest as well as by tag | The same tag is rebuilt over time; a digest changes only through a pull request |
+| CodeQL over the Java, the TypeScript and the workflows | Injection, unsafe deserialization and similar bugs in the code, and script injection in the workflows |
+| gitleaks over every commit | A key that reaches a commit stays in the history even after the file is fixed |
+| Trivy over the API and the web images | Known vulnerabilities in the operating system of each image and in every library inside the jar. A critical one that already has a fix fails the pipeline; every high and critical finding goes to the Security tab |
+| A CycloneDX SBOM of the API and of the web app | Answering "are we affected?" the day a new vulnerability is published. The API's travels inside the jar (`META-INF/sbom/application.cdx.json`); both are kept as artifacts of each run |
+
+Values that look like secrets and are not, such as the signing key of the unit tests, are allowed by value in
+`.gitleaks.toml`, never by path, so a real key in the same file would still be found.
