@@ -3,6 +3,7 @@ package com.facimus.procesos.common.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,11 +12,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,7 +38,7 @@ import jakarta.servlet.RequestDispatcher;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Todo Problem Details lleva el id de la peticion, igual al de la cabecera X-Request-Id, lo arme un controller, un
+ * Cada Problem Details lleva el id de la peticion, igual al de la cabecera X-Request-Id, lo arme un controller, un
  * filtro de seguridad o la pagina de error del servidor. Y un 500 no cuenta nada de lo que paso por dentro.
  */
 @SpringBootTest
@@ -179,6 +183,16 @@ class ProblemasConIdIntegracionTest {
                 .andExpect(jsonPath("$.title").value("Error interno")));
 
         assertThat(resultado.getResponse().getContentAsString()).doesNotContain(DETALLE_INTERNO);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"})
+    @DisplayName("La pagina de error responde con el metodo de la peticion que fallo, lea o escriba")
+    void paginaDeError_respondeACadaMetodoDeLaApi(String metodo) throws Exception {
+        mockMvc.perform(request(HttpMethod.valueOf(metodo), "/error")
+                        .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 500))
+                .andExpect(status().isInternalServerError())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE));
     }
 
     @Test

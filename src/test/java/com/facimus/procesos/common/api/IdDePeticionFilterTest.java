@@ -86,9 +86,13 @@ class IdDePeticionFilterTest {
         filtro.doFilter(peticion(), new MockHttpServletResponse(), (req, res) -> { });
         assertThat(MDC.get(IdDePeticionFilter.CLAVE_EN_EL_LOG)).isNull();
 
-        assertThatThrownBy(() -> filtro.doFilter(peticion(), new MockHttpServletResponse(), (req, res) -> {
+        MockHttpServletRequest otra = peticion();
+        MockHttpServletResponse respuesta = new MockHttpServletResponse();
+        FilterChain cadenaQueFalla = (req, res) -> {
             throw new IllegalStateException("falla");
-        })).isInstanceOf(IllegalStateException.class);
+        };
+        assertThatThrownBy(() -> filtro.doFilter(otra, respuesta, cadenaQueFalla))
+                .isInstanceOf(IllegalStateException.class);
         assertThat(MDC.get(IdDePeticionFilter.CLAVE_EN_EL_LOG)).isNull();
     }
 

@@ -17,15 +17,15 @@ import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Cada peticion lleva un id que la sigue de punta a punta: sale en la cabecera X-Request-Id de la respuesta, en cada
- * linea del log que se escribe mientras se atiende y en todo Problem Details. Con ese id, quien reporta un error le da
+ * linea del log que se escribe mientras se atiende y en cada Problem Details. Con ese id, quien reporta un error le da
  * a quien lo investiga lo unico que hace falta para encontrarlo.
  *
  * <p>Si la peticion ya trae uno (se lo puso el proxy de delante, o un cliente que reintenta) se usa ese, siempre que
  * sea corto y de caracteres seguros: un id con saltos de linea o de mil caracteres serviria para ensuciar el log. Si
  * no, se genera.
  *
- * <p>Va antes que todo, la seguridad incluida, y tambien en el despacho de error del servidor: una peticion que falla
- * en un filtro y termina en /error conserva el mismo id.
+ * <p>Va antes que cualquier otro filtro, la seguridad incluida, y tambien en el despacho de error del servidor: una
+ * peticion que falla en un filtro y termina en /error conserva el mismo id.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)

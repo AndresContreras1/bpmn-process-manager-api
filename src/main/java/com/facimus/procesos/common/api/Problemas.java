@@ -5,7 +5,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 
 /**
- * Todo Problem Details de la API se arma aqui, tambien los que escriben los filtros de seguridad antes de que la
+ * Cada Problem Details de la API se arma aqui, tambien los que escriben los filtros de seguridad antes de que la
  * peticion llegue a un controller: asi todos llevan lo mismo. Ademas de lo que pide la RFC 9457, cada uno lleva
  * {@code requestId}, el mismo id de la cabecera X-Request-Id y de las lineas del log de esa peticion.
  */

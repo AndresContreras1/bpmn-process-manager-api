@@ -459,10 +459,10 @@ class SeguridadIntegracionTest {
     private record Tokens(String access, String refresh) {
     }
 
-    /** El cuerpo del 401, que no puede cambiar segun el motivo del fallo. */
     /**
-     * Todos los intentos llevan el mismo id de peticion: es lo unico que cambiaria entre dos respuestas, y quien llama
-     * es quien lo pone. Con el mismo id, dos fallos tienen que responder exactamente lo mismo.
+     * El cuerpo del 401, que no puede cambiar segun el motivo del fallo. Los intentos llevan el mismo id de peticion:
+     * es lo unico que cambiaria entre dos respuestas, y quien llama es quien lo pone. Con el mismo id, dos fallos
+     * tienen que responder exactamente lo mismo.
      */
     private String loginFallido(String email, String password) throws Exception {
         return mockMvc.perform(post("/api/v1/auth/login")

@@ -16,8 +16,8 @@ import lombok.RequiredArgsConstructor;
  * Lo que le paso a un caso, escrito en el momento en que paso. Solo inserta: la linea de tiempo de un caso es lo
  * que se lee cuando algo no salio como se esperaba, y una bitacora que se corrige no sirve para eso.
  *
- * <p>Cada linea tambien suma en el contador de su tipo: por aqui pasa todo lo que les pasa a los casos, sea cual sea
- * el camino por el que llego.
+ * <p>Cada linea tambien suma en el contador de su tipo: lo que les pasa a los casos pasa por aqui, sea cual sea el
+ * camino por el que llego.
  */
 @Component
 @RequiredArgsConstructor

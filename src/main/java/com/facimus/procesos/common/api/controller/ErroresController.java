@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.api.Problemas;
@@ -23,6 +24,10 @@ import jakarta.servlet.http.HttpServletRequest;
  *
  * <p>Un 500 no cuenta que paso por dentro: el detalle queda en el log, en la linea que lleva el mismo id que la
  * respuesta.
+ *
+ * <p>El despacho de error conserva el metodo de la peticion que fallo, asi que la pagina responde a los que usa la
+ * API. Van nombrados y en dos grupos, los que leen y los que escriben, como cualquier otra ruta: ninguna acepta un
+ * metodo que no dice.
  */
 @Hidden
 @RestController
@@ -33,12 +38,21 @@ public class ErroresController implements ErrorController {
 
     private static final Logger log = LoggerFactory.getLogger(ErroresController.class);
 
-    @RequestMapping
-    public ResponseEntity<ProblemDetail> error(HttpServletRequest request) {
+    @RequestMapping(method = {RequestMethod.GET, RequestMethod.HEAD, RequestMethod.OPTIONS})
+    public ResponseEntity<ProblemDetail> errorAlLeer(HttpServletRequest request) {
+        return error(request);
+    }
+
+    @RequestMapping(method = {RequestMethod.POST, RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.DELETE})
+    public ResponseEntity<ProblemDetail> errorAlEscribir(HttpServletRequest request) {
+        return error(request);
+    }
+
+    private static ResponseEntity<ProblemDetail> error(HttpServletRequest request) {
         HttpStatus estado = estadoDe(request);
         if (estado.is5xxServerError()) {
             log.error("Error fuera de los controllers en {}", request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI),
-                    (Throwable) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION));
+                    request.getAttribute(RequestDispatcher.ERROR_EXCEPTION));
         }
         return ResponseEntity.status(estado)
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)

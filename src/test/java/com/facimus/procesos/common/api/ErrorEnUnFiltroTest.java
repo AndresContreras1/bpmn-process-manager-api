@@ -5,7 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -13,6 +14,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.StreamUtils;
@@ -55,10 +57,11 @@ class ErrorEnUnFiltroTest {
         }
     }
 
-    @Test
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"GET", "POST", "PUT", "DELETE"})
     @DisplayName("Un filtro que lanza termina en un 500 en Problem Details, con el id de la peticion y sin detalle")
-    void filtroQueLanza_500EnProblemDetailsConElMismoId() throws Exception {
-        Respuesta respuesta = pedir("id-de-prueba-500");
+    void filtroQueLanza_500EnProblemDetailsConElMismoId(String metodo) throws Exception {
+        Respuesta respuesta = pedir(HttpMethod.valueOf(metodo), "id-de-prueba-500");
         JsonNode cuerpo = jsonMapper.readTree(respuesta.cuerpo());
 
         assertThat(respuesta.estado()).isEqualTo(500);
@@ -69,9 +72,9 @@ class ErrorEnUnFiltroTest {
         assertThat(respuesta.cuerpo()).doesNotContain(DETALLE_INTERNO).doesNotContain("IllegalStateException");
     }
 
-    private Respuesta pedir(String id) {
+    private Respuesta pedir(HttpMethod metodo, String id) {
         return RestClient.builder().requestFactory(new SimpleClientHttpRequestFactory()).build()
-                .get().uri("http://localhost:" + puerto + RUTA)
+                .method(metodo).uri("http://localhost:" + puerto + RUTA)
                 .header(IdDePeticionFilter.CABECERA, id)
                 .exchange((peticion, respuesta) -> new Respuesta(respuesta.getStatusCode().value(),
                         String.valueOf(respuesta.getHeaders().getContentType()),
