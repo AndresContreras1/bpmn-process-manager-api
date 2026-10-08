@@ -4,12 +4,19 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.filter.ServerHttpObservationFilter;
 
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.handler.TracingObservationHandler;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,7 +32,9 @@ import jakarta.servlet.http.HttpServletResponse;
  * no, se genera.
  *
  * <p>Va antes que cualquier otro filtro, la seguridad incluida, y tambien en el despacho de error del servidor: una
- * peticion que falla en un filtro y termina en /error conserva el mismo id.
+ * peticion que falla en un filtro y termina en /error conserva el mismo id, y tambien su traza. El despacho de error
+ * no tiene traza propia, asi que el filtro vuelve a poner en curso el span de la peticion que fallo: lo que pasa en
+ * /error (la seguridad, el log del error, el traceId de la respuesta) queda en esa misma traza y no en una nueva.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -40,6 +49,18 @@ public class IdDePeticionFilter extends OncePerRequestFilter {
 
     private static final Pattern ID_ACEPTADO = Pattern.compile("[A-Za-z0-9._-]{1,64}");
 
+    private final Tracer tracer;
+
+    /** Sin trazas (un slice de pruebas, por ejemplo) el filtro sigue dando ids: el tracer no hace nada. */
+    @Autowired
+    public IdDePeticionFilter(ObjectProvider<Tracer> tracer) {
+        this(tracer.getIfAvailable(() -> Tracer.NOOP));
+    }
+
+    IdDePeticionFilter(Tracer tracer) {
+        this.tracer = tracer;
+    }
+
     @Override
     protected boolean shouldNotFilterErrorDispatch() {
         return false;
@@ -52,7 +73,7 @@ public class IdDePeticionFilter extends OncePerRequestFilter {
         request.setAttribute(ATRIBUTO, id);
         response.setHeader(CABECERA, id);
         MDC.put(CLAVE_EN_EL_LOG, id);
-        try {
+        try (Tracer.SpanInScope traza = trazaDeLaPeticionQueFallo(request)) {
             filterChain.doFilter(request, response);
         } finally {
             MDC.remove(CLAVE_EN_EL_LOG);
@@ -66,5 +87,21 @@ public class IdDePeticionFilter extends OncePerRequestFilter {
         }
         String recibido = request.getHeader(CABECERA);
         return recibido != null && ID_ACEPTADO.matcher(recibido).matches() ? recibido : UUID.randomUUID().toString();
+    }
+
+    /**
+     * En el despacho de error, el span de la peticion que fallo, que su filtro de observacion dejo en la peticion, se
+     * vuelve a poner en curso. En la peticion no hay nada que hacer: la traza la abre ese mismo filtro.
+     */
+    private Tracer.@Nullable SpanInScope trazaDeLaPeticionQueFallo(HttpServletRequest request) {
+        if (request.getDispatcherType() != DispatcherType.ERROR) {
+            return null;
+        }
+        return ServerHttpObservationFilter.findObservationContext(request)
+                .map(contexto -> contexto.<TracingObservationHandler.TracingContext>get(
+                        TracingObservationHandler.TracingContext.class))
+                .map(TracingObservationHandler.TracingContext::getSpan)
+                .map(tracer::withSpan)
+                .orElse(null);
     }
 }

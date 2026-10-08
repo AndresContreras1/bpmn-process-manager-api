@@ -79,6 +79,19 @@
 			<artifactId>micrometer-registry-prometheus</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- Trazas con OpenTelemetry: cada peticion tiene un traceId, y los spans se mandan por OTLP cuando hay a donde.
+		     Las metricas no van por OTLP: ya las lee Prometheus, y el registro de OTLP las empujaria cada minuto a un
+		     colector que puede no existir. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-opentelemetry</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>io.micrometer</groupId>
+					<artifactId>micrometer-registry-otlp</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<!-- Cache en memoria (D19): la abstraccion de Spring con Caffeine detras -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
