@@ -114,6 +114,12 @@ rotated first and removed from the history after: removing it does not make it s
 hashes of its scripts come from the build of the image, so an index changed by hand after the build no longer
 matches them: rebuild the image with `docker compose build web` instead of patching the container.
 
+**An e-mail did not arrive.** The e-mails leave through the queue: `select id, estado, intentos, ultimo_error from
+trabajos where tipo = 'correo-de-cuenta' order by creado_en desc` says whether it left, is waiting for its next
+attempt or failed, and why. "No hay servidor de correo configurado" means `SMTP_HOST` is empty. If it left and
+never arrived, the receiving server probably took it for spam: check the SPF, DKIM and DMARC of the sender's
+domain.
+
 **The AI review answers `503`.** `GEMINI_API_KEY` is missing or the model does not answer in `GEMINI_TIMEOUT`. Nothing
 else depends on it; removing the key turns the review off on purpose.
 
@@ -147,6 +153,7 @@ kills the container 30 seconds after asking. `docker compose down` keeps the dat
 | Every Monday | Read the Dependabot pull requests: each one runs the whole pipeline, and a green one can be merged |
 | Every September | Renew `Expires` in `frontend/public/.well-known/security.txt`; the pipeline starts failing a month before it passes |
 | When a person leaves | Deactivate their user: their sessions close at once |
+| Before the first e-mail in production | Publish in the DNS of the domain of `MAIL_FROM` the SPF and DKIM records the provider gives, and a DMARC policy (`p=quarantine` to begin with). Without them most receivers take the e-mails for spam |
 | Rotating the signing key | Move the key in use to `JWT_PREVIOUS_SECRET`, put a new one in `JWT_SECRET` and recreate the API: nobody is signed out. Fifteen minutes later, when no token of the old key is still alive, empty `JWT_PREVIOUS_SECRET` and recreate it again |
 | Before a new major of PostgreSQL | Take a backup and restore it into the new version; Dependabot does not offer majors of the images |
 | A month after production runs on HTTPS | If every subdomain is on HTTPS, add `preload` to `Strict-Transport-Security` in `frontend/cabeceras.conf` and submit the domain at hstspreload.org. Leaving that list takes months |

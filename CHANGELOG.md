@@ -23,6 +23,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   go through an outbox in PostgreSQL and are delivered again after a restart, and slow work goes to a queue of
   jobs taken with `FOR UPDATE SKIP LOCKED`, with retries that wait longer each time, failed jobs kept for a week
   and a cap of jobs running per store.
+- Transactional e-mail through any SMTP server, sent from the queue of jobs, with templates in Spanish, English
+  and French: verifying the e-mail, recovering the password and inviting by e-mail (HU-02.1), each with a link
+  that works once, expires, and is kept only as its SHA-256. `dev` catches the e-mails in Mailpit.
 
 ### Changed
 
