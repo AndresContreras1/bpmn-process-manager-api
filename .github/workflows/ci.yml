@@ -391,6 +391,44 @@ jobs:
             exit 1
           fi
 
+      - name: NGINX sends the security headers on everything it serves
+        run: |
+          # NGINX drops the add_header of the server block in a location that has its own, so each location
+          # includes them: this reads every kind of response, the 404 of a missing file included.
+          base=http://localhost:8082
+          main=$(curl -sS --fail-with-body "$base/" | grep -o 'main-[A-Z0-9]*\.js' | head -1)
+          test -n "$main"
+          for ruta in / /index.html /procesos/1 "/$main" /favicon.ico /.well-known/security.txt /healthz /no-such-file.js; do
+            curl -sS -o /dev/null -D headers.txt "$base$ruta"
+            for esperada in \
+                "content-security-policy: default-src 'self'; script-src 'self' 'sha256-" \
+                "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" \
+                "content-security-policy-report-only: require-trusted-types-for 'script'" \
+                "strict-transport-security: max-age=31536000; includeSubDomains" \
+                "x-content-type-options: nosniff" \
+                "x-frame-options: DENY" \
+                "referrer-policy: same-origin" \
+                "permissions-policy: accelerometer=(), camera=()" \
+                "cross-origin-opener-policy: same-origin" \
+                "cross-origin-resource-policy: same-origin"; do
+              if ! grep -qiF "$esperada" headers.txt; then
+                echo "::error file=frontend/cabeceras.conf::$ruta answers without: $esperada"
+                cat headers.txt
+                exit 1
+              fi
+            done
+          done
+          # The scripts of the CSP are the ones Angular hashed into the index, not a placeholder.
+          curl -sS -o /dev/null -D headers.txt "$base/"
+          if grep -q '@HASHES_DE_LOS_SCRIPTS@' headers.txt; then
+            echo "::error file=frontend/Dockerfile::The CSP still has the placeholder of the script hashes."
+            exit 1
+          fi
+          # What the API answers keeps the API's own policy, for JSON and not for pages, and only that one.
+          curl -sS -o /dev/null -D headers.txt "$base/api/v1/procesos"
+          grep -qiF "content-security-policy: default-src 'none'; frame-ancestors 'none'" headers.txt
+          test "$(grep -ci '^content-security-policy:' headers.txt)" -eq 1
+
       - name: The API answers through the web container
         run: |
           # Same origin as the app: this goes through the proxy, not to the API's own port.

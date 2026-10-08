@@ -1,9 +1,13 @@
 package com.facimus.procesos.e2e;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
+import java.util.logging.Level;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +21,9 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.logging.LogEntry;
+import org.openqa.selenium.logging.LogType;
+import org.openqa.selenium.logging.LoggingPreferences;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
@@ -46,6 +53,10 @@ abstract class PruebaE2E {
         ChromeOptions opciones = new ChromeOptions();
         opciones.addArguments("--headless=new", "--window-size=1440,900", "--no-sandbox",
                 "--disable-dev-shm-usage", "--disable-gpu");
+        // La consola del navegador, para leer al final si alguna pantalla tropezo con la CSP.
+        LoggingPreferences consola = new LoggingPreferences();
+        consola.enable(LogType.BROWSER, Level.ALL);
+        opciones.setCapability("goog:loggingPrefs", consola);
         navegador = new ChromeDriver(opciones);
         espera = new WebDriverWait(navegador, ESPERA);
         api = new ApiDeDatos(API);
@@ -54,19 +65,37 @@ abstract class PruebaE2E {
     /**
      * Al fallar, una captura de lo que habia en pantalla. Un fallo de punta a punta sin la pantalla es una
      * adivinanza: el mensaje dice que no aparecio algo, y la imagen dice que aparecio en su lugar.
+     *
+     * Y en cualquier caso, lo que la CSP de la web bloqueo mientras tanto: un script o un estilo bloqueado no
+     * siempre se ve en la pantalla, pero la consola lo dice, y la prueba falla con lo que dijo.
      */
     @AfterEach
     void cerrarNavegador(TestInfo prueba) throws IOException {
         if (navegador == null) {
             return;
         }
+        List<String> bloqueado;
         try {
             Files.createDirectories(CAPTURAS);
             byte[] imagen = ((TakesScreenshot) navegador).getScreenshotAs(OutputType.BYTES);
             Files.write(CAPTURAS.resolve(prueba.getDisplayName().replaceAll("\\W+", "-") + ".png"), imagen);
+            bloqueado = loQueBloqueoLaCsp();
         } finally {
             navegador.quit();
         }
+        assertEquals(List.of(), bloqueado, "La CSP de la web bloqueo algo en esta prueba");
+    }
+
+    /**
+     * Los avisos de la CSP en la consola. Los de Trusted Types, que todavia va en modo informe, empiezan por
+     * "[Report Only]": avisan de lo que romperia sin romperlo, y no cuentan.
+     */
+    private List<String> loQueBloqueoLaCsp() {
+        return navegador.manage().logs().get(LogType.BROWSER).getAll().stream()
+                .map(LogEntry::getMessage)
+                .filter(mensaje -> mensaje.contains("Content Security Policy"))
+                .filter(mensaje -> !mensaje.contains("[Report Only]"))
+                .toList();
     }
 
     protected void ir(String ruta) {
