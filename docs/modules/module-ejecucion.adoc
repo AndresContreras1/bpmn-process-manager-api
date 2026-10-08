@@ -1,0 +1,11 @@
+[%autowidth.stretch, cols="h,a"]
+|===
+|Base package
+|`com.facimus.procesos.ejecucion`
+|Bean references
+|* `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
+* `c.f.p.g.service.VersionService` (in Gestion)
+* `c.f.p.g.service.ConfiguracionTiendaService` (in Gestion)
+* `c.f.p.g.service.UsuarioService` (in Gestion)
+* `c.f.p.g.service.MembresiaRolService` (in Gestion)
+|===

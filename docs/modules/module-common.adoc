@@ -1,0 +1,19 @@
+[%autowidth.stretch, cols="h,a"]
+|===
+|Base package
+|`com.facimus.procesos.common`
+|Spring components
+|_Controllers_
+
+* `c.f.p.c.api.controller.ErroresController`
+
+_Repositories_
+
+* `c.f.p.c.RepositorioTenant`
+
+_Others_
+
+* `c.f.p.c.api.ApiExceptionHandler`
+* `c.f.p.c.api.IdDePeticionFilter`
+* `c.f.p.c.metricas.MetricasDeNegocio`
+|===

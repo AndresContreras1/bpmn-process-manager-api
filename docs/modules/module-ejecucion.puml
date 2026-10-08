@@ -1,0 +1,38 @@
+@startuml
+title <size:24>Ejecucion</size>
+
+set separator none
+top to bottom direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Component>
+
+System_Boundary("ProcesosApplication_boundary", "ProcesosApplication", $tags="") {
+  Container_Boundary("ProcesosApplication.ProcesosApplication_boundary", "ProcesosApplication", $tags="") {
+    Component(ProcesosApplication.ProcesosApplication.Common, "Common", $techn="Module", $descr="", $tags="", $link="")
+    Component(ProcesosApplication.ProcesosApplication.Gestion, "Gestion", $techn="Module", $descr="", $tags="", $link="")
+    Component(ProcesosApplication.ProcesosApplication.Modelado, "Modelado", $techn="Module", $descr="", $tags="", $link="")
+    Component(ProcesosApplication.ProcesosApplication.Ejecucion, "Ejecucion", $techn="Module", $descr="", $tags="", $link="")
+  }
+
+}
+
+Rel(ProcesosApplication.ProcesosApplication.Modelado, ProcesosApplication.ProcesosApplication.Gestion, "listens to", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Modelado, ProcesosApplication.ProcesosApplication.Common, "depends on", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Modelado, ProcesosApplication.ProcesosApplication.Gestion, "uses", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Gestion, ProcesosApplication.ProcesosApplication.Common, "uses", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Ejecucion, ProcesosApplication.ProcesosApplication.Modelado, "depends on", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Ejecucion, ProcesosApplication.ProcesosApplication.Common, "uses", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Ejecucion, ProcesosApplication.ProcesosApplication.Gestion, "uses", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

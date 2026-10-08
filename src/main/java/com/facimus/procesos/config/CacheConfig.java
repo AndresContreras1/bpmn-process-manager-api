@@ -10,6 +10,7 @@ import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.facimus.procesos.common.Caches;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 /**
@@ -35,18 +36,12 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 @ConditionalOnProperty(name = "cache.versiones.activa", havingValue = "true", matchIfMissing = true)
 public class CacheConfig {
 
-    /** El grafo ya masticado de una version publicada: nodos, arcos, condiciones compiladas y alcances. */
-    public static final String GRAFOS = "grafos-de-version";
-
-    /** El JSON del diagrama tal como se publico, que es lo que lee quien solo puede ver lo publicado. */
-    public static final String DEFINICIONES = "definiciones-de-version";
-
     @Bean
     public CacheManager cacheManager(@Value("${cache.versiones.maximo}") long maximo,
             @Value("${cache.versiones.inactividad}") Duration inactividad) {
         CaffeineCacheManager gestor = new CaffeineCacheManager();
-        gestor.registerCustomCache(GRAFOS, caffeine(maximo, inactividad).build());
-        gestor.registerCustomCache(DEFINICIONES, caffeine(maximo, inactividad).build());
+        gestor.registerCustomCache(Caches.GRAFOS, caffeine(maximo, inactividad).build());
+        gestor.registerCustomCache(Caches.DEFINICIONES, caffeine(maximo, inactividad).build());
         return gestor;
     }
 

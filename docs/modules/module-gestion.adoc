@@ -1,0 +1,49 @@
+[%autowidth.stretch, cols="h,a"]
+|===
+|Base package
+|`com.facimus.procesos.gestion`
+|Spring components
+|_Services_
+
+* `c.f.p.g.service.ConfiguracionTiendaService` (via `c.f.p.g.service.impl.ConfiguracionTiendaServiceImpl`)
+* `c.f.p.g.service.EmpresaService` (via `c.f.p.g.service.impl.EmpresaServiceImpl`)
+* `c.f.p.g.service.HistorialCambioService` (via `c.f.p.g.service.impl.HistorialCambioServiceImpl`)
+* `c.f.p.g.service.IdempotenciaService` (via `c.f.p.g.service.impl.IdempotenciaServiceImpl`)
+* `c.f.p.g.service.LimpiezaService` (via `c.f.p.g.service.impl.LimpiezaServiceImpl`)
+* `c.f.p.g.service.MembresiaRolService` (via `c.f.p.g.service.impl.MembresiaRolServiceImpl`)
+* `c.f.p.g.service.ProcesoCompartidoService` (via `c.f.p.g.service.impl.ProcesoCompartidoServiceImpl`)
+* `c.f.p.g.service.ProcesoService` (via `c.f.p.g.service.impl.ProcesoServiceImpl`)
+* `c.f.p.g.service.RolProcesoService` (via `c.f.p.g.service.impl.RolProcesoServiceImpl`)
+* `c.f.p.g.service.SesionService` (via `c.f.p.g.service.impl.SesionServiceImpl`)
+* `c.f.p.g.service.UsuarioService` (via `c.f.p.g.service.impl.UsuarioServiceImpl`)
+* `c.f.p.g.service.VersionService` (via `c.f.p.g.service.impl.VersionServiceImpl`)
+
+_Repositories_
+
+* `c.f.p.g.repository.ClaveIdempotenciaRepository`
+* `c.f.p.g.repository.ConfiguracionTiendaRepository`
+* `c.f.p.g.repository.EmpresaRepository`
+* `c.f.p.g.repository.HistorialCambioRepository`
+* `c.f.p.g.repository.MembresiaRolRepository`
+* `c.f.p.g.repository.ProcesoCompartidoRepository`
+* `c.f.p.g.repository.ProcesoRepository`
+* `c.f.p.g.repository.RefreshTokenRepository`
+* `c.f.p.g.repository.RolProcesoRepository`
+* `c.f.p.g.repository.SesionRepository`
+* `c.f.p.g.repository.UsuarioRepository`
+* `c.f.p.g.repository.VersionProcesoRepository`
+|Bean references
+|* `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
+|Aggregate roots
+|* `c.f.p.g.model.ClaveIdempotencia`
+* `c.f.p.g.model.ConfiguracionTienda`
+* `c.f.p.g.model.HistorialCambio`
+* `c.f.p.g.model.MembresiaRol`
+* `c.f.p.g.model.Proceso`
+* `c.f.p.g.model.ProcesoCompartido`
+* `c.f.p.g.model.RefreshToken`
+* `c.f.p.g.model.RolProceso`
+* `c.f.p.g.model.Sesion`
+* `c.f.p.g.model.Usuario`
+* `c.f.p.g.model.VersionProceso`
+|===

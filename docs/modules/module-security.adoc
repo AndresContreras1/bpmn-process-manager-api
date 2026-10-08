@@ -1,0 +1,30 @@
+[%autowidth.stretch, cols="h,a"]
+|===
+|Base package
+|`com.facimus.procesos.security`
+|Spring components
+|_Event listeners_
+
+* `c.f.p.s.AvisoDeSesionesCerradas`
+* `c.f.p.s.RevokedSessions`
+
+_Others_
+
+* `c.f.p.s.CorsConfig`
+* `c.f.p.s.FirewallRejectionHandler`
+* `c.f.p.s.LimiteDeIntentos` (via `c.f.p.s.IntentosDeLogin`)
+* `c.f.p.s.JwtAccessDeniedHandler`
+* `c.f.p.s.JwtAuthEntryPoint`
+* `c.f.p.s.JwtService`
+* `c.f.p.s.LoginAuthenticator`
+* `c.f.p.s.SecurityConfig`
+* `c.f.p.s.UserAccountService`
+|Bean references
+|* `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
+* `c.f.p.g.service.SesionService` (in Gestion)
+* `c.f.p.g.service.UsuarioService` (in Gestion)
+|Events listened to
+|* `c.f.p.g.event.SesionesCerradas` 
+* `c.f.p.g.event.SesionesCerradas` 
+* `org.springframework.boot.context.event.ApplicationReadyEvent` 
+|===
