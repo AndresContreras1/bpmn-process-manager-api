@@ -42,3 +42,6 @@ clock and the engine. `integracion` holds the simulated partners.
   port depends on no service, repository or controller, and on no entity of `ejecucion`.
 - `EmpaquetadoTest.paquetes_de_primer_nivel_sin_ciclos` and `paquetes_de_cada_modulo_sin_ciclos` cover the new
   modules with no change. The CI job *Architecture Rules* runs the ArchUnit suite on its own.
+- Since plan v5, `ModulosTest` checks the same direction with Spring Modulith, from the `package-info.java` of
+  each module: `ejecucion` declares what it uses of `gestion` and `modelado`, and `integracion` reaches only the
+  port of `ejecucion` and the model of `modelado`.

@@ -41,6 +41,8 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `GEMINI_API_KEY` | Key for the AI review. Without it the review answers `503` and nothing else changes. | None |
 | `GEMINI_MODEL` · `GEMINI_BASE_URL` · `GEMINI_TIMEOUT` | Model, address and how long to wait for it | `gemini-3.8-flash` · Google endpoint · `20s` |
 | `REVISION_MAX_REVIEWS` · `REVISION_WINDOW` | Reviews a store can ask for, and the window that counts them | `10` · `1h` |
+| `TRABAJOS_TRABAJADORES` | Jobs of the queue this instance runs at once. Each one holds a connection of the pool while it runs | `2` |
+| `TRABAJOS_MAXIMO_EN_CURSO_POR_TIENDA` | Jobs of one store running at once, counted across every instance, so a big export does not hold up the other stores | `2` |
 
 In `prod` the logs are JSON in the Elastic Common Schema, one line per event with the `requestId` of the request that
 wrote it; in `dev` they stay in plain text, which is easier to read in a terminal.

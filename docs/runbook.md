@@ -77,6 +77,28 @@ seconds and rereads the recent closures when it does, so the session stops worki
 **A scheduled job did not run.** `select * from shedlock` shows who holds each lock and until when. A lock taken
 by an instance that died frees itself when `lock_until` passes: thirty minutes for the purge, ten for the rest.
 
+**A job of the queue failed.** A job that ran out of attempts stays in `trabajos` as `FALLIDO`, with its last error,
+for a week. Once the cause is fixed, give it one more attempt; a handler can run the same job twice without doing
+it twice, so trying again is safe.
+
+```sql
+select id, tipo, empresa_id, intentos, ultimo_error, terminado_en from trabajos
+where estado = 'FALLIDO' order by terminado_en desc;
+
+update trabajos set estado = 'PENDIENTE', maximo_intentos = intentos + 1, disponible_desde = now(),
+                    terminado_en = null
+where id = 42;
+```
+
+**Jobs pile up.** `select estado, count(*) from trabajos group by estado` shows the queue. Many `PENDIENTE` whose
+`disponible_desde` already passed means the workers do not keep up: raise `TRABAJOS_TRABAJADORES`, if the pool has
+room, or add an instance. A job `EN_CURSO` for more than fifteen minutes was left by an instance that died, and the
+queue takes it back by itself.
+
+**An event did not reach its listener.** `select listener_id, event_type, publication_date from event_publication`
+lists what a listener did not finish; the log line of its failure says why. The next start of an instance
+delivers it again, and a listener can take the same event twice.
+
 **The JWT signing key leaked.** Generate a new `JWT_SECRET` of at least 32 bytes, put it in `.env` and recreate the
 API with `docker compose up -d api`. Every access and refresh token signed with the old key stops working, so every
 person signs in again; that is the point.

@@ -51,6 +51,10 @@
 **Architecture and quality**
 - [x] Request and response DTO packages with MapStruct mappers, and services exposed as interfaces
 - [x] Module boundaries between `gestion` and `modelado` enforced by ArchUnit, with no dependency cycles
+- [x] Spring Modulith verifying the declared modules beside ArchUnit, and their documentation generated in
+      `docs/modules`
+- [x] An outbox in PostgreSQL for the events between modules, and a queue of jobs with retries, failed jobs and a
+      cap per store
 - [x] Complete Spring profiles: `dev` with seed data, `test` with an isolated database per context, and `prod`
 - [x] Repository tests with `@DataJpaTest` and unit tests for every modeling service
 - [x] Coverage gate per package, branches included
