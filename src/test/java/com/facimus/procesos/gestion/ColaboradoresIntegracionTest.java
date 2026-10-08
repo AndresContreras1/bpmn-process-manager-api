@@ -1,11 +1,10 @@
 package com.facimus.procesos.gestion;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,6 +28,7 @@ import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -95,7 +94,7 @@ class ColaboradoresIntegracionTest {
     @Test
     @DisplayName("Dar de baja a alguien y volver a darle de alta: sale del listado, deja de entrar y vuelve")
     void baja_yAlta() throws Exception {
-        pedir(post("/api/v1/auth/login"), new LoginRequest(BRUNO, CLAVE)).andExpect(status().isOk());
+        pedir(SesionEnCookies.login(), new LoginRequest(BRUNO, CLAVE)).andExpect(status().isOk());
 
         pedir(delete("/api/v1/usuarios/{id}", brunoId), null).andExpect(status().isNoContent());
 
@@ -104,14 +103,14 @@ class ColaboradoresIntegracionTest {
         String desactivados = pedir(get("/api/v1/usuarios").param("incluirInactivos", "true"), null)
                 .andExpect(jsonPath("$.totalElements").value(3))
                 .andReturn().getResponse().getContentAsString();
-        pedir(post("/api/v1/auth/login"), new LoginRequest(BRUNO, CLAVE)).andExpect(status().isUnauthorized());
+        pedir(SesionEnCookies.login(), new LoginRequest(BRUNO, CLAVE)).andExpect(status().isUnauthorized());
 
         pedir(patch("/api/v1/usuarios/{id}", brunoId), Map.of("activo", true, "version", versionDeBruno(desactivados)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.activo").value(true));
 
         pedir(get("/api/v1/usuarios"), null).andExpect(jsonPath("$.totalElements").value(3));
-        pedir(post("/api/v1/auth/login"), new LoginRequest(BRUNO, CLAVE)).andExpect(status().isOk());
+        pedir(SesionEnCookies.login(), new LoginRequest(BRUNO, CLAVE)).andExpect(status().isOk());
         pedir(get("/api/v1/empresas/actual/historial").param("tamano", "50"), null)
                 .andExpect(content().string(containsString("reactivado")));
     }
@@ -126,17 +125,15 @@ class ColaboradoresIntegracionTest {
     }
 
     private String iniciarSesion(String email) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 
     private ResultActions pedir(MockHttpServletRequestBuilder peticion, Object cuerpo) throws Exception {
         if (token != null) {
-            peticion.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            peticion.with(SesionEnCookies.conSesion(token));
         }
         if (cuerpo != null) {
             peticion.contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(cuerpo));

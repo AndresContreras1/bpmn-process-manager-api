@@ -17,7 +17,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,6 +31,7 @@ import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.PoolService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -84,11 +84,10 @@ class HistorialModeladoIntegracionTest {
                 "Administradora", ADMIN, CLAVE).id();
         adminId = usuarioRepository.findByEmail(ADMIN).orElseThrow().getId();
         usuarioService.crearColaborador(empresaId, null, "Editora", EDITORA, CLAVE, RolAcceso.EDITOR);
-        tokenEditora = jsonMapper.readTree(mockMvc.perform(post("/api/v1/auth/login")
+        tokenEditora = SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(EDITORA, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString()).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 
     @Test
@@ -150,7 +149,7 @@ class HistorialModeladoIntegracionTest {
 
     private MockHttpServletRequestBuilder conCuerpo(MockHttpServletRequestBuilder peticion, Map<String, Object> cuerpo)
             throws Exception {
-        peticion.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenEditora);
+        peticion.with(SesionEnCookies.conSesion(tokenEditora));
         return cuerpo == null ? peticion
                 : peticion.contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(cuerpo));
     }

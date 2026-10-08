@@ -33,6 +33,7 @@ import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.IdempotencyFilter;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import jakarta.servlet.RequestDispatcher;
 import tools.jackson.databind.json.JsonMapper;
@@ -95,7 +96,7 @@ class ProblemasConIdIntegracionTest {
     @Test
     @DisplayName("Una respuesta que sale bien tambien lleva su id en la cabecera")
     void respuestaCorrecta_llevaElIdEnLaCabecera() throws Exception {
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(tokenAdmin)))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(tokenAdmin)))
                 .andExpect(status().isOk())
                 .andExpect(header().exists(IdDePeticionFilter.CABECERA));
     }
@@ -109,14 +110,14 @@ class ProblemasConIdIntegracionTest {
     @Test
     @DisplayName("403 por rol: el manejador de acceso denegado responde con el id de la peticion")
     void rolQueNoAlcanza_403ConId() throws Exception {
-        conElMismoId(mockMvc.perform(get("/api/v1/usuarios").header(HttpHeaders.AUTHORIZATION, bearer(tokenEditor)))
+        conElMismoId(mockMvc.perform(get("/api/v1/usuarios").with(SesionEnCookies.conSesion(tokenEditor)))
                 .andExpect(status().isForbidden()));
     }
 
     @Test
     @DisplayName("403 por clave temporal: el filtro que obliga a cambiarla responde con el id de la peticion")
     void claveTemporal_403ConId() throws Exception {
-        conElMismoId(mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(tokenTemporal)))
+        conElMismoId(mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(tokenTemporal)))
                 .andExpect(status().isForbidden()));
     }
 
@@ -124,7 +125,7 @@ class ProblemasConIdIntegracionTest {
     @DisplayName("404 de un recurso que no existe: el manejador de la API responde con el id de la peticion")
     void recursoQueNoExiste_404ConId() throws Exception {
         conElMismoId(mockMvc.perform(get("/api/v1/procesos/987654")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenAdmin)))
+                        .with(SesionEnCookies.conSesion(tokenAdmin)))
                 .andExpect(status().isNotFound()));
     }
 
@@ -132,14 +133,14 @@ class ProblemasConIdIntegracionTest {
     @DisplayName("404 de una ruta que no existe: el Problem Details que arma Spring tambien lleva el id")
     void rutaQueNoExiste_404DeSpringConId() throws Exception {
         conElMismoId(mockMvc.perform(get("/api/v1/ruta-que-no-existe")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenAdmin)))
+                        .with(SesionEnCookies.conSesion(tokenAdmin)))
                 .andExpect(status().isNotFound()));
     }
 
     @Test
     @DisplayName("400 de validacion: los errores por campo llegan con el id de la peticion")
     void validacion_400ConId() throws Exception {
-        conElMismoId(mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+        conElMismoId(mockMvc.perform(SesionEnCookies.login().contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"\",\"password\":\"\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.email").exists()));
@@ -163,7 +164,7 @@ class ProblemasConIdIntegracionTest {
     @DisplayName("500 inesperado en un controller: mensaje generico, nada de lo de dentro, y el id para buscarlo")
     void errorInesperado_500SinDetalleYConId() throws Exception {
         MvcResult resultado = conElMismoId(mockMvc.perform(get("/api/v1/prueba-de-errores/falla")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenAdmin)))
+                        .with(SesionEnCookies.conSesion(tokenAdmin)))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.title").value("Error interno")));
 
@@ -226,19 +227,17 @@ class ProblemasConIdIntegracionTest {
 
     private ResultActions crearProceso(String clave, String nombre) throws Exception {
         return mockMvc.perform(post("/api/v1/procesos")
-                .header(HttpHeaders.AUTHORIZATION, bearer(tokenAdmin))
+                .with(SesionEnCookies.conSesion(tokenAdmin))
                 .header(IdempotencyFilter.CABECERA, clave)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nombre\":\"" + nombre + "\",\"descripcion\":\"Lo que cubre\",\"categoria\":\"Ops\"}"));
     }
 
     private String login(String email, String clave) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, clave))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 
     private static String bearer(String token) {

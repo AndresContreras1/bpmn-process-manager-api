@@ -2,7 +2,6 @@ package com.facimus.procesos.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,6 +22,7 @@ import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -100,11 +100,11 @@ class ActuatorTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"));
 
-        mockMvc.perform(get("/actuator/metrics").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenEditor))
+        mockMvc.perform(get("/actuator/metrics").with(SesionEnCookies.conSesion(tokenEditor)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Sin permisos"));
 
-        mockMvc.perform(get("/actuator/metrics").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin))
+        mockMvc.perform(get("/actuator/metrics").with(SesionEnCookies.conSesion(tokenAdmin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.names").isNotEmpty());
     }
@@ -115,7 +115,7 @@ class ActuatorTest {
         for (String medidor : new String[] {"casos.abiertos", "tareas.pendientes",
                 "mensajes.salientes.pendientes", "mensajes.entrantes.pendientes"}) {
             mockMvc.perform(get("/actuator/metrics/" + medidor)
-                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin))
+                            .with(SesionEnCookies.conSesion(tokenAdmin)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.name").value(medidor))
                     .andExpect(jsonPath("$.measurements[0].value").isNumber());
@@ -126,7 +126,7 @@ class ActuatorTest {
     @DisplayName("Los medidores de la operacion tampoco los ve un editor")
     void medidores_pidenUnAdministrador() throws Exception {
         mockMvc.perform(get("/actuator/metrics/casos.abiertos")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenEditor))
+                        .with(SesionEnCookies.conSesion(tokenEditor)))
                 .andExpect(status().isForbidden());
     }
 
@@ -146,17 +146,15 @@ class ActuatorTest {
     void resto_deActuator_noEstaExpuesto() throws Exception {
         for (String endpoint : new String[] {"env", "beans", "configprops", "loggers", "heapdump", "threaddump"}) {
             mockMvc.perform(get("/actuator/" + endpoint)
-                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin))
+                            .with(SesionEnCookies.conSesion(tokenAdmin)))
                     .andExpect(status().isNotFound());
         }
     }
 
     private String login(String email) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 }

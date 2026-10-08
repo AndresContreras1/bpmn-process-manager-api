@@ -132,32 +132,32 @@ class ProcesosCompartidosIntegracionTest {
                         "/api/v1/procesos/" + procesoId + "/compartidos/" + invitadaId))
                 .andExpect(jsonPath("$.nombre").value("Operador logistico"));
 
-        mockMvc.perform(get("/api/v1/procesos/compartidos-conmigo").header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
+        mockMvc.perform(get("/api/v1/procesos/compartidos-conmigo").with(SesionEnCookies.conSesion(tokenInvitada)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.proceso.id == " + procesoId + ")].empresaPropietariaNombre")
                         .value("Tienda duena"));
         // El historial de la duena avisa de que vera la invitada: hoy, nada, porque no hay version publicada.
         mockMvc.perform(get("/api/v1/procesos/{id}/historial", procesoId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenDuena)))
+                        .with(SesionEnCookies.conSesion(tokenDuena)))
                 .andExpect(jsonPath("$[*].descripcionCambio", hasItems(
                         "Proceso compartido en solo lectura con Operador logistico. No verá nada hasta que el "
                                 + "proceso se publique.")));
 
         // D2: mientras no haya una version publicada, la invitada no tiene nada que leer.
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
+                        .with(SesionEnCookies.conSesion(tokenInvitada)))
                 .andExpect(status().isNotFound());
         publicar(procesoId);
 
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
+                        .with(SesionEnCookies.conSesion(tokenInvitada)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.compartido").value(true))
                 .andExpect(jsonPath("$.proceso.nombre").value("Order fulfillment"))
                 .andExpect(jsonPath("$.proceso.versionPublicada").value(1))
                 .andExpect(jsonPath("$.pools[0].tipoParticipante").value("EMPRESA"));
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenDuena)))
+                        .with(SesionEnCookies.conSesion(tokenDuena)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.compartido").value(false));
     }
@@ -179,10 +179,10 @@ class ProcesosCompartidosIntegracionTest {
                         .content("{\"nombre\":\"Intruso\",\"tipoParticipante\":\"PROVEEDOR\",\"cajaNegra\":true}"),
                 delete("/api/v1/procesos/{id}/compartidos/{invitada}", procesoId, invitadaId));
         for (MockHttpServletRequestBuilder peticion : peticiones) {
-            mockMvc.perform(peticion.header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
+            mockMvc.perform(peticion.with(SesionEnCookies.conSesion(tokenInvitada)))
                     .andExpect(status().isNotFound());
         }
-        mockMvc.perform(get("/api/v1/procesos/{id}", procesoId).header(HttpHeaders.AUTHORIZATION, bearer(tokenDuena)))
+        mockMvc.perform(get("/api/v1/procesos/{id}", procesoId).with(SesionEnCookies.conSesion(tokenDuena)))
                 .andExpect(jsonPath("$.proceso.nombre").value("Returns and refunds"));
     }
 
@@ -193,9 +193,9 @@ class ProcesosCompartidosIntegracionTest {
         mockMvc.perform(compartir(procesoId, NIT_INVITADA, tokenDuena)).andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenAjena)))
+                        .with(SesionEnCookies.conSesion(tokenAjena)))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/v1/procesos/compartidos-conmigo").header(HttpHeaders.AUTHORIZATION, bearer(tokenAjena)))
+        mockMvc.perform(get("/api/v1/procesos/compartidos-conmigo").with(SesionEnCookies.conSesion(tokenAjena)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
     }
@@ -207,18 +207,18 @@ class ProcesosCompartidosIntegracionTest {
         mockMvc.perform(compartir(procesoId, NIT_INVITADA, tokenDuena)).andExpect(status().isCreated());
 
         mockMvc.perform(delete("/api/v1/procesos/{id}/compartidos/{invitada}", procesoId, invitadaId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenDuena)))
+                        .with(SesionEnCookies.conSesion(tokenDuena)))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
+                        .with(SesionEnCookies.conSesion(tokenInvitada)))
                 .andExpect(status().isNotFound());
         mockMvc.perform(get("/api/v1/procesos/{id}/compartidos", procesoId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenDuena)))
+                        .with(SesionEnCookies.conSesion(tokenDuena)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isEmpty());
         mockMvc.perform(get("/api/v1/procesos/{id}/historial", procesoId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenDuena)))
+                        .with(SesionEnCookies.conSesion(tokenDuena)))
                 .andExpect(jsonPath("$[*].descripcionCambio", hasItems(
                         "Proceso compartido en solo lectura con Operador logistico. No verá nada hasta que el "
                                 + "proceso se publique.",
@@ -234,9 +234,9 @@ class ProcesosCompartidosIntegracionTest {
         procesoService.eliminarLogico(duenaId, procesoId, adminDuenaId);
 
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
+                        .with(SesionEnCookies.conSesion(tokenInvitada)))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/v1/procesos/compartidos-conmigo").header(HttpHeaders.AUTHORIZATION, bearer(tokenInvitada)))
+        mockMvc.perform(get("/api/v1/procesos/compartidos-conmigo").with(SesionEnCookies.conSesion(tokenInvitada)))
                 .andExpect(jsonPath("$.content[?(@.proceso.id == " + procesoId + ")]").isEmpty());
     }
 
@@ -287,18 +287,16 @@ class ProcesosCompartidosIntegracionTest {
 
     private MockHttpServletRequestBuilder compartir(Long procesoId, String nit, String token) throws Exception {
         return post("/api/v1/procesos/{id}/compartidos", procesoId)
-                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                .with(SesionEnCookies.conSesion(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonMapper.writeValueAsString(new CompartirProcesoRequest(nit)));
     }
 
     private String login(String email) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 
     private static String bearer(String token) {

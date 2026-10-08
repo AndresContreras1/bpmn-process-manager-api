@@ -3,7 +3,6 @@ package com.facimus.procesos.modelado;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -22,7 +21,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -52,6 +50,7 @@ import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.modelado.service.PoolService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -157,12 +156,10 @@ class VersionesIntegracionTest {
                 tienda, poolId)).id();
         correlacionService.definir(empresaId, adminId, mensajeId, "orderId", null, null, null);
 
-        String login = mockMvc.perform(post("/api/v1/auth/login")
+        token = SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        token = jsonMapper.readTree(login).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 
     /** Cada edicion: como se lee el recurso, como se edita y el cuerpo con la version que se manda. */
@@ -264,7 +261,7 @@ class VersionesIntegracionTest {
     }
 
     private String leer(String ruta, Long id) throws Exception {
-        return mockMvc.perform(get(ruta, id).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        return mockMvc.perform(get(ruta, id).with(SesionEnCookies.conSesion(token)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
     }
@@ -272,7 +269,7 @@ class VersionesIntegracionTest {
     private ResultActions editar(HttpMethod metodo, String ruta, Long id, Map<String, Object> cuerpo)
             throws Exception {
         return mockMvc.perform(request(metodo, ruta, id)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .with(SesionEnCookies.conSesion(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonMapper.writeValueAsString(cuerpo)));
     }

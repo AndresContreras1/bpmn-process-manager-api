@@ -19,7 +19,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -45,6 +44,7 @@ import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.PoolService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -157,7 +157,7 @@ class AislamientoDeLaEjecucionTest {
     @DisplayName("Un caso, una tarea o un proceso de otra tienda responden 404 y no se tocan")
     void Aislamiento_ejecucionDeOtraTienda_devuelve404(HttpMethod metodo, String ruta, String cuerpo, String detalle)
             throws Exception {
-        var peticion = request(metodo, ruta).header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA);
+        var peticion = request(metodo, ruta).with(SesionEnCookies.conSesion(tokenA));
         if (cuerpo != null) {
             peticion.contentType(MediaType.APPLICATION_JSON).content(cuerpo);
         }
@@ -172,11 +172,11 @@ class AislamientoDeLaEjecucionTest {
     @DisplayName("Las bandejas de mensajes de un proceso de otra tienda salen vacias, no con lo suyo")
     void bandejasDeMensajes_soloLasDeLaTienda() throws Exception {
         mockMvc.perform(get("/api/v1/procesos/" + procesoB + "/bandeja-salida")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                        .with(SesionEnCookies.conSesion(tokenA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
         mockMvc.perform(get("/api/v1/procesos/" + procesoB + "/bandeja-entrada")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                        .with(SesionEnCookies.conSesion(tokenA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
     }
@@ -184,7 +184,7 @@ class AislamientoDeLaEjecucionTest {
     @Test
     @DisplayName("El listado de casos de una tienda no trae los de la otra")
     void listarCasos_soloLosDeLaTienda() throws Exception {
-        mockMvc.perform(get("/api/v1/casos").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+        mockMvc.perform(get("/api/v1/casos").with(SesionEnCookies.conSesion(tokenA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].referencia").value("ORD-A"));
@@ -193,7 +193,7 @@ class AislamientoDeLaEjecucionTest {
     @Test
     @DisplayName("La bandeja de una tienda no trae las tareas de la otra")
     void bandeja_soloLasDeLaTienda() throws Exception {
-        mockMvc.perform(get("/api/v1/tareas").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+        mockMvc.perform(get("/api/v1/tareas").with(SesionEnCookies.conSesion(tokenA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].casoReferencia").value("ORD-A"));
@@ -205,7 +205,7 @@ class AislamientoDeLaEjecucionTest {
         procesoCompartidoService.compartir(empresaB, procesoB, adminB, new CompartirProcesoRequest(NIT_A).nit());
 
         mockMvc.perform(post("/api/v1/procesos/" + procesoB + "/casos")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .with(SesionEnCookies.conSesion(tokenA))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"referencia\":\"ORD-X\"}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Proceso no encontrado."));
@@ -231,11 +231,9 @@ class AislamientoDeLaEjecucionTest {
     }
 
     private String login(String correo) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(correo, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 }

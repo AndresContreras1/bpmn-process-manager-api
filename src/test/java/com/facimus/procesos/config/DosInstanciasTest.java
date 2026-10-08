@@ -8,6 +8,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -28,6 +30,7 @@ import com.facimus.procesos.modelado.service.Dictamen;
 import com.facimus.procesos.modelado.service.RevisorDeDiagramas;
 import com.facimus.procesos.postgres.PostgresDePrueba;
 import com.facimus.procesos.postgres.PostgresDePrueba.ConexionDePrueba;
+import com.facimus.procesos.security.CookiesDeSesion;
 
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.core.LockProvider;
@@ -42,6 +45,8 @@ import tools.jackson.databind.JsonNode;
 class DosInstanciasTest {
 
     private static final String CLAVE = "clave-de-dos-instancias";
+    /** El token CSRF de este navegador de prueba: viaja en su cookie y en su cabecera, que tienen que coincidir. */
+    private static final String CSRF = UUID.randomUUID().toString();
     private static final RestClient HTTP = RestClient.builder()
             .requestFactory(new SimpleClientHttpRequestFactory())
             .build();
@@ -90,7 +95,7 @@ class DosInstanciasTest {
         assertThat(estadoDeUnaLectura(segunda, token)).isEqualTo(200);
 
         HTTP.post().uri(url(primera, "/api/v1/auth/logout"))
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .headers(conSesion(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .toBodilessEntity();
@@ -156,17 +161,24 @@ class DosInstanciasTest {
                         "nombreAdmin", "Administradora", "emailAdmin", email, "passwordAdmin", CLAVE))
                 .retrieve()
                 .toBodilessEntity();
-        JsonNode sesion = HTTP.post().uri(url(instancia, "/api/v1/auth/login"))
+        List<String> cookies = HTTP.post().uri(url(instancia, "/api/v1/auth/login"))
+                .headers(conCsrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("email", email, "password", CLAVE))
                 .retrieve()
-                .body(JsonNode.class);
-        return sesion.get("accessToken").asString();
+                .toBodilessEntity()
+                .getHeaders().get(HttpHeaders.SET_COOKIE);
+        String prefijo = CookiesDeSesion.ACCESO + "=";
+        return cookies.stream()
+                .filter(cookie -> cookie.startsWith(prefijo))
+                .map(cookie -> cookie.substring(prefijo.length(), cookie.indexOf(';')))
+                .findFirst()
+                .orElseThrow();
     }
 
     private static long crearProceso(ConfigurableApplicationContext instancia, String token) {
         return HTTP.post().uri(url(instancia, "/api/v1/procesos"))
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .headers(conSesion(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("nombre", "Order fulfillment", "descripcion", "Lo que el modelo revisa",
                         "categoria", "Ventas"))
@@ -177,7 +189,7 @@ class DosInstanciasTest {
 
     private static JsonNode revisar(ConfigurableApplicationContext instancia, String token, long procesoId) {
         return HTTP.post().uri(url(instancia, "/api/v1/procesos/" + procesoId + "/revision"))
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .headers(conSesion(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .body(JsonNode.class);
@@ -185,6 +197,7 @@ class DosInstanciasTest {
 
     private static int estadoDelLogin(ConfigurableApplicationContext instancia, String email, String clave) {
         return HTTP.post().uri(url(instancia, "/api/v1/auth/login"))
+                .headers(conCsrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("email", email, "password", clave))
                 .exchange((peticion, respuesta) -> respuesta.getStatusCode().value());
@@ -192,8 +205,24 @@ class DosInstanciasTest {
 
     private static int estadoDeUnaLectura(ConfigurableApplicationContext instancia, String token) {
         return HTTP.get().uri(url(instancia, "/api/v1/procesos"))
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .headers(conSesion(token))
                 .exchange((peticion, respuesta) -> respuesta.getStatusCode().value());
+    }
+
+    /** Lo que manda un navegador con su sesion: la cookie de acceso, y el token CSRF en su cookie y en su cabecera. */
+    private static Consumer<HttpHeaders> conSesion(String token) {
+        return cabeceras -> {
+            cabeceras.add(HttpHeaders.COOKIE, CookiesDeSesion.ACCESO + "=" + token + "; XSRF-TOKEN=" + CSRF);
+            cabeceras.add("X-XSRF-TOKEN", CSRF);
+        };
+    }
+
+    /** Lo que manda el navegador antes de entrar: solo el token CSRF, que el login pide. */
+    private static Consumer<HttpHeaders> conCsrf() {
+        return cabeceras -> {
+            cabeceras.add(HttpHeaders.COOKIE, "XSRF-TOKEN=" + CSRF);
+            cabeceras.add("X-XSRF-TOKEN", CSRF);
+        };
     }
 
     private static String url(ConfigurableApplicationContext instancia, String ruta) {

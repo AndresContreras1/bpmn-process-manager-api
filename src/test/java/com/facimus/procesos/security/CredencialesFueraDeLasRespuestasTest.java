@@ -16,7 +16,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -77,13 +76,13 @@ class CredencialesFueraDeLasRespuestasTest {
     @DisplayName("Ninguna respuesta con datos de usuarios lleva la contrasena ni el hash guardado")
     void respuestasDeUsuarios_sinContrasenaNiHash() throws Exception {
         List<RequestBuilder> peticiones = List.of(
-                get("/api/v1/usuarios").header(HttpHeaders.AUTHORIZATION, "Bearer " + token),
-                get("/api/v1/usuarios/{id}", colaboradorId).header(HttpHeaders.AUTHORIZATION, "Bearer " + token),
+                get("/api/v1/usuarios").with(SesionEnCookies.conSesion(token)),
+                get("/api/v1/usuarios/{id}", colaboradorId).with(SesionEnCookies.conSesion(token)),
                 patch("/api/v1/usuarios/{id}", colaboradorId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .with(SesionEnCookies.conSesion(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rolAcceso\":\"SOLO_LECTURA\",\"version\":0}"),
-                get("/api/v1/empresas/actual").header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+                get("/api/v1/empresas/actual").with(SesionEnCookies.conSesion(token)));
 
         for (RequestBuilder peticion : peticiones) {
             String cuerpo = mockMvc.perform(peticion)
@@ -102,14 +101,14 @@ class CredencialesFueraDeLasRespuestasTest {
     @Test
     @DisplayName("El login y la creacion de un colaborador responden sin devolver la clave que recibieron")
     void loginYAltaDeColaborador_sinDevolverLaClave() throws Exception {
-        String respuestaLogin = mockMvc.perform(post("/api/v1/auth/login")
+        String respuestaLogin = mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, CLAVE))))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
         String respuestaAlta = mockMvc.perform(post("/api/v1/usuarios")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .with(SesionEnCookies.conSesion(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nombre\":\"Nueva\",\"email\":\"nueva@credenciales.com\","
                                 + "\"password\":\"" + CLAVE + "\",\"rolAcceso\":\"EDITOR\"}"))
@@ -127,7 +126,7 @@ class CredencialesFueraDeLasRespuestasTest {
     @Test
     @DisplayName("La clave temporal sale solo en la respuesta que la genera, y nunca la guardada")
     void claveTemporal_soloEnLaRespuestaQueLaGenera() throws Exception {
-        String alta = mockMvc.perform(post("/api/v1/usuarios").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+        String alta = mockMvc.perform(post("/api/v1/usuarios").with(SesionEnCookies.conSesion(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nombre\":\"Temporal\",\"email\":\"temporal@credenciales.com\","
                                 + "\"rolAcceso\":\"EDITOR\"}"))
@@ -141,7 +140,7 @@ class CredencialesFueraDeLasRespuestasTest {
         assertThat(alta).doesNotContain("$2");
 
         String leido = mockMvc.perform(get("/api/v1/usuarios/{id}", nuevoId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                        .with(SesionEnCookies.conSesion(token)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertThat(leido).doesNotContain(temporal).doesNotContain("claveTemporal");
@@ -159,11 +158,9 @@ class CredencialesFueraDeLasRespuestasTest {
     }
 
     private String login() throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 }

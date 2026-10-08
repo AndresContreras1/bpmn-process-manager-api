@@ -18,7 +18,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,6 +28,7 @@ import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -114,7 +114,7 @@ class AuditoriaIntegracionTest {
 
     private MockHttpServletRequestBuilder conToken(MockHttpServletRequestBuilder peticion, String token,
             Map<String, Object> cuerpo) throws Exception {
-        peticion.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+        peticion.with(SesionEnCookies.conSesion(token));
         return cuerpo == null ? peticion
                 : peticion.contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(cuerpo));
     }
@@ -126,9 +126,9 @@ class AuditoriaIntegracionTest {
     }
 
     private String login(String email) throws Exception {
-        return json(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest(email, CLAVE))), 200)
-                .get("accessToken").asString();
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(email, CLAVE))))
+                .andExpect(status().isOk()));
     }
 }

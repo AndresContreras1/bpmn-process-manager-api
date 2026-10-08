@@ -2,6 +2,7 @@ package com.facimus.procesos.security;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -13,7 +14,7 @@ import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -22,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.header.writers.CrossOriginOpenerPolicyHeaderWriter.CrossOriginOpenerPolicy;
 import org.springframework.security.web.header.writers.CrossOriginResourcePolicyHeaderWriter.CrossOriginResourcePolicy;
 import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
@@ -35,6 +37,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.service.IdempotenciaService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import tools.jackson.databind.json.JsonMapper;
 
 @Configuration
@@ -59,6 +62,11 @@ public class SecurityConfig {
 
     /** 365 dias en segundos: lo minimo que pide la lista de precarga de HSTS. */
     private static final long HSTS_SEGUNDOS = 31_536_000L;
+
+    /** Lo que no cambia nada no pide el token CSRF. */
+    private static final Set<String> SIN_EFECTOS = Set.of("GET", "HEAD", "OPTIONS", "TRACE");
+
+    private static final String LOGIN = "/api/v1/auth/login";
 
     private static final RequestMatcher DOCUMENTACION = new OrRequestMatcher(
             PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui/**"),
@@ -92,11 +100,15 @@ public class SecurityConfig {
     /** Reglas compartidas con la configuracion de seguridad de los tests de controllers. */
     static HttpSecurity reglasComunes(HttpSecurity http) throws Exception {
         return http
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(SecurityConfig::csrf)
                 .headers(SecurityConfig::cabeceras)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                        // D29: salir tambien sin un acceso vigente, para que un navegador siempre pueda borrar sus
+                        // cookies; y el token CSRF, que la web pide al arrancar.
+                        .requestMatchers(HttpMethod.POST, LOGIN, "/api/v1/auth/refresh", "/api/v1/auth/logout")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/empresas").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/error")
                         .permitAll()
@@ -108,8 +120,7 @@ public class SecurityConfig {
                         // y el administrador se reserva usuarios (HU-02), roles (HU-17 a HU-19), compartir procesos
                         // (HU-23) y los borrados de procesos (HU-06), actividades (HU-10), arcos (HU-13),
                         // gateways (HU-16) y eventos (HU-04).
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout", "/api/v1/auth/password")
-                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/password").authenticated()
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
                         // El gobierno de la tienda es del administrador: su historial y su configuracion.
                         .requestMatchers("/api/v1/empresas/actual/historial",
@@ -155,6 +166,28 @@ public class SecurityConfig {
                         new StaticHeadersWriter("Content-Security-Policy", CSP_DE_LA_API)))
                 .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(DOCUMENTACION,
                         new StaticHeadersWriter("Content-Security-Policy", CSP_DE_LA_DOCUMENTACION)));
+    }
+
+    /**
+     * D29: el token CSRF de una SPA. La web lo lee de la cookie {@code XSRF-TOKEN}, la unica que su JavaScript puede
+     * leer, y lo devuelve en {@code X-XSRF-TOKEN}; otro sitio no puede leer esa cookie, asi que no puede mandarlo.
+     */
+    static void csrf(CsrfConfigurer<HttpSecurity> csrf) {
+        CookieCsrfTokenRepository repositorio = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repositorio.setCookieCustomizer(cookie -> cookie.secure(true).sameSite("Lax"));
+        csrf.spa()
+                .csrfTokenRepository(repositorio)
+                .requireCsrfProtectionMatcher(SecurityConfig::pideCsrf);
+    }
+
+    /**
+     * Lo pide lo que cambia algo y trae las cookies de la sesion, que un navegador manda por su cuenta, y el login,
+     * para que otro sitio no meta al navegador en una cuenta ajena. Lo que no trae cookies no tiene sesion que
+     * aprovechar: el registro de una tienda y, cuando lleguen, las claves de API.
+     */
+    static boolean pideCsrf(HttpServletRequest peticion) {
+        return !SIN_EFECTOS.contains(peticion.getMethod())
+                && (CookiesDeSesion.traeSesion(peticion) || LOGIN.equals(peticion.getRequestURI()));
     }
 
     /** El reloj del sistema, como bean para que los tests unitarios puedan mover el tiempo. */

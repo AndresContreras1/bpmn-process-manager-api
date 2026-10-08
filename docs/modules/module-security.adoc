@@ -10,6 +10,7 @@
 
 _Others_
 
+* `c.f.p.s.CookiesDeSesion`
 * `c.f.p.s.CorsConfig`
 * `c.f.p.s.FirewallRejectionHandler`
 * `c.f.p.s.LimiteDeIntentos` (via `c.f.p.s.IntentosDeLogin`)

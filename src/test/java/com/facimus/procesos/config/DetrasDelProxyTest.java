@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -46,6 +47,9 @@ class DetrasDelProxyTest {
         int estado = cliente.post()
                 .uri("http://localhost:" + puerto + "/api/v1/auth/login")
                 .header("X-Forwarded-For", "203.0.113.7")
+                // El login pide el token CSRF, como lo manda la web: el de su cookie, devuelto en la cabecera.
+                .header(HttpHeaders.COOKIE, "XSRF-TOKEN=token-del-navegador")
+                .header("X-XSRF-TOKEN", "token-del-navegador")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{\"email\":\"nadie@proxy.com\",\"password\":\"una-clave-que-no-es\"}")
                 .exchange((peticion, respuesta) -> respuesta.getStatusCode().value());
