@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -32,8 +33,6 @@ public class SecurityConfig {
 
     private static final String ADMINISTRADOR = RolAcceso.ADMINISTRADOR.name();
     private static final String EDITOR = RolAcceso.EDITOR.name();
-    /** Cuantas combinaciones de correo e IP recuerda el limite del login; las que menos se usan se olvidan primero. */
-    private static final int CLAVES_DE_LOGIN = 10_000;
 
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
@@ -114,11 +113,14 @@ public class SecurityConfig {
         return Clock.systemUTC();
     }
 
-    /** HU-03: los intentos fallidos del login se cuentan por correo e IP, en una ventana deslizante. */
+    /**
+     * HU-03: los intentos fallidos del login se cuentan por correo e IP, en una ventana deslizante, en la base: todas
+     * las instancias cuentan los mismos (D34).
+     */
     @Bean
-    public AttemptLimiter limitadorDeLogin(@Value("${login.max-failed-attempts}") int maximo,
+    public IntentosDeLogin limitadorDeLogin(JdbcTemplate jdbc, @Value("${login.max-failed-attempts}") int maximo,
             @Value("${login.failed-attempts-window}") Duration ventana, Clock reloj) {
-        return new AttemptLimiter(maximo, ventana, CLAVES_DE_LOGIN, reloj);
+        return new IntentosDeLogin(jdbc, maximo, ventana, reloj);
     }
 
     @Bean

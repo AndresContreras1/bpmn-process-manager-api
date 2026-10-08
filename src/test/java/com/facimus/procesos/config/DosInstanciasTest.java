@@ -95,6 +95,17 @@ class DosInstanciasTest {
     }
 
     @Test
+    @DisplayName("Los intentos fallidos de login cuentan en las dos: agotarlos en una bloquea el correo en la otra")
+    void intentosAgotadosEnUna_bloqueanEnLaOtra() {
+        registrarTiendaYEntrar(primera, "intentos@dos-instancias.com", "900200003-3");
+        for (int intento = 0; intento < 5; intento++) {
+            assertThat(estadoDelLogin(primera, "intentos@dos-instancias.com", "clave-equivocada")).isEqualTo(401);
+        }
+
+        assertThat(estadoDelLogin(segunda, "intentos@dos-instancias.com", CLAVE)).isEqualTo(429);
+    }
+
+    @Test
     @DisplayName("La revision con IA que pidio una instancia la devuelve la otra, sin volver a llamar al modelo")
     void revisionDeUna_laDevuelveLaOtra() {
         String token = registrarTiendaYEntrar(primera, "revision@dos-instancias.com", "900200002-2");
@@ -149,6 +160,13 @@ class DosInstanciasTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .body(JsonNode.class);
+    }
+
+    private static int estadoDelLogin(ConfigurableApplicationContext instancia, String email, String clave) {
+        return HTTP.post().uri(url(instancia, "/api/v1/auth/login"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("email", email, "password", clave))
+                .exchange((peticion, respuesta) -> respuesta.getStatusCode().value());
     }
 
     private static int estadoDeUnaLectura(ConfigurableApplicationContext instancia, String token) {
