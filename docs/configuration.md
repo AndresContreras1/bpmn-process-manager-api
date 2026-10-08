@@ -33,6 +33,8 @@ The tests tagged `postgres` leave the profile's database aside and run against a
 | `CACHE_VERSIONES_MAXIMO` · `CACHE_VERSIONES_INACTIVIDAD` | Versions each cache remembers at a time, and how long an unused entry is kept | `200` · `2h` |
 | `DB_POOL_SIZE` | Connections to PostgreSQL, the real ceiling of concurrent work (`prod`) | `10` |
 | `MANAGEMENT_PORT` | Port of Actuator in `prod`: the probes and Prometheus read it inside the network, and it is not published | `8081` |
+| `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` | Where to send the spans, over OTLP and HTTP, for example `http://collector:4318/v1/traces`. Unset, no span leaves the API, and the `traceId` still reaches the logs and the errors. Leave it out rather than empty: an empty value counts as set | None |
+| `TRACING_SAMPLING` | Share of the requests whose trace is sent, from `0` to `1` | `0.1` |
 | `SERVER_THREADS` | Threads that serve requests; the rest queue up (`prod`) | `200` |
 | `GEMINI_API_KEY` | Key for the AI review. Without it the review answers `503` and nothing else changes. | None |
 | `GEMINI_MODEL` · `GEMINI_BASE_URL` · `GEMINI_TIMEOUT` | Model, address and how long to wait for it | `gemini-3.8-flash` · Google endpoint · `20s` |

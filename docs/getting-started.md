@@ -159,3 +159,19 @@ carries the store: a tag per store would create a new series every time someone 
 reads without regular expressions. Every line written while a request is served carries its `requestId`, the same id
 that comes back in the `X-Request-Id` header and in every error, so a support ticket that quotes it leads straight to
 the lines of that request.
+
+**Traces.** Every request is also a trace, with OpenTelemetry: its `traceId` goes into each log line and into every
+error, next to the `requestId`. Inside the trace, besides the HTTP request and its queries, the engine and the
+diagnosis have spans of their own: `avanzar el caso`, with the case, and `diagnosticar el diagrama` or
+`diagnosticar antes de publicar`, with the process. The same observations are timers in the metrics
+(`procesos_motor_avanzar_seconds`, tagged with the state the case is left in, and `procesos_diagnostico_seconds`).
+
+The API sends spans only when it is told where. To see them on a laptop, Jaeger takes OTLP and shows them:
+
+```bash
+docker run -d --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/jaeger:2.21.0
+MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://localhost:4318/v1/traces TRACING_SAMPLING=1.0 ./mvnw spring-boot:run
+```
+
+The traces are then at `http://localhost:16686`, under the service `procesos`. By default one request in ten is sent
+(`TRACING_SAMPLING=0.1`): the `traceId` exists for all of them, but storing every trace costs more than it tells.

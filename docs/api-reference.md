@@ -120,12 +120,14 @@ Errors follow RFC 9457 (Problem Details):
   "status": 404,
   "detail": "Proceso no encontrado.",
   "instance": "/api/v1/procesos/99",
-  "requestId": "3f2b9c1e-6a4d-4f7e-9b1a-0c2d8e5f7a61"
+  "requestId": "3f2b9c1e-6a4d-4f7e-9b1a-0c2d8e5f7a61",
+  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736"
 }
 ```
 
 Every response carries an `X-Request-Id` header, and every error repeats it as `requestId`: it is the id of the
-request in the logs, so it is what to quote when reporting a problem. A request that already brings an
+request in the logs, so it is what to quote when reporting a problem. `traceId` is the id of its trace, for whoever
+looks at it in a tracing backend. A request that already brings an
 `X-Request-Id`, from a proxy in front or from a client, keeps it when it is up to 64 letters, digits, dots,
 underscores or hyphens; otherwise the API assigns a new one. The web container of the Compose stack sends the id
 NGINX gives each request.
