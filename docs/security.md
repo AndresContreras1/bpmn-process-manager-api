@@ -123,3 +123,7 @@ a build step or a leaked key has compromised other projects:
 
 Values that look like secrets and are not, such as the signing key of the unit tests, are allowed by value in
 `.gitleaks.toml`, never by path, so a real key in the same file would still be found.
+
+A major version of a base image is a decision rather than an update, so Dependabot only offers the rebuilds
+and the minor releases of the images: moving to the next Java or Node line, or to a new PostgreSQL, comes in
+a pull request of its own.
