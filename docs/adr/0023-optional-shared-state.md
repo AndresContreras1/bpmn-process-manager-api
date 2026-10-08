@@ -2,7 +2,7 @@
 
 # ADR-0023: Optional shared state
 
-- **Status:** Not implemented
+- **Status:** Not implemented; superseded by [ADR-0034](0034-postgresql-for-shared-state.md)
 - **Decided in:** plan v3 (D23)
 
 ## Context

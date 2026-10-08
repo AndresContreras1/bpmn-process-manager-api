@@ -20,6 +20,8 @@
 - [x] Short-lived access tokens with refresh tokens
 - [x] Rate limiting on login (`429` with `Retry-After`)
 - [x] Scheduled purge of expired sessions, refresh tokens and old idempotency keys
+- [x] Several instances on one database: closed sessions announced with `LISTEN/NOTIFY`, failed logins and AI
+      reviews in tables, and every scheduled job locked with ShedLock
 
 **Data and auditability**
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
