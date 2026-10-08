@@ -176,13 +176,21 @@ jobs:
 
       - name: Verify the API answers from the container
         run: |
-          docker run -d --name api -p 8080:8080 \
+          # The image in its default profile, against a throwaway PostgreSQL of the image the stack uses. The check
+          # goes over TCP: only the final server listens there, not the one PostgreSQL runs while it initialises.
+          docker network create humo
+          docker run -d --name db --network humo -e POSTGRES_DB=procesos -e POSTGRES_USER=procesos \
+            -e POSTGRES_PASSWORD=ci-only-password "$(sed -n 's/^ *image: \(postgres:.*\)$/\1/p' compose.yaml)"
+          until docker exec db pg_isready -q -h 127.0.0.1 -U procesos -d procesos; do sleep 1; done
+          docker run -d --name api --network humo -p 8080:8080 \
             -e JWT_SECRET=ci-only-signing-key-with-at-least-32-characters \
-            -e SPRING_DATASOURCE_URL=jdbc:h2:mem:ci \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/procesos \
+            -e SPRING_DATASOURCE_USERNAME=procesos -e SPRING_DATASOURCE_PASSWORD=ci-only-password \
             bpmn-process-manager-api:${{ github.sha }}
           for intento in $(seq 1 30); do
             if curl -fs http://localhost:8080/v3/api-docs > /dev/null; then
               echo "The API is up."
+              docker rm -f api db > /dev/null
               exit 0
             fi
             sleep 2
