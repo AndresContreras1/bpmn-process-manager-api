@@ -178,8 +178,9 @@ the role from the observable rather than from a snapshot, because the navbar is 
   Changing your own password closes every session of yours and opens a new one here,
   because that is what the API answers. Somebody who signed in with a temporary password is sent here by the route
   guard and kept here until they change it, since the API answers `403` to everything else.
-- **Store settings** (`/configuracion`): who may change the structure of a diagram. The simulation parameters are
-  saved empty on purpose; they belong to running processes.
+- **Store settings** (`/configuracion`): who may change the structure of a diagram, and how long a session lasts
+  without being used and after its sign-in. The simulation parameters are saved empty on purpose; they belong to
+  running processes.
 - **Store history** (`/historial`): everything that happened, paged, newest first. For administrators
   only, like the three above, because that is what the API allows.
 

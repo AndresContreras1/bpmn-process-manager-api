@@ -19,6 +19,12 @@
 - [x] Authentication through `AuthenticationManager` and `UserDetailsService`, without revealing whether an email exists
 - [x] Short-lived access tokens with refresh tokens
 - [x] Verifying the e-mail, recovering the password and inviting by e-mail, with single-use links
+- [x] Passwords as NIST SP 800-63B-4 asks: 15 characters and no composition rules, checked against leaked ones and
+      the person's own data, with hashes that carry their algorithm and are redone on login
+- [x] Sessions with an idle timeout and a maximum duration that each store chooses, within AAL2
+- [x] Closing a store with 30 days of read-only grace and then deleting everything it had, and anonymizing a
+      person on request
+- [ ] Exporting a store's data during the 30 days of its closing
 - [x] The browser's session in `HttpOnly` cookies with a CSRF token, and a JWT as RFC 8725 asks, with a signing key
       that rotates without closing sessions
 - [x] Rate limiting on login (`429` with `Retry-After`)

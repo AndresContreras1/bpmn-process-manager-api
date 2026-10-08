@@ -24,11 +24,11 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `DB_USER` · `DB_PASSWORD` | Database credentials | `procesos` · empty |
 | `JWT_SECRET` | HS256 signing key of at least 32 bytes. The `prod` profile does not start without it. | None |
 | `JWT_PREVIOUS_SECRET` | The signing key before the last rotation: its tokens are still accepted, and nobody signs with it. Empty outside a rotation | Empty |
-| `JWT_EXPIRATION_SECONDS` | Access token lifetime | `900` |
-| `JWT_REFRESH_EXPIRATION_SECONDS` | Refresh token lifetime. Every renewal issues a new refresh token. | `604800` (7 days) |
+| `JWT_EXPIRATION_SECONDS` | Access token lifetime. Keep it under 30 minutes, the shortest idle timeout a store can choose: the refresh token and the session last what each store decides in its settings | `900` |
+| `CLAVES_COSTO_BCRYPT` | Cost of BCrypt, from 4 to 31: each step doubles the time of a hash. Raising it invalidates no password, because each login rehashes with the new one | `10` |
 | `LOGIN_MAX_FAILED_ATTEMPTS` · `LOGIN_FAILED_ATTEMPTS_WINDOW` | Failed logins for an email from one address before `429`, and the window that counts them | `5` · `15m` |
 | `CORS_ALLOWED_ORIGINS` | Allowed storefront or back-office origins | `http://localhost:4200` |
-| `LIMPIEZA_CRON` | When the nightly purge runs. `-` turns it off. | `0 30 3 * * *` |
+| `LIMPIEZA_CRON` | When the nightly purge runs; it also deletes the stores whose closing is 30 days old. `-` turns it off. | `0 30 3 * * *` |
 | `LIMPIEZA_RETENCION_SESIONES` | How long a dead session and its expired refresh tokens are kept. Never shorter than the access token lifetime. | `7d` |
 | `LIMPIEZA_RETENCION_IDEMPOTENCIA` | How long a spent idempotency key is kept | `24h` |
 | `SIMULACION_TICK` | How often the clock of the stores that asked for it advances one tick. A store in `MANUAL`, which is the default, never moves by itself. | `30s` |
