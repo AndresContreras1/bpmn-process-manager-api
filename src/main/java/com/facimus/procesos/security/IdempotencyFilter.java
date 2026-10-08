@@ -1,7 +1,7 @@
 package com.facimus.procesos.security;
 
-import java.io.ByteArrayInputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -18,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import com.facimus.procesos.common.Huella;
+import com.facimus.procesos.common.api.Problemas;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.response.ReservaIdempotencia;
 import com.facimus.procesos.gestion.model.ClaveIdempotencia;
@@ -120,8 +121,7 @@ public class IdempotencyFilter extends OncePerRequestFilter {
 
     private void problema(HttpServletResponse response, HttpServletRequest request, HttpStatus estado, String titulo,
             String detalle) throws IOException {
-        ProblemDetail problema = ProblemDetail.forStatusAndDetail(estado, detalle);
-        problema.setTitle(titulo);
+        ProblemDetail problema = Problemas.de(estado, titulo, detalle);
         problema.setInstance(URI.create(request.getRequestURI()));
         response.setStatus(estado.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);

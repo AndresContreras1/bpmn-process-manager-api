@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Component;
 
+import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
@@ -14,6 +15,9 @@ import lombok.RequiredArgsConstructor;
 /**
  * Lo que le paso a un caso, escrito en el momento en que paso. Solo inserta: la linea de tiempo de un caso es lo
  * que se lee cuando algo no salio como se esperaba, y una bitacora que se corrige no sirve para eso.
+ *
+ * <p>Cada linea tambien suma en el contador de su tipo: lo que les pasa a los casos pasa por aqui, sea cual sea el
+ * camino por el que llego.
  */
 @Component
 @RequiredArgsConstructor
@@ -23,6 +27,7 @@ class Bitacora {
     private static final int LARGO_DEL_DETALLE = 2000;
 
     private final EventoCasoRepository eventoCasoRepository;
+    private final MetricasDeNegocio metricas;
 
     /**
      * El tick llega de fuera, del {@link Momento} de la operacion: todo lo que pasa en una misma transaccion pasa
@@ -38,6 +43,7 @@ class Bitacora {
                 .detalle(recortar(detalle))
                 .autorId(autorId)
                 .build());
+        metricas.eventoDeCaso(tipo);
     }
 
     /** Lo que el motor hizo por su cuenta: pasa en un tick, pero no lo hizo nadie. */

@@ -34,6 +34,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import com.facimus.procesos.common.api.IdDePeticionFilter;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.request.CerrarSesionRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
@@ -369,7 +370,7 @@ class SeguridadIntegracionTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(ADMIN, CLAVE)))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
-                        "Location, Retry-After, Idempotent-Replayed"));
+                        "Location, Retry-After, Idempotent-Replayed, X-Request-Id"));
     }
 
     @Test
@@ -458,9 +459,14 @@ class SeguridadIntegracionTest {
     private record Tokens(String access, String refresh) {
     }
 
-    /** El cuerpo del 401, que no puede cambiar segun el motivo del fallo. */
+    /**
+     * El cuerpo del 401, que no puede cambiar segun el motivo del fallo. Los intentos llevan el mismo id de peticion:
+     * es lo unico que cambiaria entre dos respuestas, y quien llama es quien lo pone. Con el mismo id, dos fallos
+     * tienen que responder exactamente lo mismo.
+     */
     private String loginFallido(String email, String password) throws Exception {
         return mockMvc.perform(post("/api/v1/auth/login")
+                        .header(IdDePeticionFilter.CABECERA, "intento-de-login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, password))))
                 .andExpect(status().isUnauthorized())

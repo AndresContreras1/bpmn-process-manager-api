@@ -11,6 +11,8 @@ import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.security.web.firewall.RequestRejectedHandler;
 import org.springframework.stereotype.Component;
 
+import com.facimus.procesos.common.api.Problemas;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.json.JsonMapper;
@@ -35,9 +37,8 @@ public class FirewallRejectionHandler implements RequestRejectedHandler {
             RequestRejectedException requestRejectedException) throws IOException {
         log.debug("Solicitud rechazada por el firewall: {}", requestRejectedException.getMessage());
         // Sin instance: la URL rechazada puede no ser una URI valida (por ejemplo con "\")
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+        ProblemDetail problem = Problemas.de(HttpStatus.BAD_REQUEST, "Solicitud rechazada",
                 "La URL de la solicitud no es valida.");
-        problem.setTitle("Solicitud rechazada");
 
         response.setStatus(HttpStatus.BAD_REQUEST.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);

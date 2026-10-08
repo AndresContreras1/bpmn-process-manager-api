@@ -128,11 +128,34 @@ database with Demo Store. For persistent data, use the `prod` profile with Postg
 
 ## Operations endpoints
 
+In `dev` and in the tests, Actuator answers on the port of the API. In `prod` it moves to a port of its own,
+`MANAGEMENT_PORT` (`8081`), which the Compose stack does not publish and the web container does not forward: only the
+containers of the stack reach it. The port of the API then has nothing of Actuator.
+
 | Endpoint | Who can call it | What it answers |
 |---|---|---|
 | `GET /actuator/health` | Anyone | `UP` or `DOWN`, with no detail of what runs behind it |
 | `GET /actuator/health/liveness` · `/readiness` | Anyone | The probes a container or an orchestrator polls; readiness covers the database |
 | `GET /actuator/info` | Anyone | The name and version of the running build |
-| `GET /actuator/metrics` | Administrator | JVM, pool and HTTP metrics one by one, the four gauges of the operation, and the hits and misses of the published-version cache |
+| `GET /actuator/prometheus` | Anyone who reaches the port | Every metric in the format Prometheus scrapes, each one tagged `application="procesos"` |
+| `GET /actuator/metrics` | Administrator | JVM, pool and HTTP metrics one by one, the four gauges of the operation, the business counters, and the hits and misses of the published-version cache |
 
 Nothing else is exposed: any other Actuator endpoint answers `404`.
+
+Besides the four gauges of the operation (`casos.abiertos`, `tareas.pendientes` and the two message trays), three
+counters follow the business. They count what was saved: inside a transaction they go up when it commits, and one
+that rolls back counts nothing.
+
+| Counter | Tags | What it counts |
+|---|---|---|
+| `casos.eventos` | `tipo`: `caso_abierto`, `tarea_completada`, `caso_terminado`, `caso_cancelado`, `sin_camino`… one per line type of a case timeline | Everything that happens to the cases, whatever path it came through |
+| `versiones.publicadas` | — | Versions published |
+| `login.fallidos` | `motivo`: `credenciales` or `bloqueado` | Logins that failed, and the ones refused without checking the password because the email was locked |
+
+In Prometheus they are `casos_eventos_total`, `versiones_publicadas_total` and `login_fallidos_total`. None of them
+carries the store: a tag per store would create a new series every time someone registers.
+
+**Logs.** In `prod` every line is a JSON document in the Elastic Common Schema, one per event, which a log collector
+reads without regular expressions. Every line written while a request is served carries its `requestId`, the same id
+that comes back in the `X-Request-Id` header and in every error, so a support ticket that quotes it leads straight to
+the lines of that request.

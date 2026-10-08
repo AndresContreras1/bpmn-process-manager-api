@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
 import com.facimus.procesos.gestion.mapper.VersionProcesoMapper;
 import com.facimus.procesos.gestion.model.EstadoVersion;
@@ -43,6 +44,7 @@ public class VersionServiceImpl implements VersionService {
     private final UsuarioRepository usuarioRepository;
     private final HistorialCambioService historialCambioService;
     private final VersionProcesoMapper versionProcesoMapper;
+    private final MetricasDeNegocio metricas;
 
     /** Los numeros no se reusan: si la ultima version se retiro, la siguiente sigue contando desde ella. */
     @Override
@@ -63,6 +65,7 @@ public class VersionServiceImpl implements VersionService {
                 .huella(instantanea.huella())
                 .definicion(instantanea.definicion())
                 .build());
+        metricas.versionPublicada();
     }
 
     @Override

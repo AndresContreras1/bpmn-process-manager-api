@@ -9,6 +9,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Component;
 
 import com.facimus.procesos.common.DemasiadosIntentosException;
+import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 
 /**
@@ -21,10 +22,13 @@ public class LoginAuthenticator {
 
     private final AuthenticationManager authenticationManager;
     private final AttemptLimiter limitador;
+    private final MetricasDeNegocio metricas;
 
-    public LoginAuthenticator(AuthenticationManager authenticationManager, AttemptLimiter limitador) {
+    public LoginAuthenticator(AuthenticationManager authenticationManager, AttemptLimiter limitador,
+            MetricasDeNegocio metricas) {
         this.authenticationManager = authenticationManager;
         this.limitador = limitador;
+        this.metricas = metricas;
     }
 
     /** Si el correo no existe, el usuario esta desactivado o la clave falla, lanza siempre el mismo BadCredentials. */
@@ -32,6 +36,7 @@ public class LoginAuthenticator {
         // Ana@Acme.com y ana@acme.com son la misma cuenta: cambiar mayusculas no da intentos nuevos.
         String clave = email.trim().toLowerCase(Locale.ROOT) + "|" + ip;
         limitador.espera(clave).ifPresent(espera -> {
+            metricas.loginFallido(true);
             throw new DemasiadosIntentosException(espera);
         });
         try {
@@ -41,6 +46,7 @@ public class LoginAuthenticator {
             return ((UserAccount) autenticado.getPrincipal()).usuario();
         } catch (AuthenticationException e) {
             limitador.registrar(clave);
+            metricas.loginFallido(false);
             throw e;
         }
     }
