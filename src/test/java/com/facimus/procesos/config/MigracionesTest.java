@@ -97,7 +97,8 @@ class MigracionesTest {
                         "V19__bandejas_de_mensajes.sql", "V20__cuerpos_de_los_mensajes.sql",
                         "V21__parametros_de_simulacion.sql",
                         "V22__revisiones_ia.sql",
-                        "V23__intentos_de_login.sql");
+                        "V23__intentos_de_login.sql",
+                        "V24__shedlock.sql");
     }
 
     @Test

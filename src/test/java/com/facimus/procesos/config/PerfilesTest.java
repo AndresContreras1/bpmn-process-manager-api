@@ -16,6 +16,7 @@ import org.springframework.boot.web.server.autoconfigure.ServerProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -57,6 +58,16 @@ class PerfilesTest {
         @DisplayName("dev programa la purga nocturna de las tablas tecnicas")
         void dev_programaLaPurga() {
             assertThat(context.getBeanNamesForType(LimpiezaConfig.class)).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("Cada trabajo programado toma su candado en la base antes de correr")
+        void dev_cadaTrabajoTomaSuCandado() {
+            context.getBean(LimpiezaConfig.class).limpiar();
+            context.getBean(SimulacionConfig.class).mover();
+
+            assertThat(context.getBean(JdbcTemplate.class).queryForList("select name from shedlock", String.class))
+                    .containsExactlyInAnyOrder("limpieza", "reloj-de-simulacion");
         }
 
         @Test
