@@ -22,6 +22,9 @@
 - [x] Scheduled purge of expired sessions, refresh tokens and old idempotency keys
 - [x] Several instances on one database: closed sessions announced with `LISTEN/NOTIFY`, failed logins and AI
       reviews in tables, and every scheduled job locked with ShedLock
+- [x] Security headers on the API and the web app: a strict CSP with the script hashes of the build, HSTS, COOP
+      and CORP, and Trusted Types in report mode; the forwarded headers believed only from the internal network
+- [ ] HSTS preload, a month after production runs on HTTPS
 
 **Data and auditability**
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes

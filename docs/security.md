@@ -63,6 +63,40 @@ attempts over several instances gives no extra tries. Each instance keeps the cl
 is what lets the JWT filter run no SQL, and learns of a session closed in another one at once, through
 PostgreSQL's `NOTIFY`; [Several instances](architecture.md#several-instances) has the detail.
 
+## Headers and HTTPS
+
+Every response tells the browser what it may do with it. The API answers JSON and never a page, so its policy
+lets nothing load and nobody frame it. The web app, which NGINX serves, gets a policy that allows what the app is
+made of and nothing else:
+
+| Header | API | Web app |
+|---|---|---|
+| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` | Everything from its own origin; scripts only the ones Angular hashed when it built the app; no plugins, no frames, no forms sent elsewhere |
+| `Content-Security-Policy-Report-Only` | — | Trusted Types, in report mode: the console says what they would block, and nothing breaks |
+| `Strict-Transport-Security` | A year, subdomains included, on what arrived over HTTPS | The same; a browser only honours it over HTTPS |
+| `X-Content-Type-Options` | `nosniff` | `nosniff` |
+| `X-Frame-Options` | `DENY` | `DENY` |
+| `Referrer-Policy` | `no-referrer` | `same-origin` |
+| `Permissions-Policy` | No camera, microphone, location, payments, USB or motion sensors | The same |
+| `Cross-Origin-Opener-Policy` · `Cross-Origin-Resource-Policy` | `same-origin` | `same-origin` |
+
+The hashes of the scripts come from the build. Angular's `autoCsp` leaves two small scripts in the index, the one
+that loads the bundles and the one that turns the stylesheet on, and hashes them; the image of the web app copies
+those hashes into the header NGINX sends, so a change to the index changes them by itself. Two exceptions are
+written down rather than hidden: the styles of the web app allow `'unsafe-inline'`, because Angular puts the
+styles of each component in the page when it draws it, and Swagger UI, which only exists outside `prod`, gets a
+policy that lets it load its own scripts and styles.
+
+Behind the proxy, `prod` believes `X-Forwarded-For` and `X-Forwarded-Proto` only from addresses of the internal
+network (Tomcat's `RemoteIpValve`): the login limit counts the client and not the proxy, and what arrived over
+HTTPS gets HSTS. That is why the Compose stack publishes the API's own port only on `127.0.0.1`, and why in
+production nothing but the proxy reaches the API. With a CDN in front, the proxy has to write the client it
+trusts into `X-Forwarded-For`.
+
+A test reads the headers of every route of the API, the pipeline reads those of every kind of response of the web
+container, a missing file included, and the end-to-end tests fail if the browser's console reports something the
+CSP blocked.
+
 ## Data isolation
 
 A platform that hosts many stores must never show one store's data to another. The design enforces this instead of
