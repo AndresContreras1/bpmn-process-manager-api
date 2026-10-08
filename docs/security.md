@@ -34,21 +34,37 @@ or having it reset, closes them too.
 
 1. `POST /api/v1/empresas` registers a store together with its first administrator.
 2. `POST /api/v1/auth/login` checks the credentials through Spring Security's `AuthenticationManager` and opens a
-   session with two tokens:
-   - The **access token** is a JWT signed with `JWT_SECRET` that expires after 15 minutes. Its claims are the email,
+   session with two tokens, which travel in cookies the page's JavaScript cannot read (D29):
+   - The **access token** is a JWT signed with `JWT_SECRET` that expires after 15 minutes. It goes in
+     `__Host-acceso`, for the whole API. As RFC 8725 asks, it says who issued it (`iss`), for whom (`aud`), has an
+     id of its own (`jti`) and names in its header the key that signed it (`kid`). Its other claims are the email,
      `usuarioId`, `empresaId`, the role and the session (`sid`).
-   - The **refresh token** is 256 random bits. The database stores only its SHA-256 hash, so a copy of the database
-     cannot open a session.
-3. Clients send `Authorization: Bearer <access token>`. The filter builds the principal from the claims, without a
-   database query, and rejects the tokens of a closed session.
-4. `POST /api/v1/auth/refresh` exchanges the refresh token for a new pair in the same session. Each refresh token
-   works once. A refresh token that was already used means that a copy exists, so the whole session is closed.
-5. `POST /api/v1/auth/logout` closes the session. Deactivating a user or changing their role closes all of their
-   sessions, so the old role stops working at once.
+   - The **refresh token** is 256 random bits. It goes in `__Secure-refresco`, which only travels to
+     `/api/v1/auth`. The database stores only its SHA-256 hash, so a copy of the database cannot open a session.
 
-Public endpoints are limited to store registration, login, token renewal and the API documentation (not published
-in `prod`). The role matrix in [Roles and permissions](#roles-and-permissions) is defined in
-one place, the security configuration, and decides `401` or `403` before any controller runs.
+   Both cookies are `HttpOnly`, `Secure` and `SameSite=Lax`, and the body of the answer carries no token: it says
+   who signed in and when the access expires.
+3. The browser sends the cookies back by itself. The filter builds the principal from the claims of the access
+   token, without a database query, and rejects the tokens of a closed session. `Authorization: Bearer` is left
+   for API keys.
+4. `POST /api/v1/auth/refresh` exchanges the refresh cookie for new cookies of the same session. Each refresh token
+   works once. A refresh token that was already used means that a copy exists, so the whole session is closed.
+5. `POST /api/v1/auth/logout` closes the session of the cookies and clears them, even with an expired access token.
+   Deactivating a user or changing their role closes all of their sessions, so the old role stops working at once.
+
+A browser sends cookies to their site whatever page asked for the request, so what changes something with the
+session cookies, and the login itself, also has to send the CSRF token: the value of the `XSRF-TOKEN` cookie in the
+header `X-XSRF-TOKEN`. Only pages of the app's own origin can read that cookie, so another site cannot send it.
+The web app gets the cookie from `GET /api/v1/auth/csrf` when it starts, and Angular's `HttpClient` copies it into
+every change. Without it the answer is `403` with the title "Sin token CSRF". A request without session cookies
+has no session to borrow, and does not need it: the registration of a store, and API keys when they arrive.
+
+Rotating the signing key does not close sessions: `JWT_PREVIOUS_SECRET` keeps accepting the tokens of the old key,
+which nobody signs with any more, for the fifteen minutes they live ([runbook](runbook.md)).
+
+Public endpoints are limited to store registration, login, renewal, logout, the CSRF token and the API
+documentation (not published in `prod`). The role matrix in [Roles and permissions](#roles-and-permissions) is
+defined in one place, the security configuration, and decides `401` or `403` before any controller runs.
 
 ## Login protection
 
@@ -134,7 +150,7 @@ is ever shown, and `debeCambiarClave: true`. Whoever signs in with it can only c
 `logout` and `refresh`; anything else answers `403` with "Debe cambiar su contraseña antes de seguir.".
 
 `POST /api/v1/auth/password` takes the password in use and the new one. It closes every session of that user,
-this one included, and answers a new session with its tokens: the ones that come back are the ones to keep.
+this one included, and opens a new one with new cookies.
 `POST /api/v1/usuarios/{id}/restablecer-clave` does the same from the other side, for an administrator, and answers
 another temporary password.
 

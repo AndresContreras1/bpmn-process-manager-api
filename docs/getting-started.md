@@ -31,26 +31,29 @@ the refresh token, which is stored in the database, renews them.
 
 ## First requests
 
-The examples use `jq` to read the token.
+The session travels in cookies, as it does for a browser, so curl keeps them in a jar (`sesion.txt`), and every
+change sends back the CSRF token of that jar ([Sessions](api-reference.md#sessions)).
 
 ```bash
-# Sign in as the Demo Store administrator
-TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" \
-  -d '{"email":"admin@demo.com","password":"admin123"}' | jq -r .accessToken)
+# The CSRF token, and then sign in as the Demo Store administrator
+curl -s -c sesion.txt http://localhost:8080/api/v1/auth/csrf
+XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
+curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/login -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"admin123"}'
 
 # List the store's processes
-curl -s http://localhost:8080/api/v1/procesos -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/procesos -b sesion.txt
 
 # Read a whole process: participants, lanes, steps, flows and messages
-curl -s http://localhost:8080/api/v1/procesos/{id}/diagrama -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/procesos/{id}/diagrama -b sesion.txt
 
 # Register another store; its processes and Demo Store's are invisible to each other
 curl -s -X POST http://localhost:8080/api/v1/empresas -H "Content-Type: application/json" \
   -d '{"nombreEmpresa":"Acme Store","nit":"901234567-8","correoContacto":"contact@acme.com","nombreAdmin":"Ana","emailAdmin":"ana@acme.com","passwordAdmin":"secret123"}'
 ```
 
-The login also returns a `refreshToken`. Before the access token expires, exchange it for a new pair with
-`POST /api/v1/auth/refresh` and the body `{"refreshToken": "..."}`.
+The access cookie lasts fifteen minutes. Before it expires, `POST /api/v1/auth/refresh` with the same jar and the
+same `X-XSRF-TOKEN` header trades the refresh cookie for new ones.
 
 ## Run the web app
 

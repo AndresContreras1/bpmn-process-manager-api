@@ -99,9 +99,9 @@ queue takes it back by itself.
 lists what a listener did not finish; the log line of its failure says why. The next start of an instance
 delivers it again, and a listener can take the same event twice.
 
-**The JWT signing key leaked.** Generate a new `JWT_SECRET` of at least 32 bytes, put it in `.env` and recreate the
-API with `docker compose up -d api`. Every access and refresh token signed with the old key stops working, so every
-person signs in again; that is the point.
+**The JWT signing key leaked.** Generate a new `JWT_SECRET` of at least 32 bytes, put it in `.env`, leave
+`JWT_PREVIOUS_SECRET` empty and recreate the API with `docker compose up -d api`. Every access token signed with the
+old key stops working, so every person renews or signs in again; that is the point.
 
 **The database password leaked.** Change it in PostgreSQL (`ALTER ROLE procesos PASSWORD '...'`), then in `.env`, and
 recreate the API.
@@ -147,5 +147,6 @@ kills the container 30 seconds after asking. `docker compose down` keeps the dat
 | Every Monday | Read the Dependabot pull requests: each one runs the whole pipeline, and a green one can be merged |
 | Every September | Renew `Expires` in `frontend/public/.well-known/security.txt`; the pipeline starts failing a month before it passes |
 | When a person leaves | Deactivate their user: their sessions close at once |
+| Rotating the signing key | Move the key in use to `JWT_PREVIOUS_SECRET`, put a new one in `JWT_SECRET` and recreate the API: nobody is signed out. Fifteen minutes later, when no token of the old key is still alive, empty `JWT_PREVIOUS_SECRET` and recreate it again |
 | Before a new major of PostgreSQL | Take a backup and restore it into the new version; Dependabot does not offer majors of the images |
 | A month after production runs on HTTPS | If every subdomain is on HTTPS, add `preload` to `Strict-Transport-Security` in `frontend/cabeceras.conf` and submit the domain at hstspreload.org. Leaving that list takes months |
