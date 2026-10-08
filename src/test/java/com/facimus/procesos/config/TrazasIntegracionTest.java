@@ -48,7 +48,7 @@ import tools.jackson.databind.json.JsonMapper;
 class TrazasIntegracionTest {
 
     private static final String ADMIN = "admin@trazas.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     @Nested
     @SpringBootTest

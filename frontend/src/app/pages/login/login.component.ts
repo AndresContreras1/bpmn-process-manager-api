@@ -46,7 +46,7 @@ export class LoginComponent implements OnInit {
   }
 
   usarCuentaDemo(): void {
-    this.loginForm.setValue({ email: 'admin@demo.com', password: 'admin123' });
+    this.loginForm.setValue({ email: 'admin@demo.com', password: 'every-order-on-time' });
   }
 
   iniciarSesion(): void {

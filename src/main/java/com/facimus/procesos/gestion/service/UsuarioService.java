@@ -46,6 +46,12 @@ public interface UsuarioService {
     Optional<CredencialesUsuario> buscarCredenciales(String email);
 
     /**
+     * El hash de la misma clave, rehecho por el login con el algoritmo y el costo de hoy. No es un cambio de nadie: no
+     * va al historial, no cierra sesiones ni cambia la version del usuario.
+     */
+    void renovarHash(Long empresaId, Long usuarioId, String hash);
+
+    /**
      * HU-02: una pagina de colaboradores de la tienda. El nombre es una parte, sin distinguir mayusculas, y los
      * desactivados solo salen si se piden: siguen existiendo para poder reactivarlos.
      */

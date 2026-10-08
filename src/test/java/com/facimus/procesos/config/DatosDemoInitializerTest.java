@@ -43,7 +43,7 @@ class DatosDemoInitializerTest {
     void iniciarSesionComoAdminDemo() throws Exception {
         token = SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest("admin@demo.com", "admin123"))))
+                        .content(jsonMapper.writeValueAsString(new LoginRequest("admin@demo.com", "every-order-on-time"))))
                 .andExpect(status().isOk()));
     }
 

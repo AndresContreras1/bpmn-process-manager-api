@@ -18,7 +18,7 @@ class OperarUnPedidoTest extends PruebaE2E {
     @DisplayName("abre un caso, lo atiende desde la bandeja y el tablero lo cuenta")
     void abreUnCasoLoAtiendeYLoCuenta() {
         ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Operacion", nitDe("operar"),
-                correoDe("operar"), "operar12345");
+                correoDe("operar"), "caminos-de-tierra");
         long proceso = api.crearProceso("Order fulfillment", "From checkout to delivery.", "Fulfillment");
         long pool = api.poolDeLaTienda(proceso);
         long rol = api.crearRol("Warehouse");
@@ -90,7 +90,7 @@ class OperarUnPedidoTest extends PruebaE2E {
     @DisplayName("mueve el reloj de la tienda y despues cambia como responden los socios")
     void mueveElRelojYAjustaLosSocios() {
         ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Reloj", nitDe("reloj"),
-                correoDe("reloj"), "reloj12345");
+                correoDe("reloj"), "campos-de-lavanda");
         entrar(tienda);
 
         ir("/simulacion");

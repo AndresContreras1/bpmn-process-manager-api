@@ -62,8 +62,9 @@
                 <div class="form-floating">
                   <input type="password" class="form-control" id="registro-password-admin" formControlName="passwordAdmin"
                          placeholder="Password" autocomplete="new-password">
-                  <label for="registro-password-admin">Password (6 to 72 characters)</label>
+                  <label for="registro-password-admin">Password (15 to 72 characters)</label>
                   <app-error-campo [control]="registroForm.get('passwordAdmin')" />
+                  <div class="form-text small">A few words make a good one: no symbols or capitals needed.</div>
                 </div>
               </div>
             </div>

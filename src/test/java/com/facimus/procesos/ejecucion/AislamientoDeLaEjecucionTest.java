@@ -61,7 +61,7 @@ class AislamientoDeLaEjecucionTest {
 
     private static final String ADMIN_A = "admin@ejecucion-a.com";
     private static final String ADMIN_B = "admin@ejecucion-b.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
     private static final String NIT_A = "900910001";
 
     @Autowired

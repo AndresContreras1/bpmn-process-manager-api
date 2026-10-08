@@ -9,7 +9,7 @@ public record LoginRequest(
         @Schema(example = "admin@demo.com")
         @NotBlank(message = "El correo es obligatorio.")
         @Size(max = 254, message = "El correo no puede superar 254 caracteres.") String email,
-        @Schema(example = "admin123", format = "password")
+        @Schema(example = "every-order-on-time", format = "password")
         @NotBlank(message = "La contrasena es obligatoria.")
         @Size(max = 72, message = "La contrasena no puede superar 72 caracteres.") String password) {
 }

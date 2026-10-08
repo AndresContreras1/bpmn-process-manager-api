@@ -44,6 +44,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final UsuarioMapper usuarioMapper;
     private final SesionService sesionService;
     private final HistorialCambioService historialCambioService;
+    private final PoliticaDeClaves politicaDeClaves;
 
     private static final SecureRandom ALEATORIO = new SecureRandom();
 
@@ -58,6 +59,9 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         // D17: sin contrasena, la API genera una temporal y la devuelve una sola vez.
         boolean temporal = !StringUtils.hasText(password);
+        if (!temporal) {
+            politicaDeClaves.comprobar(password, nombre, correo, empresa.getNombre());
+        }
         String clave = temporal ? claveTemporal() : password;
 
         Usuario usuario = usuarioRepository.save(Usuario.builder()
@@ -173,6 +177,8 @@ public class UsuarioServiceImpl implements UsuarioService {
         if (passwordEncoder.matches(nueva, usuario.getPasswordHash())) {
             throw new SolicitudInvalidaException("La contraseña nueva tiene que ser distinta de la actual.");
         }
+        politicaDeClaves.comprobar(nueva, usuario.getNombre(), usuario.getEmail(),
+                usuario.getEmpresa().getNombre());
         usuario.setPasswordHash(passwordEncoder.encode(nueva));
         usuario.setDebeCambiarClave(false);
         usuarioRepository.saveAndFlush(usuario);
@@ -180,6 +186,12 @@ public class UsuarioServiceImpl implements UsuarioService {
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Usuario \"" + usuario.getNombre() + "\" cambió su contraseña.");
         return usuarioMapper.toResponse(usuario);
+    }
+
+    @Override
+    @Transactional
+    public void renovarHash(Long empresaId, Long usuarioId, String hash) {
+        usuarioRepository.renovarHash(empresaId, usuarioId, hash);
     }
 
     @Override
@@ -206,8 +218,9 @@ public class UsuarioServiceImpl implements UsuarioService {
      * Una contrasena temporal que una persona pueda leer y teclear: doce caracteres del alfabeto de URL, sacados de
      * la misma fuente aleatoria que los tokens de refresco. No se guarda en claro en ningun sitio.
      */
+    /** 96 bits al azar, 16 caracteres: llega al minimo de una clave que es el unico factor. */
     private static String claveTemporal() {
-        byte[] bytes = new byte[9];
+        byte[] bytes = new byte[12];
         ALEATORIO.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }

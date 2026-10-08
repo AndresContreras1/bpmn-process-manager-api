@@ -3,6 +3,9 @@ package com.facimus.procesos.gestion.repository;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.common.model.RolAcceso;
@@ -23,4 +26,10 @@ public interface UsuarioRepository extends RepositorioTenant<Usuario>, JpaSpecif
     boolean existsByEmail(String email);
 
     Optional<Usuario> findByEmail(String email);
+
+    /** Sin pasar por la entidad: un update en bloque no sube la version, y rehacer un hash no es una edicion. */
+    @Modifying
+    @Query("update Usuario u set u.passwordHash = :hash where u.empresa.id = :empresaId and u.id = :usuarioId")
+    int renovarHash(@Param("empresaId") Long empresaId, @Param("usuarioId") Long usuarioId,
+            @Param("hash") String hash);
 }

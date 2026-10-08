@@ -82,7 +82,7 @@ class VersionesDeProcesoIntegracionTest {
     @BeforeAll
     void registrarTienda() {
         empresaId = empresaService.registrar("Tienda de versiones publicadas", "900777888-1",
-                "contacto@publicadas.com", "Administradora", "admin@publicadas.com", "clave12345").id();
+                "contacto@publicadas.com", "Administradora", "admin@publicadas.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@publicadas.com").orElseThrow().getId();
     }
 

@@ -44,7 +44,7 @@ import tools.jackson.databind.json.JsonMapper;
 @AutoConfigureMockMvc
 class AdministradoresIntegracionTest {
 
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
     private static final String ULTIMO_ADMINISTRADOR =
             "La tienda tiene que conservar al menos un administrador activo.";
     private static final String PROPIA_CUENTA = "No puede desactivar su propia cuenta.";

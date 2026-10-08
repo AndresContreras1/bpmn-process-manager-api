@@ -27,7 +27,7 @@ export class CambiarClaveComponent {
 
   readonly claveForm = new FormGroup({
     actual: new FormControl('', Validators.required),
-    nueva: new FormControl('', [Validators.required, Validators.minLength(8)]),
+    nueva: new FormControl('', [Validators.required, Validators.minLength(15), Validators.maxLength(72)]),
   });
 
   enviando: boolean = false;

@@ -44,6 +44,7 @@ public class CuentaServiceImpl implements CuentaService {
     private final HistorialCambioService historialCambioService;
     private final PasswordEncoder passwordEncoder;
     private final ColaDeTrabajos cola;
+    private final PoliticaDeClaves politicaDeClaves;
     private final JsonMapper jsonMapper;
     private final Clock reloj;
 
@@ -85,6 +86,7 @@ public class CuentaServiceImpl implements CuentaService {
         if (!usuario.isActivo()) {
             throw new EnlaceNoValidoException();
         }
+        politicaDeClaves.comprobar(nueva, usuario.getNombre(), usuario.getEmail(), enlace.getEmpresa().getNombre());
         usuario.setPasswordHash(passwordEncoder.encode(nueva));
         usuario.setDebeCambiarClave(false);
         // Quien abrio el enlace probo de paso que el correo es suyo.

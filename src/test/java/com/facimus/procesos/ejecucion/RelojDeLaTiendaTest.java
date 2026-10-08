@@ -91,7 +91,7 @@ class RelojDeLaTiendaTest {
     @BeforeAll
     void registrarLaTienda() {
         empresaId = empresaService.registrar("Tienda con reloj", "900777333-1", "contacto@reloj.com",
-                "Administradora", "admin@reloj.com", "clave12345").id();
+                "Administradora", "admin@reloj.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@reloj.com").orElseThrow().getId();
     }
 
@@ -99,7 +99,7 @@ class RelojDeLaTiendaTest {
     @DisplayName("Una tienda nace en el tick cero y moviendo el reloj a mano")
     void tiendaNueva_empiezaEnCeroYEnManual() {
         Long otraId = empresaService.registrar("Tienda recien nacida", "900777333-2", "contacto@nueva.com",
-                "Otro", "admin@nueva.com", "clave12345").id();
+                "Otro", "admin@nueva.com", "marea-violeta-del-sur").id();
 
         assertThat(configuracionTiendaService.obtener(otraId).reloj()).isZero();
         assertThat(configuracionTiendaService.obtener(otraId).modoSimulacion()).isEqualTo(ModoSimulacion.MANUAL);
@@ -149,7 +149,7 @@ class RelojDeLaTiendaTest {
     @DisplayName("Mover el reloj de una tienda no mueve el de otra")
     void elReloj_esDeCadaTienda() {
         Long otraId = empresaService.registrar("Tienda con su propio reloj", "900777333-3", "contacto@propia.com",
-                "Otro", "admin@propia.com", "clave12345").id();
+                "Otro", "admin@propia.com", "marea-violeta-del-sur").id();
         int antes = configuracionTiendaService.reloj(otraId);
 
         configuracionTiendaService.avanzarReloj(empresaId, 3);

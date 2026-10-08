@@ -26,8 +26,8 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
-import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
@@ -49,7 +49,8 @@ public class DatosDemoInitializer implements CommandLineRunner {
 
     private static final String NIT_DEMO = "900123456-1";
     private static final String EMAIL_DEMO = "admin@demo.com";
-    private static final String PASSWORD_DEMO = "admin123";
+    /** Una frase, como pide la politica de claves: sin "admin", "demo" ni el nombre de la tienda. */
+    private static final String PASSWORD_DEMO = "every-order-on-time";
     private static final String CLAVE_DE_CORRELACION = "orderId";
 
     private final EmpresaRepository empresaRepository;

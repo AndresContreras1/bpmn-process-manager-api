@@ -204,7 +204,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombreEmpresa\": \"Acme Store\",\n  \"nit\": \"901234567-8\",\n  \"correoContacto\": \"contacto@acme.com\",\n  \"nombreAdmin\": \"Administrador\",\n  \"emailAdmin\": \"admin@acme.com\",\n  \"passwordAdmin\": \"secret123\"\n}"
+							"raw": "{\n  \"nombreEmpresa\": \"Acme Store\",\n  \"nit\": \"901234567-8\",\n  \"correoContacto\": \"contacto@acme.com\",\n  \"nombreAdmin\": \"Administrador\",\n  \"emailAdmin\": \"admin@acme.com\",\n  \"passwordAdmin\": \"harbor lights at dusk\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/empresas",
@@ -257,7 +257,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"email\": \"admin@acme.com\",\n  \"password\": \"secret123\"\n}"
+							"raw": "{\n  \"email\": \"admin@acme.com\",\n  \"password\": \"harbor lights at dusk\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/login",
@@ -373,7 +373,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Juan Editor\",\n  \"email\": \"juan@acme.com\",\n  \"password\": \"secret123\",\n  \"rolAcceso\": \"EDITOR\"\n}"
+							"raw": "{\n  \"nombre\": \"Juan Editor\",\n  \"email\": \"juan@acme.com\",\n  \"password\": \"quiet rain on the roof\",\n  \"rolAcceso\": \"EDITOR\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/usuarios",
@@ -1992,7 +1992,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"actual\": \"{{claveTemporal}}\",\n  \"nueva\": \"clave-de-camila-2026\"\n}"
+							"raw": "{\n  \"actual\": \"{{claveTemporal}}\",\n  \"nueva\": \"green tea and old maps\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/password",

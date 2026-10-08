@@ -55,7 +55,7 @@ class OrdenIntegracionTest {
     @BeforeAll
     void registrarTienda() {
         empresaId = empresaService.registrar("Tienda de orden", "900888999-0", "contacto@orden.com",
-                "Administrador", "admin@orden.com", "clave12345").id();
+                "Administrador", "admin@orden.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@orden.com").orElseThrow().getId();
     }
 

@@ -38,7 +38,7 @@ class ActuatorTest {
 
     private static final String ADMIN = "admin@actuator.com";
     private static final String EDITOR = "editor@actuator.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     @Autowired
     private MockMvc mockMvc;

@@ -74,7 +74,7 @@ class EntregaDeMensajesTest {
     void registrarLaTienda() {
         tienda = new TiendaConMensajeria(contexto);
         empresaId = empresaService.registrar("Tienda que entrega", "900111777-1", "contacto@entrega.com",
-                "Administradora", "admin@entrega.com", "clave12345").id();
+                "Administradora", "admin@entrega.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@entrega.com").orElseThrow().getId();
     }
 

@@ -33,16 +33,16 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.EventoService;
+import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.PoolService;
-import com.facimus.procesos.modelado.model.TipoActividad;
-import com.facimus.procesos.modelado.model.TipoEvento;
-import com.facimus.procesos.modelado.model.TipoGateway;
-import com.facimus.procesos.modelado.service.GatewayService;
 
 /**
  * Un pedido de punta a punta sobre una version publicada: se abre, la tarea aparece en la bandeja de su rol, el
@@ -104,7 +104,7 @@ class EjecucionIntegracionTest {
     @BeforeAll
     void registrarLaTienda() {
         empresaId = empresaService.registrar("Tienda que ejecuta", "900555444-1", "contacto@ejecuta.com",
-                "Administradora", "admin@ejecuta.com", "clave12345").id();
+                "Administradora", "admin@ejecuta.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@ejecuta.com").orElseThrow().getId();
     }
 

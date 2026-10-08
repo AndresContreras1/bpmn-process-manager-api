@@ -212,7 +212,7 @@ jobs:
           # Registering a store proves the API writes to the database of the stack.
           curl -sS --fail-with-body -X POST http://localhost:8081/api/v1/empresas \
             -H 'Content-Type: application/json' \
-            -d '{"nombreEmpresa":"CI Store","nit":"900000001-1","correoContacto":"ci@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci@store.com","passwordAdmin":"secret123"}'
+            -d '{"nombreEmpresa":"CI Store","nit":"900000001-1","correoContacto":"ci@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci@store.com","passwordAdmin":"harbor lights at dusk"}'
           echo
           echo "The prod profile runs on PostgreSQL through Docker Compose."
 
@@ -434,7 +434,7 @@ jobs:
           # Same origin as the app: this goes through the proxy, not to the API's own port.
           curl -sS --fail-with-body -X POST http://localhost:8082/api/v1/empresas \
             -H 'Content-Type: application/json' \
-            -d '{"nombreEmpresa":"CI Web Store","nit":"900000002-2","correoContacto":"ci-web@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci-web@store.com","passwordAdmin":"secret123"}'
+            -d '{"nombreEmpresa":"CI Web Store","nit":"900000002-2","correoContacto":"ci-web@store.com","nombreAdmin":"CI Admin","emailAdmin":"ci-web@store.com","passwordAdmin":"harbor lights at dusk"}'
           echo
           echo "The browser can reach the API without leaving the origin of the app."
 

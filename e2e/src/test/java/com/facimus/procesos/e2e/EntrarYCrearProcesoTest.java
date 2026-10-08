@@ -14,7 +14,7 @@ class EntrarYCrearProcesoTest extends PruebaE2E {
     @Test
     @DisplayName("una clave equivocada no deja entrar y lo dice")
     void unaClaveEquivocadaNoDejaEntrar() {
-        ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Entrar", NIT, correoDe("entrar"), "entrar12345");
+        ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Entrar", NIT, correoDe("entrar"), "patio-de-naranjos");
 
         ir("/login");
         escribir(Paginas.Login.EMAIL, tienda.correo());
@@ -32,7 +32,7 @@ class EntrarYCrearProcesoTest extends PruebaE2E {
     @DisplayName("entra, crea un proceso y lo ve en su lista")
     void entraYCreaUnProceso() {
         ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Crear", nitDe("entrar-y-crear-2"),
-                correoDe("crear"), "crear12345");
+                correoDe("crear"), "ventanas-abiertas");
 
         ir("/login");
         escribir(Paginas.Login.EMAIL, tienda.correo());

@@ -44,7 +44,7 @@ import tools.jackson.databind.JsonNode;
  */
 class DosInstanciasTest {
 
-    private static final String CLAVE = "clave-de-dos-instancias";
+    private static final String CLAVE = "trenes-de-medianoche";
     /** El token CSRF de este navegador de prueba: viaja en su cookie y en su cabecera, que tienen que coincidir. */
     private static final String CSRF = UUID.randomUUID().toString();
     private static final RestClient HTTP = RestClient.builder()

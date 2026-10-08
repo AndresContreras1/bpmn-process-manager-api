@@ -26,7 +26,7 @@ public record UsuarioResponse(
         @Schema(description = "True while the user still has to change a temporary password", example = "false")
         boolean debeCambiarClave,
         @Schema(description = "The temporary password, answered once and only when it was just generated; it is "
-                + "never stored in the clear and no other response carries it", example = "Xk7pQm2r")
+                + "never stored in the clear and no other response carries it", example = "Xk7pQm2rT9vB4nLw")
         @JsonInclude(JsonInclude.Include.NON_NULL) String claveTemporal) {
 
     /** La identidad con la que entra este usuario: el tenant y el rol salen de aqui, nunca del request. */

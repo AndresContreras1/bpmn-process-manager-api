@@ -36,7 +36,7 @@ class CorreoSinServidorTest {
     void sinServidor_elCorreoQuedaEnLaColaConElMotivo() {
         jdbc.update("delete from trabajos");
         Long empresaId = empresaService.registrar("Tienda sin correo", "900888777-1", "contacto@sin-correo.test",
-                "Administradora", "admin@sin-correo.test", "clave-sin-correo").id();
+                "Administradora", "admin@sin-correo.test", "linterna-en-la-niebla").id();
 
         assertThat(cola.procesarUno()).isTrue();
 

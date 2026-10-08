@@ -74,14 +74,14 @@ class AuthControllerTest {
             + "no lleva tokens (200)")
     void AuthController_login_credencialesValidas_abreLaSesionEnCookies() throws Exception {
         UsuarioResponse usuario = usuario();
-        given(loginAuthenticator.autenticar("juan@acme.com", "secret123", "127.0.0.1")).willReturn(usuario);
+        given(loginAuthenticator.autenticar("juan@acme.com", "harbor lights at dusk", "127.0.0.1")).willReturn(usuario);
         given(sesionService.iniciar(1L, 10L)).willReturn(new SesionIniciada("refresh-de-prueba", "sesion-1", usuario));
         given(jwtService.generarToken(any(ApiPrincipal.class))).willReturn("token-de-prueba");
         given(jwtService.getExpirationSeconds()).willReturn(900L);
 
         MockHttpServletResponse respuesta = mockMvc.perform(post("/api/v1/auth/login").with(conCsrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest("juan@acme.com", "secret123"))))
+                        .content(jsonMapper.writeValueAsString(new LoginRequest("juan@acme.com", "harbor lights at dusk"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.expiresIn").value(900))
                 .andExpect(jsonPath("$.usuario.email").value("juan@acme.com"))
@@ -104,7 +104,7 @@ class AuthControllerTest {
     void AuthController_login_sinTokenCsrf_devuelve403() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest("juan@acme.com", "secret123"))))
+                        .content(jsonMapper.writeValueAsString(new LoginRequest("juan@acme.com", "harbor lights at dusk"))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Sin token CSRF"));
 
@@ -134,12 +134,12 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /api/v1/auth/login - un correo bloqueado por fallos devuelve 429 con Retry-After")
     void AuthController_login_bloqueadoPorFallos_devuelve429() throws Exception {
-        given(loginAuthenticator.autenticar("juan@acme.com", "secret123", "127.0.0.1"))
+        given(loginAuthenticator.autenticar("juan@acme.com", "harbor lights at dusk", "127.0.0.1"))
                 .willThrow(new DemasiadosIntentosException(Duration.ofSeconds(90)));
 
         mockMvc.perform(post("/api/v1/auth/login").with(conCsrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest("juan@acme.com", "secret123"))))
+                        .content(jsonMapper.writeValueAsString(new LoginRequest("juan@acme.com", "harbor lights at dusk"))))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().string(HttpHeaders.RETRY_AFTER, "90"))
                 .andExpect(jsonPath("$.title").value("Demasiados intentos"))

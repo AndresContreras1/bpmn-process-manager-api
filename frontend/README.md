@@ -40,7 +40,7 @@ npm run build
 
 - **The app never sees a token** (D29). The session lives in two `HttpOnly` cookies that the API sets and clears;
   the app only remembers who signed in, in `localStorage`, behind a `SesionLocalService`, to show their name and
-  what their role allows. The demo store signs in with `admin@demo.com` / `admin123`.
+  what their role allows. The demo store signs in with `admin@demo.com` / `every-order-on-time`.
 - When it starts, the app asks `GET /api/v1/auth/csrf` for the `XSRF-TOKEN` cookie, and `HttpClient` copies it into
   the `X-XSRF-TOKEN` header of every change, the login included.
 - **The session renews itself.** The access token lives fifteen minutes, so a `401` does not mean the session is

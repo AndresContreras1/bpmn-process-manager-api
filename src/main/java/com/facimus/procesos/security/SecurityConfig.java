@@ -2,6 +2,7 @@ package com.facimus.procesos.security;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -17,8 +18,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
@@ -212,21 +213,29 @@ public class SecurityConfig {
         return new IntentosDeLogin(jdbc, maximo, ventana, reloj);
     }
 
+    /**
+     * Cada hash lleva delante el algoritmo con el que se hizo, {bcrypt}: el dia que haya otro mejor, o un costo mas
+     * alto, los hashes viejos se siguen comprobando y el login los rehace (UserAccountService). Los de antes de este
+     * prefijo son de BCrypt y se comprueban igual.
+     */
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    public PasswordEncoder passwordEncoder(@Value("${claves.costo-bcrypt}") int costo) {
+        BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(costo);
+        DelegatingPasswordEncoder encoder = new DelegatingPasswordEncoder("bcrypt", Map.of("bcrypt", bcrypt));
+        encoder.setDefaultPasswordEncoderForMatches(bcrypt);
+        return encoder;
     }
 
     /**
      * HU-03: DaoAuthenticationProvider compara la clave con BCrypt. Si el correo no existe igual gasta el tiempo de una
      * comparacion, y responde el mismo BadCredentialsException: ni la respuesta ni su demora delatan que correos
-     * estan registrados.
+     * estan registrados. Si la clave es buena y su hash es de un algoritmo o un costo viejo, lo rehace.
      */
     @Bean
-    public AuthenticationManager authenticationManager(UserDetailsService userDetailsService,
-            PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider proveedor = new DaoAuthenticationProvider(userDetailsService);
+    public AuthenticationManager authenticationManager(UserAccountService cuentas, PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider proveedor = new DaoAuthenticationProvider(cuentas);
         proveedor.setPasswordEncoder(passwordEncoder);
+        proveedor.setUserDetailsPasswordService(cuentas);
         return new ProviderManager(proveedor);
     }
 }

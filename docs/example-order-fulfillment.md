@@ -4,7 +4,7 @@
 
 The platform starts with a demo store, *Demo Store*. It has a published *Order fulfillment* process that uses every
 element of the notation, and a draft *Returns and refunds* process that is ready to be modeled. Sign in as
-`admin@demo.com` with the password `admin123` (see [Getting started](getting-started.md)).
+`admin@demo.com` with the password `every-order-on-time` (see [Getting started](getting-started.md)).
 
 ```mermaid
 flowchart LR

@@ -46,7 +46,7 @@ import tools.jackson.databind.json.JsonMapper;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ColaboradoresIntegracionTest {
 
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
     private static final String ADMIN = "admin@equipo.com";
     private static final String BRUNO = "bruno@equipo.com";
 

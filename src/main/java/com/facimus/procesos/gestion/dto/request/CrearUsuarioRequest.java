@@ -17,10 +17,10 @@ public record CrearUsuarioRequest(
         @NotBlank(message = "El correo es obligatorio.")
         @Email(message = "El correo no es valido.")
         @Size(max = 254, message = "El correo no puede superar 254 caracteres.") String email,
-        @Schema(description = "Initial password, at least 6 characters. Leaving it out generates a temporary one, "
+        @Schema(description = "Initial password. At least 15 characters, with no other rule about what they are: a few words make a good one. It cannot be a known leaked password, a repeated character or a series, or carry the name, the e-mail or the store. Leaving it out generates a temporary one, "
                 + "which the answer carries once in claveTemporal and the user has to change before doing anything "
-                + "else", example = "secret123", format = "password")
-        @Size(min = 6, message = "La contrasena debe tener al menos 6 caracteres.")
+                + "else", example = "harbor lights at dusk", format = "password")
+        @Size(min = 15, message = "La contraseña debe tener al menos 15 caracteres.")
         @Size(max = 72, message = "La contrasena no puede superar 72 caracteres.") String password,
         @Schema(description = "Access role inside the store", example = "EDITOR")
         @NotNull(message = "Debe seleccionar un rol de acceso.") RolAcceso rolAcceso) {
