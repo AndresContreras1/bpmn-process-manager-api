@@ -2,6 +2,8 @@ package com.facimus.procesos.gestion.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class HistorialCambioServiceImpl implements HistorialCambioService {
+
+    /** El primer texto entre comillas: en las lineas sobre un usuario, su nombre. */
+    private static final Pattern PRIMERAS_COMILLAS = Pattern.compile("\"[^\"]*\"");
 
     private final HistorialCambioRepository historialCambioRepository;
     private final UsuarioRepository usuarioRepository;
@@ -64,6 +69,20 @@ public class HistorialCambioServiceImpl implements HistorialCambioService {
     @Transactional
     public void registrar(Long empresaId, Long usuarioId, Proceso proceso, String descripcion) {
         registrar(proceso, autor(empresaId, usuarioId), descripcion);
+    }
+
+    @Override
+    @Transactional
+    public void seudonimizarUsuario(Long empresaId, Long usuarioId, String seudonimo, String correo,
+            String correoSeudonimo) {
+        String citado = Matcher.quoteReplacement("\"" + seudonimo + "\"");
+        historialCambioRepository.findAllByEmpresaIdAndRecursoTipoAndRecursoId(empresaId, RecursoDeHistorial.USUARIO,
+                        usuarioId)
+                .forEach(linea -> linea.setDescripcionCambio(
+                        PRIMERAS_COMILLAS.matcher(linea.getDescripcionCambio()).replaceFirst(citado)));
+        historialCambioRepository.findAllByEmpresaIdAndDescripcionCambioContaining(empresaId, correo)
+                .forEach(linea -> linea.setDescripcionCambio(linea.getDescripcionCambio().replace(correo,
+                        correoSeudonimo)));
     }
 
     @Override

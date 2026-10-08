@@ -30,6 +30,8 @@ import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.repository.EnlaceDeUnUsoRepository;
+import com.facimus.procesos.gestion.repository.MembresiaRolRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.impl.PoliticaDeClaves;
 import com.facimus.procesos.gestion.service.impl.UsuarioServiceImpl;
@@ -57,6 +59,12 @@ class UsuarioServiceTest {
 
     @Mock
     private PoliticaDeClaves politicaDeClaves;
+
+    @Mock
+    private MembresiaRolRepository membresiaRolRepository;
+
+    @Mock
+    private EnlaceDeUnUsoRepository enlaceDeUnUsoRepository;
 
     @InjectMocks
     private UsuarioServiceImpl usuarioService;

@@ -57,4 +57,8 @@ public class Usuario extends EntidadEditable {
     /** Cuando probo que el correo es suyo, con el enlace que le llego; vacio mientras no lo haga. */
     @Column(name = "correo_verificado_en")
     private LocalDateTime correoVerificadoEn;
+
+    /** PR 35: cuando se borraron sus datos personales a pedido. Desde entonces la fila ya no es de nadie. */
+    @Column(name = "anonimizado_en")
+    private LocalDateTime anonimizadoEn;
 }

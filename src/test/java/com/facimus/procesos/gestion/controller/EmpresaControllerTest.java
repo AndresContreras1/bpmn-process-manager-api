@@ -44,7 +44,8 @@ class EmpresaControllerTest {
     @Test
     @DisplayName("POST /api/v1/empresas - registrar empresa exitoso (201)")
     void registrar_exitoso() throws Exception {
-        EmpresaResponse empresa = new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now());
+        EmpresaResponse empresa = new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now(),
+                null, null);
 
         given(empresaService.registrar(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .willReturn(empresa);
@@ -72,7 +73,8 @@ class EmpresaControllerTest {
     @DisplayName("GET /api/v1/empresas/actual - la tienda del usuario del token (200)")
     void actual_laTiendaDelToken() throws Exception {
         given(empresaService.obtener(1L, 1L))
-                .willReturn(new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now()));
+                .willReturn(new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now(), null,
+                        null));
 
         mockMvc.perform(get("/api/v1/empresas/actual").with(principal(RolAcceso.SOLO_LECTURA)))
                 .andExpect(status().isOk())

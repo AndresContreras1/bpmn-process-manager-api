@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.gestion.service.CuentaService;
+import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.Limpieza;
 import com.facimus.procesos.gestion.service.LimpiezaService;
 import com.facimus.procesos.modelado.service.RevisionService;
@@ -37,6 +38,7 @@ public class LimpiezaConfig {
     private final IntentosDeLogin intentosDeLogin;
     private final ColaDeTrabajos colaDeTrabajos;
     private final CuentaService cuentaService;
+    private final EmpresaService empresaService;
 
     @Scheduled(cron = "${limpieza.cron}")
     @SchedulerLock(name = "limpieza", lockAtLeastFor = "PT5M", lockAtMostFor = "PT30M")
@@ -61,6 +63,10 @@ public class LimpiezaConfig {
         int revisiones = revisionService.olvidarSuperadas();
         if (revisiones > 0) {
             log.info("Limpieza: {} revisiones con IA que ya tenian una mas nueva.", revisiones);
+        }
+        int tiendas = empresaService.borrarLasDadasDeBaja();
+        if (tiendas > 0) {
+            log.info("Limpieza: {} tiendas que cumplieron la gracia de su baja, borradas.", tiendas);
         }
     }
 }

@@ -171,6 +171,23 @@ public class UsuarioController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Anonymize a user",
+            description = "Deletes a person's personal data on request, and cannot be undone. The user stays, "
+                    + "because what they did names them, but under a pseudonym and an address that is not theirs, "
+                    + "deactivated, with no password that works and no process roles; the store's history names "
+                    + "them by the pseudonym too, and their e-mail can register again. Nobody can anonymize their "
+                    + "own account, nor the last active administrator. Doing it twice changes nothing.")
+    @ApiResponse(responseCode = "204", description = "User anonymized")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PostMapping("/{id}/anonimizar")
+    public ResponseEntity<Void> anonimizar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
+        usuarioService.anonimizar(principal.empresaId(), principal.usuarioId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(summary = "List the process roles of a user",
             description = "Which process roles this person belongs to, which is what lets them ask for their own "
                     + "tray. It gives no permissions: what someone can do is still their access role. "

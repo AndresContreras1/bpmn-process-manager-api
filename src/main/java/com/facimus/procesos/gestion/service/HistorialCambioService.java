@@ -29,4 +29,10 @@ public interface HistorialCambioService {
 
     /** Todo lo que paso en la tienda, procesos incluidos. Solo lo lee el administrador. */
     PageResponse<HistorialCambioResponse> listarDeLaTienda(Long empresaId, Pageable pageable);
+
+    /**
+     * PR 35: las lineas que nombran a un usuario que se anonimiza lo nombran ahora con su seudonimo. Las suyas lo
+     * llevan en su primer texto entre comillas; su correo, el de una invitacion por ejemplo, puede estar en cualquiera.
+     */
+    void seudonimizarUsuario(Long empresaId, Long usuarioId, String seudonimo, String correo, String correoSeudonimo);
 }

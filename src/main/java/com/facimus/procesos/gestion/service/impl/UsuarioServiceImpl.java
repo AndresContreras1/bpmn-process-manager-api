@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -25,6 +26,8 @@ import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.repository.EnlaceDeUnUsoRepository;
+import com.facimus.procesos.gestion.repository.MembresiaRolRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.repository.UsuarioSpecifications;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
@@ -45,6 +48,8 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final SesionService sesionService;
     private final HistorialCambioService historialCambioService;
     private final PoliticaDeClaves politicaDeClaves;
+    private final MembresiaRolRepository membresiaRolRepository;
+    private final EnlaceDeUnUsoRepository enlaceDeUnUsoRepository;
 
     private static final SecureRandom ALEATORIO = new SecureRandom();
 
@@ -91,7 +96,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Transactional
     public UsuarioResponse actualizar(Long empresaId, Long autorId, Long usuarioId, String nombre,
             RolAcceso rolAcceso, Boolean activo, Long version) {
-        Usuario usuario = buscar(empresaId, usuarioId);
+        Usuario usuario = buscarSinAnonimizar(empresaId, usuarioId);
         usuario.verificarVersion(version);
         boolean desactiva = Boolean.FALSE.equals(activo);
         if (desactiva) {
@@ -154,7 +159,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public UsuarioResponse restablecerClave(Long empresaId, Long autorId, Long usuarioId) {
-        Usuario usuario = buscar(empresaId, usuarioId);
+        Usuario usuario = buscarSinAnonimizar(empresaId, usuarioId);
         String clave = claveTemporal();
         usuario.setPasswordHash(passwordEncoder.encode(clave));
         usuario.setDebeCambiarClave(true);
@@ -165,6 +170,39 @@ public class UsuarioServiceImpl implements UsuarioService {
         // Quien estuviera dentro con la clave vieja deja de estarlo.
         sesionService.cerrarTodas(empresaId, usuarioId);
         return usuarioMapper.toResponse(usuario).conClaveTemporal(clave);
+    }
+
+    @Override
+    @Transactional
+    public void anonimizar(Long empresaId, Long autorId, Long usuarioId) {
+        Usuario usuario = buscar(empresaId, usuarioId);
+        if (usuario.getAnonimizadoEn() != null) {
+            return;
+        }
+        if (usuarioId.equals(autorId)) {
+            throw new ReglaNegocioException("No puede anonimizar su propia cuenta: tiene que pedírselo a otro "
+                    + "administrador.");
+        }
+        // Quien la pide es otro administrador activo: la tienda no se queda sin ninguno.
+        String correo = usuario.getEmail();
+        String seudonimo = "Persona anonimizada " + usuarioId;
+        String correoSeudonimo = "anonimizada-" + usuarioId + "@anonimo.invalid";
+        usuario.setNombre(seudonimo);
+        usuario.setEmail(correoSeudonimo);
+        // Desactivada ya no entra; ademas, la clave que queda no la conoce nadie.
+        usuario.setPasswordHash(passwordEncoder.encode(claveTemporal() + claveTemporal()));
+        usuario.setActivo(false);
+        usuario.setDebeCambiarClave(false);
+        usuario.setCorreoVerificadoEn(null);
+        usuario.setAnonimizadoEn(LocalDateTime.now());
+        usuarioRepository.saveAndFlush(usuario);
+
+        membresiaRolRepository.borrarLasDe(empresaId, usuarioId);
+        enlaceDeUnUsoRepository.borrarLosDe(empresaId, usuarioId, correo);
+        sesionService.cerrarTodas(empresaId, usuarioId);
+        historialCambioService.seudonimizarUsuario(empresaId, usuarioId, seudonimo, correo, correoSeudonimo);
+        historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
+                "Usuario anonimizado: su nombre y su correo ya no constan en ninguna parte.");
     }
 
     @Override
@@ -242,6 +280,16 @@ public class UsuarioServiceImpl implements UsuarioService {
         if (usuarioRepository.countByEmpresaIdAndRolAccesoAndActivoTrue(empresaId, RolAcceso.ADMINISTRADOR) <= 1) {
             throw new ReglaNegocioException("La tienda tiene que conservar al menos un administrador activo.");
         }
+    }
+
+    /** Una persona anonimizada ya no se edita, ni se reactiva, ni recibe una clave: sus datos ya no existen. */
+    private Usuario buscarSinAnonimizar(Long empresaId, Long usuarioId) {
+        Usuario usuario = buscar(empresaId, usuarioId);
+        if (usuario.getAnonimizadoEn() != null) {
+            throw new ReglaNegocioException("Ese usuario está anonimizado: no se puede editar, reactivar ni darle "
+                    + "otra contraseña.");
+        }
+        return usuario;
     }
 
     private Usuario buscar(Long empresaId, Long usuarioId) {

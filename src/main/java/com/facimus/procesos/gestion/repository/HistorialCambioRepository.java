@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 
 import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.gestion.model.HistorialCambio;
+import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 
 public interface HistorialCambioRepository extends RepositorioTenant<HistorialCambio> {
 
@@ -18,4 +19,11 @@ public interface HistorialCambioRepository extends RepositorioTenant<HistorialCa
     /** Todo lo que paso en la tienda, de lo mas reciente a lo mas viejo. Crece sin parar, asi que va paginado. */
     @EntityGraph(attributePaths = "autor")
     Page<HistorialCambio> findAllByEmpresaIdOrderByFechaCambioDescIdDesc(Long empresaId, Pageable pageable);
+
+    /** Lo anotado sobre un recurso, como un usuario: lo que hay que seudonimizar cuando se anonimiza. */
+    List<HistorialCambio> findAllByEmpresaIdAndRecursoTipoAndRecursoId(Long empresaId, RecursoDeHistorial recursoTipo,
+            Long recursoId);
+
+    /** Las lineas de la tienda que dicen ese texto, como el correo de alguien que se anonimiza. */
+    List<HistorialCambio> findAllByEmpresaIdAndDescripcionCambioContaining(Long empresaId, String texto);
 }
