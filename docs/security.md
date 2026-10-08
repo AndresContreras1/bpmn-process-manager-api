@@ -46,8 +46,8 @@ or having it reset, closes them too.
 5. `POST /api/v1/auth/logout` closes the session. Deactivating a user or changing their role closes all of their
    sessions, so the old role stops working at once.
 
-Public endpoints are limited to store registration, login, token renewal, the API documentation (not published in
-`prod`) and, in `dev`, the H2 console. The role matrix in [Roles and permissions](#roles-and-permissions) is defined in
+Public endpoints are limited to store registration, login, token renewal and the API documentation (not published
+in `prod`). The role matrix in [Roles and permissions](#roles-and-permissions) is defined in
 one place, the security configuration, and decides `401` or `403` before any controller runs.
 
 ## Login protection

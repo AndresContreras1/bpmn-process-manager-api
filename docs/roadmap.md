@@ -49,14 +49,15 @@
 **Architecture and quality**
 - [x] Request and response DTO packages with MapStruct mappers, and services exposed as interfaces
 - [x] Module boundaries between `gestion` and `modelado` enforced by ArchUnit, with no dependency cycles
-- [x] Complete Spring profiles: `dev` with seed data, `test` with an isolated in-memory database, and `prod`
+- [x] Complete Spring profiles: `dev` with seed data, `test` with an isolated database per context, and `prod`
 - [x] Repository tests with `@DataJpaTest` and unit tests for every modeling service
 - [x] Coverage gate per package, branches included
 - [x] Mutation testing with PIT over the services, the engine and the conditions, every night, with a floor
 - [x] Spotless over the files each change touches: imports in order and without unused ones, no trailing spaces
 - [x] A SonarCloud quality gate on top of it, which fails the build as soon as the project token is in the repository secrets
 - [x] Docker Compose with PostgreSQL and Actuator health checks
-- [x] Testcontainers-based integration tests against a real PostgreSQL
+- [x] PostgreSQL everywhere: `dev` through Docker Compose and every test through Testcontainers, with H2 out of
+      the build
 
 **Runtime**
 - [x] Java 25, with virtual threads and a graceful shutdown that lets the requests in progress finish

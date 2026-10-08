@@ -19,6 +19,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- Development and tests run on PostgreSQL 16, like production: `dev` brings up `compose.dev.yaml` through Spring
+  Boot's Docker Compose support, every test runs against one Testcontainers server with a database per context,
+  and H2 is out of the build. The migrations are a single set.
 - Java 25, with virtual threads and a graceful shutdown.
 - A minimal image of the API with the JVM's AOT cache, and read-only containers without Linux capabilities.
 - The server's error page answers in Problem Details, like the rest of the API.

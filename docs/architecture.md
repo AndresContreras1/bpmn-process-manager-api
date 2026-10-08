@@ -8,7 +8,7 @@
 |---|---|
 | Language | Java 25 (virtual threads, AOT cache) |
 | Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Security 7) |
-| Persistence | Hibernate 7.4 · Flyway 12 · H2 (`dev` and tests) · PostgreSQL (`prod`) |
+| Persistence | Hibernate 7.4 · Flyway 12 · PostgreSQL 16 everywhere: `dev` through Docker Compose, the tests through Testcontainers |
 | Security | Spring Security `AuthenticationManager` · JWT (jjwt 0.12.6, HS256) · BCrypt · SHA-256-hashed refresh tokens |
 | API documentation | springdoc-openapi 3 (OpenAPI 3 and Swagger UI) |
 | Web app | Angular 19 · Bootstrap 5 · RxJS |

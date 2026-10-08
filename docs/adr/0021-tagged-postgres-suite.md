@@ -2,7 +2,7 @@
 
 # ADR-0021: Testcontainers as a tagged suite
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0041](0041-postgresql-everywhere.md)
 - **Decided in:** plan v3 (D21)
 
 ## Context
