@@ -26,9 +26,17 @@ tagged. Each pull request adds its line under *Unreleased*.
 - Transactional e-mail through any SMTP server, sent from the queue of jobs, with templates in Spanish, English
   and French: verifying the e-mail, recovering the password and inviting by e-mail (HU-02.1), each with a link
   that works once, expires, and is kept only as its SHA-256. `dev` catches the e-mails in Mailpit.
+- Session limits each store chooses, within what NIST SP 800-63B-4 asks for AAL2: from 30 to 60 minutes without
+  being renewed and from 1 to 24 hours after the login, an hour and a day by default.
+- Closing a store: 30 days of read-only grace in which it can be cancelled, and then the nightly purge deletes
+  every row of the store and leaves of it only the id and the dates. Anonymizing a person on request: their user
+  stays under a pseudonym, and the history names them by it.
 
 ### Changed
 
+- **Breaking:** a password chosen by a person needs 15 characters and passes the policy of NIST SP 800-63B-4, and
+  the demo administrator signs in with `every-order-on-time`. `JWT_REFRESH_EXPIRATION_SECONDS` is gone: the
+  refresh token lives what each store decides.
 - **Breaking:** the login, the renewal and the password change no longer return the tokens in the body, and the API
   no longer reads `Authorization: Bearer`; the refresh and the logout take the refresh token from its cookie. The
   web app, the end-to-end tests, k6 and the Postman collection use the cookies.
@@ -49,6 +57,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP and CORP on both, and Trusted Types in report
   mode. In `prod` the API believes the proxy's `X-Forwarded-*` only from the internal network, and the Compose
   stack publishes the API's own port only on `127.0.0.1`. The leftovers of the H2 console are gone.
+- Passwords follow NIST SP 800-63B-4: at least 15 characters while they are the only factor and no composition
+  rules, checked against a list of leaked and common ones and against the name, e-mail and store of whoever chooses
+  them, up to the 72 bytes BCrypt reads. Every hash carries its algorithm, and a login redoes an old one.
 - Spring Boot 4.1.1, Tomcat 11.0.26 and Jackson 3.1.7 and 2.21.7 for the vulnerabilities Trivy found in the API image,
   and NGINX 1.30 for the ones in the web image.
 

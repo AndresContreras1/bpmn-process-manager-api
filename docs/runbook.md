@@ -70,6 +70,11 @@ waits for the window to pass, or an operator forgets their failures with
 `delete from intentos_login where clave like 'ana@acme.com|%'`. An attack shows as
 `login_fallidos_total{motivo="credenciales"}` climbing for many emails.
 
+**People are signed out sooner than they expect.** A session ends after the store's idle timeout without being
+renewed, and the store's maximum duration after its login, an hour and a day unless the store shortened them
+(`select inactividad_sesion_minutos, duracion_sesion_horas from configuracion_tienda where empresa_id = 7`). A tab
+left open does not renew by itself, so it signs in again; that is the limit working.
+
 **A closed session still works in another instance.** Each instance hears of a closure through PostgreSQL. If the
 log says "Se corto la escucha de las sesiones cerradas", the connection that listens dropped: it reopens every five
 seconds and rereads the recent closures when it does, so the session stops working within that time.
@@ -152,7 +157,9 @@ kills the container 30 seconds after asking. `docker compose down` keeps the dat
 |---|---|
 | Every Monday | Read the Dependabot pull requests: each one runs the whole pipeline, and a green one can be merged |
 | Every September | Renew `Expires` in `frontend/public/.well-known/security.txt`; the pipeline starts failing a month before it passes |
-| When a person leaves | Deactivate their user: their sessions close at once |
+| When a person leaves | Deactivate their user: their sessions close at once. If they ask for their data to be deleted, anonymize them instead (`POST /api/v1/usuarios/{id}/anonimizar`), which cannot be undone |
+| When a store asks to leave | Its administrator closes it (`POST /api/v1/empresas/actual/baja`): for 30 days it can still read everything and cancel. The purge of the night after deletes it, and the log says `Tienda N borrada al cumplir la gracia de su baja` |
+| Raising the cost of BCrypt | Set `CLAVES_COSTO_BCRYPT` higher and recreate the API: each login rehashes its password, and nobody has to change it. Each step doubles what a login costs, so measure one first |
 | Before the first e-mail in production | Publish in the DNS of the domain of `MAIL_FROM` the SPF and DKIM records the provider gives, and a DMARC policy (`p=quarantine` to begin with). Without them most receivers take the e-mails for spam |
 | Rotating the signing key | Move the key in use to `JWT_PREVIOUS_SECRET`, put a new one in `JWT_SECRET` and recreate the API: nobody is signed out. Fifteen minutes later, when no token of the old key is still alive, empty `JWT_PREVIOUS_SECRET` and recreate it again |
 | Before a new major of PostgreSQL | Take a backup and restore it into the new version; Dependabot does not offer majors of the images |

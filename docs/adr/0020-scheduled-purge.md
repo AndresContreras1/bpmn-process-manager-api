@@ -28,6 +28,8 @@ the service.
 
 - It is the only physical `DELETE` in the API, on technical tables, and the only place that crosses stores on
   purpose: it reads no store's data.
+- Since PR 35 it also deletes the stores whose closing is 30 days old, row by row (`BorradoDeTiendas`): the one
+  time it touches a store's own data, and only that of a store that asked to go.
 - Messages are not purged: the trays keep every message a store sent or received.
 - A deployment that prefers to sweep from outside sets `LIMPIEZA_CRON=-`.
 

@@ -253,9 +253,12 @@ default):
   (`REVISION_WINDOW`). The last one stays, because it is the one that comes back while the diagram does not change.
 - **Jobs** that ended more than a week ago, done or failed: a failed one stays that week for someone to see it.
 - **Links of the e-mails** that expired more than a week ago. An expired one opens nothing.
+- **Stores whose closing is 30 days old**: every row of the store, table by table in the order of their foreign
+  keys, and of its own row everything but the id and the dates ([The life of the data](security.md#the-life-of-the-data)).
 
 The outbox needs no sweeping: an event leaves it when its listener finishes, and what stays is what still has to be
 delivered.
 
-Apart from the failures a successful login forgets and the events the outbox lets go of, this is the only place in
-the API where a row is really deleted; everything else is a soft delete and stays.
+Apart from the failures a successful login forgets, the events the outbox lets go of and the roles and links of a
+person who is anonymized, this is the only place in the API where a row is really deleted; everything else is a
+soft delete and stays.

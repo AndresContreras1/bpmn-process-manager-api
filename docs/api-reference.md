@@ -10,9 +10,9 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 
 | Resource | Endpoints |
 |---|---|
-| Stores | `POST /api/v1/empresas` · `GET /api/v1/empresas/actual` · `GET /api/v1/empresas/{id}` |
+| Stores | `POST /api/v1/empresas` · `GET /api/v1/empresas/actual` · `GET /api/v1/empresas/{id}` · `POST, DELETE /api/v1/empresas/actual/baja` |
 | Authentication | `GET /api/v1/auth/csrf` · `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` |
-| Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` · `GET, PUT /api/v1/usuarios/{id}/roles-proceso` · `POST /api/v1/usuarios/invitaciones` |
+| Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` · `GET, PUT /api/v1/usuarios/{id}/roles-proceso` · `POST /api/v1/usuarios/invitaciones` · `POST /api/v1/usuarios/{id}/anonimizar` |
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
 | Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` · `PUT /api/v1/procesos/{procesoId}/pools/orden` |
@@ -61,15 +61,26 @@ users created, renamed, given another role or deactivated, process roles added a
 store itself, and every change to a process. Each entry says who did it, when, and what it was about, with
 `recursoTipo` and `recursoId`. Administrators only.
 
-`GET` and `PUT /api/v1/empresas/actual/configuracion` read and change what the store decides about itself. Today
-that is `politicaEstructura`: with `SOLO_ADMINISTRADOR`, creating and editing participants and lanes is reserved to
-administrators, and editors keep modeling steps, flows and messages inside a lane. Changing it is recorded in the
-history.
+`GET` and `PUT /api/v1/empresas/actual/configuracion` read and change what the store decides about itself.
+`politicaEstructura`: with `SOLO_ADMINISTRADOR`, creating and editing participants and lanes is reserved to
+administrators, and editors keep modeling steps, flows and messages inside a lane. `inactividadSesionMinutos`, from
+30 to 60, and `duracionSesionHoras`, from 1 to 24: how long a session lasts without being renewed, and how long
+after its login it ends ([Authentication](security.md#authentication)); left out, they keep their values. Every
+change is recorded in the history.
 
 ```bash
 curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"politicaEstructura":"SOLO_ADMINISTRADOR","version":0}'
 ```
+
+## Closing the store
+
+`POST /api/v1/empresas/actual/baja` with `{"confirmacion": "<the store's name>"}` closes the caller's store and
+answers it with `bajaSolicitadaEn` and `borradoProgramadoPara`, 30 days later. Until then the store is read-only,
+every change answers `409` with the title "Tienda dada de baja", and `DELETE /api/v1/empresas/actual/baja` cancels
+the closing; then everything of the store is deleted ([The life of the data](security.md#the-life-of-the-data)).
+Administrators only, like `POST /api/v1/usuarios/{id}/anonimizar`, which deletes the personal data of a user on
+request.
 
 ## Sessions
 
@@ -89,7 +100,9 @@ curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/lo
 curl -s -b sesion.txt http://localhost:8080/api/v1/procesos
 ```
 
-The cookies are `Secure`: like a browser, curl sends them over plain HTTP only to `localhost`.
+The cookies are `Secure`: like a browser, curl sends them over plain HTTP only to `localhost`. The refresh cookie
+lives the store's idle timeout, and `expiresIn` in the body says when the access cookie expires: fifteen minutes,
+or less near the end of the session.
 
 ## Links sent by e-mail
 
