@@ -45,7 +45,7 @@ deleting that element, with the same cascade the deletion has: a pool takes its 
 its sequence flows. `A-06` lists what would go along with it, and the rest of the findings say what would break.
 
 ```bash
-curl "http://localhost:8080/api/v1/procesos/1/diagnostico?sinElemento=GATEWAY:5" -H "Authorization: Bearer $TOKEN"
+curl "http://localhost:8080/api/v1/procesos/1/diagnostico?sinElemento=GATEWAY:5" -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 ```
 
 ## Published versions
@@ -63,12 +63,12 @@ published.
 
 ```bash
 # Publish, and read the versions
-curl -s -X PATCH http://localhost:8080/api/v1/procesos/1 -H "Authorization: Bearer $TOKEN" \
+curl -s -X PATCH http://localhost:8080/api/v1/procesos/1 -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"estado":"PUBLICADO","version":0}'
-curl -s http://localhost:8080/api/v1/procesos/1/versiones -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/procesos/1/versiones -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 
 # The diagram as it was published, however much the draft has changed since
-curl -s http://localhost:8080/api/v1/procesos/1/versiones/1/diagrama -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/procesos/1/versiones/1/diagrama -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 ```
 
 A version that should not be used any more is retired by an administrator with
@@ -85,7 +85,7 @@ severity, the element each one is about, what is wrong and what to do. Administr
 it, because every review costs a call.
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/procesos/1/revision -H "Authorization: Bearer $TOKEN"
+curl -X POST http://localhost:8080/api/v1/procesos/1/revision -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 ```
 
 What the endpoint does not do is as important as what it does:

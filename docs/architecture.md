@@ -75,7 +75,7 @@ nothing of the engine beyond the port.
 | Package | Responsibility |
 |---|---|
 | `common` | What every module needs: the store and the access role, the authenticated identity (`ApiPrincipal`), the tenant base entity and the tenant-aware repository contract, business exceptions, Problem Details, pagination, and the queue of jobs |
-| `security` | Filter chain, the authentication endpoints, login and its rate limit, JWT issuing and validation, closed sessions, `401` and `403` handlers, CORS |
+| `security` | Filter chain, the authentication endpoints, login and its rate limit, JWT issuing and validation, the session cookies and the CSRF check, closed sessions, `401` and `403` handlers, CORS |
 | `gestion` | Management: stores, users and their sessions, processes, process roles and change history |
 | `modelado` | BPMN modeling: pools, lanes, activities, gateways, sequence flows, message flows and correlation keys |
 | `ejecucion` | Running a published version: cases, the steps they go through, the tray of tasks, the timeline, the two message trays, the store's clock and the engine that moves them. It publishes the port the partner on the other side of a message is asked through |
@@ -83,8 +83,9 @@ nothing of the engine beyond the port.
 
 ## Request lifecycle
 
-1. The JWT filter validates the token and builds an `ApiPrincipal` (`usuarioId`, `empresaId`, role and session) from
-   its claims, without a database query. A token whose session was closed is rejected.
+1. The JWT filter validates the token of the access cookie and builds an `ApiPrincipal` (`usuarioId`, `empresaId`,
+   role and session) from its claims, without a database query. A token whose session was closed is rejected. What
+   changes something with the session cookies has passed the CSRF check before.
 2. The role rules decide `401` or `403` before any controller runs.
 3. Controllers receive the principal with `@AuthenticationPrincipal` and pass `empresaId` explicitly to the services.
 4. Every lookup by id goes through `findByIdAndEmpresaId`, so a resource from another store does not exist for the
@@ -101,7 +102,7 @@ sequenceDiagram
     participant S as Service
     participant R as Repository
 
-    C->>F: Authorization: Bearer ...
+    C->>F: Cookie: __Host-acceso=...
     F->>F: signature, expiry, closed session
     F--xC: 401 with a Problem Details body
     F->>A: ApiPrincipal(usuarioId, empresaId, rol)

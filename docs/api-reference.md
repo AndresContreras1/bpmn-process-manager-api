@@ -11,7 +11,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Resource | Endpoints |
 |---|---|
 | Stores | `POST /api/v1/empresas` · `GET /api/v1/empresas/actual` · `GET /api/v1/empresas/{id}` |
-| Authentication | `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` |
+| Authentication | `GET /api/v1/auth/csrf` · `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` |
 | Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` · `GET, PUT /api/v1/usuarios/{id}/roles-proceso` |
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
@@ -66,9 +66,29 @@ administrators, and editors keep modeling steps, flows and messages inside a lan
 history.
 
 ```bash
-curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -H "Authorization: Bearer $TOKEN" \
+curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"politicaEstructura":"SOLO_ADMINISTRADOR","version":0}'
 ```
+
+## Sessions
+
+The login answers the session in two `HttpOnly` cookies and the user's profile in the body; no body carries a
+token. A browser keeps the cookies and sends them back by itself. A request that changes something with them, and
+the login itself, also sends the CSRF token: the value of the `XSRF-TOKEN` cookie, which `GET /api/v1/auth/csrf`
+sets, in the header `X-XSRF-TOKEN`. Without it the answer is `403`. [Authentication](security.md#authentication)
+has the detail.
+
+Any other client plays the browser. With curl, a cookie jar does it, and the examples of these pages use it:
+
+```bash
+curl -s -c sesion.txt http://localhost:8080/api/v1/auth/csrf
+XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
+curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/login -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"admin123"}'
+curl -s -b sesion.txt http://localhost:8080/api/v1/procesos
+```
+
+The cookies are `Secure`: like a browser, curl sends them over plain HTTP only to `localhost`.
 
 ## Pagination
 
