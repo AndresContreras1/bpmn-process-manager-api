@@ -127,3 +127,10 @@ Values that look like secrets and are not, such as the signing key of the unit t
 A major version of a base image is a decision rather than an update, so Dependabot only offers the rebuilds
 and the minor releases of the images: moving to the next Java or Node line, or to a new PostgreSQL, comes in
 a pull request of its own.
+
+## Reporting a vulnerability
+
+[SECURITY.md](../SECURITY.md) says how to report one privately, what is in scope and how soon the answer comes.
+The web app serves the same contact at `/.well-known/security.txt`, as RFC 9116 asks, so a researcher who only
+knows the address of a deployment can find it. The file has an expiry date: the pipeline checks that NGINX serves
+it and starts failing a month before it expires, so it is renewed instead of served stale.

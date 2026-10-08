@@ -78,3 +78,6 @@
 - [x] CodeQL over Java, TypeScript and the workflows, and gitleaks over every commit
 - [x] Trivy over both images: a fixable critical vulnerability fails the pipeline
 - [x] CycloneDX SBOM of the API, inside the jar, and of the web app
+
+**Repository governance**
+- [x] A security policy with a private way to report, and `security.txt` served by the web app
