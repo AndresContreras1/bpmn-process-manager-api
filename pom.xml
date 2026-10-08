@@ -123,10 +123,11 @@
 			<version>0.12.6</version>
 			<scope>runtime</scope>
 		</dependency>
-		<!-- Los modulos de la aplicacion: cada uno declara lo que expone y de quien depende, y las pruebas lo verifican -->
+		<!-- Los modulos de la aplicacion, verificados en las pruebas, y el registro de los eventos que cruzan de un
+		     modulo a otro: un outbox en PostgreSQL que sobrevive a un reinicio -->
 		<dependency>
 			<groupId>org.springframework.modulith</groupId>
-			<artifactId>spring-modulith-api</artifactId>
+			<artifactId>spring-modulith-starter-jdbc</artifactId>
 		</dependency>
 		<!-- D34: cada trabajo programado corre en una sola instancia a la vez; el candado vive en PostgreSQL -->
 		<dependency>
