@@ -103,6 +103,11 @@
 			"type": "string"
 		},
 		{
+			"key": "csrf",
+			"value": "",
+			"type": "string"
+		},
+		{
 			"key": "casoId",
 			"value": "",
 			"type": "string"
@@ -129,15 +134,39 @@
 		}
 	],
 	"auth": {
-		"type": "bearer",
-		"bearer": [
-			{
-				"key": "token",
-				"value": "{{token}}",
-				"type": "string"
-			}
-		]
+		"type": "noauth"
 	},
+	"protocolProfileBehavior": {
+		"disableCookies": true
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// D29: la sesion va en la cookie de acceso, y lo que cambia algo lleva el token CSRF, el valor de la cookie",
+					"// XSRF-TOKEN devuelto en la cabecera X-XSRF-TOKEN. Las cookies de la API son Secure, y por http Postman no las",
+					"// manda: la coleccion guarda los tokens en sus variables y los pone en cada peticion. Por lo mismo no usa el tarro",
+					"// de cookies de Postman (disableCookies), que mezclaria las de otra corrida.",
+					"if (!pm.collectionVariables.get('csrf')) {",
+					"    pm.collectionVariables.set('csrf', pm.variables.replaceIn('{{$guid}}'));",
+					"}",
+					"var csrf = pm.collectionVariables.get('csrf');",
+					"var cookies = ['XSRF-TOKEN=' + csrf];",
+					"if (pm.collectionVariables.get('token')) {",
+					"    cookies.push('__Host-acceso=' + pm.collectionVariables.get('token'));",
+					"}",
+					"// La cookie de refresco solo viaja a /api/v1/auth, como la manda un navegador",
+					"if (pm.collectionVariables.get('refreshToken') && pm.request.url.getPath().indexOf('/api/v1/auth/') === 0) {",
+					"    cookies.push('__Secure-refresco=' + pm.collectionVariables.get('refreshToken'));",
+					"}",
+					"pm.request.headers.upsert({ key: 'Cookie', value: cookies.join('; ') });",
+					"pm.request.headers.upsert({ key: 'X-XSRF-TOKEN', value: csrf });"
+				]
+			}
+		}
+	],
 	"item": [
 		{
 			"name": "Autenticacion",
@@ -194,14 +223,21 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
+									"function cookie(nombre) {",
+									"    var cabecera = pm.response.headers.all().filter(function (h) {",
+									"        return h.key.toLowerCase() === 'set-cookie' && h.value.indexOf(nombre + '=') === 0;",
+									"    })[0];",
+									"    return cabecera ? cabecera.value.substring(nombre.length + 1, cabecera.value.indexOf(';')) : '';",
+									"}",
 									"if (pm.response.code === 200) {",
 									"    var json = pm.response.json();",
 									"    pm.collectionVariables.set('empresaId', json.usuario.empresaId);",
 									"    pm.collectionVariables.set('usuarioId', json.usuario.id);",
-									"    pm.collectionVariables.set('token', json.accessToken);",
-									"    pm.collectionVariables.set('refreshToken', json.refreshToken);",
-									"    pm.test('Login exitoso', function () {",
-									"        pm.expect(json.accessToken).to.not.be.empty;",
+									"    pm.collectionVariables.set('token', cookie('__Host-acceso'));",
+									"    pm.collectionVariables.set('refreshToken', cookie('__Secure-refresco'));",
+									"    pm.test('Login exitoso: la sesion queda en cookies y el cuerpo no trae tokens', function () {",
+									"        pm.expect(pm.collectionVariables.get('token')).to.not.be.empty;",
+									"        pm.expect(json.accessToken).to.be.undefined;",
 									"    });",
 									"}"
 								]
@@ -228,7 +264,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "login"]
 						},
-						"description": "HU-03: Inicia sesion. El access token (15 minutos) queda en {{token}} y el refresh token en {{refreshToken}}."
+						"description": "HU-03: Inicia sesion. La API deja la sesion en dos cookies HttpOnly, el access token (15 minutos) y el refresh token; la coleccion los copia a {{token}} y {{refreshToken}} y los devuelve en cada peticion."
 					},
 					"response": []
 				},
@@ -254,12 +290,17 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
+									"function cookie(nombre) {",
+									"    var cabecera = pm.response.headers.all().filter(function (h) {",
+									"        return h.key.toLowerCase() === 'set-cookie' && h.value.indexOf(nombre + '=') === 0;",
+									"    })[0];",
+									"    return cabecera ? cabecera.value.substring(nombre.length + 1, cabecera.value.indexOf(';')) : '';",
+									"}",
 									"if (pm.response.code === 200) {",
-									"    var json = pm.response.json();",
-									"    pm.collectionVariables.set('token', json.accessToken);",
-									"    pm.collectionVariables.set('refreshToken', json.refreshToken);",
-									"    pm.test('Tokens renovados', function () {",
-									"        pm.expect(json.refreshToken).to.not.be.empty;",
+									"    pm.collectionVariables.set('token', cookie('__Host-acceso'));",
+									"    pm.collectionVariables.set('refreshToken', cookie('__Secure-refresco'));",
+									"    pm.test('Sesion renovada: cookies nuevas', function () {",
+									"        pm.expect(pm.collectionVariables.get('refreshToken')).to.not.be.empty;",
 									"    });",
 									"}"
 								]
@@ -271,22 +312,13 @@
 							"type": "noauth"
 						},
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
-						},
+						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/refresh",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "refresh"]
 						},
-						"description": "Cambia el refresh token por un access token y un refresh token nuevos de la misma sesion, sin pedir la clave otra vez. Cada refresh token sirve una sola vez: mandar uno ya usado cierra la sesion."
+						"description": "Cambia la cookie de refresco por cookies nuevas de la misma sesion, sin pedir la clave otra vez. Cada refresh token sirve una sola vez: mandar uno ya usado cierra la sesion."
 					},
 					"response": []
 				}
@@ -1911,7 +1943,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "login"]
 						},
-						"description": "Entra, pero con ese token no puede hacer nada mas que cambiar la clave: cualquier otra peticion responde 403."
+						"description": "Entra, pero con esa sesion no puede hacer nada mas que cambiar la clave: cualquier otra peticion responde 403. La coleccion guarda su access token en {{tokenTemporal}}."
 					},
 					"response": [],
 					"event": [
@@ -1920,8 +1952,14 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
+									"function cookie(nombre) {",
+									"    var cabecera = pm.response.headers.all().filter(function (h) {",
+									"        return h.key.toLowerCase() === 'set-cookie' && h.value.indexOf(nombre + '=') === 0;",
+									"    })[0];",
+									"    return cabecera ? cabecera.value.substring(nombre.length + 1, cabecera.value.indexOf(';')) : '';",
+									"}",
 									"if (pm.response.code === 200) {",
-									"    pm.collectionVariables.set('tokenTemporal', pm.response.json().accessToken);",
+									"    pm.collectionVariables.set('tokenTemporal', cookie('__Host-acceso'));",
 									"}"
 								]
 							}
@@ -1930,6 +1968,19 @@
 				},
 				{
 					"name": "Cambiar la clave temporal",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Esta peticion es de la sesion temporal de Camila, no de la del administrador",
+									"pm.request.headers.upsert({ key: 'Cookie', value: 'XSRF-TOKEN=' + pm.collectionVariables.get('csrf')",
+									"    + '; __Host-acceso=' + pm.collectionVariables.get('tokenTemporal') });"
+								]
+							}
+						}
+					],
 					"request": {
 						"auth": { "type": "noauth" },
 						"method": "POST",
@@ -1937,10 +1988,6 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{tokenTemporal}}"
 							}
 						],
 						"body": {
@@ -1952,7 +1999,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "password"]
 						},
-						"description": "Cierra todas las sesiones de ese usuario y abre una nueva: los tokens que responde son los que valen. A partir de aqui trabaja como cualquier editor."
+						"description": "Cierra todas las sesiones de ese usuario y abre una nueva, con cookies nuevas. A partir de aqui trabaja como cualquier editor."
 					},
 					"response": []
 				},
@@ -2611,22 +2658,13 @@
 					"name": "Cerrar sesion",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
-						},
+						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/logout",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "logout"]
 						},
-						"description": "HU-03: Cierra la sesion: el access token y el refresh token dejan de servir al instante. Va de ultima porque despues ningun request de la coleccion tiene sesion."
+						"description": "HU-03: Cierra la sesion de las cookies: el access token y el refresh token dejan de servir al instante, y la API borra las cookies. Va de ultima porque despues ningun request de la coleccion tiene sesion."
 					},
 					"response": []
 				}

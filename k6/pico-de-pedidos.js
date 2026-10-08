@@ -29,8 +29,16 @@ export const options = {
   },
 };
 
+// D29: la sesion va en la cookie de acceso, y lo que cambia algo lleva el token CSRF, el valor de la cookie
+// XSRF-TOKEN devuelto en X-XSRF-TOKEN. Las cookies de la API son Secure y aqui se habla por http dentro de la red,
+// asi que k6 no las mandaria solo: van a mano, con un token CSRF propio de cada usuario virtual.
+const CSRF = `carga-${Date.now()}-${Math.random()}`;
 const json = (token) => ({
-  headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  headers: {
+    'Content-Type': 'application/json',
+    'X-XSRF-TOKEN': CSRF,
+    Cookie: `XSRF-TOKEN=${CSRF}` + (token ? `; __Host-acceso=${token}` : ''),
+  },
 });
 
 // Una tienda propia de la corrida, con el proceso mas corto que se puede ejecutar: entra un pedido por mensaje,
@@ -51,7 +59,7 @@ export function setup() {
   const login = http.post(`${BASE}/api/v1/auth/login`,
     JSON.stringify({ email: correo, password: CLAVE }), json());
   check(login, { 'la administradora entra': (r) => r.status === 200 });
-  const token = login.json('accessToken');
+  const token = login.cookies['__Host-acceso'][0].value;
 
   const proceso = http.post(`${BASE}/api/v1/procesos`, JSON.stringify({
     nombre: 'Order fulfillment',
