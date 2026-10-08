@@ -19,11 +19,14 @@ USER appuser
 WORKDIR /app
 COPY --from=build --chown=appuser:appuser /build/extraido/ ./
 # La cache AOT de la JVM (JEP 483 y 514): un arranque de entrenamiento carga y enlaza aqui, una sola vez, las clases
-# que Spring necesita al arrancar, y cada arranque de verdad las encuentra hechas. Entrena con el perfil prod sobre
-# una H2 en memoria y se detiene en cuanto el contexto esta listo; la clave del JWT es aleatoria y no sale del paso.
+# que Spring necesita al arrancar, y cada arranque de verdad las encuentra hechas. Entrena con el perfil prod y sin
+# base de datos: Flyway no corre y Hibernate, con el dialecto dicho, no le pregunta nada al motor, asi que el contexto
+# se arma sin conectarse; se detiene en cuanto esta listo. La clave del JWT es aleatoria y no sale del paso.
 RUN JWT_SECRET="$(head -c 48 /dev/urandom | base64)" java -XX:AOTCacheOutput=app.aot -XX:MaxRAMPercentage=75.0 \
         -Dspring.context.exit=onRefresh -Dspring.profiles.active=prod \
-        -Dspring.datasource.url=jdbc:h2:mem:entrenamiento -Dspring.datasource.username=sa \
+        -Dspring.flyway.enabled=false -Dspring.jpa.hibernate.ddl-auto=none \
+        -Dspring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect \
+        -Dspring.jpa.properties.hibernate.boot.allow_jdbc_metadata_access=false \
         -jar app.jar
 # 8080 es la API; 8081, Actuator en prod, que no se publica.
 EXPOSE 8080 8081
