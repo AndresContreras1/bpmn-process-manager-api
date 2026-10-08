@@ -15,7 +15,7 @@ immutable version that orders run on. This repository holds the REST API and the
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-prod-4169E1?logo=postgresql&logoColor=white)
 ![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-1291-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-1312-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -167,7 +167,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **1291 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+- **1312 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
   controller and repository slices, service units, security and store isolation, and integration across modules.
 - **Coverage gate** with JaCoCo: 96 % of lines and 85 % of branches today, and the build fails below 90 % and 80 %
   in the service packages, where the business rules live.

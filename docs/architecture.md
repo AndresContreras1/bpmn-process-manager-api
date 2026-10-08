@@ -74,7 +74,7 @@ nothing of the engine beyond the port.
 
 | Package | Responsibility |
 |---|---|
-| `common` | What every module needs: the store and the access role, the authenticated identity (`ApiPrincipal`), the tenant base entity and the tenant-aware repository contract, business exceptions, Problem Details, pagination, and the queue of jobs |
+| `common` | What every module needs: the store and the access role, the authenticated identity (`ApiPrincipal`), the tenant base entity and the tenant-aware repository contract, business exceptions, Problem Details, pagination, the queue of jobs, and the e-mail and its templates |
 | `security` | Filter chain, the authentication endpoints, login and its rate limit, JWT issuing and validation, the session cookies and the CSRF check, closed sessions, `401` and `403` handlers, CORS |
 | `gestion` | Management: stores, users and their sessions, processes, process roles and change history |
 | `modelado` | BPMN modeling: pools, lanes, activities, gateways, sequence flows, message flows and correlation keys |
@@ -237,9 +237,9 @@ exports.
 
 ## Data that does not pile up
 
-Six tables only grow. A login writes a session, every renewal writes a refresh token, every request with an
-`Idempotency-Key` writes a key, every failed login writes an attempt, every answer of the model writes a review and
-every job stays in the queue when it ends. A scheduled job sweeps them every night (`LIMPIEZA_CRON`, 3:30 by
+Seven tables only grow. A login writes a session, every renewal writes a refresh token, every request with an
+`Idempotency-Key` writes a key, every failed login writes an attempt, every answer of the model writes a review,
+every job stays in the queue when it ends and every e-mail of the account leaves its link. A scheduled job sweeps them every night (`LIMPIEZA_CRON`, 3:30 by
 default):
 
 - **Refresh tokens** that expired more than `LIMPIEZA_RETENCION_SESIONES` ago. An expired one renews nothing.
@@ -252,6 +252,7 @@ default):
 - **AI reviews** that are no longer the last one of their process and left the window of the limit
   (`REVISION_WINDOW`). The last one stays, because it is the one that comes back while the diagram does not change.
 - **Jobs** that ended more than a week ago, done or failed: a failed one stays that week for someone to see it.
+- **Links of the e-mails** that expired more than a week ago. An expired one opens nothing.
 
 The outbox needs no sweeping: an event leaves it when its listener finishes, and what stays is what still has to be
 delivered.

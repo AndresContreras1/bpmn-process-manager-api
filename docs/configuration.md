@@ -42,6 +42,11 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `GEMINI_API_KEY` | Key for the AI review. Without it the review answers `503` and nothing else changes. | None |
 | `GEMINI_MODEL` · `GEMINI_BASE_URL` · `GEMINI_TIMEOUT` | Model, address and how long to wait for it | `gemini-3.8-flash` · Google endpoint · `20s` |
 | `REVISION_MAX_REVIEWS` · `REVISION_WINDOW` | Reviews a store can ask for, and the window that counts them | `10` · `1h` |
+| `SMTP_HOST` · `SMTP_PORT` | The SMTP server of the e-mail provider. Left empty, the API starts and every e-mail waits in the queue of jobs, failing, until there is one. `dev` uses Mailpit | Empty · `587` |
+| `SMTP_USERNAME` · `SMTP_PASSWORD` | Credentials of that server | Empty |
+| `SMTP_AUTH` · `SMTP_STARTTLS` | Whether the server asks for them, and whether the connection switches to TLS | `true` · `true` |
+| `MAIL_FROM` | The sender of every e-mail. Its domain needs SPF, DKIM and DMARC ([runbook](runbook.md)) | `BPMN Process Manager <no-reply@localhost>` |
+| `APP_PUBLIC_URL` | The address of the web app, where the links of the e-mails go | `http://localhost:4200`; `http://localhost:WEB_PORT` in the Compose stack |
 | `TRABAJOS_TRABAJADORES` | Jobs of the queue this instance runs at once. Each one holds a connection of the pool while it runs | `2` |
 | `TRABAJOS_MAXIMO_EN_CURSO_POR_TIENDA` | Jobs of one store running at once, counted across every instance, so a big export does not hold up the other stores | `2` |
 

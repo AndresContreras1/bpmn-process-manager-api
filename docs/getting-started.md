@@ -21,6 +21,8 @@ The API starts on `http://localhost:8080` with the `dev` profile:
   `docker compose -f compose.dev.yaml port db 5432` says on which port of `127.0.0.1` it answers, for a SQL client
   (database `procesos`, user `procesos`, password `procesos-dev`).
 - Swagger UI is at `/swagger-ui.html`, and the OpenAPI document at `/v3/api-docs`.
+- The e-mails of `dev` go to Mailpit, which `compose.dev.yaml` starts too: nothing leaves the machine, and
+  `http://localhost:8025` shows what was sent, the links included.
 
 If `JWT_SECRET` is not set, a random signing key is generated. Access tokens then stop working after a restart, and
 the refresh token, which is stored in the database, renews them.
