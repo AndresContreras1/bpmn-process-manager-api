@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
@@ -30,17 +29,9 @@ public class CookiesDeSesion {
 
     static final String RUTA_DEL_REFRESCO = "/api/v1/auth";
 
-    private final Duration vidaDelAcceso;
-    private final Duration vidaDelRefresco;
-
-    public CookiesDeSesion(@Value("${jwt.expiration-seconds}") long segundosDelAcceso,
-            @Value("${jwt.refresh-expiration-seconds}") long segundosDelRefresco) {
-        this.vidaDelAcceso = Duration.ofSeconds(segundosDelAcceso);
-        this.vidaDelRefresco = Duration.ofSeconds(segundosDelRefresco);
-    }
-
     /** Las dos cookies de una sesion recien abierta o renovada, cada una con la vida de su token. */
-    public void abrir(HttpServletResponse respuesta, String accessToken, String refreshToken) {
+    public void abrir(HttpServletResponse respuesta, String accessToken, Duration vidaDelAcceso, String refreshToken,
+            Duration vidaDelRefresco) {
         respuesta.addHeader(HttpHeaders.SET_COOKIE, cookie(ACCESO, accessToken, "/", vidaDelAcceso));
         respuesta.addHeader(HttpHeaders.SET_COOKIE,
                 cookie(REFRESCO, refreshToken, RUTA_DEL_REFRESCO, vidaDelRefresco));

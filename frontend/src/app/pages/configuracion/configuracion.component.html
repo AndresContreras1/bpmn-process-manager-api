@@ -35,19 +35,50 @@
                 <label class="form-check-label" [for]="'politica-' + opcion">{{ nombrePolitica[opcion] }}</label>
               </div>
             }
+          </div>
+        </div>
 
-            @if (esAdministrador) {
-              <button type="button" class="btn btn-primary mt-3" id="configuracion-guardar"
-                      [disabled]="enviando || politica === configuracion.politicaEstructura" (click)="guardar()">
-                {{ enviando ? 'Saving…' : 'Save' }}
-              </button>
-            } @else {
-              <p class="small text-body-secondary mb-0 mt-3" id="configuracion-solo-admin">
-                Only an administrator can change this.
-              </p>
+        <div class="card border-0 shadow-sm mt-3">
+          <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Sessions</h2>
+            <p class="small text-body-secondary">
+              A session closes when it goes this long without being used, and ends this long after its sign-in
+              however much it is used: then the user signs in again.
+            </p>
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label small" for="configuracion-inactividad">Idle timeout, in minutes</label>
+                <input type="number" class="form-control" id="configuracion-inactividad" name="inactividad"
+                       [min]="limites.inactividad.minimo" [max]="limites.inactividad.maximo" step="1"
+                       [(ngModel)]="inactividad" [disabled]="!esAdministrador">
+                <div class="form-text small">From {{ limites.inactividad.minimo }} to {{ limites.inactividad.maximo }}.</div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label small" for="configuracion-duracion">Maximum duration, in hours</label>
+                <input type="number" class="form-control" id="configuracion-duracion" name="duracion"
+                       [min]="limites.duracion.minimo" [max]="limites.duracion.maximo" step="1"
+                       [(ngModel)]="duracion" [disabled]="!esAdministrador">
+                <div class="form-text small">From {{ limites.duracion.minimo }} to {{ limites.duracion.maximo }}.</div>
+              </div>
+            </div>
+            @if (!dentroDeLosLimites()) {
+              <div class="invalid-feedback d-block" id="configuracion-limites-error">
+                Use whole numbers inside those ranges.
+              </div>
             }
           </div>
         </div>
+
+        @if (esAdministrador) {
+          <button type="button" class="btn btn-primary mt-3" id="configuracion-guardar"
+                  [disabled]="enviando || !sePuedeGuardar" (click)="guardar()">
+            {{ enviando ? 'Saving…' : 'Save' }}
+          </button>
+        } @else {
+          <p class="small text-body-secondary mb-0 mt-3" id="configuracion-solo-admin">
+            Only an administrator can change this.
+          </p>
+        }
 
         <div class="card border-0 shadow-sm mt-3">
           <div class="card-body p-4">

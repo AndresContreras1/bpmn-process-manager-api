@@ -18,8 +18,9 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * D16: lo que cada tienda decide sobre si misma: quien puede tocar la estructura de los diagramas y, desde que hay
- * ejecucion, el reloj de su simulacion y quien lo mueve. Una fila por tienda, creada con ella.
+ * D16: lo que cada tienda decide sobre si misma: quien puede tocar la estructura de los diagramas, cuanto duran sus
+ * sesiones y, desde que hay ejecucion, el reloj de su simulacion y quien lo mueve. Una fila por tienda, creada con
+ * ella.
  */
 @Getter
 @Setter
@@ -55,4 +56,17 @@ public class ConfiguracionTienda extends EntidadEditable {
     @Embedded
     @Builder.Default
     private ParametrosSimulacion simulacion = ParametrosSimulacion.builder().build();
+
+    /**
+     * NIST 800-63B (AAL2): minutos que una sesion aguanta sin renovarse, de 30 a 60. La API solo ve la actividad
+     * cuando se renueva, y un acceso dura 15 minutos: con menos de 30, quien trabaja sin parar tambien saldria.
+     */
+    @Column(name = "inactividad_sesion_minutos", nullable = false)
+    @Builder.Default
+    private int inactividadSesionMinutos = 60;
+
+    /** Horas desde el login tras las que hay que volver a entrar, aunque la sesion no haya parado, de 1 a 24. */
+    @Column(name = "duracion_sesion_horas", nullable = false)
+    @Builder.Default
+    private int duracionSesionHoras = 24;
 }

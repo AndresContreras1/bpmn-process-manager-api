@@ -16,6 +16,10 @@ public record ConfiguracionTiendaResponse(
         @Schema(description = "Who moves the clock: whoever is testing, or a job every few seconds",
                 example = "MANUAL") ModoSimulacion modoSimulacion,
         @Schema(description = "How the store's simulated partners behave") ParametrosSimulacionResponse simulacion,
+        @Schema(description = "Minutes a session lasts without being renewed", example = "60")
+        int inactividadSesionMinutos,
+        @Schema(description = "Hours after the login when the user has to sign in again", example = "24")
+        int duracionSesionHoras,
         @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
         Long version,
         @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,

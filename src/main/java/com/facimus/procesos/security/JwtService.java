@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.Date;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -78,6 +79,11 @@ public class JwtService {
     }
 
     public String generarToken(ApiPrincipal principal) {
+        return generarToken(principal, Duration.ofSeconds(expirationSeconds));
+    }
+
+    /** Un access token que vence cuando se le pide: el de una sesion a punto de acabar, cuando ella acaba. */
+    public String generarToken(ApiPrincipal principal, Duration vida) {
         Date ahora = new Date();
         return Jwts.builder()
                 .header().keyId(idDeLaClave).and()
@@ -91,7 +97,7 @@ public class JwtService {
                 .claim(CLAIM_SESION, principal.sesion())
                 .claim(CLAIM_CAMBIO_DE_CLAVE, principal.debeCambiarClave())
                 .issuedAt(ahora)
-                .expiration(new Date(ahora.getTime() + expirationSeconds * 1000))
+                .expiration(new Date(ahora.getTime() + vida.toMillis()))
                 .signWith(clave, Jwts.SIG.HS256)
                 .compact();
     }

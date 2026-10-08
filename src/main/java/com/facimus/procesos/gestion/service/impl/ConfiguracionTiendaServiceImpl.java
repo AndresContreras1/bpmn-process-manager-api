@@ -24,6 +24,7 @@ import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
+import com.facimus.procesos.gestion.service.LimitesDeSesion;
 
 import lombok.RequiredArgsConstructor;
 
@@ -65,7 +66,7 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
     @Override
     @Transactional
     public ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
-            ModoSimulacion modo, ParametrosSimulacion parametros, Long version) {
+            ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones, Long version) {
         ConfiguracionTienda configuracion = buscar(empresaId);
         configuracion.verificarVersion(version);
         configuracion.setPoliticaEstructura(politica);
@@ -76,13 +77,38 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
             exigirReglaQueCompila(parametros.getReglaRechazoPagos());
             configuracion.setSimulacion(parametros);
         }
+        boolean cambianLasSesiones = acotarSesiones(configuracion, sesiones);
         configuracion = configuracionTiendaRepository.saveAndFlush(configuracion);
 
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
                 politica == PoliticaEstructura.SOLO_ADMINISTRADOR
                         ? "La estructura de los diagramas queda reservada a los administradores."
                         : "Los editores vuelven a poder cambiar la estructura de los diagramas.");
+        if (cambianLasSesiones) {
+            historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
+                    "Las sesiones se cierran tras " + configuracion.getInactividadSesionMinutos()
+                            + " minutos sin renovarse y " + horas(configuracion.getDuracionSesionHoras())
+                            + " después del login.");
+        }
         return configuracionTiendaMapper.toResponse(configuracion);
+    }
+
+    private static String horas(int horas) {
+        return horas == 1 ? "una hora" : horas + " horas";
+    }
+
+    /** Pone los limites que llegaron y dice si alguno cambio. Las sesiones abiertas toman la duracion nueva. */
+    private static boolean acotarSesiones(ConfiguracionTienda configuracion, LimitesDeSesion sesiones) {
+        int inactividad = configuracion.getInactividadSesionMinutos();
+        int duracion = configuracion.getDuracionSesionHoras();
+        if (sesiones.inactividadMinutos() != null) {
+            configuracion.setInactividadSesionMinutos(sesiones.inactividadMinutos());
+        }
+        if (sesiones.duracionHoras() != null) {
+            configuracion.setDuracionSesionHoras(sesiones.duracionHoras());
+        }
+        return inactividad != configuracion.getInactividadSesionMinutos()
+                || duracion != configuracion.getDuracionSesionHoras();
     }
 
     /**

@@ -223,14 +223,15 @@ class CargaPerezosaTest {
     }
 
     @Test
-    @DisplayName("Renovar cuesta tres sentencias: leer el token con su sesion y su usuario, usarlo y emitir otro")
-    void renovarSesion_cuestaTresSentencias() {
+    @DisplayName("Renovar cuesta cuatro sentencias: leer el token con su sesion y su usuario, los limites de la tienda, "
+            + "usarlo y emitir otro")
+    void renovarSesion_cuestaCuatroSentencias() {
         String refreshToken = sesionService.iniciar(empresaId, adminId).refreshToken();
 
         estadisticas.clear();
         sesionService.renovar(refreshToken);
 
-        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(3);
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(4);
     }
 
     @Test
