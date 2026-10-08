@@ -1,0 +1,11 @@
+[(#{recuperar-clave.saludo(${nombre})})]
+
+[(#{recuperar-clave.cuerpo})]
+
+[(${enlace})]
+
+[(#{recuperar-clave.vence(${minutos})})]
+[(#{recuperar-clave.ignorar})]
+
+--
+[(#{comun.firma})]

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}">
+<head>
+  <meta charset="UTF-8">
+  <title th:text="#{invitacion.asunto}">Asunto</title>
+</head>
+<body style="font-family: Arial, Helvetica, sans-serif; color: #212529; line-height: 1.5;">
+  <p th:text="#{invitacion.saludo}">Hola:</p>
+  <p th:text="#{invitacion.cuerpo(${quienInvita}, ${tienda})}">Cuerpo</p>
+  <p>
+    <a th:href="${enlace}" th:text="#{invitacion.boton}"
+       style="display: inline-block; padding: 10px 18px; background: #0f6e56; color: #ffffff; text-decoration: none; border-radius: 4px;">Boton</a>
+  </p>
+  <p th:text="#{invitacion.vence(${dias})}">Vence</p>
+  <p th:text="#{invitacion.ignorar}">Ignorar</p>
+  <p style="font-size: 12px; color: #6c757d;">
+    <span th:text="#{comun.copiar}">Copiar</span><br>
+    <span th:text="${enlace}">Enlace</span>
+  </p>
+  <p style="font-size: 12px; color: #6c757d;" th:text="#{comun.firma}">Firma</p>
+</body>
+</html>

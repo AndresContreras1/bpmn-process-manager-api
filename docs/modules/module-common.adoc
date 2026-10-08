@@ -19,6 +19,7 @@ _Others_
 
 * `c.f.p.c.api.ApiExceptionHandler`
 * `c.f.p.c.api.IdDePeticionFilter`
+* `c.f.p.c.correo.Redactor`
 * `c.f.p.c.metricas.MetricasDeNegocio`
 * `c.f.p.c.trabajos.ColaDeTrabajos`
 |===

@@ -112,6 +112,16 @@
 			<groupId>com.github.ben-manes.caffeine</groupId>
 			<artifactId>caffeine</artifactId>
 		</dependency>
+		<!-- Correo transaccional: SMTP generico, y Thymeleaf solo como motor de las plantillas de los correos. La web
+		     sigue siendo una SPA: no hay vistas del servidor (D18). -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.thymeleaf</groupId>
+			<artifactId>thymeleaf</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
@@ -204,6 +214,13 @@
 		<dependency>
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-observation-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- Un servidor SMTP en memoria: las pruebas leen el correo que de verdad salio -->
+		<dependency>
+			<groupId>com.icegreen</groupId>
+			<artifactId>greenmail-junit5</artifactId>
+			<version>2.1.14</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

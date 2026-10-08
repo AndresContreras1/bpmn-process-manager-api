@@ -44,6 +44,14 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost,http://localhost:${WEB_PORT:-80}}
       # D19: la cache de lo publicado. Se deja encendida y se apaga desde .env para medir la diferencia.
       CACHE_VERSIONES: ${CACHE_VERSIONES:-true}
+      # El correo: sin SMTP_HOST la API arranca y los correos esperan en la cola. APP_PUBLIC_URL es la direccion de
+      # la web, a la que llevan los enlaces de los correos.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-BPMN Process Manager <no-reply@localhost>}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:${WEB_PORT:-80}}
     # Solo en 127.0.0.1, para quien trabaja en esta maquina: la API cree las cabeceras X-Forwarded-* que le llegan
     # de la red interna, y publicada en todas las interfaces cualquiera de la red local podria inventarse su IP.
     # Desde fuera se entra por la web.
