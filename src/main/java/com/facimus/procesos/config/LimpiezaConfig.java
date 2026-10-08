@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 import com.facimus.procesos.gestion.service.Limpieza;
 import com.facimus.procesos.gestion.service.LimpiezaService;
+import com.facimus.procesos.modelado.service.RevisionService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public class LimpiezaConfig {
 
     private final LimpiezaService limpiezaService;
+    private final RevisionService revisionService;
 
     @Scheduled(cron = "${limpieza.cron}")
     public void limpiar() {
@@ -32,6 +34,10 @@ public class LimpiezaConfig {
         if (limpieza.total() > 0) {
             log.info("Limpieza: {} refresh tokens, {} sesiones y {} claves de idempotencia.",
                     limpieza.refreshTokens(), limpieza.sesiones(), limpieza.clavesIdempotencia());
+        }
+        int revisiones = revisionService.olvidarSuperadas();
+        if (revisiones > 0) {
+            log.info("Limpieza: {} revisiones con IA que ya tenian una mas nueva.", revisiones);
         }
     }
 }

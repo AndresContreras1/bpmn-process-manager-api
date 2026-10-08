@@ -7,4 +7,7 @@ public interface RevisionService {
 
     /** Describe el diagrama, se lo pasa al revisor y devuelve sus hallazgos. */
     RevisionResponse revisar(Long empresaId, Long procesoId);
+
+    /** D20: borra las revisiones que ya no son la ultima de su proceso y que salieron de la ventana del limite. */
+    int olvidarSuperadas();
 }

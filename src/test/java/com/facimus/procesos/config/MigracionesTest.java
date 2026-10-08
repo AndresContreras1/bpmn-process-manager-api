@@ -95,7 +95,8 @@ class MigracionesTest {
                         "V16__variables_del_caso.sql",
                         "V17__membresias_de_rol.sql", "V18__reloj_de_la_tienda.sql",
                         "V19__bandejas_de_mensajes.sql", "V20__cuerpos_de_los_mensajes.sql",
-                        "V21__parametros_de_simulacion.sql");
+                        "V21__parametros_de_simulacion.sql",
+                        "V22__revisiones_ia.sql");
     }
 
     @Test
