@@ -19,6 +19,10 @@ tagged. Each pull request adds its line under *Unreleased*.
 - Several instances of the API can run on one database: closed sessions are announced to every instance with
   PostgreSQL's `LISTEN/NOTIFY`, failed logins and AI reviews live in tables, and each scheduled job runs in one
   instance at a time with ShedLock.
+- Spring Modulith verifies the modules beside ArchUnit and documents them in `docs/modules`. Events between modules
+  go through an outbox in PostgreSQL and are delivered again after a restart, and slow work goes to a queue of
+  jobs taken with `FOR UPDATE SKIP LOCKED`, with retries that wait longer each time, failed jobs kept for a week
+  and a cap of jobs running per store.
 
 ### Changed
 

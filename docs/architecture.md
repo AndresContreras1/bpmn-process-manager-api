@@ -74,7 +74,7 @@ nothing of the engine beyond the port.
 
 | Package | Responsibility |
 |---|---|
-| `common` | What every module needs: the store and the access role, the authenticated identity (`ApiPrincipal`), the tenant base entity and the tenant-aware repository contract, business exceptions, Problem Details, pagination |
+| `common` | What every module needs: the store and the access role, the authenticated identity (`ApiPrincipal`), the tenant base entity and the tenant-aware repository contract, business exceptions, Problem Details, pagination, and the queue of jobs |
 | `security` | Filter chain, the authentication endpoints, login and its rate limit, JWT issuing and validation, closed sessions, `401` and `403` handlers, CORS |
 | `gestion` | Management: stores, users and their sessions, processes, process roles and change history |
 | `modelado` | BPMN modeling: pools, lanes, activities, gateways, sequence flows, message flows and correlation keys |
@@ -147,6 +147,16 @@ is calling — lives in `common`, so nothing has to reach sideways for it, and t
 the rest of `security` instead of with the management of the store. An ArchUnit rule checks that the packages keep
 stacking, at the top level and inside each module.
 
+Spring Modulith checks the same boundaries from what each module declares, beside ArchUnit and not instead of it
+(`ModulosTest`). Every module has a `package-info.java` that names the modules it may use and, of each one, which
+packages: `gestion` exposes its services, DTOs, entities and events, and the repositories `modelado` reads for its
+gate; `modelado` its entities and the DTOs of the diagram; `ejecucion` only its port. The rest of a module is
+internal. `common` is open, because every module stands on it, and `config` is left out, because wiring the others
+is its job. `ApplicationModules.verify()` fails the build on a cycle, on a reach into the internals of another
+module and on a dependency that was not declared; ArchUnit keeps the rules Modulith does not know, such as the
+layers inside a module or the store on every query. The same test writes the diagram and the canvas of each module
+in [`docs/modules`](modules/), and fails while they are not those of the code.
+
 ## The published-version cache
 
 A published version never changes: publishing freezes the diagram and retiring a version does not rewrite it. So
@@ -211,16 +221,25 @@ PostgreSQL, not in its memory (D34).
 | Failed logins | Table `intentos_login`, one row per failure | They count the same rows |
 | AI reviews | Table `revisiones_ia`, one row per answer of the model | They reuse the last one of a process and count the same ones for the store's limit |
 | Scheduled jobs | Table `shedlock`, the lock of each job, with the database's clock | The purge and the simulation clock run in one instance at a time; the lock of the clock lasts as long as the pause between ticks, so two instances do not move it twice as fast |
+| Events for another module | Table `event_publication`, the outbox of Spring Modulith | An event for an `@ApplicationModuleListener` is written in the transaction that publishes it and deleted when its listener finishes; what a listener did not finish is delivered again when an instance starts. The listeners that have to act inside the transaction, such as the one that creates the pool of a new process or the notice of a closed session, do not go through it |
+| Jobs | Table `trabajos`, the queue | Any instance takes the next job with `FOR UPDATE SKIP LOCKED`, so two never take the same one and none waits for another. A job that fails comes back after a wait that doubles each time, up to an hour, and after its attempts it stays `FALLIDO` with its last error. A store has at most `TRABAJOS_MAXIMO_EN_CURSO_POR_TIENDA` jobs running at once, so a big export does not hold up the others, and a job that an instance left half done goes back to the queue after fifteen minutes |
 
 What stays in each instance is safe to keep apart: the cache of published versions, which never change, and the
 metrics, which Prometheus reads from each instance. Counting and recording a failed login are not one transaction,
-so two failures at the same time can go one past the limit; for a limit of attempts that changes nothing.
+so two failures at the same time can go one past the limit; for a limit of attempts that changes nothing. The cap
+of jobs per store is counted the same way, without a lock, so two workers at the same time can pass it by one.
+
+An event and a job are delivered at least once: a listener that fails, or an instance that dies halfway through a
+job, means it runs again. Whoever handles them has to be able to run the same one twice without doing it twice.
+The outbox and the queue are ready before their first users: the e-mails, the webhooks, the audit log and the
+exports.
 
 ## Data that does not pile up
 
-Five tables only grow. A login writes a session, every renewal writes a refresh token, every request with an
-`Idempotency-Key` writes a key, every failed login writes an attempt and every answer of the model writes a review.
-A job sweeps them every night (`LIMPIEZA_CRON`, 3:30 by default):
+Six tables only grow. A login writes a session, every renewal writes a refresh token, every request with an
+`Idempotency-Key` writes a key, every failed login writes an attempt, every answer of the model writes a review and
+every job stays in the queue when it ends. A scheduled job sweeps them every night (`LIMPIEZA_CRON`, 3:30 by
+default):
 
 - **Refresh tokens** that expired more than `LIMPIEZA_RETENCION_SESIONES` ago. An expired one renews nothing.
 - **Sessions** older than that same window with no refresh token left, which can no longer issue anything. The
@@ -231,6 +250,10 @@ A job sweeps them every night (`LIMPIEZA_CRON`, 3:30 by default):
   forgets the failures of its email and address at once.
 - **AI reviews** that are no longer the last one of their process and left the window of the limit
   (`REVISION_WINDOW`). The last one stays, because it is the one that comes back while the diagram does not change.
+- **Jobs** that ended more than a week ago, done or failed: a failed one stays that week for someone to see it.
 
-Apart from the failures a successful login forgets, this is the only place in the API where a row is really
-deleted; everything else is a soft delete and stays.
+The outbox needs no sweeping: an event leaves it when its listener finishes, and what stays is what still has to be
+delivered.
+
+Apart from the failures a successful login forgets and the events the outbox lets go of, this is the only place in
+the API where a row is really deleted; everything else is a soft delete and stays.

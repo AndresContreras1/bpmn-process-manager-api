@@ -22,6 +22,12 @@ PostgreSQL holds everything the instances share, and Caffeine what each one may 
   announced with `NOTIFY` inside the transaction that makes it. Each instance listens on a connection of its own.
 - Failed logins are rows of `intentos_login`, and AI reviews rows of `revisiones_ia`.
 - Every scheduled job takes its lock in `shedlock` (ShedLock, with the database's clock) before it runs.
+- Events for a listener of another module that must not be lost go through the outbox of Spring Modulith,
+  `event_publication`, written in the transaction that publishes them; what a listener did not finish is
+  delivered again when an instance starts.
+- Slow work, or work that may fail, goes to the queue `trabajos`: an instance takes a job with
+  `FOR UPDATE SKIP LOCKED`, a failure comes back after a wait that doubles, and a store has a cap of jobs
+  running at once.
 
 ## Consequences
 
@@ -31,6 +37,8 @@ PostgreSQL holds everything the instances share, and Caffeine what each one may 
 - A failed login costs a few queries more, and the limits are exact only up to requests that arrive at the same
   time.
 - The tables that only grow are swept by the nightly purge (D20).
+- An event and a job are delivered at least once, so whoever handles them has to be able to run the same one
+  twice without doing it twice.
 
 ## Verification
 
@@ -41,3 +49,6 @@ PostgreSQL holds everything the instances share, and Caffeine what each one may 
   `AvisoDeSesionesCerradasTest` the notices.
 - `EmpaquetadoTest.lo_que_corre_solo_toma_su_candado` fails the build if a `@Scheduled` method has no
   `@SchedulerLock`, and `PerfilesTest` checks that each job takes its lock.
+- `OutboxDeEventosTest` stops an instance whose listener failed and starts another one that delivers the event.
+  `ColaDeTrabajosTest` checks the queue against PostgreSQL, four workers over forty jobs included, and
+  `TrabajadoresDeLaColaTest` the workers that take the jobs.
