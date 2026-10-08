@@ -22,8 +22,8 @@ import com.facimus.procesos.ejecucion.dto.response.LoQueSalioMalResponse;
 import com.facimus.procesos.ejecucion.dto.response.MensajesPorEstadoResponse;
 import com.facimus.procesos.ejecucion.dto.response.MensajesPorResultadoResponse;
 import com.facimus.procesos.ejecucion.dto.response.TableroResponse;
-import com.facimus.procesos.ejecucion.dto.response.TareasPorRolResponse;
 import com.facimus.procesos.ejecucion.dto.response.TareaResponse;
+import com.facimus.procesos.ejecucion.dto.response.TareasPorRolResponse;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
 import com.facimus.procesos.ejecucion.model.ResultadoCorrelacion;
@@ -107,7 +107,7 @@ class TableroIntegracionTest {
     void cincoPedidosDeLosCualesTresSeAtiendenYUnoSeCancela() {
         estadisticas = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         empresaId = empresaService.registrar("Tienda del tablero", "900606060-1", "contacto@tablero.com",
-                "Administradora", "admin@tablero.com", "clave12345").id();
+                "Administradora", "admin@tablero.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@tablero.com").orElseThrow().getId();
         tienda = new TiendaConMensajeria(contexto);
         procesoId = tienda.publicar(empresaId, adminId, "Order fulfillment on a board");
@@ -204,7 +204,7 @@ class TableroIntegracionTest {
     @DisplayName("El tablero de otra tienda no ve nada de esta")
     void elTablero_esDeCadaTienda() {
         Long otraId = empresaService.registrar("Tienda sin pedidos", "900606060-2", "contacto@vacia.com",
-                "Otro", "admin@vacia.com", "clave12345").id();
+                "Otro", "admin@vacia.com", "marea-violeta-del-sur").id();
 
         TableroResponse tablero = tableroService.de(otraId, null);
 
@@ -235,7 +235,7 @@ class TableroIntegracionTest {
     @DisplayName("Lo que salio mal cuenta los avisos que no llegaron, y no otra cosa de la bitacora")
     void loQueSalioMal_cuentaLosAvisosQueNoLlegaron() {
         Long avisosId = empresaService.registrar("Tienda de los avisos perdidos", "900606060-3",
-                "contacto@avisos.com", "Otra", "admin@avisos.com", "clave12345").id();
+                "contacto@avisos.com", "Otra", "admin@avisos.com", "marea-violeta-del-sur").id();
         Long suAdmin = usuarioRepository.findByEmail("admin@avisos.com").orElseThrow().getId();
         ConfiguracionTiendaResponse antes = configuracionTiendaService.obtener(avisosId);
         configuracionTiendaService.editar(avisosId, suAdmin, antes.politicaEstructura(), null,

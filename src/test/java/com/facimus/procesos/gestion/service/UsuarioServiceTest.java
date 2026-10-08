@@ -1,8 +1,28 @@
 package com.facimus.procesos.gestion.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
+import org.mockito.InOrder;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
@@ -11,26 +31,8 @@ import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.impl.PoliticaDeClaves;
 import com.facimus.procesos.gestion.service.impl.UsuarioServiceImpl;
-
-import org.mapstruct.factory.Mappers;
-import org.mockito.Spy;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
-
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UsuarioServiceTest {
@@ -52,6 +54,9 @@ class UsuarioServiceTest {
 
     @Mock
     private HistorialCambioService historialCambioService;
+
+    @Mock
+    private PoliticaDeClaves politicaDeClaves;
 
     @InjectMocks
     private UsuarioServiceImpl usuarioService;
@@ -118,6 +123,90 @@ class UsuarioServiceTest {
                 RolAcceso.EDITOR);
 
         assertEquals("nuevo@acme.com", result.email());
+    }
+
+    @Test
+    @DisplayName("La clave elegida pasa la politica con el nombre, el correo ya normalizado y la tienda")
+    void crearColaborador_conClave_pasaLaPolitica() {
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
+        when(usuarioRepository.existsByEmail("nuevo@acme.com")).thenReturn(false);
+        when(passwordEncoder.encode("pass")).thenReturn("hashed");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        usuarioService.crearColaborador(1L, 9L, "Nuevo", " Nuevo@ACME.com", "pass", RolAcceso.EDITOR);
+
+        verify(politicaDeClaves).comprobar("pass", "Nuevo", "nuevo@acme.com", "Acme");
+    }
+
+    @Test
+    @DisplayName("Una clave que la politica rechaza no crea al usuario")
+    void crearColaborador_claveRechazada_noGuarda() {
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
+        when(usuarioRepository.existsByEmail("nuevo@acme.com")).thenReturn(false);
+        doThrow(new SolicitudInvalidaException("Muy corta.")).when(politicaDeClaves)
+                .comprobar("pass", "Nuevo", "nuevo@acme.com", "Acme");
+
+        assertThrows(SolicitudInvalidaException.class, () -> usuarioService.crearColaborador(1L, 9L, "Nuevo",
+                "nuevo@acme.com", "pass", RolAcceso.EDITOR));
+
+        verify(usuarioRepository, never()).save(any());
+        verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    @DisplayName("D17: la temporal no pasa por la politica; son 96 bits al azar en 16 caracteres")
+    void crearColaborador_sinClave_generaUnaTemporalDe16Caracteres() {
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
+        when(usuarioRepository.existsByEmail("nuevo@acme.com")).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        UsuarioResponse result = usuarioService.crearColaborador(1L, 9L, "Nuevo", "nuevo@acme.com", null,
+                RolAcceso.EDITOR);
+
+        assertEquals(16, result.claveTemporal().length());
+        assertTrue(result.debeCambiarClave());
+        verifyNoInteractions(politicaDeClaves);
+    }
+
+    @Test
+    @DisplayName("Cambiar la clave propia pasa la nueva por la politica, con el nombre, el correo y la tienda")
+    void cambiarClavePropia_pasaLaNuevaPorLaPolitica() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("la de ahora", "hashed")).thenReturn(true);
+        when(passwordEncoder.matches("una frase nueva y larga", "hashed")).thenReturn(false);
+        when(passwordEncoder.encode("una frase nueva y larga")).thenReturn("otro-hash");
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
+
+        usuarioService.cambiarClavePropia(1L, 10L, "la de ahora", "una frase nueva y larga");
+
+        verify(politicaDeClaves).comprobar("una frase nueva y larga", "Juan", "juan@acme.com", "Acme");
+        assertEquals("otro-hash", usuario.getPasswordHash());
+    }
+
+    @Test
+    @DisplayName("Una clave nueva que la politica rechaza deja la anterior")
+    void cambiarClavePropia_rechazada_dejaLaAnterior() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("la de ahora", "hashed")).thenReturn(true);
+        when(passwordEncoder.matches("juan y su perro fiel", "hashed")).thenReturn(false);
+        doThrow(new SolicitudInvalidaException("Lleva el nombre.")).when(politicaDeClaves)
+                .comprobar("juan y su perro fiel", "Juan", "juan@acme.com", "Acme");
+
+        assertThrows(SolicitudInvalidaException.class,
+                () -> usuarioService.cambiarClavePropia(1L, 10L, "la de ahora", "juan y su perro fiel"));
+
+        assertEquals("hashed", usuario.getPasswordHash());
+        verify(usuarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("Rehacer el hash va directo a la base, acotado por la tienda, sin historial ni cierre de sesiones")
+    void renovarHash_soloCambiaElHash() {
+        usuarioService.renovarHash(1L, 10L, "{bcrypt}otro-hash");
+
+        verify(usuarioRepository).renovarHash(1L, 10L, "{bcrypt}otro-hash");
+        verifyNoInteractions(historialCambioService, sesionService);
     }
 
     @Test

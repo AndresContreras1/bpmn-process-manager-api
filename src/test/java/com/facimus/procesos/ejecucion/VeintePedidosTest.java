@@ -69,7 +69,7 @@ class VeintePedidosTest {
     void registrarLaTienda() {
         demo = new TiendaConMensajeria(contexto);
         empresaId = empresaService.registrar("Tienda de la tanda", "900909090-1", "contacto@tanda.com",
-                "Administradora", "admin@tanda.com", "clave12345").id();
+                "Administradora", "admin@tanda.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@tanda.com").orElseThrow().getId();
     }
 

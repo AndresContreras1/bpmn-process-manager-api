@@ -49,7 +49,7 @@ class IdempotenciaIntegracionTest {
 
     private static final String ADMIN = "admin@idempotencia.com";
     private static final String EDITORA = "editora@idempotencia.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     @Autowired
     private MockMvc mockMvc;

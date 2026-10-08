@@ -137,7 +137,7 @@ It opens on `http://localhost:4200` and forwards `/api` to the API.
 
 | Demo account | Email | Password |
 |---|---|---|
-| Demo Store administrator | `admin@demo.com` | `admin123` |
+| Demo Store administrator | `admin@demo.com` | `every-order-on-time` |
 
 **The whole stack**, database, API and web, closer to production:
 

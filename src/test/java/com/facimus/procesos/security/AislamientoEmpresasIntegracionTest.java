@@ -93,7 +93,7 @@ class AislamientoEmpresasIntegracionTest {
     private static final String ADMIN_A = "admin@empresa-a.com";
     private static final String AUDITOR_A = "auditor@empresa-a.com";
     private static final String ADMIN_B = "admin@empresa-b.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     @Autowired
     private MockMvc mockMvc;

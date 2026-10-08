@@ -85,7 +85,7 @@ Any other client plays the browser. With curl, a cookie jar does it, and the exa
 curl -s -c sesion.txt http://localhost:8080/api/v1/auth/csrf
 XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
 curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/login -H "X-XSRF-TOKEN: $XSRF" \
-  -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"admin123"}'
+  -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"every-order-on-time"}'
 curl -s -b sesion.txt http://localhost:8080/api/v1/procesos
 ```
 

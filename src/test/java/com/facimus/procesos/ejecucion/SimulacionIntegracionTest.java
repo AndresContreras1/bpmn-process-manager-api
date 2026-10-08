@@ -83,7 +83,7 @@ class SimulacionIntegracionTest {
     void registrarLaTienda() {
         tienda = new TiendaConMensajeria(contexto);
         empresaId = empresaService.registrar("Tienda que simula", "900888222-1", "contacto@simula.com",
-                "Administradora", "admin@simula.com", "clave12345").id();
+                "Administradora", "admin@simula.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@simula.com").orElseThrow().getId();
     }
 
@@ -185,7 +185,7 @@ class SimulacionIntegracionTest {
         Long procesoId = tienda.publicar(empresaId, adminId, "Order fulfillment of the first store");
         Long casoId = unPedidoEsperandoLaPasarela(procesoId, "ORD-1400");
         Long otraId = empresaService.registrar("Tienda vecina que simula", "900888222-2", "contacto@vecina2.com",
-                "Otro", "admin@vecina2.com", "clave12345").id();
+                "Otro", "admin@vecina2.com", "marea-violeta-del-sur").id();
         Long otroAdmin = usuarioRepository.findByEmail("admin@vecina2.com").orElseThrow().getId();
         Long suProceso = tienda.publicar(otraId, otroAdmin, "Order fulfillment of the second store");
         mensajeriaService.recibir(otraId, suProceso,

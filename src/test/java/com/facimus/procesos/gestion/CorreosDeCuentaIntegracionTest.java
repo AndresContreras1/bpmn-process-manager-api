@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -50,7 +51,7 @@ import tools.jackson.databind.json.JsonMapper;
 @AutoConfigureMockMvc
 class CorreosDeCuentaIntegracionTest {
 
-    private static final String CLAVE = "clave-de-la-tienda";
+    private static final String CLAVE = "brujula-de-bolsillo";
     private static final Pattern TOKEN = Pattern.compile("#token=([A-Za-z0-9_-]+)");
     private static final AtomicInteger TIENDAS = new AtomicInteger();
 
@@ -148,7 +149,7 @@ class CorreosDeCuentaIntegracionTest {
         assertThat(correo.getSubject()).isEqualTo("Te invitaron a una tienda en BPMN Process Manager");
         assertThat(texto(correo)).contains("Administradora", "Tienda de cuentas");
         Map<String, Object> aceptar = Map.of("token", tokenDe(correo), "nombre", "Luis Invitado",
-                "password", "clave-de-luis");
+                "password", "violin-junto-al-mar");
         confirmar("/api/v1/auth/invitacion/aceptar", aceptar)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value(invitada))
@@ -156,7 +157,7 @@ class CorreosDeCuentaIntegracionTest {
                 .andExpect(jsonPath("$.debeCambiarClave").value(false));
 
         assertThat(verificado(invitada)).isTrue();
-        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(entrar(invitada, "clave-de-luis"))))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(entrar(invitada, "violin-junto-al-mar"))))
                 .andExpect(status().isOk());
         confirmar("/api/v1/auth/invitacion/aceptar", aceptar).andExpect(status().isBadRequest());
     }
@@ -187,15 +188,54 @@ class CorreosDeCuentaIntegracionTest {
         pedirRecuperacion(admin).andExpect(status().isAccepted());
         String token = tokenDe(elUnicoCorreoA(admin));
 
-        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", token, "nueva", "la-clave-nueva"))
+        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", token, "nueva", "lluvia-sobre-los-tejados"))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(sesionVieja)))
                 .andExpect(status().isUnauthorized());
-        entrar(admin, "la-clave-nueva");
+        entrar(admin, "lluvia-sobre-los-tejados");
         login(admin, CLAVE).andExpect(status().isUnauthorized());
-        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", token, "nueva", "otra-clave-mas"))
+        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", token, "nueva", "piedras-del-rio-grande"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Una clave que no pasa la politica no gasta el enlace de recuperacion: con una buena, sirve")
+    void recuperacion_conUnaClaveDebil_noGastaElEnlace() throws Exception {
+        String admin = registrarTienda();
+        SMTP.purgeEmailFromAllMailboxes();
+        pedirRecuperacion(admin).andExpect(status().isAccepted());
+        String token = tokenDe(elUnicoCorreoA(admin));
+
+        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", token, "nueva", "passwordpassword"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("filtradas")));
+        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", token, "nueva", "lluvia-sobre-los-tejados"))
+                .andExpect(status().isNoContent());
+        entrar(admin, "lluvia-sobre-los-tejados");
+    }
+
+    @Test
+    @DisplayName("Aceptar una invitacion con una clave que lleva el nombre de quien acepta no gasta el enlace")
+    void invitacion_conUnaClaveConSuNombre_noGastaElEnlace() throws Exception {
+        String admin = registrarTienda();
+        String verificacion = tokenDe(elUnicoCorreoA(admin));
+        confirmar("/api/v1/auth/verificacion/confirmar", Map.of("token", verificacion))
+                .andExpect(status().isNoContent());
+        String invitada = "invitada" + TIENDAS.incrementAndGet() + "@cuenta.test";
+        mockMvc.perform(post("/api/v1/usuarios/invitaciones").with(SesionEnCookies.conSesion(entrar(admin, CLAVE)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(Map.of("email", invitada, "rolAcceso", "EDITOR"))))
+                .andExpect(status().isAccepted());
+        String token = tokenDe(elUnicoCorreoA(invitada));
+
+        confirmar("/api/v1/auth/invitacion/aceptar", Map.of("token", token, "nombre", "Marisol Vega",
+                "password", "marisol y el mar en calma"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("tu nombre")));
+        confirmar("/api/v1/auth/invitacion/aceptar", Map.of("token", token, "nombre", "Marisol Vega",
+                "password", "violin-junto-al-mar"))
+                .andExpect(status().isCreated());
     }
 
     @Test
@@ -214,11 +254,11 @@ class CorreosDeCuentaIntegracionTest {
 
         jdbc.update("update enlaces_de_un_uso set vence_en = creado_en - interval '1 minute' where token_hash = ?",
                 Huella.de(tercero));
-        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", tercero, "nueva", "la-clave-nueva"))
+        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", tercero, "nueva", "lluvia-sobre-los-tejados"))
                 .andExpect(status().isBadRequest());
-        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", segundo, "nueva", "la-clave-nueva"))
+        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", segundo, "nueva", "lluvia-sobre-los-tejados"))
                 .andExpect(status().isNoContent());
-        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", primero, "nueva", "otra-clave-mas"))
+        confirmar("/api/v1/auth/recuperacion/confirmar", Map.of("token", primero, "nueva", "piedras-del-rio-grande"))
                 .andExpect(status().isBadRequest());
     }
 

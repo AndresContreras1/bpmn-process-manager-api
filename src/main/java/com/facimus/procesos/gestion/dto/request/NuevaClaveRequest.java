@@ -9,8 +9,8 @@ public record NuevaClaveRequest(
         @Schema(example = "gJ0o0v5pX2m1Sx0c3yq5k8m7Tn4b6Wd9Qe1Rf2Uh3Zs")
         @NotBlank(message = "El token del enlace es obligatorio.")
         @Size(max = 100, message = "El token del enlace no puede superar 100 caracteres.") String token,
-        @Schema(example = "mi-clave-nueva", format = "password")
+        @Schema(example = "harbor lights at dusk", format = "password")
         @NotBlank(message = "La contraseña nueva es obligatoria.")
-        @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres.")
+        @Size(min = 15, message = "La contraseña debe tener al menos 15 caracteres.")
         @Size(max = 72, message = "La contraseña no puede superar 72 caracteres.") String nueva) {
 }

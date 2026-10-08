@@ -53,7 +53,7 @@ import tools.jackson.databind.json.JsonMapper;
 class ConsistenciaBpmnIntegracionTest {
 
     private static final String ADMIN = "admin@consistencia.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     @Autowired
     private MockMvc mockMvc;

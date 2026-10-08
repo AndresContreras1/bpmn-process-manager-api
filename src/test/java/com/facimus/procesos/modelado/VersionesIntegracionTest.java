@@ -65,7 +65,7 @@ import tools.jackson.databind.json.JsonMapper;
 class VersionesIntegracionTest {
 
     private static final String ADMIN = "admin@versiones.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     @Autowired
     private MockMvc mockMvc;

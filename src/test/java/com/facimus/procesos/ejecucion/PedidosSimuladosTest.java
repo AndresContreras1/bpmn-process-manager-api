@@ -68,7 +68,7 @@ class PedidosSimuladosTest {
     void registrarLaTienda() {
         tienda = new TiendaConMensajeria(contexto);
         empresaId = empresaService.registrar("Tienda que genera pedidos", "900555999-1", "contacto@pedidos.com",
-                "Administradora", "admin@pedidos.com", "clave12345").id();
+                "Administradora", "admin@pedidos.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@pedidos.com").orElseThrow().getId();
     }
 

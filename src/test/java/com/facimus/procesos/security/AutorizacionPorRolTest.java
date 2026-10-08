@@ -37,7 +37,7 @@ class AutorizacionPorRolTest {
     private static final String ADMIN = "admin@autorizacion.com";
     private static final String EDITOR = "editor@autorizacion.com";
     private static final String LECTOR = "lector@autorizacion.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     // La autorizacion se decide antes del controller: con un id que no existe, la peticion que pasa
     // la regla llega al service y responde 404; la que no la pasa responde 403.

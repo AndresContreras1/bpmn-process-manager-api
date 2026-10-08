@@ -65,12 +65,12 @@ class EmpresaServiceTest {
                 .thenReturn(administrador());
 
         EmpresaResponse resultado = empresaService.registrar("Acme", "900123456", "info@acme.com",
-                "Admin", "admin@acme.com", "secret123");
+                "Admin", "admin@acme.com", "harbor lights at dusk");
 
         assertNotNull(resultado);
         assertEquals("Acme", resultado.nombre());
         assertEquals("900123456", resultado.nit());
-        verify(usuarioService).crearColaborador(1L, null, "Admin", "admin@acme.com", "secret123",
+        verify(usuarioService).crearColaborador(1L, null, "Admin", "admin@acme.com", "harbor lights at dusk",
                 RolAcceso.ADMINISTRADOR);
         verify(historialCambioService).registrarDeTienda(eq(1L), eq(7L), eq(RecursoDeHistorial.EMPRESA), eq(1L),
                 contains("Acme"));
@@ -106,7 +106,7 @@ class EmpresaServiceTest {
 
         ReglaNegocioException ex = assertThrows(ReglaNegocioException.class,
                 () -> empresaService.registrar("Acme", "900123456", "info@acme.com",
-                        "Admin", "admin@acme.com", "secret123"));
+                        "Admin", "admin@acme.com", "harbor lights at dusk"));
 
         assertTrue(ex.getMessage().contains("NIT"));
         verify(empresaRepository, never()).save(any());
@@ -121,7 +121,7 @@ class EmpresaServiceTest {
 
         assertThrows(ReglaNegocioException.class,
                 () -> empresaService.registrar("Acme", "900123456", "info@acme.com",
-                        "Admin", "admin@acme.com", "secret123"));
+                        "Admin", "admin@acme.com", "harbor lights at dusk"));
 
         verify(empresaRepository, never()).save(any());
         verify(usuarioService, never()).crearColaborador(any(), any(), any(), any(), any(), any());

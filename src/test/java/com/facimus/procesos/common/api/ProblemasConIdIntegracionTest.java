@@ -52,7 +52,7 @@ class ProblemasConIdIntegracionTest {
     private static final String ADMIN = "admin@problemas.com";
     private static final String EDITOR = "editor@problemas.com";
     private static final String TEMPORAL = "temporal@problemas.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
     private static final String DETALLE_INTERNO = "detalle interno que no tiene que salir";
 
     @Autowired

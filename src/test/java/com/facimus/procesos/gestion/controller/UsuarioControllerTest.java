@@ -124,7 +124,7 @@ class UsuarioControllerTest {
                                 {
                                   "nombre": "Pedro",
                                   "email": "pedro@acme.com",
-                                  "password": "secret123",
+                                  "password": "harbor lights at dusk",
                                   "rolAcceso": "EDITOR"
                                 }
                                 """))
@@ -145,7 +145,7 @@ class UsuarioControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.nombre").value("El nombre es obligatorio."))
                 .andExpect(jsonPath("$.errors.email").value("El correo no es valido."))
-                .andExpect(jsonPath("$.errors.password").value("La contrasena debe tener al menos 6 caracteres."))
+                .andExpect(jsonPath("$.errors.password").value("La contraseña debe tener al menos 15 caracteres."))
                 .andExpect(jsonPath("$.errors.rolAcceso").value("Debe seleccionar un rol de acceso."));
     }
 
@@ -159,7 +159,7 @@ class UsuarioControllerTest {
                         .with(principal(RolAcceso.ADMINISTRADOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"nombre":"Pedro","email":"pedro@acme.com","password":"secret123","rolAcceso":"EDITOR"}
+                                {"nombre":"Pedro","email":"pedro@acme.com","password":"harbor lights at dusk","rolAcceso":"EDITOR"}
                                 """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Conflicto de datos"))

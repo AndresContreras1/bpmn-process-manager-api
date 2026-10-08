@@ -41,7 +41,7 @@ change sends back the CSRF token of that jar ([Sessions](api-reference.md#sessio
 curl -s -c sesion.txt http://localhost:8080/api/v1/auth/csrf
 XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
 curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/login -H "X-XSRF-TOKEN: $XSRF" \
-  -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"admin123"}'
+  -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"every-order-on-time"}'
 
 # List the store's processes
 curl -s http://localhost:8080/api/v1/procesos -b sesion.txt
@@ -51,7 +51,7 @@ curl -s http://localhost:8080/api/v1/procesos/{id}/diagrama -b sesion.txt
 
 # Register another store; its processes and Demo Store's are invisible to each other
 curl -s -X POST http://localhost:8080/api/v1/empresas -H "Content-Type: application/json" \
-  -d '{"nombreEmpresa":"Acme Store","nit":"901234567-8","correoContacto":"contact@acme.com","nombreAdmin":"Ana","emailAdmin":"ana@acme.com","passwordAdmin":"secret123"}'
+  -d '{"nombreEmpresa":"Acme Store","nit":"901234567-8","correoContacto":"contact@acme.com","nombreAdmin":"Ana","emailAdmin":"ana@acme.com","passwordAdmin":"harbor lights at dusk"}'
 ```
 
 The access cookie lasts fifteen minutes. Before it expires, `POST /api/v1/auth/refresh` with the same jar and the

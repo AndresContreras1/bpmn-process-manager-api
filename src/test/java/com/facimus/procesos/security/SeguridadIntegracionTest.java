@@ -54,7 +54,7 @@ import tools.jackson.databind.json.JsonMapper;
 class SeguridadIntegracionTest {
 
     private static final String ADMIN = "admin@seguridad.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
     private static final String BLOQUEADO = "bloqueo@seguridad.com";
 
     @Autowired
@@ -161,13 +161,13 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("HU-03: un correo desconocido, un usuario desactivado y una clave mala reciben el mismo 401")
     void Seguridad_login_cualquierFallo_respondeLoMismo() throws Exception {
-        UsuarioResponse baja = crearColaborador("baja.login@seguridad.com", "baja12345", RolAcceso.EDITOR);
+        UsuarioResponse baja = crearColaborador("baja.login@seguridad.com", "hojas-secas-de-otono", RolAcceso.EDITOR);
         usuarioService.desactivar(baja.empresaId(), adminId, baja.id());
 
         String claveMala = loginFallido(ADMIN, "clave-mala");
 
         assertThat(loginFallido("nadie@seguridad.com", CLAVE)).isEqualTo(claveMala);
-        assertThat(loginFallido("baja.login@seguridad.com", "baja12345")).isEqualTo(claveMala);
+        assertThat(loginFallido("baja.login@seguridad.com", "hojas-secas-de-otono")).isEqualTo(claveMala);
     }
 
     @ParameterizedTest(name = "emailAdmin = {0}")
@@ -178,7 +178,7 @@ class SeguridadIntegracionTest {
         mockMvc.perform(post("/api/v1/empresas")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new RegistroEmpresaRequest("Otra Tienda", nit,
-                                "contacto@otra.com", "Otro Admin", correoAjeno, "otra-clave"))))
+                                "contacto@otra.com", "Otro Admin", correoAjeno, "nubes-de-algodon-gris"))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Regla de negocio violada"));
 
@@ -187,7 +187,7 @@ class SeguridadIntegracionTest {
         mockMvc.perform(post("/api/v1/empresas")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new RegistroEmpresaRequest("Otra Tienda", nit,
-                                "contacto@otra.com", "Otro Admin", "admin-" + nit + "@otra.com", "otra-clave"))))
+                                "contacto@otra.com", "Otro Admin", "admin-" + nit + "@otra.com", "nubes-de-algodon-gris"))))
                 .andExpect(status().isCreated());
     }
 
@@ -228,8 +228,8 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("Un usuario de solo lectura no puede crear procesos: 403")
     void Seguridad_crearProceso_soloLectura_devuelve403() throws Exception {
-        crearColaborador("lector@seguridad.com", "lector123", RolAcceso.SOLO_LECTURA);
-        String token = login("lector@seguridad.com", "lector123");
+        crearColaborador("lector@seguridad.com", "silencio-en-la-biblioteca", RolAcceso.SOLO_LECTURA);
+        String token = login("lector@seguridad.com", "silencio-en-la-biblioteca");
 
         mockMvc.perform(post("/api/v1/procesos")
                         .with(SesionEnCookies.conSesion(token))
@@ -242,8 +242,8 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("Desactivar a un usuario cierra sus sesiones: su access token y su refresh token dejan de servir")
     void Seguridad_endpointProtegido_usuarioDesactivado_devuelve401() throws Exception {
-        UsuarioResponse editor = crearColaborador("editor.baja@seguridad.com", "editor123", RolAcceso.EDITOR);
-        Tokens sesion = sesion("editor.baja@seguridad.com", "editor123");
+        UsuarioResponse editor = crearColaborador("editor.baja@seguridad.com", "cometa-sobre-el-trigal", RolAcceso.EDITOR);
+        Tokens sesion = sesion("editor.baja@seguridad.com", "cometa-sobre-el-trigal");
 
         usuarioService.desactivar(editor.empresaId(), adminId, editor.id());
 
@@ -255,8 +255,8 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("Cambiar el rol cierra las sesiones del usuario, que vuelve a entrar con el rol nuevo")
     void Seguridad_cambioDeRol_cierraSesionesYElNuevoLoginTraeElRolNuevo() throws Exception {
-        UsuarioResponse editor = crearColaborador("editor.rol@seguridad.com", "editor123", RolAcceso.EDITOR);
-        Tokens antes = sesion("editor.rol@seguridad.com", "editor123");
+        UsuarioResponse editor = crearColaborador("editor.rol@seguridad.com", "cometa-sobre-el-trigal", RolAcceso.EDITOR);
+        Tokens antes = sesion("editor.rol@seguridad.com", "cometa-sobre-el-trigal");
 
         usuarioService.actualizar(editor.empresaId(), adminId, editor.id(), null, RolAcceso.SOLO_LECTURA, null,
                 editor.version());
@@ -264,7 +264,7 @@ class SeguridadIntegracionTest {
         mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(antes.access())))
                 .andExpect(status().isUnauthorized());
         renovar(antes.refresh()).andExpect(status().isUnauthorized());
-        Tokens despues = sesion("editor.rol@seguridad.com", "editor123");
+        Tokens despues = sesion("editor.rol@seguridad.com", "cometa-sobre-el-trigal");
         mockMvc.perform(post("/api/v1/procesos")
                         .with(SesionEnCookies.conSesion(despues.access()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -351,8 +351,8 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("Defensa en profundidad: un usuario inactivo no renueva aunque su sesion haya quedado abierta")
     void Seguridad_refreshDeUsuarioInactivo_devuelve401() throws Exception {
-        crearColaborador("editor.inactivo@seguridad.com", "editor123", RolAcceso.EDITOR);
-        Tokens sesion = sesion("editor.inactivo@seguridad.com", "editor123");
+        crearColaborador("editor.inactivo@seguridad.com", "cometa-sobre-el-trigal", RolAcceso.EDITOR);
+        Tokens sesion = sesion("editor.inactivo@seguridad.com", "cometa-sobre-el-trigal");
 
         // Directo en la base, sin pasar por el service que cierra sus sesiones
         jdbcTemplate.update("update usuarios set activo = false where email = ?", "editor.inactivo@seguridad.com");
@@ -403,7 +403,7 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("5 fallos de un correo desde una IP dejan su login en 429 aun con la clave buena; desde otra IP no")
     void Seguridad_loginConDemasiadosFallos_devuelve429ConRetryAfter() throws Exception {
-        crearColaborador(BLOQUEADO, "bloqueo123", RolAcceso.EDITOR);
+        crearColaborador(BLOQUEADO, "relojes-de-arena-fina", RolAcceso.EDITOR);
         for (String correo : new String[] {"bloqueo@seguridad.com", "BLOQUEO@seguridad.com", " Bloqueo@Seguridad.com",
                 "bloqueo@seguridad.com", "bloqueo@SEGURIDAD.com"}) {
             loginFallido(correo, "clave-mala");
@@ -411,7 +411,7 @@ class SeguridadIntegracionTest {
 
         String retryAfter = mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "bloqueo123"))))
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "relojes-de-arena-fina"))))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.title").value("Demasiados intentos"))
@@ -424,7 +424,7 @@ class SeguridadIntegracionTest {
         mockMvc.perform(SesionEnCookies.login()
                         .with(desdeLaIp("10.0.0.2"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "bloqueo123"))))
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "relojes-de-arena-fina"))))
                 .andExpect(status().isOk());
     }
 

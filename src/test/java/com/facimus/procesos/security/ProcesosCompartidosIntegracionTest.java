@@ -54,7 +54,7 @@ import tools.jackson.databind.json.JsonMapper;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ProcesosCompartidosIntegracionTest {
 
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
     private static final String NIT_DUENA = "900555666-7";
     private static final String NIT_INVITADA = "900555777-8";
     private static final String NIT_AJENA = "900555888-9";
