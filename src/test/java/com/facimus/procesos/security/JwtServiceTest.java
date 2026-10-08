@@ -3,6 +3,7 @@ package com.facimus.procesos.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Date;
 import javax.crypto.SecretKey;
 
@@ -62,6 +63,21 @@ class JwtServiceTest {
         String manipulado = original[0] + "." + otraEmpresa[1] + "." + original[2];
 
         assertThat(jwtService.validar(manipulado)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Un token pedido por diez minutos vence a los diez minutos, y sin pedir nada, a los de la propiedad")
+    void JwtService_generarToken_venceCuandoSeLePide() {
+        JwtService jwtService = servicio(SECRETO, 900);
+        SecretKey clave = Keys.hmacShaKeyFor(SECRETO.getBytes(StandardCharsets.UTF_8));
+
+        Claims corto = Jwts.parser().verifyWith(clave).build()
+                .parseSignedClaims(jwtService.generarToken(editor, Duration.ofMinutes(10))).getPayload();
+        Claims normal = Jwts.parser().verifyWith(clave).build()
+                .parseSignedClaims(jwtService.generarToken(editor)).getPayload();
+
+        assertThat(corto.getExpiration().getTime() - corto.getIssuedAt().getTime()).isEqualTo(600_000);
+        assertThat(normal.getExpiration().getTime() - normal.getIssuedAt().getTime()).isEqualTo(900_000);
     }
 
     @Test

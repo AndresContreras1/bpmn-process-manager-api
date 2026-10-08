@@ -6,6 +6,7 @@ import static com.facimus.procesos.security.SesionEnCookies.conCsrf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -75,8 +76,9 @@ class AuthControllerTest {
     void AuthController_login_credencialesValidas_abreLaSesionEnCookies() throws Exception {
         UsuarioResponse usuario = usuario();
         given(loginAuthenticator.autenticar("juan@acme.com", "harbor lights at dusk", "127.0.0.1")).willReturn(usuario);
-        given(sesionService.iniciar(1L, 10L)).willReturn(new SesionIniciada("refresh-de-prueba", "sesion-1", usuario));
-        given(jwtService.generarToken(any(ApiPrincipal.class))).willReturn("token-de-prueba");
+        given(sesionService.iniciar(1L, 10L)).willReturn(new SesionIniciada("refresh-de-prueba", "sesion-1", usuario,
+                Duration.ofHours(1), Duration.ofHours(24)));
+        given(jwtService.generarToken(any(ApiPrincipal.class), any(Duration.class))).willReturn("token-de-prueba");
         given(jwtService.getExpirationSeconds()).willReturn(900L);
 
         MockHttpServletResponse respuesta = mockMvc.perform(post("/api/v1/auth/login").with(conCsrf())
@@ -94,9 +96,10 @@ class AuthControllerTest {
                 .anySatisfy(cookie -> assertThat(cookie).matches(comoPatron("__Host-acceso=token-de-prueba; Path=/; "
                         + "Max-Age=900; Expires=*; Secure; HttpOnly; SameSite=Lax")))
                 .anySatisfy(cookie -> assertThat(cookie).matches(comoPatron("__Secure-refresco=refresh-de-prueba; "
-                        + "Path=/api/v1/auth; Max-Age=604800; Expires=*; Secure; HttpOnly; SameSite=Lax")));
+                        + "Path=/api/v1/auth; Max-Age=3600; Expires=*; Secure; HttpOnly; SameSite=Lax")));
         then(jwtService).should()
-                .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1", false));
+                .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1", false),
+                        Duration.ofSeconds(900));
     }
 
     @Test
@@ -163,8 +166,9 @@ class AuthControllerTest {
     void AuthController_refresh_cookieVigente_devuelveCookiesNuevas() throws Exception {
         UsuarioResponse usuario = usuario();
         given(sesionService.renovar("refresh-viejo"))
-                .willReturn(new SesionIniciada("refresh-nuevo", "sesion-1", usuario));
-        given(jwtService.generarToken(any(ApiPrincipal.class))).willReturn("token-nuevo");
+                .willReturn(new SesionIniciada("refresh-nuevo", "sesion-1", usuario, Duration.ofMinutes(30),
+                        Duration.ofHours(3)));
+        given(jwtService.generarToken(any(ApiPrincipal.class), any(Duration.class))).willReturn("token-nuevo");
         given(jwtService.getExpirationSeconds()).willReturn(900L);
 
         MockHttpServletResponse respuesta = mockMvc.perform(post("/api/v1/auth/refresh").with(conCsrf())
@@ -177,8 +181,30 @@ class AuthControllerTest {
 
         assertThat(respuesta.getCookie(CookiesDeSesion.ACCESO).getValue()).isEqualTo("token-nuevo");
         assertThat(respuesta.getCookie(CookiesDeSesion.REFRESCO).getValue()).isEqualTo("refresh-nuevo");
+        assertThat(respuesta.getCookie(CookiesDeSesion.REFRESCO).getMaxAge()).isEqualTo(1800);
         then(jwtService).should()
-                .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1", false));
+                .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1", false),
+                        Duration.ofSeconds(900));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/refresh - a diez minutos del fin de la sesion, el acceso dura diez minutos y no "
+            + "quince")
+    void AuthController_refresh_cercaDelFin_elAccesoNoPasaDelFin() throws Exception {
+        given(sesionService.renovar("refresh-viejo")).willReturn(new SesionIniciada("refresh-nuevo", "sesion-1",
+                usuario(), Duration.ofMinutes(10), Duration.ofMinutes(10)));
+        given(jwtService.generarToken(any(ApiPrincipal.class), any(Duration.class))).willReturn("token-nuevo");
+        given(jwtService.getExpirationSeconds()).willReturn(900L);
+
+        MockHttpServletResponse respuesta = mockMvc.perform(post("/api/v1/auth/refresh").with(conCsrf())
+                        .cookie(new Cookie(CookiesDeSesion.REFRESCO, "refresh-viejo")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.expiresIn").value(600))
+                .andReturn().getResponse();
+
+        assertThat(respuesta.getCookie(CookiesDeSesion.ACCESO).getMaxAge()).isEqualTo(600);
+        assertThat(respuesta.getCookie(CookiesDeSesion.REFRESCO).getMaxAge()).isEqualTo(600);
+        then(jwtService).should().generarToken(any(ApiPrincipal.class), eq(Duration.ofMinutes(10)));
     }
 
     @Test

@@ -101,7 +101,7 @@ class MigracionesTest {
                         "V24__shedlock.sql",
                         "V25__registro_de_eventos.sql",
                         "V26__cola_de_trabajos.sql",
-                        "V27__enlaces_de_un_uso.sql");
+                        "V27__enlaces_de_un_uso.sql", "V28__limites_de_sesion.sql");
     }
 
     @Test

@@ -27,6 +27,7 @@ import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
+import com.facimus.procesos.gestion.service.LimitesDeSesion;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -93,8 +94,8 @@ public class EmpresaController {
     }
 
     @Operation(summary = "Get what the store decides about itself",
-            description = "Who can create and edit participants and lanes, and the store's own simulation clock: "
-                    + "which tick it is on and who moves it. Administrators only.")
+            description = "Who can create and edit participants and lanes, how long its sessions last, and the "
+                    + "store's own simulation clock: which tick it is on and who moves it. Administrators only.")
     @ApiResponse(responseCode = "200", description = "The store settings")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
@@ -108,7 +109,9 @@ public class EmpresaController {
             description = "Reserving the structure to administrators leaves editors modeling everything inside a "
                     + "lane: steps, flows and messages. Deleting participants and lanes is an administrator's job "
                     + "either way. The simulation mode says who moves the clock; leaving it out keeps the current "
-                    + "one. Administrators only.")
+                    + "one. The session limits close a session that was not renewed for that many minutes, and "
+                    + "any session that many hours after its login: open sessions take a shorter duration at their "
+                    + "next renewal. Leaving them out keeps the current ones. Administrators only.")
     @ApiResponse(responseCode = "200", description = "The store settings")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -120,7 +123,9 @@ public class EmpresaController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(configuracionTiendaService.editar(principal.empresaId(), principal.usuarioId(),
                 request.politicaEstructura(), request.modoSimulacion(),
-                ParametrosSimulacionRequest.aModelo(request.simulacion()), request.version()));
+                ParametrosSimulacionRequest.aModelo(request.simulacion()),
+                new LimitesDeSesion(request.inactividadSesionMinutos(), request.duracionSesionHoras()),
+                request.version()));
     }
 
     @Operation(summary = "Get a store",

@@ -23,6 +23,10 @@ export interface ConfiguracionTienda {
   reloj: number;
   modoSimulacion: ModoSimulacion;
   simulacion: ParametrosSimulacion;
+  /** Minutos que una sesion aguanta sin renovarse, de 30 a 60. */
+  inactividadSesionMinutos: number;
+  /** Horas desde el login tras las que hay que volver a entrar, de 1 a 24. */
+  duracionSesionHoras: number;
   version: number;
   fechaModificacion: string;
   modificadoPor: number | null;
@@ -30,14 +34,23 @@ export interface ConfiguracionTienda {
 
 /**
  * Lo que se manda al guardarla. `simulacion` viaja vacia cuando solo se cambia la politica, y entera cuando se
- * ajustan los socios desde el panel de simulacion: la API la toma completa o no la toma.
+ * ajustan los socios desde el panel de simulacion: la API la toma completa o no la toma. Los limites de las sesiones
+ * que no viajan se quedan como estaban.
  */
 export interface ConfiguracionTiendaRequest {
   politicaEstructura: PoliticaEstructura;
   modoSimulacion: ModoSimulacion | null;
   simulacion: ParametrosSimulacion | null;
+  inactividadSesionMinutos?: number | null;
+  duracionSesionHoras?: number | null;
   version: number;
 }
+
+/** Los limites de las sesiones que la API acepta: los de NIST SP 800-63B-4 para AAL2. */
+export const LIMITES_DE_SESION = {
+  inactividad: { minimo: 30, maximo: 60 },
+  duracion: { minimo: 1, maximo: 24 },
+} as const;
 
 /** Quien puede tocar la estructura, en la interfaz. */
 export const NOMBRE_POLITICA: Record<PoliticaEstructura, string> = {

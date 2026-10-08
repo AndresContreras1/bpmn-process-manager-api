@@ -1,5 +1,7 @@
 package com.facimus.procesos.security.controller;
 
+import java.time.Duration;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -69,9 +71,12 @@ public class AuthController {
     }
 
     @Operation(summary = "Log in", description = "Checks the email and password and opens a session: an access "
-            + "cookie with a signed JWT that lasts 15 minutes and a refresh cookie that renews it. A wrong password "
-            + "and an unknown email get the same answer. After 5 failed attempts for an email from the same address "
-            + "within 15 minutes, the login answers 429 until the oldest attempt leaves that window.")
+            + "cookie with a signed JWT that lasts 15 minutes and a refresh cookie that renews it. The refresh "
+            + "cookie lasts the store's idle timeout, an hour unless the store shortened it, and the session ends "
+            + "the store's maximum duration after the login, 24 hours unless shortened: then the user signs in "
+            + "again. A wrong password and an unknown email get the same answer. After 5 failed attempts for an "
+            + "email from the same address within 15 minutes, the login answers 429 until the oldest attempt leaves "
+            + "that window.")
     @ApiResponse(responseCode = "200", description = "The session cookies, and in the body the user's profile")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -89,7 +94,8 @@ public class AuthController {
 
     @Operation(summary = "Renew the session", description = "Trades the refresh cookie for a new access cookie and a "
             + "new refresh cookie of the same session. Each refresh token works once: sending one that was already "
-            + "used closes the session, because a copy of it is going around. A refusal also clears the cookies.")
+            + "used closes the session, because a copy of it is going around. Past the store's maximum duration "
+            + "the session closes, and near it neither cookie outlives it. A refusal also clears the cookies.")
     @ApiResponse(responseCode = "200", description = "New cookies of the session, and in the body the user's profile")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @SecurityRequirements()
@@ -140,10 +146,15 @@ public class AuthController {
         return ResponseEntity.ok(abrir(sesionService.iniciar(empresaId, usuarioId), respuesta));
     }
 
-    /** Las cookies de la sesion, con su access token recien firmado; el cuerpo, sin tokens. */
+    /**
+     * Las cookies de la sesion, con su access token recien firmado; el cuerpo, sin tokens. El acceso no pasa del fin
+     * de la sesion: a las 24 horas se vuelve a entrar, no a las 24 y cuarto.
+     */
     private SesionResponse abrir(SesionIniciada sesion, HttpServletResponse respuesta) {
-        String accessToken = jwtService.generarToken(sesion.usuario().comoPrincipal(sesion.sesion()));
-        cookies.abrir(respuesta, accessToken, sesion.refreshToken());
-        return new SesionResponse(jwtService.getExpirationSeconds(), sesion.usuario());
+        Duration maximo = Duration.ofSeconds(jwtService.getExpirationSeconds());
+        Duration vidaDelAcceso = sesion.vidaRestante().compareTo(maximo) < 0 ? sesion.vidaRestante() : maximo;
+        String accessToken = jwtService.generarToken(sesion.usuario().comoPrincipal(sesion.sesion()), vidaDelAcceso);
+        cookies.abrir(respuesta, accessToken, vidaDelAcceso, sesion.refreshToken(), sesion.vidaDelRefresco());
+        return new SesionResponse(vidaDelAcceso.toSeconds(), sesion.usuario());
     }
 }
