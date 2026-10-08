@@ -1,0 +1,6 @@
+# How to report a security vulnerability in BPMN Process Manager (RFC 9116).
+# Renew Expires every year, before the pipeline starts failing a month ahead of it.
+Contact: https://github.com/AndresContreras1/bpmn-process-manager-api/security/advisories/new
+Expires: 2027-09-30T23:59:59.000Z
+Policy: https://github.com/AndresContreras1/bpmn-process-manager-api/blob/main/SECURITY.md
+Preferred-Languages: en, es, fr
