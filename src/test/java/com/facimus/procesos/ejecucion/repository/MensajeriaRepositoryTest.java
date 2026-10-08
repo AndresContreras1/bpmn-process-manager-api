@@ -42,8 +42,8 @@ import com.facimus.procesos.modelado.model.TipoDestino;
  * Las dos bandejas: lo que el proceso mando y lo que le llego. Las consultas con las que la operacion las lee van
  * como consultas con nombre en la entidad (D22), asi que si alguna se renombra esto ni siquiera arranca.
  * <p>
- * El slice conserva la base del perfil test (replace = NONE), que es H2 con el esquema de Flyway: sin eso la
- * unicidad de la clave externa y los checks no se evaluarian.
+ * El slice conserva la base de su contexto en el PostgreSQL de las pruebas, con el esquema de Flyway (replace = NONE):
+ * sin eso la unicidad de la clave externa y los checks no se evaluarian.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

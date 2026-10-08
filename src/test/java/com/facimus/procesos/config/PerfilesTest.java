@@ -32,7 +32,7 @@ class PerfilesTest {
     private static final String CONSOLA_H2 = "/h2-console/*";
 
     @Nested
-    @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:perfil-dev")
+    @SpringBootTest
     @ActiveProfiles("dev")
     @AutoConfigureMockMvc
     class Dev {
@@ -70,7 +70,7 @@ class PerfilesTest {
     }
 
     @Nested
-    @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:perfil-test")
+    @SpringBootTest
     @ActiveProfiles("test")
     class Test_ {
 
@@ -86,10 +86,7 @@ class PerfilesTest {
     }
 
     @Nested
-    @SpringBootTest(properties = {
-            // El build no tiene PostgreSQL: se prueba la configuracion de prod sobre una H2 en memoria.
-            "spring.datasource.url=jdbc:h2:mem:perfil-prod",
-            "JWT_SECRET=prod-profile-test-signing-key-with-32-characters"})
+    @SpringBootTest(properties = "JWT_SECRET=prod-profile-test-signing-key-with-32-characters")
     @ActiveProfiles("prod")
     @AutoConfigureMockMvc
     class Prod {
