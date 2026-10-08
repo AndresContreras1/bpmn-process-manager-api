@@ -36,6 +36,7 @@ import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.IdempotenciaService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -83,7 +84,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, RevokedSessions revokedSessions,
-            IdempotenciaService idempotenciaService, JsonMapper jsonMapper) throws Exception {
+            IdempotenciaService idempotenciaService, EmpresaService empresaService, JsonMapper jsonMapper)
+            throws Exception {
         reglasComunes(http)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthEntryPoint)
@@ -94,7 +96,9 @@ public class SecurityConfig {
                 // Despues de la autorizacion: solo guarda las respuestas de peticiones que se pueden ejecutar.
                 // D17: con una clave temporal solo se puede cambiarla, asi que va justo detras de identificar quien es.
                 .addFilterAfter(new CambioDeClaveFilter(jsonMapper), JwtAuthenticationFilter.class)
-                .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), AuthorizationFilter.class);
+                // Detras de la autorizacion: una peticion que el rol rechaza no le pregunta nada a la base.
+                .addFilterAfter(new TiendaEnBajaFilter(empresaService, jsonMapper), AuthorizationFilter.class)
+                .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), TiendaEnBajaFilter.class);
         return http.build();
     }
 
@@ -129,9 +133,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/password", "/api/v1/auth/verificacion")
                         .authenticated()
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
-                        // El gobierno de la tienda es del administrador: su historial y su configuracion.
+                        // El gobierno de la tienda es del administrador: su historial, su configuracion y su baja.
                         .requestMatchers("/api/v1/empresas/actual/historial",
-                                "/api/v1/empresas/actual/configuracion").hasAuthority(ADMINISTRADOR)
+                                "/api/v1/empresas/actual/configuracion", "/api/v1/empresas/actual/baja")
+                        .hasAuthority(ADMINISTRADOR)
                         // D8: mover el reloj cambia lo que les pasa a todos los casos de la tienda a la vez,
                         // asi que la simulacion entera es del administrador, tambien para mirarla.
                         .requestMatchers("/api/v1/simulacion", "/api/v1/simulacion/**")

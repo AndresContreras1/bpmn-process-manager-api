@@ -34,6 +34,12 @@ public interface EnlaceDeUnUsoRepository extends RepositorioTenant<EnlaceDeUnUso
 
     /** D20: un enlace vencido ya no abre nada. La limpieza cruza tiendas a proposito. */
     @Transactional
+    /** Los enlaces de alguien que se anonimiza: los suyos, y las invitaciones que llegaron a su correo. */
+    @Modifying
+    @Query("delete from EnlaceDeUnUso e where e.empresa.id = :empresaId "
+            + "and (e.usuario.id = :usuarioId or e.email = :email)")
+    int borrarLosDe(Long empresaId, Long usuarioId, String email);
+
     @Modifying
     @Query("delete from EnlaceDeUnUso e where e.venceEn < :limite")
     int borrarVencidosAntesDe(LocalDateTime limite);
