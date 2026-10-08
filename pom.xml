@@ -25,9 +25,6 @@
 		<tomcat.version>11.0.26</tomcat.version>
 		<jackson-bom.version>3.1.7</jackson-bom.version>
 		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
-		<!-- Las pruebas contra PostgreSQL real necesitan Docker, asi que el verify de todos los dias las salta.
-		     El trabajo del CI que las corre vacia esta propiedad: -Dsurefire.excluded.groups= -Dgroups=postgres -->
-		<surefire.excluded.groups>postgres</surefire.excluded.groups>
 		<!-- SonarCloud: organizacion y proyecto que crea la importacion automatica del repositorio -->
 		<sonar.organization>andrescontreras1</sonar.organization>
 		<sonar.projectKey>AndresContreras1_bpmn-process-manager-api</sonar.projectKey>
@@ -187,8 +184,8 @@
 			<version>1.4.2</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- PostgreSQL de verdad para las pruebas etiquetadas "postgres": el motor de produccion es el que evalua
-		     los indices parciales y la columna text, que H2 no tiene. La version la fija el BOM del parent. -->
+		<!-- Las pruebas corren contra PostgreSQL, el motor de produccion: un contenedor para toda la suite, que
+		     Testcontainers levanta y apaga solo. La version la fija el BOM del parent. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-testcontainers</artifactId>
@@ -279,14 +276,6 @@
 				</executions>
 			</plugin>
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<configuration>
-					<!-- Fuera del grupo excluido no hay nada que filtrar: es la unica etiqueta del proyecto -->
-					<excludedGroups>${surefire.excluded.groups}</excludedGroups>
-				</configuration>
-			</plugin>
-			<plugin>
 				<groupId>org.sonarsource.scanner.maven</groupId>
 				<artifactId>sonar-maven-plugin</artifactId>
 				<version>4.0.0.4121</version>
@@ -339,9 +328,6 @@
 						<param>com.facimus.procesos.*.service.*</param>
 						<param>com.facimus.procesos.common.condiciones.*</param>
 					</targetTests>
-					<excludedGroups>
-						<param>postgres</param>
-					</excludedGroups>
 					<threads>4</threads>
 					<!-- Medido el 2026-09-30: 1660 mutaciones, 1259 detectadas (76 %) y 91 % de las que las pruebas
 					     alcanzan. Por debajo del 75 % la corrida falla: una regla nueva tiene que llegar con su prueba. -->

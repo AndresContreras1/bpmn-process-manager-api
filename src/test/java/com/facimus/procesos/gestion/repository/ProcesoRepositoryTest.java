@@ -29,9 +29,9 @@ import com.facimus.procesos.gestion.model.ProcesoCompartido;
  * Las consultas de procesos contra la base, sin services ni controllers: la puerta de lectura de HU-23, el listado
  * de lo que otras tiendas comparten y los filtros de busqueda.
  * <p>
- * El slice conserva la base del perfil test (replace = NONE), que ya es H2 en memoria y trae el esquema de Flyway:
- * la que @DataJpaTest pone en su lugar no logra evaluar las restricciones check de las migraciones. La auditoria se
- * importa aparte porque las fechas de creacion y de modificacion no aceptan nulos.
+ * El slice conserva la base de su contexto en el PostgreSQL de las pruebas, con el esquema de Flyway (replace = NONE):
+ * ahi se evaluan las restricciones check y los indices parciales de las migraciones. La auditoria se importa
+ * aparte porque las fechas de creacion y de modificacion no aceptan nulos.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

@@ -1,0 +1,2 @@
+# Cada contexto de Spring de las pruebas recibe su propia base en el PostgreSQL de la corrida.
+org.springframework.test.context.ContextCustomizerFactory=com.facimus.procesos.postgres.BaseDePruebaPorContexto

@@ -103,11 +103,21 @@ class EventoRepositoryTest {
                 proceso.getId(), empresaId())).isFalse();
     }
 
+    // Una prueba por tipo: en PostgreSQL, despues de un error la transaccion ya no acepta otra sentencia.
     @Test
-    @DisplayName("La base exige el tipo de un evento y el tipo de una actividad")
-    void nodoSinSuTipo_laBaseLoRechaza() {
+    @DisplayName("La base exige el tipo de un evento")
+    void eventoSinSuTipo_laBaseLoRechaza() {
         Evento sinTipo = tienda.eventoSinGuardar(lane, "Order received", null);
-        Actividad actividadSinTipo = Actividad.builder()
+
+        // Por el repositorio, para que Spring Data traduzca el fallo de la base como en el resto de la suite.
+        assertThatThrownBy(() -> eventoRepository.saveAndFlush(sinTipo))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("La base exige el tipo de una actividad")
+    void actividadSinSuTipo_laBaseLoRechaza() {
+        Actividad sinTipo = Actividad.builder()
                 .empresa(tienda.empresa())
                 .lane(lane)
                 .nombre("Receive order")
@@ -115,11 +125,7 @@ class EventoRepositoryTest {
                 .posicionY(20)
                 .build();
 
-        // Por el repositorio, para que Spring Data traduzca el fallo de la base como en el resto de la suite.
-        assertThatThrownBy(() -> eventoRepository.saveAndFlush(sinTipo))
-                .isInstanceOf(DataIntegrityViolationException.class);
-        em.getEntityManager().clear();
-        assertThatThrownBy(() -> actividadRepository.saveAndFlush(actividadSinTipo))
+        assertThatThrownBy(() -> actividadRepository.saveAndFlush(sinTipo))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 

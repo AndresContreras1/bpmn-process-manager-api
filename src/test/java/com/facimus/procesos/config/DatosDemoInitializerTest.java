@@ -25,9 +25,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Los datos demo vistos a traves de la API, como los ve quien entra a Swagger con la cuenta de demostracion.
- * Corre en dev, el unico perfil que siembra la tienda, pero sobre una H2 en memoria en vez de ./data.
+ * Corre en dev, el unico perfil que siembra la tienda, sobre la base propia de su contexto.
  */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:datos-demo;DB_CLOSE_DELAY=-1")
+@SpringBootTest
 @ActiveProfiles("dev")
 @AutoConfigureMockMvc
 class DatosDemoInitializerTest {

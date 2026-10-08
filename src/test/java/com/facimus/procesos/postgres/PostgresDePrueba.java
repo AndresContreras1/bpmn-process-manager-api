@@ -1,40 +1,146 @@
 package com.facimus.procesos.postgres;
 
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
-import org.testcontainers.DockerClientFactory;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
+import java.util.OptionalInt;
+import java.util.Properties;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.flywaydb.core.Flyway;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.support.PropertiesLoaderUtils;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
- * El motor de produccion, en un contenedor, para las clases marcadas con {@link ConPostgresReal}.
+ * El PostgreSQL de las pruebas: uno solo para toda la corrida, el mismo motor que corre en produccion.
  * <p>
- * Los tests de todos los dias corren sobre H2, que arranca en milisegundos, pero hay cosas que H2 no sabe hacer y
- * que la aplicacion si le pide a PostgreSQL: los indices unicos parciales de la V2 y la V8, la columna {@code text}
- * de la V13 y el esquema que Hibernate valida al arrancar. Esas se prueban aqui, contra la misma imagen que levanta
- * compose.yaml.
+ * Lo normal es un contenedor de la imagen que declara compose.yaml, que Testcontainers levanta la primera vez que un
+ * contexto pide una base y que se va con la JVM. Donde no hay contenedores de Linux, como en los runners de Windows
+ * del CI, {@code PRUEBAS_POSTGRES_URL} (la URL JDBC de una base cualquiera del servidor), {@code
+ * PRUEBAS_POSTGRES_USUARIO} y {@code PRUEBAS_POSTGRES_CLAVE} apuntan a un servidor que ya esta corriendo, y {@code
+ * PRUEBAS_POSTGRES_VERSION_MAYOR} dice que version es.
  * <p>
- * {@code @ServiceConnection} apunta el datasource al contenedor, de modo que Flyway aplica {@code common} y
- * {@code postgresql} sin que haya que escribir una sola propiedad. Spring guarda en cache cada contexto de prueba,
- * asi que las clases que comparten configuracion comparten tambien el contenedor.
+ * Las migraciones corren una sola vez, en una base plantilla. Cada contexto de Spring recibe una copia propia, que
+ * PostgreSQL hace en milisegundos: las pruebas no comparten datos, igual que cuando cada contexto tenia su H2.
  */
-@TestConfiguration(proxyBeanMethods = false)
-public class PostgresDePrueba {
+public final class PostgresDePrueba {
 
     /** La misma version que corre en produccion: compose.yaml declara postgres:16. */
-    private static final String IMAGEN = "postgres:16";
+    static final String IMAGEN = "postgres:16";
+    private static final int VERSION_DE_LA_IMAGEN = 16;
 
-    @Bean
-    @ServiceConnection
-    PostgreSQLContainer postgres() {
-        return new PostgreSQLContainer(IMAGEN);
+    /** Cada contexto tiene su pool; con decenas de contextos en cache, cien conexiones se quedarian cortas. */
+    private static final String MAXIMO_DE_CONEXIONES = "max_connections=300";
+
+    /** Distingue las bases de esta JVM de las de otra que use el mismo servidor externo. */
+    private static final String SUFIJO = Long.toString(ProcessHandle.current().pid(), 36) + "_"
+            + Integer.toString(ThreadLocalRandom.current().nextInt(1 << 20), 36);
+    private static final AtomicInteger BASES_CREADAS = new AtomicInteger();
+
+    private static Servidor servidor;
+    private static String plantilla;
+
+    private PostgresDePrueba() {
+    }
+
+    /** El servidor de la corrida; el primero que lo pide lo arranca. */
+    static synchronized Servidor servidor() {
+        if (servidor == null) {
+            servidor = arrancar();
+        }
+        return servidor;
     }
 
     /**
-     * Sin Docker no hay motor real. Estas pruebas no son un requisito para trabajar en el proyecto: quien no tenga
-     * Docker las ve saltadas en vez de rotas, y el trabajo del CI que si lo tiene las corre siempre.
+     * Una base nueva para un contexto, copiada de la plantilla ya migrada. Flyway la encuentra al dia cuando el
+     * contexto arranca, y solo comprueba que las migraciones no hayan cambiado.
      */
-    public static boolean hayDocker() {
-        return DockerClientFactory.instance().isDockerAvailable();
+    static synchronized String nuevaBase() {
+        if (plantilla == null) {
+            plantilla = crearPlantilla();
+        }
+        String nombre = "prueba_" + SUFIJO + "_" + BASES_CREADAS.incrementAndGet();
+        ejecutar("create database " + nombre + " template " + plantilla);
+        return servidor().urlDe(nombre);
+    }
+
+    /** La version mayor del servidor, si se sabe cual se espera: la de la imagen, o la que declara el entorno. */
+    public static OptionalInt versionMayorEsperada() {
+        String declarada = System.getenv("PRUEBAS_POSTGRES_VERSION_MAYOR");
+        if (servidor().externo()) {
+            return declarada == null || declarada.isBlank() ? OptionalInt.empty()
+                    : OptionalInt.of(Integer.parseInt(declarada.trim()));
+        }
+        return OptionalInt.of(VERSION_DE_LA_IMAGEN);
+    }
+
+    private static Servidor arrancar() {
+        String url = System.getenv("PRUEBAS_POSTGRES_URL");
+        if (url != null && !url.isBlank()) {
+            return new Servidor(url.trim(), System.getenv("PRUEBAS_POSTGRES_USUARIO"),
+                    System.getenv("PRUEBAS_POSTGRES_CLAVE"), true);
+        }
+        // fsync apagado es lo que Testcontainers pone por defecto: una base de pruebas no tiene que sobrevivir a nada.
+        PostgreSQLContainer contenedor = new PostgreSQLContainer(IMAGEN)
+                .withCommand("postgres", "-c", "fsync=off", "-c", MAXIMO_DE_CONEXIONES);
+        try {
+            contenedor.start();
+        } catch (RuntimeException sinDocker) {
+            throw new IllegalStateException("Las pruebas corren contra PostgreSQL: hace falta Docker en marcha, o "
+                    + "PRUEBAS_POSTGRES_URL apuntando a un servidor (ver docs/testing.md).", sinDocker);
+        }
+        return new Servidor(contenedor.getJdbcUrl(), contenedor.getUsername(), contenedor.getPassword(), false);
+    }
+
+    /** La plantilla, migrada con las mismas ubicaciones que usa la aplicacion. */
+    private static String crearPlantilla() {
+        String nombre = "plantilla_" + SUFIJO;
+        ejecutar("create database " + nombre);
+        Flyway.configure()
+                .dataSource(servidor().urlDe(nombre), servidor().usuario(), servidor().clave())
+                .locations(ubicacionesDeLasMigraciones())
+                .load()
+                .migrate();
+        return nombre;
+    }
+
+    /** Las de application.properties, con el motor puesto donde Spring Boot lo pondria. */
+    private static String[] ubicacionesDeLasMigraciones() {
+        try {
+            Properties aplicacion = PropertiesLoaderUtils.loadProperties(new ClassPathResource("application.properties"));
+            return Arrays.stream(aplicacion.getProperty("spring.flyway.locations").split(","))
+                    .map(ubicacion -> ubicacion.trim().replace("{vendor}", "postgresql"))
+                    .toArray(String[]::new);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void ejecutar(String sql) {
+        Servidor actual = servidor();
+        try (Connection conexion = DriverManager.getConnection(actual.url(), actual.usuario(), actual.clave());
+                Statement sentencia = conexion.createStatement()) {
+            sentencia.execute(sql);
+        } catch (SQLException e) {
+            throw new IllegalStateException("No se pudo ejecutar en el PostgreSQL de las pruebas: " + sql, e);
+        }
+    }
+
+    /** Donde esta el servidor: la URL de una base cualquiera de el y las credenciales. */
+    record Servidor(String url, String usuario, String clave, boolean externo) {
+
+        /** La misma URL, con otra base y las mismas opciones. */
+        String urlDe(String base) {
+            int opciones = url.indexOf('?');
+            String sinOpciones = opciones < 0 ? url : url.substring(0, opciones);
+            return sinOpciones.substring(0, sinOpciones.lastIndexOf('/') + 1) + base
+                    + (opciones < 0 ? "" : url.substring(opciones));
+        }
     }
 }

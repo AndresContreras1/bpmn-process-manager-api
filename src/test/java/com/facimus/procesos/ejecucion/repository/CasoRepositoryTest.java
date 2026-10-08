@@ -33,7 +33,7 @@ import com.facimus.procesos.gestion.model.VersionProceso;
  * D22: las consultas con las que la operacion busca casos y tareas van como consultas con nombre en la entidad. Si
  * una se renombra, esto ni siquiera arranca, que es justo lo que se busca: fallar al levantar y no en produccion.
  * <p>
- * El slice conserva la base del perfil test (replace = NONE), que ya es H2 en memoria con el esquema de Flyway.
+ * El slice conserva la base de su contexto en el PostgreSQL de las pruebas, con el esquema de Flyway (replace = NONE).
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
