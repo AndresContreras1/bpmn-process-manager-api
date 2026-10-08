@@ -1,0 +1,21 @@
+name: Feature request
+description: Something the product should do and does not
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: Who needs it, and what they cannot do today. A problem is more useful than a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would solve it
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What else was considered

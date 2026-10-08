@@ -1,0 +1,54 @@
+name: Bug report
+description: Something does not work as the documentation says
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A security problem does not go here: report it privately, as
+        [SECURITY.md](https://github.com/AndresContreras1/bpmn-process-manager-api/blob/main/SECURITY.md) says.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - API
+        - Web app
+        - Compose stack or images
+        - CI or tooling
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did and what came back. Include the `requestId` of the error if there was one.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The requests, or the clicks, from a fresh start with the demo store if possible.
+      placeholder: |
+        1. Sign in as the demo store administrator
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      description: The output of `git rev-parse --short HEAD`, or the image tag.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The log lines with the same `requestId`. Remove tokens, passwords and personal data first.
+      render: shell

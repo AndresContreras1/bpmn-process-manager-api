@@ -81,3 +81,4 @@
 
 **Repository governance**
 - [x] A security policy with a private way to report, and `security.txt` served by the web app
+- [x] Pull request and issue templates, code owners and a changelog
