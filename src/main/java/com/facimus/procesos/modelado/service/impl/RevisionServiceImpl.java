@@ -3,92 +3,135 @@ package com.facimus.procesos.modelado.service.impl;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.facimus.procesos.common.DemasiadosIntentosException;
+import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.common.IntegracionNoConfiguradaException;
+import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
+import com.facimus.procesos.modelado.dto.response.HallazgoResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.dto.response.RevisionResponse;
+import com.facimus.procesos.modelado.model.RevisionIa;
+import com.facimus.procesos.modelado.repository.RevisionIaRepository;
 import com.facimus.procesos.modelado.service.DiagramaService;
 import com.facimus.procesos.modelado.service.Dictamen;
 import com.facimus.procesos.modelado.service.RevisionService;
 import com.facimus.procesos.modelado.service.RevisorDeDiagramas;
-import com.facimus.procesos.security.AttemptLimiter;
+
+import jakarta.persistence.EntityManager;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * El diagrama entra por la puerta de lectura, asi que un proceso ajeno o eliminado responde 404 antes de gastar una
  * llamada al modelo. Lo que se manda es una descripcion en texto, no el JSON del endpoint: dice lo mismo con menos
  * ruido y no expone ids internos.
+ *
+ * <p>Cada respuesta del modelo queda en la base (D34), no en la memoria de una instancia: cualquier instancia la
+ * devuelve otra vez mientras el diagrama no cambie, y todas cuentan las mismas para el limite de la tienda. La
+ * llamada al modelo corre fuera de una transaccion: tarda segundos y no tiene por que tener una conexion tomada.
  */
 @Service
-@Transactional(readOnly = true)
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class RevisionServiceImpl implements RevisionService {
 
-    /** Cuantos procesos recuerdan su ultima revision. Lo que sobra se suelta empezando por lo menos consultado. */
-    private static final int PROCESOS_RECORDADOS = 500;
+    private static final TypeReference<List<HallazgoResponse>> HALLAZGOS = new TypeReference<>() {
+    };
 
     private final DiagramaService diagramaService;
     private final RevisorDeDiagramas revisor;
+    private final RevisionIaRepository revisiones;
+    private final EntityManager entityManager;
+    private final JsonMapper json;
     private final Clock reloj;
-    private final AttemptLimiter limite;
-    private final UltimasRevisiones ultimas = new UltimasRevisiones(PROCESOS_RECORDADOS);
+    private final int maximo;
+    private final Duration ventana;
 
-    public RevisionServiceImpl(DiagramaService diagramaService, RevisorDeDiagramas revisor, Clock reloj,
+    @SuppressWarnings("java:S107") // las piezas de la revision y sus dos limites, cada uno por su nombre
+    public RevisionServiceImpl(DiagramaService diagramaService, RevisorDeDiagramas revisor,
+            RevisionIaRepository revisiones, EntityManager entityManager, JsonMapper json, Clock reloj,
             @Value("${revision.max-reviews}") int maximo,
             @Value("${revision.window}") Duration ventana) {
         this.diagramaService = diagramaService;
         this.revisor = revisor;
+        this.revisiones = revisiones;
+        this.entityManager = entityManager;
+        this.json = json;
         this.reloj = reloj;
-        this.limite = new AttemptLimiter(maximo, ventana, PROCESOS_RECORDADOS, reloj);
+        this.maximo = maximo;
+        this.ventana = ventana;
     }
 
     @Override
     public RevisionResponse revisar(Long empresaId, Long procesoId) {
         DiagramaResponse diagrama = diagramaService.obtener(empresaId, procesoId);
         String descripcion = describir(diagrama);
-        String clave = empresaId + ":" + procesoId;
+        String huella = Huella.de(descripcion);
 
         // Pedir dos veces la revision de un diagrama que no cambio no gasta ni una llamada ni parte del limite.
-        Optional<RevisionResponse> guardada = ultimas.buscar(clave, descripcion);
-        if (guardada.isPresent()) {
-            RevisionResponse revision = guardada.get();
-            return new RevisionResponse(procesoId, revision.resumen(), revision.hallazgos(), true, revision.fecha());
+        RevisionIa ultima = revisiones.findFirstByProcesoIdAndEmpresaIdOrderByFechaDescIdDesc(procesoId, empresaId)
+                .orElse(null);
+        if (ultima != null && ultima.getHuella().equals(huella)) {
+            return respuesta(ultima, true);
         }
         if (!revisor.estaConfigurado()) {
             throw new IntegracionNoConfiguradaException(
                     "La revisión con IA no está configurada en esta instalación.");
         }
         // El limite es por tienda, no por usuario: la cuenta la paga la tienda.
-        limite.espera(empresaId.toString()).ifPresent(espera -> {
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        LocalDateTime desde = ahora.minus(ventana);
+        if (revisiones.countByEmpresaIdAndFechaAfter(empresaId, desde) >= maximo) {
+            LocalDateTime masVieja = revisiones.findFirstByEmpresaIdAndFechaAfterOrderByFechaAscIdAsc(empresaId, desde)
+                    .map(RevisionIa::getFecha)
+                    .orElse(ahora);
+            Duration espera = Duration.between(ahora, masVieja.plus(ventana));
             throw new DemasiadosIntentosException(
                     "Esta tienda ya usó sus revisiones con IA por ahora. Intenta de nuevo en "
                             + minutos(espera) + ".", espera);
-        });
-        limite.registrar(empresaId.toString());
+        }
 
         Dictamen dictamen = revisor.revisar(descripcion);
-        RevisionResponse revision = new RevisionResponse(procesoId, dictamen.resumen(), dictamen.hallazgos(), false,
-                LocalDateTime.now(reloj));
-        ultimas.guardar(clave, descripcion, revision);
-        return revision;
+        RevisionIa guardada = revisiones.save(RevisionIa.builder()
+                .empresa(entityManager.getReference(Empresa.class, empresaId))
+                .procesoId(procesoId)
+                .huella(huella)
+                .resumen(dictamen.resumen())
+                .hallazgos(json.writeValueAsString(dictamen.hallazgos()))
+                // PostgreSQL guarda microsegundos: la fecha que se responde ahora es la que se leera despues.
+                .fecha(LocalDateTime.now(reloj).truncatedTo(ChronoUnit.MICROS))
+                .build());
+        return respuesta(guardada, false);
+    }
+
+    @Override
+    public int olvidarSuperadas() {
+        return revisiones.borrarSuperadasAntesDe(LocalDateTime.now(reloj).minus(ventana));
+    }
+
+    private RevisionResponse respuesta(RevisionIa revision, boolean reutilizada) {
+        return new RevisionResponse(revision.getProcesoId(), revision.getResumen(),
+                json.readValue(revision.getHallazgos(), HALLAZGOS), reutilizada, revision.getFecha());
     }
 
     private static String minutos(Duration espera) {

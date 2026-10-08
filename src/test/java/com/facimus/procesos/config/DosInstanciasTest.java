@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterAll;
@@ -11,13 +12,18 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 import com.facimus.procesos.ProcesosApplication;
+import com.facimus.procesos.modelado.service.Dictamen;
+import com.facimus.procesos.modelado.service.RevisorDeDiagramas;
 import com.facimus.procesos.postgres.PostgresDePrueba;
 import com.facimus.procesos.postgres.PostgresDePrueba.ConexionDePrueba;
 
@@ -34,6 +40,27 @@ class DosInstanciasTest {
     private static final RestClient HTTP = RestClient.builder()
             .requestFactory(new SimpleClientHttpRequestFactory())
             .build();
+
+    /** Las dos instancias tienen un modelo de prueba que siempre contesta lo mismo. */
+    @TestConfiguration
+    static class ModeloDePrueba {
+
+        @Bean
+        @Primary
+        RevisorDeDiagramas revisorDePrueba() {
+            return new RevisorDeDiagramas() {
+                @Override
+                public boolean estaConfigurado() {
+                    return true;
+                }
+
+                @Override
+                public Dictamen revisar(String diagrama) {
+                    return new Dictamen("Falta el caso de error.", List.of());
+                }
+            };
+        }
+    }
 
     private static ConfigurableApplicationContext primera;
     private static ConfigurableApplicationContext segunda;
@@ -67,8 +94,22 @@ class DosInstanciasTest {
                 .untilAsserted(() -> assertThat(estadoDeUnaLectura(segunda, token)).isEqualTo(401));
     }
 
+    @Test
+    @DisplayName("La revision con IA que pidio una instancia la devuelve la otra, sin volver a llamar al modelo")
+    void revisionDeUna_laDevuelveLaOtra() {
+        String token = registrarTiendaYEntrar(primera, "revision@dos-instancias.com", "900200002-2");
+        long procesoId = crearProceso(primera, token);
+
+        JsonNode enLaPrimera = revisar(primera, token, procesoId);
+        JsonNode enLaSegunda = revisar(segunda, token, procesoId);
+
+        assertThat(enLaPrimera.get("reutilizada").asBoolean()).isFalse();
+        assertThat(enLaSegunda.get("reutilizada").asBoolean()).isTrue();
+        assertThat(enLaSegunda.get("fecha").asString()).isEqualTo(enLaPrimera.get("fecha").asString());
+    }
+
     private static ConfigurableApplicationContext arrancar(ConexionDePrueba base) {
-        return new SpringApplicationBuilder(ProcesosApplication.class)
+        return new SpringApplicationBuilder(ProcesosApplication.class, ModeloDePrueba.class)
                 .profiles("test")
                 .run("--server.port=0", "--spring.datasource.url=" + base.url(),
                         "--spring.datasource.username=" + base.usuario(),
@@ -89,6 +130,25 @@ class DosInstanciasTest {
                 .retrieve()
                 .body(JsonNode.class);
         return sesion.get("accessToken").asString();
+    }
+
+    private static long crearProceso(ConfigurableApplicationContext instancia, String token) {
+        return HTTP.post().uri(url(instancia, "/api/v1/procesos"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("nombre", "Order fulfillment", "descripcion", "Lo que el modelo revisa",
+                        "categoria", "Ventas"))
+                .retrieve()
+                .body(JsonNode.class)
+                .get("id").asLong();
+    }
+
+    private static JsonNode revisar(ConfigurableApplicationContext instancia, String token, long procesoId) {
+        return HTTP.post().uri(url(instancia, "/api/v1/procesos/" + procesoId + "/revision"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class);
     }
 
     private static int estadoDeUnaLectura(ConfigurableApplicationContext instancia, String token) {
