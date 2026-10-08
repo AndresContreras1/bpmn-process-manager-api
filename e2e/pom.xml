@@ -23,10 +23,10 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <selenium.version>4.27.0</selenium.version>
+        <selenium.version>4.49.0</selenium.version>
         <junit.version>5.11.4</junit.version>
-        <jackson.version>2.18.2</jackson.version>
-        <surefire.version>3.5.2</surefire.version>
+        <jackson.version>2.22.3</jackson.version>
+        <surefire.version>3.6.0</surefire.version>
     </properties>
 
     <dependencies>
