@@ -4,21 +4,23 @@
 
 ## Profiles
 
-| Profile | Activated by | Database | Demo Store | H2 console | OpenAPI and Swagger UI | SQL log |
-|---|---|---|:---:|:---:|:---:|:---:|
-| `dev` | Default, when no profile is set | H2 file under `./data` | ✓ | ✓ | ✓ | ✓ |
-| `test` | `@ActiveProfiles("test")` in integration tests | In-memory H2, a new one for each Spring test context | — | — | ✓ | — |
-| `prod` | `SPRING_PROFILES_ACTIVE=prod` | PostgreSQL | — | — | — | — |
+| Profile | Activated by | Database | Demo Store | OpenAPI and Swagger UI | SQL log |
+|---|---|---|:---:|:---:|:---:|
+| `dev` | Default, when no profile is set | PostgreSQL 16 from `compose.dev.yaml`, which Spring Boot starts | ✓ | ✓ | ✓ |
+| `test` | `@ActiveProfiles("test")` in integration tests | Its own database in the PostgreSQL 16 of the test run | — | ✓ | — |
+| `prod` | `SPRING_PROFILES_ACTIVE=prod` | PostgreSQL, from the variables below | — | — | — |
 
-The tests tagged `postgres` leave the profile's database aside and run against a PostgreSQL 16 container;
-[Quality and testing](testing.md) says what they are for and how to run them.
+In `dev`, Spring Boot's Docker Compose support starts the database of `compose.dev.yaml` with the application and
+leaves it running when the application stops, with its data in a volume. Without Docker, set
+`spring.docker.compose.enabled=false` and point the `DB_*` variables at a PostgreSQL of your own. The tests leave
+the profile's database aside: [The database of the tests](testing.md#the-database-of-the-tests) says how.
 
 ## Environment variables
 
 | Variable | Purpose | Default |
 |---|---|---|
 | `SPRING_PROFILES_ACTIVE` | `prod` uses PostgreSQL and leaves out the demo store and the API documentation | `dev` |
-| `DB_HOST` · `DB_PORT` · `DB_NAME` | Database location | `localhost` · `5432` · `procesos` |
+| `DB_HOST` · `DB_PORT` · `DB_NAME` | Database location, in `prod` and in `dev` without Docker | `localhost` · `5432` · `procesos` |
 | `DB_USER` · `DB_PASSWORD` | Database credentials | `procesos` · empty |
 | `JWT_SECRET` | HS256 signing key of at least 32 bytes. The `prod` profile does not start without it. | None |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime | `900` |

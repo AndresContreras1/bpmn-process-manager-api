@@ -15,7 +15,7 @@ immutable version that orders run on. This repository holds the REST API and the
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-prod-4169E1?logo=postgresql&logoColor=white)
 ![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-1239-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-1248-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -105,7 +105,7 @@ store's id, or if a request DTO carries one.
 | Layer | Technology |
 |---|---|
 | Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 · JWT (jjwt) · Spring Data JPA · Hibernate 7.4 · MapStruct |
-| Data | PostgreSQL 16 in `prod` · H2 in `dev` and tests · Flyway migrations, validated by Hibernate |
+| Data | PostgreSQL 16 in `prod`, in `dev` and in the tests · Flyway migrations, validated by Hibernate |
 | Frontend | Angular 19 standalone · Bootstrap 5 · RxJS · NGINX |
 | Quality | JUnit 5 · Mockito · ArchUnit · Testcontainers · Selenium · k6 · JaCoCo · SonarCloud |
 | Delivery | Docker multi-stage images · Docker Compose · GitHub Actions |
@@ -115,14 +115,15 @@ cache; [Design decisions](docs/design-decisions.md) explains the choices behind 
 
 ## Quick start
 
-**The API with demo data** (JDK 25):
+**The API with demo data** (JDK 25 and Docker running):
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-It starts on `http://localhost:8080` with the `dev` profile: an H2 file under `./data` and *Demo Store* already
-seeded with a published order-fulfillment process. Swagger UI is at `/swagger-ui.html`.
+It starts on `http://localhost:8080` with the `dev` profile: Spring Boot brings up a PostgreSQL 16 from
+`compose.dev.yaml` and *Demo Store* is seeded with a published order-fulfillment process. Swagger UI is at
+`/swagger-ui.html`.
 
 **The web app** (Node.js 22+), in a second terminal:
 
@@ -166,16 +167,15 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **1239 tests** in the build: architecture rules, controller and repository slices, service units, security and
-  store isolation, and integration across modules. Another **79** run the same suites against a real PostgreSQL 16
-  with Testcontainers.
+- **1248 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+  controller and repository slices, service units, security and store isolation, and integration across modules.
 - **Coverage gate** with JaCoCo: 96 % of lines and 85 % of branches today, and the build fails below 90 % and 80 %
   in the service packages, where the business rules live.
 - **Mutation testing** with PIT over the services, the engine and the conditions: 76 % of 1660 mutations caught, run
   every night with a floor of 75 %. Spotless keeps the imports and the whitespace of every changed file in order.
-- **Every pull request** runs nine jobs: build and test on Ubuntu and Windows, architecture rules, PostgreSQL
-  integration, Docker image with k6 load tests, SonarCloud quality gate, frontend build, web image with the whole
-  stack, Selenium end-to-end tests against it, and the supply chain checks; CodeQL runs beside them.
+- **Every pull request** runs nine jobs: build and test on Ubuntu and Windows, architecture rules, Docker image
+  with k6 load tests, SonarCloud quality gate, frontend build, web image with the whole stack, Selenium end-to-end
+  tests against it, the format check and the supply chain checks; CodeQL runs beside them.
 - **Supply chain**: every action pinned to a commit SHA, Dependabot, CodeQL, gitleaks over every commit, Trivy over
   both images, and a CycloneDX SBOM of each. [Supply chain](docs/security.md#supply-chain) has the detail.
 
@@ -185,8 +185,8 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 
 ```text
 ├── src/main/java/…/procesos   the API: common · security · gestion · modelado · ejecucion · integracion
-├── src/main/resources         profiles and Flyway migrations (common, h2, postgresql)
-├── src/test                   unit, slice, integration, architecture and PostgreSQL suites
+├── src/main/resources         profiles and Flyway migrations
+├── src/test                   unit, slice, integration and architecture suites, all on PostgreSQL
 ├── frontend/                  Angular web app and its NGINX image
 ├── e2e/                       Selenium end-to-end suite, a separate Maven module
 ├── k6/                        load tests: a sales peak and an order peak
