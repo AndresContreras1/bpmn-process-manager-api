@@ -83,3 +83,4 @@
 - [x] A security policy with a private way to report, and `security.txt` served by the web app
 - [x] Pull request and issue templates, code owners and a changelog
 - [x] A runbook: health, following a failed request, what to watch, incidents and backups
+- [x] Architecture decision records for the decisions of plan v3, each with what checks it
