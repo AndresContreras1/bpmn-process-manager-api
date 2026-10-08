@@ -11,9 +11,14 @@ _Repositories_
 
 * `c.f.p.c.RepositorioTenant`
 
+_Configuration properties_
+
+* `c.f.p.c.trabajos.ReglasDeLaCola`
+
 _Others_
 
 * `c.f.p.c.api.ApiExceptionHandler`
 * `c.f.p.c.api.IdDePeticionFilter`
 * `c.f.p.c.metricas.MetricasDeNegocio`
+* `c.f.p.c.trabajos.ColaDeTrabajos`
 |===
