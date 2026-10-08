@@ -15,6 +15,7 @@ The [root README](../README.md) is the summary. These pages hold the detail, one
 |---|---|
 | [Getting started](getting-started.md) | The API, the web app, the Compose stack, the end-to-end tests, Postman and the operations endpoints |
 | [Configuration](configuration.md) | Profiles and environment variables |
+| [Runbook](runbook.md) | Health, following a failed request, what to watch, common incidents, backups and routine work |
 
 **How it works**
 
