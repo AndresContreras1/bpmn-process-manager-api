@@ -19,7 +19,10 @@ import com.facimus.procesos.gestion.service.SesionService;
 /**
  * Las sesiones cerradas cuyos access tokens todavia no vencen. El filtro JWT las mira aqui, en memoria y sin ir a la
  * base: un token de una sesion cerrada deja de servir al instante y no cuando vence. Cada sesion se olvida cuando ya
- * vencio el ultimo token que pudo emitir. Vive en esta instancia; con varias, iria a un almacen compartido como Redis.
+ * vencio el ultimo token que pudo emitir.
+ *
+ * <p>Con varias instancias, cada una lleva su copia: las que cierra ella las anota al confirmarse el cierre, y las que
+ * cierran las demas le llegan por PostgreSQL ({@link AvisoDeSesionesCerradas}, D34).
  */
 @Component
 public class RevokedSessions {
@@ -53,7 +56,8 @@ public class RevokedSessions {
         revocar(sesionService.cerradasEnLosUltimos(vigenciaToken));
     }
 
-    private void revocar(List<String> codigos) {
+    /** Anota esas sesiones como cerradas hasta que venza el ultimo token que pudieron emitir. */
+    public void revocar(List<String> codigos) {
         Instant ahora = reloj.instant();
         revocadas.values().removeIf(hasta -> !hasta.isAfter(ahora));
         codigos.forEach(codigo -> revocadas.put(codigo, ahora.plus(vigenciaToken)));

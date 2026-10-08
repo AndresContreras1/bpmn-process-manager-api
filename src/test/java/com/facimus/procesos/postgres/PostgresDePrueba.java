@@ -70,6 +70,11 @@ public final class PostgresDePrueba {
         return servidor().urlDe(nombre);
     }
 
+    /** Una base nueva y sus credenciales, para arrancar a mano varias instancias de la aplicacion sobre ella. */
+    public static ConexionDePrueba nuevaBaseCompartida() {
+        return new ConexionDePrueba(nuevaBase(), servidor().usuario(), servidor().clave());
+    }
+
     /** La version mayor del servidor, si se sabe cual se espera: la de la imagen, o la que declara el entorno. */
     public static OptionalInt versionMayorEsperada() {
         String declarada = System.getenv("PRUEBAS_POSTGRES_VERSION_MAYOR");
@@ -130,6 +135,10 @@ public final class PostgresDePrueba {
         } catch (SQLException e) {
             throw new IllegalStateException("No se pudo ejecutar en el PostgreSQL de las pruebas: " + sql, e);
         }
+    }
+
+    /** Lo que necesita una instancia de la aplicacion para conectarse a una base de las pruebas. */
+    public record ConexionDePrueba(String url, String usuario, String clave) {
     }
 
     /** Donde esta el servidor: la URL de una base cualquiera de el y las credenciales. */
