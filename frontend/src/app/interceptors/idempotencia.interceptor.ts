@@ -1,21 +1,21 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 
-import { TokenService } from '../service/token.service';
+import { SesionLocalService } from '../service/sesion-local.service';
 
 /**
  * Marca cada POST con sesion con una Idempotency-Key. Si el mismo envio llega dos veces —un doble clic, o el
- * reintento que hace el interceptor de sesion despues de renovar el token— la API devuelve la respuesta de la
- * primera vez en lugar de crear otro recurso.
+ * reintento que hace el interceptor de sesion despues de renovarla— la API devuelve la respuesta de la primera vez en
+ * lugar de crear otro recurso.
  *
  * Va antes del interceptor de sesion a proposito: asi la clave se pone una sola vez y el reintento manda la misma.
  * Si se pusiera despues, cada reintento llevaria una clave nueva y no protegeria de nada.
  *
- * Los POST publicos no la usan, porque la API solo la aplica a los autenticados: sin sesion no hay a quien
+ * Los POST sin sesion no la usan, porque la API solo la aplica a los autenticados: sin sesion no hay a quien
  * atribuir la clave.
  */
 export const idempotenciaInterceptor: HttpInterceptorFn = (req, next) => {
-  if (req.method !== 'POST' || inject(TokenService).obtenerToken() === null) {
+  if (req.method !== 'POST' || !inject(SesionLocalService).hayUsuario()) {
     return next(req);
   }
   return next(req.clone({ setHeaders: { 'Idempotency-Key': clave() } }));

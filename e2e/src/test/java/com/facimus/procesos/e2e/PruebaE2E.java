@@ -141,8 +141,12 @@ abstract class PruebaE2E {
         esperarUrl("/procesos");
     }
 
-    /** Sale sin pasar por el menu: la sesion vive en localStorage y borrarla es salir. */
+    /**
+     * Sale sin pasar por el menu: la sesion son las cookies HttpOnly, que el navegador de la prueba si puede borrar
+     * aunque la pagina no, y lo que la web recuerda de quien entro, en localStorage.
+     */
     protected void salir() {
+        navegador.manage().deleteAllCookies();
         ((JavascriptExecutor) navegador).executeScript("localStorage.clear()");
     }
 

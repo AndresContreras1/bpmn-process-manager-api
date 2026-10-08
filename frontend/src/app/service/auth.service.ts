@@ -1,25 +1,38 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, finalize, map, shareReplay, tap } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { LoginRequest, LoginResponse } from '../models/login.model';
 import { RolAcceso, Usuario } from '../models/usuario.model';
-import { TokenService } from './token.service';
+import { SesionLocalService } from './sesion-local.service';
 
-/** Inicia y cierra la sesion, y publica el usuario actual para toda la aplicacion. */
+/**
+ * Inicia y cierra la sesion, y publica el usuario actual para toda la aplicacion.
+ *
+ * D29: la sesion son dos cookies HttpOnly que pone y quita la API; este servicio nunca ve un token. Lo que cambia algo
+ * lleva ademas el token CSRF, que HttpClient copia solo de la cookie XSRF-TOKEN a la cabecera X-XSRF-TOKEN.
+ */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http: HttpClient = inject(HttpClient);
-  private readonly tokenService: TokenService = inject(TokenService);
+  private readonly sesionLocal: SesionLocalService = inject(SesionLocalService);
   private readonly url: string = `${environment.apiUrl}/api/v1/auth`;
 
   // Guarda el usuario actual y se lo entrega de inmediato a cada componente que se suscribe
-  private readonly usuarioSubject = new BehaviorSubject<Usuario | null>(this.usuarioGuardado());
+  private readonly usuarioSubject = new BehaviorSubject<Usuario | null>(this.sesionLocal.obtenerUsuario());
   readonly usuario$: Observable<Usuario | null> = this.usuarioSubject.asObservable();
 
   // La renovacion en curso, mientras dura: varias peticiones que fallan a la vez esperan esta misma
-  private renovacion$: Observable<string> | null = null;
+  private renovacion$: Observable<void> | null = null;
+
+  /**
+   * Pide a la API la cookie XSRF-TOKEN. La aplicacion lo hace al arrancar, porque el login ya la necesita; si la API
+   * no contesta, la aplicacion arranca igual y el login mostrara el error.
+   */
+  prepararCsrf(): Observable<void> {
+    return this.http.get<void>(`${this.url}/csrf`).pipe(catchError(() => of(undefined)));
+  }
 
   login(credenciales: LoginRequest): Observable<LoginResponse> {
     return this.http
@@ -28,27 +41,25 @@ export class AuthService {
   }
 
   /**
-   * Cambia el token de refresco por un par nuevo y devuelve el token de acceso.
+   * Renueva la sesion con la cookie de refresco, que el navegador manda solo a /api/v1/auth.
    *
-   * Se hace una sola llamada aunque varias peticiones venzan al mismo tiempo: el token de refresco es de un solo
-   * uso y mandarlo dos veces cierra la sesion, asi que todas comparten el observable en curso y se olvida al
-   * terminar, para que la proxima vez se renueve de nuevo.
+   * Se hace una sola llamada aunque varias peticiones venzan al mismo tiempo: el refresh token es de un solo uso y
+   * mandarlo dos veces cierra la sesion, asi que todas comparten el observable en curso y se olvida al terminar, para
+   * que la proxima vez se renueve de nuevo.
    */
-  renovar(): Observable<string> {
-    this.renovacion$ ??= this.http
-      .post<LoginResponse>(`${this.url}/refresh`, { refreshToken: this.tokenService.obtenerRefresco() })
-      .pipe(
-        tap((respuesta: LoginResponse) => this.guardarSesion(respuesta)),
-        map((respuesta: LoginResponse) => respuesta.accessToken),
-        finalize(() => (this.renovacion$ = null)),
-        shareReplay({ bufferSize: 1, refCount: false }),
-      );
+  renovar(): Observable<void> {
+    this.renovacion$ ??= this.http.post<LoginResponse>(`${this.url}/refresh`, null).pipe(
+      tap((respuesta: LoginResponse) => this.guardarSesion(respuesta)),
+      map((): void => undefined),
+      finalize(() => (this.renovacion$ = null)),
+      shareReplay({ bufferSize: 1, refCount: false }),
+    );
     return this.renovacion$;
   }
 
   /**
-   * Cambia la contrasena y abre una sesion nueva: la API cierra todas las de este usuario, esta incluida, y los
-   * tokens que devuelve son los que hay que quedarse.
+   * Cambia la contrasena y abre una sesion nueva: la API cierra todas las de este usuario, esta incluida, y deja las
+   * cookies de la nueva.
    */
   cambiarClave(actual: string, nueva: string): Observable<LoginResponse> {
     return this.http
@@ -57,24 +68,21 @@ export class AuthService {
   }
 
   /**
-   * Avisa a la API y borra la sesion del navegador, aunque la llamada falle (por ejemplo, con el token vencido).
-   * El token de refresco va en el cuerpo para que la API cierre tambien su sesion y no quede uno usable.
+   * Avisa a la API, que cierra la sesion y borra sus cookies, y olvida al usuario aunque la llamada falle. La API
+   * responde lo mismo con el acceso vencido, asi que siempre se puede salir.
    */
   logout(): Observable<void> {
-    const refreshToken: string | null = this.tokenService.obtenerRefresco();
-    return this.http
-      .post<void>(`${this.url}/logout`, refreshToken === null ? null : { refreshToken })
-      .pipe(finalize(() => this.cerrarSesionLocal()));
+    return this.http.post<void>(`${this.url}/logout`, null).pipe(finalize(() => this.cerrarSesionLocal()));
   }
 
-  /** Borra la sesion del navegador. La usan el logout y el interceptor cuando la API responde 401. */
+  /** Olvida al usuario. La usan el logout y el interceptor cuando la renovacion es rechazada. */
   cerrarSesionLocal(): void {
-    this.tokenService.borrar();
+    this.sesionLocal.borrar();
     this.usuarioSubject.next(null);
   }
 
   estaAutenticado(): boolean {
-    return this.tokenService.sesionAbierta();
+    return this.sesionLocal.hayUsuario();
   }
 
   /** El usuario de la sesion, tal como lo devolvio la API. Null cuando no hay sesion abierta. */
@@ -98,11 +106,7 @@ export class AuthService {
   }
 
   private guardarSesion(respuesta: LoginResponse): void {
-    this.tokenService.guardar(respuesta);
+    this.sesionLocal.guardar(respuesta.usuario);
     this.usuarioSubject.next(respuesta.usuario);
-  }
-
-  private usuarioGuardado(): Usuario | null {
-    return this.tokenService.sesionAbierta() ? this.tokenService.obtenerUsuario() : null;
   }
 }
