@@ -3,6 +3,7 @@ package com.facimus.procesos.ejecucion.service.impl;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
@@ -16,6 +17,8 @@ import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoGateway;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -51,6 +54,7 @@ class MotorDeProcesos {
     private final BandejaDeSalida bandejaDeSalida;
     private final Bitacora bitacora;
     private final JsonMapper json;
+    private final ObservationRegistry observaciones;
 
     /** Abre el caso por el nodo que empieza el proceso y lo avanza hasta donde llegue. */
     void arrancar(Caso caso, GrafoDeVersion grafo, NodoDeLaVersion inicio, Momento momento) {
@@ -63,8 +67,28 @@ class MotorDeProcesos {
     /**
      * Procesa los pasos pendientes hasta que no queda ninguno. Cada vuelta relee los pendientes porque procesar uno
      * crea los siguientes, y un join puede volver a ponerse pendiente cuando le llega otro token.
+     *
+     * <p>Cada llamada es un span de la traza de la peticion, con el caso, y un tiempo en las metricas
+     * (procesos.motor.avanzar) con el estado en que queda el caso: asi se ve cuanto tarda el motor y cuantas vueltas
+     * terminan un caso o lo dejan en error.
      */
     void avanzar(Caso caso, GrafoDeVersion grafo, Momento momento) {
+        Observation vuelta = Observation.createNotStarted("procesos.motor.avanzar", observaciones)
+                .contextualName("avanzar el caso")
+                .highCardinalityKeyValue("caso.id", String.valueOf(caso.getId()))
+                .start();
+        try (Observation.Scope alcance = vuelta.openScope()) {
+            recorrer(caso, grafo, momento);
+        } catch (RuntimeException error) {
+            vuelta.error(error);
+            throw error;
+        } finally {
+            vuelta.lowCardinalityKeyValue("estado", caso.getEstado().name().toLowerCase(Locale.ROOT));
+            vuelta.stop();
+        }
+    }
+
+    private void recorrer(Caso caso, GrafoDeVersion grafo, Momento momento) {
         VariablesDelCaso variables = VariablesDelCaso.de(caso, json);
         int pasos = 0;
         List<ActividadCaso> pendientes = pendientesDe(caso);
