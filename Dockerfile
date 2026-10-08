@@ -1,19 +1,31 @@
-FROM maven:3.9-eclipse-temurin-21@sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320 AS build
+# La API en dos etapas: Maven compila en la primera y la segunda solo lleva un JRE 25 con la aplicacion.
+FROM maven:3.9-eclipse-temurin-25@sha256:93b8a14ea2f412782e4e842651273b4d903e35cc496284f178fbbe2d67d00976 AS build
 WORKDIR /build
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 COPY src/ src/
-RUN mvn -B clean package && cp target/*.jar app.jar
+# Las pruebas ya corrieron en el CI antes de construir la imagen: aqui solo se compila y se empaqueta. El jar se
+# extrae en la aplicacion y sus dependencias (lib/), que es la forma que necesita la cache AOT: no lee jars anidados.
+RUN mvn -B clean package -Dmaven.test.skip=true \
+    && cp target/*.jar app.jar \
+    && java -Djarmode=tools -jar app.jar extract --destination extraido
 
-FROM eclipse-temurin:21-jre@sha256:d7051a45dd955e4d5d1db4d3f4269fe13d1c6dff8cc6b7ef89fc8577b96c1982
-# curl es para el health check del contenedor, que consulta la sonda de Actuator. El upgrade trae los parches de
-# seguridad que salieron despues de la imagen base (por ejemplo el de OpenSSL que Trivy marca), sin esperar a que la
-# reconstruyan.
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
-    && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-RUN useradd -r -u 1001 appuser
+# JRE 25 sobre Alpine: lo justo para correr la API, sin compilador, sin gestor de paquetes de mas y sin curl.
+FROM eclipse-temurin:25-jre-alpine@sha256:3c0a9084927a221ccd1d007fcaf614465672c0af37aaa834c5184483afe56d61
+# Un usuario sin privilegios, dueno solo de la carpeta de la aplicacion.
+RUN addgroup -S -g 1001 appuser && adduser -S -D -H -u 1001 -G appuser appuser \
+    && install -d -o appuser -g appuser /app
 USER appuser
 WORKDIR /app
-COPY --from=build --chown=appuser:appuser /build/app.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+COPY --from=build --chown=appuser:appuser /build/extraido/ ./
+# La cache AOT de la JVM (JEP 483 y 514): un arranque de entrenamiento carga y enlaza aqui, una sola vez, las clases
+# que Spring necesita al arrancar, y cada arranque de verdad las encuentra hechas. Entrena con el perfil prod sobre
+# una H2 en memoria y se detiene en cuanto el contexto esta listo; la clave del JWT es aleatoria y no sale del paso.
+RUN JWT_SECRET="$(head -c 48 /dev/urandom | base64)" java -XX:AOTCacheOutput=app.aot -XX:MaxRAMPercentage=75.0 \
+        -Dspring.context.exit=onRefresh -Dspring.profiles.active=prod \
+        -Dspring.datasource.url=jdbc:h2:mem:entrenamiento -Dspring.datasource.username=sa \
+        -jar app.jar
+# 8080 es la API; 8081, Actuator en prod, que no se publica.
+EXPOSE 8080 8081
+# El heap puede usar tres cuartos de la memoria del contenedor: sin decirlo, la JVM toma solo un cuarto.
+ENTRYPOINT ["java", "-XX:AOTCache=app.aot", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
