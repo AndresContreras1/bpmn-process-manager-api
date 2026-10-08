@@ -157,7 +157,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 | **Product** | [Overview](docs/overview.md) · [Example: order fulfillment](docs/example-order-fulfillment.md) |
 | **Running it** | [Getting started](docs/getting-started.md) · [Configuration](docs/configuration.md) · [Runbook](docs/runbook.md) |
 | **How it works** | [Domain model and rules](docs/domain-model.md) · [Diagnosis, versions and AI review](docs/diagnosis-and-versions.md) · [Execution and simulation](docs/execution.md) · [Security](docs/security.md) · [API reference](docs/api-reference.md) |
-| **Engineering** | [Architecture](docs/architecture.md) · [Quality and testing](docs/testing.md) · [Design decisions](docs/design-decisions.md) · [Roadmap](docs/roadmap.md) |
+| **Engineering** | [Architecture](docs/architecture.md) · [Quality and testing](docs/testing.md) · [Design decisions](docs/design-decisions.md) · [Decision records](docs/adr/README.md) · [Roadmap](docs/roadmap.md) |
 | **Clients** | [Web app](frontend/README.md) · [End-to-end tests](e2e/README.md) · [Postman collection](postman/) |
 
 ## Quality

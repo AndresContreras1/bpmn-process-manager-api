@@ -34,6 +34,7 @@ The [root README](../README.md) is the summary. These pages hold the detail, one
 | [Architecture](architecture.md) | Stack, modules, request lifecycle, module boundaries, the version cache and the nightly purge |
 | [Quality and testing](testing.md) | Test suites, coverage gates and the CI pipeline |
 | [Design decisions](design-decisions.md) | Why each non-obvious choice was made |
+| [Decision records](adr/README.md) | One record per architecture decision: its context, what it changed and what checks it |
 | [Roadmap](roadmap.md) | What is done and what comes next |
 
 The web app and the end-to-end suite have their own pages: [frontend/README.md](../frontend/README.md) and

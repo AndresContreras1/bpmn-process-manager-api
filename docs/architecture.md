@@ -35,8 +35,9 @@
 ## Modules
 
 The code is split into four business modules and two shared packages, and they stack: `common` depends on nobody,
-`gestion` on `common`, `security` on both, `modelado` on the three, `ejecucion` on all of them, and `integracion`
-only on the port `ejecucion` publishes. Each business module is layered as controller → service interface →
+`gestion` on `common`, `security` on both, `modelado` on the three, `ejecucion` on `common`, `gestion` and
+`modelado`, and `integracion` on the port `ejecucion` publishes, the kind of partner a participant declares
+(`modelado`) and the condition language (`common`). Each business module is layered as controller → service interface →
 service implementation → repository → model, with `dto` for the module's contract and `mapper` for the MapStruct
 translations.
 
@@ -67,7 +68,9 @@ flowchart BT
 
 An arrow means *depends on*. The only one that points the other way is the last: `ejecucion` publishes the port and
 `integracion` implements it, so the engine asks for the partner of a kind of participant and works with whatever it
-is given. ArchUnit checks every one of these arrows, and the absence of the ones that are not drawn.
+is given. To keep the drawing readable it leaves out the arrows that reach further down, like `ejecucion` reading
+the published version from `gestion`. ArchUnit checks that no arrow points back up, and that a partner reaches
+nothing of the engine beyond the port.
 
 | Package | Responsibility |
 |---|---|

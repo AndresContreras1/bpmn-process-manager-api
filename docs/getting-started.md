@@ -77,8 +77,10 @@ sign in with yet: create your store from the app, or with `POST /api/v1/empresas
 its first administrator. To poke at the demo data instead, run the API with `dev` as described above.
 
 The browser only ever talks to the web container: NGINX serves the compiled app and forwards everything under
-`/api` to the API inside the network. So the production build has no absolute API URL in it, there is no CORS to
-configure, and the same image runs anywhere without being rebuilt. The API keeps its own port for the Postman
+`/api` to the API inside the network. So the production build has no absolute API URL in it, and the same image
+runs anywhere without being rebuilt. The browser still sends `Origin` on every `POST`, even to its own site, so the
+API's `CORS_ALLOWED_ORIGINS` has to list the address of the site; Compose fills it with `http://localhost` and the
+one on `WEB_PORT`. The API keeps its own port for the Postman
 collection and for curl, but nothing in the browser uses it.
 
 The database keeps its data in a named volume, so `docker compose down` does not lose it; `docker compose down -v`
