@@ -105,11 +105,9 @@ public class SesionServiceImpl implements SesionService {
 
     @Override
     @Transactional
-    public void cerrarConToken(Long empresaId, Long usuarioId, String refreshToken) {
+    public void cerrarConToken(String refreshToken) {
         refreshTokenRepository.findByTokenHash(hash(refreshToken))
                 .map(RefreshToken::getSesion)
-                .filter(sesion -> sesion.getUsuario().getId().equals(usuarioId)
-                        && sesion.getEmpresa().getId().equals(empresaId))
                 .ifPresent(sesion -> cerrarSesiones(List.of(sesion), LocalDateTime.now()));
     }
 

@@ -22,7 +22,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -42,14 +41,15 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.EventoService;
-import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.modelado.service.PoolService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -126,12 +126,10 @@ class BajaLogicaIntegracionTest {
         tiendaId = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
         rolId = rolProcesoService.crear(empresaId, adminId, "Warehouse", null).id();
         laneId = laneService.crear(empresaId, adminId, tiendaId, "Warehouse", rolId).id();
-        String login = mockMvc.perform(post("/api/v1/auth/login")
+        token = SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        token = jsonMapper.readTree(login).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 
     @Test
@@ -263,11 +261,11 @@ class BajaLogicaIntegracionTest {
         // HU-06.3: el proceso no desaparece; el administrador lo consulta con el filtro y lo ve dado de baja.
         pedir(get("/api/v1/procesos/{id}", devoluciones)).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/v1/procesos/{id}", devoluciones).param("incluirInactivos", "true")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                        .with(SesionEnCookies.conSesion(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.proceso.activo").value(false));
         mockMvc.perform(get("/api/v1/procesos").param("incluirInactivos", "true")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                        .with(SesionEnCookies.conSesion(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.id == " + devoluciones + ")]").isNotEmpty());
     }
@@ -293,7 +291,7 @@ class BajaLogicaIntegracionTest {
 
     private ResultActions pedir(MockHttpServletRequestBuilder peticion)
             throws Exception {
-        return mockMvc.perform(peticion.header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+        return mockMvc.perform(peticion.with(SesionEnCookies.conSesion(token)));
     }
 
     private ResultActions pedir(MockHttpServletRequestBuilder peticion,

@@ -28,9 +28,9 @@ public class CambioDeClaveFilter extends OncePerRequestFilter {
 
     static final String MOTIVO = "Debe cambiar su contraseña antes de seguir.";
 
-    /** Cambiar la clave, cerrar la sesion y renovar el token: lo minimo para poder cambiarla y salir. */
+    /** Cambiar la clave, cerrar la sesion, renovarla y pedir el token CSRF: lo minimo para cambiarla y salir. */
     private static final Set<String> PERMITIDAS = Set.of("/api/v1/auth/password", "/api/v1/auth/logout",
-            "/api/v1/auth/refresh");
+            "/api/v1/auth/refresh", "/api/v1/auth/csrf");
 
     private final JsonMapper jsonMapper;
 

@@ -24,7 +24,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -39,7 +38,6 @@ import com.facimus.procesos.gestion.dto.request.EditarProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.EditarRolProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
-import com.facimus.procesos.gestion.dto.request.RolProcesoRequest;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
@@ -229,11 +227,11 @@ class AislamientoEmpresasIntegracionTest {
     void Aislamiento_listarDesdeRecursoPadreDeOtraEmpresa_devuelve404(String ruta, Long idDeLaEmpresaB)
             throws Exception {
         // La empresa B si ve su listado: el 404 de la empresa A no se debe a una ruta o un id equivocados.
-        mockMvc.perform(get(ruta, idDeLaEmpresaB).header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
+        mockMvc.perform(get(ruta, idDeLaEmpresaB).with(SesionEnCookies.conSesion(tokenB)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isNotEmpty());
 
-        mockMvc.perform(get(ruta, idDeLaEmpresaB).header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+        mockMvc.perform(get(ruta, idDeLaEmpresaB).with(SesionEnCookies.conSesion(tokenA)))
                 .andExpect(status().isNotFound());
     }
 
@@ -378,12 +376,12 @@ class AislamientoEmpresasIntegracionTest {
                 CLAVE, RolAcceso.EDITOR).id();
 
         mockMvc.perform(post("/api/v1/usuarios/{id}/restablecer-clave", ajeno)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                        .with(SesionEnCookies.conSesion(tokenA)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Recurso no encontrado"));
         // La empresa B si puede con el suyo: el 404 de A no se debe a un id equivocado.
         mockMvc.perform(post("/api/v1/usuarios/{id}/restablecer-clave", ajeno)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
+                        .with(SesionEnCookies.conSesion(tokenB)))
                 .andExpect(status().isOk());
     }
 
@@ -394,7 +392,7 @@ class AislamientoEmpresasIntegracionTest {
                 "/api/v1/procesos/{id}/versiones/1/diagrama");
 
         for (String ruta : rutas) {
-            mockMvc.perform(get(ruta, procesoB).header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+            mockMvc.perform(get(ruta, procesoB).with(SesionEnCookies.conSesion(tokenA)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.title").value("Recurso no encontrado"))
                     // El 404 lo da el proceso, no la version: no se sabe si el proceso ajeno tiene alguna.
@@ -406,7 +404,7 @@ class AislamientoEmpresasIntegracionTest {
     @DisplayName("Un empresaId de otra empresa en la URL se ignora: manda el token")
     void Aislamiento_empresaIdEnLaUrl_seIgnora() throws Exception {
         String respuesta = mockMvc.perform(post("/api/v1/procesos?empresaId={id}", empresaB)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .with(SesionEnCookies.conSesion(tokenA))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(
                                 new ProcesoRequest("Devoluciones", "Proceso de devoluciones", "Comercial"))))
@@ -427,7 +425,7 @@ class AislamientoEmpresasIntegracionTest {
                 "categoria", "Comercial", "empresaId", empresaB);
 
         mockMvc.perform(post("/api/v1/procesos")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .with(SesionEnCookies.conSesion(tokenA))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(cuerpo)))
                 .andExpect(status().isBadRequest())
@@ -448,7 +446,7 @@ class AislamientoEmpresasIntegracionTest {
     private void pedirComoEmpresaA(HttpMethod metodo, String ruta, Long id, Object cuerpo, String mensaje)
             throws Exception {
         MockHttpServletRequestBuilder peticion = request(metodo, ruta, id)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA);
+                .with(SesionEnCookies.conSesion(tokenA));
         if (cuerpo != null) {
             peticion.contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(cuerpo));
         }
@@ -480,18 +478,16 @@ class AislamientoEmpresasIntegracionTest {
     }
 
     private List<String> valoresComoEmpresaA(String ruta, String campo) throws Exception {
-        String respuesta = mockMvc.perform(get(ruta).header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+        String respuesta = mockMvc.perform(get(ruta).with(SesionEnCookies.conSesion(tokenA)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         return jsonMapper.readTree(respuesta).findValues(campo).stream().map(valor -> valor.asString()).toList();
     }
 
     private String login(String email) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 }
