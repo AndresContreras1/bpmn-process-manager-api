@@ -80,8 +80,8 @@ class MigracionesTest {
     }
 
     @Test
-    @DisplayName("Flyway aplica el esquema comun y la migracion propia del motor")
-    void flyway_aplicaLasMigracionesComunYDelMotor() {
+    @DisplayName("Flyway aplica cada migracion, en orden")
+    void flyway_aplicaLasMigracionesEnOrden() {
         assertThat(flyway.info().applied())
                 .extracting(MigrationInfo::getScript)
                 .containsExactly("V1__esquema_inicial.sql", "V2__nombres_unicos_por_empresa.sql",
