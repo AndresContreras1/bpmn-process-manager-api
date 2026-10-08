@@ -65,9 +65,17 @@ a deployment, go back to the previous build of the images and redeploy it while 
 thread, so the pool is the real ceiling: raise it only if PostgreSQL has room for more connections.
 
 **Many `429` on login.** The limit counts failed logins per email and address (`LOGIN_MAX_FAILED_ATTEMPTS` in
-`LOGIN_FAILED_ATTEMPTS_WINDOW`). A person locked out waits for the window to pass; an attack shows as
-`login_fallidos_total{motivo="credenciales"}` climbing for many emails. Today the count lives in the memory of each
-instance.
+`LOGIN_FAILED_ATTEMPTS_WINDOW`), in the table `intentos_login` that every instance shares. A person locked out
+waits for the window to pass, or an operator forgets their failures with
+`delete from intentos_login where clave like 'ana@acme.com|%'`. An attack shows as
+`login_fallidos_total{motivo="credenciales"}` climbing for many emails.
+
+**A closed session still works in another instance.** Each instance hears of a closure through PostgreSQL. If the
+log says "Se corto la escucha de las sesiones cerradas", the connection that listens dropped: it reopens every five
+seconds and rereads the recent closures when it does, so the session stops working within that time.
+
+**A scheduled job did not run.** `select * from shedlock` shows who holds each lock and until when. A lock taken
+by an instance that died frees itself when `lock_until` passes: thirty minutes for the purge, ten for the rest.
 
 **The JWT signing key leaked.** Generate a new `JWT_SECRET` of at least 32 bytes, put it in `.env` and recreate the
 API with `docker compose up -d api`. Every access and refresh token signed with the old key stops working, so every

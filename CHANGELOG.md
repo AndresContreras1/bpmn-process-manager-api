@@ -16,6 +16,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 - Tracing with OpenTelemetry: a `traceId` in the logs and the errors, and spans of the engine and the diagnosis.
 - Repository governance: architecture decision records, a runbook, a security policy and `security.txt`, pull
   request and issue templates, code owners and this changelog.
+- Several instances of the API can run on one database: closed sessions are announced to every instance with
+  PostgreSQL's `LISTEN/NOTIFY`, failed logins and AI reviews live in tables, and each scheduled job runs in one
+  instance at a time with ShedLock.
 
 ### Changed
 

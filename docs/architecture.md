@@ -200,16 +200,37 @@ Actuator counts the hits next to the operation gauges: `cache.gets` tagged `cach
 again every time — which is how the test suite runs, so that no test can be reading what the one before it left
 behind.
 
+## Several instances
+
+Any number of instances of the API can run on one database: what one of them knows that the others need lives in
+PostgreSQL, not in its memory (D34).
+
+| What | Where | How the other instances learn it |
+|---|---|---|
+| Closed sessions | Each instance keeps them in memory, so the JWT filter runs no SQL | The transaction that closes a session sends its code with `NOTIFY`, which PostgreSQL delivers only if that transaction commits. Every instance `LISTEN`s on a connection of its own and revokes the session at once; it rereads the recent closures when it reconnects and every five minutes, in case a notice was missed |
+| Failed logins | Table `intentos_login`, one row per failure | They count the same rows |
+| AI reviews | Table `revisiones_ia`, one row per answer of the model | They reuse the last one of a process and count the same ones for the store's limit |
+| Scheduled jobs | Table `shedlock`, the lock of each job, with the database's clock | The purge and the simulation clock run in one instance at a time; the lock of the clock lasts as long as the pause between ticks, so two instances do not move it twice as fast |
+
+What stays in each instance is safe to keep apart: the cache of published versions, which never change, and the
+metrics, which Prometheus reads from each instance. Counting and recording a failed login are not one transaction,
+so two failures at the same time can go one past the limit; for a limit of attempts that changes nothing.
+
 ## Data that does not pile up
 
-Three tables only grow. A login writes a session, every renewal writes a refresh token, and every request with an
-`Idempotency-Key` writes a key; nothing reads any of them once they expire. A job sweeps them every night
-(`LIMPIEZA_CRON`, 3:30 by default):
+Five tables only grow. A login writes a session, every renewal writes a refresh token, every request with an
+`Idempotency-Key` writes a key, every failed login writes an attempt and every answer of the model writes a review.
+A job sweeps them every night (`LIMPIEZA_CRON`, 3:30 by default):
 
 - **Refresh tokens** that expired more than `LIMPIEZA_RETENCION_SESIONES` ago. An expired one renews nothing.
 - **Sessions** older than that same window with no refresh token left, which can no longer issue anything. The
   window is never shorter than the access token lifetime: when the API restarts it rereads the sessions closed
   recently to keep rejecting their tokens, so deleting one too early would let a revoked token back in.
 - **Idempotency keys** older than `LIMPIEZA_RETENCION_IDEMPOTENCIA`.
+- **Failed logins** that left the window of the limit (`LOGIN_FAILED_ATTEMPTS_WINDOW`). A successful login also
+  forgets the failures of its email and address at once.
+- **AI reviews** that are no longer the last one of their process and left the window of the limit
+  (`REVISION_WINDOW`). The last one stays, because it is the one that comes back while the diagram does not change.
 
-This is the only place in the API where a row is really deleted; everything else is a soft delete and stays.
+Apart from the failures a successful login forgets, this is the only place in the API where a row is really
+deleted; everything else is a soft delete and stays.

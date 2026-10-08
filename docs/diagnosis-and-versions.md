@@ -95,8 +95,9 @@ What the endpoint does not do is as important as what it does:
 - **It never changes the model.** The findings are advice. A person decides what to do with them.
 - **It sends the diagram in words, not the JSON of the endpoint.** Same content, no internal ids.
 - **A diagram that has not changed is not reviewed twice.** The previous review comes back marked
-  `reutilizada`, without a call and without spending part of the limit.
-- **The limit is per store.** Beyond `REVISION_MAX_REVIEWS` in `REVISION_WINDOW`, the answer is `429` with
-  `Retry-After`.
+  `reutilizada`, without a call and without spending part of the limit. Reviews are kept in the database, so
+  whichever instance of the API answers, it finds the same one.
+- **The limit is per store.** Beyond `REVISION_MAX_REVIEWS` answers of the model in `REVISION_WINDOW`, the answer
+  is `429` with `Retry-After`.
 - **Without `GEMINI_API_KEY` it stays off.** The endpoint answers `503` and the rest of the API runs exactly
   as before, which is also how the test suite runs: no test makes a network call.
