@@ -109,6 +109,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, LOGIN, "/api/v1/auth/refresh", "/api/v1/auth/logout")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
+                        // Los enlaces del correo: quien los sigue todavia no tiene sesion, y el token es la
+                        // credencial. Pedir una recuperacion responde igual exista o no el correo.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/verificacion/confirmar",
+                                "/api/v1/auth/recuperacion", "/api/v1/auth/recuperacion/confirmar",
+                                "/api/v1/auth/invitacion/aceptar").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/empresas").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/error")
                         .permitAll()
@@ -120,7 +125,8 @@ public class SecurityConfig {
                         // y el administrador se reserva usuarios (HU-02), roles (HU-17 a HU-19), compartir procesos
                         // (HU-23) y los borrados de procesos (HU-06), actividades (HU-10), arcos (HU-13),
                         // gateways (HU-16) y eventos (HU-04).
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/password").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/password", "/api/v1/auth/verificacion")
+                        .authenticated()
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
                         // El gobierno de la tienda es del administrador: su historial y su configuracion.
                         .requestMatchers("/api/v1/empresas/actual/historial",

@@ -15,6 +15,7 @@ import com.facimus.procesos.gestion.mapper.EmpresaMapper;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
+import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -30,6 +31,7 @@ public class EmpresaServiceImpl implements EmpresaService {
     private final UsuarioService usuarioService;
     private final ConfiguracionTiendaService configuracionTiendaService;
     private final HistorialCambioService historialCambioService;
+    private final CuentaService cuentaService;
     private final EmpresaMapper empresaMapper;
 
     @Override
@@ -55,6 +57,8 @@ public class EmpresaServiceImpl implements EmpresaService {
         configuracionTiendaService.crearPara(empresa.getId());
         historialCambioService.registrarDeTienda(empresa.getId(), administrador.id(), RecursoDeHistorial.EMPRESA,
                 empresa.getId(), "Tienda \"" + nombre + "\" registrada.");
+        // Hasta que el administrador siga el enlace, la tienda no invita a nadie por correo.
+        cuentaService.pedirVerificacion(empresa.getId(), administrador.id());
         return empresaMapper.toResponse(empresa);
     }
 

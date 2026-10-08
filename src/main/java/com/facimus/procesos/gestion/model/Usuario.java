@@ -1,5 +1,7 @@
 package com.facimus.procesos.gestion.model;
 
+import java.time.LocalDateTime;
+
 import com.facimus.procesos.common.EntidadEditable;
 import com.facimus.procesos.common.model.RolAcceso;
 
@@ -51,4 +53,8 @@ public class Usuario extends EntidadEditable {
     @Column(name = "debe_cambiar_clave", nullable = false)
     @Builder.Default
     private boolean debeCambiarClave = false;
+
+    /** Cuando probo que el correo es suyo, con el enlace que le llego; vacio mientras no lo haga. */
+    @Column(name = "correo_verificado_en")
+    private LocalDateTime correoVerificadoEn;
 }

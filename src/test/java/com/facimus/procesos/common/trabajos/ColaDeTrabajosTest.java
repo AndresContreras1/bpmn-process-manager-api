@@ -273,9 +273,12 @@ class ColaDeTrabajosTest {
 
     private Long nuevaTienda() {
         int numero = TIENDAS.incrementAndGet();
-        return empresaService.registrar("Tienda de la cola " + numero, "9007" + numero + "000-1",
+        Long id = empresaService.registrar("Tienda de la cola " + numero, "9007" + numero + "000-1",
                 "contacto" + numero + "@cola.com", "Administradora", "admin" + numero + "@cola.com",
                 "clave-de-la-cola").id();
+        // El registro deja en la cola el correo de verificacion: esta prueba mira solo los trabajos que encola.
+        jdbc.update("delete from trabajos where empresa_id = ?", id);
+        return id;
     }
 
     /** Un reloj que solo avanza cuando la prueba lo dice. */

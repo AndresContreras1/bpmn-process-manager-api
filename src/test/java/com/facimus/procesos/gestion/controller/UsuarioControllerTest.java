@@ -1,35 +1,10 @@
 package com.facimus.procesos.gestion.controller;
 
-import java.util.List;
-
-import org.mockito.ArgumentCaptor;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
-import com.facimus.procesos.common.api.PageResponse;
-import com.facimus.procesos.common.model.RolAcceso;
-import com.facimus.procesos.common.RecursoNoEncontradoException;
-import com.facimus.procesos.gestion.dto.response.RolDeUsuarioResponse;
-import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
-import com.facimus.procesos.gestion.service.MembresiaRolService;
-import com.facimus.procesos.gestion.service.UsuarioService;
-
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -38,9 +13,32 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+
+import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.gestion.dto.response.RolDeUsuarioResponse;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.CuentaService;
+import com.facimus.procesos.gestion.service.MembresiaRolService;
+import com.facimus.procesos.gestion.service.UsuarioService;
 
 @WebMvcTest(UsuarioController.class)
 class UsuarioControllerTest {
@@ -53,6 +51,9 @@ class UsuarioControllerTest {
 
     @MockitoBean
     private MembresiaRolService membresiaRolService;
+
+    @MockitoBean
+    private CuentaService cuentaService;
 
     @Test
     @DisplayName("GET /api/v1/usuarios - listar como admin: una pagina ordenada por nombre (200)")

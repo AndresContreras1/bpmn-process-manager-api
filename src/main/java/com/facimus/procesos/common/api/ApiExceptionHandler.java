@@ -30,6 +30,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.DemasiadosIntentosException;
+import com.facimus.procesos.common.EnlaceNoValidoException;
 import com.facimus.procesos.common.IntegracionFallidaException;
 import com.facimus.procesos.common.IntegracionNoConfiguradaException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
@@ -59,6 +60,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(SolicitudInvalidaException.class)
     public ProblemDetail manejarSolicitudInvalida(SolicitudInvalidaException ex, WebRequest req) {
         return construir(HttpStatus.BAD_REQUEST, "Solicitud inválida", ex.getMessage(), req);
+    }
+
+    /** Un enlace del correo usado, vencido o inventado: los tres responden lo mismo. */
+    @ExceptionHandler(EnlaceNoValidoException.class)
+    public ProblemDetail manejarEnlaceNoValido(EnlaceNoValidoException ex, WebRequest req) {
+        return construir(HttpStatus.BAD_REQUEST, "Enlace no válido", ex.getMessage(), req);
     }
 
     @ExceptionHandler(ReglaNegocioException.class)

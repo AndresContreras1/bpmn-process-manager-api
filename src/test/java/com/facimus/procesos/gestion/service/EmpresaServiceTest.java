@@ -1,5 +1,22 @@
 package com.facimus.procesos.gestion.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.*;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.model.Empresa;
@@ -10,23 +27,6 @@ import com.facimus.procesos.gestion.mapper.EmpresaMapper;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.service.impl.EmpresaServiceImpl;
-
-import org.mapstruct.factory.Mappers;
-import org.mockito.Spy;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class EmpresaServiceTest {
@@ -44,6 +44,9 @@ class EmpresaServiceTest {
 
     @Mock
     private ConfiguracionTiendaService configuracionTiendaService;
+
+    @Mock
+    private CuentaService cuentaService;
 
     @InjectMocks
     private EmpresaServiceImpl empresaService;
@@ -71,6 +74,7 @@ class EmpresaServiceTest {
                 RolAcceso.ADMINISTRADOR);
         verify(historialCambioService).registrarDeTienda(eq(1L), eq(7L), eq(RecursoDeHistorial.EMPRESA), eq(1L),
                 contains("Acme"));
+        verify(cuentaService).pedirVerificacion(1L, 7L);
     }
 
     private static UsuarioResponse administrador() {

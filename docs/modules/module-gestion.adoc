@@ -6,6 +6,7 @@
 |_Services_
 
 * `c.f.p.g.service.ConfiguracionTiendaService` (via `c.f.p.g.service.impl.ConfiguracionTiendaServiceImpl`)
+* `c.f.p.g.service.CuentaService` (via `c.f.p.g.service.impl.CuentaServiceImpl`)
 * `c.f.p.g.service.EmpresaService` (via `c.f.p.g.service.impl.EmpresaServiceImpl`)
 * `c.f.p.g.service.HistorialCambioService` (via `c.f.p.g.service.impl.HistorialCambioServiceImpl`)
 * `c.f.p.g.service.IdempotenciaService` (via `c.f.p.g.service.impl.IdempotenciaServiceImpl`)
@@ -23,6 +24,7 @@ _Repositories_
 * `c.f.p.g.repository.ClaveIdempotenciaRepository`
 * `c.f.p.g.repository.ConfiguracionTiendaRepository`
 * `c.f.p.g.repository.EmpresaRepository`
+* `c.f.p.g.repository.EnlaceDeUnUsoRepository`
 * `c.f.p.g.repository.HistorialCambioRepository`
 * `c.f.p.g.repository.MembresiaRolRepository`
 * `c.f.p.g.repository.ProcesoCompartidoRepository`
@@ -33,10 +35,14 @@ _Repositories_
 * `c.f.p.g.repository.UsuarioRepository`
 * `c.f.p.g.repository.VersionProcesoRepository`
 |Bean references
-|* `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
+|* `c.f.p.c.correo.Redactor` (in Common)
+* `c.f.p.c.correo.Correo` (in Common)
+* `c.f.p.c.trabajos.ColaDeTrabajos` (in Common)
+* `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
 |Aggregate roots
 |* `c.f.p.g.model.ClaveIdempotencia`
 * `c.f.p.g.model.ConfiguracionTienda`
+* `c.f.p.g.model.EnlaceDeUnUso`
 * `c.f.p.g.model.HistorialCambio`
 * `c.f.p.g.model.MembresiaRol`
 * `c.f.p.g.model.Proceso`
