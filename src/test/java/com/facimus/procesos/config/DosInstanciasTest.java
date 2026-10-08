@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,6 +29,9 @@ import com.facimus.procesos.modelado.service.RevisorDeDiagramas;
 import com.facimus.procesos.postgres.PostgresDePrueba;
 import com.facimus.procesos.postgres.PostgresDePrueba.ConexionDePrueba;
 
+import net.javacrumbs.shedlock.core.LockConfiguration;
+import net.javacrumbs.shedlock.core.LockProvider;
+import net.javacrumbs.shedlock.core.SimpleLock;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -103,6 +108,22 @@ class DosInstanciasTest {
         }
 
         assertThat(estadoDelLogin(segunda, "intentos@dos-instancias.com", CLAVE)).isEqualTo(429);
+    }
+
+    @Test
+    @DisplayName("El candado de un trabajo que tomo una instancia no lo toma la otra hasta que se suelta")
+    void candadoDeUna_noLoTomaLaOtra() {
+        LockConfiguration trabajo = new LockConfiguration(Instant.now(), "trabajo-de-prueba", Duration.ofMinutes(1),
+                Duration.ZERO);
+
+        Optional<SimpleLock> deLaPrimera = primera.getBean(LockProvider.class).lock(trabajo);
+        assertThat(deLaPrimera).isPresent();
+        assertThat(segunda.getBean(LockProvider.class).lock(trabajo)).isEmpty();
+
+        deLaPrimera.orElseThrow().unlock();
+        Optional<SimpleLock> deLaSegunda = segunda.getBean(LockProvider.class).lock(trabajo);
+        assertThat(deLaSegunda).isPresent();
+        deLaSegunda.orElseThrow().unlock();
     }
 
     @Test
