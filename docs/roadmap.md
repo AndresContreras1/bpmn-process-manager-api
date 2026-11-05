@@ -4,7 +4,7 @@
 
 **Peak-traffic readiness**
 - [x] k6 load tests that simulate a sales peak and an order peak, with thresholds in CI
-- [x] Connection-pool and thread-pool sizing, moved by environment variables
+- [x] Connection-pool sizing by environment variable, with every request on a virtual thread
 - [x] In-memory cache of what a published version says, keyed by store and version, with no invalidation to get wrong
 - [x] `Pageable`-based pagination with stable sorting for every collection that can grow
 
@@ -57,6 +57,11 @@
 - [x] A SonarCloud quality gate on top of it, which fails the build as soon as the project token is in the repository secrets
 - [x] Docker Compose with PostgreSQL and Actuator health checks
 - [x] Testcontainers-based integration tests against a real PostgreSQL
+
+**Runtime**
+- [x] Java 25, with virtual threads and a graceful shutdown that lets the requests in progress finish
+- [x] An image of the API on a minimal JRE with the JVM's AOT cache, trained at build time
+- [x] Read-only, unprivileged containers without Linux capabilities
 
 **Observability**
 - [x] Actuator on a management port of its own in `prod`, with the metrics in the Prometheus format
