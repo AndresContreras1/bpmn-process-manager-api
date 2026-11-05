@@ -32,14 +32,14 @@ import com.facimus.procesos.ejecucion.service.CasoService;
 import com.facimus.procesos.ejecucion.service.DatosDelEntrante;
 import com.facimus.procesos.ejecucion.service.MensajeriaService;
 import com.facimus.procesos.ejecucion.service.TareaService;
-import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.service.CorrelacionService;
 import com.facimus.procesos.modelado.service.MensajeService;
-import com.facimus.procesos.modelado.model.Integracion;
 
 /**
  * Los cuatro finales de la correlacion sobre un proceso de verdad: un mensaje abre un pedido, otro se entrega al
@@ -86,7 +86,7 @@ class MensajeriaIntegracionTest {
     void registrarLaTienda() {
         tienda = new TiendaConMensajeria(contexto);
         empresaId = empresaService.registrar("Tienda con mensajeria", "900666111-1", "contacto@mensajeria.com",
-                "Administradora", "admin@mensajeria.com", "clave12345").id();
+                "Administradora", "admin@mensajeria.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@mensajeria.com").orElseThrow().getId();
     }
 
@@ -197,7 +197,7 @@ class MensajeriaIntegracionTest {
         recibir(procesoId, TiendaConMensajeria.PEDIDO, null, Map.of("orderId", "ORD-650"), "webhook-650");
 
         Long otraId = empresaService.registrar("Tienda vecina con mensajeria", "900666111-2",
-                "contacto@vecina.com", "Otro", "admin@vecina.com", "clave12345").id();
+                "contacto@vecina.com", "Otro", "admin@vecina.com", "marea-violeta-del-sur").id();
         Long otroAdmin = usuarioRepository.findByEmail("admin@vecina.com").orElseThrow().getId();
         Long suProceso = tienda.publicar(otraId, otroAdmin, "Order fulfillment next door");
 

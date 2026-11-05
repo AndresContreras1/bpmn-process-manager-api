@@ -1,0 +1,11 @@
+[(#{verificar-correo.saludo(${nombre})})]
+
+[(#{verificar-correo.cuerpo})]
+
+[(${enlace})]
+
+[(#{verificar-correo.vence(${horas})})]
+[(#{verificar-correo.ignorar})]
+
+--
+[(#{comun.firma})]

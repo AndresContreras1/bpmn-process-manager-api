@@ -10,9 +10,9 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 
 | Resource | Endpoints |
 |---|---|
-| Stores | `POST /api/v1/empresas` · `GET /api/v1/empresas/actual` · `GET /api/v1/empresas/{id}` |
-| Authentication | `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` |
-| Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` · `GET, PUT /api/v1/usuarios/{id}/roles-proceso` |
+| Stores | `POST /api/v1/empresas` · `GET /api/v1/empresas/actual` · `GET /api/v1/empresas/{id}` · `POST, DELETE /api/v1/empresas/actual/baja` |
+| Authentication | `GET /api/v1/auth/csrf` · `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` |
+| Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` · `GET, PUT /api/v1/usuarios/{id}/roles-proceso` · `POST /api/v1/usuarios/invitaciones` · `POST /api/v1/usuarios/{id}/anonimizar` |
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
 | Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` · `PUT /api/v1/procesos/{procesoId}/pools/orden` |
@@ -28,7 +28,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Diagnosis | `GET /api/v1/procesos/{id}/diagnostico[?sinElemento=TYPE:id]` |
 | AI review | `POST /api/v1/procesos/{id}/revision` |
 | Store history and settings | `GET /api/v1/empresas/actual/historial` · `GET, PUT /api/v1/empresas/actual/configuracion` |
-| Passwords | `POST /api/v1/auth/password` · `POST /api/v1/usuarios/{id}/restablecer-clave` |
+| Passwords | `POST /api/v1/auth/password` · `POST /api/v1/usuarios/{id}/restablecer-clave` · `POST /api/v1/auth/recuperacion` · `POST /api/v1/auth/recuperacion/confirmar` |
+| Account by e-mail | `POST /api/v1/auth/verificacion` · `POST /api/v1/auth/verificacion/confirmar` · `POST /api/v1/auth/invitacion/aceptar` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 | Cases | `POST /api/v1/procesos/{procesoId}/casos` · `GET /api/v1/casos` · `GET /api/v1/casos/{id}` · `GET /api/v1/casos/{id}/eventos` · `POST /api/v1/casos/{id}/cancelar` · `PATCH /api/v1/casos/{id}/variables` · `POST /api/v1/casos/{id}/reintentar` |
 | Tasks | `GET /api/v1/tareas` · `GET /api/v1/tareas/{id}` · `POST /api/v1/tareas/{id}/completar` · `POST /api/v1/tareas/{id}/asignar` |
@@ -60,15 +61,57 @@ users created, renamed, given another role or deactivated, process roles added a
 store itself, and every change to a process. Each entry says who did it, when, and what it was about, with
 `recursoTipo` and `recursoId`. Administrators only.
 
-`GET` and `PUT /api/v1/empresas/actual/configuracion` read and change what the store decides about itself. Today
-that is `politicaEstructura`: with `SOLO_ADMINISTRADOR`, creating and editing participants and lanes is reserved to
-administrators, and editors keep modeling steps, flows and messages inside a lane. Changing it is recorded in the
-history.
+`GET` and `PUT /api/v1/empresas/actual/configuracion` read and change what the store decides about itself.
+`politicaEstructura`: with `SOLO_ADMINISTRADOR`, creating and editing participants and lanes is reserved to
+administrators, and editors keep modeling steps, flows and messages inside a lane. `inactividadSesionMinutos`, from
+30 to 60, and `duracionSesionHoras`, from 1 to 24: how long a session lasts without being renewed, and how long
+after its login it ends ([Authentication](security.md#authentication)); left out, they keep their values. Every
+change is recorded in the history.
 
 ```bash
-curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -H "Authorization: Bearer $TOKEN" \
+curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"politicaEstructura":"SOLO_ADMINISTRADOR","version":0}'
 ```
+
+## Closing the store
+
+`POST /api/v1/empresas/actual/baja` with `{"confirmacion": "<the store's name>"}` closes the caller's store and
+answers it with `bajaSolicitadaEn` and `borradoProgramadoPara`, 30 days later. Until then the store is read-only,
+every change answers `409` with the title "Tienda dada de baja", and `DELETE /api/v1/empresas/actual/baja` cancels
+the closing; then everything of the store is deleted ([The life of the data](security.md#the-life-of-the-data)).
+Administrators only, like `POST /api/v1/usuarios/{id}/anonimizar`, which deletes the personal data of a user on
+request.
+
+## Sessions
+
+The login answers the session in two `HttpOnly` cookies and the user's profile in the body; no body carries a
+token. A browser keeps the cookies and sends them back by itself. A request that changes something with them, and
+the login itself, also sends the CSRF token: the value of the `XSRF-TOKEN` cookie, which `GET /api/v1/auth/csrf`
+sets, in the header `X-XSRF-TOKEN`. Without it the answer is `403`. [Authentication](security.md#authentication)
+has the detail.
+
+Any other client plays the browser. With curl, a cookie jar does it, and the examples of these pages use it:
+
+```bash
+curl -s -c sesion.txt http://localhost:8080/api/v1/auth/csrf
+XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
+curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/login -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"every-order-on-time"}'
+curl -s -b sesion.txt http://localhost:8080/api/v1/procesos
+```
+
+The cookies are `Secure`: like a browser, curl sends them over plain HTTP only to `localhost`. The refresh cookie
+lives the store's idle timeout, and `expiresIn` in the body says when the access cookie expires: fifteen minutes,
+or less near the end of the session.
+
+## Links sent by e-mail
+
+Verifying an e-mail, recovering a password and accepting an invitation start with an e-mail that carries a link
+to the web app, with the token after `#token=`. The web app sends that token to the API, to
+`/verificacion/confirmar`, `/recuperacion/confirmar` or `/invitacion/aceptar`, which need no session. The
+screens of the web app that receive those links arrive with the account screens; until then the token can be
+sent to the API directly. Each link works once and expires, and a link that does not work answers `400` with
+the title "Enlace no válido", whatever the reason.
 
 ## Pagination
 

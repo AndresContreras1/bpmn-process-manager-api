@@ -1,6 +1,5 @@
 package com.facimus.procesos.security;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,7 +14,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -39,7 +37,7 @@ class AutorizacionPorRolTest {
     private static final String ADMIN = "admin@autorizacion.com";
     private static final String EDITOR = "editor@autorizacion.com";
     private static final String LECTOR = "lector@autorizacion.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     // La autorizacion se decide antes del controller: con un id que no existe, la peticion que pasa
     // la regla llega al service y responde 404; la que no la pasa responde 403.
@@ -90,6 +88,8 @@ class AutorizacionPorRolTest {
             ADMINISTRADOR | GET    | /api/v1/empresas/actual/configuracion | 200
             EDITOR        | GET    | /api/v1/empresas/actual/configuracion | 403
             EDITOR        | PUT    | /api/v1/empresas/actual/configuracion | 403
+            EDITOR        | POST   | /api/v1/empresas/actual/baja   | 403
+            SOLO_LECTURA  | DELETE | /api/v1/empresas/actual/baja   | 403
             SOLO_LECTURA  | GET    | /api/v1/empresas/{id}          | 404
 
             # Usuarios: solo el administrador (HU-02)
@@ -98,6 +98,8 @@ class AutorizacionPorRolTest {
             EDITOR        | GET    | /api/v1/usuarios               | 403
             ADMINISTRADOR | POST   | /api/v1/usuarios/{id}/restablecer-clave | 404
             EDITOR        | POST   | /api/v1/usuarios/{id}/restablecer-clave | 403
+            ADMINISTRADOR | POST   | /api/v1/usuarios/{id}/anonimizar | 404
+            EDITOR        | POST   | /api/v1/usuarios/{id}/anonimizar | 403
             ADMINISTRADOR | GET    | /api/v1/usuarios/{id}/roles-proceso | 404
             EDITOR        | GET    | /api/v1/usuarios/{id}/roles-proceso | 403
             ADMINISTRADOR | PUT    | /api/v1/usuarios/{id}/roles-proceso | 404
@@ -220,7 +222,7 @@ class AutorizacionPorRolTest {
         // El logout cierra la sesion de su token: ese caso abre una propia para no cerrar la que comparten los demas.
         String token = ruta.equals("/api/v1/auth/logout") ? login(correos.get(rol), CLAVE) : tokens.get(rol);
         var peticion = request(metodo, ruta, ID_INEXISTENTE)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+                .with(SesionEnCookies.conSesion(token));
         if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}/versiones/1")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"RETIRADA\"}");
         } else if (metodo == HttpMethod.PATCH && ruta.equals("/api/v1/procesos/{id}")) {
@@ -259,11 +261,9 @@ class AutorizacionPorRolTest {
     }
 
     private String login(String email, String password) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, password))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 }

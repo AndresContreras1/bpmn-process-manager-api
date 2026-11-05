@@ -17,6 +17,7 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
 import jakarta.persistence.Entity;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 
 /**
  * ADR-001: empaquetado modular por dominio (gestion + modelado), cada modulo en capas:
@@ -112,6 +113,13 @@ class EmpaquetadoTest {
             .should().beDeclaredInClassesThat().resideInAPackage("..config..")
             .because("un trabajo que corre por su cuenta se registra en un solo sitio y fuera del perfil test: "
                     + "una prueba no puede tener algo por detras moviendole el reloj o borrandole filas");
+
+    @ArchTest
+    static final ArchRule lo_que_corre_solo_toma_su_candado = methods()
+            .that().areAnnotatedWith(Scheduled.class)
+            .should().beAnnotatedWith(SchedulerLock.class)
+            .because("D34: con varias instancias de la API, un trabajo programado corre en una sola a la vez, "
+                    + "o la purga corre dos veces y el reloj de la simulacion avanza el doble");
 
     @ArchTest
     static final ArchRule los_simulados_no_miran_dentro_del_motor = noClasses()

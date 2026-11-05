@@ -13,7 +13,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -49,6 +48,7 @@ import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.modelado.service.PoolService;
 import com.facimus.procesos.security.JwtService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import jakarta.persistence.EntityManagerFactory;
 
@@ -127,9 +127,9 @@ class CargaPerezosaTest {
     void modelarUnProcesoConTresLanes() {
         estadisticas = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         empresaId = empresaService.registrar("Tienda de consultas", "900666777-8", "contacto@consultas.com",
-                "Administrador", "admin@consultas.com", "clave12345").id();
+                "Administrador", "admin@consultas.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@consultas.com").orElseThrow().getId();
-        Long editorId = usuarioService.crearColaborador(empresaId, null, "Editora", "editora@consultas.com", "clave12345",
+        Long editorId = usuarioService.crearColaborador(empresaId, null, "Editora", "editora@consultas.com", "marea-violeta-del-sur",
                 RolAcceso.EDITOR).id();
 
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
@@ -189,7 +189,7 @@ class CargaPerezosaTest {
     @DisplayName("Los procesos compartidos con una tienda traen a su duena en la misma consulta (HU-23)")
     void procesosCompartidos_traenASuDuenaEnLaMismaConsulta() {
         Long aliadaId = empresaService.registrar("Tienda aliada", "900666999-1", "contacto@aliada.com",
-                "Administrador", "admin@aliada.com", "clave12345").id();
+                "Administrador", "admin@aliada.com", "marea-violeta-del-sur").id();
         for (String nombre : new String[] {"Payments", "Inventory count"}) {
             Long compartido = procesoService.crear(empresaId, adminId, nombre, "Shared process", "Operations").id();
             procesoCompartidoService.compartir(empresaId, compartido, adminId, "900666999-1");
@@ -207,13 +207,13 @@ class CargaPerezosaTest {
     @DisplayName("El filtro JWT autentica sin consultar la base: una peticion que la autorizacion rechaza no corre SQL")
     void filtroJwt_autenticaSinConsultarLaBase() throws Exception {
         UsuarioResponse lectora = usuarioService.crearColaborador(empresaId, null, "Lectora", "lectora@consultas.com",
-                "clave12345", RolAcceso.SOLO_LECTURA);
+                "marea-violeta-del-sur", RolAcceso.SOLO_LECTURA);
         String token = jwtService.generarToken(
                 lectora.comoPrincipal(sesionService.iniciar(empresaId, lectora.id()).sesion()));
 
         estadisticas.clear();
         mockMvc.perform(post("/api/v1/procesos")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .with(SesionEnCookies.conSesion(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());
@@ -223,14 +223,15 @@ class CargaPerezosaTest {
     }
 
     @Test
-    @DisplayName("Renovar cuesta tres sentencias: leer el token con su sesion y su usuario, usarlo y emitir otro")
-    void renovarSesion_cuestaTresSentencias() {
+    @DisplayName("Renovar cuesta cuatro sentencias: leer el token con su sesion y su usuario, los limites de la tienda, "
+            + "usarlo y emitir otro")
+    void renovarSesion_cuestaCuatroSentencias() {
         String refreshToken = sesionService.iniciar(empresaId, adminId).refreshToken();
 
         estadisticas.clear();
         sesionService.renovar(refreshToken);
 
-        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(3);
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(4);
     }
 
     @Test

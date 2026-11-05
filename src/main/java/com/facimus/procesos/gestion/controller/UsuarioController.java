@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.List;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -23,9 +24,11 @@ import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.ActualizarUsuarioRequest;
 import com.facimus.procesos.gestion.dto.request.CrearUsuarioRequest;
+import com.facimus.procesos.gestion.dto.request.InvitacionRequest;
 import com.facimus.procesos.gestion.dto.request.RolesDeUsuarioRequest;
 import com.facimus.procesos.gestion.dto.response.RolDeUsuarioResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
@@ -50,6 +53,7 @@ public class UsuarioController {
 
     private final UsuarioService usuarioService;
     private final MembresiaRolService membresiaRolService;
+    private final CuentaService cuentaService;
 
     @Operation(summary = "List users",
             description = "Pages of the store's users, by name by default. Only the active ones, unless "
@@ -94,6 +98,23 @@ public class UsuarioController {
         UsuarioResponse usuario = usuarioService.crearColaborador(empresaId, principal.usuarioId(),
                 request.nombre(), request.email(), request.password(), request.rolAcceso());
         return ResponseEntity.created(URI.create("/api/v1/usuarios/" + usuario.id())).body(usuario);
+    }
+
+    @Operation(summary = "Invite someone by e-mail",
+            description = "HU-02.1: sends the e-mail a link that works once and expires after 7 days. Whoever "
+                    + "follows it chooses their name and password and joins the store with this role. Only an "
+                    + "administrator whose own e-mail is verified can invite; the e-mail cannot belong to a user "
+                    + "of any store.")
+    @ApiResponse(responseCode = "202", description = "The invitation is on its way")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PostMapping("/invitaciones")
+    public ResponseEntity<Void> invitar(@Validated @RequestBody InvitacionRequest request,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        cuentaService.invitar(principal.empresaId(), principal.usuarioId(), request.email(), request.rolAcceso());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 
     @Operation(summary = "Get a user")
@@ -147,6 +168,23 @@ public class UsuarioController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> desactivar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         usuarioService.desactivar(principal.empresaId(), principal.usuarioId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Anonymize a user",
+            description = "Deletes a person's personal data on request, and cannot be undone. The user stays, "
+                    + "because what they did names them, but under a pseudonym and an address that is not theirs, "
+                    + "deactivated, with no password that works and no process roles; the store's history names "
+                    + "them by the pseudonym too, and their e-mail can register again. Nobody can anonymize their "
+                    + "own account, nor the last active administrator. Doing it twice changes nothing.")
+    @ApiResponse(responseCode = "204", description = "User anonymized")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PostMapping("/{id}/anonimizar")
+    public ResponseEntity<Void> anonimizar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
+        usuarioService.anonimizar(principal.empresaId(), principal.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 

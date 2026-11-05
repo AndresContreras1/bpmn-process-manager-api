@@ -20,8 +20,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.facimus.procesos.common.Caches;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
-import com.facimus.procesos.config.CacheConfig;
 import com.facimus.procesos.ejecucion.TiendaConMensajeria;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
@@ -110,12 +110,12 @@ class CacheDeVersionesTest {
         enTransaccion = new TransactionTemplate(transacciones);
 
         empresaId = empresaService.registrar("Tienda de la cache", "900707070-1", "contacto@cache.com",
-                "Administradora", "admin@cache.com", "clave12345").id();
+                "Administradora", "admin@cache.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@cache.com").orElseThrow().getId();
         invitadaId = empresaService.registrar("Tienda invitada a la cache", "900707071-1", "contacto@invitada.com",
-                "Invitada", "admin@invitada.com", "clave12345").id();
+                "Invitada", "admin@invitada.com", "marea-violeta-del-sur").id();
         otraId = empresaService.registrar("Tienda de al lado", "900707072-1", "contacto@allado.com",
-                "Vecina", "admin@allado.com", "clave12345").id();
+                "Vecina", "admin@allado.com", "marea-violeta-del-sur").id();
 
         procesoId = new TiendaConMensajeria(contexto).publicar(empresaId, adminId, "Order fulfillment cacheado");
         versionId = versionProcesoRepository.idDeLaVigente(procesoId, empresaId, EstadoVersion.VIGENTE)
@@ -194,7 +194,7 @@ class CacheDeVersionesTest {
         enTransaccion.execute(sinNombre -> grafos.del(empresaId, comoLlegaEjecutando()));
         enTransaccion.execute(sinNombre -> grafos.del(empresaId, comoLlegaEjecutando()));
 
-        assertThat(registro.get("cache.gets").tags("cache", CacheConfig.GRAFOS, "result", "hit")
+        assertThat(registro.get("cache.gets").tags("cache", Caches.GRAFOS, "result", "hit")
                 .functionCounter().count()).isPositive();
     }
 

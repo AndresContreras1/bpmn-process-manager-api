@@ -7,6 +7,7 @@ import { finalize } from 'rxjs';
 import { mensajeDeError } from '../../helpers/errores-api';
 import {
   ConfiguracionTienda,
+  LIMITES_DE_SESION,
   NOMBRE_POLITICA,
   PoliticaEstructura,
 } from '../../models/configuracion.model';
@@ -14,8 +15,8 @@ import { AuthService } from '../../service/auth.service';
 import { ConfiguracionService } from '../../service/configuracion.service';
 
 /**
- * La configuracion de la tienda. Por ahora una sola decision, la que cambia quien puede tocar la estructura de un
- * diagrama; los parametros de los socios simulados se ajustan desde la simulacion, no desde aqui.
+ * La configuracion de la tienda: quien puede tocar la estructura de un diagrama y cuanto duran sus sesiones. Los
+ * parametros de los socios simulados se ajustan desde la simulacion, no desde aqui.
  */
 @Component({
   selector: 'app-configuracion',
@@ -29,9 +30,12 @@ export class ConfiguracionComponent implements OnInit {
   readonly esAdministrador: boolean = inject(AuthService).esAdministrador();
   readonly nombrePolitica: Record<PoliticaEstructura, string> = NOMBRE_POLITICA;
   readonly politicas: PoliticaEstructura[] = ['SOLO_ADMINISTRADOR', 'ADMINISTRADOR_Y_EDITOR'];
+  readonly limites: typeof LIMITES_DE_SESION = LIMITES_DE_SESION;
 
   configuracion: ConfiguracionTienda | null = null;
   politica: PoliticaEstructura = 'ADMINISTRADOR_Y_EDITOR';
+  inactividad: number = LIMITES_DE_SESION.inactividad.maximo;
+  duracion: number = LIMITES_DE_SESION.duracion.maximo;
   cargando: boolean = true;
   enviando: boolean = false;
   error: string | null = null;
@@ -49,12 +53,34 @@ export class ConfiguracionComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (configuracion: ConfiguracionTienda) => {
-          this.configuracion = configuracion;
-          this.politica = configuracion.politicaEstructura;
-        },
+        next: (configuracion: ConfiguracionTienda) => this.mostrar(configuracion),
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
+  }
+
+  /** Si hay algo distinto de lo guardado, y dentro de lo que la API acepta. */
+  get sePuedeGuardar(): boolean {
+    const configuracion: ConfiguracionTienda | null = this.configuracion;
+    if (!configuracion || !this.dentroDeLosLimites()) {
+      return false;
+    }
+    return (
+      this.politica !== configuracion.politicaEstructura ||
+      this.inactividad !== configuracion.inactividadSesionMinutos ||
+      this.duracion !== configuracion.duracionSesionHoras
+    );
+  }
+
+  dentroDeLosLimites(): boolean {
+    const { inactividad, duracion } = LIMITES_DE_SESION;
+    return (
+      Number.isInteger(this.inactividad) &&
+      this.inactividad >= inactividad.minimo &&
+      this.inactividad <= inactividad.maximo &&
+      Number.isInteger(this.duracion) &&
+      this.duracion >= duracion.minimo &&
+      this.duracion <= duracion.maximo
+    );
   }
 
   guardar(): void {
@@ -71,6 +97,8 @@ export class ConfiguracionComponent implements OnInit {
         modoSimulacion: configuracion.modoSimulacion,
         // Vacio a proposito: lo de los socios se ajusta donde se simula
         simulacion: null,
+        inactividadSesionMinutos: this.inactividad,
+        duracionSesionHoras: this.duracion,
         version: configuracion.version,
       })
       .pipe(
@@ -79,10 +107,17 @@ export class ConfiguracionComponent implements OnInit {
       )
       .subscribe({
         next: (guardada: ConfiguracionTienda) => {
-          this.configuracion = guardada;
+          this.mostrar(guardada);
           this.aviso = 'Saved.';
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
+  }
+
+  private mostrar(configuracion: ConfiguracionTienda): void {
+    this.configuracion = configuracion;
+    this.politica = configuracion.politicaEstructura;
+    this.inactividad = configuracion.inactividadSesionMinutos;
+    this.duracion = configuracion.duracionSesionHoras;
   }
 }

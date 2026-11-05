@@ -36,16 +36,14 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.facimus.procesos.common.api.IdDePeticionFilter;
 import com.facimus.procesos.common.model.RolAcceso;
-import com.facimus.procesos.gestion.dto.request.CerrarSesionRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.RegistroEmpresaRequest;
-import com.facimus.procesos.gestion.dto.request.RenovarTokenRequest;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
-import tools.jackson.databind.JsonNode;
+import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Escenarios de seguridad con la aplicacion completa: SecurityConfig, filtro JWT y base de datos reales. */
@@ -56,7 +54,7 @@ import tools.jackson.databind.json.JsonMapper;
 class SeguridadIntegracionTest {
 
     private static final String ADMIN = "admin@seguridad.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
     private static final String BLOQUEADO = "bloqueo@seguridad.com";
 
     @Autowired
@@ -118,16 +116,42 @@ class SeguridadIntegracionTest {
     }
 
     @Test
-    @DisplayName("Con un token invalido responde 401")
+    @DisplayName("Con un token invalido en la cookie de acceso responde 401")
     void Seguridad_endpointProtegido_tokenInvalido_devuelve401() throws Exception {
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer no-es-un-token"))
+        mockMvc.perform(get("/api/v1/procesos").cookie(new Cookie(CookiesDeSesion.ACCESO, "no-es-un-token")))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("D29: un access token valido en Authorization: Bearer no abre nada; la sesion va en la cookie")
+    void Seguridad_endpointProtegido_tokenEnBearer_devuelve401() throws Exception {
+        String token = login(ADMIN, CLAVE);
+
+        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("D29: lo que cambia algo con la cookie de sesion y sin el token CSRF responde 403 sin hacerlo")
+    void Seguridad_cambioConCookieYSinCsrf_devuelve403() throws Exception {
+        String token = login(ADMIN, CLAVE);
+
+        mockMvc.perform(post("/api/v1/procesos")
+                        .cookie(new Cookie(CookiesDeSesion.ACCESO, token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(
+                                new ProcesoRequest("Sin token CSRF", "No tiene que crearse", "Ventas"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Sin token CSRF"));
+
+        assertThat(jdbcTemplate.queryForObject("select count(*) from procesos where nombre = 'Sin token CSRF'",
+                Integer.class)).isZero();
     }
 
     @Test
     @DisplayName("Con clave incorrecta el login responde 401 con WWW-Authenticate: Bearer")
     void Seguridad_login_claveIncorrecta_devuelve401() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/login")
+        mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, "clave-mala"))))
                 .andExpect(status().isUnauthorized())
@@ -137,13 +161,13 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("HU-03: un correo desconocido, un usuario desactivado y una clave mala reciben el mismo 401")
     void Seguridad_login_cualquierFallo_respondeLoMismo() throws Exception {
-        UsuarioResponse baja = crearColaborador("baja.login@seguridad.com", "baja12345", RolAcceso.EDITOR);
+        UsuarioResponse baja = crearColaborador("baja.login@seguridad.com", "hojas-secas-de-otono", RolAcceso.EDITOR);
         usuarioService.desactivar(baja.empresaId(), adminId, baja.id());
 
         String claveMala = loginFallido(ADMIN, "clave-mala");
 
         assertThat(loginFallido("nadie@seguridad.com", CLAVE)).isEqualTo(claveMala);
-        assertThat(loginFallido("baja.login@seguridad.com", "baja12345")).isEqualTo(claveMala);
+        assertThat(loginFallido("baja.login@seguridad.com", "hojas-secas-de-otono")).isEqualTo(claveMala);
     }
 
     @ParameterizedTest(name = "emailAdmin = {0}")
@@ -154,7 +178,7 @@ class SeguridadIntegracionTest {
         mockMvc.perform(post("/api/v1/empresas")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new RegistroEmpresaRequest("Otra Tienda", nit,
-                                "contacto@otra.com", "Otro Admin", correoAjeno, "otra-clave"))))
+                                "contacto@otra.com", "Otro Admin", correoAjeno, "nubes-de-algodon-gris"))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Regla de negocio violada"));
 
@@ -163,7 +187,7 @@ class SeguridadIntegracionTest {
         mockMvc.perform(post("/api/v1/empresas")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new RegistroEmpresaRequest("Otra Tienda", nit,
-                                "contacto@otra.com", "Otro Admin", "admin-" + nit + "@otra.com", "otra-clave"))))
+                                "contacto@otra.com", "Otro Admin", "admin-" + nit + "@otra.com", "nubes-de-algodon-gris"))))
                 .andExpect(status().isCreated());
     }
 
@@ -179,7 +203,7 @@ class SeguridadIntegracionTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.passwordAdmin").value("La contrasena no puede superar 72 caracteres."));
 
-        mockMvc.perform(post("/api/v1/auth/login")
+        mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, larga))))
                 .andExpect(status().isBadRequest())
@@ -187,22 +211,28 @@ class SeguridadIntegracionTest {
     }
 
     @Test
-    @DisplayName("El token del login real permite consultar los procesos de la empresa")
+    @DisplayName("La cookie del login real permite consultar los procesos de la empresa, y el cuerpo no trae tokens")
     void Seguridad_endpointProtegido_tokenDelLogin_devuelve200() throws Exception {
-        String token = login(ADMIN, CLAVE);
+        ResultActions entrada = mockMvc.perform(SesionEnCookies.login()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, CLAVE))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
+        String token = SesionEnCookies.acceso(entrada);
 
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(token)))
                 .andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("Un usuario de solo lectura no puede crear procesos: 403")
     void Seguridad_crearProceso_soloLectura_devuelve403() throws Exception {
-        crearColaborador("lector@seguridad.com", "lector123", RolAcceso.SOLO_LECTURA);
-        String token = login("lector@seguridad.com", "lector123");
+        crearColaborador("lector@seguridad.com", "silencio-en-la-biblioteca", RolAcceso.SOLO_LECTURA);
+        String token = login("lector@seguridad.com", "silencio-en-la-biblioteca");
 
         mockMvc.perform(post("/api/v1/procesos")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .with(SesionEnCookies.conSesion(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(
                                 new ProcesoRequest("Vacaciones", "Solicitud de vacaciones", "Talento humano"))))
@@ -212,12 +242,12 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("Desactivar a un usuario cierra sus sesiones: su access token y su refresh token dejan de servir")
     void Seguridad_endpointProtegido_usuarioDesactivado_devuelve401() throws Exception {
-        UsuarioResponse editor = crearColaborador("editor.baja@seguridad.com", "editor123", RolAcceso.EDITOR);
-        Tokens sesion = sesion("editor.baja@seguridad.com", "editor123");
+        UsuarioResponse editor = crearColaborador("editor.baja@seguridad.com", "cometa-sobre-el-trigal", RolAcceso.EDITOR);
+        Tokens sesion = sesion("editor.baja@seguridad.com", "cometa-sobre-el-trigal");
 
         usuarioService.desactivar(editor.empresaId(), adminId, editor.id());
 
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(sesion.access())))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(sesion.access())))
                 .andExpect(status().isUnauthorized());
         renovar(sesion.refresh()).andExpect(status().isUnauthorized());
     }
@@ -225,18 +255,18 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("Cambiar el rol cierra las sesiones del usuario, que vuelve a entrar con el rol nuevo")
     void Seguridad_cambioDeRol_cierraSesionesYElNuevoLoginTraeElRolNuevo() throws Exception {
-        UsuarioResponse editor = crearColaborador("editor.rol@seguridad.com", "editor123", RolAcceso.EDITOR);
-        Tokens antes = sesion("editor.rol@seguridad.com", "editor123");
+        UsuarioResponse editor = crearColaborador("editor.rol@seguridad.com", "cometa-sobre-el-trigal", RolAcceso.EDITOR);
+        Tokens antes = sesion("editor.rol@seguridad.com", "cometa-sobre-el-trigal");
 
         usuarioService.actualizar(editor.empresaId(), adminId, editor.id(), null, RolAcceso.SOLO_LECTURA, null,
                 editor.version());
 
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(antes.access())))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(antes.access())))
                 .andExpect(status().isUnauthorized());
         renovar(antes.refresh()).andExpect(status().isUnauthorized());
-        Tokens despues = sesion("editor.rol@seguridad.com", "editor123");
+        Tokens despues = sesion("editor.rol@seguridad.com", "cometa-sobre-el-trigal");
         mockMvc.perform(post("/api/v1/procesos")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(despues.access()))
+                        .with(SesionEnCookies.conSesion(despues.access()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(
                                 new ProcesoRequest("Devoluciones", "Cambios y devoluciones", "Posventa"))))
@@ -250,13 +280,12 @@ class SeguridadIntegracionTest {
 
         Tokens renovados = tokens(renovar(login.refresh())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.expiresIn").value(900))
                 .andExpect(jsonPath("$.usuario.email").value(ADMIN)));
 
         assertThat(renovados.refresh()).isNotEqualTo(login.refresh());
         assertThat(sesionDe(renovados.access())).isEqualTo(sesionDe(login.access()));
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(renovados.access())))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(renovados.access())))
                 .andExpect(status().isOk());
         renovar(renovados.refresh()).andExpect(status().isOk());
     }
@@ -273,7 +302,7 @@ class SeguridadIntegracionTest {
                 .andExpect(jsonPath("$.title").value("Sesión no válida"));
 
         renovar(renovados.refresh()).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(renovados.access())))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(renovados.access())))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -283,29 +312,27 @@ class SeguridadIntegracionTest {
         Tokens celular = sesion(ADMIN, CLAVE);
         Tokens portatil = sesion(ADMIN, CLAVE);
 
-        mockMvc.perform(post("/api/v1/auth/logout").header(HttpHeaders.AUTHORIZATION, bearer(celular.access())))
+        mockMvc.perform(post("/api/v1/auth/logout").with(SesionEnCookies.conSesion(celular.access())))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(celular.access())))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(celular.access())))
                 .andExpect(status().isUnauthorized());
         renovar(celular.refresh()).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, bearer(portatil.access())))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(portatil.access())))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("Un refresh token en el cuerpo del logout cierra su sesion solo si es del mismo usuario")
-    void Seguridad_logoutConRefreshToken_soloCierraLasSesionesPropias() throws Exception {
-        crearColaborador("editor.ajeno@seguridad.com", "editor123", RolAcceso.EDITOR);
-        Tokens ajena = sesion("editor.ajeno@seguridad.com", "editor123");
-        Tokens actual = sesion(ADMIN, CLAVE);
-        Tokens otraPropia = sesion(ADMIN, CLAVE);
+    @DisplayName("Con el access token ya vencido, la cookie de refresco del logout todavia cierra su sesion")
+    void Seguridad_logoutSoloConLaCookieDeRefresco_cierraSuSesion() throws Exception {
+        Tokens sesion = sesion(ADMIN, CLAVE);
 
-        cerrarSesion(sesion(ADMIN, CLAVE).access(), ajena.refresh()).andExpect(status().isNoContent());
-        cerrarSesion(actual.access(), otraPropia.refresh()).andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/v1/auth/logout").with(SesionEnCookies.conRefresco(sesion.refresh())))
+                .andExpect(status().isNoContent());
 
-        renovar(ajena.refresh()).andExpect(status().isOk());
-        renovar(otraPropia.refresh()).andExpect(status().isUnauthorized());
+        renovar(sesion.refresh()).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(sesion.access())))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -324,8 +351,8 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("Defensa en profundidad: un usuario inactivo no renueva aunque su sesion haya quedado abierta")
     void Seguridad_refreshDeUsuarioInactivo_devuelve401() throws Exception {
-        crearColaborador("editor.inactivo@seguridad.com", "editor123", RolAcceso.EDITOR);
-        Tokens sesion = sesion("editor.inactivo@seguridad.com", "editor123");
+        crearColaborador("editor.inactivo@seguridad.com", "cometa-sobre-el-trigal", RolAcceso.EDITOR);
+        Tokens sesion = sesion("editor.inactivo@seguridad.com", "cometa-sobre-el-trigal");
 
         // Directo en la base, sin pasar por el service que cierra sus sesiones
         jdbcTemplate.update("update usuarios set activo = false where email = ?", "editor.inactivo@seguridad.com");
@@ -357,7 +384,7 @@ class SeguridadIntegracionTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getHeader(HttpHeaders.LOCATION);
 
-        mockMvc.perform(get(location).header(HttpHeaders.AUTHORIZATION, "Bearer " + login("admin@location.com", CLAVE)))
+        mockMvc.perform(get(location).with(SesionEnCookies.conSesion(login("admin@location.com", CLAVE))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nit").value("900333444-5"));
     }
@@ -367,7 +394,7 @@ class SeguridadIntegracionTest {
     void Seguridad_cors_exponeLasCabecerasDeLaApi() throws Exception {
         mockMvc.perform(get("/api/v1/empresas/actual")
                         .header(HttpHeaders.ORIGIN, "http://localhost:4200")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(ADMIN, CLAVE)))
+                        .with(SesionEnCookies.conSesion(login(ADMIN, CLAVE))))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
                         "Location, Retry-After, Idempotent-Replayed, X-Request-Id"));
@@ -376,15 +403,15 @@ class SeguridadIntegracionTest {
     @Test
     @DisplayName("5 fallos de un correo desde una IP dejan su login en 429 aun con la clave buena; desde otra IP no")
     void Seguridad_loginConDemasiadosFallos_devuelve429ConRetryAfter() throws Exception {
-        crearColaborador(BLOQUEADO, "bloqueo123", RolAcceso.EDITOR);
+        crearColaborador(BLOQUEADO, "relojes-de-arena-fina", RolAcceso.EDITOR);
         for (String correo : new String[] {"bloqueo@seguridad.com", "BLOQUEO@seguridad.com", " Bloqueo@Seguridad.com",
                 "bloqueo@seguridad.com", "bloqueo@SEGURIDAD.com"}) {
             loginFallido(correo, "clave-mala");
         }
 
-        String retryAfter = mockMvc.perform(post("/api/v1/auth/login")
+        String retryAfter = mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "bloqueo123"))))
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "relojes-de-arena-fina"))))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.title").value("Demasiados intentos"))
@@ -394,10 +421,10 @@ class SeguridadIntegracionTest {
 
         // Los cinco fallos llegaron hace menos de un minuto: la espera es casi toda la ventana
         assertThat(Long.parseLong(retryAfter)).isBetween(840L, 900L);
-        mockMvc.perform(post("/api/v1/auth/login")
+        mockMvc.perform(SesionEnCookies.login()
                         .with(desdeLaIp("10.0.0.2"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "bloqueo123"))))
+                        .content(jsonMapper.writeValueAsString(new LoginRequest(BLOQUEADO, "relojes-de-arena-fina"))))
                 .andExpect(status().isOk());
     }
 
@@ -407,28 +434,19 @@ class SeguridadIntegracionTest {
 
     /** Los dos tokens de una sesion recien abierta con el login real. */
     private Tokens sesion(String email, String password) throws Exception {
-        return tokens(mockMvc.perform(post("/api/v1/auth/login")
+        return tokens(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, password))))
                 .andExpect(status().isOk()));
     }
 
     private ResultActions renovar(String refreshToken) throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(jsonMapper.writeValueAsString(new RenovarTokenRequest(refreshToken))));
+        return mockMvc.perform(post("/api/v1/auth/refresh").with(SesionEnCookies.conRefresco(refreshToken)));
     }
 
-    private ResultActions cerrarSesion(String accessToken, String refreshToken) throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/logout")
-                .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(jsonMapper.writeValueAsString(new CerrarSesionRequest(refreshToken))));
-    }
-
-    private Tokens tokens(ResultActions respuesta) throws Exception {
-        JsonNode json = jsonMapper.readTree(respuesta.andReturn().getResponse().getContentAsString());
-        return new Tokens(json.get("accessToken").asString(), json.get("refreshToken").asString());
+    /** Los dos tokens que la respuesta dejo en sus cookies. */
+    private Tokens tokens(ResultActions respuesta) {
+        return new Tokens(SesionEnCookies.acceso(respuesta), SesionEnCookies.refresco(respuesta));
     }
 
     private String sesionDe(String accessToken) {
@@ -452,10 +470,6 @@ class SeguridadIntegracionTest {
         };
     }
 
-    private static String bearer(String token) {
-        return "Bearer " + token;
-    }
-
     private record Tokens(String access, String refresh) {
     }
 
@@ -465,7 +479,7 @@ class SeguridadIntegracionTest {
      * dos fallos tienen que responder exactamente lo mismo.
      */
     private String loginFallido(String email, String password) throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/login")
+        return mockMvc.perform(SesionEnCookies.login()
                         .header(IdDePeticionFilter.CABECERA, "intento-de-login")
                         .header("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
                         .contentType(MediaType.APPLICATION_JSON)

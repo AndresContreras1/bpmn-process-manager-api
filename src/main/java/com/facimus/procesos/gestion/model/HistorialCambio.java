@@ -21,9 +21,11 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * Bitacora de trazabilidad de la tienda. Solo se inserta, nunca se edita ni se elimina. Casi todo lo que se anota
- * cuelga de un proceso, pero un usuario nuevo o un rol no cuelgan de ninguno: por eso el proceso es opcional y cada
- * linea dice de que recurso habla (D15).
+ * Bitacora de trazabilidad de la tienda. Solo se inserta, nunca se edita ni se elimina, salvo por los datos de las
+ * personas (PR 35): anonimizar a alguien cambia su nombre y su correo por un seudonimo en las lineas que lo nombran, y
+ * el borrado de una tienda dada de baja se lleva las suyas. Casi todo lo que se anota cuelga de un proceso, pero un
+ * usuario nuevo o un rol no cuelgan de ninguno: por eso el proceso es opcional y cada linea dice de que recurso
+ * habla (D15).
  */
 @Getter
 @Setter

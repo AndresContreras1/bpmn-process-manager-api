@@ -38,12 +38,14 @@ npm run build
 
 ## Session
 
-- Signing in stores both tokens and the user they belong to in `localStorage`, behind a `TokenService`. The demo
-  store signs in with `admin@demo.com` / `admin123`.
-- An HTTP interceptor adds `Authorization: Bearer <token>` to every call except sign in and store registration.
+- **The app never sees a token** (D29). The session lives in two `HttpOnly` cookies that the API sets and clears;
+  the app only remembers who signed in, in `localStorage`, behind a `SesionLocalService`, to show their name and
+  what their role allows. The demo store signs in with `admin@demo.com` / `every-order-on-time`.
+- When it starts, the app asks `GET /api/v1/auth/csrf` for the `XSRF-TOKEN` cookie, and `HttpClient` copies it into
+  the `X-XSRF-TOKEN` header of every change, the login included.
 - **The session renews itself.** The access token lives fifteen minutes, so a `401` does not mean the session is
-  over: the interceptor exchanges the refresh token for a new pair and retries the request. The user sees nothing.
-  The sign-in page comes back only when there is no refresh token left or when the renewal is itself rejected, and
+  over: the interceptor asks `POST /api/v1/auth/refresh`, which trades the refresh cookie for new ones, and retries
+  the request. The user sees nothing. The sign-in page comes back only when the renewal is itself rejected, and
   then it says why (`?sesion=vencida`).
 - A refresh token works **once**, and sending it twice closes the session on purpose, as reuse detection. So the
   renewal is shared: every request that expires at the same moment waits for the same call. Opening a process runs
@@ -176,8 +178,9 @@ the role from the observable rather than from a snapshot, because the navbar is 
   Changing your own password closes every session of yours and opens a new one here,
   because that is what the API answers. Somebody who signed in with a temporary password is sent here by the route
   guard and kept here until they change it, since the API answers `403` to everything else.
-- **Store settings** (`/configuracion`): who may change the structure of a diagram. The simulation parameters are
-  saved empty on purpose; they belong to running processes.
+- **Store settings** (`/configuracion`): who may change the structure of a diagram, and how long a session lasts
+  without being used and after its sign-in. The simulation parameters are saved empty on purpose; they belong to
+  running processes.
 - **Store history** (`/historial`): everything that happened, paged, newest first. For administrators
   only, like the three above, because that is what the API allows.
 

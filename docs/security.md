@@ -34,21 +34,46 @@ or having it reset, closes them too.
 
 1. `POST /api/v1/empresas` registers a store together with its first administrator.
 2. `POST /api/v1/auth/login` checks the credentials through Spring Security's `AuthenticationManager` and opens a
-   session with two tokens:
-   - The **access token** is a JWT signed with `JWT_SECRET` that expires after 15 minutes. Its claims are the email,
+   session with two tokens, which travel in cookies the page's JavaScript cannot read (D29):
+   - The **access token** is a JWT signed with `JWT_SECRET` that expires after 15 minutes. It goes in
+     `__Host-acceso`, for the whole API. As RFC 8725 asks, it says who issued it (`iss`), for whom (`aud`), has an
+     id of its own (`jti`) and names in its header the key that signed it (`kid`). Its other claims are the email,
      `usuarioId`, `empresaId`, the role and the session (`sid`).
-   - The **refresh token** is 256 random bits. The database stores only its SHA-256 hash, so a copy of the database
-     cannot open a session.
-3. Clients send `Authorization: Bearer <access token>`. The filter builds the principal from the claims, without a
-   database query, and rejects the tokens of a closed session.
-4. `POST /api/v1/auth/refresh` exchanges the refresh token for a new pair in the same session. Each refresh token
-   works once. A refresh token that was already used means that a copy exists, so the whole session is closed.
-5. `POST /api/v1/auth/logout` closes the session. Deactivating a user or changing their role closes all of their
-   sessions, so the old role stops working at once.
+   - The **refresh token** is 256 random bits. It goes in `__Secure-refresco`, which only travels to
+     `/api/v1/auth`. The database stores only its SHA-256 hash, so a copy of the database cannot open a session.
+     It lives the store's idle timeout, and never past the end of the session.
 
-Public endpoints are limited to store registration, login, token renewal, the API documentation (not published in
-`prod`) and, in `dev`, the H2 console. The role matrix in [Roles and permissions](#roles-and-permissions) is defined in
-one place, the security configuration, and decides `401` or `403` before any controller runs.
+   Both cookies are `HttpOnly`, `Secure` and `SameSite=Lax`, and the body of the answer carries no token: it says
+   who signed in and when the access expires.
+3. The browser sends the cookies back by itself. The filter builds the principal from the claims of the access
+   token, without a database query, and rejects the tokens of a closed session. `Authorization: Bearer` is left
+   for API keys.
+4. `POST /api/v1/auth/refresh` exchanges the refresh cookie for new cookies of the same session. Each refresh token
+   works once. A refresh token that was already used means that a copy exists, so the whole session is closed.
+5. `POST /api/v1/auth/logout` closes the session of the cookies and clears them, even with an expired access token.
+   Deactivating a user or changing their role closes all of their sessions, so the old role stops working at once.
+
+A session has two limits, as NIST SP 800-63B-4 asks for AAL2, and each store chooses them in its settings
+(`PUT /api/v1/empresas/actual/configuracion`). Without being renewed it lasts the **idle timeout**, from 30 to 60
+minutes, an hour by default; whatever happens, it ends the **maximum duration** after its login, from 1 to 24 hours,
+a day by default, and the user signs in again with their password. The API sees a session only when it renews,
+every fifteen minutes while it is used, which is why the idle timeout starts at 30. Near its end, neither the
+access token nor the cookies outlive the session, and a shorter duration reaches the sessions already open at
+their next renewal.
+
+A browser sends cookies to their site whatever page asked for the request, so what changes something with the
+session cookies, and the login itself, also has to send the CSRF token: the value of the `XSRF-TOKEN` cookie in the
+header `X-XSRF-TOKEN`. Only pages of the app's own origin can read that cookie, so another site cannot send it.
+The web app gets the cookie from `GET /api/v1/auth/csrf` when it starts, and Angular's `HttpClient` copies it into
+every change. Without it the answer is `403` with the title "Sin token CSRF". A request without session cookies
+has no session to borrow, and does not need it: the registration of a store, and API keys when they arrive.
+
+Rotating the signing key does not close sessions: `JWT_PREVIOUS_SECRET` keeps accepting the tokens of the old key,
+which nobody signs with any more, for the fifteen minutes they live ([runbook](runbook.md)).
+
+Public endpoints are limited to store registration, login, renewal, logout, the CSRF token and the API
+documentation (not published in `prod`). The role matrix in [Roles and permissions](#roles-and-permissions) is
+defined in one place, the security configuration, and decides `401` or `403` before any controller runs.
 
 ## Login protection
 
@@ -58,8 +83,44 @@ address within 15 minutes, the login answers `429` with `Retry-After` and stops 
 attempt leaves the window. Because attempts are counted per email and address, an attacker elsewhere cannot lock the
 real user out.
 
-Closed sessions and failed attempts are kept in memory, and closed sessions are reloaded from the database on
-startup. A deployment with several instances would move both to a shared store such as Redis.
+Failed attempts are counted in PostgreSQL, so every instance of the API counts the same ones and spreading the
+attempts over several instances gives no extra tries. Each instance keeps the closed sessions in memory, which
+is what lets the JWT filter run no SQL, and learns of a session closed in another one at once, through
+PostgreSQL's `NOTIFY`; [Several instances](architecture.md#several-instances) has the detail.
+
+## Headers and HTTPS
+
+Every response tells the browser what it may do with it. The API answers JSON and never a page, so its policy
+lets nothing load and nobody frame it. The web app, which NGINX serves, gets a policy that allows what the app is
+made of and nothing else:
+
+| Header | API | Web app |
+|---|---|---|
+| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` | Everything from its own origin; scripts only the ones Angular hashed when it built the app; no plugins, no frames, no forms sent elsewhere |
+| `Content-Security-Policy-Report-Only` | — | Trusted Types, in report mode: the console says what they would block, and nothing breaks |
+| `Strict-Transport-Security` | A year, subdomains included, on what arrived over HTTPS | The same; a browser only honours it over HTTPS |
+| `X-Content-Type-Options` | `nosniff` | `nosniff` |
+| `X-Frame-Options` | `DENY` | `DENY` |
+| `Referrer-Policy` | `no-referrer` | `same-origin` |
+| `Permissions-Policy` | No camera, microphone, location, payments, USB or motion sensors | The same |
+| `Cross-Origin-Opener-Policy` · `Cross-Origin-Resource-Policy` | `same-origin` | `same-origin` |
+
+The hashes of the scripts come from the build. Angular's `autoCsp` leaves two small scripts in the index, the one
+that loads the bundles and the one that turns the stylesheet on, and hashes them; the image of the web app copies
+those hashes into the header NGINX sends, so a change to the index changes them by itself. Two exceptions are
+written down rather than hidden: the styles of the web app allow `'unsafe-inline'`, because Angular puts the
+styles of each component in the page when it draws it, and Swagger UI, which only exists outside `prod`, gets a
+policy that lets it load its own scripts and styles.
+
+Behind the proxy, `prod` believes `X-Forwarded-For` and `X-Forwarded-Proto` only from addresses of the internal
+network (Tomcat's `RemoteIpValve`): the login limit counts the client and not the proxy, and what arrived over
+HTTPS gets HSTS. That is why the Compose stack publishes the API's own port only on `127.0.0.1`, and why in
+production nothing but the proxy reaches the API. With a CDN in front, the proxy has to write the client it
+trusts into `X-Forwarded-For`.
+
+A test reads the headers of every route of the API, the pipeline reads those of every kind of response of the web
+container, a missing file included, and the end-to-end tests fail if the browser's console reports something the
+CSP blocked.
 
 ## Data isolation
 
@@ -93,17 +154,69 @@ records when a process was shared and when the sharing ended.
 
 ## Passwords
 
+A password a person chooses follows NIST SP 800-63B-4. It needs at least 15 characters while it is the only
+factor, and no other rule about what they are: capitals, digits and symbols made compulsory only lead to
+predictable passwords, and a few words make a good one. The length counts real characters, so an emoji is one,
+and the maximum is 72 bytes, all BCrypt reads: with accents or symbols a character takes more than one. It cannot
+be one of the leaked or common passwords of `claves/filtradas.txt`, a character or a group of up to four repeated,
+or a series like `abcdef`, and it cannot carry the name, the e-mail or the store of whoever chooses it, nor the
+name of the service; the comparisons ignore case, accents and spaces. The rules hold wherever a person chooses a
+password: registering a store, creating a user with one, accepting an invitation, changing their own and
+recovering it, where a rejected password does not spend the link. Each rejection is a `400` that says why. The
+list is short and written by hand; a larger one in the same format, one password per line, replaces it without
+touching the code.
+
+Every hash carries its algorithm in front, `{bcrypt}`, through Spring Security's `DelegatingPasswordEncoder`, and
+the cost of BCrypt is `CLAVES_COSTO_BCRYPT`. When a login finds a hash of an older algorithm or a lower cost, it
+rehashes the password it just checked, without touching the user's version; raising the cost, or moving to
+Argon2id one day, forces nobody to change their password. The hashes from before the prefix match as BCrypt.
+
 A user can be created without one: `POST /api/v1/usuarios` then answers `claveTemporal`, which is the only time it
 is ever shown, and `debeCambiarClave: true`. Whoever signs in with it can only call `POST /api/v1/auth/password`,
 `logout` and `refresh`; anything else answers `403` with "Debe cambiar su contraseña antes de seguir.".
 
+A temporary password is 96 random bits written in 16 characters.
 `POST /api/v1/auth/password` takes the password in use and the new one. It closes every session of that user,
-this one included, and answers a new session with its tokens: the ones that come back are the ones to keep.
+this one included, and opens a new one with new cookies.
 `POST /api/v1/usuarios/{id}/restablecer-clave` does the same from the other side, for an administrator, and answers
 another temporary password.
 
-There is no email delivery: whoever creates the user passes the temporary password along by whatever means they
-have. The database never keeps it in the clear.
+The database never keeps a temporary password in the clear, and whoever creates the user passes it along by
+whatever means they have. The e-mail is the other way in:
+
+- **Verifying the e-mail.** Registering a store sends its first administrator a link that verifies their e-mail;
+  `POST /api/v1/auth/verificacion` sends another. Until their e-mail is verified, a user cannot invite anybody.
+- **Inviting by e-mail (HU-02.1).** `POST /api/v1/usuarios/invitaciones` sends a link with the access role of
+  the invitation. Whoever follows it chooses their name and password, and joins with the e-mail already verified.
+- **Recovering the password.** `POST /api/v1/auth/recuperacion` sends a link to choose a new password if the
+  e-mail belongs to an active user, and answers the same `202` either way, so it tells nobody which e-mails are
+  registered. Using the link closes every session of the user and voids the other recovery links.
+
+Every link works once and expires: 48 hours to verify, 15 minutes to recover, 7 days to accept an invitation. Its
+token is 256 random bits; the database keeps only its SHA-256, and the token in the clear exists only in the
+e-mail. The link carries it after `#`, which a browser never sends to a server, so it is not written in the log
+of NGINX or of anybody else. A link used, expired or made up gets the same `400`, "Enlace no válido". The e-mails
+leave through the queue of jobs, in the transaction that asks for them, and are written in the language of the
+request: Spanish, English or French.
+
+## The life of the data
+
+**Closing a store.** An administrator closes their store with `POST /api/v1/empresas/actual/baja`, repeating its
+name to confirm. For 30 days the store is read-only: its users sign in and read everything, any change answers
+`409` with the title "Tienda dada de baja", its simulation clock stops, and an administrator can cancel the
+closing with `DELETE /api/v1/empresas/actual/baja`. When the 30 days are over, the nightly purge deletes every row
+of the store, table by table in the order of their foreign keys, the processes other stores shared with it
+included, and leaves of its own row only the id and the dates of the closing and of the deletion. Its name, NIT
+and e-mails are gone, so they can register again. `BorradoDeTiendasTest` checks against the catalogue of the
+database that the deletion covers every table with `empresa_id` and respects every foreign key, so a new table
+cannot be left behind.
+
+**Anonymizing a person.** `POST /api/v1/usuarios/{id}/anonimizar` deletes a person's personal data on request,
+and cannot be undone. Their user stays, because what they did names them, but under a pseudonym (`Persona
+anonimizada 12`) and an address that is not theirs, deactivated, with no password that works, no sessions, no
+process roles and no links; the store's history names them by the pseudonym too, and their e-mail can register
+again. Nobody can anonymize their own account, and an anonymized user can no longer be edited, reactivated or
+given a password.
 
 ## Supply chain
 
@@ -123,3 +236,14 @@ a build step or a leaked key has compromised other projects:
 
 Values that look like secrets and are not, such as the signing key of the unit tests, are allowed by value in
 `.gitleaks.toml`, never by path, so a real key in the same file would still be found.
+
+A major version of a base image is a decision rather than an update, so Dependabot only offers the rebuilds
+and the minor releases of the images: moving to the next Java or Node line, or to a new PostgreSQL, comes in
+a pull request of its own.
+
+## Reporting a vulnerability
+
+[SECURITY.md](../SECURITY.md) says how to report one privately, what is in scope and how soon the answer comes.
+The web app serves the same contact at `/.well-known/security.txt`, as RFC 9116 asks, so a researcher who only
+knows the address of a deployment can find it. The file has an expiry date: the pipeline checks that NGINX serves
+it and starts failing a month before it expires, so it is renewed instead of served stale.

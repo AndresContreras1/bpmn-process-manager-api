@@ -21,8 +21,11 @@ public interface SesionService {
     /** Cierra la sesion del codigo, si es del usuario. Sus access tokens dejan de servir aunque no hayan vencido. */
     void cerrar(Long empresaId, Long usuarioId, String codigo);
 
-    /** Cierra la sesion a la que pertenece el refresh token, si es del usuario. */
-    void cerrarConToken(Long empresaId, Long usuarioId, String refreshToken);
+    /**
+     * Cierra la sesion a la que pertenece el refresh token. Tenerlo es la prueba de ser su dueno: es lo que permite
+     * salir aunque el access token ya haya vencido.
+     */
+    void cerrarConToken(String refreshToken);
 
     /** Cierra todas las sesiones abiertas del usuario: los tokens emitidos llevan un acceso que ya no tiene. */
     void cerrarTodas(Long empresaId, Long usuarioId);

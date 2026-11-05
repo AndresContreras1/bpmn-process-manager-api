@@ -1,0 +1,37 @@
+@startuml
+title <size:24>Integracion</size>
+
+set separator none
+top to bottom direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Component>
+
+System_Boundary("ProcesosApplication_boundary", "ProcesosApplication", $tags="") {
+  Container_Boundary("ProcesosApplication.ProcesosApplication_boundary", "ProcesosApplication", $tags="") {
+    Component(ProcesosApplication.ProcesosApplication.Common, "Common", $techn="Module", $descr="", $tags="", $link="")
+    Component(ProcesosApplication.ProcesosApplication.Modelado, "Modelado", $techn="Module", $descr="", $tags="", $link="")
+    Component(ProcesosApplication.ProcesosApplication.Ejecucion, "Ejecucion", $techn="Module", $descr="", $tags="", $link="")
+    Component(ProcesosApplication.ProcesosApplication.Integracion, "Integracion", $techn="Module", $descr="", $tags="", $link="")
+  }
+
+}
+
+Rel(ProcesosApplication.ProcesosApplication.Integracion, ProcesosApplication.ProcesosApplication.Modelado, "depends on", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Integracion, ProcesosApplication.ProcesosApplication.Common, "depends on", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Modelado, ProcesosApplication.ProcesosApplication.Common, "depends on", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Ejecucion, ProcesosApplication.ProcesosApplication.Modelado, "depends on", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Ejecucion, ProcesosApplication.ProcesosApplication.Common, "uses", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Integracion, ProcesosApplication.ProcesosApplication.Ejecucion, "depends on", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml
