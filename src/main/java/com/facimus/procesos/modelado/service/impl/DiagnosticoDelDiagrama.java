@@ -10,6 +10,8 @@ import com.facimus.procesos.gestion.service.DiagnosticoDelModelo;
 import com.facimus.procesos.modelado.dto.response.HallazgoDiagnosticoResponse;
 import com.facimus.procesos.modelado.model.Severidad;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -25,13 +27,20 @@ import lombok.RequiredArgsConstructor;
 public class DiagnosticoDelDiagrama implements DiagnosticoDelModelo {
 
     private final ArmadoDelDiagrama armado;
+    private final ObservationRegistry observaciones;
 
+    /** El mismo span que el diagnostico que pide quien edita, marcado como el que decide si se publica. */
     @Override
     public List<String> errores(Long empresaId, ProcesoResponse proceso) {
-        return DiagnosticoServiceImpl.revisar(armado.armar(proceso, false, empresaId)).hallazgos().stream()
-                .filter(hallazgo -> hallazgo.severidad() == Severidad.ALTA)
-                .map(DiagnosticoDelDiagrama::redactar)
-                .toList();
+        return Observation.createNotStarted("procesos.diagnostico", observaciones)
+                .contextualName("diagnosticar antes de publicar")
+                .lowCardinalityKeyValue("uso", "publicacion")
+                .highCardinalityKeyValue("proceso.id", String.valueOf(proceso.id()))
+                .observe(() -> DiagnosticoServiceImpl.revisar(armado.armar(proceso, false, empresaId)).hallazgos()
+                        .stream()
+                        .filter(hallazgo -> hallazgo.severidad() == Severidad.ALTA)
+                        .map(DiagnosticoDelDiagrama::redactar)
+                        .toList());
     }
 
     /** El codigo y el elemento van en el texto: quien recibe el 409 no tiene el diagnostico delante. */

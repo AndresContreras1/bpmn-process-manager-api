@@ -3,10 +3,12 @@ package com.facimus.procesos.common.api;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -42,6 +44,9 @@ class ErrorEnUnFiltroTest {
     @Autowired
     private JsonMapper jsonMapper;
 
+    /** El traceId que tenia la peticion cuando el filtro fallo: el que tiene que volver en la respuesta. */
+    private static final AtomicReference<String> TRAZA_DE_LA_PETICION = new AtomicReference<>();
+
     /** Un filtro que falla siempre en su ruta, antes que la seguridad: como falla un error de programacion. */
     @TestConfiguration
     static class FiltroQueFalla {
@@ -49,6 +54,7 @@ class ErrorEnUnFiltroTest {
         @Bean
         FilterRegistrationBean<Filter> filtroQueFalla() {
             FilterRegistrationBean<Filter> registro = new FilterRegistrationBean<>((peticion, respuesta, cadena) -> {
+                TRAZA_DE_LA_PETICION.set(MDC.get(Problemas.ID_DE_TRAZA));
                 throw new IllegalStateException(DETALLE_INTERNO);
             });
             registro.addUrlPatterns(RUTA);
@@ -59,7 +65,7 @@ class ErrorEnUnFiltroTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"GET", "POST", "PUT", "DELETE"})
-    @DisplayName("Un filtro que lanza termina en un 500 en Problem Details, con el id de la peticion y sin detalle")
+    @DisplayName("Un filtro que lanza termina en un 500 en Problem Details, con los ids de la peticion y sin detalle")
     void filtroQueLanza_500EnProblemDetailsConElMismoId(String metodo) throws Exception {
         Respuesta respuesta = pedir(HttpMethod.valueOf(metodo), "id-de-prueba-500");
         JsonNode cuerpo = jsonMapper.readTree(respuesta.cuerpo());
@@ -69,6 +75,9 @@ class ErrorEnUnFiltroTest {
         assertThat(respuesta.id()).isEqualTo("id-de-prueba-500");
         assertThat(cuerpo.get("title").asString()).isEqualTo("Error interno");
         assertThat(cuerpo.get("requestId").asString()).isEqualTo("id-de-prueba-500");
+        assertThat(cuerpo.get("instance").asString()).isEqualTo(RUTA);
+        assertThat(TRAZA_DE_LA_PETICION.get()).matches("[0-9a-f]{32}");
+        assertThat(cuerpo.get("traceId").asString()).isEqualTo(TRAZA_DE_LA_PETICION.get());
         assertThat(respuesta.cuerpo()).doesNotContain(DETALLE_INTERNO).doesNotContain("IllegalStateException");
     }
 

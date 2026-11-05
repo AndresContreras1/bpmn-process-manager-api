@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +59,10 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.DiagramaArmado;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationHandler;
+import io.micrometer.observation.tck.TestObservationRegistry;
+import io.micrometer.observation.tck.TestObservationRegistryAssert;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -94,6 +99,8 @@ class MotorDeProcesosTest {
     @Autowired
     private MensajeSalienteRepository mensajeSalienteRepository;
 
+    private final TestObservationRegistry observaciones = TestObservationRegistry.create();
+
     private MotorDeProcesos motor;
     private Empresa tienda;
     private Proceso proceso;
@@ -108,7 +115,7 @@ class MotorDeProcesosTest {
         given(parametros.de(any())).willReturn(ParametrosDeSimulacion.deFabrica());
         motor = new MotorDeProcesos(actividadCasoRepository,
                 new BandejaDeSalida(mensajeSalienteRepository, new SociosSimulados(List.of(unSocioQueTardaUnTick())),
-                        parametros, bitacora, json), bitacora, json);
+                        parametros, bitacora, json), bitacora, json, observaciones);
         tienda = em.persistFlushFind(Empresa.builder().nombre("Tienda del motor").nit("900123456-1")
                 .correoContacto("motor@demo.com").fechaRegistro(LocalDate.now()).build());
         proceso = em.persistFlushFind(Proceso.builder().empresa(tienda).nombre("Order fulfillment")
@@ -882,6 +889,67 @@ class MotorDeProcesosTest {
                 .forEach(salida -> grafo.nodo(salida.destinoId())
                         .ifPresent(destino -> motor.activar(caso, grafo, destino, Momento.en(TICK))));
         motor.avanzar(caso, grafo, Momento.en(TICK));
+    }
+
+    @Nested
+    @DisplayName("Lo que el motor deja en la traza")
+    class Observacion {
+
+        @Test
+        @DisplayName("Cada vuelta del motor es un span con el caso y el estado en que lo deja")
+        void vuelta_seObservaConElCasoYSuEstado() {
+            DiagramaArmado armado = unDiagrama();
+            armado.evento(VENTAS, "Done", TipoEvento.FIN);
+            armado.arco("Start", "Done");
+
+            Caso caso = arrancar(armado);
+
+            TestObservationRegistryAssert.assertThat(observaciones)
+                    .hasObservationWithNameEqualTo("procesos.motor.avanzar").that()
+                    .hasBeenStarted()
+                    .hasBeenStopped()
+                    .hasContextualNameEqualTo("avanzar el caso")
+                    .hasLowCardinalityKeyValue("estado", "terminado")
+                    .hasHighCardinalityKeyValue("caso.id", String.valueOf(caso.getId()));
+        }
+
+        @Test
+        @DisplayName("Lo que pasa en la vuelta queda dentro de su span: el motor pone su observacion en curso")
+        void vuelta_quedaEnCurso() {
+            List<String> enCurso = new ArrayList<>();
+            observaciones.observationConfig().observationHandler(new ObservationHandler<Observation.Context>() {
+                @Override
+                public void onScopeOpened(Observation.Context contexto) {
+                    enCurso.add(contexto.getName());
+                }
+
+                @Override
+                public boolean supportsContext(Observation.Context contexto) {
+                    return true;
+                }
+            });
+            DiagramaArmado armado = unDiagrama();
+            armado.evento(VENTAS, "Done", TipoEvento.FIN);
+            armado.arco("Start", "Done");
+
+            arrancar(armado);
+
+            assertThat(enCurso).containsExactly("procesos.motor.avanzar");
+        }
+
+        @Test
+        @DisplayName("Un caso que queda esperando a una persona sale de la vuelta abierto")
+        void casoEnEspera_saleAbierto() {
+            DiagramaArmado armado = unDiagrama();
+            armado.actividad(VENTAS, "Receive order", TipoActividad.USUARIO);
+            armado.arco("Start", "Receive order");
+
+            arrancar(armado);
+
+            TestObservationRegistryAssert.assertThat(observaciones)
+                    .hasObservationWithNameEqualTo("procesos.motor.avanzar").that()
+                    .hasLowCardinalityKeyValue("estado", "abierto");
+        }
     }
 
     private Caso arrancar(DiagramaArmado armado) {
