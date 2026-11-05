@@ -15,7 +15,7 @@
 	<description>Multi-tenant REST API for modeling e-commerce operations as BPMN processes</description>
 
 	<properties>
-		<java.version>21</java.version>
+		<java.version>25</java.version>
 		<mapstruct.version>1.6.3</mapstruct.version>
 		<lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
 		<!-- Parches de seguridad que Spring Boot 4.1.1 todavia no trae. Trivy los encontro en la imagen: Tomcat 11.0.24
@@ -25,9 +25,6 @@
 		<tomcat.version>11.0.26</tomcat.version>
 		<jackson-bom.version>3.1.7</jackson-bom.version>
 		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
-		<!-- Las pruebas contra PostgreSQL real necesitan Docker, asi que el verify de todos los dias las salta.
-		     El trabajo del CI que las corre vacia esta propiedad: -Dsurefire.excluded.groups= -Dgroups=postgres -->
-		<surefire.excluded.groups>postgres</surefire.excluded.groups>
 		<!-- SonarCloud: organizacion y proyecto que crea la importacion automatica del repositorio -->
 		<sonar.organization>andrescontreras1</sonar.organization>
 		<sonar.projectKey>AndresContreras1_bpmn-process-manager-api</sonar.projectKey>
@@ -53,7 +50,7 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
-		<!-- Flyway crea y versiona el esquema; H2 viene en flyway-core y PostgreSQL necesita su modulo -->
+		<!-- Flyway crea y versiona el esquema; PostgreSQL necesita su modulo -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-flyway</artifactId>
@@ -119,16 +116,13 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<!-- Desde Spring Boot 4 la consola H2 es un modulo aparte; solo el perfil dev la enciende -->
+		<!-- dev levanta su PostgreSQL con compose.dev.yaml al arrancar. El plugin de Spring Boot lo deja fuera del jar,
+		     asi que no llega a la imagen, y en las pruebas no hace nada. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-h2console</artifactId>
+			<artifactId>spring-boot-docker-compose</artifactId>
 			<scope>runtime</scope>
+			<optional>true</optional>
 		</dependency>
 		<dependency>
 			<groupId>org.postgresql</groupId>
@@ -184,11 +178,11 @@
 		<dependency>
 			<groupId>com.tngtech.archunit</groupId>
 			<artifactId>archunit-junit5</artifactId>
-			<version>1.4.0</version>
+			<version>1.4.2</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- PostgreSQL de verdad para las pruebas etiquetadas "postgres": el motor de produccion es el que evalua
-		     los indices parciales y la columna text, que H2 no tiene. La version la fija el BOM del parent. -->
+		<!-- Las pruebas corren contra PostgreSQL, el motor de produccion: un contenedor para toda la suite, que
+		     Testcontainers levanta y apaga solo. La version la fija el BOM del parent. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-testcontainers</artifactId>
@@ -279,14 +273,6 @@
 				</executions>
 			</plugin>
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<configuration>
-					<!-- Fuera del grupo excluido no hay nada que filtrar: es la unica etiqueta del proyecto -->
-					<excludedGroups>${surefire.excluded.groups}</excludedGroups>
-				</configuration>
-			</plugin>
-			<plugin>
 				<groupId>org.sonarsource.scanner.maven</groupId>
 				<artifactId>sonar-maven-plugin</artifactId>
 				<version>5.8.0.7211</version>
@@ -339,9 +325,6 @@
 						<param>com.facimus.procesos.*.service.*</param>
 						<param>com.facimus.procesos.common.condiciones.*</param>
 					</targetTests>
-					<excludedGroups>
-						<param>postgres</param>
-					</excludedGroups>
 					<threads>4</threads>
 					<!-- Medido el 2026-09-30: 1660 mutaciones, 1259 detectadas (76 %) y 91 % de las que las pruebas
 					     alcanzan. Por debajo del 75 % la corrida falla: una regla nueva tiene que llegar con su prueba. -->
@@ -365,7 +348,7 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.13</version>
+				<version>0.8.15</version>
 				<executions>
 					<execution>
 						<goals>

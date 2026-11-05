@@ -46,8 +46,8 @@ or having it reset, closes them too.
 5. `POST /api/v1/auth/logout` closes the session. Deactivating a user or changing their role closes all of their
    sessions, so the old role stops working at once.
 
-Public endpoints are limited to store registration, login, token renewal, the API documentation (not published in
-`prod`) and, in `dev`, the H2 console. The role matrix in [Roles and permissions](#roles-and-permissions) is defined in
+Public endpoints are limited to store registration, login, token renewal and the API documentation (not published
+in `prod`). The role matrix in [Roles and permissions](#roles-and-permissions) is defined in
 one place, the security configuration, and decides `401` or `403` before any controller runs.
 
 ## Login protection
@@ -123,3 +123,14 @@ a build step or a leaked key has compromised other projects:
 
 Values that look like secrets and are not, such as the signing key of the unit tests, are allowed by value in
 `.gitleaks.toml`, never by path, so a real key in the same file would still be found.
+
+A major version of a base image is a decision rather than an update, so Dependabot only offers the rebuilds
+and the minor releases of the images: moving to the next Java or Node line, or to a new PostgreSQL, comes in
+a pull request of its own.
+
+## Reporting a vulnerability
+
+[SECURITY.md](../SECURITY.md) says how to report one privately, what is in scope and how soon the answer comes.
+The web app serves the same contact at `/.well-known/security.txt`, as RFC 9116 asks, so a researcher who only
+knows the address of a deployment can find it. The file has an expiry date: the pipeline checks that NGINX serves
+it and starts failing a month before it expires, so it is renewed instead of served stale.

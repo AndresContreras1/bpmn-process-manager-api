@@ -6,20 +6,38 @@
 
 | Area | Technology |
 |---|---|
-| Language | Java 21 |
+| Language | Java 25 (virtual threads, AOT cache) |
 | Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Security 7) |
-| Persistence | Hibernate 7.4 · Flyway 12 · H2 (`dev` and tests) · PostgreSQL (`prod`) |
+| Persistence | Hibernate 7.4 · Flyway 12 · PostgreSQL 16 everywhere: `dev` through Docker Compose, the tests through Testcontainers |
 | Security | Spring Security `AuthenticationManager` · JWT (jjwt 0.12.6, HS256) · BCrypt · SHA-256-hashed refresh tokens |
 | API documentation | springdoc-openapi 3 (OpenAPI 3 and Swagger UI) |
 | Web app | Angular 19 · Bootstrap 5 · RxJS |
 | Testing | JUnit 5 · Mockito · MockMvc · AssertJ · ArchUnit 1.4 · JaCoCo · Testcontainers · Selenium · k6 |
 | Tooling | Maven Wrapper · Lombok · MapStruct · Docker · GitHub Actions · SonarCloud |
 
+## Runtime and container
+
+- **Virtual threads.** Every request runs on a virtual thread of its own. Since Java 24 a `synchronized` block no
+  longer pins its carrier thread, so there is no pool of threads to size: the connection pool to the database
+  (`DB_POOL_SIZE`) is the real ceiling of concurrent work, and a request that waits for a connection gives up after
+  three seconds instead of hanging.
+- **Graceful shutdown.** On `SIGTERM` the server stops taking requests and lets the ones in progress finish, for up to
+  `SHUTDOWN_TIMEOUT`; Compose waits 30 seconds before it kills the container.
+- **AOT cache.** The image is built with a training start (JEP 483 and 514): the JVM loads and links, once, the
+  classes Spring needs to start, and every real start finds them ready. The jar is extracted into the application and
+  its `lib/` for that, because the cache does not read nested jars.
+- **Minimal image.** The runtime stage is a JRE 25 on Alpine, run by a user without privileges; the build stage,
+  with Maven, does not reach it. The tests do not run inside the image build: the pipeline has already run them.
+- **Hardened containers.** The API and the web containers run with a read-only file system (only `/tmp`, in memory,
+  can be written), `no-new-privileges` and every Linux capability dropped, so a compromised process has nowhere to
+  write and nothing to escalate with.
+
 ## Modules
 
 The code is split into four business modules and two shared packages, and they stack: `common` depends on nobody,
-`gestion` on `common`, `security` on both, `modelado` on the three, `ejecucion` on all of them, and `integracion`
-only on the port `ejecucion` publishes. Each business module is layered as controller → service interface →
+`gestion` on `common`, `security` on both, `modelado` on the three, `ejecucion` on `common`, `gestion` and
+`modelado`, and `integracion` on the port `ejecucion` publishes, the kind of partner a participant declares
+(`modelado`) and the condition language (`common`). Each business module is layered as controller → service interface →
 service implementation → repository → model, with `dto` for the module's contract and `mapper` for the MapStruct
 translations.
 
@@ -50,7 +68,9 @@ flowchart BT
 
 An arrow means *depends on*. The only one that points the other way is the last: `ejecucion` publishes the port and
 `integracion` implements it, so the engine asks for the partner of a kind of participant and works with whatever it
-is given. ArchUnit checks every one of these arrows, and the absence of the ones that are not drawn.
+is given. To keep the drawing readable it leaves out the arrows that reach further down, like `ejecucion` reading
+the published version from `gestion`. ArchUnit checks that no arrow points back up, and that a partner reaches
+nothing of the engine beyond the port.
 
 | Package | Responsibility |
 |---|---|

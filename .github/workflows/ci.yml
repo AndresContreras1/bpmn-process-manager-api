@@ -37,12 +37,27 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup JDK 21
+      - name: Setup JDK 25
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
           cache: maven
+
+      # The tests run against PostgreSQL. On Ubuntu, Testcontainers starts it; GitHub's Windows runners cannot run
+      # Linux containers, so there the suite uses the PostgreSQL the image already has installed (user postgres,
+      # password root), started as a service, and declares its version.
+      - name: Start the PostgreSQL of the Windows runner
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $servicio = Get-Service -Name 'postgresql-x64-*' | Sort-Object Name -Descending | Select-Object -First 1
+          Set-Service -Name $servicio.Name -StartupType Manual
+          Start-Service -Name $servicio.Name
+          "PRUEBAS_POSTGRES_URL=jdbc:postgresql://localhost:5432/postgres" >> $env:GITHUB_ENV
+          "PRUEBAS_POSTGRES_USUARIO=postgres" >> $env:GITHUB_ENV
+          "PRUEBAS_POSTGRES_CLAVE=root" >> $env:GITHUB_ENV
+          "PRUEBAS_POSTGRES_VERSION_MAYOR=$($servicio.Name -replace '^postgresql-x64-', '')" >> $env:GITHUB_ENV
 
       - name: Build and verify
         run: ./mvnw -B clean verify
@@ -73,43 +88,6 @@ jobs:
           path: target/classes/META-INF/sbom/application.cdx.json
           if-no-files-found: error
 
-  postgres-integration:
-    name: PostgreSQL Integration
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      # The test summary is published as a check run
-      checks: write
-    needs: build-and-test
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup JDK 21
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
-
-      # The daily verify skips the "postgres" tag because it needs Docker. This is the job that runs it, against
-      # the same image the production stack uses. failIfNoTests turns an empty tag into a red job instead of a
-      # green one that proved nothing.
-      - name: Run the tests that need a real PostgreSQL
-        run: ./mvnw -B test -Dsurefire.excluded.groups= -Dgroups=postgres -DfailIfNoTests=true
-
-      - name: PostgreSQL tests summary
-        if: always()
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-        with:
-          name: PostgreSQL Integration
-          path: target/surefire-reports/*.xml
-          reporter: java-junit
-          fail-on-error: true
-
   architecture-guard:
     name: Architecture Rules
     runs-on: ubuntu-latest
@@ -125,10 +103,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup JDK 21
+      - name: Setup JDK 25
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
           cache: maven
 
@@ -198,13 +176,21 @@ jobs:
 
       - name: Verify the API answers from the container
         run: |
-          docker run -d --name api -p 8080:8080 \
+          # The image in its default profile, against a throwaway PostgreSQL of the image the stack uses. The check
+          # goes over TCP: only the final server listens there, not the one PostgreSQL runs while it initialises.
+          docker network create humo
+          docker run -d --name db --network humo -e POSTGRES_DB=procesos -e POSTGRES_USER=procesos \
+            -e POSTGRES_PASSWORD=ci-only-password "$(sed -n 's/^ *image: \(postgres:.*\)$/\1/p' compose.yaml)"
+          until docker exec db pg_isready -q -h 127.0.0.1 -U procesos -d procesos; do sleep 1; done
+          docker run -d --name api --network humo -p 8080:8080 \
             -e JWT_SECRET=ci-only-signing-key-with-at-least-32-characters \
-            -e SPRING_DATASOURCE_URL=jdbc:h2:mem:ci \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/procesos \
+            -e SPRING_DATASOURCE_USERNAME=procesos -e SPRING_DATASOURCE_PASSWORD=ci-only-password \
             bpmn-process-manager-api:${{ github.sha }}
           for intento in $(seq 1 30); do
             if curl -fs http://localhost:8080/v3/api-docs > /dev/null; then
               echo "The API is up."
+              docker rm -f api db > /dev/null
               exit 0
             fi
             sleep 2
@@ -270,11 +256,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup JDK 21
+      - name: Setup JDK 25
         if: env.SONAR_TOKEN != ''
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
           cache: maven
 
@@ -392,6 +378,19 @@ jobs:
           # Angular resolves its own routes, so any path that is not a file has to come back as the index.
           curl -sS --fail-with-body http://localhost:8082/procesos/1 | grep -q "<app-root"
 
+      - name: NGINX serves security.txt
+        run: |
+          # RFC 9116: plain text at the well-known path, with a contact and an expiry date.
+          curl -sS --fail-with-body -D headers.txt -o security.txt http://localhost:8082/.well-known/security.txt
+          grep -qi '^content-type: text/plain' headers.txt
+          grep -q '^Contact: https://' security.txt
+          expires=$(sed -n 's/^Expires: //p' security.txt | tr -d '\r')
+          # A month before it expires the file has to be renewed, or a stale one would be served.
+          if [ "$(date -d "$expires" +%s)" -le "$(date -d '+30 days' +%s)" ]; then
+            echo "::error file=frontend/public/.well-known/security.txt::Expires ($expires) is less than 30 days away."
+            exit 1
+          fi
+
       - name: The API answers through the web container
         run: |
           # Same origin as the app: this goes through the proxy, not to the API's own port.
@@ -420,11 +419,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup JDK 21
+      - name: Setup JDK 25
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
           cache: maven
 
       - name: Bring up the stack the tests drive
@@ -471,10 +470,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup JDK 21
+      - name: Setup JDK 25
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
           cache: maven
 
