@@ -1,7 +1,6 @@
 package com.facimus.procesos.common.metricas;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
@@ -38,6 +37,7 @@ import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.PoolService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -175,7 +175,7 @@ class MetricasDeNegocioIntegracionTest {
     }
 
     private ResultActions entrarCon(String clave) throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+        return mockMvc.perform(SesionEnCookies.login().contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"" + ADMIN + "\",\"password\":\"" + clave + "\"}"));
     }
 

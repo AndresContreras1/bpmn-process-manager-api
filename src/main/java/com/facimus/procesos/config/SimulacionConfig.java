@@ -12,6 +12,7 @@ import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 
 /**
  * D8: el reloj de las tiendas que pidieron que corriera solo. Cada tantos segundos avanza un tick el reloj de cada
@@ -22,6 +23,9 @@ import lombok.extern.slf4j.Slf4j;
  * <p>
  * {@code SIMULACION_TICK=-} no sirve para apagarlo: lo que lo apaga es que ninguna tienda este en AUTOMATICO, que
  * es la forma de decirlo que ya existe y que cada tienda decide por su cuenta.
+ * <p>
+ * Con varias instancias el tick lo da una sola (D34). El candado dura lo mismo que la pausa entre ticks: la otra
+ * instancia, que intenta a su propio ritmo, lo encuentra tomado, y el reloj no avanza el doble.
  */
 @Slf4j
 @Configuration
@@ -34,6 +38,7 @@ public class SimulacionConfig {
     private final SimulacionService simulacionService;
 
     @Scheduled(fixedDelayString = "${simulacion.tick}")
+    @SchedulerLock(name = "reloj-de-simulacion", lockAtLeastFor = "${simulacion.tick}")
     public void mover() {
         List<Long> tiendas = configuracionTiendaService.tiendasEnAutomatico();
         for (Long tienda : tiendas) {

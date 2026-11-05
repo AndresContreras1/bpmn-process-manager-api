@@ -176,14 +176,14 @@ class IdempotenciaIntegracionTest {
                         containsStringIgnoringCase("idempotency-key")));
         mockMvc.perform(get("/api/v1/procesos")
                         .header(HttpHeaders.ORIGIN, "http://localhost:4200")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin))
+                        .with(SesionEnCookies.conSesion(tokenAdmin)))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
                         "Location, Retry-After, Idempotent-Replayed, X-Request-Id"));
     }
 
     private ResultActions crearProceso(String token, String clave, String nombre) throws Exception {
         var peticion = post("/api/v1/procesos")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .with(SesionEnCookies.conSesion(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(cuerpoDeProceso(nombre));
         if (clave != null) {
@@ -210,11 +210,9 @@ class IdempotenciaIntegracionTest {
     }
 
     private String login(String email) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 }

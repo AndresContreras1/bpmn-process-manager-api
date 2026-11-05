@@ -20,8 +20,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.facimus.procesos.common.Caches;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
-import com.facimus.procesos.config.CacheConfig;
 import com.facimus.procesos.ejecucion.TiendaConMensajeria;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
@@ -194,7 +194,7 @@ class CacheDeVersionesTest {
         enTransaccion.execute(sinNombre -> grafos.del(empresaId, comoLlegaEjecutando()));
         enTransaccion.execute(sinNombre -> grafos.del(empresaId, comoLlegaEjecutando()));
 
-        assertThat(registro.get("cache.gets").tags("cache", CacheConfig.GRAFOS, "result", "hit")
+        assertThat(registro.get("cache.gets").tags("cache", Caches.GRAFOS, "result", "hit")
                 .functionCounter().count()).isPositive();
     }
 

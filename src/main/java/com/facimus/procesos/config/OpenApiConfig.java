@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.PostMapping;
 
+import com.facimus.procesos.security.CookiesDeSesion;
 import com.facimus.procesos.security.IdempotencyFilter;
 
 import io.swagger.v3.oas.models.Components;
@@ -33,7 +34,7 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 @Configuration
 public class OpenApiConfig {
 
-    private static final String ESQUEMA_SEGURIDAD = "bearerAuth";
+    private static final String ESQUEMA_SEGURIDAD = "sessionCookie";
     private static final String PROBLEMA = "ProblemDetail";
 
     @Bean
@@ -47,21 +48,24 @@ public class OpenApiConfig {
                 .addSecurityItem(new SecurityRequirement().addList(ESQUEMA_SEGURIDAD))
                 .components(new Components()
                         .addSecuritySchemes(ESQUEMA_SEGURIDAD, new SecurityScheme()
-                                .name(ESQUEMA_SEGURIDAD)
-                                .type(SecurityScheme.Type.HTTP)
-                                .scheme("bearer")
-                                .bearerFormat("JWT"))
+                                .type(SecurityScheme.Type.APIKEY)
+                                .in(SecurityScheme.In.COOKIE)
+                                .name(CookiesDeSesion.ACCESO)
+                                .description("The session: an HttpOnly cookie with a signed JWT, set by the "
+                                        + "login. What changes something also sends the XSRF-TOKEN cookie "
+                                        + "back in the X-XSRF-TOKEN header."))
                         .addSchemas(PROBLEMA, esquemaProblema())
                         .addResponses("BadRequest", respuestaDeError("Invalid request: a field failed validation, "
                                 + "the JSON is malformed or has a field the operation does not accept. `errors` holds "
                                 + "the message for each field."))
-                        .addResponses("Unauthorized", respuestaDeError("Missing, invalid or expired token, or wrong "
-                                + "login credentials.")
+                        .addResponses("Unauthorized", respuestaDeError("Missing, invalid or expired session, or "
+                                + "wrong login credentials.")
                                 .addHeaderObject(HttpHeaders.WWW_AUTHENTICATE, new Header()
                                         .description("Authentication scheme the API expects")
                                         .schema(new StringSchema().example("Bearer"))))
                         .addResponses("Forbidden", respuestaDeError("The user's access role does not allow this "
-                                + "operation."))
+                                + "operation, or a request with the session cookies came without its CSRF "
+                                + "token."))
                         .addResponses("NotFound", respuestaDeError("The resource does not exist, or it belongs to "
                                 + "another store."))
                         .addResponses("Conflict", respuestaDeError("A business rule rejects the operation, for "

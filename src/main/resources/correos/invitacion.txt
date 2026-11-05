@@ -1,0 +1,11 @@
+[(#{invitacion.saludo})]
+
+[(#{invitacion.cuerpo(${quienInvita}, ${tienda})})]
+
+[(${enlace})]
+
+[(#{invitacion.vence(${dias})})]
+[(#{invitacion.ignorar})]
+
+--
+[(#{comun.firma})]

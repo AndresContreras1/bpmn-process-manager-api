@@ -4,9 +4,9 @@
 
 ## Requirements
 
-- JDK 21, or Docker, for the API
+- JDK 25 for the API
+- Docker, for the PostgreSQL of `dev` and of the tests
 - Node.js 22 or later for the web app (optional)
-- Docker for the tests that run against a real PostgreSQL (optional)
 
 ## Run the API
 
@@ -16,39 +16,46 @@
 
 The API starts on `http://localhost:8080` with the `dev` profile:
 
-- The database is an H2 file under `./data`, created with *Demo Store* on the first start.
+- The database is PostgreSQL 16, the engine of production. Spring Boot starts it from `compose.dev.yaml` and
+  creates *Demo Store* on the first start; the container keeps running, with its data, when the API stops.
+  `docker compose -f compose.dev.yaml port db 5432` says on which port of `127.0.0.1` it answers, for a SQL client
+  (database `procesos`, user `procesos`, password `procesos-dev`).
 - Swagger UI is at `/swagger-ui.html`, and the OpenAPI document at `/v3/api-docs`.
-- The H2 console is at `/h2-console` (JDBC URL `jdbc:h2:file:./data/procesos`, user `sa`, no password).
+- The e-mails of `dev` go to Mailpit, which `compose.dev.yaml` starts too: nothing leaves the machine, and
+  `http://localhost:8025` shows what was sent, the links included.
 
 If `JWT_SECRET` is not set, a random signing key is generated. Access tokens then stop working after a restart, and
 the refresh token, which is stored in the database, renews them.
 
-> [!IMPORTANT]
-> If you ran a version from before Flyway, delete `./data` once. Flyway builds the schema on the next start, and it
-> does not adopt a schema that Hibernate created.
+> [!NOTE]
+> Versions before this one kept the `dev` database in an H2 file under `./data`. Nothing reads it any more, and the
+> folder can be deleted. `docker compose -f compose.dev.yaml down -v` starts the `dev` database from scratch.
 
 ## First requests
 
-The examples use `jq` to read the token.
+The session travels in cookies, as it does for a browser, so curl keeps them in a jar (`sesion.txt`), and every
+change sends back the CSRF token of that jar ([Sessions](api-reference.md#sessions)).
 
 ```bash
-# Sign in as the Demo Store administrator
-TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" \
-  -d '{"email":"admin@demo.com","password":"admin123"}' | jq -r .accessToken)
+# The CSRF token, and then sign in as the Demo Store administrator
+curl -s -c sesion.txt http://localhost:8080/api/v1/auth/csrf
+XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
+curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/login -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"admin123"}'
 
 # List the store's processes
-curl -s http://localhost:8080/api/v1/procesos -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/procesos -b sesion.txt
 
 # Read a whole process: participants, lanes, steps, flows and messages
-curl -s http://localhost:8080/api/v1/procesos/{id}/diagrama -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/procesos/{id}/diagrama -b sesion.txt
 
 # Register another store; its processes and Demo Store's are invisible to each other
 curl -s -X POST http://localhost:8080/api/v1/empresas -H "Content-Type: application/json" \
   -d '{"nombreEmpresa":"Acme Store","nit":"901234567-8","correoContacto":"contact@acme.com","nombreAdmin":"Ana","emailAdmin":"ana@acme.com","passwordAdmin":"secret123"}'
 ```
 
-The login also returns a `refreshToken`. Before the access token expires, exchange it for a new pair with
-`POST /api/v1/auth/refresh` and the body `{"refreshToken": "..."}`.
+The access cookie lasts fifteen minutes. Before it expires, `POST /api/v1/auth/refresh` with the same jar and the
+same `X-XSRF-TOKEN` header trades the refresh cookie for new ones.
 
 ## Run the web app
 
@@ -77,8 +84,10 @@ sign in with yet: create your store from the app, or with `POST /api/v1/empresas
 its first administrator. To poke at the demo data instead, run the API with `dev` as described above.
 
 The browser only ever talks to the web container: NGINX serves the compiled app and forwards everything under
-`/api` to the API inside the network. So the production build has no absolute API URL in it, there is no CORS to
-configure, and the same image runs anywhere without being rebuilt. The API keeps its own port for the Postman
+`/api` to the API inside the network. So the production build has no absolute API URL in it, and the same image
+runs anywhere without being rebuilt. The browser still sends `Origin` on every `POST`, even to its own site, so the
+API's `CORS_ALLOWED_ORIGINS` has to list the address of the site; Compose fills it with `http://localhost` and the
+one on `WEB_PORT`. The API keeps its own port for the Postman
 collection and for curl, but nothing in the browser uses it.
 
 The database keeps its data in a named volume, so `docker compose down` does not lose it; `docker compose down -v`
@@ -117,14 +126,17 @@ shape of every request of the operation.
 
 ```bash
 docker build -t bpmn-process-manager-api .
-docker run -p 8080:8080 \
+docker compose -f compose.dev.yaml up -d
+docker run -p 8080:8080 --network bpmn-process-manager-dev_default \
   -e JWT_SECRET=<at-least-32-random-characters> \
-  -e SPRING_DATASOURCE_URL=jdbc:h2:mem:procesos \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/procesos \
+  -e SPRING_DATASOURCE_USERNAME=procesos -e SPRING_DATASOURCE_PASSWORD=procesos-dev \
   bpmn-process-manager-api
 ```
 
-The image is a multi-stage build that runs as a non-root user. This command starts the `dev` profile on an in-memory
-database with Demo Store. For persistent data, use the `prod` profile with PostgreSQL.
+The image is a multi-stage build that runs as a non-root user. These commands start its `dev` profile, with Demo
+Store, on the database of `compose.dev.yaml`. The whole stack in the `prod` profile is the one of the previous
+section.
 
 ## Operations endpoints
 

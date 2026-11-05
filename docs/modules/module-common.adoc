@@ -1,0 +1,25 @@
+[%autowidth.stretch, cols="h,a"]
+|===
+|Base package
+|`com.facimus.procesos.common`
+|Spring components
+|_Controllers_
+
+* `c.f.p.c.api.controller.ErroresController`
+
+_Repositories_
+
+* `c.f.p.c.RepositorioTenant`
+
+_Configuration properties_
+
+* `c.f.p.c.trabajos.ReglasDeLaCola`
+
+_Others_
+
+* `c.f.p.c.api.ApiExceptionHandler`
+* `c.f.p.c.api.IdDePeticionFilter`
+* `c.f.p.c.correo.Redactor`
+* `c.f.p.c.metricas.MetricasDeNegocio`
+* `c.f.p.c.trabajos.ColaDeTrabajos`
+|===
