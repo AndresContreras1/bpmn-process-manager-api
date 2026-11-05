@@ -3,8 +3,8 @@ package com.facimus.procesos.gestion.service.impl;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
+import com.facimus.procesos.common.Caches;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
-import com.facimus.procesos.config.CacheConfig;
 import com.facimus.procesos.gestion.repository.VersionProcesoRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ class DefinicionesDeVersion {
 
     private final VersionProcesoRepository versionProcesoRepository;
 
-    @Cacheable(cacheNames = CacheConfig.DEFINICIONES, key = "#empresaId + ':' + #versionId", sync = true)
+    @Cacheable(cacheNames = Caches.DEFINICIONES, key = "#empresaId + ':' + #versionId", sync = true)
     public String de(Long empresaId, Long versionId) {
         return versionProcesoRepository.definicionDe(versionId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada."));

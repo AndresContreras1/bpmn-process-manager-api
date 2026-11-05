@@ -21,10 +21,10 @@ import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 public class LoginAuthenticator {
 
     private final AuthenticationManager authenticationManager;
-    private final AttemptLimiter limitador;
+    private final LimiteDeIntentos limitador;
     private final MetricasDeNegocio metricas;
 
-    public LoginAuthenticator(AuthenticationManager authenticationManager, AttemptLimiter limitador,
+    public LoginAuthenticator(AuthenticationManager authenticationManager, LimiteDeIntentos limitador,
             MetricasDeNegocio metricas) {
         this.authenticationManager = authenticationManager;
         this.limitador = limitador;
