@@ -6,20 +6,38 @@
 
 | Area | Technology |
 |---|---|
-| Language | Java 21 |
+| Language | Java 25 (virtual threads, AOT cache) |
 | Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Security 7) |
-| Persistence | Hibernate 7.4 · Flyway 12 · H2 (`dev` and tests) · PostgreSQL (`prod`) |
+| Persistence | Hibernate 7.4 · Flyway 12 · PostgreSQL 16 everywhere: `dev` through Docker Compose, the tests through Testcontainers |
 | Security | Spring Security `AuthenticationManager` · JWT (jjwt 0.12.6, HS256) · BCrypt · SHA-256-hashed refresh tokens |
 | API documentation | springdoc-openapi 3 (OpenAPI 3 and Swagger UI) |
 | Web app | Angular 19 · Bootstrap 5 · RxJS |
 | Testing | JUnit 5 · Mockito · MockMvc · AssertJ · ArchUnit 1.4 · JaCoCo · Testcontainers · Selenium · k6 |
 | Tooling | Maven Wrapper · Lombok · MapStruct · Docker · GitHub Actions · SonarCloud |
 
+## Runtime and container
+
+- **Virtual threads.** Every request runs on a virtual thread of its own. Since Java 24 a `synchronized` block no
+  longer pins its carrier thread, so there is no pool of threads to size: the connection pool to the database
+  (`DB_POOL_SIZE`) is the real ceiling of concurrent work, and a request that waits for a connection gives up after
+  three seconds instead of hanging.
+- **Graceful shutdown.** On `SIGTERM` the server stops taking requests and lets the ones in progress finish, for up to
+  `SHUTDOWN_TIMEOUT`; Compose waits 30 seconds before it kills the container.
+- **AOT cache.** The image is built with a training start (JEP 483 and 514): the JVM loads and links, once, the
+  classes Spring needs to start, and every real start finds them ready. The jar is extracted into the application and
+  its `lib/` for that, because the cache does not read nested jars.
+- **Minimal image.** The runtime stage is a JRE 25 on Alpine, run by a user without privileges; the build stage,
+  with Maven, does not reach it. The tests do not run inside the image build: the pipeline has already run them.
+- **Hardened containers.** The API and the web containers run with a read-only file system (only `/tmp`, in memory,
+  can be written), `no-new-privileges` and every Linux capability dropped, so a compromised process has nowhere to
+  write and nothing to escalate with.
+
 ## Modules
 
 The code is split into four business modules and two shared packages, and they stack: `common` depends on nobody,
-`gestion` on `common`, `security` on both, `modelado` on the three, `ejecucion` on all of them, and `integracion`
-only on the port `ejecucion` publishes. Each business module is layered as controller → service interface →
+`gestion` on `common`, `security` on both, `modelado` on the three, `ejecucion` on `common`, `gestion` and
+`modelado`, and `integracion` on the port `ejecucion` publishes, the kind of partner a participant declares
+(`modelado`) and the condition language (`common`). Each business module is layered as controller → service interface →
 service implementation → repository → model, with `dto` for the module's contract and `mapper` for the MapStruct
 translations.
 
@@ -50,7 +68,9 @@ flowchart BT
 
 An arrow means *depends on*. The only one that points the other way is the last: `ejecucion` publishes the port and
 `integracion` implements it, so the engine asks for the partner of a kind of participant and works with whatever it
-is given. ArchUnit checks every one of these arrows, and the absence of the ones that are not drawn.
+is given. To keep the drawing readable it leaves out the arrows that reach further down, like `ejecucion` reading
+the published version from `gestion`. ArchUnit checks that no arrow points back up, and that a partner reaches
+nothing of the engine beyond the port.
 
 | Package | Responsibility |
 |---|---|
@@ -180,16 +200,37 @@ Actuator counts the hits next to the operation gauges: `cache.gets` tagged `cach
 again every time — which is how the test suite runs, so that no test can be reading what the one before it left
 behind.
 
+## Several instances
+
+Any number of instances of the API can run on one database: what one of them knows that the others need lives in
+PostgreSQL, not in its memory (D34).
+
+| What | Where | How the other instances learn it |
+|---|---|---|
+| Closed sessions | Each instance keeps them in memory, so the JWT filter runs no SQL | The transaction that closes a session sends its code with `NOTIFY`, which PostgreSQL delivers only if that transaction commits. Every instance `LISTEN`s on a connection of its own and revokes the session at once; it rereads the recent closures when it reconnects and every five minutes, in case a notice was missed |
+| Failed logins | Table `intentos_login`, one row per failure | They count the same rows |
+| AI reviews | Table `revisiones_ia`, one row per answer of the model | They reuse the last one of a process and count the same ones for the store's limit |
+| Scheduled jobs | Table `shedlock`, the lock of each job, with the database's clock | The purge and the simulation clock run in one instance at a time; the lock of the clock lasts as long as the pause between ticks, so two instances do not move it twice as fast |
+
+What stays in each instance is safe to keep apart: the cache of published versions, which never change, and the
+metrics, which Prometheus reads from each instance. Counting and recording a failed login are not one transaction,
+so two failures at the same time can go one past the limit; for a limit of attempts that changes nothing.
+
 ## Data that does not pile up
 
-Three tables only grow. A login writes a session, every renewal writes a refresh token, and every request with an
-`Idempotency-Key` writes a key; nothing reads any of them once they expire. A job sweeps them every night
-(`LIMPIEZA_CRON`, 3:30 by default):
+Five tables only grow. A login writes a session, every renewal writes a refresh token, every request with an
+`Idempotency-Key` writes a key, every failed login writes an attempt and every answer of the model writes a review.
+A job sweeps them every night (`LIMPIEZA_CRON`, 3:30 by default):
 
 - **Refresh tokens** that expired more than `LIMPIEZA_RETENCION_SESIONES` ago. An expired one renews nothing.
 - **Sessions** older than that same window with no refresh token left, which can no longer issue anything. The
   window is never shorter than the access token lifetime: when the API restarts it rereads the sessions closed
   recently to keep rejecting their tokens, so deleting one too early would let a revoked token back in.
 - **Idempotency keys** older than `LIMPIEZA_RETENCION_IDEMPOTENCIA`.
+- **Failed logins** that left the window of the limit (`LOGIN_FAILED_ATTEMPTS_WINDOW`). A successful login also
+  forgets the failures of its email and address at once.
+- **AI reviews** that are no longer the last one of their process and left the window of the limit
+  (`REVISION_WINDOW`). The last one stays, because it is the one that comes back while the diagram does not change.
 
-This is the only place in the API where a row is really deleted; everything else is a soft delete and stays.
+Apart from the failures a successful login forgets, this is the only place in the API where a row is really
+deleted; everything else is a soft delete and stays.

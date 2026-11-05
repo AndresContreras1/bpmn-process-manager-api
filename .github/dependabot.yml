@@ -63,6 +63,10 @@ updates:
 
   # Base images are pinned by digest as well as by tag: the same tag is rebuilt with security fixes, and a digest
   # only changes when a pull request says so.
+  #
+  # A major version of a base image is a decision, not an update: the Java and Node lines follow their long-term
+  # support releases and what the framework supports, and a new major of PostgreSQL needs its data upgraded. Those
+  # come in a pull request of their own that says why; Dependabot keeps the rebuilds and the minor releases.
   - package-ecosystem: docker
     directories: ["/", "/frontend"]
     schedule:
@@ -76,6 +80,9 @@ updates:
     groups:
       images:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker-compose
     directory: /
@@ -90,3 +97,5 @@ updates:
     ignore:
       # The API and the web images are built from this repository, not pulled from a registry.
       - dependency-name: "bpmn-process-manager-*"
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
