@@ -5,6 +5,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,13 +16,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * diria nada.
  *
  * El cliente HTTP viene con Java, asi que aqui no hay framework ninguno: solo lo justo para hablar con la API.
+ *
+ * Como un navegador (D29): la sesion va en la cookie de acceso, y cada peticion lleva el token CSRF, el valor de la
+ * cookie XSRF-TOKEN en la cabecera X-XSRF-TOKEN. El cliente de Java no manda cookies Secure por http, asi que van a
+ * mano.
  */
 class ApiDeDatos {
 
     private final HttpClient cliente = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final ObjectMapper json = new ObjectMapper();
     private final String api;
-    private String token;
+    private static final String ACCESO = "__Host-acceso";
+
+    private final String csrf = UUID.randomUUID().toString();
+    private String acceso;
     private long usuarioId;
 
     ApiDeDatos(String api) {
@@ -39,11 +47,16 @@ class ApiDeDatos {
     }
 
     void entrar(String correo, String clave) {
-        JsonNode sesion = post("/auth/login", """
+        HttpResponse<String> respuesta = enviarCrudo(peticion("/auth/login").POST(HttpRequest.BodyPublishers.ofString(
+                """
                 {"email":"%s","password":"%s"}
-                """.formatted(correo, clave));
-        token = sesion.get("accessToken").asText();
-        usuarioId = sesion.get("usuario").get("id").asLong();
+                """.formatted(correo, clave))));
+        acceso = respuesta.headers().allValues("Set-Cookie").stream()
+                .filter(cookie -> cookie.startsWith(ACCESO + "="))
+                .map(cookie -> cookie.substring(ACCESO.length() + 1, cookie.indexOf(';')))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("El login no dejo la cookie de acceso"));
+        usuarioId = leer(respuesta).get("usuario").get("id").asLong();
     }
 
     /** Quien esta dentro con esta sesion: hace falta para darle roles de proceso y que tenga bandeja. */
@@ -135,12 +148,26 @@ class ApiDeDatos {
     }
 
     private HttpRequest.Builder peticion(String ruta) {
-        HttpRequest.Builder constructor = HttpRequest.newBuilder(URI.create(api + ruta))
-                .header("Content-Type", "application/json");
-        return token == null ? constructor : constructor.header("Authorization", "Bearer " + token);
+        String cookies = "XSRF-TOKEN=" + csrf + (acceso == null ? "" : "; " + ACCESO + "=" + acceso);
+        return HttpRequest.newBuilder(URI.create(api + ruta))
+                .header("Content-Type", "application/json")
+                .header("Cookie", cookies)
+                .header("X-XSRF-TOKEN", csrf);
     }
 
     private JsonNode enviar(HttpRequest.Builder constructor) {
+        return leer(enviarCrudo(constructor));
+    }
+
+    private JsonNode leer(HttpResponse<String> respuesta) {
+        try {
+            return respuesta.body().isBlank() ? json.createObjectNode() : json.readTree(respuesta.body());
+        } catch (java.io.IOException error) {
+            throw new IllegalStateException("La API respondio algo que no es JSON: " + respuesta.body(), error);
+        }
+    }
+
+    private HttpResponse<String> enviarCrudo(HttpRequest.Builder constructor) {
         try {
             HttpResponse<String> respuesta = cliente.send(constructor.build(),
                     HttpResponse.BodyHandlers.ofString());
@@ -148,7 +175,7 @@ class ApiDeDatos {
                 throw new IllegalStateException(
                         "La API respondio " + respuesta.statusCode() + ": " + respuesta.body());
             }
-            return respuesta.body().isBlank() ? json.createObjectNode() : json.readTree(respuesta.body());
+            return respuesta;
         } catch (java.io.IOException error) {
             throw new IllegalStateException("No se pudo hablar con la API en " + api, error);
         } catch (InterruptedException error) {

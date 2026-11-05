@@ -1,0 +1,26 @@
+[%autowidth.stretch, cols="h,a"]
+|===
+|Base package
+|`com.facimus.procesos.modelado`
+|Bean references
+|* `c.f.p.g.service.HistorialCambioService` (in Gestion)
+* `c.f.p.g.service.ProcesoService` (in Gestion)
+* `c.f.p.g.service.VersionService` (in Gestion)
+* `c.f.p.g.service.ConfiguracionTiendaService` (in Gestion)
+* `c.f.p.g.repository.RolProcesoRepository` (in Gestion)
+* `c.f.p.g.repository.ProcesoRepository` (in Gestion)
+|Aggregate roots
+|* `c.f.p.m.model.NodoFlujo`
+* `c.f.p.m.model.Actividad`
+* `c.f.p.m.model.Arco`
+* `c.f.p.m.model.Correlacion`
+* `c.f.p.m.model.Evento`
+* `c.f.p.m.model.Gateway`
+* `c.f.p.m.model.Lane`
+* `c.f.p.m.model.Mensaje`
+* `c.f.p.m.model.Pool`
+* `c.f.p.m.model.RevisionIa`
+|Events listened to
+|* `c.f.p.g.event.ProcesoEliminado` 
+* `c.f.p.g.event.ProcesoCreado` 
+|===

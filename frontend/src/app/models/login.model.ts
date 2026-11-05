@@ -5,12 +5,11 @@ export interface LoginRequest {
   password: string;
 }
 
-/** Respuesta del login y de la renovacion: los dos tokens, la vida del de acceso y el usuario que entro. */
+/**
+ * Respuesta del login, de la renovacion y del cambio de clave (D29): cuanto vive el acceso y quien entro. Los tokens
+ * van en cookies HttpOnly que este codigo no puede leer.
+ */
 export interface LoginResponse {
-  accessToken: string;
-  tokenType: string;
   expiresIn: number;
-  /** Token opaco que renueva la sesion una sola vez; la API lo cambia por otro en cada renovacion. */
-  refreshToken: string;
   usuario: Usuario;
 }

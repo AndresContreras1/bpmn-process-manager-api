@@ -2,7 +2,6 @@ package com.facimus.procesos.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
@@ -19,7 +18,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,6 +31,7 @@ import com.facimus.procesos.common.api.IdDePeticionFilter;
 import com.facimus.procesos.common.api.Problemas;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -78,11 +77,9 @@ class TrazasIntegracionTest {
         void registrarTiendaYEntrar() throws Exception {
             empresaService.registrar("Tienda con trazas", "900515253-1", "contacto@trazas.com", "Administradora",
                     ADMIN, CLAVE);
-            String respuesta = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+            token = SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login().contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, CLAVE))))
-                    .andExpect(status().isOk())
-                    .andReturn().getResponse().getContentAsString();
-            token = jsonMapper.readTree(respuesta).get("accessToken").asString();
+                    .andExpect(status().isOk()));
         }
 
         @AfterEach
@@ -109,7 +106,7 @@ class TrazasIntegracionTest {
             ((Logger) LoggerFactory.getLogger(ApiExceptionHandler.class)).addAppender(log);
 
             MvcResult resultado = mockMvc.perform(get("/api/v1/prueba-de-trazas/falla")
-                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                            .with(SesionEnCookies.conSesion(token)))
                     .andExpect(status().isInternalServerError())
                     .andReturn();
 

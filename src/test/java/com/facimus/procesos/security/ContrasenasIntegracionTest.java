@@ -13,7 +13,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -70,7 +69,7 @@ class ContrasenasIntegracionTest {
         assertThat(clave).isNotBlank();
         assertThat(jsonMapper.readTree(respuesta).get("debeCambiarClave").asBoolean()).isTrue();
         mockMvc.perform(get("/api/v1/usuarios/{id}", usuarioId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin))
+                        .with(SesionEnCookies.conSesion(tokenAdmin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.debeCambiarClave").value(true))
                 .andExpect(jsonPath("$.claveTemporal").doesNotExist());
@@ -83,23 +82,21 @@ class ContrasenasIntegracionTest {
         String temporal = jsonMapper.readTree(respuesta).get("claveTemporal").asString();
         String token = login("nuevo@contrasenas.com", temporal);
 
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(token)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Sin permisos"))
                 .andExpect(jsonPath("$.detail").value("Debe cambiar su contraseña antes de seguir."));
 
-        String nuevos = mockMvc.perform(post("/api/v1/auth/password")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+        String despues = SesionEnCookies.acceso(mockMvc.perform(post("/api/v1/auth/password")
+                        .with(SesionEnCookies.conSesion(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"actual\":\"" + temporal + "\",\"nueva\":\"mi-clave-nueva\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.usuario.debeCambiarClave").value(false))
-                .andExpect(jsonPath("$.usuario.claveTemporal").doesNotExist())
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(jsonPath("$.usuario.claveTemporal").doesNotExist()));
 
-        // El token nuevo ya no arrastra la marca, asi que el usuario trabaja.
-        String despues = jsonMapper.readTree(nuevos).get("accessToken").asString();
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer " + despues))
+        // El token nuevo, en su cookie, ya no arrastra la marca, asi que el usuario trabaja.
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(despues)))
                 .andExpect(status().isOk());
     }
 
@@ -112,14 +109,14 @@ class ContrasenasIntegracionTest {
         String token = login("doble@contrasenas.com", temporal);
 
         mockMvc.perform(post("/api/v1/auth/password")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .with(SesionEnCookies.conSesion(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"actual\":\"" + temporal + "\",\"nueva\":\"otra-clave-larga\"}"))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer " + enOtroSitio))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(enOtroSitio)))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(SesionEnCookies.login().contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest("doble@contrasenas.com", temporal))))
                 .andExpect(status().isUnauthorized());
     }
@@ -131,12 +128,12 @@ class ContrasenasIntegracionTest {
         String temporal = jsonMapper.readTree(respuesta).get("claveTemporal").asString();
         String token = login("torpe@contrasenas.com", temporal);
 
-        mockMvc.perform(post("/api/v1/auth/password").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+        mockMvc.perform(post("/api/v1/auth/password").with(SesionEnCookies.conSesion(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"actual\":\"la-que-no-es\",\"nueva\":\"una-clave-nueva\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("La contraseña actual no coincide."));
-        mockMvc.perform(post("/api/v1/auth/password").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+        mockMvc.perform(post("/api/v1/auth/password").with(SesionEnCookies.conSesion(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"actual\":\"" + temporal + "\",\"nueva\":\"" + temporal + "\"}"))
                 .andExpect(status().isBadRequest())
@@ -152,14 +149,14 @@ class ContrasenasIntegracionTest {
         String token = login("olvido@contrasenas.com", temporal);
 
         String reset = mockMvc.perform(post("/api/v1/usuarios/{id}/restablecer-clave", usuarioId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin))
+                        .with(SesionEnCookies.conSesion(tokenAdmin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.debeCambiarClave").value(true))
                 .andReturn().getResponse().getContentAsString();
 
         String nueva = jsonMapper.readTree(reset).get("claveTemporal").asString();
         assertThat(nueva).isNotBlank().isNotEqualTo(temporal);
-        mockMvc.perform(get("/api/v1/procesos").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(token)))
                 .andExpect(status().isUnauthorized());
         assertThat(login("olvido@contrasenas.com", nueva)).isNotBlank();
     }
@@ -167,7 +164,7 @@ class ContrasenasIntegracionTest {
     @Test
     @DisplayName("Una contrasena de mas de 72 caracteres no se acepta: es el tope de BCrypt")
     void contrasenaDemasiadoLarga_seRechaza() throws Exception {
-        mockMvc.perform(post("/api/v1/usuarios").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin)
+        mockMvc.perform(post("/api/v1/usuarios").with(SesionEnCookies.conSesion(tokenAdmin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nombre\":\"Larga\",\"email\":\"larga@contrasenas.com\",\"password\":\""
                                 + "a".repeat(73) + "\",\"rolAcceso\":\"EDITOR\"}"))
@@ -177,7 +174,7 @@ class ContrasenasIntegracionTest {
     }
 
     private String crearUsuario(String nombre, String email, RolAcceso rol) throws Exception {
-        return mockMvc.perform(post("/api/v1/usuarios").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin)
+        return mockMvc.perform(post("/api/v1/usuarios").with(SesionEnCookies.conSesion(tokenAdmin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nombre\":\"" + nombre + "\",\"email\":\"" + email + "\",\"rolAcceso\":\""
                                 + rol + "\"}"))
@@ -186,10 +183,8 @@ class ContrasenasIntegracionTest {
     }
 
     private String login(String email, String password) throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+        return SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login().contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(email, password))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 }

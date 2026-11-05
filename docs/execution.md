@@ -10,20 +10,20 @@ on its own until it needs somebody.
 
 ```bash
 # Open an order on the version in force
-curl -s -X POST http://localhost:8080/api/v1/procesos/1/casos -H "Authorization: Bearer $TOKEN" \
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/casos -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" \
   -d '{"referencia":"ORD-1001","variables":{"payment":{"status":"APPROVED"}}}'
 
 # What the store is waiting for, and who has to do it
-curl -s "http://localhost:8080/api/v1/tareas?rolProcesoId=2" -H "Authorization: Bearer $TOKEN"
+curl -s "http://localhost:8080/api/v1/tareas?rolProcesoId=2" -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 
 # Complete it; whatever is handed over lands in the case variables under tarea.pickAndPackItems
-curl -s -X POST http://localhost:8080/api/v1/tareas/77/completar -H "Authorization: Bearer $TOKEN" \
+curl -s -X POST http://localhost:8080/api/v1/tareas/77/completar -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"datos":{"packedItems":3}}'
 
 # The case with the steps it went through, and its timeline
-curl -s http://localhost:8080/api/v1/casos/42 -H "Authorization: Bearer $TOKEN"
-curl -s http://localhost:8080/api/v1/casos/42/eventos -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/casos/42 -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+curl -s http://localhost:8080/api/v1/casos/42/eventos -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 ```
 
 What each node does when a case reaches it:
@@ -76,21 +76,21 @@ partners are simulated — and nothing is lost either.
 
 ```bash
 # The order arrives as a message and opens a case; claveExterna makes sending it twice safe
-curl -s -X POST http://localhost:8080/api/v1/procesos/1/mensajes-entrantes -H "Authorization: Bearer $TOKEN" \
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/mensajes-entrantes -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" \
   -d '{"nombre":"Order placed","cuerpo":{"orderId":"ORD-1001"},"claveExterna":"shop-1001"}'
 
 # What the process has sent and what has reached it
-curl -s http://localhost:8080/api/v1/procesos/1/bandeja-salida -H "Authorization: Bearer $TOKEN"
-curl -s http://localhost:8080/api/v1/procesos/1/bandeja-entrada -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/procesos/1/bandeja-salida -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+curl -s http://localhost:8080/api/v1/procesos/1/bandeja-entrada -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 
 # Move the store's clock one tick: what was due is delivered and the partners answer
-curl -s -X POST http://localhost:8080/api/v1/simulacion/tick -H "Authorization: Bearer $TOKEN" \
+curl -s -X POST http://localhost:8080/api/v1/simulacion/tick -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"ticks":1}'
 
 # Where the simulation is, and what a case sent and received
-curl -s http://localhost:8080/api/v1/simulacion -H "Authorization: Bearer $TOKEN"
-curl -s http://localhost:8080/api/v1/casos/42/mensajes -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/simulacion -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+curl -s http://localhost:8080/api/v1/casos/42/mensajes -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 ```
 
 **Sending.** When a case goes through a node with a message anchored to it, the message is written in the outbox
@@ -137,7 +137,7 @@ which is how a test says what it wants to happen.
 
 ```bash
 # How this store's partners behave; send all of it or none of it
-curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -H "Authorization: Bearer $TOKEN" \
+curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" \
   -d '{"politicaEstructura":"ADMINISTRADOR_Y_EDITOR","version":0,
        "simulacion":{"semilla":42,"tasaRechazoPagos":10,"ticksRespuestaPagos":1,
@@ -145,9 +145,9 @@ curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -H "Au
                      "tasaPerdidaEnvios":5,"tasaFalloNotificaciones":2}}'
 
 # Twenty orders from the simulated customer, and then move the clock
-curl -s -X POST http://localhost:8080/api/v1/simulacion/pedidos -H "Authorization: Bearer $TOKEN" \
+curl -s -X POST http://localhost:8080/api/v1/simulacion/pedidos -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"procesoId":1,"cantidad":20}'
-curl -s -X POST http://localhost:8080/api/v1/simulacion/tick -H "Authorization: Bearer $TOKEN" \
+curl -s -X POST http://localhost:8080/api/v1/simulacion/tick -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"ticks":1}'
 ```
 
@@ -163,8 +163,8 @@ open it: how many orders there are and what state they are in, how long a finish
 waiting, what has been sent and received, and what did not go as expected.
 
 ```bash
-curl -s http://localhost:8080/api/v1/procesos/1/tablero -H "Authorization: Bearer $TOKEN"
-curl -s http://localhost:8080/api/v1/empresas/actual/tablero -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/procesos/1/tablero -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+curl -s http://localhost:8080/api/v1/empresas/actual/tablero -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 ```
 
 **Time is counted in ticks**, not in hours: the simulation's time is the one that can be reproduced, and mixing

@@ -2,7 +2,6 @@ package com.facimus.procesos.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,22 +11,22 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Los datos demo vistos a traves de la API, como los ve quien entra a Swagger con la cuenta de demostracion.
- * Corre en dev, el unico perfil que siembra la tienda, pero sobre una H2 en memoria en vez de ./data.
+ * Corre en dev, el unico perfil que siembra la tienda, sobre la base propia de su contexto.
  */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:datos-demo;DB_CLOSE_DELAY=-1")
+@SpringBootTest
 @ActiveProfiles("dev")
 @AutoConfigureMockMvc
 class DatosDemoInitializerTest {
@@ -42,12 +41,10 @@ class DatosDemoInitializerTest {
 
     @BeforeEach
     void iniciarSesionComoAdminDemo() throws Exception {
-        String respuesta = mockMvc.perform(post("/api/v1/auth/login")
+        token = SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest("admin@demo.com", "admin123"))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        token = jsonMapper.readTree(respuesta).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 
     @Test
@@ -184,6 +181,6 @@ class DatosDemoInitializerTest {
     }
 
     private MockHttpServletRequestBuilder conToken(MockHttpServletRequestBuilder peticion) {
-        return peticion.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+        return peticion.with(SesionEnCookies.conSesion(token));
     }
 }
