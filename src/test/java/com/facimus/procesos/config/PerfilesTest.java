@@ -12,7 +12,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.thread.Threading;
 import org.springframework.boot.tomcat.autoconfigure.TomcatServerProperties;
+import org.springframework.boot.web.server.Shutdown;
+import org.springframework.boot.web.server.autoconfigure.ServerProperties;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
@@ -108,7 +111,7 @@ class PerfilesTest {
         }
 
         @Test
-        @DisplayName("prod fija el tamano del pool de conexiones y de los hilos que atienden peticiones")
+        @DisplayName("prod fija el pool de conexiones, que con hilos virtuales es el techo del trabajo simultaneo")
         void prod_fijaLaConcurrencia() {
             HikariDataSource pool = context.getBean(HikariDataSource.class);
             TomcatServerProperties tomcat = context.getBean(TomcatServerProperties.class);
@@ -117,8 +120,16 @@ class PerfilesTest {
             assertThat(pool.getMaximumPoolSize()).isEqualTo(10);
             assertThat(pool.getMinimumIdle()).isEqualTo(pool.getMaximumPoolSize());
             assertThat(pool.getConnectionTimeout()).isEqualTo(3000);
-            assertThat(tomcat.getThreads().getMax()).isEqualTo(200);
+            assertThat(Threading.VIRTUAL.isActive(context.getEnvironment())).isTrue();
             assertThat(tomcat.getAcceptCount()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("prod se apaga en orden: termina lo que esta en curso antes de cerrar")
+        void prod_seApagaEnOrden() {
+            assertThat(context.getBean(ServerProperties.class).getShutdown()).isEqualTo(Shutdown.GRACEFUL);
+            assertThat(context.getEnvironment().getProperty("spring.lifecycle.timeout-per-shutdown-phase"))
+                    .isEqualTo("20s");
         }
 
         @Test

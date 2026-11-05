@@ -4,7 +4,7 @@
 
 **Peak-traffic readiness**
 - [x] k6 load tests that simulate a sales peak and an order peak, with thresholds in CI
-- [x] Connection-pool and thread-pool sizing, moved by environment variables
+- [x] Connection-pool sizing by environment variable, with every request on a virtual thread
 - [x] In-memory cache of what a published version says, keyed by store and version, with no invalidation to get wrong
 - [x] `Pageable`-based pagination with stable sorting for every collection that can grow
 
@@ -58,6 +58,11 @@
 - [x] Docker Compose with PostgreSQL and Actuator health checks
 - [x] Testcontainers-based integration tests against a real PostgreSQL
 
+**Runtime**
+- [x] Java 25, with virtual threads and a graceful shutdown that lets the requests in progress finish
+- [x] An image of the API on a minimal JRE with the JVM's AOT cache, trained at build time
+- [x] Read-only, unprivileged containers without Linux capabilities
+
 **Observability**
 - [x] Actuator on a management port of its own in `prod`, with the metrics in the Prometheus format
 - [x] Business counters: what happens to the cases, the versions published and the failed logins, counted on commit
@@ -73,3 +78,9 @@
 - [x] CodeQL over Java, TypeScript and the workflows, and gitleaks over every commit
 - [x] Trivy over both images: a fixable critical vulnerability fails the pipeline
 - [x] CycloneDX SBOM of the API, inside the jar, and of the web app
+
+**Repository governance**
+- [x] A security policy with a private way to report, and `security.txt` served by the web app
+- [x] Pull request and issue templates, code owners and a changelog
+- [x] A runbook: health, following a failed request, what to watch, incidents and backups
+- [x] Architecture decision records for the decisions of plan v3, each with what checks it
