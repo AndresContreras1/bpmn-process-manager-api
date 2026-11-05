@@ -270,7 +270,7 @@
 			<plugin>
 				<groupId>org.sonarsource.scanner.maven</groupId>
 				<artifactId>sonar-maven-plugin</artifactId>
-				<version>4.0.0.4121</version>
+				<version>5.8.0.7211</version>
 			</plugin>
 			<!-- Formato: Spotless solo revisa los archivos que un cambio toca frente a origin/main (ratchetFrom), para no
 			     reformatear el repositorio de golpe. Exige higiene y no un estilo nuevo: los imports en los grupos que ya
