@@ -2,12 +2,16 @@
 
 # Design decisions
 
+The short reasons behind the choices that are not obvious. The architecture decisions, each with its context and
+what checks it, have a [record](adr/README.md) of their own.
+
 - **`404` instead of `403` across stores.** Answering "forbidden" would confirm that another store's resource exists.
 - **The tenant comes only from the token.** Request DTOs cannot carry an `empresaId`, and ArchUnit enforces it.
 - **Claims instead of a query per request.** The filter trusts the signed claims, so authenticating a request runs no
   SQL. The one thing a signed token cannot know, that its session was closed, comes from an in-memory list filled by
   the logout, a reused refresh token, a deactivation or a role change. Access tokens last 15 minutes, so the list only
-  needs to remember a session that long.
+  needs to remember a session that long. Every instance of the API fills its list from the same closures, which
+  PostgreSQL announces with `NOTIFY` when the transaction that closes them commits.
 - **Refresh tokens rotate and work once.** A stolen refresh token either fails, because its owner already used it, or
   closes the session as soon as the owner uses theirs. The database keeps SHA-256 hashes: the tokens are already
   random, so BCrypt adds nothing, and the hash has to be searchable.
@@ -68,18 +72,17 @@
   packages: what everyone needs sits in `common` rather than being borrowed from a neighbour, and an ArchUnit rule
   fails the build the day someone points one of them backwards.
 - **The schema belongs to Flyway.** Migrations are the single source of truth, and Hibernate only validates them
-  (`ddl-auto=validate`). Portable SQL lives in `db/migration/common`. What only one engine can express, such as
-  PostgreSQL's partial unique indexes, lives in `db/migration/{vendor}`, and H2 gets an equivalent built on a
-  generated column. Each branch is proved against its own engine: the H2 one by the build of every day,
-  the PostgreSQL one by the suite that runs on a container.
+  (`ddl-auto=validate`). There is one set of them, in `db/migration/common`, written for PostgreSQL, the only
+  engine the project runs on: partial unique indexes and `text` columns are written as such, with no branch for
+  another engine.
 - **A published diagram is text in the row, not a large object.** Hibernate turns `@Lob` on a `String` into
   an `oid` in PostgreSQL: the document moves out of the table into the large-object store, with its own
   identity and its own cleanup, and plain SQL stops reading it. The column asks for `text` and the field
-  asks for the JDBC type that matches it, so the JSON stays in the row on both engines.
+  asks for the JDBC type that matches it, so the JSON stays in the row.
 - **Every text column has a length, and so does its request field.** A value that is too long answers `400` before it
   reaches the database. Passwords stop at 72 characters, because BCrypt only reads 72 bytes and Spring Security
   rejects longer ones.
 - **Tests never touch the development database.** Every `@SpringBootTest` and every `@DataJpaTest` declares its
-  profile, which an ArchUnit rule checks, and the `test` profile gives each Spring context its own in-memory
-  database. The persistence slices keep that database rather than the one the slice would substitute, so they run
-  against the schema Flyway creates, check constraints included.
+  profile, which an ArchUnit rule checks, and every Spring test context gets its own database, copied from one
+  that Flyway migrated, in the PostgreSQL of the test run. The persistence slices keep that database rather than
+  look for an embedded one, so they run against the schema Flyway creates, check constraints included.

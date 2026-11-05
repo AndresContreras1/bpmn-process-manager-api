@@ -46,8 +46,8 @@ or having it reset, closes them too.
 5. `POST /api/v1/auth/logout` closes the session. Deactivating a user or changing their role closes all of their
    sessions, so the old role stops working at once.
 
-Public endpoints are limited to store registration, login, token renewal, the API documentation (not published in
-`prod`) and, in `dev`, the H2 console. The role matrix in [Roles and permissions](#roles-and-permissions) is defined in
+Public endpoints are limited to store registration, login, token renewal and the API documentation (not published
+in `prod`). The role matrix in [Roles and permissions](#roles-and-permissions) is defined in
 one place, the security configuration, and decides `401` or `403` before any controller runs.
 
 ## Login protection
@@ -58,8 +58,44 @@ address within 15 minutes, the login answers `429` with `Retry-After` and stops 
 attempt leaves the window. Because attempts are counted per email and address, an attacker elsewhere cannot lock the
 real user out.
 
-Closed sessions and failed attempts are kept in memory, and closed sessions are reloaded from the database on
-startup. A deployment with several instances would move both to a shared store such as Redis.
+Failed attempts are counted in PostgreSQL, so every instance of the API counts the same ones and spreading the
+attempts over several instances gives no extra tries. Each instance keeps the closed sessions in memory, which
+is what lets the JWT filter run no SQL, and learns of a session closed in another one at once, through
+PostgreSQL's `NOTIFY`; [Several instances](architecture.md#several-instances) has the detail.
+
+## Headers and HTTPS
+
+Every response tells the browser what it may do with it. The API answers JSON and never a page, so its policy
+lets nothing load and nobody frame it. The web app, which NGINX serves, gets a policy that allows what the app is
+made of and nothing else:
+
+| Header | API | Web app |
+|---|---|---|
+| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` | Everything from its own origin; scripts only the ones Angular hashed when it built the app; no plugins, no frames, no forms sent elsewhere |
+| `Content-Security-Policy-Report-Only` | — | Trusted Types, in report mode: the console says what they would block, and nothing breaks |
+| `Strict-Transport-Security` | A year, subdomains included, on what arrived over HTTPS | The same; a browser only honours it over HTTPS |
+| `X-Content-Type-Options` | `nosniff` | `nosniff` |
+| `X-Frame-Options` | `DENY` | `DENY` |
+| `Referrer-Policy` | `no-referrer` | `same-origin` |
+| `Permissions-Policy` | No camera, microphone, location, payments, USB or motion sensors | The same |
+| `Cross-Origin-Opener-Policy` · `Cross-Origin-Resource-Policy` | `same-origin` | `same-origin` |
+
+The hashes of the scripts come from the build. Angular's `autoCsp` leaves two small scripts in the index, the one
+that loads the bundles and the one that turns the stylesheet on, and hashes them; the image of the web app copies
+those hashes into the header NGINX sends, so a change to the index changes them by itself. Two exceptions are
+written down rather than hidden: the styles of the web app allow `'unsafe-inline'`, because Angular puts the
+styles of each component in the page when it draws it, and Swagger UI, which only exists outside `prod`, gets a
+policy that lets it load its own scripts and styles.
+
+Behind the proxy, `prod` believes `X-Forwarded-For` and `X-Forwarded-Proto` only from addresses of the internal
+network (Tomcat's `RemoteIpValve`): the login limit counts the client and not the proxy, and what arrived over
+HTTPS gets HSTS. That is why the Compose stack publishes the API's own port only on `127.0.0.1`, and why in
+production nothing but the proxy reaches the API. With a CDN in front, the proxy has to write the client it
+trusts into `X-Forwarded-For`.
+
+A test reads the headers of every route of the API, the pipeline reads those of every kind of response of the web
+container, a missing file included, and the end-to-end tests fail if the browser's console reports something the
+CSP blocked.
 
 ## Data isolation
 
@@ -123,3 +159,14 @@ a build step or a leaked key has compromised other projects:
 
 Values that look like secrets and are not, such as the signing key of the unit tests, are allowed by value in
 `.gitleaks.toml`, never by path, so a real key in the same file would still be found.
+
+A major version of a base image is a decision rather than an update, so Dependabot only offers the rebuilds
+and the minor releases of the images: moving to the next Java or Node line, or to a new PostgreSQL, comes in
+a pull request of its own.
+
+## Reporting a vulnerability
+
+[SECURITY.md](../SECURITY.md) says how to report one privately, what is in scope and how soon the answer comes.
+The web app serves the same contact at `/.well-known/security.txt`, as RFC 9116 asks, so a researcher who only
+knows the address of a deployment can find it. The file has an expiry date: the pipeline checks that NGINX serves
+it and starts failing a month before it expires, so it is renewed instead of served stale.

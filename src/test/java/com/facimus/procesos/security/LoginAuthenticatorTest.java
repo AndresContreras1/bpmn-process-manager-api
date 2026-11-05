@@ -44,7 +44,7 @@ class LoginAuthenticatorTest {
     @BeforeEach
     void crearConDosIntentos() {
         loginAuthenticator = new LoginAuthenticator(authenticationManager,
-                new AttemptLimiter(2, Duration.ofMinutes(15), 100, new RelojDePrueba()),
+                new LimiteEnMemoria(2, Duration.ofMinutes(15), new RelojDePrueba()),
                 new MetricasDeNegocio(registro));
     }
 

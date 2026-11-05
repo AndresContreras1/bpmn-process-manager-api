@@ -7,12 +7,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -20,6 +22,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.CrossOriginOpenerPolicyHeaderWriter.CrossOriginOpenerPolicy;
+import org.springframework.security.web.header.writers.CrossOriginResourcePolicyHeaderWriter.CrossOriginResourcePolicy;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.service.IdempotenciaService;
@@ -32,8 +43,26 @@ public class SecurityConfig {
 
     private static final String ADMINISTRADOR = RolAcceso.ADMINISTRADOR.name();
     private static final String EDITOR = RolAcceso.EDITOR.name();
-    /** Cuantas combinaciones de correo e IP recuerda el limite del login; las que menos se usan se olvidan primero. */
-    private static final int CLAVES_DE_LOGIN = 10_000;
+
+    /** La API responde JSON y nunca una pagina: si un navegador la mostrara, no carga nada ni deja enmarcarla. */
+    static final String CSP_DE_LA_API =
+            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+
+    /** Swagger UI, que fuera de prod si es una pagina: sus scripts y estilos, del mismo origen, y sus iconos. */
+    static final String CSP_DE_LA_DOCUMENTACION = "default-src 'self'; img-src 'self' data:; "
+            + "style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; "
+            + "frame-ancestors 'none'";
+
+    /** Nada de lo que la API ni la web usan: ni camara, ni microfono, ni ubicacion, ni pagos del navegador. */
+    static final String PERMISOS = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), "
+            + "microphone=(), payment=(), usb=()";
+
+    /** 365 dias en segundos: lo minimo que pide la lista de precarga de HSTS. */
+    private static final long HSTS_SEGUNDOS = 31_536_000L;
+
+    private static final RequestMatcher DOCUMENTACION = new OrRequestMatcher(
+            PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui/**"),
+            PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui.html"));
 
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
@@ -64,14 +93,13 @@ public class SecurityConfig {
     static HttpSecurity reglasComunes(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
-                // La consola H2 de dev se arma con frames de su mismo origen; ningun otro sitio puede enmarcar la API.
-                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
+                .headers(SecurityConfig::cabeceras)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/empresas").permitAll()
-                        .requestMatchers("/h2-console/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
-                                "/error").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/error")
+                        .permitAll()
                         // El estado, la version y lo que lee Prometheus son publicos: en prod, Actuator vive en un
                         // puerto que solo alcanza la red interna. Las metricas, solo para el administrador.
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
@@ -108,17 +136,41 @@ public class SecurityConfig {
                         .anyRequest().authenticated());
     }
 
+    /**
+     * Lo que cada respuesta le dice al navegador: que no adivine el tipo, que no la enmarque nadie, que no mande la
+     * direccion de donde venia, que no le de acceso a nada del equipo y que no comparta su ventana ni sus recursos
+     * con otro origen. HSTS sale solo en lo que llego por HTTPS, y detras del proxy eso lo dice
+     * {@code X-Forwarded-Proto}; la precarga en los navegadores se pide aparte, cuando produccion lleva un mes en
+     * HTTPS. La web la sirve NGINX con sus propias cabeceras: estas son las de la API.
+     */
+    static void cabeceras(HeadersConfigurer<HttpSecurity> cabeceras) {
+        cabeceras
+                .frameOptions(frame -> frame.deny())
+                .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.NO_REFERRER))
+                .permissionsPolicyHeader(permisos -> permisos.policy(PERMISOS))
+                .crossOriginOpenerPolicy(coop -> coop.policy(CrossOriginOpenerPolicy.SAME_ORIGIN))
+                .crossOriginResourcePolicy(corp -> corp.policy(CrossOriginResourcePolicy.SAME_ORIGIN))
+                .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(HSTS_SEGUNDOS))
+                .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(new NegatedRequestMatcher(DOCUMENTACION),
+                        new StaticHeadersWriter("Content-Security-Policy", CSP_DE_LA_API)))
+                .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(DOCUMENTACION,
+                        new StaticHeadersWriter("Content-Security-Policy", CSP_DE_LA_DOCUMENTACION)));
+    }
+
     /** El reloj del sistema, como bean para que los tests unitarios puedan mover el tiempo. */
     @Bean
     public Clock reloj() {
         return Clock.systemUTC();
     }
 
-    /** HU-03: los intentos fallidos del login se cuentan por correo e IP, en una ventana deslizante. */
+    /**
+     * HU-03: los intentos fallidos del login se cuentan por correo e IP, en una ventana deslizante, en la base: todas
+     * las instancias cuentan los mismos (D34).
+     */
     @Bean
-    public AttemptLimiter limitadorDeLogin(@Value("${login.max-failed-attempts}") int maximo,
+    public IntentosDeLogin limitadorDeLogin(JdbcTemplate jdbc, @Value("${login.max-failed-attempts}") int maximo,
             @Value("${login.failed-attempts-window}") Duration ventana, Clock reloj) {
-        return new AttemptLimiter(maximo, ventana, CLAVES_DE_LOGIN, reloj);
+        return new IntentosDeLogin(jdbc, maximo, ventana, reloj);
     }
 
     @Bean

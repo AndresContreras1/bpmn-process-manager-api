@@ -29,7 +29,7 @@ import com.facimus.procesos.gestion.model.VersionProceso;
  * Las versiones contra la base: los numeros no se repiten dentro de un proceso, la vigente es la ultima que sigue en
  * pie, y el diagrama entero cabe en la columna, que para eso es un clob.
  * <p>
- * El slice conserva la base del perfil test (replace = NONE), que ya es H2 en memoria y trae el esquema de Flyway.
+ * El slice conserva la base de su contexto en el PostgreSQL de las pruebas, con el esquema de Flyway (replace = NONE).
  * La auditoria se importa aparte porque las fechas de creacion y de modificacion no aceptan nulos.
  */
 @DataJpaTest
