@@ -44,6 +44,8 @@ public class IdempotencyFilter extends OncePerRequestFilter {
     /** Marca las respuestas que se devuelven guardadas, sin volver a ejecutar la peticion. */
     public static final String REPETIDA = "Idempotent-Replayed";
 
+    private static final String SIN_IDEMPOTENCIA = "/api/v1/auth/";
+
     private static final int CLAVE_MAXIMA = 100;
 
     private final IdempotenciaService idempotenciaService;
@@ -56,8 +58,10 @@ public class IdempotencyFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        // PR 49: lo de /api/v1/auth no se guarda: la respuesta repetida llevaria en claro un secreto del TOTP, los
+        // codigos de recuperacion o las cookies de una sesion, y nada de eso puede quedar en la base.
         return !HttpMethod.POST.matches(request.getMethod()) || request.getHeader(CABECERA) == null
-                || principal() == null;
+                || principal() == null || request.getRequestURI().startsWith(SIN_IDEMPOTENCIA);
     }
 
     @Override

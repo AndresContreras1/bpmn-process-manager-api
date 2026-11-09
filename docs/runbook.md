@@ -108,6 +108,16 @@ delivers it again, and a listener can take the same event twice.
 `JWT_PREVIOUS_SECRET` empty and recreate the API with `docker compose up -d api`. Every access token signed with the
 old key stops working, so every person renews or signs in again; that is the point.
 
+**The key of the second factor leaked.** `MFA_CLAVE_DE_CIFRADO` decrypts the TOTP secrets of the database and
+signs the recovery codes, so with a copy of the database it opens the second factors. Put a new one in `.env` and
+recreate the API, then delete what the old key protected, which no longer decrypts:
+`DELETE FROM codigos_de_recuperacion; DELETE FROM segundos_factores;`. Every person signs in with the password alone
+until they enroll their app again; in a store that asks for it, they can only enroll it.
+
+**A person lost the phone and the recovery codes.** An administrator of their store removes their second factor
+(`DELETE /api/v1/usuarios/{id}/segundo-factor`, after confirming their own identity), which closes that person's
+sessions. They sign in with the password and enroll a new app.
+
 **The database password leaked.** Change it in PostgreSQL (`ALTER ROLE procesos PASSWORD '...'`), then in `.env`, and
 recreate the API.
 

@@ -17,6 +17,7 @@ import com.facimus.procesos.gestion.model.ConfiguracionTienda;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.ParametrosSimulacion;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
+import com.facimus.procesos.gestion.model.PoliticaSegundoFactor;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.ConfiguracionTiendaRepository;
@@ -65,8 +66,10 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
 
     @Override
     @Transactional
+    @SuppressWarnings("java:S107") // cada parte de la configuracion, por su nombre
     public ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
-            ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones, Long version) {
+            ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones,
+            PoliticaSegundoFactor segundoFactor, Long version) {
         ConfiguracionTienda configuracion = buscar(empresaId);
         configuracion.verificarVersion(version);
         configuracion.setPoliticaEstructura(politica);
@@ -78,6 +81,11 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
             configuracion.setSimulacion(parametros);
         }
         boolean cambianLasSesiones = acotarSesiones(configuracion, sesiones);
+        boolean cambiaElSegundoFactor = segundoFactor != null
+                && segundoFactor != configuracion.getPoliticaSegundoFactor();
+        if (cambiaElSegundoFactor) {
+            configuracion.setPoliticaSegundoFactor(segundoFactor);
+        }
         configuracion = configuracionTiendaRepository.saveAndFlush(configuracion);
 
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
@@ -89,6 +97,14 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
                     "Las sesiones se cierran tras " + configuracion.getInactividadSesionMinutos()
                             + " minutos sin renovarse y " + horas(configuracion.getDuracionSesionHoras())
                             + " después del login.");
+        }
+        if (cambiaElSegundoFactor) {
+            historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
+                    switch (segundoFactor) {
+                        case OPCIONAL -> "El segundo factor queda a elección de cada persona.";
+                        case ADMINISTRADORES -> "Los administradores tienen que usar un segundo factor.";
+                        case TODOS -> "Todos tienen que usar un segundo factor.";
+                    });
         }
         return configuracionTiendaMapper.toResponse(configuracion);
     }

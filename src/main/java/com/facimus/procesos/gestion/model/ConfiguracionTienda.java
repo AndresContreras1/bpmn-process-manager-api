@@ -69,4 +69,10 @@ public class ConfiguracionTienda extends EntidadEditable {
     @Column(name = "duracion_sesion_horas", nullable = false)
     @Builder.Default
     private int duracionSesionHoras = 24;
+
+    /** PR 49: a quien le exige la tienda un segundo factor para trabajar. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "politica_segundo_factor", nullable = false, length = 20)
+    @Builder.Default
+    private PoliticaSegundoFactor politicaSegundoFactor = PoliticaSegundoFactor.OPCIONAL;
 }

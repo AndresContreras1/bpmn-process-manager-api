@@ -1,8 +1,13 @@
 package com.facimus.procesos.security.controller;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.EnumSet;
+import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.validation.annotation.Validated;
@@ -12,13 +17,20 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SesionInvalidaException;
+import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.security.ApiPrincipal;
+import com.facimus.procesos.common.security.Factor;
 import com.facimus.procesos.gestion.dto.request.CambiarClaveRequest;
+import com.facimus.procesos.gestion.dto.request.CodigoRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
+import com.facimus.procesos.gestion.dto.request.ReautenticacionRequest;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.SesionResponse;
+import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.SegundoFactorService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.CookiesDeSesion;
@@ -48,14 +60,20 @@ public class AuthController {
     private final UsuarioService usuarioService;
     private final JwtService jwtService;
     private final CookiesDeSesion cookies;
+    private final SegundoFactorService segundoFactorService;
+
+    /** PR 49: lo que dura el login a medias, entre la contrasena y el codigo. */
+    static final Duration VIDA_DEL_LOGIN_PENDIENTE = Duration.ofMinutes(5);
 
     public AuthController(LoginAuthenticator loginAuthenticator, SesionService sesionService,
-            UsuarioService usuarioService, JwtService jwtService, CookiesDeSesion cookies) {
+            UsuarioService usuarioService, JwtService jwtService, CookiesDeSesion cookies,
+            SegundoFactorService segundoFactorService) {
         this.loginAuthenticator = loginAuthenticator;
         this.sesionService = sesionService;
         this.usuarioService = usuarioService;
         this.jwtService = jwtService;
         this.cookies = cookies;
+        this.segundoFactorService = segundoFactorService;
     }
 
     @Operation(summary = "Get the CSRF token", description = "Sets the XSRF-TOKEN cookie, whose value every request "
@@ -76,7 +94,9 @@ public class AuthController {
             + "the store's maximum duration after the login, 24 hours unless shortened: then the user signs in "
             + "again. A wrong password and an unknown email get the same answer. After 5 failed attempts for an "
             + "email from the same address within 15 minutes, the login answers 429 until the oldest attempt leaves "
-            + "that window.")
+            + "that window. With a second factor the password is not enough: the answer carries only an access "
+            + "cookie of 5 minutes, segundoFactorPendiente is true, and that cookie only works to send the code to "
+            + "POST /api/v1/auth/segundo-factor/verificacion.")
     @ApiResponse(responseCode = "200", description = "The session cookies, and in the body the user's profile")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -89,7 +109,37 @@ public class AuthController {
         // Si falla, ApiExceptionHandler responde 401 con el mismo mensaje generico, exista o no el correo (HU-03).
         UsuarioResponse usuario = loginAuthenticator.autenticar(request.email(), request.password(),
                 peticion.getRemoteAddr());
+        if (segundoFactorService.loPide(usuario.empresaId(), usuario.id())) {
+            return ResponseEntity.ok(pendiente(usuario, respuesta));
+        }
         return ResponseEntity.ok(abrir(sesionService.iniciar(usuario.empresaId(), usuario.id()), respuesta));
+    }
+
+    @Operation(summary = "Finish the login with the second factor",
+            description = "Takes the 6 digits of the authenticator app, or one of the recovery codes, from the "
+                    + "half-done login the password left, and opens the session with both cookies. A code of the app "
+                    + "works once, and so does each recovery code. Wrong codes count with the login's limit: after 5 "
+                    + "it answers 429.")
+    @ApiResponse(responseCode = "200", description = "The session cookies, and in the body the user's profile")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @ApiResponse(responseCode = "429", ref = "TooManyRequests")
+    @PostMapping("/segundo-factor/verificacion")
+    public ResponseEntity<SesionResponse> completarLogin(@Validated @RequestBody CodigoRequest request,
+            @AuthenticationPrincipal ApiPrincipal principal, HttpServletRequest peticion,
+            HttpServletResponse respuesta) {
+        if (!principal.segundoFactorPendiente()) {
+            throw new ReglaNegocioException("Esta sesión ya está completa: no le falta ningún factor.");
+        }
+        Long empresaId = principal.empresaId();
+        Long usuarioId = principal.usuarioId();
+        Factor factor = loginAuthenticator.comprobarCodigo(principal.email(), peticion.getRemoteAddr(),
+                () -> segundoFactorService.verificar(empresaId, usuarioId, request.codigo()));
+        // El token del login a medias ya hizo su trabajo: desde aqui no sirve ni para intentarlo otra vez.
+        sesionService.cerrar(empresaId, usuarioId, principal.sesion());
+        return ResponseEntity.ok(abrir(sesionService.iniciar(empresaId, usuarioId, EnumSet.of(Factor.PASSWORD,
+                factor)), respuesta));
     }
 
     @Operation(summary = "Renew the session", description = "Trades the refresh cookie for a new access cookie and a "
@@ -137,13 +187,59 @@ public class AuthController {
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @PostMapping("/password")
     public ResponseEntity<SesionResponse> cambiarClave(@Validated @RequestBody CambiarClaveRequest request,
-            @AuthenticationPrincipal ApiPrincipal principal, HttpServletResponse respuesta) {
+            @AuthenticationPrincipal ApiPrincipal principal, Authentication autenticacion,
+            HttpServletResponse respuesta) {
         Long empresaId = principal.empresaId();
         Long usuarioId = principal.usuarioId();
         usuarioService.cambiarClavePropia(empresaId, usuarioId, request.actual(), request.nueva());
-        // Cambiar la contrasena echa a quien la estuviera usando en otro sitio; quien la cambio sigue con una nueva.
+        // Cambiar la contrasena echa a quien la estuviera usando en otro sitio; quien la cambio sigue con una nueva,
+        // con los factores con que entro: quien dio su codigo no tiene que darlo otra vez por cambiar la clave.
         sesionService.cerrarTodas(empresaId, usuarioId);
-        return ResponseEntity.ok(abrir(sesionService.iniciar(empresaId, usuarioId), respuesta));
+        Set<Factor> factores = Factor.de(autenticacion.getAuthorities());
+        factores.add(Factor.PASSWORD);
+        return ResponseEntity.ok(abrir(sesionService.iniciar(empresaId, usuarioId, factores), respuesta));
+    }
+
+    @Operation(summary = "Confirm who you are again",
+            description = "Checks who the signed-in user is again and renews only the access cookie, marked as "
+                    + "verified now. Without a second factor it takes the password; with one, the code of the "
+                    + "authenticator app or a recovery code, and the password is not enough. What needs a recent "
+                    + "verification, such as closing the store or managing the second factor, asks for one from the "
+                    + "last 10 minutes; without it the answer is 403 with the title \"Verificación requerida\", and "
+                    + "this is how to get it back. Wrong passwords and codes count with the login's limit.")
+    @ApiResponse(responseCode = "200", description = "A new access cookie of the same session, and in the body the "
+            + "user's profile")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "429", ref = "TooManyRequests")
+    @PostMapping("/reautenticacion")
+    public ResponseEntity<SesionResponse> reautenticar(@Validated @RequestBody ReautenticacionRequest request,
+            @AuthenticationPrincipal ApiPrincipal principal, HttpServletRequest peticion,
+            HttpServletResponse respuesta) {
+        // La misma comprobacion del login, con su limite de intentos: una cookie robada no prueba claves gratis.
+        Long empresaId = principal.empresaId();
+        Long usuarioId = principal.usuarioId();
+        Factor factor;
+        if (segundoFactorService.loPide(empresaId, usuarioId)) {
+            // Con segundo factor, la clave sola no confirma nada: quien tiene la cookie quiza tambien tiene la clave.
+            if (request.codigo() == null || request.codigo().isBlank()) {
+                throw new SolicitudInvalidaException("Con segundo factor, confirmar quién eres pide el código de tu "
+                        + "aplicación de autenticación o uno de recuperación.");
+            }
+            factor = loginAuthenticator.comprobarCodigo(principal.email(), peticion.getRemoteAddr(),
+                    () -> segundoFactorService.verificar(empresaId, usuarioId, request.codigo()));
+        } else {
+            if (request.password() == null || request.password().isBlank()) {
+                throw new SolicitudInvalidaException("La contraseña es obligatoria.");
+            }
+            loginAuthenticator.autenticar(principal.email(), request.password(), peticion.getRemoteAddr());
+            factor = Factor.PASSWORD;
+        }
+        SesionVerificada verificada = sesionService.reverificar(empresaId, usuarioId, principal.sesion(), factor);
+        Duration vidaDelAcceso = vidaDelAcceso(verificada.vidaRestante());
+        cookies.renovarAcceso(respuesta, jwtService.generarToken(principal(verificada.usuario(), verificada.sesion()),
+                verificada.factores(), verificada.verificadaEn(), vidaDelAcceso), vidaDelAcceso);
+        return ResponseEntity.ok(new SesionResponse(vidaDelAcceso.toSeconds(), verificada.usuario(), false));
     }
 
     /**
@@ -151,10 +247,37 @@ public class AuthController {
      * de la sesion: a las 24 horas se vuelve a entrar, no a las 24 y cuarto.
      */
     private SesionResponse abrir(SesionIniciada sesion, HttpServletResponse respuesta) {
-        Duration maximo = Duration.ofSeconds(jwtService.getExpirationSeconds());
-        Duration vidaDelAcceso = sesion.vidaRestante().compareTo(maximo) < 0 ? sesion.vidaRestante() : maximo;
-        String accessToken = jwtService.generarToken(sesion.usuario().comoPrincipal(sesion.sesion()), vidaDelAcceso);
+        Duration vidaDelAcceso = vidaDelAcceso(sesion.vidaRestante());
+        String accessToken = jwtService.generarToken(principal(sesion.usuario(), sesion.sesion()),
+                sesion.factores(), sesion.verificadaEn(), vidaDelAcceso);
         cookies.abrir(respuesta, accessToken, vidaDelAcceso, sesion.refreshToken(), sesion.vidaDelRefresco());
-        return new SesionResponse(vidaDelAcceso.toSeconds(), sesion.usuario());
+        return new SesionResponse(vidaDelAcceso.toSeconds(), sesion.usuario(), false);
+    }
+
+    /**
+     * PR 49: el login a medias. Solo la cookie de acceso, de cinco minutos, con un token que solo sirve para dar el
+     * codigo; la de refresco se borra, porque todavia no hay una sesion que renovar.
+     */
+    private SesionResponse pendiente(UsuarioResponse usuario, HttpServletResponse respuesta) {
+        ApiPrincipal principal = usuario.comoPrincipal(UUID.randomUUID().toString()).pendienteDelSegundoFactor();
+        String accessToken = jwtService.generarToken(principal, EnumSet.of(Factor.PASSWORD), Instant.now(),
+                VIDA_DEL_LOGIN_PENDIENTE);
+        cookies.abrirPendiente(respuesta, accessToken, VIDA_DEL_LOGIN_PENDIENTE);
+        return new SesionResponse(VIDA_DEL_LOGIN_PENDIENTE.toSeconds(), usuario, true);
+    }
+
+    /**
+     * PR 49: la identidad del token de una sesion completa. Si la tienda le exige un segundo factor que no tiene, el
+     * token lo dice y solo sirve para inscribirlo; al renovar la sesion despues de confirmarlo, ya no.
+     */
+    private ApiPrincipal principal(UsuarioResponse usuario, String sesion) {
+        ApiPrincipal principal = usuario.comoPrincipal(sesion);
+        return segundoFactorService.faltaInscribir(usuario.empresaId(), usuario.id(), usuario.rolAcceso())
+                ? principal.conInscripcionObligatoria() : principal;
+    }
+
+    private Duration vidaDelAcceso(Duration vidaRestante) {
+        Duration maximo = Duration.ofSeconds(jwtService.getExpirationSeconds());
+        return vidaRestante.compareTo(maximo) < 0 ? vidaRestante : maximo;
     }
 }

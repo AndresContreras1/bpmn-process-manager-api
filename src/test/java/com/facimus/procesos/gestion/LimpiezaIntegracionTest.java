@@ -171,6 +171,7 @@ class LimpiezaIntegracionTest {
                 .usuario(usuario)
                 .codigo(UUID.randomUUID().toString())
                 .fechaInicio(inicio)
+                .verificadaEn(inicio)
                 .fechaCierre(cierre)
                 .build());
     }

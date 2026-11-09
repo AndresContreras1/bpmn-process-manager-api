@@ -102,7 +102,8 @@ class MigracionesTest {
                         "V25__registro_de_eventos.sql",
                         "V26__cola_de_trabajos.sql",
                         "V27__enlaces_de_un_uso.sql", "V28__limites_de_sesion.sql",
-                        "V29__baja_y_anonimizacion.sql");
+                        "V29__baja_y_anonimizacion.sql", "V30__factores_de_la_sesion.sql",
+                        "V31__segundo_factor.sql", "V32__politica_de_segundo_factor.sql");
     }
 
     @Test
@@ -216,6 +217,7 @@ class MigracionesTest {
                 .usuario(usuario)
                 .codigo(codigo)
                 .fechaInicio(LocalDateTime.now())
+                .verificadaEn(LocalDateTime.now())
                 .build();
     }
 

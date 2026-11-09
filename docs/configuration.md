@@ -23,6 +23,7 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `DB_HOST` · `DB_PORT` · `DB_NAME` | Database location, in `prod` and in `dev` without Docker | `localhost` · `5432` · `procesos` |
 | `DB_USER` · `DB_PASSWORD` | Database credentials | `procesos` · empty |
 | `JWT_SECRET` | HS256 signing key of at least 32 bytes. The `prod` profile does not start without it. | None |
+| `MFA_CLAVE_DE_CIFRADO` | Key of at least 32 characters from which the API derives the AES-GCM key of the TOTP secrets and the HMAC key of the recovery codes. `dev` and `test` have a fixed one, and `prod` does not start without it. It does not rotate: changing it voids every enrolled second factor | None in `prod` |
 | `JWT_PREVIOUS_SECRET` | The signing key before the last rotation: its tokens are still accepted, and nobody signs with it. Empty outside a rotation | Empty |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime. Keep it under 30 minutes, the shortest idle timeout a store can choose: the refresh token and the session last what each store decides in its settings | `900` |
 | `CLAVES_COSTO_BCRYPT` | Cost of BCrypt, from 4 to 31: each step doubles the time of a hash. Raising it invalidates no password, because each login rehashes with the new one | `10` |

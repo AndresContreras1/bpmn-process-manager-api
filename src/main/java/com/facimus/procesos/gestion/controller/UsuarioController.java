@@ -30,6 +30,7 @@ import com.facimus.procesos.gestion.dto.response.RolDeUsuarioResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.MembresiaRolService;
+import com.facimus.procesos.gestion.service.SegundoFactorService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -54,6 +55,7 @@ public class UsuarioController {
     private final UsuarioService usuarioService;
     private final MembresiaRolService membresiaRolService;
     private final CuentaService cuentaService;
+    private final SegundoFactorService segundoFactorService;
 
     @Operation(summary = "List users",
             description = "Pages of the store's users, by name by default. Only the active ones, unless "
@@ -139,6 +141,23 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponse> restablecerClave(@PathVariable Long id,
             @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(usuarioService.restablecerClave(principal.empresaId(), principal.usuarioId(), id));
+    }
+
+    @Operation(summary = "Remove the second factor of a user",
+            description = "For someone who lost both the phone and the recovery codes: removes the authenticator app "
+                    + "and the codes, and closes every session of that user, who signs in with the password alone "
+                    + "until they set up a new one. Not your own: that one is removed from your account. "
+                    + "Administrators only, with a verification of the last 10 minutes.")
+    @ApiResponse(responseCode = "204", description = "Second factor removed")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @DeleteMapping("/{id}/segundo-factor")
+    public ResponseEntity<Void> quitarSegundoFactor(@PathVariable Long id,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        segundoFactorService.quitarDeOtro(principal.empresaId(), principal.usuarioId(), id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Change the name, the access role or the status of a user",

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
+import com.facimus.procesos.gestion.model.PoliticaSegundoFactor;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -20,6 +21,8 @@ public record ConfiguracionTiendaResponse(
         int inactividadSesionMinutos,
         @Schema(description = "Hours after the login when the user has to sign in again", example = "24")
         int duracionSesionHoras,
+        @Schema(description = "Who has to use a second factor to work: whoever needs one and has none can only enroll "
+                + "it", example = "OPCIONAL") PoliticaSegundoFactor politicaSegundoFactor,
         @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
         Long version,
         @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,

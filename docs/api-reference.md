@@ -29,6 +29,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | AI review | `POST /api/v1/procesos/{id}/revision` |
 | Store history and settings | `GET /api/v1/empresas/actual/historial` · `GET, PUT /api/v1/empresas/actual/configuracion` |
 | Passwords | `POST /api/v1/auth/password` · `POST /api/v1/usuarios/{id}/restablecer-clave` · `POST /api/v1/auth/recuperacion` · `POST /api/v1/auth/recuperacion/confirmar` |
+| Second factor | `GET /api/v1/auth/segundo-factor` · `POST, DELETE /api/v1/auth/segundo-factor/totp` · `POST /api/v1/auth/segundo-factor/totp/confirmacion` · `POST /api/v1/auth/segundo-factor/codigos` · `POST /api/v1/auth/segundo-factor/verificacion` · `POST /api/v1/auth/reautenticacion` · `DELETE /api/v1/usuarios/{id}/segundo-factor` |
 | Account by e-mail | `POST /api/v1/auth/verificacion` · `POST /api/v1/auth/verificacion/confirmar` · `POST /api/v1/auth/invitacion/aceptar` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 | Cases | `POST /api/v1/procesos/{procesoId}/casos` · `GET /api/v1/casos` · `GET /api/v1/casos/{id}` · `GET /api/v1/casos/{id}/eventos` · `POST /api/v1/casos/{id}/cancelar` · `PATCH /api/v1/casos/{id}/variables` · `POST /api/v1/casos/{id}/reintentar` |
@@ -103,6 +104,14 @@ curl -s -b sesion.txt http://localhost:8080/api/v1/procesos
 The cookies are `Secure`: like a browser, curl sends them over plain HTTP only to `localhost`. The refresh cookie
 lives the store's idle timeout, and `expiresIn` in the body says when the access cookie expires: fifteen minutes,
 or less near the end of the session.
+
+With a second factor the login answers `segundoFactorPendiente: true` and only the access cookie, for five minutes.
+The code finishes it, with the same cookie jar:
+
+```bash
+curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/segundo-factor/verificacion \
+  -H "X-XSRF-TOKEN: $XSRF" -H "Content-Type: application/json" -d '{"codigo":"492039"}'
+```
 
 ## Links sent by e-mail
 

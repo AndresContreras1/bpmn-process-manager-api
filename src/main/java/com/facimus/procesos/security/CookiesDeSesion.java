@@ -37,6 +37,20 @@ public class CookiesDeSesion {
                 cookie(REFRESCO, refreshToken, RUTA_DEL_REFRESCO, vidaDelRefresco));
     }
 
+    /** PR 49: solo la cookie de acceso, con un token nuevo de la misma sesion; la de refresco sigue sirviendo. */
+    public void renovarAcceso(HttpServletResponse respuesta, String accessToken, Duration vidaDelAcceso) {
+        respuesta.addHeader(HttpHeaders.SET_COOKIE, cookie(ACCESO, accessToken, "/", vidaDelAcceso));
+    }
+
+    /**
+     * PR 49: el login a medias de quien tiene segundo factor. Solo la cookie de acceso, con un token que solo sirve
+     * para dar el codigo; la de refresco se borra, porque todavia no hay una sesion que renovar.
+     */
+    public void abrirPendiente(HttpServletResponse respuesta, String accessToken, Duration vida) {
+        respuesta.addHeader(HttpHeaders.SET_COOKIE, cookie(ACCESO, accessToken, "/", vida));
+        respuesta.addHeader(HttpHeaders.SET_COOKIE, cookie(REFRESCO, "", RUTA_DEL_REFRESCO, Duration.ZERO));
+    }
+
     /** Las borra del navegador: la misma cookie, vacia y vencida. */
     public void cerrar(HttpServletResponse respuesta) {
         respuesta.addHeader(HttpHeaders.SET_COOKIE, cookie(ACCESO, "", "/", Duration.ZERO));

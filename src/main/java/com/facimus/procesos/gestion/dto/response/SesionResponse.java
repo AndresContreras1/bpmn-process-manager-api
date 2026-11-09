@@ -11,5 +11,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record SesionResponse(
         @Schema(description = "Seconds until the access cookie expires and has to be renewed", example = "900")
         long expiresIn,
-        UsuarioResponse usuario) {
+        UsuarioResponse usuario,
+        @Schema(description = "True when the password was right and the second factor is still missing: the access "
+                + "cookie then only works to send the code to POST /api/v1/auth/segundo-factor/verificacion",
+                example = "false") boolean segundoFactorPendiente) {
 }

@@ -5,6 +5,7 @@ import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.pri
 import static com.facimus.procesos.security.SesionEnCookies.conCsrf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -12,12 +13,16 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
@@ -36,9 +41,13 @@ import com.facimus.procesos.common.DemasiadosIntentosException;
 import com.facimus.procesos.common.SesionInvalidaException;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.ApiPrincipal;
+import com.facimus.procesos.common.security.Factor;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
+import com.facimus.procesos.gestion.dto.request.ReautenticacionRequest;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
+import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.SegundoFactorService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.CookiesDeSesion;
@@ -51,6 +60,9 @@ import tools.jackson.databind.json.JsonMapper;
 @WebMvcTest(AuthController.class)
 @Import(CookiesDeSesion.class)
 class AuthControllerTest {
+
+    private static final Set<Factor> CLAVE = EnumSet.of(Factor.PASSWORD);
+    private static final Instant VERIFICADA = Instant.parse("2026-10-08T10:00:00Z");
 
     @Autowired
     private MockMvc mockMvc;
@@ -70,6 +82,9 @@ class AuthControllerTest {
     @MockitoBean
     private JwtService jwtService;
 
+    @MockitoBean
+    private SegundoFactorService segundoFactorService;
+
     @Test
     @DisplayName("POST /api/v1/auth/login - credenciales validas abren la sesion en dos cookies HttpOnly, y el cuerpo "
             + "no lleva tokens (200)")
@@ -77,8 +92,9 @@ class AuthControllerTest {
         UsuarioResponse usuario = usuario();
         given(loginAuthenticator.autenticar("juan@acme.com", "harbor lights at dusk", "127.0.0.1")).willReturn(usuario);
         given(sesionService.iniciar(1L, 10L)).willReturn(new SesionIniciada("refresh-de-prueba", "sesion-1", usuario,
-                Duration.ofHours(1), Duration.ofHours(24)));
-        given(jwtService.generarToken(any(ApiPrincipal.class), any(Duration.class))).willReturn("token-de-prueba");
+                Duration.ofHours(1), Duration.ofHours(24), CLAVE, VERIFICADA));
+        given(jwtService.generarToken(any(ApiPrincipal.class), anySet(), any(Instant.class), any(Duration.class)))
+                .willReturn("token-de-prueba");
         given(jwtService.getExpirationSeconds()).willReturn(900L);
 
         MockHttpServletResponse respuesta = mockMvc.perform(post("/api/v1/auth/login").with(conCsrf())
@@ -99,7 +115,7 @@ class AuthControllerTest {
                         + "Path=/api/v1/auth; Max-Age=3600; Expires=*; Secure; HttpOnly; SameSite=Lax")));
         then(jwtService).should()
                 .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1", false),
-                        Duration.ofSeconds(900));
+                        CLAVE, VERIFICADA, Duration.ofSeconds(900));
     }
 
     @Test
@@ -167,8 +183,9 @@ class AuthControllerTest {
         UsuarioResponse usuario = usuario();
         given(sesionService.renovar("refresh-viejo"))
                 .willReturn(new SesionIniciada("refresh-nuevo", "sesion-1", usuario, Duration.ofMinutes(30),
-                        Duration.ofHours(3)));
-        given(jwtService.generarToken(any(ApiPrincipal.class), any(Duration.class))).willReturn("token-nuevo");
+                        Duration.ofHours(3), CLAVE, VERIFICADA));
+        given(jwtService.generarToken(any(ApiPrincipal.class), anySet(), any(Instant.class), any(Duration.class)))
+                .willReturn("token-nuevo");
         given(jwtService.getExpirationSeconds()).willReturn(900L);
 
         MockHttpServletResponse respuesta = mockMvc.perform(post("/api/v1/auth/refresh").with(conCsrf())
@@ -184,7 +201,7 @@ class AuthControllerTest {
         assertThat(respuesta.getCookie(CookiesDeSesion.REFRESCO).getMaxAge()).isEqualTo(1800);
         then(jwtService).should()
                 .generarToken(new ApiPrincipal(10L, 1L, RolAcceso.ADMINISTRADOR, "juan@acme.com", "sesion-1", false),
-                        Duration.ofSeconds(900));
+                        CLAVE, VERIFICADA, Duration.ofSeconds(900));
     }
 
     @Test
@@ -192,8 +209,9 @@ class AuthControllerTest {
             + "quince")
     void AuthController_refresh_cercaDelFin_elAccesoNoPasaDelFin() throws Exception {
         given(sesionService.renovar("refresh-viejo")).willReturn(new SesionIniciada("refresh-nuevo", "sesion-1",
-                usuario(), Duration.ofMinutes(10), Duration.ofMinutes(10)));
-        given(jwtService.generarToken(any(ApiPrincipal.class), any(Duration.class))).willReturn("token-nuevo");
+                usuario(), Duration.ofMinutes(10), Duration.ofMinutes(10), CLAVE, VERIFICADA));
+        given(jwtService.generarToken(any(ApiPrincipal.class), anySet(), any(Instant.class), any(Duration.class)))
+                .willReturn("token-nuevo");
         given(jwtService.getExpirationSeconds()).willReturn(900L);
 
         MockHttpServletResponse respuesta = mockMvc.perform(post("/api/v1/auth/refresh").with(conCsrf())
@@ -204,7 +222,50 @@ class AuthControllerTest {
 
         assertThat(respuesta.getCookie(CookiesDeSesion.ACCESO).getMaxAge()).isEqualTo(600);
         assertThat(respuesta.getCookie(CookiesDeSesion.REFRESCO).getMaxAge()).isEqualTo(600);
-        then(jwtService).should().generarToken(any(ApiPrincipal.class), eq(Duration.ofMinutes(10)));
+        then(jwtService).should().generarToken(any(ApiPrincipal.class), eq(CLAVE), eq(VERIFICADA),
+                eq(Duration.ofMinutes(10)));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/reautenticacion - la clave buena renueva solo la cookie de acceso, verificada "
+            + "ahora (200)")
+    void AuthController_reautenticacion_renuevaSoloElAcceso() throws Exception {
+        Instant ahora = Instant.parse("2026-10-08T10:30:00Z");
+        given(sesionService.reverificar(1L, 1L, SESION, Factor.PASSWORD))
+                .willReturn(new SesionVerificada(SESION, usuario(), CLAVE, ahora, Duration.ofHours(2)));
+        given(jwtService.generarToken(any(ApiPrincipal.class), anySet(), any(Instant.class), any(Duration.class)))
+                .willReturn("token-verificado");
+        given(jwtService.getExpirationSeconds()).willReturn(900L);
+
+        MockHttpServletResponse respuesta = mockMvc.perform(post("/api/v1/auth/reautenticacion")
+                        .with(principal(RolAcceso.EDITOR)).with(conCsrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new ReautenticacionRequest("harbor lights at dusk"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.expiresIn").value(900))
+                .andReturn().getResponse();
+
+        assertThat(respuesta.getCookie(CookiesDeSesion.ACCESO).getValue()).isEqualTo("token-verificado");
+        assertThat(respuesta.getCookie(CookiesDeSesion.REFRESCO)).isNull();
+        then(loginAuthenticator).should().autenticar(eq("test@acme.com"), eq("harbor lights at dusk"), anyString());
+        then(jwtService).should().generarToken(any(ApiPrincipal.class), eq(CLAVE), eq(ahora),
+                eq(Duration.ofSeconds(900)));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/reautenticacion - una clave mala responde 401 y no toca la sesion")
+    void AuthController_reautenticacion_claveMala_devuelve401() throws Exception {
+        given(loginAuthenticator.autenticar(eq("test@acme.com"), eq("no es esta"), anyString()))
+                .willThrow(new BadCredentialsException("Bad credentials"));
+
+        mockMvc.perform(post("/api/v1/auth/reautenticacion").with(principal(RolAcceso.EDITOR)).with(conCsrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new ReautenticacionRequest("no es esta"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(cookie().doesNotExist(CookiesDeSesion.ACCESO))
+                .andExpect(cookie().doesNotExist(CookiesDeSesion.REFRESCO));
+
+        then(sesionService).shouldHaveNoInteractions();
     }
 
     @Test

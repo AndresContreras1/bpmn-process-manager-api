@@ -25,9 +25,10 @@ COPY --from=build --chown=appuser:appuser /build/extraido/ ./
 # que Spring necesita al arrancar, y cada arranque de verdad las encuentra hechas. Entrena con el perfil prod y sin
 # base de datos: Flyway no corre, Hibernate, con el dialecto dicho, no le pregunta nada al motor, y el registro de
 # eventos de Spring Modulith, que al crearse pregunta a la base que motor es, se queda fuera de este arranque. Asi
-# el contexto se arma sin conectarse, y se detiene en cuanto esta listo. La clave del JWT es aleatoria y no sale del
-# paso.
-RUN JWT_SECRET="$(head -c 48 /dev/urandom | base64)" java -XX:AOTCacheOutput=app.aot -XX:MaxRAMPercentage=75.0 \
+# el contexto se arma sin conectarse, y se detiene en cuanto esta listo. Las claves del JWT y del segundo factor son
+# aleatorias y no salen del paso.
+RUN JWT_SECRET="$(head -c 48 /dev/urandom | base64)" MFA_CLAVE_DE_CIFRADO="$(head -c 48 /dev/urandom | base64)" \
+        java -XX:AOTCacheOutput=app.aot -XX:MaxRAMPercentage=75.0 \
         -Dspring.context.exit=onRefresh -Dspring.profiles.active=prod \
         -Dspring.flyway.enabled=false -Dspring.jpa.hibernate.ddl-auto=none \
         -Dspring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect \

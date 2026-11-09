@@ -13,6 +13,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.authorization.AuthenticatedAuthorizationManager;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationManagers;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -96,6 +99,9 @@ public class SecurityConfig {
                 // Despues de la autorizacion: solo guarda las respuestas de peticiones que se pueden ejecutar.
                 // D17: con una clave temporal solo se puede cambiarla, asi que va justo detras de identificar quien es.
                 .addFilterAfter(new CambioDeClaveFilter(jsonMapper), JwtAuthenticationFilter.class)
+                // PR 49: el login a medias solo sirve para dar el codigo, asi que va antes de cualquier regla.
+                .addFilterAfter(new SegundoFactorPendienteFilter(jsonMapper), CambioDeClaveFilter.class)
+                .addFilterAfter(new InscripcionObligatoriaFilter(jsonMapper), SegundoFactorPendienteFilter.class)
                 // Detras de la autorizacion: una peticion que el rol rechaza no le pregunta nada a la base.
                 .addFilterAfter(new TiendaEnBajaFilter(empresaService, jsonMapper), AuthorizationFilter.class)
                 .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), TiendaEnBajaFilter.class);
@@ -130,13 +136,27 @@ public class SecurityConfig {
                         // y el administrador se reserva usuarios (HU-02), roles (HU-17 a HU-19), compartir procesos
                         // (HU-23) y los borrados de procesos (HU-06), actividades (HU-10), arcos (HU-13),
                         // gateways (HU-16) y eventos (HU-04).
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/password", "/api/v1/auth/verificacion")
-                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/password", "/api/v1/auth/verificacion",
+                                "/api/v1/auth/reautenticacion").authenticated()
+                        // PR 49: dar el codigo del login a medias, y mirar el propio segundo factor. Inscribirlo,
+                        // confirmarlo, quitarlo y renovar los codigos piden haber confirmado la identidad hace poco:
+                        // una cookie robada no le cambia el segundo factor a nadie.
+                        .requestMatchers(HttpMethod.POST, SegundoFactorPendienteFilter.VERIFICACION).authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/segundo-factor").authenticated()
+                        .requestMatchers("/api/v1/auth/segundo-factor/**")
+                        .access(AuthorizationManagers.allOf(AuthenticatedAuthorizationManager.authenticated(),
+                                VerificacionReciente.requerida()))
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/usuarios/*/segundo-factor")
+                        .access(AuthorizationManagers.allOf(AuthorityAuthorizationManager.hasAuthority(ADMINISTRADOR),
+                                VerificacionReciente.requerida()))
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
                         // El gobierno de la tienda es del administrador: su historial, su configuracion y su baja.
+                        // La baja, y cancelarla, piden ademas haber confirmado la identidad hace poco (PR 49).
+                        .requestMatchers("/api/v1/empresas/actual/baja")
+                        .access(AuthorizationManagers.allOf(AuthorityAuthorizationManager.hasAuthority(ADMINISTRADOR),
+                                VerificacionReciente.requerida()))
                         .requestMatchers("/api/v1/empresas/actual/historial",
-                                "/api/v1/empresas/actual/configuracion", "/api/v1/empresas/actual/baja")
-                        .hasAuthority(ADMINISTRADOR)
+                                "/api/v1/empresas/actual/configuracion").hasAuthority(ADMINISTRADOR)
                         // D8: mover el reloj cambia lo que les pasa a todos los casos de la tienda a la vez,
                         // asi que la simulacion entera es del administrador, tambien para mirarla.
                         .requestMatchers("/api/v1/simulacion", "/api/v1/simulacion/**")

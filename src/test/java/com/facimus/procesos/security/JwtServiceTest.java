@@ -1,17 +1,25 @@
 package com.facimus.procesos.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.EnumSet;
+import java.util.List;
 import javax.crypto.SecretKey;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
 
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.ApiPrincipal;
+import com.facimus.procesos.common.security.Factor;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
@@ -78,6 +86,47 @@ class JwtServiceTest {
 
         assertThat(corto.getExpiration().getTime() - corto.getIssuedAt().getTime()).isEqualTo(600_000);
         assertThat(normal.getExpiration().getTime() - normal.getIssuedAt().getTime()).isEqualTo(900_000);
+    }
+
+    @Test
+    @DisplayName("PR 49: el token lleva los factores y cuando se verificaron, y vuelven como autoridades fechadas")
+    void JwtService_generarToken_llevaLosFactoresYLaVerificacion() {
+        JwtService jwtService = servicio(SECRETO, 900);
+        Instant verificado = Instant.now().minus(3, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.SECONDS);
+
+        TokenDeAcceso token = jwtService.validarAcceso(jwtService.generarToken(editor, EnumSet.of(Factor.PASSWORD),
+                verificado, Duration.ofMinutes(15))).orElseThrow();
+
+        assertThat(token.principal()).isEqualTo(editor);
+        assertThat(token.factores()).containsExactly(Factor.PASSWORD);
+        assertThat(token.verificadoEn()).isEqualTo(verificado);
+        assertThat(token.autoridades()).extracting(GrantedAuthority::getAuthority)
+                .containsExactlyInAnyOrder("EDITOR", FactorGrantedAuthority.PASSWORD_AUTHORITY);
+        assertThat(token.autoridades()).filteredOn(FactorGrantedAuthority.class::isInstance)
+                .extracting(autoridad -> ((FactorGrantedAuthority) autoridad).getIssuedAt())
+                .containsExactly(verificado);
+    }
+
+    @Test
+    @DisplayName("PR 49: un token de antes de los factores es de una contrasena, verificada cuando se emitio")
+    void JwtService_tokenSinFactores_esDeUnaContrasenaVerificadaAlEmitirse() {
+        JwtService jwtService = servicio(SECRETO, 900);
+
+        TokenDeAcceso token = jwtService.validarAcceso(firmado("EDITOR", "sesion-1", kidDeLasPruebas()))
+                .orElseThrow();
+
+        assertThat(token.factores()).containsExactly(Factor.PASSWORD);
+        assertThat(token.verificadoEn()).isCloseTo(Instant.now(), within(5, ChronoUnit.SECONDS));
+    }
+
+    @Test
+    @DisplayName("PR 49: un factor que esta version no conoce no cuenta, y sin ninguno conocido no queda ninguno")
+    void JwtService_factorDesconocido_noCuenta() {
+        JwtService jwtService = servicio(SECRETO, 900);
+
+        assertThat(jwtService.validarAcceso(conFactores(List.of("PASSWORD", "OTRO"))).orElseThrow().factores())
+                .containsExactly(Factor.PASSWORD);
+        assertThat(jwtService.validarAcceso(conFactores(List.of("OTRO"))).orElseThrow().factores()).isEmpty();
     }
 
     @Test
@@ -189,6 +238,26 @@ class JwtServiceTest {
 
     private static String kidDeLasPruebas() {
         return JwtService.idDe(Keys.hmacShaKeyFor(SECRETO.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /** Un token valido de las pruebas que dice esos factores. */
+    private static String conFactores(List<String> factores) {
+        Date ahora = new Date();
+        return Jwts.builder()
+                .header().keyId(kidDeLasPruebas()).and()
+                .issuer(EMISOR)
+                .audience().add(AUDIENCIA).and()
+                .subject("ana@acme.com")
+                .claim(JwtService.CLAIM_USUARIO_ID, 10L)
+                .claim(JwtService.CLAIM_EMPRESA_ID, 1L)
+                .claim(JwtService.CLAIM_ROL, "EDITOR")
+                .claim(JwtService.CLAIM_SESION, "sesion-1")
+                .claim(JwtService.CLAIM_FACTORES, factores)
+                .claim(JwtService.CLAIM_VERIFICADO, ahora.getTime() / 1000)
+                .issuedAt(ahora)
+                .expiration(new Date(ahora.getTime() + 60_000))
+                .signWith(Keys.hmacShaKeyFor(SECRETO.getBytes(StandardCharsets.UTF_8)))
+                .compact();
     }
 
     /** Un token firmado con la clave de las pruebas, con los claims que se quieran y el kid que se diga. */

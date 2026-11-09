@@ -44,7 +44,8 @@ or having it reset, closes them too.
      It lives the store's idle timeout, and never past the end of the session.
 
    Both cookies are `HttpOnly`, `Secure` and `SameSite=Lax`, and the body of the answer carries no token: it says
-   who signed in and when the access expires.
+   who signed in and when the access expires. With a [second factor](#second-factor), the password opens only half
+   of the login.
 3. The browser sends the cookies back by itself. The filter builds the principal from the claims of the access
    token, without a database query, and rejects the tokens of a closed session. `Authorization: Bearer` is left
    for API keys.
@@ -74,6 +75,47 @@ which nobody signs with any more, for the fifteen minutes they live ([runbook](r
 Public endpoints are limited to store registration, login, renewal, logout, the CSRF token and the API
 documentation (not published in `prod`). The role matrix in [Roles and permissions](#roles-and-permissions) is
 defined in one place, the security configuration, and decides `401` or `403` before any controller runs.
+
+## Second factor
+
+A person can add an authenticator app to the password (TOTP, RFC 6238: HMAC-SHA1, 30-second steps, 6 digits):
+
+1. `POST /api/v1/auth/segundo-factor/totp` answers a new secret, in Base32 and as the `otpauth://` URI of the QR
+   code. It is shown once and is not active yet.
+2. `POST /api/v1/auth/segundo-factor/totp/confirmacion` takes a code the app shows now and turns it on. The answer
+   carries ten recovery codes, also shown once, each good for one sign-in without the phone.
+3. From then on, `POST /api/v1/auth/login` with the right password answers `segundoFactorPendiente: true`, an access
+   cookie of five minutes and no refresh cookie. That token works only for
+   `POST /api/v1/auth/segundo-factor/verificacion`, logout and the CSRF token; anything else answers `401` with the
+   title "Segundo factor requerido". The code, or a recovery code, opens the session with both factors in the
+   token (`fac`), and the half-done token stops working.
+
+What makes it hard to abuse:
+
+- A code of the app is accepted in its step and one step either side, for the clock of the phone, and never twice:
+  the step of the last accepted code is kept, and the update that moves it forward only moves it forward, so the
+  same code sent twice at once opens one session. Each recovery code works once, written with or without its dash.
+- Wrong codes count with the limit of the login, in the same account: 5 in 15 minutes and the answer is `429`.
+- The secret is stored encrypted with AES-256-GCM, with the id of its user as associated data, so a secret copied to
+  another row does not decrypt. Recovery codes have 50 bits and are stored as HMAC-SHA256: without the key, which
+  is not in the database, a copy of the table cannot be searched. Both keys come from `MFA_CLAVE_DE_CIFRADO`.
+- Enrolling, confirming, removing it and renewing the codes ask for a recent verification, as closing the store
+  does: the factors of the session are dated in the token (`auth_time`), and older than ten minutes the answer is
+  `403` "Verificación requerida". `POST /api/v1/auth/reautenticacion` confirms again: with the code when there is a
+  second factor, since the password alone would prove nothing, and with the password otherwise.
+- Nothing under `/api/v1/auth` is kept in the idempotency keys, so a secret or a code never reaches the database
+  in the clear. Changing the password keeps the factors of the session.
+- An administrator can remove the second factor of someone who lost the phone and the codes
+  (`DELETE /api/v1/usuarios/{id}/segundo-factor`, with a recent verification), which closes that person's sessions.
+  Nobody removes their own that way: it goes from their account, with a verification of their own.
+
+Each store chooses who has to use one (`politicaSegundoFactor` in its settings): nobody, as by default, the
+administrators, or everybody. Whoever needs one and has none still signs in, but can only enroll it: anything
+else answers `403` with the title "Segundo factor obligatorio". Every token of a full session is decided when it is
+issued, so renewing after the confirmation is enough to work, and a store that starts asking for it reaches the
+open sessions at their next renewal.
+
+Passkeys (WebAuthn), as a second factor and as a sign-in without a password, come in a pull request of their own.
 
 ## Login protection
 

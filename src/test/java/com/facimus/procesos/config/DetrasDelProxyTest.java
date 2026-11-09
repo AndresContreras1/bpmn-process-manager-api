@@ -20,7 +20,8 @@ import org.springframework.web.client.RestClient;
  * de la red interna, como la de esta prueba. Es un servidor de verdad porque esas cabeceras las lee Tomcat, no Spring.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"JWT_SECRET=prod-profile-test-signing-key-with-32-characters", "management.server.port=0"})
+        properties = {"JWT_SECRET=prod-profile-test-signing-key-with-32-characters",
+                "MFA_CLAVE_DE_CIFRADO=prod-profile-test-encryption-key-with-32-characters", "management.server.port=0"})
 @ActiveProfiles("prod")
 class DetrasDelProxyTest {
 
