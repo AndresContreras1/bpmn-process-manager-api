@@ -129,7 +129,7 @@ public class EmpresaController {
                 request.politicaEstructura(), request.modoSimulacion(),
                 ParametrosSimulacionRequest.aModelo(request.simulacion()),
                 new LimitesDeSesion(request.inactividadSesionMinutos(), request.duracionSesionHoras()),
-                request.politicaSegundoFactor(), request.version()));
+                request.politicaSegundoFactor(), request.soloEntradaExterna(), request.version()));
     }
 
     @Operation(summary = "Close the store",

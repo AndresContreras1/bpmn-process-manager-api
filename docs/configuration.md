@@ -24,6 +24,9 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `DB_USER` · `DB_PASSWORD` | Database credentials | `procesos` · empty |
 | `JWT_SECRET` | HS256 signing key of at least 32 bytes. The `prod` profile does not start without it. | None |
 | `MFA_CLAVE_DE_CIFRADO` | Key of at least 32 characters from which the API derives the AES-GCM key of the TOTP secrets and the HMAC key of the recovery codes. `dev` and `test` have a fixed one, and `prod` does not start without it. It does not rotate: changing it voids every enrolled second factor | None in `prod` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | The OAuth client of Google. Without the id, Google is not offered. Its redirect URI is `<API>/api/v1/auth/oidc/callback/google` | Empty |
+| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | The app registration of Microsoft Entra ID. Without the id, Microsoft is not offered. Its redirect URI is `<API>/api/v1/auth/oidc/callback/microsoft`, and it has to emit the optional claims `email` and `xms_edov` | Empty |
+| `MICROSOFT_TENANT` | `organizations` for any work or school account, or the id of one organization to accept only it | `organizations` |
 | `JWT_PREVIOUS_SECRET` | The signing key before the last rotation: its tokens are still accepted, and nobody signs with it. Empty outside a rotation | Empty |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime. Keep it under 30 minutes, the shortest idle timeout a store can choose: the refresh token and the session last what each store decides in its settings | `900` |
 | `CLAVES_COSTO_BCRYPT` | Cost of BCrypt, from 4 to 31: each step doubles the time of a hash. Raising it invalidates no password, because each login rehashes with the new one | `10` |

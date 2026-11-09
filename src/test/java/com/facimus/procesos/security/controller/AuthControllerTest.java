@@ -47,9 +47,11 @@ import com.facimus.procesos.gestion.dto.request.ReautenticacionRequest;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.IdentidadExternaService;
 import com.facimus.procesos.gestion.service.SegundoFactorService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.security.AperturaDeSesion;
 import com.facimus.procesos.security.CookiesDeSesion;
 import com.facimus.procesos.security.JwtService;
 import com.facimus.procesos.security.LoginAuthenticator;
@@ -58,7 +60,7 @@ import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.json.JsonMapper;
 
 @WebMvcTest(AuthController.class)
-@Import(CookiesDeSesion.class)
+@Import({ CookiesDeSesion.class, AperturaDeSesion.class })
 class AuthControllerTest {
 
     private static final Set<Factor> CLAVE = EnumSet.of(Factor.PASSWORD);
@@ -84,6 +86,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private SegundoFactorService segundoFactorService;
+
+    @MockitoBean
+    private IdentidadExternaService identidadExternaService;
 
     @Test
     @DisplayName("POST /api/v1/auth/login - credenciales validas abren la sesion en dos cookies HttpOnly, y el cuerpo "

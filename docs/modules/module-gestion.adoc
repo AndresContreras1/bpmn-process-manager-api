@@ -7,9 +7,11 @@
 
 * `c.f.p.g.service.ConfiguracionTiendaService` (via `c.f.p.g.service.impl.ConfiguracionTiendaServiceImpl`)
 * `c.f.p.g.service.CuentaService` (via `c.f.p.g.service.impl.CuentaServiceImpl`)
+* `c.f.p.g.service.DominioService` (via `c.f.p.g.service.impl.DominioServiceImpl`)
 * `c.f.p.g.service.EmpresaService` (via `c.f.p.g.service.impl.EmpresaServiceImpl`)
 * `c.f.p.g.service.HistorialCambioService` (via `c.f.p.g.service.impl.HistorialCambioServiceImpl`)
 * `c.f.p.g.service.IdempotenciaService` (via `c.f.p.g.service.impl.IdempotenciaServiceImpl`)
+* `c.f.p.g.service.IdentidadExternaService` (via `c.f.p.g.service.impl.IdentidadExternaServiceImpl`)
 * `c.f.p.g.service.LimpiezaService` (via `c.f.p.g.service.impl.LimpiezaServiceImpl`)
 * `c.f.p.g.service.MembresiaRolService` (via `c.f.p.g.service.impl.MembresiaRolServiceImpl`)
 * `c.f.p.g.service.ProcesoCompartidoService` (via `c.f.p.g.service.impl.ProcesoCompartidoServiceImpl`)
@@ -25,9 +27,11 @@ _Repositories_
 * `c.f.p.g.repository.ClaveIdempotenciaRepository`
 * `c.f.p.g.repository.CodigoDeRecuperacionRepository`
 * `c.f.p.g.repository.ConfiguracionTiendaRepository`
+* `c.f.p.g.repository.DominioVerificadoRepository`
 * `c.f.p.g.repository.EmpresaRepository`
 * `c.f.p.g.repository.EnlaceDeUnUsoRepository`
 * `c.f.p.g.repository.HistorialCambioRepository`
+* `c.f.p.g.repository.IdentidadExternaRepository`
 * `c.f.p.g.repository.MembresiaRolRepository`
 * `c.f.p.g.repository.ProcesoCompartidoRepository`
 * `c.f.p.g.repository.ProcesoRepository`
@@ -37,6 +41,11 @@ _Repositories_
 * `c.f.p.g.repository.SesionRepository`
 * `c.f.p.g.repository.UsuarioRepository`
 * `c.f.p.g.repository.VersionProcesoRepository`
+* `c.f.p.g.repository.VinculoPendienteRepository`
+
+_Others_
+
+* `c.f.p.g.service.ConsultaDns` (via `c.f.p.g.service.impl.ConsultaDnsJndi`)
 |Bean references
 |* `c.f.p.c.correo.Redactor` (in Common)
 * `c.f.p.c.correo.Correo` (in Common)
@@ -46,8 +55,10 @@ _Repositories_
 |* `c.f.p.g.model.ClaveIdempotencia`
 * `c.f.p.g.model.CodigoDeRecuperacion`
 * `c.f.p.g.model.ConfiguracionTienda`
+* `c.f.p.g.model.DominioVerificado`
 * `c.f.p.g.model.EnlaceDeUnUso`
 * `c.f.p.g.model.HistorialCambio`
+* `c.f.p.g.model.IdentidadExterna`
 * `c.f.p.g.model.MembresiaRol`
 * `c.f.p.g.model.Proceso`
 * `c.f.p.g.model.ProcesoCompartido`
@@ -57,4 +68,5 @@ _Repositories_
 * `c.f.p.g.model.Sesion`
 * `c.f.p.g.model.Usuario`
 * `c.f.p.g.model.VersionProceso`
+* `c.f.p.g.model.VinculoPendiente`
 |===

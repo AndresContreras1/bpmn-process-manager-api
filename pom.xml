@@ -79,6 +79,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
+		<!-- PR 50: entrar con Google o Microsoft (OpenID Connect con PKCE). Trae el cliente de OAuth 2 y Nimbus, que
+		     valida la firma del id_token contra las claves publicas del proveedor. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-client</artifactId>
+		</dependency>
 		<!-- Actuator: estado, datos de la version y metricas para quien opera la API -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
