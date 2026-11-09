@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.AopTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -75,19 +78,21 @@ class PerfilesTest {
         @DisplayName("La purga nocturna tambien se lleva los trabajos de la cola terminados hace mas de una semana")
         void dev_laPurgaSeLlevaLosTrabajosViejos() {
             JdbcTemplate jdbc = context.getBean(JdbcTemplate.class);
-            jdbc.update("""
+            // En dev, como en produccion, lo que no dice de que tienda es no ve ninguna fila (PR 51).
+            ContextoDeTienda.comoSistema(() -> jdbc.update("""
                     insert into trabajos (tipo, datos, estado, intentos, maximo_intentos, disponible_desde, creado_en,
                                           terminado_en)
                     values ('purga-de-prueba', 'viejo', 'HECHO', 1, 5, now() - interval '30 days',
                             now() - interval '30 days', now() - interval '30 days'),
                            ('purga-de-prueba', 'reciente', 'HECHO', 1, 5, now(), now(), now())
-                    """);
+                    """));
 
             // Sin pasar por el candado: la prueba de los candados pudo dejarlo tomado sus cinco minutos.
             LimpiezaConfig purga = AopTestUtils.getUltimateTargetObject(context.getBean(LimpiezaConfig.class));
             purga.limpiar();
 
-            assertThat(jdbc.queryForList("select datos from trabajos where tipo = 'purga-de-prueba'", String.class))
+            assertThat(ContextoDeTienda.comoSistema(() -> jdbc.queryForList(
+                    "select datos from trabajos where tipo = 'purga-de-prueba'", String.class)))
                     .containsExactly("reciente");
         }
 
@@ -139,8 +144,9 @@ class PerfilesTest {
 
         @Test
         @DisplayName("prod fija el pool de conexiones, que con hilos virtuales es el techo del trabajo simultaneo")
-        void prod_fijaLaConcurrencia() {
-            HikariDataSource pool = context.getBean(HikariDataSource.class);
+        void prod_fijaLaConcurrencia() throws Exception {
+            // El pool sigue siendo el de Hikari, envuelto por la seguridad por filas (PR 51).
+            HikariDataSource pool = context.getBean(DataSource.class).unwrap(HikariDataSource.class);
             TomcatServerProperties tomcat = context.getBean(TomcatServerProperties.class);
 
             // Pool de tamano fijo: el minimo igual al maximo, para no abrir y cerrar conexiones bajo carga.

@@ -6,6 +6,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
@@ -70,6 +71,11 @@ public class DatosDemoInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        // PR 51: sembrar la tienda demo es del sistema: todavia no hay sesion de nadie.
+        ContextoDeTienda.comoSistema(this::sembrar);
+    }
+
+    private void sembrar() {
         if (empresaRepository.count() > 0) {
             return;
         }

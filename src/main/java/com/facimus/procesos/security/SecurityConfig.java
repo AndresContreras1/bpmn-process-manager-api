@@ -110,7 +110,9 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class)
                 // Despues de la autorizacion: solo guarda las respuestas de peticiones que se pueden ejecutar.
                 // D17: con una clave temporal solo se puede cambiarla, asi que va justo detras de identificar quien es.
-                .addFilterAfter(new CambioDeClaveFilter(jsonMapper), JwtAuthenticationFilter.class)
+                // PR 51: la tienda de las filas que la peticion puede tocar, en cuanto se sabe quien es.
+                .addFilterAfter(new ContextoDeTiendaFilter(), JwtAuthenticationFilter.class)
+                .addFilterAfter(new CambioDeClaveFilter(jsonMapper), ContextoDeTiendaFilter.class)
                 // PR 49: el login a medias solo sirve para dar el codigo, asi que va antes de cualquier regla.
                 .addFilterAfter(new SegundoFactorPendienteFilter(jsonMapper), CambioDeClaveFilter.class)
                 .addFilterAfter(new InscripcionObligatoriaFilter(jsonMapper), SegundoFactorPendienteFilter.class)

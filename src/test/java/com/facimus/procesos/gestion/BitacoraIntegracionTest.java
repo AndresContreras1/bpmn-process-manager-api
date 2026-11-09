@@ -142,11 +142,19 @@ class BitacoraIntegracionTest {
         String acceso = SesionEnCookies.acceso(login(admin, CLAVE));
         esperarRegistros(acceso, 1);
 
+        // La API, como procesos_app, ni siquiera tiene el permiso (PR 51).
         assertThatThrownBy(() -> jdbc.update("update bitacora set accion = 'OTRA' where empresa_id = ?", empresaId))
-                .isInstanceOf(DataAccessException.class).hasStackTraceContaining("La bitacora no se cambia");
+                .isInstanceOf(DataAccessException.class).hasStackTraceContaining("permission denied");
         assertThatThrownBy(() -> jdbc.update("delete from bitacora where empresa_id = ?", empresaId))
-                .isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(() -> jdbc.execute("truncate bitacora")).isInstanceOf(DataAccessException.class);
+                .isInstanceOf(DataAccessException.class).hasStackTraceContaining("permission denied");
+        // Y el dueno de la tabla, que si lo tiene, se encuentra con el trigger.
+        assertThatThrownBy(() -> jdbc.execute("reset role; update bitacora set accion = 'OTRA' where empresa_id = "
+                + empresaId)).isInstanceOf(DataAccessException.class)
+                .hasStackTraceContaining("La bitacora no se cambia");
+        assertThatThrownBy(() -> jdbc.execute("reset role; delete from bitacora where empresa_id = " + empresaId))
+                .isInstanceOf(DataAccessException.class).hasStackTraceContaining("La bitacora no se cambia");
+        assertThatThrownBy(() -> jdbc.execute("reset role; truncate bitacora")).isInstanceOf(DataAccessException.class)
+                .hasStackTraceContaining("La bitacora no se cambia");
     }
 
     @Test
@@ -157,12 +165,10 @@ class BitacoraIntegracionTest {
         login(admin, CLAVE);
         esperarRegistros(acceso, 4);
 
-        jdbc.execute("alter table bitacora disable trigger bitacora_sin_cambios");
-        try {
-            jdbc.update("update bitacora set ip = '198.51.100.1' where empresa_id = ? and secuencia = 2", empresaId);
-        } finally {
-            jdbc.execute("alter table bitacora enable trigger bitacora_sin_cambios");
-        }
+        // Como el dueno de la tabla, que es lo unico que puede apagar el trigger: la API no puede ni eso (PR 51).
+        jdbc.execute("reset role; alter table bitacora disable trigger bitacora_sin_cambios; "
+                + "update bitacora set ip = '198.51.100.1' where empresa_id = " + empresaId + " and secuencia = 2; "
+                + "alter table bitacora enable trigger bitacora_sin_cambios");
 
         mockMvc.perform(get("/api/v1/auditoria/verificacion").with(SesionEnCookies.conSesion(acceso)))
                 .andExpect(jsonPath("$.integra").value(false))

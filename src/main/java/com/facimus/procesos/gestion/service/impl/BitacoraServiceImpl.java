@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.common.auditoria.SucesoAuditable;
+import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.gestion.dto.response.PaginaDeBitacoraResponse;
 import com.facimus.procesos.gestion.dto.response.RegistroDeBitacoraResponse;
 import com.facimus.procesos.gestion.dto.response.VerificacionDeBitacoraResponse;
@@ -63,6 +64,11 @@ public class BitacoraServiceImpl implements BitacoraService {
     @Override
     @Transactional
     public void anotar(SucesoAuditable suceso) {
+        // PR 51: el receptor corre fuera de la peticion; lo que anota es de la tienda del suceso y de ninguna otra.
+        ContextoDeTienda.deLaTienda(suceso.empresaId(), () -> agregar(suceso));
+    }
+
+    private void agregar(SucesoAuditable suceso) {
         Long empresaId = suceso.empresaId();
         jdbc.query("select pg_advisory_xact_lock(?, ?)", (RowCallbackHandler) fila -> {
         }, CANDADO_DE_LA_BITACORA, empresaId.intValue());
