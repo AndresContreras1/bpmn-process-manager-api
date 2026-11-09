@@ -264,6 +264,36 @@ class CargaPerezosaTest {
         assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(9);
     }
 
+    @Test
+    @DisplayName("Dar de baja un proceso agrupa las bajas de su modelo: cuesta lo mismo con una lane que con tres")
+    void darDeBajaUnProceso_agrupaLasBajasDeSuModelo() {
+        long conUnaLane = sentenciasParaDarDeBaja("Exchanges", 1);
+        long conTresLanes = sentenciasParaDarDeBaja("Repairs", 3);
+
+        // Sin los lotes de Hibernate, cada lane, actividad, gateway, arco, mensaje y correlacion se daria de baja con
+        // su propia sentencia: el proceso de tres lanes costaria 38 en vez de 22.
+        assertThat(conTresLanes).isEqualTo(conUnaLane);
+    }
+
+    /** Las sentencias que cuesta dar de baja un proceso con tantas lanes como se pida, cada una con su flujo. */
+    private long sentenciasParaDarDeBaja(String nombre, int lanes) {
+        Long proceso = procesoService.crear(empresaId, adminId, nombre, nombre + " from request to closing",
+                "After-sales").id();
+        Long tienda = poolService.listarPorProceso(empresaId, proceso).getFirst().id();
+        Long cliente = poolService.crear(empresaId, adminId, proceso, "Customer", TipoParticipante.CLIENTE, true,
+                Integracion.NINGUNA).id();
+        // Un rol que ya existe: uno nuevo quedaria sin procesos que lo usen y cambiaria lo que cuentan las otras pruebas.
+        Long rol = rolProcesoService.buscar(empresaId, "Warehouse", Paginacion.de(0, 1, "nombre,asc")).content()
+                .getFirst().id();
+        for (int lane = 1; lane <= lanes; lane++) {
+            agregarUnaLaneConSuFlujo(proceso, tienda, cliente, rol, nombre + " " + lane);
+        }
+
+        estadisticas.clear();
+        procesoService.eliminarLogico(empresaId, proceso, adminId);
+        return estadisticas.getPrepareStatementCount();
+    }
+
     /** Una lane con dos actividades y un gateway unidos por arcos, y un mensaje correlacionado desde el cliente. */
     private void agregarUnaLaneConSuFlujo(Long procesoId, Long tiendaId, Long clienteId, Long rolId, String lane) {
         Long laneId = laneService.crear(empresaId, adminId, tiendaId, lane, rolId).id();
