@@ -3,7 +3,6 @@ package com.facimus.procesos.gestion.service.impl;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.TreeMap;
@@ -41,6 +40,18 @@ public class BitacoraServiceImpl implements BitacoraService {
     private static final String COLUMNAS = "secuencia, momento, actor_tipo, actor_id, accion, recurso, recurso_id, "
             + "exito, ip, user_agent, request_id, trace_id, detalle, hash_anterior, hash";
 
+    /** La busqueda es una sola sentencia fija: un filtro que no se pide llega nulo y no filtra. */
+    private static final String DONDE = "select " + COLUMNAS + " from bitacora where empresa_id = ? "
+            + "and (cast(? as varchar) is null or accion = ?) "
+            + "and (cast(? as bigint) is null or actor_id = ?) "
+            + "and (cast(? as timestamp) is null or momento >= ?) "
+            + "and (cast(? as timestamp) is null or momento < ?) "
+            + "and (cast(? as bigint) is null or secuencia < ?)";
+
+    private static final String BUSCAR = DONDE + " order by secuencia desc limit ?";
+
+    private static final String EXPORTAR = DONDE + " order by secuencia asc limit ?";
+
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
 
@@ -72,16 +83,8 @@ public class BitacoraServiceImpl implements BitacoraService {
 
     @Override
     public PaginaDeBitacoraResponse buscar(Long empresaId, Filtro filtro, Long antes, int tamano) {
-        List<Object> parametros = new ArrayList<>();
-        StringBuilder sql = new StringBuilder(donde(empresaId, filtro, parametros));
-        if (antes != null) {
-            sql.append(" and secuencia < ?");
-            parametros.add(antes);
-        }
-        sql.append(" order by secuencia desc limit ?");
-        parametros.add(tamano + 1);
-        List<RegistroDeBitacoraResponse> registros = jdbc.query(sql.toString(), (fila, n) -> registro(fila),
-                parametros.toArray());
+        List<RegistroDeBitacoraResponse> registros = jdbc.query(BUSCAR, (fila, n) -> registro(fila),
+                parametros(empresaId, filtro, antes, tamano + 1));
         if (registros.size() <= tamano) {
             return new PaginaDeBitacoraResponse(registros, null);
         }
@@ -91,10 +94,7 @@ public class BitacoraServiceImpl implements BitacoraService {
 
     @Override
     public List<RegistroDeBitacoraResponse> exportar(Long empresaId, Filtro filtro, int tope) {
-        List<Object> parametros = new ArrayList<>();
-        String sql = donde(empresaId, filtro, parametros) + " order by secuencia asc limit ?";
-        parametros.add(tope);
-        return jdbc.query(sql, (fila, n) -> registro(fila), parametros.toArray());
+        return jdbc.query(EXPORTAR, (fila, n) -> registro(fila), parametros(empresaId, filtro, null, tope));
     }
 
     @Override
@@ -126,26 +126,10 @@ public class BitacoraServiceImpl implements BitacoraService {
         return new VerificacionDeBitacoraResponse(false, revisados, secuencia, motivo);
     }
 
-    private static String donde(Long empresaId, Filtro filtro, List<Object> parametros) {
-        StringBuilder sql = new StringBuilder("select " + COLUMNAS + " from bitacora where empresa_id = ?");
-        parametros.add(empresaId);
-        if (filtro.accion() != null) {
-            sql.append(" and accion = ?");
-            parametros.add(filtro.accion());
-        }
-        if (filtro.actorId() != null) {
-            sql.append(" and actor_id = ?");
-            parametros.add(filtro.actorId());
-        }
-        if (filtro.desde() != null) {
-            sql.append(" and momento >= ?");
-            parametros.add(filtro.desde());
-        }
-        if (filtro.hasta() != null) {
-            sql.append(" and momento < ?");
-            parametros.add(filtro.hasta());
-        }
-        return sql.toString();
+    /** Cada filtro, el cursor y el tope, en el orden de DONDE; uno nulo no filtra. */
+    private static Object[] parametros(Long empresaId, Filtro filtro, Long antes, int limite) {
+        return new Object[] {empresaId, filtro.accion(), filtro.accion(), filtro.actorId(), filtro.actorId(),
+            filtro.desde(), filtro.desde(), filtro.hasta(), filtro.hasta(), antes, antes, limite};
     }
 
     /** Los campos como entraron en el hash, en el mismo orden, leidos de vuelta de la fila. */
