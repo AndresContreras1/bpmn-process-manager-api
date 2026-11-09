@@ -12,15 +12,18 @@ public final class Base32 {
     private static final String ALFABETO = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     private static final int BITS_POR_CARACTER = 5;
 
+    /** Los bits que pueden quedar pendientes: como mucho 4 de antes y 8 nuevos. El resto ya se escribio. */
+    private static final int PENDIENTES = 0xfff;
+
     private Base32() {
     }
 
     public static String codificar(byte[] datos) {
-        StringBuilder texto = new StringBuilder((datos.length * 8 + 4) / BITS_POR_CARACTER);
+        StringBuilder texto = new StringBuilder();
         int acumulado = 0;
         int bits = 0;
         for (byte dato : datos) {
-            acumulado = (acumulado << 8) | (dato & 0xff);
+            acumulado = ((acumulado << 8) | (dato & 0xff)) & PENDIENTES;
             bits += 8;
             while (bits >= BITS_POR_CARACTER) {
                 bits -= BITS_POR_CARACTER;
@@ -36,7 +39,7 @@ public final class Base32 {
     /** Lanza IllegalArgumentException si trae un caracter que no es del alfabeto. */
     public static byte[] decodificar(String texto) {
         String limpio = texto.replace(" ", "").replace("-", "").replace("=", "").toUpperCase(Locale.ROOT);
-        ByteArrayOutputStream datos = new ByteArrayOutputStream(limpio.length() * BITS_POR_CARACTER / 8);
+        ByteArrayOutputStream datos = new ByteArrayOutputStream();
         int acumulado = 0;
         int bits = 0;
         for (char caracter : limpio.toCharArray()) {
@@ -44,7 +47,7 @@ public final class Base32 {
             if (valor < 0) {
                 throw new IllegalArgumentException("No es Base32: " + caracter);
             }
-            acumulado = (acumulado << BITS_POR_CARACTER) | valor;
+            acumulado = ((acumulado << BITS_POR_CARACTER) | valor) & PENDIENTES;
             bits += BITS_POR_CARACTER;
             if (bits >= 8) {
                 bits -= 8;

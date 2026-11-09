@@ -68,6 +68,11 @@ public final class Totp {
         return OptionalLong.empty();
     }
 
+    /**
+     * HMAC-SHA1, porque es el que esperan todas las aplicaciones de autenticacion (RFC 6238, apendice A). Un HMAC no
+     * depende de que SHA-1 resista colisiones, que es lo que SHA-1 ya no da.
+     */
+    @SuppressWarnings("java:S4790")
     private static byte[] hmac(byte[] clave, byte[] mensaje) {
         try {
             Mac mac = Mac.getInstance(ALGORITMO);

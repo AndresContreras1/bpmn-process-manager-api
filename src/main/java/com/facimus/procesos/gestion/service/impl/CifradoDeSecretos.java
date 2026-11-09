@@ -1,6 +1,6 @@
 package com.facimus.procesos.gestion.service.impl;
 
-import java.nio.ByteBuffer;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
@@ -58,9 +58,10 @@ public class CifradoDeSecretos {
             Cipher cifrador = Cipher.getInstance(AES);
             cifrador.init(Cipher.ENCRYPT_MODE, claveDeCifrado, new GCMParameterSpec(BITS_DE_LA_ETIQUETA, nonce));
             cifrador.updateAAD(asociado(usuarioId));
-            byte[] cifrado = cifrador.doFinal(secreto);
-            return Base64.getEncoder().encodeToString(ByteBuffer.allocate(nonce.length + cifrado.length)
-                    .put(nonce).put(cifrado).array());
+            ByteArrayOutputStream guardado = new ByteArrayOutputStream();
+            guardado.writeBytes(nonce);
+            guardado.writeBytes(cifrador.doFinal(secreto));
+            return Base64.getEncoder().encodeToString(guardado.toByteArray());
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("AES-GCM tiene que existir en toda JVM.", e);
         }

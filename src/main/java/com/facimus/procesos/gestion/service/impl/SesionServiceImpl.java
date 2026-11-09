@@ -98,8 +98,9 @@ public class SesionServiceImpl implements SesionService {
         factores.add(factor);
         sesion.setFactores(Factor.escribir(factores));
         sesion.setVerificadaEn(ahora);
+        ZoneId zona = ZoneId.systemDefault();
         return new SesionVerificada(codigo, usuarioMapper.toResponse(sesion.getUsuario()), factores, instante(ahora),
-                Duration.between(ahora, limites(empresaId).fin(sesion)));
+                Duration.between(ahora.atZone(zona), limites(empresaId).fin(sesion).atZone(zona)));
     }
 
     /** Sin rollback al rechazar: el cierre por un token reutilizado tiene que quedar guardado aunque responda 401. */
