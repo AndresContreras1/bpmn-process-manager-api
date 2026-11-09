@@ -73,7 +73,7 @@ The app opens on `http://localhost:4200`, and the Angular dev server forwards th
 Database, API and web app together, each in its own container:
 
 ```bash
-cp .env.example .env   # fill in DB_PASSWORD and JWT_SECRET
+cp .env.example .env   # fill in DB_PASSWORD, JWT_SECRET and MFA_CLAVE_DE_CIFRADO
 docker compose up -d --build --wait
 ```
 
@@ -92,8 +92,8 @@ collection and for curl, but nothing in the browser uses it.
 
 The database keeps its data in a named volume, so `docker compose down` does not lose it; `docker compose down -v`
 does. The API waits for the database to answer and reports itself as up only once Flyway has migrated the schema,
-which `--wait` and the container health checks rely on. `.env` is not committed, and the two values without a
-default, `DB_PASSWORD` and `JWT_SECRET`, stop the stack until they are set.
+which `--wait` and the container health checks rely on. `.env` is not committed, and the three values without a
+default, `DB_PASSWORD`, `JWT_SECRET` and `MFA_CLAVE_DE_CIFRADO`, stop the stack until they are set.
 
 ## End-to-end tests
 

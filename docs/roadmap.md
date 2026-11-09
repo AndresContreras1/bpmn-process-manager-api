@@ -22,6 +22,9 @@
 - [x] Passwords as NIST SP 800-63B-4 asks: 15 characters and no composition rules, checked against leaked ones and
       the person's own data, with hashes that carry their algorithm and are redone on login
 - [x] Sessions with an idle timeout and a maximum duration that each store chooses, within AAL2
+- [x] A second factor with an authenticator app and recovery codes, a login in two steps, a recent verification
+      for what changes it, and a policy per store that asks for it from administrators or from everybody
+- [ ] Passkeys (WebAuthn), as a second factor and as a sign-in without a password
 - [x] Closing a store with 30 days of read-only grace and then deleting everything it had, and anonymizing a
       person on request
 - [ ] Exporting a store's data during the 30 days of its closing

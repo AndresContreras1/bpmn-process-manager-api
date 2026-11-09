@@ -15,7 +15,7 @@ immutable version that orders run on. This repository holds the REST API and the
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-prod-4169E1?logo=postgresql&logoColor=white)
 ![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-1383-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-1486-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -142,7 +142,7 @@ It opens on `http://localhost:4200` and forwards `/api` to the API.
 **The whole stack**, database, API and web, closer to production:
 
 ```bash
-cp .env.example .env     # DB_PASSWORD and JWT_SECRET have no default on purpose
+cp .env.example .env     # DB_PASSWORD, JWT_SECRET and MFA_CLAVE_DE_CIFRADO have no default on purpose
 docker compose up -d --build --wait
 ```
 
@@ -167,7 +167,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **1383 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+- **1486 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
   controller and repository slices, service units, security and store isolation, and integration across modules.
 - **Coverage gate** with JaCoCo: 96 % of lines and 85 % of branches today, and the build fails below 90 % and 80 %
   in the service packages, where the business rules live.

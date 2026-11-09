@@ -31,6 +31,10 @@ tagged. Each pull request adds its line under *Unreleased*.
 - Closing a store: 30 days of read-only grace in which it can be cancelled, and then the nightly purge deletes
   every row of the store and leaves of it only the id and the dates. Anonymizing a person on request: their user
   stays under a pseudonym, and the history names them by it.
+- A second factor with an authenticator app (TOTP, RFC 6238) and ten single-use recovery codes. With it the
+  password leaves a half-done login that only works to send the code. What changes the second factor, and closing
+  the store, asks for a verification of the last ten minutes, and each store can ask for a second factor from its
+  administrators or from everybody.
 
 ### Changed
 
