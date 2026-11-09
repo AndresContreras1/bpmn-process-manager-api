@@ -85,6 +85,13 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-oauth2-client</artifactId>
 		</dependency>
+		<!-- PR 32: limite de peticiones con cubos de fichas (Bucket4j). El estado de cada cubo vive en PostgreSQL, asi que
+		     todas las instancias de la API gastan del mismo. -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-postgresql</artifactId>
+			<version>8.20.0</version>
+		</dependency>
 		<!-- Actuator: estado, datos de la version y metricas para quien opera la API -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

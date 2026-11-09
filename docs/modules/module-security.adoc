@@ -20,12 +20,14 @@ _Others_
 * `c.f.p.s.JwtAccessDeniedHandler`
 * `c.f.p.s.JwtAuthEntryPoint`
 * `c.f.p.s.JwtService`
+* `c.f.p.s.LimitesDePeticiones`
 * `c.f.p.s.LoginAuthenticator`
 * `c.f.p.s.PeticionesOidc`
 * `c.f.p.s.ProveedoresOidc`
 * `c.f.p.s.ProveedoresOidc.Clientes`
 * `c.f.p.s.SecurityConfig`
 * `c.f.p.s.UserAccountService`
+* `c.f.p.s.VerificacionHumana`
 |Bean references
 |* `c.f.p.g.service.SegundoFactorService` (in Gestion)
 * `c.f.p.g.service.IdentidadExternaService` (in Gestion)
