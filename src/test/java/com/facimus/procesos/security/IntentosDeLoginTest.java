@@ -4,15 +4,36 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 
-class AttemptLimiterTest {
+/**
+ * HU-03 y D34: la ventana deslizante de los intentos fallidos del login, contada en la tabla que comparten todas las
+ * instancias, y la purga de lo que ya salio de ella.
+ */
+@JdbcTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@ActiveProfiles("test")
+class IntentosDeLoginTest {
 
     private static final Duration VENTANA = Duration.ofMinutes(15);
 
+    @Autowired
+    private JdbcTemplate jdbc;
+
     private final RelojDePrueba reloj = new RelojDePrueba();
-    private final AttemptLimiter limitador = new AttemptLimiter(3, VENTANA, 100, reloj);
+    private IntentosDeLogin limitador;
+
+    @BeforeEach
+    void crearConTresIntentos() {
+        limitador = new IntentosDeLogin(jdbc, 3, VENTANA, reloj);
+    }
 
     @Test
     @DisplayName("Por debajo del maximo una clave no espera, y una clave sin intentos tampoco")
@@ -67,17 +88,15 @@ class AttemptLimiterTest {
     }
 
     @Test
-    @DisplayName("Recuerda un numero acotado de claves y olvida primero la que menos se usa")
-    void clavesAcotadas_olvidaLaMenosUsada() {
-        AttemptLimiter acotado = new AttemptLimiter(1, VENTANA, 2, reloj);
-        acotado.registrar("primera");
-        acotado.registrar("segunda");
-        acotado.espera("primera");
+    @DisplayName("La purga se lleva los intentos que salieron de la ventana y deja los que todavia cuentan")
+    void olvidarVencidos_dejaLosQueTodaviaCuentan() {
+        limitador.registrar("ana|10.0.0.1");
+        reloj.avanzar(Duration.ofMinutes(10));
+        limitador.registrar("luis|10.0.0.1");
+        reloj.avanzar(Duration.ofMinutes(6));
 
-        acotado.registrar("tercera");
-
-        assertThat(acotado.espera("segunda")).isEmpty();
-        assertThat(acotado.espera("primera")).isPresent();
-        assertThat(acotado.espera("tercera")).isPresent();
+        assertThat(limitador.olvidarVencidos()).isEqualTo(1);
+        assertThat(jdbc.queryForList("select clave from intentos_login", String.class))
+                .containsExactly("luis|10.0.0.1");
     }
 }

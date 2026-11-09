@@ -58,8 +58,10 @@ address within 15 minutes, the login answers `429` with `Retry-After` and stops 
 attempt leaves the window. Because attempts are counted per email and address, an attacker elsewhere cannot lock the
 real user out.
 
-Closed sessions and failed attempts are kept in memory, and closed sessions are reloaded from the database on
-startup. A deployment with several instances would move both to a shared store such as Redis.
+Failed attempts are counted in PostgreSQL, so every instance of the API counts the same ones and spreading the
+attempts over several instances gives no extra tries. Each instance keeps the closed sessions in memory, which
+is what lets the JWT filter run no SQL, and learns of a session closed in another one at once, through
+PostgreSQL's `NOTIFY`; [Several instances](architecture.md#several-instances) has the detail.
 
 ## Data isolation
 

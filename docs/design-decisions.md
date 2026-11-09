@@ -10,7 +10,8 @@ what checks it, have a [record](adr/README.md) of their own.
 - **Claims instead of a query per request.** The filter trusts the signed claims, so authenticating a request runs no
   SQL. The one thing a signed token cannot know, that its session was closed, comes from an in-memory list filled by
   the logout, a reused refresh token, a deactivation or a role change. Access tokens last 15 minutes, so the list only
-  needs to remember a session that long.
+  needs to remember a session that long. Every instance of the API fills its list from the same closures, which
+  PostgreSQL announces with `NOTIFY` when the transaction that closes them commits.
 - **Refresh tokens rotate and work once.** A stolen refresh token either fails, because its owner already used it, or
   closes the session as soon as the owner uses theirs. The database keeps SHA-256 hashes: the tokens are already
   random, so BCrypt adds nothing, and the hash has to be searchable.
