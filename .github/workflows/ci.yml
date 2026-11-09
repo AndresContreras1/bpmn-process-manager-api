@@ -392,6 +392,19 @@ jobs:
           # Angular resolves its own routes, so any path that is not a file has to come back as the index.
           curl -sS --fail-with-body http://localhost:8082/procesos/1 | grep -q "<app-root"
 
+      - name: NGINX serves security.txt
+        run: |
+          # RFC 9116: plain text at the well-known path, with a contact and an expiry date.
+          curl -sS --fail-with-body -D headers.txt -o security.txt http://localhost:8082/.well-known/security.txt
+          grep -qi '^content-type: text/plain' headers.txt
+          grep -q '^Contact: https://' security.txt
+          expires=$(sed -n 's/^Expires: //p' security.txt | tr -d '\r')
+          # A month before it expires the file has to be renewed, or a stale one would be served.
+          if [ "$(date -d "$expires" +%s)" -le "$(date -d '+30 days' +%s)" ]; then
+            echo "::error file=frontend/public/.well-known/security.txt::Expires ($expires) is less than 30 days away."
+            exit 1
+          fi
+
       - name: The API answers through the web container
         run: |
           # Same origin as the app: this goes through the proxy, not to the API's own port.

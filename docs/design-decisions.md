@@ -2,6 +2,9 @@
 
 # Design decisions
 
+The short reasons behind the choices that are not obvious. The architecture decisions, each with its context and
+what checks it, have a [record](adr/README.md) of their own.
+
 - **`404` instead of `403` across stores.** Answering "forbidden" would confirm that another store's resource exists.
 - **The tenant comes only from the token.** Request DTOs cannot carry an `empresaId`, and ArchUnit enforces it.
 - **Claims instead of a query per request.** The filter trusts the signed claims, so authenticating a request runs no

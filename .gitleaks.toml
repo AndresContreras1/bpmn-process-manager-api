@@ -6,3 +6,8 @@ useDefault = true
 description = "Signing keys that only exist to sign tokens inside the tests"
 regexTarget = "match"
 regexes = ['''clave-de-pruebas-de-al-menos-32-bytes''']
+
+[[allowlists]]
+description = "The address where Prometheus reads Actuator inside the compose network: a host, a port and a path"
+regexTarget = "match"
+regexes = ['''api:8081/actuator/prometheus''']
