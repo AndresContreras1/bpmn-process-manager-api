@@ -15,6 +15,7 @@ import org.springframework.web.context.request.ServletWebRequest;
 
 import com.facimus.procesos.common.IntegracionFallidaException;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -40,6 +41,7 @@ class LineasDelLogTest {
     @AfterEach
     void dejarDeEscuchar() {
         logger.detachAppender(log);
+        logger.setLevel(null);
     }
 
     @Test
@@ -74,6 +76,20 @@ class LineasDelLogTest {
             assertThat(evento.getFormattedMessage()).isEqualTo("Error inesperado en uri=/api/v1/procesos");
             assertThat(evento.getThrowableProxy().getMessage()).isEqualTo("fallo");
         });
+    }
+
+    @Test
+    @DisplayName("Con el log apagado los errores se responden igual y no se arma ninguna linea")
+    void logApagado() {
+        logger.setLevel(Level.OFF);
+
+        assertThat(handler.manejarConflictoDeDatos(new DataIntegrityViolationException("duplicado"), peticion)
+                .getStatus()).isEqualTo(409);
+        assertThat(handler.manejarIntegracionFallida(new IntegracionFallidaException("rechazado"), peticion)
+                .getStatus()).isEqualTo(502);
+        assertThat(handler.manejarErrorInesperado(new IllegalStateException("fallo"), peticion).getStatus())
+                .isEqualTo(500);
+        assertThat(log.list).isEmpty();
     }
 
     @Test
