@@ -15,7 +15,7 @@ immutable version that orders run on. This repository holds the REST API and the
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-prod-4169E1?logo=postgresql&logoColor=white)
 ![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-1260-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-1275-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -100,14 +100,14 @@ flowchart BT
 
 Each module is layered as controller → service interface → implementation → repository → entity, with DTOs and
 MapStruct mappers at its edge. ArchUnit fails the build if an arrow points backwards, if a service reads without the
-store's id, or if a request DTO carries one.
+store's id, or if a request DTO carries one, and Spring Modulith if a module uses another one it did not declare.
 
 | Layer | Technology |
 |---|---|
 | Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 · JWT (jjwt) · Spring Data JPA · Hibernate 7.4 · MapStruct |
 | Data | PostgreSQL 16 in `prod`, in `dev` and in the tests · Flyway migrations, validated by Hibernate |
 | Frontend | Angular 19 standalone · Bootstrap 5 · RxJS · NGINX |
-| Quality | JUnit 5 · Mockito · ArchUnit · Testcontainers · Selenium · k6 · JaCoCo · SonarCloud |
+| Quality | JUnit 5 · Mockito · ArchUnit · Spring Modulith · Testcontainers · Selenium · k6 · JaCoCo · SonarCloud |
 | Delivery | Docker multi-stage images · Docker Compose · GitHub Actions |
 
 [Architecture](docs/architecture.md) covers the request lifecycle, the module boundaries and the published-version
@@ -167,7 +167,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **1260 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+- **1275 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
   controller and repository slices, service units, security and store isolation, and integration across modules.
 - **Coverage gate** with JaCoCo: 96 % of lines and 85 % of branches today, and the build fails below 90 % and 80 %
   in the service packages, where the business rules live.

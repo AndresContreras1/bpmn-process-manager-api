@@ -18,6 +18,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.AopTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
@@ -68,6 +69,26 @@ class PerfilesTest {
 
             assertThat(context.getBean(JdbcTemplate.class).queryForList("select name from shedlock", String.class))
                     .containsExactlyInAnyOrder("limpieza", "reloj-de-simulacion");
+        }
+
+        @Test
+        @DisplayName("La purga nocturna tambien se lleva los trabajos de la cola terminados hace mas de una semana")
+        void dev_laPurgaSeLlevaLosTrabajosViejos() {
+            JdbcTemplate jdbc = context.getBean(JdbcTemplate.class);
+            jdbc.update("""
+                    insert into trabajos (tipo, datos, estado, intentos, maximo_intentos, disponible_desde, creado_en,
+                                          terminado_en)
+                    values ('purga-de-prueba', 'viejo', 'HECHO', 1, 5, now() - interval '30 days',
+                            now() - interval '30 days', now() - interval '30 days'),
+                           ('purga-de-prueba', 'reciente', 'HECHO', 1, 5, now(), now(), now())
+                    """);
+
+            // Sin pasar por el candado: la prueba de los candados pudo dejarlo tomado sus cinco minutos.
+            LimpiezaConfig purga = AopTestUtils.getUltimateTargetObject(context.getBean(LimpiezaConfig.class));
+            purga.limpiar();
+
+            assertThat(jdbc.queryForList("select datos from trabajos where tipo = 'purga-de-prueba'", String.class))
+                    .containsExactly("reciente");
         }
 
         @Test

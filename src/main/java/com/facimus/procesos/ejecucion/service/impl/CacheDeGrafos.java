@@ -5,7 +5,7 @@ import java.util.function.Supplier;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
-import com.facimus.procesos.config.CacheConfig;
+import com.facimus.procesos.common.Caches;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -32,7 +32,7 @@ class CacheDeGrafos {
      * <p>Es publico a proposito: Spring solo mira las anotaciones de cache en metodos publicos, y una anotacion que
      * nadie intercepta no falla, simplemente no guarda nada.
      */
-    @Cacheable(cacheNames = CacheConfig.GRAFOS, key = "#empresaId + ':' + #versionId", sync = true)
+    @Cacheable(cacheNames = Caches.GRAFOS, key = "#empresaId + ':' + #versionId", sync = true)
     public GrafoDeVersion grafo(Long empresaId, Long versionId, Supplier<String> definicion) {
         return GrafoDeVersion.de(json.readValue(definicion.get(), DiagramaResponse.class));
     }
