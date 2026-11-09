@@ -46,6 +46,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 - An audit trail per store that shows when it is touched: each entry carries the SHA-256 of its fields and of the
   previous one, a trigger turns down any change or deletion, and the administrator reads it, exports it to CSV or
   JSON and verifies the chain at `/api/v1/auditoria`.
+- Row-level security in PostgreSQL on every table of a store: the API works as a role that owns nothing and cannot
+  bypass it, and each connection carries the store of whoever asks, so a query that forgets to filter cannot see or
+  write another store's rows.
 
 ### Changed
 

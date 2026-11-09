@@ -118,6 +118,12 @@ until they enroll their app again; in a store that asks for it, they can only en
 (`DELETE /api/v1/usuarios/{id}/segundo-factor`, after confirming their own identity), which closes that person's
 sessions. They sign in with the password and enroll a new app.
 
+**A query answers no rows in production.** Row-level security shows a connection only the rows of the store of
+its thread. Code that runs outside a request and does not say its scope sees nothing: wrap it in
+`ContextoDeTienda.comoSistema` if it crosses stores on purpose, or `deLaTienda` if it works for one. To look at the
+data by hand, `psql` connects as the owner, which is not limited; `SET ROLE procesos_app;` and
+`SELECT set_config('app.empresa_id', '<id>', false);` show what the API would see.
+
 **The audit trail does not verify.** `GET /api/v1/auditoria/verificacion` names the first entry that no longer
 matches. Nothing in the API can change it, so it was changed in the database with the trigger off: treat it as an
 incident. Keep a copy of the table as it is, and compare it with the last backup to find what changed.
