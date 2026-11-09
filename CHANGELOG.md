@@ -35,6 +35,10 @@ tagged. Each pull request adds its line under *Unreleased*.
   password leaves a half-done login that only works to send the code. What changes the second factor, and closing
   the store, asks for a verification of the last ten minutes, and each store can ask for a second factor from its
   administrators or from everybody.
+- Signing in with Google or Microsoft (OpenID Connect with PKCE), into the same session cookies as the login. An
+  account of a provider is linked to an existing user only after the owner confirms it with the password or the
+  second factor; a store can verify its e-mail domains with a TXT record so that its people join with a default
+  role, and can ask its people to sign in only with a provider.
 
 ### Changed
 

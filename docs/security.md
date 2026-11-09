@@ -117,6 +117,40 @@ open sessions at their next renewal.
 
 Passkeys (WebAuthn), as a second factor and as a sign-in without a password, come in a pull request of their own.
 
+## Signing in with Google or Microsoft
+
+`GET /api/v1/auth/proveedores` lists the configured providers, and the web app sends the browser to
+`GET /api/v1/auth/oidc/{proveedor}`. Spring Security does the OpenID Connect authorization code flow:
+
+1. The request to the provider carries a `state`, a `nonce` and a PKCE challenge (`S256`), also for confidential
+   clients. The API has no HTTP session, so that request waits in PostgreSQL (`peticiones_oidc`), tied to the
+   browser that started it by a cookie `__Host-oidc` of 256 bits of which only the SHA-256 is kept. It works once
+   and for ten minutes: the address of the way back, passed to someone else, does not sign them in.
+2. The way back to `/api/v1/auth/oidc/callback/{proveedor}` exchanges the code with the PKCE verifier and checks
+   the `id_token`: its RS256 signature against the keys the provider publishes, its dates, its audience, its
+   `nonce` and its issuer. For Microsoft's common tenants the issuer has to be the one of the organization the
+   token names in `tid`. The access token of the provider is not kept anywhere.
+3. Then the person is decided:
+   - **A linked account** (`identidades_externas`, by provider and `sub`) signs in. With a second factor, the
+     provider is only the first one: the browser lands on the half-done login, as with the password.
+   - **An e-mail the provider did not verify** opens nothing (`email_verified`, or `xms_edov` for Microsoft).
+   - **An e-mail that already has a user** is not linked by itself: the browser goes to `/vincular#token=...`,
+     and `POST /api/v1/auth/identidades/vinculo` links it only with the password, or the code of the second factor
+     when there is one. The token works once and for ten minutes, and wrong passwords and codes count with the
+     login's limit.
+   - **An e-mail of a verified domain** joins the store of that domain with its default role, with the e-mail
+     already verified and a random password nobody knows.
+   - **Anything else** goes back to the login with the reason.
+
+The session that comes out is the same pair of cookies as the login, with the factor `PROVEEDOR_EXTERNO` in the
+token.
+
+A store proves it controls a domain by publishing a TXT record `bpmn-process-manager-verificacion=<token>`
+(`/api/v1/empresas/actual/dominios`, administrators only), and a domain can be verified by one store only. A store
+can also ask its people to sign in only with a provider (`soloEntradaExterna`): the password then answers `403` to
+everybody but the administrators, who keep it so that a fallen provider does not lock the store out, and nobody
+can unlink the last account they sign in with.
+
 ## Login protection
 
 An unknown email, a deactivated user and a wrong password get the same `401`, and `DaoAuthenticationProvider` spends

@@ -30,6 +30,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Store history and settings | `GET /api/v1/empresas/actual/historial` · `GET, PUT /api/v1/empresas/actual/configuracion` |
 | Passwords | `POST /api/v1/auth/password` · `POST /api/v1/usuarios/{id}/restablecer-clave` · `POST /api/v1/auth/recuperacion` · `POST /api/v1/auth/recuperacion/confirmar` |
 | Second factor | `GET /api/v1/auth/segundo-factor` · `POST, DELETE /api/v1/auth/segundo-factor/totp` · `POST /api/v1/auth/segundo-factor/totp/confirmacion` · `POST /api/v1/auth/segundo-factor/codigos` · `POST /api/v1/auth/segundo-factor/verificacion` · `POST /api/v1/auth/reautenticacion` · `DELETE /api/v1/usuarios/{id}/segundo-factor` |
+| Sign in with a provider | `GET /api/v1/auth/proveedores` · `GET /api/v1/auth/oidc/{proveedor}` · `POST /api/v1/auth/identidades/vinculo` · `GET /api/v1/auth/identidades` · `DELETE /api/v1/auth/identidades/{id}` |
+| Store domains | `GET, POST /api/v1/empresas/actual/dominios` · `POST /api/v1/empresas/actual/dominios/{id}/verificacion` · `DELETE /api/v1/empresas/actual/dominios/{id}` |
 | Account by e-mail | `POST /api/v1/auth/verificacion` · `POST /api/v1/auth/verificacion/confirmar` · `POST /api/v1/auth/invitacion/aceptar` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 | Cases | `POST /api/v1/procesos/{procesoId}/casos` · `GET /api/v1/casos` · `GET /api/v1/casos/{id}` · `GET /api/v1/casos/{id}/eventos` · `POST /api/v1/casos/{id}/cancelar` · `PATCH /api/v1/casos/{id}/variables` · `POST /api/v1/casos/{id}/reintentar` |
