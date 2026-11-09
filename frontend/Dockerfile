@@ -15,7 +15,7 @@ RUN hashes="$(grep -o "'sha256-[A-Za-z0-9+/=]*'" dist/bpmn-process-manager-web/b
 
 # Sin privilegios: esta imagen corre como un usuario normal, igual que la de la API, y por eso escucha en el 8080.
 # Es la rama estable de NGINX, la que recibe los parches de seguridad; la 1.27 ya no los recibia.
-FROM nginxinc/nginx-unprivileged:1.30-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
 # Los parches de Alpine llegan antes que una imagen nueva de NGINX: se aplican al construir, como root, y la imagen
 # vuelve a su usuario sin privilegios. Asi una vulnerabilidad ya corregida no espera a que NGINX publique otra imagen.
 USER root
