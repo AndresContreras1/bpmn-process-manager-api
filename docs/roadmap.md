@@ -51,6 +51,8 @@
 - [x] Soft delete and change history for every BPMN element
 - [x] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
 - [x] Lazy associations with entity graphs and read-only transactions
+- [x] Statement and idle-in-transaction timeouts for the role of the API, connection leak warnings, batched
+      updates, an index behind every foreign key and `pg_stat_statements`
 
 **API contract**
 - [x] Full OpenAPI documentation (`@Tag`, `@Operation`, `@ApiResponse`, `@Schema`), not published in production

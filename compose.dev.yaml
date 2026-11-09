@@ -15,6 +15,8 @@ services:
       POSTGRES_DB: procesos
       POSTGRES_USER: procesos
       POSTGRES_PASSWORD: procesos-dev
+    # pg_stat_statements, como en compose.yaml: cuenta lo que cuesta cada consulta.
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     ports:
       - "127.0.0.1::5432"
     volumes:

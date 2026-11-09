@@ -117,7 +117,8 @@ class SeguridadPorFilasIntegracionTest {
     void porDefectoEnProduccionNingunaFila() {
         DataSource pool = ((DelegatingDataSource) dataSource).getTargetDataSource();
         JdbcTemplate comoEnProduccion = new JdbcTemplate(
-                new SeguridadPorFilasConfig.DataSourceDeTienda(pool, Alcance.NINGUNA));
+                new SeguridadPorFilasConfig.DataSourceDeTienda(pool, Alcance.NINGUNA,
+                        SeguridadPorFilasConfig.Topes.NINGUNO));
 
         assertThat(comoEnProduccion.queryForObject("select count(*) from usuarios", Integer.class)).isZero();
         assertThat(ContextoDeTienda.comoSistema(() -> comoEnProduccion.queryForObject(
@@ -128,22 +129,20 @@ class SeguridadPorFilasIntegracionTest {
 
     @Test
     @DisplayName("El alcance se fija otra vez cuando cambia dentro de la misma conexion")
-    void cambiaDentroDeLaMismaConexion() {
+    void cambiaDentroDeLaMismaConexion() throws java.sql.SQLException {
         DataSource pool = ((DelegatingDataSource) dataSource).getTargetDataSource();
-        JdbcTemplate unaSolaConexion = new JdbcTemplate(new org.springframework.jdbc.datasource.SingleConnectionDataSource(
-                ContextoDeTienda.comoSistema(() -> {
-                    try {
-                        return new SeguridadPorFilasConfig.DataSourceDeTienda(pool, Alcance.NINGUNA).getConnection();
-                    } catch (java.sql.SQLException e) {
-                        throw new IllegalStateException(e);
-                    }
-                }), true));
+        // La conexion vuelve al pool al terminar: el pool avisa de la que no vuelve (PR 36).
+        try (java.sql.Connection conexion = new SeguridadPorFilasConfig.DataSourceDeTienda(pool, Alcance.NINGUNA,
+                SeguridadPorFilasConfig.Topes.NINGUNO).getConnection()) {
+            JdbcTemplate unaSolaConexion = new JdbcTemplate(
+                    new org.springframework.jdbc.datasource.SingleConnectionDataSource(conexion, true));
 
-        assertThat(ContextoDeTienda.deLaTienda(una, () -> unaSolaConexion.queryForList(
-                "select distinct empresa_id from usuarios", Long.class))).containsExactly(una);
-        assertThat(ContextoDeTienda.deLaTienda(otra, () -> unaSolaConexion.queryForList(
-                "select distinct empresa_id from usuarios", Long.class))).containsExactly(otra);
-        assertThat(unaSolaConexion.queryForObject("select count(*) from usuarios", Integer.class)).isZero();
+            assertThat(ContextoDeTienda.deLaTienda(una, () -> unaSolaConexion.queryForList(
+                    "select distinct empresa_id from usuarios", Long.class))).containsExactly(una);
+            assertThat(ContextoDeTienda.deLaTienda(otra, () -> unaSolaConexion.queryForList(
+                    "select distinct empresa_id from usuarios", Long.class))).containsExactly(otra);
+            assertThat(unaSolaConexion.queryForObject("select count(*) from usuarios", Integer.class)).isZero();
+        }
     }
 
     private Long tienda(String nombre) {
