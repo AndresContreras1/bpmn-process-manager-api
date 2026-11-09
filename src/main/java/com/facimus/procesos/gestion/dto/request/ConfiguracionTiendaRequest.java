@@ -2,6 +2,7 @@ package com.facimus.procesos.gestion.dto.request;
 
 import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
+import com.facimus.procesos.gestion.model.PoliticaSegundoFactor;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -28,6 +29,9 @@ public record ConfiguracionTiendaRequest(
         @Min(value = 1, message = "Una sesión dura de 1 a 24 horas.")
         @Max(value = 24, message = "Una sesión dura de 1 a 24 horas.")
         Integer duracionSesionHoras,
+        @Schema(description = "Who has to use a second factor to work: nobody, the administrators or everybody; "
+                + "leave it out to keep the current one", example = "ADMINISTRADORES")
+        PoliticaSegundoFactor politicaSegundoFactor,
         @Schema(description = "Version read with the last GET; if someone saved a change since, the edit answers 409",
                 example = "0")
         @NotNull(message = "La versión es obligatoria.") Long version) {

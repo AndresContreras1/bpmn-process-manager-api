@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.Base32;
 import com.facimus.procesos.common.security.Factor;
 import com.facimus.procesos.common.security.Totp;
@@ -25,10 +26,12 @@ import com.facimus.procesos.gestion.dto.response.CodigosDeRecuperacionResponse;
 import com.facimus.procesos.gestion.dto.response.InscripcionTotpResponse;
 import com.facimus.procesos.gestion.dto.response.SegundoFactorResponse;
 import com.facimus.procesos.gestion.model.CodigoDeRecuperacion;
+import com.facimus.procesos.gestion.model.ConfiguracionTienda;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.SegundoFactor;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.CodigoDeRecuperacionRepository;
+import com.facimus.procesos.gestion.repository.ConfiguracionTiendaRepository;
 import com.facimus.procesos.gestion.repository.SegundoFactorRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
@@ -58,6 +61,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     private final CifradoDeSecretos cifrado;
     private final HistorialCambioService historialCambioService;
     private final SesionService sesionService;
+    private final ConfiguracionTiendaRepository configuracionRepository;
     private final Clock reloj;
     private final SecureRandom aleatorio = new SecureRandom();
 
@@ -65,13 +69,14 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     public SegundoFactorServiceImpl(SegundoFactorRepository segundoFactorRepository,
             CodigoDeRecuperacionRepository codigoRepository, UsuarioRepository usuarioRepository,
             CifradoDeSecretos cifrado, HistorialCambioService historialCambioService, SesionService sesionService,
-            Clock reloj) {
+            ConfiguracionTiendaRepository configuracionRepository, Clock reloj) {
         this.segundoFactorRepository = segundoFactorRepository;
         this.codigoRepository = codigoRepository;
         this.usuarioRepository = usuarioRepository;
         this.cifrado = cifrado;
         this.historialCambioService = historialCambioService;
         this.sesionService = sesionService;
+        this.configuracionRepository = configuracionRepository;
         this.reloj = reloj;
     }
 
@@ -85,6 +90,14 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     @Override
     public boolean loPide(Long empresaId, Long usuarioId) {
         return segundoFactorRepository.existsByUsuarioIdAndEmpresaIdAndConfirmadoEnIsNotNull(usuarioId, empresaId);
+    }
+
+    @Override
+    public boolean faltaInscribir(Long empresaId, Long usuarioId, RolAcceso rol) {
+        return configuracionRepository.findByEmpresaId(empresaId)
+                .map(ConfiguracionTienda::getPoliticaSegundoFactor)
+                .filter(politica -> politica.exigeA(rol))
+                .isPresent() && !loPide(empresaId, usuarioId);
     }
 
     @Override

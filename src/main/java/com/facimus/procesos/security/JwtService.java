@@ -58,6 +58,8 @@ public class JwtService {
     static final String CLAIM_VERIFICADO = "auth_time";
     /** PR 49: el login a medias de quien tiene segundo factor; ese token solo sirve para darlo. */
     static final String CLAIM_SEGUNDO_FACTOR_PENDIENTE = "mfa_pendiente";
+    /** PR 49: la tienda le exige un segundo factor que no tiene; ese token solo sirve para inscribirlo. */
+    static final String CLAIM_SEGUNDO_FACTOR_OBLIGATORIO = "mfa_obligatorio";
 
     private static final Logger log = LoggerFactory.getLogger(JwtService.class);
 
@@ -114,6 +116,7 @@ public class JwtService {
                 .claim(CLAIM_SESION, principal.sesion())
                 .claim(CLAIM_CAMBIO_DE_CLAVE, principal.debeCambiarClave())
                 .claim(CLAIM_SEGUNDO_FACTOR_PENDIENTE, principal.segundoFactorPendiente())
+                .claim(CLAIM_SEGUNDO_FACTOR_OBLIGATORIO, principal.debeInscribirSegundoFactor())
                 .claim(CLAIM_FACTORES, factores.stream().sorted().map(Factor::name).toList())
                 .claim(CLAIM_VERIFICADO, verificadoEn.getEpochSecond())
                 .issuedAt(ahora)
@@ -196,7 +199,8 @@ public class JwtService {
         // Un token emitido antes de que existiera el claim no obliga a nadie a cambiar nada.
         boolean debeCambiarClave = Boolean.TRUE.equals(claims.get(CLAIM_CAMBIO_DE_CLAVE, Boolean.class));
         boolean pendiente = Boolean.TRUE.equals(claims.get(CLAIM_SEGUNDO_FACTOR_PENDIENTE, Boolean.class));
+        boolean obligatorio = Boolean.TRUE.equals(claims.get(CLAIM_SEGUNDO_FACTOR_OBLIGATORIO, Boolean.class));
         return Optional.of(new ApiPrincipal(usuarioId, empresaId, RolAcceso.valueOf(rol), claims.getSubject(), sesion,
-                debeCambiarClave, pendiente));
+                debeCambiarClave, pendiente, obligatorio));
     }
 }

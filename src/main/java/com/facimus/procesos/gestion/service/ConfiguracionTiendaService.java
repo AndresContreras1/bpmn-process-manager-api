@@ -6,6 +6,7 @@ import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.ParametrosSimulacion;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
+import com.facimus.procesos.gestion.model.PoliticaSegundoFactor;
 
 /** D16: lo que cada tienda decide sobre si misma, y la regla que de ahi sale (R-46). */
 public interface ConfiguracionTiendaService {
@@ -19,8 +20,16 @@ public interface ConfiguracionTiendaService {
      * Un modo, unos parametros o unos limites nulos dejan los que tenia: el cuerpo de la edicion crecio y los clientes
      * de antes no los mandan. Los parametros, en cambio, se mandan enteros o no se mandan.
      */
+    default ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
+            ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones, Long version) {
+        return editar(empresaId, usuarioId, politica, modo, parametros, sesiones, null, version);
+    }
+
+    /** PR 49: lo mismo con la politica de segundo factor; nula deja la que tenia. */
+    @SuppressWarnings("java:S107") // cada parte de la configuracion, por su nombre
     ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
-            ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones, Long version);
+            ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones,
+            PoliticaSegundoFactor segundoFactor, Long version);
 
     /** La edicion de la simulacion, que no toca las sesiones. */
     default ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,

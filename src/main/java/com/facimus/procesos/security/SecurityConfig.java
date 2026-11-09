@@ -101,6 +101,7 @@ public class SecurityConfig {
                 .addFilterAfter(new CambioDeClaveFilter(jsonMapper), JwtAuthenticationFilter.class)
                 // PR 49: el login a medias solo sirve para dar el codigo, asi que va antes de cualquier regla.
                 .addFilterAfter(new SegundoFactorPendienteFilter(jsonMapper), CambioDeClaveFilter.class)
+                .addFilterAfter(new InscripcionObligatoriaFilter(jsonMapper), SegundoFactorPendienteFilter.class)
                 // Detras de la autorizacion: una peticion que el rol rechaza no le pregunta nada a la base.
                 .addFilterAfter(new TiendaEnBajaFilter(empresaService, jsonMapper), AuthorizationFilter.class)
                 .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), TiendaEnBajaFilter.class);

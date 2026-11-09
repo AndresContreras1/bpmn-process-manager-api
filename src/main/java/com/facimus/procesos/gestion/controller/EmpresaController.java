@@ -113,7 +113,9 @@ public class EmpresaController {
                     + "either way. The simulation mode says who moves the clock; leaving it out keeps the current "
                     + "one. The session limits close a session that was not renewed for that many minutes, and "
                     + "any session that many hours after its login: open sessions take a shorter duration at their "
-                    + "next renewal. Leaving them out keeps the current ones. Administrators only.")
+                    + "next renewal. Leaving them out keeps the current ones. politicaSegundoFactor says who has to "
+                    + "use a second factor: whoever needs one and has none can only enroll it, and works after "
+                    + "renewing the session. Administrators only.")
     @ApiResponse(responseCode = "200", description = "The store settings")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -127,7 +129,7 @@ public class EmpresaController {
                 request.politicaEstructura(), request.modoSimulacion(),
                 ParametrosSimulacionRequest.aModelo(request.simulacion()),
                 new LimitesDeSesion(request.inactividadSesionMinutos(), request.duracionSesionHoras()),
-                request.version()));
+                request.politicaSegundoFactor(), request.version()));
     }
 
     @Operation(summary = "Close the store",

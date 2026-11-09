@@ -2,6 +2,7 @@ package com.facimus.procesos.gestion.service;
 
 import java.util.Optional;
 
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.Factor;
 import com.facimus.procesos.gestion.dto.response.CodigosDeRecuperacionResponse;
 import com.facimus.procesos.gestion.dto.response.InscripcionTotpResponse;
@@ -17,6 +18,9 @@ public interface SegundoFactorService {
 
     /** Si el login de esta persona tiene que pedirle el codigo. */
     boolean loPide(Long empresaId, Long usuarioId);
+
+    /** Si la tienda le exige un segundo factor a este rol y la persona todavia no lo tiene. */
+    boolean faltaInscribir(Long empresaId, Long usuarioId, RolAcceso rol);
 
     /**
      * Un secreto nuevo, sin confirmar, que reemplaza a otro sin confirmar. Con uno ya confirmado lanza

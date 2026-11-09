@@ -237,7 +237,7 @@ public class AuthController {
         }
         SesionVerificada verificada = sesionService.reverificar(empresaId, usuarioId, principal.sesion(), factor);
         Duration vidaDelAcceso = vidaDelAcceso(verificada.vidaRestante());
-        cookies.renovarAcceso(respuesta, jwtService.generarToken(verificada.usuario().comoPrincipal(verificada.sesion()),
+        cookies.renovarAcceso(respuesta, jwtService.generarToken(principal(verificada.usuario(), verificada.sesion()),
                 verificada.factores(), verificada.verificadaEn(), vidaDelAcceso), vidaDelAcceso);
         return ResponseEntity.ok(new SesionResponse(vidaDelAcceso.toSeconds(), verificada.usuario(), false));
     }
@@ -248,7 +248,7 @@ public class AuthController {
      */
     private SesionResponse abrir(SesionIniciada sesion, HttpServletResponse respuesta) {
         Duration vidaDelAcceso = vidaDelAcceso(sesion.vidaRestante());
-        String accessToken = jwtService.generarToken(sesion.usuario().comoPrincipal(sesion.sesion()),
+        String accessToken = jwtService.generarToken(principal(sesion.usuario(), sesion.sesion()),
                 sesion.factores(), sesion.verificadaEn(), vidaDelAcceso);
         cookies.abrir(respuesta, accessToken, vidaDelAcceso, sesion.refreshToken(), sesion.vidaDelRefresco());
         return new SesionResponse(vidaDelAcceso.toSeconds(), sesion.usuario(), false);
@@ -264,6 +264,16 @@ public class AuthController {
                 VIDA_DEL_LOGIN_PENDIENTE);
         cookies.abrirPendiente(respuesta, accessToken, VIDA_DEL_LOGIN_PENDIENTE);
         return new SesionResponse(VIDA_DEL_LOGIN_PENDIENTE.toSeconds(), usuario, true);
+    }
+
+    /**
+     * PR 49: la identidad del token de una sesion completa. Si la tienda le exige un segundo factor que no tiene, el
+     * token lo dice y solo sirve para inscribirlo; al renovar la sesion despues de confirmarlo, ya no.
+     */
+    private ApiPrincipal principal(UsuarioResponse usuario, String sesion) {
+        ApiPrincipal principal = usuario.comoPrincipal(sesion);
+        return segundoFactorService.faltaInscribir(usuario.empresaId(), usuario.id(), usuario.rolAcceso())
+                ? principal.conInscripcionObligatoria() : principal;
     }
 
     private Duration vidaDelAcceso(Duration vidaRestante) {
