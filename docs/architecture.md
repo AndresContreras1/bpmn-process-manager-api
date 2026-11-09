@@ -6,7 +6,7 @@
 
 | Area | Technology |
 |---|---|
-| Language | Java 21 |
+| Language | Java 25 (virtual threads, AOT cache) |
 | Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Security 7) |
 | Persistence | Hibernate 7.4 · Flyway 12 · H2 (`dev` and tests) · PostgreSQL (`prod`) |
 | Security | Spring Security `AuthenticationManager` · JWT (jjwt 0.12.6, HS256) · BCrypt · SHA-256-hashed refresh tokens |
@@ -14,6 +14,23 @@
 | Web app | Angular 19 · Bootstrap 5 · RxJS |
 | Testing | JUnit 5 · Mockito · MockMvc · AssertJ · ArchUnit 1.4 · JaCoCo · Testcontainers · Selenium · k6 |
 | Tooling | Maven Wrapper · Lombok · MapStruct · Docker · GitHub Actions · SonarCloud |
+
+## Runtime and container
+
+- **Virtual threads.** Every request runs on a virtual thread of its own. Since Java 24 a `synchronized` block no
+  longer pins its carrier thread, so there is no pool of threads to size: the connection pool to the database
+  (`DB_POOL_SIZE`) is the real ceiling of concurrent work, and a request that waits for a connection gives up after
+  three seconds instead of hanging.
+- **Graceful shutdown.** On `SIGTERM` the server stops taking requests and lets the ones in progress finish, for up to
+  `SHUTDOWN_TIMEOUT`; Compose waits 30 seconds before it kills the container.
+- **AOT cache.** The image is built with a training start (JEP 483 and 514): the JVM loads and links, once, the
+  classes Spring needs to start, and every real start finds them ready. The jar is extracted into the application and
+  its `lib/` for that, because the cache does not read nested jars.
+- **Minimal image.** The runtime stage is a JRE 25 on Alpine, run by a user without privileges; the build stage,
+  with Maven, does not reach it. The tests do not run inside the image build: the pipeline has already run them.
+- **Hardened containers.** The API and the web containers run with a read-only file system (only `/tmp`, in memory,
+  can be written), `no-new-privileges` and every Linux capability dropped, so a compromised process has nowhere to
+  write and nothing to escalate with.
 
 ## Modules
 

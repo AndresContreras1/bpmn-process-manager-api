@@ -4,7 +4,7 @@
 
 ## Requirements
 
-- JDK 21, or Docker, for the API
+- JDK 25, or Docker, for the API
 - Node.js 22 or later for the web app (optional)
 - Docker for the tests that run against a real PostgreSQL (optional)
 
