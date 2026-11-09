@@ -8,7 +8,7 @@ import http from 'k6/http';
 import { check, group } from 'k6';
 
 const BASE = __ENV.BASE_URL || 'http://localhost:8080';
-const CLAVE = 'carga12345';
+const CLAVE = 'noche-de-luna-llena';
 const PASOS = Number(__ENV.PASOS || 0);
 
 export const options = {

@@ -54,7 +54,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 class MetricasDeNegocioIntegracionTest {
 
     private static final String ADMIN = "admin@metricas.com";
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     @Autowired
     private MockMvc mockMvc;

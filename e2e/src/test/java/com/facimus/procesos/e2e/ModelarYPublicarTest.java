@@ -25,7 +25,7 @@ class ModelarYPublicarTest extends PruebaE2E {
     @DisplayName("el diagnostico impide publicar, el editor lo arregla y entonces publica")
     void arreglaElDiagramaEnElEditorYLoPublica() {
         ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Modelar", nitDe("modelar"),
-                correoDe("modelar"), "modelar12345");
+                correoDe("modelar"), "puentes-de-piedra");
         long proceso = api.crearProceso("Gift wrapping", "Wrap an order as a gift.", "Fulfillment");
         long pool = api.poolDeLaTienda(proceso);
         long rol = api.crearRol("Gift desk");

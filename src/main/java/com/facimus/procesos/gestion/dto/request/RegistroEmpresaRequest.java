@@ -24,8 +24,8 @@ public record RegistroEmpresaRequest(
         @NotBlank(message = "El correo del administrador es obligatorio.")
         @Email(message = "El correo del administrador no es valido.")
         @Size(max = 254, message = "El correo del administrador no puede superar 254 caracteres.") String emailAdmin,
-        @Schema(description = "At least 6 characters", example = "secret123", format = "password")
+        @Schema(description = "At least 15 characters, with no other rule about what they are: a few words make a good one. It cannot be a known leaked password, a repeated character or a series, or carry the name, the e-mail or the store", example = "harbor lights at dusk", format = "password")
         @NotBlank(message = "La contrasena es obligatoria.")
-        @Size(min = 6, message = "La contrasena debe tener al menos 6 caracteres.")
+        @Size(min = 15, message = "La contraseña debe tener al menos 15 caracteres.")
         @Size(max = 72, message = "La contrasena no puede superar 72 caracteres.") String passwordAdmin) {
 }

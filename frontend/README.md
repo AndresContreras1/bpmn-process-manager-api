@@ -40,7 +40,7 @@ npm run build
 
 - **The app never sees a token** (D29). The session lives in two `HttpOnly` cookies that the API sets and clears;
   the app only remembers who signed in, in `localStorage`, behind a `SesionLocalService`, to show their name and
-  what their role allows. The demo store signs in with `admin@demo.com` / `admin123`.
+  what their role allows. The demo store signs in with `admin@demo.com` / `every-order-on-time`.
 - When it starts, the app asks `GET /api/v1/auth/csrf` for the `XSRF-TOKEN` cookie, and `HttpClient` copies it into
   the `X-XSRF-TOKEN` header of every change, the login included.
 - **The session renews itself.** The access token lives fifteen minutes, so a `401` does not mean the session is
@@ -178,8 +178,9 @@ the role from the observable rather than from a snapshot, because the navbar is 
   Changing your own password closes every session of yours and opens a new one here,
   because that is what the API answers. Somebody who signed in with a temporary password is sent here by the route
   guard and kept here until they change it, since the API answers `403` to everything else.
-- **Store settings** (`/configuracion`): who may change the structure of a diagram. The simulation parameters are
-  saved empty on purpose; they belong to running processes.
+- **Store settings** (`/configuracion`): who may change the structure of a diagram, and how long a session lasts
+  without being used and after its sign-in. The simulation parameters are saved empty on purpose; they belong to
+  running processes.
 - **Store history** (`/historial`): everything that happened, paged, newest first. For administrators
   only, like the three above, because that is what the API allows.
 

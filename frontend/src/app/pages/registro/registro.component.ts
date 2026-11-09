@@ -30,7 +30,7 @@ export class RegistroComponent {
     correoContacto: new FormControl('', [Validators.required, Validators.email, Validators.maxLength(254)]),
     nombreAdmin: new FormControl('', [Validators.required, Validators.maxLength(120)]),
     emailAdmin: new FormControl('', [Validators.required, Validators.email, Validators.maxLength(254)]),
-    passwordAdmin: new FormControl('', [Validators.required, Validators.minLength(6), Validators.maxLength(72)]),
+    passwordAdmin: new FormControl('', [Validators.required, Validators.minLength(15), Validators.maxLength(72)]),
   });
 
   enviando: boolean = false;

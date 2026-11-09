@@ -1,10 +1,20 @@
 package com.facimus.procesos.gestion.controller;
 
+import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -15,17 +25,6 @@ import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
-
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-
-import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @WebMvcTest(EmpresaController.class)
 class EmpresaControllerTest {
@@ -45,7 +44,8 @@ class EmpresaControllerTest {
     @Test
     @DisplayName("POST /api/v1/empresas - registrar empresa exitoso (201)")
     void registrar_exitoso() throws Exception {
-        EmpresaResponse empresa = new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now());
+        EmpresaResponse empresa = new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now(),
+                null, null);
 
         given(empresaService.registrar(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .willReturn(empresa);
@@ -59,7 +59,7 @@ class EmpresaControllerTest {
                                   "correoContacto": "info@acme.com",
                                   "nombreAdmin": "Admin",
                                   "emailAdmin": "admin@acme.com",
-                                  "passwordAdmin": "secret123"
+                                  "passwordAdmin": "harbor lights at dusk"
                                 }
                                 """))
                 .andExpect(status().isCreated())
@@ -73,7 +73,8 @@ class EmpresaControllerTest {
     @DisplayName("GET /api/v1/empresas/actual - la tienda del usuario del token (200)")
     void actual_laTiendaDelToken() throws Exception {
         given(empresaService.obtener(1L, 1L))
-                .willReturn(new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now()));
+                .willReturn(new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now(), null,
+                        null));
 
         mockMvc.perform(get("/api/v1/empresas/actual").with(principal(RolAcceso.SOLO_LECTURA)))
                 .andExpect(status().isOk())

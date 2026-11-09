@@ -16,11 +16,17 @@ public interface ConfiguracionTiendaService {
     ConfiguracionTiendaResponse obtener(Long empresaId);
 
     /**
-     * Un modo o unos parametros nulos dejan los que tenia: el cuerpo de la edicion crecio y los clientes de antes
-     * no los mandan. Los parametros, en cambio, se mandan enteros o no se mandan.
+     * Un modo, unos parametros o unos limites nulos dejan los que tenia: el cuerpo de la edicion crecio y los clientes
+     * de antes no los mandan. Los parametros, en cambio, se mandan enteros o no se mandan.
      */
     ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
-            ModoSimulacion modo, ParametrosSimulacion parametros, Long version);
+            ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones, Long version);
+
+    /** La edicion de la simulacion, que no toca las sesiones. */
+    default ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
+            ModoSimulacion modo, ParametrosSimulacion parametros, Long version) {
+        return editar(empresaId, usuarioId, politica, modo, parametros, LimitesDeSesion.SIN_CAMBIOS, version);
+    }
 
     /** D8: en que tick va la simulacion de esta tienda. */
     int reloj(Long empresaId);

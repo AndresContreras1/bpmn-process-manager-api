@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -25,6 +26,8 @@ import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.repository.EnlaceDeUnUsoRepository;
+import com.facimus.procesos.gestion.repository.MembresiaRolRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.repository.UsuarioSpecifications;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
@@ -44,6 +47,9 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final UsuarioMapper usuarioMapper;
     private final SesionService sesionService;
     private final HistorialCambioService historialCambioService;
+    private final PoliticaDeClaves politicaDeClaves;
+    private final MembresiaRolRepository membresiaRolRepository;
+    private final EnlaceDeUnUsoRepository enlaceDeUnUsoRepository;
 
     private static final SecureRandom ALEATORIO = new SecureRandom();
 
@@ -58,6 +64,9 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         // D17: sin contrasena, la API genera una temporal y la devuelve una sola vez.
         boolean temporal = !StringUtils.hasText(password);
+        if (!temporal) {
+            politicaDeClaves.comprobar(password, nombre, correo, empresa.getNombre());
+        }
         String clave = temporal ? claveTemporal() : password;
 
         Usuario usuario = usuarioRepository.save(Usuario.builder()
@@ -87,7 +96,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Transactional
     public UsuarioResponse actualizar(Long empresaId, Long autorId, Long usuarioId, String nombre,
             RolAcceso rolAcceso, Boolean activo, Long version) {
-        Usuario usuario = buscar(empresaId, usuarioId);
+        Usuario usuario = buscarSinAnonimizar(empresaId, usuarioId);
         usuario.verificarVersion(version);
         boolean desactiva = Boolean.FALSE.equals(activo);
         if (desactiva) {
@@ -150,7 +159,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public UsuarioResponse restablecerClave(Long empresaId, Long autorId, Long usuarioId) {
-        Usuario usuario = buscar(empresaId, usuarioId);
+        Usuario usuario = buscarSinAnonimizar(empresaId, usuarioId);
         String clave = claveTemporal();
         usuario.setPasswordHash(passwordEncoder.encode(clave));
         usuario.setDebeCambiarClave(true);
@@ -165,6 +174,39 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional
+    public void anonimizar(Long empresaId, Long autorId, Long usuarioId) {
+        Usuario usuario = buscar(empresaId, usuarioId);
+        if (usuario.getAnonimizadoEn() != null) {
+            return;
+        }
+        if (usuarioId.equals(autorId)) {
+            throw new ReglaNegocioException("No puede anonimizar su propia cuenta: tiene que pedírselo a otro "
+                    + "administrador.");
+        }
+        // Quien la pide es otro administrador activo: la tienda no se queda sin ninguno.
+        String correo = usuario.getEmail();
+        String seudonimo = "Persona anonimizada " + usuarioId;
+        String correoSeudonimo = "anonimizada-" + usuarioId + "@anonimo.invalid";
+        usuario.setNombre(seudonimo);
+        usuario.setEmail(correoSeudonimo);
+        // Desactivada ya no entra; ademas, la clave que queda no la conoce nadie.
+        usuario.setPasswordHash(passwordEncoder.encode(claveTemporal() + claveTemporal()));
+        usuario.setActivo(false);
+        usuario.setDebeCambiarClave(false);
+        usuario.setCorreoVerificadoEn(null);
+        usuario.setAnonimizadoEn(LocalDateTime.now());
+        usuarioRepository.saveAndFlush(usuario);
+
+        membresiaRolRepository.borrarLasDe(empresaId, usuarioId);
+        enlaceDeUnUsoRepository.borrarLosDe(empresaId, usuarioId, correo);
+        sesionService.cerrarTodas(empresaId, usuarioId);
+        historialCambioService.seudonimizarUsuario(empresaId, usuarioId, seudonimo, correo, correoSeudonimo);
+        historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
+                "Usuario anonimizado: su nombre y su correo ya no constan en ninguna parte.");
+    }
+
+    @Override
+    @Transactional
     public UsuarioResponse cambiarClavePropia(Long empresaId, Long usuarioId, String actual, String nueva) {
         Usuario usuario = buscar(empresaId, usuarioId);
         if (!passwordEncoder.matches(actual, usuario.getPasswordHash())) {
@@ -173,6 +215,8 @@ public class UsuarioServiceImpl implements UsuarioService {
         if (passwordEncoder.matches(nueva, usuario.getPasswordHash())) {
             throw new SolicitudInvalidaException("La contraseña nueva tiene que ser distinta de la actual.");
         }
+        politicaDeClaves.comprobar(nueva, usuario.getNombre(), usuario.getEmail(),
+                usuario.getEmpresa().getNombre());
         usuario.setPasswordHash(passwordEncoder.encode(nueva));
         usuario.setDebeCambiarClave(false);
         usuarioRepository.saveAndFlush(usuario);
@@ -180,6 +224,12 @@ public class UsuarioServiceImpl implements UsuarioService {
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Usuario \"" + usuario.getNombre() + "\" cambió su contraseña.");
         return usuarioMapper.toResponse(usuario);
+    }
+
+    @Override
+    @Transactional
+    public void renovarHash(Long empresaId, Long usuarioId, String hash) {
+        usuarioRepository.renovarHash(empresaId, usuarioId, hash);
     }
 
     @Override
@@ -206,8 +256,9 @@ public class UsuarioServiceImpl implements UsuarioService {
      * Una contrasena temporal que una persona pueda leer y teclear: doce caracteres del alfabeto de URL, sacados de
      * la misma fuente aleatoria que los tokens de refresco. No se guarda en claro en ningun sitio.
      */
+    /** 96 bits al azar, 16 caracteres: llega al minimo de una clave que es el unico factor. */
     private static String claveTemporal() {
-        byte[] bytes = new byte[9];
+        byte[] bytes = new byte[12];
         ALEATORIO.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
@@ -229,6 +280,16 @@ public class UsuarioServiceImpl implements UsuarioService {
         if (usuarioRepository.countByEmpresaIdAndRolAccesoAndActivoTrue(empresaId, RolAcceso.ADMINISTRADOR) <= 1) {
             throw new ReglaNegocioException("La tienda tiene que conservar al menos un administrador activo.");
         }
+    }
+
+    /** Una persona anonimizada ya no se edita, ni se reactiva, ni recibe una clave: sus datos ya no existen. */
+    private Usuario buscarSinAnonimizar(Long empresaId, Long usuarioId) {
+        Usuario usuario = buscar(empresaId, usuarioId);
+        if (usuario.getAnonimizadoEn() != null) {
+            throw new ReglaNegocioException("Ese usuario está anonimizado: no se puede editar, reactivar ni darle "
+                    + "otra contraseña.");
+        }
+        return usuario;
     }
 
     private Usuario buscar(Long empresaId, Long usuarioId) {

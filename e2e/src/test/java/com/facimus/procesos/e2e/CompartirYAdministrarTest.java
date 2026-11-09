@@ -15,12 +15,12 @@ class CompartirYAdministrarTest extends PruebaE2E {
     void compartirYVerComoInvitada() {
         String nitInvitada = nitDe("compartir-invitada");
         ApiDeDatos.Tienda invitada = api.registrarTienda("Tienda Invitada", nitInvitada,
-                correoDe("invitada"), "invitada12345");
+                correoDe("invitada"), "nubes-sobre-el-valle");
 
         // La duena, con un proceso publicado: sin publicar no hay version vigente que ensenarle a nadie
         ApiDeDatos duenaApi = new ApiDeDatos(API);
         ApiDeDatos.Tienda duena = duenaApi.registrarTienda("Tienda Duena", nitDe("compartir-duena"),
-                correoDe("duena"), "duena12345");
+                correoDe("duena"), "lagos-de-agua-clara");
         long proceso = duenaApi.crearProceso("Order fulfillment", "From checkout to delivery.", "Fulfillment");
         long pool = duenaApi.poolDeLaTienda(proceso);
         long lane = duenaApi.crearLane(pool, "Sales", duenaApi.crearRol("Sales"));
@@ -62,7 +62,7 @@ class CompartirYAdministrarTest extends PruebaE2E {
     @DisplayName("un administrador crea un rol y da de alta a alguien, que recibe una clave de un solo uso")
     void administrarRolesYUsuarios() {
         ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Admin", nitDe("administrar"),
-                correoDe("admin"), "admin12345");
+                correoDe("admin"), "cielo-de-tormenta");
         entrar(tienda);
 
         ir("/roles");
@@ -94,9 +94,9 @@ class CompartirYAdministrarTest extends PruebaE2E {
     @DisplayName("el buscador encuentra a una persona, la baja se deshace y el panel de roles no miente")
     void buscarDarDeBajaYVolverADarDeAlta() {
         ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Equipo", nitDe("equipo"),
-                correoDe("equipo"), "admin12345");
+                correoDe("equipo"), "cielo-de-tormenta");
         api.crearRol("Sales");
-        api.crearUsuario("Bruno Bodega", correoDe("bruno"), "bruno12345", "EDITOR");
+        api.crearUsuario("Bruno Bodega", correoDe("bruno"), "olas-en-la-orilla", "EDITOR");
         entrar(tienda);
 
         // El buscador: con la tienda entera en pantalla, escribir un nombre deja una sola fila
@@ -138,9 +138,9 @@ class CompartirYAdministrarTest extends PruebaE2E {
     void sinRolNoHayAdministracion() {
         // Quien registra una tienda es su administrador, asi que para probar lo contrario hace falta otra persona
         ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Con Editora", nitDe("sin-rol"),
-                correoDe("con-editora"), "duena12345");
+                correoDe("con-editora"), "lagos-de-agua-clara");
         String correoEditora = correoDe("editora");
-        api.crearUsuario("Eva Editora", correoEditora, "editora12345", "EDITOR");
+        api.crearUsuario("Eva Editora", correoEditora, "luces-del-puerto", "EDITOR");
 
         // El administrador si la ve: es el contraste que da sentido a las comprobaciones de abajo
         entrar(tienda);
@@ -149,7 +149,7 @@ class CompartirYAdministrarTest extends PruebaE2E {
 
         // Y la editora, que entra con su propia clave, no
         salir();
-        entrarCon(correoEditora, "editora12345");
+        entrarCon(correoEditora, "luces-del-puerto");
         assertTrue(navegador.findElements(Paginas.Navbar.USUARIOS).isEmpty(),
                 "una editora no puede ver el menu de usuarios");
         assertTrue(navegador.findElements(Paginas.Navbar.HISTORIAL).isEmpty(),

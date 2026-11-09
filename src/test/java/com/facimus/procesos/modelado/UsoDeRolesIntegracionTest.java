@@ -49,7 +49,7 @@ class UsoDeRolesIntegracionTest {
     @BeforeAll
     void registrarTienda() {
         empresaId = empresaService.registrar("Tienda de roles", "900444555-6", "contacto@roles.com",
-                "Administrador", "admin@roles.com", "clave12345").id();
+                "Administrador", "admin@roles.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@roles.com").orElseThrow().getId();
     }
 

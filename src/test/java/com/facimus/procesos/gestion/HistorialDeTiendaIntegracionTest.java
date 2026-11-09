@@ -35,7 +35,7 @@ import com.facimus.procesos.gestion.service.UsuarioService;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class HistorialDeTiendaIntegracionTest {
 
-    private static final String CLAVE = "clave12345";
+    private static final String CLAVE = "marea-violeta-del-sur";
 
     @Autowired
     private EmpresaService empresaService;

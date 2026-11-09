@@ -1,14 +1,19 @@
 package com.facimus.procesos.gestion.dto.response;
 
+import java.time.Duration;
+
 /**
  * Lo que deja un login o una renovacion: el refresh token en claro (la base solo guarda su hash, asi que es la unica
- * vez que se ve), el codigo de la sesion para el claim sid y el perfil del usuario.
+ * vez que se ve), el codigo de la sesion para el claim sid, el perfil del usuario, cuanto vive ese refresh token y
+ * cuanto le queda a la sesion antes de que haya que volver a entrar.
  */
-public record SesionIniciada(String refreshToken, String sesion, UsuarioResponse usuario) {
+public record SesionIniciada(String refreshToken, String sesion, UsuarioResponse usuario, Duration vidaDelRefresco,
+        Duration vidaRestante) {
 
     /** El toString de un record imprime todos sus campos: el refresh token no debe llegar a un log. */
     @Override
     public String toString() {
-        return "SesionIniciada[refreshToken=[oculto], sesion=" + sesion + ", usuario=" + usuario + "]";
+        return "SesionIniciada[refreshToken=[oculto], sesion=" + sesion + ", usuario=" + usuario
+                + ", vidaDelRefresco=" + vidaDelRefresco + ", vidaRestante=" + vidaRestante + "]";
     }
 }

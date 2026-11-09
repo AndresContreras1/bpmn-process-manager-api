@@ -35,8 +35,8 @@ import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
-import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.CorrelacionService;
+import com.facimus.procesos.modelado.service.DatosDeArco;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.DiagramaService;
 import com.facimus.procesos.modelado.service.EventoService;
@@ -97,7 +97,7 @@ class DiagramaIntegracionTest {
     @BeforeAll
     void modelarElDespachoDeUnPedido() {
         empresaId = empresaService.registrar("Tienda del diagrama", "900777888-9", "contacto@diagrama.com",
-                "Administrador", "admin@diagrama.com", "clave12345").id();
+                "Administrador", "admin@diagrama.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@diagrama.com").orElseThrow().getId();
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Checkout to delivery",
                 "Fulfillment").id();

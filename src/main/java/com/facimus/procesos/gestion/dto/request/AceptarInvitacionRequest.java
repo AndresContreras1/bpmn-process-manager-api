@@ -12,8 +12,8 @@ public record AceptarInvitacionRequest(
         @Schema(description = "Full name", example = "Luis Gomez")
         @NotBlank(message = "El nombre es obligatorio.")
         @Size(max = 120, message = "El nombre no puede superar 120 caracteres.") String nombre,
-        @Schema(example = "secret123", format = "password")
+        @Schema(example = "harbor lights at dusk", format = "password")
         @NotBlank(message = "La contrasena es obligatoria.")
-        @Size(min = 6, message = "La contrasena debe tener al menos 6 caracteres.")
+        @Size(min = 15, message = "La contraseña debe tener al menos 15 caracteres.")
         @Size(max = 72, message = "La contrasena no puede superar 72 caracteres.") String password) {
 }

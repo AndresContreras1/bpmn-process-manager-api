@@ -2,6 +2,7 @@ package com.facimus.procesos.security;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -17,8 +18,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
@@ -35,6 +36,7 @@ import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import com.facimus.procesos.common.model.RolAcceso;
+import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.IdempotenciaService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -82,7 +84,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, RevokedSessions revokedSessions,
-            IdempotenciaService idempotenciaService, JsonMapper jsonMapper) throws Exception {
+            IdempotenciaService idempotenciaService, EmpresaService empresaService, JsonMapper jsonMapper)
+            throws Exception {
         reglasComunes(http)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthEntryPoint)
@@ -93,7 +96,9 @@ public class SecurityConfig {
                 // Despues de la autorizacion: solo guarda las respuestas de peticiones que se pueden ejecutar.
                 // D17: con una clave temporal solo se puede cambiarla, asi que va justo detras de identificar quien es.
                 .addFilterAfter(new CambioDeClaveFilter(jsonMapper), JwtAuthenticationFilter.class)
-                .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), AuthorizationFilter.class);
+                // Detras de la autorizacion: una peticion que el rol rechaza no le pregunta nada a la base.
+                .addFilterAfter(new TiendaEnBajaFilter(empresaService, jsonMapper), AuthorizationFilter.class)
+                .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), TiendaEnBajaFilter.class);
         return http.build();
     }
 
@@ -128,9 +133,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/password", "/api/v1/auth/verificacion")
                         .authenticated()
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
-                        // El gobierno de la tienda es del administrador: su historial y su configuracion.
+                        // El gobierno de la tienda es del administrador: su historial, su configuracion y su baja.
                         .requestMatchers("/api/v1/empresas/actual/historial",
-                                "/api/v1/empresas/actual/configuracion").hasAuthority(ADMINISTRADOR)
+                                "/api/v1/empresas/actual/configuracion", "/api/v1/empresas/actual/baja")
+                        .hasAuthority(ADMINISTRADOR)
                         // D8: mover el reloj cambia lo que les pasa a todos los casos de la tienda a la vez,
                         // asi que la simulacion entera es del administrador, tambien para mirarla.
                         .requestMatchers("/api/v1/simulacion", "/api/v1/simulacion/**")
@@ -215,21 +221,29 @@ public class SecurityConfig {
         return new IntentosDeLogin(jdbc, maximo, ventana, reloj);
     }
 
+    /**
+     * Cada hash lleva delante el algoritmo con el que se hizo, {bcrypt}: el dia que haya otro mejor, o un costo mas
+     * alto, los hashes viejos se siguen comprobando y el login los rehace (UserAccountService). Los de antes de este
+     * prefijo son de BCrypt y se comprueban igual.
+     */
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    public PasswordEncoder passwordEncoder(@Value("${claves.costo-bcrypt}") int costo) {
+        BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(costo);
+        DelegatingPasswordEncoder encoder = new DelegatingPasswordEncoder("bcrypt", Map.of("bcrypt", bcrypt));
+        encoder.setDefaultPasswordEncoderForMatches(bcrypt);
+        return encoder;
     }
 
     /**
      * HU-03: DaoAuthenticationProvider compara la clave con BCrypt. Si el correo no existe igual gasta el tiempo de una
      * comparacion, y responde el mismo BadCredentialsException: ni la respuesta ni su demora delatan que correos
-     * estan registrados.
+     * estan registrados. Si la clave es buena y su hash es de un algoritmo o un costo viejo, lo rehace.
      */
     @Bean
-    public AuthenticationManager authenticationManager(UserDetailsService userDetailsService,
-            PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider proveedor = new DaoAuthenticationProvider(userDetailsService);
+    public AuthenticationManager authenticationManager(UserAccountService cuentas, PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider proveedor = new DaoAuthenticationProvider(cuentas);
         proveedor.setPasswordEncoder(passwordEncoder);
+        proveedor.setUserDetailsPasswordService(cuentas);
         return new ProviderManager(proveedor);
     }
 }

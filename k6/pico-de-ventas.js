@@ -5,7 +5,7 @@ import http from 'k6/http';
 import { check, group } from 'k6';
 
 const BASE = __ENV.BASE_URL || 'http://localhost:8080';
-const CLAVE = 'carga12345';
+const CLAVE = 'noche-de-luna-llena';
 
 export const options = {
   // El pico: sube a 20 usuarios a la vez, se sostiene y baja.

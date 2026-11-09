@@ -81,7 +81,7 @@ class DemoDePuntaAPuntaTest {
     void registrarLaTienda() {
         demo = new TiendaConMensajeria(contexto);
         empresaId = empresaService.registrar("Tienda de la demo", "900999444-1", "contacto@demo.com",
-                "Administradora", "admin@demo.com", "clave12345").id();
+                "Administradora", "admin@demo.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@demo.com").orElseThrow().getId();
     }
 

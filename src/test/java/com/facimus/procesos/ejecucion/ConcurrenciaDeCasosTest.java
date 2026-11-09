@@ -98,7 +98,7 @@ class ConcurrenciaDeCasosTest {
     @BeforeAll
     void publicarUnProcesoConUnaTarea() {
         empresaId = empresaService.registrar("Tienda concurrente", "900222111-1", "contacto@concurrente.com",
-                "Administradora", "admin@concurrentes.com", "clave12345").id();
+                "Administradora", "admin@concurrentes.com", "marea-violeta-del-sur").id();
         adminId = usuarioRepository.findByEmail("admin@concurrentes.com").orElseThrow().getId();
 
         procesoId = procesoService.crear(empresaId, adminId, "Order fulfillment", "Una sola tarea",

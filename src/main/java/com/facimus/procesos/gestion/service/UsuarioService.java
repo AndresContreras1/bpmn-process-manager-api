@@ -39,11 +39,24 @@ public interface UsuarioService {
      */
     UsuarioResponse restablecerClave(Long empresaId, Long autorId, Long usuarioId);
 
+    /**
+     * PR 35: borra a pedido los datos personales de un usuario, sin vuelta atras. Su fila se queda, porque la nombran
+     * la autoria de lo que hizo y el historial, pero con un seudonimo y una direccion que no es suya, desactivada y sin
+     * clave que sirva; el historial lo nombra tambien con el seudonimo, y su correo se puede volver a registrar.
+     */
+    void anonimizar(Long empresaId, Long autorId, Long usuarioId);
+
     /** Cambia la contrasena propia, comprobando la que esta en uso, y deja de exigir el cambio. */
     UsuarioResponse cambiarClavePropia(Long empresaId, Long usuarioId, String actual, String nueva);
 
     /** HU-03: las credenciales de un usuario activo para el login; vacio si el correo no existe o esta desactivado. */
     Optional<CredencialesUsuario> buscarCredenciales(String email);
+
+    /**
+     * El hash de la misma clave, rehecho por el login con el algoritmo y el costo de hoy. No es un cambio de nadie: no
+     * va al historial, no cierra sesiones ni cambia la version del usuario.
+     */
+    void renovarHash(Long empresaId, Long usuarioId, String hash);
 
     /**
      * HU-02: una pagina de colaboradores de la tienda. El nombre es una parte, sin distinguir mayusculas, y los
