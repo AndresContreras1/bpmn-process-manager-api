@@ -2,7 +2,6 @@ package com.facimus.procesos.security;
 
 import java.io.IOException;
 
-import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -16,13 +15,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Autentica la peticion si trae "Authorization: Bearer <token>" valido y su sesion sigue abierta. La identidad sale de
- * los claims y las sesiones cerradas se miran en memoria, asi que el filtro no consulta la base. Si no, deja pasar
- * sin autenticar: decide SecurityConfig.
+ * Autentica la peticion si trae en la cookie de acceso un token valido y su sesion sigue abierta (D29). La identidad
+ * sale de los claims y las sesiones cerradas se miran en memoria, asi que el filtro no consulta la base. Si no, deja
+ * pasar sin autenticar: decide SecurityConfig. Un {@code Authorization: Bearer} queda para las claves de API.
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
-    private static final String PREFIJO = "Bearer ";
 
     private final JwtService jwtService;
     private final RevokedSessions revokedSessions;
@@ -35,12 +32,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (header != null && header.startsWith(PREFIJO)) {
-            jwtService.validar(header.substring(PREFIJO.length()))
-                    .filter(principal -> !revokedSessions.estaRevocada(principal.sesion()))
-                    .ifPresent(principal -> autenticar(principal, request));
-        }
+        CookiesDeSesion.leer(request, CookiesDeSesion.ACCESO)
+                .flatMap(jwtService::validar)
+                .filter(principal -> !revokedSessions.estaRevocada(principal.sesion()))
+                .ifPresent(principal -> autenticar(principal, request));
         filterChain.doFilter(request, response);
     }
 

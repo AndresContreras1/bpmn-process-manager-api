@@ -26,6 +26,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- **Breaking:** the login, the renewal and the password change no longer return the tokens in the body, and the API
+  no longer reads `Authorization: Bearer`; the refresh and the logout take the refresh token from its cookie. The
+  web app, the end-to-end tests, k6 and the Postman collection use the cookies.
 - Development and tests run on PostgreSQL 16, like production: `dev` brings up `compose.dev.yaml` through Spring
   Boot's Docker Compose support, every test runs against one Testcontainers server with a database per context,
   and H2 is out of the build. The migrations are a single set.
@@ -35,6 +38,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Security
 
+- The browser's session lives in two `HttpOnly`, `Secure`, `SameSite=Lax` cookies, and what changes something with
+  them, the login included, needs the CSRF token of the `XSRF-TOKEN` cookie in `X-XSRF-TOKEN`. The access token
+  follows RFC 8725 (`iss`, `aud`, `jti`, `kid`), and the signing key can rotate without closing sessions.
 - Security headers on every response. The API forbids loading anything and being framed; the web app allows only
   its own origin, and for scripts only the hashes Angular computes when it builds. HSTS, `nosniff`,
   `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP and CORP on both, and Trusted Types in report

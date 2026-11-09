@@ -18,6 +18,8 @@
 - [x] Read-only process sharing between stores (HU-23), through a read door that no change can use
 - [x] Authentication through `AuthenticationManager` and `UserDetailsService`, without revealing whether an email exists
 - [x] Short-lived access tokens with refresh tokens
+- [x] The browser's session in `HttpOnly` cookies with a CSRF token, and a JWT as RFC 8725 asks, with a signing key
+      that rotates without closing sessions
 - [x] Rate limiting on login (`429` with `Retry-After`)
 - [x] Scheduled purge of expired sessions, refresh tokens and old idempotency keys
 - [x] Several instances on one database: closed sessions announced with `LISTEN/NOTIFY`, failed logins and AI

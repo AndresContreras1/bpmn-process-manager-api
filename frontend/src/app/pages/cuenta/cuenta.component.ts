@@ -8,7 +8,7 @@ import { Empresa } from '../../models/empresa.model';
 import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
 import { EmpresaService } from '../../service/empresa.service';
-import { TokenService } from '../../service/token.service';
+import { SesionLocalService } from '../../service/sesion-local.service';
 import { CambiarClaveComponent } from './cambiar-clave/cambiar-clave.component';
 
 /** Una accion de la aplicacion y los roles que pueden hacerla: la misma matriz que aplica la API. */
@@ -26,7 +26,7 @@ interface Permiso {
 export class CuentaComponent implements OnInit {
   private readonly authService: AuthService = inject(AuthService);
   private readonly empresaService: EmpresaService = inject(EmpresaService);
-  private readonly tokenService: TokenService = inject(TokenService);
+  private readonly sesionLocal: SesionLocalService = inject(SesionLocalService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
@@ -50,7 +50,7 @@ export class CuentaComponent implements OnInit {
 
   ngOnInit(): void {
     this.bienvenida = this.route.snapshot.queryParamMap.has('bienvenida');
-    this.claveTemporal = this.tokenService.obtenerUsuario()?.debeCambiarClave === true;
+    this.claveTemporal = this.sesionLocal.obtenerUsuario()?.debeCambiarClave === true;
     if (this.claveTemporal) {
       // Con una clave temporal la API solo deja cambiarla: pedir la tienda contestaria 403 y ensuciaria el log
       return;

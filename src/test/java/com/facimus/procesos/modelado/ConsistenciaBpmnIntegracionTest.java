@@ -18,7 +18,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,6 +41,7 @@ import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.PoolService;
+import com.facimus.procesos.security.SesionEnCookies;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -111,12 +111,10 @@ class ConsistenciaBpmnIntegracionTest {
                 Integracion.NINGUNA).id();
         laneId = laneService.crear(empresaId, adminId, tiendaId, "Warehouse",
                 rolProcesoService.crear(empresaId, adminId, "Warehouse", null).id()).id();
-        String login = mockMvc.perform(post("/api/v1/auth/login")
+        token = SesionEnCookies.acceso(mockMvc.perform(SesionEnCookies.login()
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new LoginRequest(ADMIN, CLAVE))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        token = jsonMapper.readTree(login).get("accessToken").asString();
+                .andExpect(status().isOk()));
     }
 
     @Test
@@ -339,7 +337,7 @@ class ConsistenciaBpmnIntegracionTest {
                 "posicionX", 100, "posicionY", 560, "version", 1))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/pools/{id}/arcos", tiendaId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                        .with(SesionEnCookies.conSesion(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.origenId == " + decidir + ")].condicion").value(everyItem(nullValue())))
                 .andExpect(jsonPath("$[?(@.origenId == " + decidir + ")].porDefecto")
@@ -422,7 +420,7 @@ class ConsistenciaBpmnIntegracionTest {
 
     private ResultActions pedir(MockHttpServletRequestBuilder peticion, Map<String, Object> cuerpo) throws Exception {
         return mockMvc.perform(peticion
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .with(SesionEnCookies.conSesion(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonMapper.writeValueAsString(cuerpo)));
     }
