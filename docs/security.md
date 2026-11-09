@@ -164,6 +164,42 @@ attempts over several instances gives no extra tries. Each instance keeps the cl
 is what lets the JWT filter run no SQL, and learns of a session closed in another one at once, through
 PostgreSQL's `NOTIFY`; [Several instances](architecture.md#several-instances) has the detail.
 
+## Audit trail
+
+Each store has an audit trail (`bitacora`) of what happened in it:
+
+| Action | When |
+|---|---|
+| `SESION_INICIADA` | A session opens, by any way in, with its factors |
+| `LOGIN_FALLIDO` · `CODIGO_FALLIDO` | A wrong password or second-factor code for an account of the store |
+| `SEGUNDO_FACTOR_ACTIVADO` · `SEGUNDO_FACTOR_QUITADO` · `CODIGOS_DE_RECUPERACION_RENOVADOS` | The second factor changes |
+| `USUARIO_CREADO` · `USUARIO_CAMBIADO` · `USUARIO_DESACTIVADO` · `CLAVE_RESTABLECIDA` · `USUARIO_ANONIMIZADO` | A person is created, changes role or status, gets a temporary password or is anonymized |
+| `INVITACION_ENVIADA` · `USUARIO_UNIDO_POR_DOMINIO` · `IDENTIDAD_VINCULADA` · `IDENTIDAD_DESVINCULADA` · `DOMINIO_VERIFICADO` | Someone is invited, joins or links a provider |
+| `CONFIGURACION_CAMBIADA` | The settings change, with the policies that resulted |
+| `PROCESO_PUBLICADO` | A version is published |
+| `TIENDA_DADA_DE_BAJA` · `BAJA_CANCELADA` | The store is closed or the closing is cancelled |
+
+Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
+the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
+change, so nothing in it would have to be pseudonymized later.
+
+What makes it hard to touch:
+
+- No service writes it. Each one publishes an event that waits in Spring Modulith's outbox, in the same transaction
+  as what happened, and the trail adds it after the commit: what is rolled back leaves no entry, and a restart does
+  not lose one.
+- Each entry has a number in the chain of its store and the SHA-256 of its fields together with the hash of the
+  previous one. Adding takes a PostgreSQL lock per store, so two entries at once do not take the same number.
+- A trigger turns down `UPDATE`, `DELETE` and `TRUNCATE`, for the API too.
+- `GET /api/v1/auditoria/verificacion` recomputes the chain from its first entry and names the first one that was
+  changed, deleted or put out of order.
+
+The administrator reads it newest first, 50 at a time, with filters (`GET /api/v1/auditoria`), and exports it as CSV
+or JSON (`/exportacion`); in the CSV, a cell a spreadsheet would run as a formula starts with an apostrophe. The trail
+outlives its store, which stays as a tombstone. Anchoring the last hash of each day outside the database comes with
+object storage (PR 61), and the role the API connects with gets only `INSERT` and `SELECT` on it with row-level
+security (PR 51).
+
 ## Rate limiting
 
 Every request that changes something spends a token of a bucket (Bucket4j) before it reaches anything. Each bucket

@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.SesionInvalidaException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.security.Factor;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.SesionVerificada;
@@ -57,17 +59,19 @@ public class SesionServiceImpl implements SesionService {
     private final UsuarioMapper usuarioMapper;
     private final ApplicationEventPublisher eventos;
     private final ConfiguracionTiendaRepository configuracionRepository;
+    private final Auditoria auditoria;
     private final SecureRandom aleatorio = new SecureRandom();
 
     public SesionServiceImpl(SesionRepository sesionRepository, RefreshTokenRepository refreshTokenRepository,
             UsuarioRepository usuarioRepository, UsuarioMapper usuarioMapper, ApplicationEventPublisher eventos,
-            ConfiguracionTiendaRepository configuracionRepository) {
+            ConfiguracionTiendaRepository configuracionRepository, Auditoria auditoria) {
         this.sesionRepository = sesionRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.usuarioRepository = usuarioRepository;
         this.usuarioMapper = usuarioMapper;
         this.eventos = eventos;
         this.configuracionRepository = configuracionRepository;
+        this.auditoria = auditoria;
     }
 
     @Override
@@ -84,6 +88,8 @@ public class SesionServiceImpl implements SesionService {
                 .factores(Factor.escribir(factores))
                 .verificadaEn(ahora)
                 .build());
+        auditoria.registrar(empresaId, usuarioId, "SESION_INICIADA", "USUARIO", usuarioId,
+                Map.of("factores", Factor.escribir(factores)));
         return emitir(sesion, usuario, limites(empresaId), ahora);
     }
 

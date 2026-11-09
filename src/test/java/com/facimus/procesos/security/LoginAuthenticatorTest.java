@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 
 import java.time.Duration;
@@ -21,9 +22,11 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import com.facimus.procesos.common.DemasiadosIntentosException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.UsuarioService;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
@@ -45,7 +48,7 @@ class LoginAuthenticatorTest {
     void crearConDosIntentos() {
         loginAuthenticator = new LoginAuthenticator(authenticationManager,
                 new LimiteEnMemoria(2, Duration.ofMinutes(15), new RelojDePrueba()),
-                new MetricasDeNegocio(registro));
+                new MetricasDeNegocio(registro), mock(UsuarioService.class), mock(Auditoria.class));
     }
 
     @Test

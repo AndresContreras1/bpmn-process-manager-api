@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SinPermisoException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.condiciones.CondicionMalEscrita;
 import com.facimus.procesos.common.condiciones.EvaluadorDeCondiciones;
 import com.facimus.procesos.common.model.Empresa;
@@ -47,6 +49,7 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
     private final UsuarioRepository usuarioRepository;
     private final HistorialCambioService historialCambioService;
     private final ConfiguracionTiendaMapper configuracionTiendaMapper;
+    private final Auditoria auditoria;
 
     @Override
     @Transactional
@@ -111,6 +114,12 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
                         case TODOS -> "Todos tienen que usar un segundo factor.";
                     });
         }
+        auditoria.registrar(empresaId, usuarioId, "CONFIGURACION_CAMBIADA", "EMPRESA", empresaId, Map.of(
+                "politicaEstructura", configuracion.getPoliticaEstructura().name(),
+                "politicaSegundoFactor", configuracion.getPoliticaSegundoFactor().name(),
+                "soloEntradaExterna", configuracion.isSoloEntradaExterna(),
+                "inactividadSesionMinutos", configuracion.getInactividadSesionMinutos(),
+                "duracionSesionHoras", configuracion.getDuracionSesionHoras()));
         if (cambiaLaEntrada) {
             historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
                     Boolean.TRUE.equals(soloEntradaExterna)

@@ -199,6 +199,8 @@ public class SecurityConfig {
                         .access(AuthorizationManagers.allOf(AuthorityAuthorizationManager.hasAuthority(ADMINISTRADOR),
                                 VerificacionReciente.requerida()))
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
+                        // PR 31: la bitacora de la tienda, para su administrador.
+                        .requestMatchers("/api/v1/auditoria", "/api/v1/auditoria/**").hasAuthority(ADMINISTRADOR)
                         // El gobierno de la tienda es del administrador: su historial, su configuracion y su baja.
                         // La baja, y cancelarla, piden ademas haber confirmado la identidad hace poco (PR 49).
                         .requestMatchers("/api/v1/empresas/actual/baja")

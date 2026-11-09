@@ -29,11 +29,12 @@ class BorradoDeTiendasTest {
     private JdbcTemplate jdbc;
 
     @Test
-    @DisplayName("Hay una sentencia por cada tabla con empresa_id, y cada una borra por esa columna")
+    @DisplayName("Hay una sentencia por cada tabla con empresa_id, y cada una borra por esa columna; la bitacora no")
     void cubreCadaTablaDeLaTienda() {
+        // La bitacora sobrevive a su tienda, que queda como lapida, y su trigger no la deja borrar (PR 31).
         List<String> conEmpresa = jdbc.queryForList("select table_name from information_schema.columns "
-                + "where table_schema = current_schema() and column_name = 'empresa_id' and table_name <> 'empresas'",
-                String.class);
+                + "where table_schema = current_schema() and column_name = 'empresa_id' and table_name <> 'empresas' "
+                + "and table_name <> 'bitacora'", String.class);
 
         List<String> porEmpresa = BorradoDeTiendas.BORRADOS.stream()
                 .map(BorradoDeTiendasTest::partes)

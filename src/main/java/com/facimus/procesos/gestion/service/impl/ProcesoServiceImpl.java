@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
@@ -48,6 +50,7 @@ public class ProcesoServiceImpl implements ProcesoService {
     private final DiagnosticoDelModelo diagnosticoDelModelo;
     private final InstantaneaDelModelo instantaneaDelModelo;
     private final ProcesoMapper procesoMapper;
+    private final Auditoria auditoria;
 
     @Override
     public PageResponse<ProcesoResponse> buscar(Long empresaId, String nombre, EstadoProceso estado,
@@ -174,6 +177,8 @@ public class ProcesoServiceImpl implements ProcesoService {
         proceso = procesoRepository.saveAndFlush(proceso);
 
         historialCambioService.registrar(proceso, autor, "Versión " + numero + " publicada.");
+        auditoria.registrar(empresaId, autor.getId(), "PROCESO_PUBLICADO", "PROCESO", proceso.getId(),
+                Map.of("version", numero));
         return procesoMapper.toResponse(proceso).conBorradorPendiente(false);
     }
 

@@ -236,10 +236,14 @@ class BajaDeTiendaIntegracionTest {
                 tienda.id());
     }
 
-    /** Cuantas filas tiene la tienda en cada tabla con empresa_id, segun el catalogo de la base. */
+    /**
+     * Cuantas filas tiene la tienda en cada tabla con empresa_id, segun el catalogo de la base. La bitacora no
+     * cuenta: sobrevive a la tienda, no se puede borrar y se escribe despues de cada cambio, en otro hilo (PR 31).
+     */
     private Map<String, Integer> filasPorTabla(Long empresaId) {
         List<String> tablas = jdbc.queryForList("select table_name from information_schema.columns "
-                + "where table_schema = current_schema() and column_name = 'empresa_id'", String.class);
+                + "where table_schema = current_schema() and column_name = 'empresa_id' "
+                + "and table_name <> 'bitacora'", String.class);
         Map<String, Integer> filas = new HashMap<>();
         tablas.forEach(tabla -> filas.put(tabla, jdbc.queryForObject(
                 "select count(*) from " + tabla + " where empresa_id = ?", Integer.class, empresaId)));

@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,6 +15,7 @@ import com.facimus.procesos.common.EnlaceNoValidoException;
 import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.correo.Redactor;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
@@ -47,6 +49,7 @@ public class CuentaServiceImpl implements CuentaService {
     private final PoliticaDeClaves politicaDeClaves;
     private final JsonMapper jsonMapper;
     private final Clock reloj;
+    private final Auditoria auditoria;
 
     @Override
     @Transactional
@@ -115,6 +118,8 @@ public class CuentaServiceImpl implements CuentaService {
                 idioma()));
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
                 "Invitación por correo a " + correo + " con rol " + rolAcceso + ".");
+        auditoria.registrar(empresaId, autorId, "INVITACION_ENVIADA", "EMPRESA", empresaId,
+                Map.of("rol", rolAcceso.name()));
     }
 
     @Override

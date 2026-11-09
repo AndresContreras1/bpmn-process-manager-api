@@ -5,6 +5,7 @@
 |Spring components
 |_Services_
 
+* `c.f.p.g.service.BitacoraService` (via `c.f.p.g.service.impl.BitacoraServiceImpl`)
 * `c.f.p.g.service.ConfiguracionTiendaService` (via `c.f.p.g.service.impl.ConfiguracionTiendaServiceImpl`)
 * `c.f.p.g.service.CuentaService` (via `c.f.p.g.service.impl.CuentaServiceImpl`)
 * `c.f.p.g.service.DominioService` (via `c.f.p.g.service.impl.DominioServiceImpl`)
@@ -47,7 +48,8 @@ _Others_
 
 * `c.f.p.g.service.ConsultaDns` (via `c.f.p.g.service.impl.ConsultaDnsJndi`)
 |Bean references
-|* `c.f.p.c.correo.Redactor` (in Common)
+|* `c.f.p.c.auditoria.Auditoria` (in Common)
+* `c.f.p.c.correo.Redactor` (in Common)
 * `c.f.p.c.correo.Correo` (in Common)
 * `c.f.p.c.trabajos.ColaDeTrabajos` (in Common)
 * `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
@@ -69,4 +71,6 @@ _Others_
 * `c.f.p.g.model.Usuario`
 * `c.f.p.g.model.VersionProceso`
 * `c.f.p.g.model.VinculoPendiente`
+|Events listened to
+|* `c.f.p.c.auditoria.SucesoAuditable` (async) 
 |===

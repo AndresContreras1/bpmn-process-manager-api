@@ -43,6 +43,9 @@
 - [ ] HSTS preload, a month after production runs on HTTPS
 
 **Data and auditability**
+- [x] An audit trail per store chained with SHA-256, that nobody can change or delete, fed from the outbox, with a
+      verification that names where it breaks and a CSV export safe from formulas
+- [ ] The daily anchor of the last hash in a bucket with Object Lock
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
 - [x] Soft delete and change history for every BPMN element
 - [x] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
