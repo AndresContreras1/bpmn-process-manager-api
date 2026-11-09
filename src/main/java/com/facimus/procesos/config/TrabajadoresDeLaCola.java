@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
+import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.common.trabajos.ReglasDeLaCola;
 
@@ -45,7 +46,9 @@ public class TrabajadoresDeLaCola implements SmartLifecycle {
     public void start() {
         corriendo = true;
         for (int numero = 1; numero <= reglas.trabajadores(); numero++) {
-            hilos.add(Thread.ofVirtual().name("trabajador-" + numero).start(this::trabajar));
+            // PR 51: la cola es de todas las tiendas; cada trabajo dice la suya.
+            hilos.add(Thread.ofVirtual().name("trabajador-" + numero)
+                    .start(() -> ContextoDeTienda.comoSistema(this::trabajar)));
         }
     }
 

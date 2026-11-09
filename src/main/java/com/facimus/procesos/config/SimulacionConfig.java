@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
+import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.ejecucion.service.SimulacionService;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 
@@ -40,9 +41,10 @@ public class SimulacionConfig {
     @Scheduled(fixedDelayString = "${simulacion.tick}")
     @SchedulerLock(name = "reloj-de-simulacion", lockAtLeastFor = "${simulacion.tick}")
     public void mover() {
-        List<Long> tiendas = configuracionTiendaService.tiendasEnAutomatico();
+        // PR 51: se buscan entre todas las tiendas, y cada tick mueve solo las filas de la suya.
+        List<Long> tiendas = ContextoDeTienda.comoSistema(configuracionTiendaService::tiendasEnAutomatico);
         for (Long tienda : tiendas) {
-            simulacionService.tick(tienda, 1);
+            ContextoDeTienda.deLaTienda(tienda, () -> simulacionService.tick(tienda, 1));
         }
         if (!tiendas.isEmpty()) {
             log.info("Simulacion: un tick en {} tiendas.", tiendas.size());

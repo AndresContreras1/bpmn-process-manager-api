@@ -13,6 +13,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.gestion.event.SesionesCerradas;
 import com.facimus.procesos.gestion.service.SesionService;
 
@@ -53,7 +54,8 @@ public class RevokedSessions {
     /** Un reinicio vacia la memoria: se recuperan de la base las sesiones cerradas cuyos tokens todavia no vencen. */
     @EventListener(ApplicationReadyEvent.class)
     public void recuperarCerradas() {
-        revocar(sesionService.cerradasEnLosUltimos(vigenciaToken));
+        // PR 51: las de todas las tiendas, al arrancar y en cada repaso de la escucha.
+        revocar(ContextoDeTienda.comoSistema(() -> sesionService.cerradasEnLosUltimos(vigenciaToken)));
     }
 
     /** Anota esas sesiones como cerradas hasta que venza el ultimo token que pudieron emitir. */

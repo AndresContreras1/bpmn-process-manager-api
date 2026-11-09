@@ -280,6 +280,25 @@ public interface RepositorioTenant<T extends EntidadEmpresa> extends JpaReposito
 - Access to another store's resource answers `404`, not `403`, so the API does not confirm that the resource exists.
 - An integration suite creates two stores and has one try to read, change or link the other's resources (50 cases).
 
+**Row-level security.** The database enforces the same isolation, so a query that forgets the filter still cannot
+reach another store:
+
+- Every table with `empresa_id` has row-level security, forced also for its owner, with a policy that lets a session
+  see and write only the rows of `app.empresa_id` (V36). A test fails as soon as a table with `empresa_id` appears
+  without it.
+- The API works as `procesos_app`, which owns no table, is not a superuser and has no `BYPASSRLS`; on the audit trail
+  it can only insert and read. Flyway migrates with its own connection, as the owner.
+- Each connection the pool hands out takes that role, and before its first statement, and before any statement
+  whose thread changed its scope, sets the scope in a single round trip. A filter sets the scope of each request as
+  soon as it knows who makes it.
+- What has no store yet looks a person up by e-mail or by token, and is named one by one as system scope: login,
+  renewal, logout, registration, the e-mail links, confirming a provider link and the way back from a provider. What
+  crosses stores on purpose says so where it starts: the purge, the job queue, the simulation clock (which then ticks
+  each store in its own scope), the sessions closed in another instance and the demo data.
+- A thread that does not say what store it is sees no row at all.
+- A store invited to a process (HU-23) reads its published version and its diagram through policies of their own,
+  over a `SECURITY DEFINER` function that returns only what was shared with it.
+
 **Read-only sharing (HU-23).** An administrator can share a process with another store by its NIT. A process then has
 two doors: the write door finds only the store's own processes, and the read door also finds the ones shared with it.
 The whole diagram is the only endpoint behind the read door, and it is marked `compartido: true` for the guest. The

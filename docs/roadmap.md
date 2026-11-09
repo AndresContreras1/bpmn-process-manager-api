@@ -43,6 +43,7 @@
 - [ ] HSTS preload, a month after production runs on HTTPS
 
 **Data and auditability**
+- [x] Row-level security in PostgreSQL on every table of a store, with a role that cannot bypass it
 - [x] An audit trail per store chained with SHA-256, that nobody can change or delete, fed from the outbox, with a
       verification that names where it breaks and a CSV export safe from formulas
 - [ ] The daily anchor of the last hash in a bucket with Object Lock

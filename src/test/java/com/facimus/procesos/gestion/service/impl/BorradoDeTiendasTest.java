@@ -48,12 +48,14 @@ class BorradoDeTiendasTest {
     @Test
     @DisplayName("Ninguna tabla se borra antes que las que apuntan a ella")
     void respetaLasClavesForaneas() {
+        // Del catalogo de PostgreSQL y no de information_schema, que solo le muestra a la API (procesos_app, PR 51)
+        // las restricciones de las tablas de las que es duena: ninguna.
         List<Map<String, Object>> claves = jdbc.queryForList("""
-                select distinct tc.table_name as hija, ccu.table_name as madre
-                from information_schema.table_constraints tc
-                join information_schema.constraint_column_usage ccu
-                  on ccu.constraint_schema = tc.constraint_schema and ccu.constraint_name = tc.constraint_name
-                where tc.constraint_type = 'FOREIGN KEY' and tc.table_schema = current_schema()
+                select distinct hija.relname as hija, madre.relname as madre
+                from pg_constraint clave
+                join pg_class hija on hija.oid = clave.conrelid
+                join pg_class madre on madre.oid = clave.confrelid
+                where clave.contype = 'f' and hija.relnamespace = to_regnamespace(current_schema())
                 """);
         List<String> orden = BorradoDeTiendas.BORRADOS.stream().map(sentencia -> partes(sentencia).group(1)).toList();
 

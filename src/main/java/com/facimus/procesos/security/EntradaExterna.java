@@ -13,6 +13,8 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
+import com.facimus.procesos.common.security.ContextoDeTienda;
+import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.common.security.Factor;
 import com.facimus.procesos.gestion.dto.response.ResultadoEntradaExterna;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
@@ -50,6 +52,16 @@ public class EntradaExterna implements AuthenticationSuccessHandler, Authenticat
     public void onAuthenticationSuccess(HttpServletRequest peticion, HttpServletResponse respuesta,
             Authentication autenticacion) throws IOException {
         SecurityContextHolder.clearContext();
+        // PR 51: quien vuelve del proveedor todavia no tiene tienda; se busca entre todas.
+        Alcance anterior = ContextoDeTienda.fijar(Alcance.SISTEMA);
+        try {
+            alVolver(autenticacion, respuesta);
+        } finally {
+            ContextoDeTienda.restaurar(anterior);
+        }
+    }
+
+    private void alVolver(Authentication autenticacion, HttpServletResponse respuesta) throws IOException {
         OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) autenticacion;
         OidcUser persona = (OidcUser) token.getPrincipal();
         // Microsoft no manda email_verified: dice con xms_edov si el dominio del correo es de la organizacion.

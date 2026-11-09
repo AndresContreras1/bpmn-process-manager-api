@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
+import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
@@ -45,6 +46,11 @@ public class LimpiezaConfig {
     @Scheduled(cron = "${limpieza.cron}")
     @SchedulerLock(name = "limpieza", lockAtLeastFor = "PT5M", lockAtMostFor = "PT30M")
     public void limpiar() {
+        // PR 51: la purga cruza tiendas a proposito.
+        ContextoDeTienda.comoSistema(this::purgar);
+    }
+
+    private void purgar() {
         Limpieza limpieza = limpiezaService.limpiar();
         if (limpieza.total() > 0) {
             log.info("Limpieza: {} refresh tokens, {} sesiones y {} claves de idempotencia.",
