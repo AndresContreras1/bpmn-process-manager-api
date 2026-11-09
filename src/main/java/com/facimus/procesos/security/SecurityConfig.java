@@ -172,6 +172,9 @@ public class SecurityConfig {
      * D29: el token CSRF de una SPA. La web lo lee de la cookie {@code XSRF-TOKEN}, la unica que su JavaScript puede
      * leer, y lo devuelve en {@code X-XSRF-TOKEN}; otro sitio no puede leer esa cookie, asi que no puede mandarlo.
      */
+    // S3330: XSRF-TOKEN no es HttpOnly porque la web tiene que leerla; las cookies de la sesion si lo son.
+    // S4502: CSRF no se apaga; solo se salta lo que no trae cookies de sesion (ver pideCsrf).
+    @SuppressWarnings({ "java:S3330", "java:S4502" })
     static void csrf(CsrfConfigurer<HttpSecurity> csrf) {
         CookieCsrfTokenRepository repositorio = CookieCsrfTokenRepository.withHttpOnlyFalse();
         repositorio.setCookieCustomizer(cookie -> cookie.secure(true).sameSite("Lax"));
