@@ -2,6 +2,7 @@ package com.facimus.procesos.gestion.service.impl;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
@@ -43,6 +45,7 @@ public class EmpresaServiceImpl implements EmpresaService {
     private final CuentaService cuentaService;
     private final EmpresaMapper empresaMapper;
     private final BorradoDeTiendas borradoDeTiendas;
+    private final Auditoria auditoria;
 
     @Override
     @Transactional
@@ -100,6 +103,7 @@ public class EmpresaServiceImpl implements EmpresaService {
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
                 "Tienda dada de baja: hasta el " + Empresa.borradoProgramadoDesde(baja).toLocalDate()
                         + " solo se puede consultar, y ese día se borran sus datos.");
+        auditoria.registrar(empresaId, autorId, "TIENDA_DADA_DE_BAJA", "EMPRESA", empresaId, Map.of());
         return empresaMapper.toResponse(empresaRepository.saveAndFlush(empresa));
     }
 
@@ -114,6 +118,7 @@ public class EmpresaServiceImpl implements EmpresaService {
         empresa.setBajaSolicitadaEn(null);
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
                 "Baja de la tienda cancelada: vuelve a funcionar como antes.");
+        auditoria.registrar(empresaId, autorId, "BAJA_CANCELADA", "EMPRESA", empresaId, Map.of());
         return empresaMapper.toResponse(empresaRepository.saveAndFlush(empresa));
     }
 

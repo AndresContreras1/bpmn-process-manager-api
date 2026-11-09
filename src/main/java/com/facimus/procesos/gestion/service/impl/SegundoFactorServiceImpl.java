@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.Base32;
 import com.facimus.procesos.common.security.Factor;
@@ -62,6 +64,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     private final HistorialCambioService historialCambioService;
     private final SesionService sesionService;
     private final ConfiguracionTiendaRepository configuracionRepository;
+    private final Auditoria auditoria;
     private final Clock reloj;
     private final SecureRandom aleatorio = new SecureRandom();
 
@@ -69,7 +72,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     public SegundoFactorServiceImpl(SegundoFactorRepository segundoFactorRepository,
             CodigoDeRecuperacionRepository codigoRepository, UsuarioRepository usuarioRepository,
             CifradoDeSecretos cifrado, HistorialCambioService historialCambioService, SesionService sesionService,
-            ConfiguracionTiendaRepository configuracionRepository, Clock reloj) {
+            ConfiguracionTiendaRepository configuracionRepository, Auditoria auditoria, Clock reloj) {
         this.segundoFactorRepository = segundoFactorRepository;
         this.codigoRepository = codigoRepository;
         this.usuarioRepository = usuarioRepository;
@@ -77,6 +80,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
         this.historialCambioService = historialCambioService;
         this.sesionService = sesionService;
         this.configuracionRepository = configuracionRepository;
+        this.auditoria = auditoria;
         this.reloj = reloj;
     }
 
@@ -141,6 +145,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
         Usuario usuario = factor.getUsuario();
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Segundo factor de \"" + usuario.getNombre() + "\" activado.");
+        auditoria.registrar(empresaId, usuarioId, "SEGUNDO_FACTOR_ACTIVADO", "USUARIO", usuarioId, Map.of());
         return new CodigosDeRecuperacionResponse(nuevosCodigos(usuario));
     }
 
@@ -178,6 +183,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
         codigoRepository.borrarLosDe(empresaId, usuarioId);
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Códigos de recuperación de \"" + usuario.getNombre() + "\" renovados.");
+        auditoria.registrar(empresaId, usuarioId, "CODIGOS_DE_RECUPERACION_RENOVADOS", "USUARIO", usuarioId, Map.of());
         return new CodigosDeRecuperacionResponse(nuevosCodigos(usuario));
     }
 
@@ -188,6 +194,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
         if (borrar(empresaId, usuarioId)) {
             historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                     "Segundo factor de \"" + usuario.getNombre() + "\" quitado.");
+            auditoria.registrar(empresaId, usuarioId, "SEGUNDO_FACTOR_QUITADO", "USUARIO", usuarioId, Map.of());
         }
     }
 
@@ -202,6 +209,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
         if (borrar(empresaId, usuarioId)) {
             historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
                     "Segundo factor de \"" + usuario.getNombre() + "\" quitado por un administrador.");
+            auditoria.registrar(empresaId, autorId, "SEGUNDO_FACTOR_QUITADO", "USUARIO", usuarioId, Map.of());
             // Quien tuviera el telefono o los codigos ya no esta dentro con ellos.
             sesionService.cerrarTodas(empresaId, usuarioId);
         }

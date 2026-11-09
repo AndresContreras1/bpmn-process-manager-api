@@ -24,10 +24,11 @@ System_Boundary("ProcesosApplication_boundary", "ProcesosApplication", $tags="")
 
 }
 
-Rel(ProcesosApplication.ProcesosApplication.Security, ProcesosApplication.ProcesosApplication.Gestion, "listens to", $techn="", $tags="", $link="")
-Rel(ProcesosApplication.ProcesosApplication.Security, ProcesosApplication.ProcesosApplication.Common, "uses", $techn="", $tags="", $link="")
-Rel(ProcesosApplication.ProcesosApplication.Security, ProcesosApplication.ProcesosApplication.Gestion, "uses", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Gestion, ProcesosApplication.ProcesosApplication.Common, "listens to", $techn="", $tags="", $link="")
 Rel(ProcesosApplication.ProcesosApplication.Gestion, ProcesosApplication.ProcesosApplication.Common, "uses", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Security, ProcesosApplication.ProcesosApplication.Gestion, "listens to", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Security, ProcesosApplication.ProcesosApplication.Gestion, "uses", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Security, ProcesosApplication.ProcesosApplication.Common, "uses", $techn="", $tags="", $link="")
 
 SHOW_LEGEND(true)
 hide stereotypes

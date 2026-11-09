@@ -23,6 +23,7 @@ import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
@@ -65,6 +66,9 @@ class UsuarioServiceTest {
 
     @Mock
     private EnlaceDeUnUsoRepository enlaceDeUnUsoRepository;
+
+    @Mock
+    private Auditoria auditoria;
 
     @InjectMocks
     private UsuarioServiceImpl usuarioService;

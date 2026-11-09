@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
@@ -47,6 +48,9 @@ class EmpresaServiceTest {
 
     @Mock
     private CuentaService cuentaService;
+
+    @Mock
+    private Auditoria auditoria;
 
     @InjectMocks
     private EmpresaServiceImpl empresaService;

@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.DominioResponse;
@@ -37,14 +39,16 @@ public class DominioServiceImpl implements DominioService {
     private final EmpresaRepository empresaRepository;
     private final ConsultaDns dns;
     private final HistorialCambioService historialCambioService;
+    private final Auditoria auditoria;
     private final SecureRandom aleatorio = new SecureRandom();
 
     public DominioServiceImpl(DominioVerificadoRepository dominioRepository, EmpresaRepository empresaRepository,
-            ConsultaDns dns, HistorialCambioService historialCambioService) {
+            ConsultaDns dns, HistorialCambioService historialCambioService, Auditoria auditoria) {
         this.dominioRepository = dominioRepository;
         this.empresaRepository = empresaRepository;
         this.dns = dns;
         this.historialCambioService = historialCambioService;
+        this.auditoria = auditoria;
     }
 
     @Override
@@ -98,6 +102,8 @@ public class DominioServiceImpl implements DominioService {
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
                 DOMINIO + dominio.getDominio() + " verificado: quien entre con Google o Microsoft desde él se "
                         + "une con rol " + dominio.getRolPorDefecto() + ".");
+        auditoria.registrar(empresaId, autorId, "DOMINIO_VERIFICADO", "EMPRESA", empresaId,
+                Map.of("rol", dominio.getRolPorDefecto().name()));
         return respuesta(dominio);
     }
 

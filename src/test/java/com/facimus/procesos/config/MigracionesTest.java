@@ -104,7 +104,8 @@ class MigracionesTest {
                         "V27__enlaces_de_un_uso.sql", "V28__limites_de_sesion.sql",
                         "V29__baja_y_anonimizacion.sql", "V30__factores_de_la_sesion.sql",
                         "V31__segundo_factor.sql", "V32__politica_de_segundo_factor.sql",
-                        "V33__entrada_con_proveedores_externos.sql", "V34__cubos_de_peticiones.sql");
+                        "V33__entrada_con_proveedores_externos.sql", "V34__cubos_de_peticiones.sql",
+                        "V35__bitacora.sql");
     }
 
     @Test

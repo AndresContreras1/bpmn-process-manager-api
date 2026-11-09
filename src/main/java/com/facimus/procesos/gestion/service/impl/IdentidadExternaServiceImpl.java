@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +18,7 @@ import com.facimus.procesos.common.EnlaceNoValidoException;
 import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.IdentidadExternaResponse;
 import com.facimus.procesos.gestion.dto.response.ResultadoEntradaExterna;
@@ -57,6 +59,7 @@ public class IdentidadExternaServiceImpl implements IdentidadExternaService {
     private final UsuarioMapper usuarioMapper;
     private final PasswordEncoder passwordEncoder;
     private final HistorialCambioService historialCambioService;
+    private final Auditoria auditoria;
     private final SecureRandom aleatorio = new SecureRandom();
 
     @SuppressWarnings("java:S107") // las piezas de la entrada externa, cada una por su nombre
@@ -64,7 +67,7 @@ public class IdentidadExternaServiceImpl implements IdentidadExternaService {
             VinculoPendienteRepository vinculoRepository, DominioVerificadoRepository dominioRepository,
             UsuarioRepository usuarioRepository, ConfiguracionTiendaRepository configuracionRepository,
             UsuarioMapper usuarioMapper, PasswordEncoder passwordEncoder,
-            HistorialCambioService historialCambioService) {
+            HistorialCambioService historialCambioService, Auditoria auditoria) {
         this.identidadRepository = identidadRepository;
         this.vinculoRepository = vinculoRepository;
         this.dominioRepository = dominioRepository;
@@ -73,6 +76,7 @@ public class IdentidadExternaServiceImpl implements IdentidadExternaService {
         this.usuarioMapper = usuarioMapper;
         this.passwordEncoder = passwordEncoder;
         this.historialCambioService = historialCambioService;
+        this.auditoria = auditoria;
     }
 
     @Override
@@ -129,6 +133,8 @@ public class IdentidadExternaServiceImpl implements IdentidadExternaService {
         historialCambioService.registrarDeTienda(usuario.getEmpresa().getId(), usuario.getId(),
                 RecursoDeHistorial.USUARIO, usuario.getId(),
                 "Cuenta de " + nombreDe(vinculo.getProveedor()) + " vinculada a \"" + usuario.getNombre() + "\".");
+        auditoria.registrar(usuario.getEmpresa().getId(), usuario.getId(), "IDENTIDAD_VINCULADA", "USUARIO",
+                usuario.getId(), Map.of("proveedor", vinculo.getProveedor()));
     }
 
     @Override
@@ -157,6 +163,8 @@ public class IdentidadExternaServiceImpl implements IdentidadExternaService {
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Cuenta de " + nombreDe(identidad.getProveedor()) + " desvinculada de \"" + usuario.getNombre()
                         + "\".");
+        auditoria.registrar(empresaId, usuarioId, "IDENTIDAD_DESVINCULADA", "USUARIO", usuarioId,
+                Map.of("proveedor", identidad.getProveedor()));
     }
 
     @Override
@@ -216,6 +224,8 @@ public class IdentidadExternaServiceImpl implements IdentidadExternaService {
                 RecursoDeHistorial.USUARIO, usuario.getId(),
                 "\"" + usuario.getNombre() + "\" se unió con " + nombreDe(proveedor) + " por el dominio "
                         + dominio.getDominio() + ", con rol " + dominio.getRolPorDefecto() + ".");
+        auditoria.registrar(dominio.getEmpresa().getId(), usuario.getId(), "USUARIO_UNIDO_POR_DOMINIO", "USUARIO",
+                usuario.getId(), Map.of("proveedor", proveedor, "rol", dominio.getRolPorDefecto().name()));
         return usuarioMapper.toResponse(usuario);
     }
 

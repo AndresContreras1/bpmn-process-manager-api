@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
@@ -54,6 +56,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final EnlaceDeUnUsoRepository enlaceDeUnUsoRepository;
     private final SegundoFactorService segundoFactorService;
     private final IdentidadExternaService identidadExternaService;
+    private final Auditoria auditoria;
 
     private static final SecureRandom ALEATORIO = new SecureRandom();
 
@@ -85,6 +88,8 @@ public class UsuarioServiceImpl implements UsuarioService {
         historialCambioService.registrarDeTienda(empresaId, autorId == null ? usuario.getId() : autorId,
                 RecursoDeHistorial.USUARIO, usuario.getId(),
                 "Usuario \"" + nombre + "\" creado con rol " + rolAcceso + ".");
+        auditoria.registrar(empresaId, autorId == null ? usuario.getId() : autorId, "USUARIO_CREADO", "USUARIO",
+                usuario.getId(), Map.of("rol", rolAcceso.name()));
         UsuarioResponse respuesta = usuarioMapper.toResponse(usuario);
         return temporal ? respuesta.conClaveTemporal(clave) : respuesta;
     }
@@ -123,6 +128,8 @@ public class UsuarioServiceImpl implements UsuarioService {
         UsuarioResponse actualizado = usuarioMapper.toResponse(usuarioRepository.saveAndFlush(usuario));
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
                 queLePaso(usuario, cambiaElNombre, cambiaElRol, desactiva));
+        auditoria.registrar(empresaId, autorId, "USUARIO_CAMBIADO", "USUARIO", usuarioId,
+                Map.of("rol", usuario.getRolAcceso().name(), "activo", usuario.isActivo()));
         if (cambiaElRol || !usuario.isActivo()) {
             // Los tokens ya emitidos llevan el rol y el estado de antes: el usuario vuelve a entrar con los nuevos.
             sesionService.cerrarTodas(empresaId, usuarioId);
@@ -140,6 +147,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuarioRepository.save(usuario);
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Usuario \"" + usuario.getNombre() + "\" desactivado.");
+        auditoria.registrar(empresaId, autorId, "USUARIO_DESACTIVADO", "USUARIO", usuarioId, Map.of());
         sesionService.cerrarTodas(empresaId, usuarioId);
     }
 
@@ -171,6 +179,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Contraseña de \"" + usuario.getNombre() + "\" restablecida.");
+        auditoria.registrar(empresaId, autorId, "CLAVE_RESTABLECIDA", "USUARIO", usuarioId, Map.of());
         // Quien estuviera dentro con la clave vieja deja de estarlo.
         sesionService.cerrarTodas(empresaId, usuarioId);
         return usuarioMapper.toResponse(usuario).conClaveTemporal(clave);
@@ -209,6 +218,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         historialCambioService.seudonimizarUsuario(empresaId, usuarioId, seudonimo, correo, correoSeudonimo);
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Usuario anonimizado: su nombre y su correo ya no constan en ninguna parte.");
+        auditoria.registrar(empresaId, autorId, "USUARIO_ANONIMIZADO", "USUARIO", usuarioId, Map.of());
     }
 
     @Override

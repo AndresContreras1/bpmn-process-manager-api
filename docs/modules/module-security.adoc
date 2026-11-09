@@ -34,6 +34,7 @@ _Others_
 * `c.f.p.g.service.SesionService` (in Gestion)
 * `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
 * `c.f.p.g.service.UsuarioService` (in Gestion)
+* `c.f.p.c.auditoria.Auditoria` (in Common)
 |Events listened to
 |* `c.f.p.g.event.SesionesCerradas` 
 * `c.f.p.g.event.SesionesCerradas` 
