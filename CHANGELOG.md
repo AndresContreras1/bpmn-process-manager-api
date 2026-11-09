@@ -43,6 +43,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   registering a store and what sends e-mail count by address, every other change counts by person, and an empty
   bucket answers `429` with `Retry-After`. Bodies over 1 MB answer `413`, and Cloudflare Turnstile can guard the
   registration of a store.
+- An audit trail per store that shows when it is touched: each entry carries the SHA-256 of its fields and of the
+  previous one, a trigger turns down any change or deletion, and the administrator reads it, exports it to CSV or
+  JSON and verifies the chain at `/api/v1/auditoria`.
 
 ### Changed
 
