@@ -10,7 +10,7 @@ this repository (`compose.yaml`); the remote environments add their own steps to
 | Service | What it is | Ports | Health check |
 |---|---|---|---|
 | `db` | PostgreSQL 16, data in the `postgres-data` volume | `5432`, not published | `pg_isready` |
-| `api` | The API in the `prod` profile | `8080` for the API (`API_PORT` on the host); `8081` for Actuator, never published | `/actuator/health/readiness` on `8081` |
+| `api` | The API in the `prod` profile | `8080` for the API (`API_PORT` on the host, only on `127.0.0.1`); `8081` for Actuator, never published | `/actuator/health/readiness` on `8081` |
 | `web` | NGINX with the compiled app, and the door to the API under `/api` | `8080` (`WEB_PORT` on the host) | `/healthz` |
 
 The API and the web containers run read-only, without Linux capabilities, and write only to `/tmp`, which lives in
@@ -110,6 +110,10 @@ recreate the API.
 vulnerability with a fix already fails the pipeline; a high one is fixed in the next pull request. A leaked secret is
 rotated first and removed from the history after: removing it does not make it secret again.
 
+**A screen of the web app is blank or without styles.** The browser's console says what the CSP blocked. The
+hashes of its scripts come from the build of the image, so an index changed by hand after the build no longer
+matches them: rebuild the image with `docker compose build web` instead of patching the container.
+
 **The AI review answers `503`.** `GEMINI_API_KEY` is missing or the model does not answer in `GEMINI_TIMEOUT`. Nothing
 else depends on it; removing the key turns the review off on purpose.
 
@@ -144,3 +148,4 @@ kills the container 30 seconds after asking. `docker compose down` keeps the dat
 | Every September | Renew `Expires` in `frontend/public/.well-known/security.txt`; the pipeline starts failing a month before it passes |
 | When a person leaves | Deactivate their user: their sessions close at once |
 | Before a new major of PostgreSQL | Take a backup and restore it into the new version; Dependabot does not offer majors of the images |
+| A month after production runs on HTTPS | If every subdomain is on HTTPS, add `preload` to `Strict-Transport-Security` in `frontend/cabeceras.conf` and submit the domain at hstspreload.org. Leaving that list takes months |

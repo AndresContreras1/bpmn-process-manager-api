@@ -35,6 +35,11 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Security
 
+- Security headers on every response. The API forbids loading anything and being framed; the web app allows only
+  its own origin, and for scripts only the hashes Angular computes when it builds. HSTS, `nosniff`,
+  `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP and CORP on both, and Trusted Types in report
+  mode. In `prod` the API believes the proxy's `X-Forwarded-*` only from the internal network, and the Compose
+  stack publishes the API's own port only on `127.0.0.1`. The leftovers of the H2 console are gone.
 - Spring Boot 4.1.1, Tomcat 11.0.26 and Jackson 3.1.7 and 2.21.7 for the vulnerabilities Trivy found in the API image,
   and NGINX 1.30 for the ones in the web image.
 
