@@ -39,6 +39,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env, at least 32 characters}
       # PR 49: cifra el secreto del segundo factor. Cambiarla deja sin servir los que ya estan inscritos.
       MFA_CLAVE_DE_CIFRADO: ${MFA_CLAVE_DE_CIFRADO:?set MFA_CLAVE_DE_CIFRADO in .env, at least 32 characters}
+      # PR 50: Google y Microsoft; vacios, solo hay clave
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT: ${MICROSOFT_TENANT:-organizations}
       # El navegador manda Origin en cada POST, tambien cuando la web y la API comparten origen a traves de
       # NGINX, y un Origin que no este en esta lista lo rechaza Spring con 403 antes de mirar nada mas. Por eso
       # aqui van las dos formas del mismo sitio: con el puerto y sin el, que es como lo escribe el navegador

@@ -69,7 +69,7 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
     @SuppressWarnings("java:S107") // cada parte de la configuracion, por su nombre
     public ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
             ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones,
-            PoliticaSegundoFactor segundoFactor, Long version) {
+            PoliticaSegundoFactor segundoFactor, Boolean soloEntradaExterna, Long version) {
         ConfiguracionTienda configuracion = buscar(empresaId);
         configuracion.verificarVersion(version);
         configuracion.setPoliticaEstructura(politica);
@@ -85,6 +85,11 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
                 && segundoFactor != configuracion.getPoliticaSegundoFactor();
         if (cambiaElSegundoFactor) {
             configuracion.setPoliticaSegundoFactor(segundoFactor);
+        }
+        boolean cambiaLaEntrada = soloEntradaExterna != null
+                && soloEntradaExterna != configuracion.isSoloEntradaExterna();
+        if (cambiaLaEntrada) {
+            configuracion.setSoloEntradaExterna(soloEntradaExterna);
         }
         configuracion = configuracionTiendaRepository.saveAndFlush(configuracion);
 
@@ -105,6 +110,12 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
                         case ADMINISTRADORES -> "Los administradores tienen que usar un segundo factor.";
                         case TODOS -> "Todos tienen que usar un segundo factor.";
                     });
+        }
+        if (cambiaLaEntrada) {
+            historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
+                    Boolean.TRUE.equals(soloEntradaExterna)
+                            ? "Se entra solo con Google o Microsoft; los administradores conservan su contraseña."
+                            : "Se vuelve a poder entrar con contraseña.");
         }
         return configuracionTiendaMapper.toResponse(configuracion);
     }

@@ -22,14 +22,17 @@ public interface ConfiguracionTiendaService {
      */
     default ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
             ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones, Long version) {
-        return editar(empresaId, usuarioId, politica, modo, parametros, sesiones, null, version);
+        return editar(empresaId, usuarioId, politica, modo, parametros, sesiones, null, null, version);
     }
 
-    /** PR 49: lo mismo con la politica de segundo factor; nula deja la que tenia. */
+    /**
+     * PR 49 y PR 50: lo mismo con la politica de segundo factor y con la entrada solo por un proveedor; nulas dejan
+     * las que tenia.
+     */
     @SuppressWarnings("java:S107") // cada parte de la configuracion, por su nombre
     ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
             ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones,
-            PoliticaSegundoFactor segundoFactor, Long version);
+            PoliticaSegundoFactor segundoFactor, Boolean soloEntradaExterna, Long version);
 
     /** La edicion de la simulacion, que no toca las sesiones. */
     default ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,

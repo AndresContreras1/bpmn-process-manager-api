@@ -24,6 +24,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -73,6 +75,12 @@ public class SecurityConfig {
 
     private static final String LOGIN = "/api/v1/auth/login";
 
+    /** PR 50: donde empieza, y vuelve, la entrada con un proveedor. */
+    static final String OIDC = "/api/v1/auth/oidc";
+
+    /** PR 50: confirmar un vinculo abre una sesion, como el login: pide CSRF aunque no traiga cookies. */
+    private static final String VINCULO = "/api/v1/auth/identidades/vinculo";
+
     private static final RequestMatcher DOCUMENTACION = new OrRequestMatcher(
             PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui/**"),
             PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui.html"));
@@ -86,8 +94,10 @@ public class SecurityConfig {
     }
 
     @Bean
+    @SuppressWarnings("java:S107") // las piezas de la cadena de filtros, cada una por su nombre
     public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, RevokedSessions revokedSessions,
-            IdempotenciaService idempotenciaService, EmpresaService empresaService, JsonMapper jsonMapper)
+            IdempotenciaService idempotenciaService, EmpresaService empresaService, JsonMapper jsonMapper,
+            ProveedoresOidc.Clientes clientesOidc, PeticionesOidc peticionesOidc, EntradaExterna entradaExterna)
             throws Exception {
         reglasComunes(http)
                 .exceptionHandling(exception -> exception
@@ -105,7 +115,30 @@ public class SecurityConfig {
                 // Detras de la autorizacion: una peticion que el rol rechaza no le pregunta nada a la base.
                 .addFilterAfter(new TiendaEnBajaFilter(empresaService, jsonMapper), AuthorizationFilter.class)
                 .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), TiendaEnBajaFilter.class);
+        if (clientesOidc.configurados()) {
+            entrarConProveedores(http, clientesOidc.repositorio().orElseThrow(), peticionesOidc, entradaExterna);
+        }
         return http.build();
+    }
+
+    /**
+     * PR 50: OpenID Connect con PKCE, que Spring Security 7 manda tambien a los clientes confidenciales, y el nonce
+     * que pone siempre que se pide openid. La peticion en camino vive en la base, el access token del proveedor no se guarda, y la vuelta
+     * deja las mismas cookies que el login. La pagina de login que Spring generaria no existe: es de la web.
+     */
+    private static void entrarConProveedores(HttpSecurity http, ClientRegistrationRepository registros,
+            PeticionesOidc peticiones, EntradaExterna entrada) throws Exception {
+        DefaultOAuth2AuthorizationRequestResolver resolvedor =
+                new DefaultOAuth2AuthorizationRequestResolver(registros, OIDC);
+        http.oauth2Login(oidc -> oidc
+                .loginPage("/login")
+                .clientRegistrationRepository(registros)
+                .authorizedClientRepository(new SinClientesAutorizados())
+                .authorizationEndpoint(ida -> ida.authorizationRequestResolver(resolvedor)
+                        .authorizationRequestRepository(peticiones))
+                .redirectionEndpoint(vuelta -> vuelta.baseUri(OIDC + "/callback/*"))
+                .successHandler(entrada)
+                .failureHandler(entrada));
     }
 
     /** Reglas compartidas con la configuracion de seguridad de los tests de controllers. */
@@ -120,6 +153,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, LOGIN, "/api/v1/auth/refresh", "/api/v1/auth/logout")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
+                        // PR 50: la ida al proveedor, su vuelta, los proveedores que hay y confirmar un vinculo:
+                        // quien los usa todavia no tiene sesion.
+                        .requestMatchers(HttpMethod.GET, OIDC + "/**", "/api/v1/auth/proveedores").permitAll()
+                        .requestMatchers(HttpMethod.POST, VINCULO).permitAll()
                         // Los enlaces del correo: quien los sigue todavia no tiene sesion, y el token es la
                         // credencial. Pedir una recuperacion responde igual exista o no el correo.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/verificacion/confirmar",
@@ -146,6 +183,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/segundo-factor/**")
                         .access(AuthorizationManagers.allOf(AuthenticatedAuthorizationManager.authenticated(),
                                 VerificacionReciente.requerida()))
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/identidades").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/auth/identidades/*")
+                        .access(AuthorizationManagers.allOf(AuthenticatedAuthorizationManager.authenticated(),
+                                VerificacionReciente.requerida()))
+                        // PR 50: los dominios de la tienda deciden quien entra en ella: solo el administrador.
+                        .requestMatchers("/api/v1/empresas/actual/dominios", "/api/v1/empresas/actual/dominios/**")
+                        .hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/usuarios/*/segundo-factor")
                         .access(AuthorizationManagers.allOf(AuthorityAuthorizationManager.hasAuthority(ADMINISTRADOR),
                                 VerificacionReciente.requerida()))
@@ -222,7 +266,8 @@ public class SecurityConfig {
      */
     static boolean pideCsrf(HttpServletRequest peticion) {
         return !SIN_EFECTOS.contains(peticion.getMethod())
-                && (CookiesDeSesion.traeSesion(peticion) || LOGIN.equals(peticion.getRequestURI()));
+                && (CookiesDeSesion.traeSesion(peticion) || LOGIN.equals(peticion.getRequestURI())
+                        || VINCULO.equals(peticion.getRequestURI()));
     }
 
     /** El reloj del sistema, como bean para que los tests unitarios puedan mover el tiempo. */

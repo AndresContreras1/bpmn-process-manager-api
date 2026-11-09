@@ -32,6 +32,9 @@ public record ConfiguracionTiendaRequest(
         @Schema(description = "Who has to use a second factor to work: nobody, the administrators or everybody; "
                 + "leave it out to keep the current one", example = "ADMINISTRADORES")
         PoliticaSegundoFactor politicaSegundoFactor,
+        @Schema(description = "True when the people of the store sign in only with Google or Microsoft; the "
+                + "administrators keep their password. Leave it out to keep the current one", example = "false")
+        Boolean soloEntradaExterna,
         @Schema(description = "Version read with the last GET; if someone saved a change since, the edit answers 409",
                 example = "0")
         @NotNull(message = "La versión es obligatoria.") Long version) {

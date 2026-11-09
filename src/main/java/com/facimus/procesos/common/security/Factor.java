@@ -23,7 +23,10 @@ public enum Factor {
     TOTP("FACTOR_TOTP"),
 
     /** Uno de sus codigos de recuperacion, que sirven una vez cada uno y reemplazan al TOTP si pierde el telefono. */
-    CODIGO_DE_RECUPERACION("FACTOR_RECOVERY_CODE");
+    CODIGO_DE_RECUPERACION("FACTOR_RECOVERY_CODE"),
+
+    /** PR 50: Google o Microsoft dijeron quien es, con OpenID Connect. */
+    PROVEEDOR_EXTERNO(FactorGrantedAuthority.AUTHORIZATION_CODE_AUTHORITY);
 
     private final String autoridad;
 

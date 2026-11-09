@@ -75,4 +75,9 @@ public class ConfiguracionTienda extends EntidadEditable {
     @Column(name = "politica_segundo_factor", nullable = false, length = 20)
     @Builder.Default
     private PoliticaSegundoFactor politicaSegundoFactor = PoliticaSegundoFactor.OPCIONAL;
+
+    /** PR 50: su gente entra solo con Google o Microsoft; los administradores conservan la clave. */
+    @Column(name = "solo_entrada_externa", nullable = false)
+    @Builder.Default
+    private boolean soloEntradaExterna = false;
 }

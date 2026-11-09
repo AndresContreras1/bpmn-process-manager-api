@@ -23,6 +23,8 @@ public record ConfiguracionTiendaResponse(
         int duracionSesionHoras,
         @Schema(description = "Who has to use a second factor to work: whoever needs one and has none can only enroll "
                 + "it", example = "OPCIONAL") PoliticaSegundoFactor politicaSegundoFactor,
+        @Schema(description = "True when the people of the store sign in only with Google or Microsoft; the "
+                + "administrators keep their password", example = "false") boolean soloEntradaExterna,
         @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
         Long version,
         @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,
