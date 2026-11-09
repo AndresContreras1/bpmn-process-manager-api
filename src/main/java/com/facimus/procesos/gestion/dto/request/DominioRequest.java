@@ -13,7 +13,7 @@ public record DominioRequest(
         @Schema(example = "acme.com")
         @NotBlank(message = "El dominio es obligatorio.")
         @Size(max = 253, message = "El dominio no puede superar 253 caracteres.")
-        @Pattern(regexp = "(?i)^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$",
+        @Pattern(regexp = "(?i)^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)++[a-z]{2,63}$",
                 message = "El dominio no es válido: escríbelo como acme.com, sin @ ni https://.") String dominio,
         @Schema(example = "EDITOR")
         @NotNull(message = "El rol por defecto es obligatorio.") RolAcceso rolPorDefecto) {

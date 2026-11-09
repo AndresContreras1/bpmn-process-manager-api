@@ -31,6 +31,7 @@ public class DominioServiceImpl implements DominioService {
     static final String PREFIJO_TXT = "bpmn-process-manager-verificacion=";
 
     private static final String NO_ENCONTRADO = "Dominio no encontrado.";
+    private static final String DOMINIO = "Dominio ";
 
     private final DominioVerificadoRepository dominioRepository;
     private final EmpresaRepository empresaRepository;
@@ -72,7 +73,7 @@ public class DominioServiceImpl implements DominioService {
                 .creadoEn(LocalDateTime.now())
                 .build());
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
-                "Dominio " + limpio + " agregado, por verificar.");
+                DOMINIO + limpio + " agregado, por verificar.");
         return respuesta(guardado);
     }
 
@@ -95,7 +96,7 @@ public class DominioServiceImpl implements DominioService {
         dominio.setVerificadoEn(LocalDateTime.now());
         dominioRepository.saveAndFlush(dominio);
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
-                "Dominio " + dominio.getDominio() + " verificado: quien entre con Google o Microsoft desde él se "
+                DOMINIO + dominio.getDominio() + " verificado: quien entre con Google o Microsoft desde él se "
                         + "une con rol " + dominio.getRolPorDefecto() + ".");
         return respuesta(dominio);
     }
@@ -107,7 +108,7 @@ public class DominioServiceImpl implements DominioService {
                 .orElseThrow(() -> new RecursoNoEncontradoException(NO_ENCONTRADO));
         dominioRepository.delete(dominio);
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
-                "Dominio " + dominio.getDominio() + " quitado.");
+                DOMINIO + dominio.getDominio() + " quitado.");
     }
 
     private static DominioResponse respuesta(DominioVerificado dominio) {
