@@ -97,7 +97,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail manejarConflictoDeDatos(DataIntegrityViolationException ex, WebRequest req) {
-        log.warn("Restriccion de datos violada en {}: {}", req.getDescription(false), ex.getMostSpecificCause().getMessage());
+        log.warn("Restriccion de datos violada en {}: {}", enUnaLinea(req.getDescription(false)),
+                enUnaLinea(ex.getMostSpecificCause().getMessage()));
         return construir(HttpStatus.CONFLICT, "Conflicto de datos",
                 "La operacion choca con un dato existente, por ejemplo un valor que debe ser unico.", req);
     }
@@ -129,7 +130,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     /** El servicio externo no contesto, o contesto algo que esta API no puede usar. */
     @ExceptionHandler(IntegracionFallidaException.class)
     public ProblemDetail manejarIntegracionFallida(IntegracionFallidaException ex, WebRequest req) {
-        log.warn("Servicio externo fallido en {}: {}", req.getDescription(false), ex.toString());
+        log.warn("Servicio externo fallido en {}: {}", enUnaLinea(req.getDescription(false)), enUnaLinea(ex));
         return construir(HttpStatus.BAD_GATEWAY, "Servicio externo no disponible", ex.getMessage(), req);
     }
 
@@ -192,7 +193,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail manejarErrorInesperado(Exception ex, WebRequest req) {
-        log.error("Error inesperado en {}", req.getDescription(false), ex);
+        log.error("Error inesperado en {}", enUnaLinea(req.getDescription(false)), ex);
         return construir(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno",
                 "Ocurrió un error inesperado. Intenta nuevamente más tarde.", req);
     }
@@ -249,6 +250,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             problema.setProperty(ERRORES, errores);
         }
         return ResponseEntity.badRequest().body(problema);
+    }
+
+    /**
+     * Lo que llega de afuera (la ruta, el mensaje de la base, la respuesta de un servicio externo) entra al log en una
+     * sola linea: un salto de linea dentro de un valor podria fingir una linea entera del log.
+     */
+    static String enUnaLinea(@Nullable Object valor) {
+        return String.valueOf(valor).replaceAll("\\R", "_");
     }
 
     private ProblemDetail construir(HttpStatus status, String titulo, String detalle, WebRequest req) {
