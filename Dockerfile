@@ -12,6 +12,9 @@ RUN mvn -B clean package -Dmaven.test.skip=true \
 
 # JRE 25 sobre Alpine: lo justo para correr la API, sin compilador, sin gestor de paquetes de mas y sin curl.
 FROM eclipse-temurin:25-jre-alpine@sha256:3c0a9084927a221ccd1d007fcaf614465672c0af37aaa834c5184483afe56d61
+# Los parches de Alpine llegan antes que una imagen nueva del JRE: se aplican al construir, igual que en la imagen
+# de la web, para que una vulnerabilidad ya corregida no espere a que Temurin publique otra imagen.
+RUN apk upgrade --no-cache
 # Un usuario sin privilegios, dueno solo de la carpeta de la aplicacion.
 RUN addgroup -S -g 1001 appuser && adduser -S -D -H -u 1001 -G appuser appuser \
     && install -d -o appuser -g appuser /app
