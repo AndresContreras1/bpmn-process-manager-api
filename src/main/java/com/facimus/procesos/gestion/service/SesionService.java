@@ -25,7 +25,12 @@ public interface SesionService {
      * vuelve a estar a su alcance; lo devuelto alcanza para un access token nuevo de la misma sesion. Una sesion
      * cerrada, o de otra persona, lanza SesionInvalidaException.
      */
-    SesionVerificada reverificar(Long empresaId, Long usuarioId, String codigo);
+    default SesionVerificada reverificar(Long empresaId, Long usuarioId, String codigo) {
+        return reverificar(empresaId, usuarioId, codigo, Factor.PASSWORD);
+    }
+
+    /** Lo mismo, con el factor con que la persona lo confirmo: queda entre los de la sesion. */
+    SesionVerificada reverificar(Long empresaId, Long usuarioId, String codigo, Factor factor);
 
     /**
      * Cambia un refresh token vigente por uno nuevo de la misma sesion. Un token desconocido, vencido o de una sesion

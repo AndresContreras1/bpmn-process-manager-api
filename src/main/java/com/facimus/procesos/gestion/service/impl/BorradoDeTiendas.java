@@ -25,6 +25,8 @@ public class BorradoDeTiendas {
             "delete from refresh_tokens where empresa_id = ?",
             "delete from sesiones where empresa_id = ?",
             "delete from enlaces_de_un_uso where empresa_id = ?",
+            "delete from codigos_de_recuperacion where empresa_id = ?",
+            "delete from segundos_factores where empresa_id = ?",
             "delete from claves_idempotencia where empresa_id = ?",
             "delete from trabajos where empresa_id = ?",
             "delete from membresias_rol where empresa_id = ?",

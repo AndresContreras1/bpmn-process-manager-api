@@ -38,6 +38,7 @@ import com.facimus.procesos.gestion.dto.response.RolDeUsuarioResponse;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.MembresiaRolService;
+import com.facimus.procesos.gestion.service.SegundoFactorService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
 @WebMvcTest(UsuarioController.class)
@@ -54,6 +55,9 @@ class UsuarioControllerTest {
 
     @MockitoBean
     private CuentaService cuentaService;
+
+    @MockitoBean
+    private SegundoFactorService segundoFactorService;
 
     @Test
     @DisplayName("GET /api/v1/usuarios - listar como admin: una pagina ordenada por nombre (200)")

@@ -31,6 +31,7 @@ import com.facimus.procesos.gestion.repository.MembresiaRolRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.repository.UsuarioSpecifications;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
+import com.facimus.procesos.gestion.service.SegundoFactorService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
@@ -50,6 +51,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final PoliticaDeClaves politicaDeClaves;
     private final MembresiaRolRepository membresiaRolRepository;
     private final EnlaceDeUnUsoRepository enlaceDeUnUsoRepository;
+    private final SegundoFactorService segundoFactorService;
 
     private static final SecureRandom ALEATORIO = new SecureRandom();
 
@@ -199,6 +201,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         membresiaRolRepository.borrarLasDe(empresaId, usuarioId);
         enlaceDeUnUsoRepository.borrarLosDe(empresaId, usuarioId, correo);
+        segundoFactorService.borrarDe(empresaId, usuarioId);
         sesionService.cerrarTodas(empresaId, usuarioId);
         historialCambioService.seudonimizarUsuario(empresaId, usuarioId, seudonimo, correo, correoSeudonimo);
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,

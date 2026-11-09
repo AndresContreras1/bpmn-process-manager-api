@@ -47,6 +47,7 @@ import com.facimus.procesos.gestion.dto.request.ReautenticacionRequest;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.SegundoFactorService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.security.CookiesDeSesion;
@@ -80,6 +81,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private JwtService jwtService;
+
+    @MockitoBean
+    private SegundoFactorService segundoFactorService;
 
     @Test
     @DisplayName("POST /api/v1/auth/login - credenciales validas abren la sesion en dos cookies HttpOnly, y el cuerpo "
@@ -227,7 +231,7 @@ class AuthControllerTest {
             + "ahora (200)")
     void AuthController_reautenticacion_renuevaSoloElAcceso() throws Exception {
         Instant ahora = Instant.parse("2026-10-08T10:30:00Z");
-        given(sesionService.reverificar(1L, 1L, SESION))
+        given(sesionService.reverificar(1L, 1L, SESION, Factor.PASSWORD))
                 .willReturn(new SesionVerificada(SESION, usuario(), CLAVE, ahora, Duration.ofHours(2)));
         given(jwtService.generarToken(any(ApiPrincipal.class), anySet(), any(Instant.class), any(Duration.class)))
                 .willReturn("token-verificado");

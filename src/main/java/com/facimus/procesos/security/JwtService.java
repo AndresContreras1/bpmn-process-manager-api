@@ -56,6 +56,8 @@ public class JwtService {
     static final String CLAIM_FACTORES = "fac";
     /** Claim registrado de OpenID Connect: cuando confirmo la persona quien es por ultima vez. */
     static final String CLAIM_VERIFICADO = "auth_time";
+    /** PR 49: el login a medias de quien tiene segundo factor; ese token solo sirve para darlo. */
+    static final String CLAIM_SEGUNDO_FACTOR_PENDIENTE = "mfa_pendiente";
 
     private static final Logger log = LoggerFactory.getLogger(JwtService.class);
 
@@ -111,6 +113,7 @@ public class JwtService {
                 .claim(CLAIM_ROL, principal.rol().name())
                 .claim(CLAIM_SESION, principal.sesion())
                 .claim(CLAIM_CAMBIO_DE_CLAVE, principal.debeCambiarClave())
+                .claim(CLAIM_SEGUNDO_FACTOR_PENDIENTE, principal.segundoFactorPendiente())
                 .claim(CLAIM_FACTORES, factores.stream().sorted().map(Factor::name).toList())
                 .claim(CLAIM_VERIFICADO, verificadoEn.getEpochSecond())
                 .issuedAt(ahora)
@@ -192,7 +195,8 @@ public class JwtService {
         }
         // Un token emitido antes de que existiera el claim no obliga a nadie a cambiar nada.
         boolean debeCambiarClave = Boolean.TRUE.equals(claims.get(CLAIM_CAMBIO_DE_CLAVE, Boolean.class));
+        boolean pendiente = Boolean.TRUE.equals(claims.get(CLAIM_SEGUNDO_FACTOR_PENDIENTE, Boolean.class));
         return Optional.of(new ApiPrincipal(usuarioId, empresaId, RolAcceso.valueOf(rol), claims.getSubject(), sesion,
-                debeCambiarClave));
+                debeCambiarClave, pendiente));
     }
 }

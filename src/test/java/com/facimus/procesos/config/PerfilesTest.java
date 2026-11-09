@@ -115,7 +115,8 @@ class PerfilesTest {
     }
 
     @Nested
-    @SpringBootTest(properties = "JWT_SECRET=prod-profile-test-signing-key-with-32-characters")
+    @SpringBootTest(properties = {"JWT_SECRET=prod-profile-test-signing-key-with-32-characters",
+            "MFA_CLAVE_DE_CIFRADO=prod-profile-test-encryption-key-with-32-characters"})
     @ActiveProfiles("prod")
     @AutoConfigureMockMvc
     class Prod {

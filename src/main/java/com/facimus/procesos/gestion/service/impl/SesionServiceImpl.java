@@ -89,14 +89,16 @@ public class SesionServiceImpl implements SesionService {
 
     @Override
     @Transactional
-    public SesionVerificada reverificar(Long empresaId, Long usuarioId, String codigo) {
+    public SesionVerificada reverificar(Long empresaId, Long usuarioId, String codigo, Factor factor) {
         Sesion sesion = sesionRepository.findByCodigoAndUsuarioIdAndEmpresaId(codigo, usuarioId, empresaId)
                 .filter(Sesion::estaAbierta)
                 .orElseThrow(SesionInvalidaException::new);
         LocalDateTime ahora = LocalDateTime.now();
+        Set<Factor> factores = Factor.leer(sesion.getFactores());
+        factores.add(factor);
+        sesion.setFactores(Factor.escribir(factores));
         sesion.setVerificadaEn(ahora);
-        return new SesionVerificada(codigo, usuarioMapper.toResponse(sesion.getUsuario()),
-                Factor.leer(sesion.getFactores()), instante(ahora),
+        return new SesionVerificada(codigo, usuarioMapper.toResponse(sesion.getUsuario()), factores, instante(ahora),
                 Duration.between(ahora, limites(empresaId).fin(sesion)));
     }
 
