@@ -61,6 +61,11 @@ public class Empresa {
 
     /** Cuando se borrara todo lo de la tienda; vacio si no esta dada de baja. */
     public LocalDateTime getBorradoProgramadoPara() {
-        return bajaSolicitadaEn == null ? null : bajaSolicitadaEn.plus(GRACIA_DE_LA_BAJA);
+        return bajaSolicitadaEn == null ? null : borradoProgramadoDesde(bajaSolicitadaEn);
+    }
+
+    /** Cuando se borrara una tienda dada de baja en ese momento. */
+    public static LocalDateTime borradoProgramadoDesde(LocalDateTime baja) {
+        return baja.plus(GRACIA_DE_LA_BAJA);
     }
 }

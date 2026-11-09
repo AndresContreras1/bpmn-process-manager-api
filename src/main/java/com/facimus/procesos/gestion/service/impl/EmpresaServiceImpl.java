@@ -90,13 +90,15 @@ public class EmpresaServiceImpl implements EmpresaService {
         if (!empresa.getNombre().equals(confirmacion.strip())) {
             throw new SolicitudInvalidaException("Para confirmar la baja escribe el nombre de la tienda tal como es.");
         }
-        if (empresa.getBajaSolicitadaEn() != null) {
+        LocalDateTime bajaAnterior = empresa.getBajaSolicitadaEn();
+        if (bajaAnterior != null) {
             throw new ReglaNegocioException("La tienda ya está dada de baja: sus datos se borran el "
-                    + empresa.getBorradoProgramadoPara().toLocalDate() + ".");
+                    + Empresa.borradoProgramadoDesde(bajaAnterior).toLocalDate() + ".");
         }
-        empresa.setBajaSolicitadaEn(LocalDateTime.now());
+        LocalDateTime baja = LocalDateTime.now();
+        empresa.setBajaSolicitadaEn(baja);
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
-                "Tienda dada de baja: hasta el " + empresa.getBorradoProgramadoPara().toLocalDate()
+                "Tienda dada de baja: hasta el " + Empresa.borradoProgramadoDesde(baja).toLocalDate()
                         + " solo se puede consultar, y ese día se borran sus datos.");
         return empresaMapper.toResponse(empresaRepository.saveAndFlush(empresa));
     }

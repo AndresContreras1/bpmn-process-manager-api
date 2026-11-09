@@ -211,8 +211,9 @@ class LimitesDeSesionIntegracionTest {
     /** Lo que la base le dio de vida al refresh token: de su emision a su vencimiento. */
     private Duration vidaGuardada(String refreshToken) {
         return jdbc.queryForObject("select fecha_emision, fecha_expiracion from refresh_tokens where token_hash = ?",
-                (fila, numero) -> Duration.between(fila.getObject(1, LocalDateTime.class),
-                        fila.getObject(2, LocalDateTime.class)).truncatedTo(ChronoUnit.SECONDS),
+                (fila, numero) -> Duration.between(fila.getObject(1, LocalDateTime.class).toInstant(ZoneOffset.UTC),
+                        fila.getObject(2, LocalDateTime.class).toInstant(ZoneOffset.UTC))
+                        .truncatedTo(ChronoUnit.SECONDS),
                 Huella.de(refreshToken));
     }
 

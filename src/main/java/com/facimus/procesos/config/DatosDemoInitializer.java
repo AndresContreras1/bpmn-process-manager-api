@@ -50,6 +50,7 @@ public class DatosDemoInitializer implements CommandLineRunner {
     private static final String NIT_DEMO = "900123456-1";
     private static final String EMAIL_DEMO = "admin@demo.com";
     /** Una frase, como pide la politica de claves: sin "admin", "demo" ni el nombre de la tienda. */
+    @SuppressWarnings("java:S2068") // la clave publica de la tienda demo: solo en el perfil dev, y la da el README
     private static final String PASSWORD_DEMO = "every-order-on-time";
     private static final String CLAVE_DE_CORRELACION = "orderId";
 

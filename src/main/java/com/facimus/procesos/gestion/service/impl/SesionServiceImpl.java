@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.service.impl;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -162,8 +163,11 @@ public class SesionServiceImpl implements SesionService {
                 .fechaEmision(ahora)
                 .fechaExpiracion(vence)
                 .build());
+        // Las fechas salen de LocalDateTime.now(): se restan en la zona del sistema, no como horas de pared sin zona.
+        ZoneId zona = ZoneId.systemDefault();
         return new SesionIniciada(token, sesion.getCodigo(), usuarioMapper.toResponse(usuario),
-                Duration.between(ahora, vence), Duration.between(ahora, fin));
+                Duration.between(ahora.atZone(zona), vence.atZone(zona)),
+                Duration.between(ahora.atZone(zona), fin.atZone(zona)));
     }
 
     /** Los de hoy: una sesion abierta toma la duracion nueva de la tienda en su proxima renovacion. */
