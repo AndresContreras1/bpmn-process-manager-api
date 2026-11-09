@@ -105,7 +105,9 @@ public class RevisionServiceImpl implements RevisionService {
             LocalDateTime masVieja = revisiones.findFirstByEmpresaIdAndFechaAfterOrderByFechaAscIdAsc(empresaId, desde)
                     .map(RevisionIa::getFecha)
                     .orElse(ahora);
-            Duration espera = Duration.between(ahora, masVieja.plus(ventana));
+            // Las fechas son del reloj de la API: se restan en su zona, no como horas de pared sin zona.
+            Duration espera = Duration.between(ahora.atZone(reloj.getZone()),
+                    masVieja.plus(ventana).atZone(reloj.getZone()));
             throw new DemasiadosIntentosException(
                     "Esta tienda ya usó sus revisiones con IA por ahora. Intenta de nuevo en "
                             + minutos(espera) + ".", espera);

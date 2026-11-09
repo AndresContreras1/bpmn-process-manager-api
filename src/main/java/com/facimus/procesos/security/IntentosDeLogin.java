@@ -38,7 +38,9 @@ public class IntentosDeLogin implements LimiteDeIntentos {
                         return Optional.empty();
                     }
                     LocalDateTime masViejo = fila.getObject(2, LocalDateTime.class);
-                    return Optional.of(Duration.between(ahora, masViejo.plus(ventana)));
+                    // Las fechas son del reloj de la API: se restan en su zona, no como horas de pared sin zona.
+                    return Optional.of(Duration.between(ahora.atZone(reloj.getZone()),
+                            masViejo.plus(ventana).atZone(reloj.getZone())));
                 }, clave, ahora.minus(ventana));
     }
 
