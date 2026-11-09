@@ -1,0 +1,29 @@
+# La base del perfil dev: PostgreSQL 16, el mismo motor de produccion.
+#
+# Spring Boot la levanta sola al arrancar con dev (spring.docker.compose.file en application-dev.properties) y se
+# conecta sin que haya que escribir una URL; la deja corriendo al detener la aplicacion, asi el siguiente arranque no
+# espera. Sin Spring Boot de por medio: docker compose -f compose.dev.yaml up -d
+#
+# El puerto es uno libre que elige Docker, solo en 127.0.0.1: no choca con otro PostgreSQL de la maquina ni queda a la
+# vista de la red. docker compose -f compose.dev.yaml port db 5432 dice cual le toco.
+name: bpmn-process-manager-dev
+
+services:
+  db:
+    image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
+    environment:
+      POSTGRES_DB: procesos
+      POSTGRES_USER: procesos
+      POSTGRES_PASSWORD: procesos-dev
+    ports:
+      - "127.0.0.1::5432"
+    volumes:
+      - procesos-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U procesos -d procesos"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  procesos-dev:

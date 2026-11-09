@@ -21,11 +21,11 @@ import org.springframework.test.context.ActiveProfiles;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.model.ConfiguracionTienda;
+import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.ProcesoCompartido;
 import com.facimus.procesos.gestion.model.RefreshToken;
 import com.facimus.procesos.gestion.model.RolProceso;
-import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.Sesion;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.ConfiguracionTiendaRepository;
@@ -80,8 +80,8 @@ class MigracionesTest {
     }
 
     @Test
-    @DisplayName("Flyway aplica el esquema comun y la migracion propia del motor")
-    void flyway_aplicaLasMigracionesComunYDelMotor() {
+    @DisplayName("Flyway aplica cada migracion, en orden")
+    void flyway_aplicaLasMigracionesEnOrden() {
         assertThat(flyway.info().applied())
                 .extracting(MigrationInfo::getScript)
                 .containsExactly("V1__esquema_inicial.sql", "V2__nombres_unicos_por_empresa.sql",

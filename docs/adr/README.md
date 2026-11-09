@@ -34,6 +34,7 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0018 | [No Thymeleaf; a single-page app behind NGINX](0018-spa-behind-nginx.md) | Accepted |
 | 0019 | [Cache only what never changes](0019-cache-only-the-immutable.md) | Accepted |
 | 0020 | [A scheduled purge of technical rows](0020-scheduled-purge.md) | Accepted |
-| 0021 | [Testcontainers as a tagged suite](0021-tagged-postgres-suite.md) | Accepted |
+| 0021 | [Testcontainers as a tagged suite](0021-tagged-postgres-suite.md) | Superseded by 0041 |
 | 0022 | [Named queries where startup checks them](0022-named-queries.md) | Accepted |
 | 0023 | [Optional shared state](0023-optional-shared-state.md) | Not implemented |
+| 0041 | [PostgreSQL in development and in the tests](0041-postgresql-everywhere.md) | Accepted |

@@ -4,9 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,7 +13,6 @@ import org.springframework.boot.thread.Threading;
 import org.springframework.boot.tomcat.autoconfigure.TomcatServerProperties;
 import org.springframework.boot.web.server.Shutdown;
 import org.springframework.boot.web.server.autoconfigure.ServerProperties;
-import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
@@ -29,10 +25,8 @@ import com.zaxxer.hikari.HikariDataSource;
 /** Lo que cambia entre dev y prod, verificado con la aplicacion completa de cada perfil. */
 class PerfilesTest {
 
-    private static final String CONSOLA_H2 = "/h2-console/*";
-
     @Nested
-    @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:perfil-dev")
+    @SpringBootTest
     @ActiveProfiles("dev")
     @AutoConfigureMockMvc
     class Dev {
@@ -51,9 +45,12 @@ class PerfilesTest {
         }
 
         @Test
-        @DisplayName("dev registra la consola H2 en /h2-console")
-        void dev_registraLaConsolaH2() {
-            assertThat(rutasDeServlets(context)).contains(CONSOLA_H2);
+        @DisplayName("dev levanta su PostgreSQL con Docker Compose y lo deja corriendo al detenerse")
+        void dev_levantaSuPostgresConDockerCompose() {
+            Environment entorno = context.getEnvironment();
+
+            assertThat(entorno.getProperty("spring.docker.compose.file")).isEqualTo("compose.dev.yaml");
+            assertThat(entorno.getProperty("spring.docker.compose.lifecycle-management")).isEqualTo("start-only");
         }
 
         @Test
@@ -70,7 +67,7 @@ class PerfilesTest {
     }
 
     @Nested
-    @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:perfil-test")
+    @SpringBootTest
     @ActiveProfiles("test")
     class Test_ {
 
@@ -86,10 +83,7 @@ class PerfilesTest {
     }
 
     @Nested
-    @SpringBootTest(properties = {
-            // El build no tiene PostgreSQL: se prueba la configuracion de prod sobre una H2 en memoria.
-            "spring.datasource.url=jdbc:h2:mem:perfil-prod",
-            "JWT_SECRET=prod-profile-test-signing-key-with-32-characters"})
+    @SpringBootTest(properties = "JWT_SECRET=prod-profile-test-signing-key-with-32-characters")
     @ActiveProfiles("prod")
     @AutoConfigureMockMvc
     class Prod {
@@ -142,19 +136,10 @@ class PerfilesTest {
         }
 
         @Test
-        @DisplayName("prod no registra la consola H2 ni siembra la tienda demo")
-        void prod_sinConsolaH2NiTiendaDemo() {
-            assertThat(rutasDeServlets(context)).doesNotContain(CONSOLA_H2);
+        @DisplayName("prod no siembra la tienda demo")
+        void prod_sinTiendaDemo() {
             assertThat(context.getBeanNamesForType(DatosDemoInitializer.class)).isEmpty();
             assertThat(empresaRepository.count()).isZero();
         }
-    }
-
-    private static List<String> rutasDeServlets(ApplicationContext context) {
-        List<String> rutas = new ArrayList<>();
-        for (ServletRegistrationBean<?> registro : context.getBeansOfType(ServletRegistrationBean.class).values()) {
-            rutas.addAll(registro.getUrlMappings());
-        }
-        return rutas;
     }
 }
