@@ -154,8 +154,23 @@ this one included, and opens a new one with new cookies.
 `POST /api/v1/usuarios/{id}/restablecer-clave` does the same from the other side, for an administrator, and answers
 another temporary password.
 
-There is no email delivery: whoever creates the user passes the temporary password along by whatever means they
-have. The database never keeps it in the clear.
+The database never keeps a temporary password in the clear, and whoever creates the user passes it along by
+whatever means they have. The e-mail is the other way in:
+
+- **Verifying the e-mail.** Registering a store sends its first administrator a link that verifies their e-mail;
+  `POST /api/v1/auth/verificacion` sends another. Until their e-mail is verified, a user cannot invite anybody.
+- **Inviting by e-mail (HU-02.1).** `POST /api/v1/usuarios/invitaciones` sends a link with the access role of
+  the invitation. Whoever follows it chooses their name and password, and joins with the e-mail already verified.
+- **Recovering the password.** `POST /api/v1/auth/recuperacion` sends a link to choose a new password if the
+  e-mail belongs to an active user, and answers the same `202` either way, so it tells nobody which e-mails are
+  registered. Using the link closes every session of the user and voids the other recovery links.
+
+Every link works once and expires: 48 hours to verify, 15 minutes to recover, 7 days to accept an invitation. Its
+token is 256 random bits; the database keeps only its SHA-256, and the token in the clear exists only in the
+e-mail. The link carries it after `#`, which a browser never sends to a server, so it is not written in the log
+of NGINX or of anybody else. A link used, expired or made up gets the same `400`, "Enlace no válido". The e-mails
+leave through the queue of jobs, in the transaction that asks for them, and are written in the language of the
+request: Spanish, English or French.
 
 ## Supply chain
 

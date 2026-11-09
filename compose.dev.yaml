@@ -25,5 +25,13 @@ services:
       timeout: 3s
       retries: 30
 
+  # El correo de dev: Mailpit lo recibe por SMTP en el 1025 y lo muestra en http://localhost:8025. No manda nada
+  # afuera. Puertos fijos, solo en 127.0.0.1, porque application-dev.properties los nombra.
+  mailpit:
+    image: axllent/mailpit:v1.31.3@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
 volumes:
   procesos-dev:

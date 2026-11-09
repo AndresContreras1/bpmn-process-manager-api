@@ -100,7 +100,8 @@ class MigracionesTest {
                         "V23__intentos_de_login.sql",
                         "V24__shedlock.sql",
                         "V25__registro_de_eventos.sql",
-                        "V26__cola_de_trabajos.sql");
+                        "V26__cola_de_trabajos.sql",
+                        "V27__enlaces_de_un_uso.sql");
     }
 
     @Test
