@@ -23,12 +23,13 @@ function registrar(numero) {
   const sufijo = `${Date.now()}${numero}`.slice(-9);
   const correo = `limite${sufijo}@k6.test`;
   return http.post(`${BASE}/api/v1/empresas`, JSON.stringify({
-    nombreEmpresa: `Tienda del limite ${sufijo}`,
+    nombreEmpresa: `Tienda k6 ${sufijo}`,
     nit: `8${sufijo}-1`,
     correoContacto: correo,
     nombreAdmin: 'Administradora',
     emailAdmin: correo,
-    passwordAdmin: 'una frase larga para el limite',
+    // Sin palabras del nombre ni del correo: la politica de claves las rechaza.
+    passwordAdmin: 'marea violeta del sur profundo',
   }), {
     headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': CSRF, Cookie: `XSRF-TOKEN=${CSRF}` },
     responseCallback: http.expectedStatuses(201, 429),
@@ -42,7 +43,9 @@ export default function () {
   }
   for (let numero = 1; numero <= quedan; numero++) {
     const registro = registrar(numero);
-    check(registro, { 'antes del umbral, el registro entra': (r) => r.status === 201 });
+    if (!check(registro, { 'antes del umbral, el registro entra': (r) => r.status === 201 })) {
+      console.error(`Registro ${numero}: ${registro.status} ${registro.body}`);
+    }
   }
   const primeraDeMas = registrar(quedan + 1);
   check(primeraDeMas, {
