@@ -12,6 +12,8 @@ services:
       POSTGRES_DB: ${DB_NAME:-procesos}
       POSTGRES_USER: ${DB_USER:-procesos}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    # pg_stat_statements counts what each query costs; the server has to load it when it starts (docs/runbook.md).
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     volumes:
       - postgres-data:/var/lib/postgresql/data
     # The API waits for this check, not for the container to exist: by TCP only the final server answers, not the

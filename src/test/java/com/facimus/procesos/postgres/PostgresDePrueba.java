@@ -92,8 +92,10 @@ public final class PostgresDePrueba {
                     System.getenv("PRUEBAS_POSTGRES_CLAVE"), true);
         }
         // fsync apagado es lo que Testcontainers pone por defecto: una base de pruebas no tiene que sobrevivir a nada.
+        // pg_stat_statements, como en compose.yaml: con el se miden las consultas de la suite (docs/testing.md).
         PostgreSQLContainer contenedor = new PostgreSQLContainer(IMAGEN)
-                .withCommand("postgres", "-c", "fsync=off", "-c", MAXIMO_DE_CONEXIONES);
+                .withCommand("postgres", "-c", "fsync=off", "-c", MAXIMO_DE_CONEXIONES, "-c",
+                        "shared_preload_libraries=pg_stat_statements");
         try {
             contenedor.start();
         } catch (RuntimeException sinDocker) {

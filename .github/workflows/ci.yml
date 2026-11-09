@@ -240,6 +240,18 @@ jobs:
           docker run --rm -i --network host -e BASE_URL=http://localhost:8081 -e CAPACIDAD=10 -e PREVIAS=3 \
             grafana/k6:0.54.0@sha256:1f40432b1cbe7234e977f96c362c9bc550a2d2b583d014dd8669fe40d3e9e755 run - < k6/limite-de-peticiones.js
 
+      - name: PostgreSQL counts what the load cost
+        run: |
+          # pg_stat_statements works only with the library compose.yaml preloads, so reading it proves that it is
+          # on. The statements that took the most time under the three loads go to the summary of the run.
+          {
+            echo "### The statements that took the most time under load"
+            echo
+            echo '```'
+            docker compose exec -T db psql -U procesos -d procesos -c "select calls, round(total_exec_time) as total_ms, round(mean_exec_time::numeric, 2) as mean_ms, rows, left(regexp_replace(query, '\s+', ' ', 'g'), 90) as query from pg_stat_statements where dbid = (select oid from pg_database where datname = current_database()) order by total_exec_time desc limit 10"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Show the stack logs
         if: failure()
         run: docker compose logs

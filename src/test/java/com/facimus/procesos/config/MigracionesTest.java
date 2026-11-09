@@ -106,7 +106,8 @@ class MigracionesTest {
                         "V31__segundo_factor.sql", "V32__politica_de_segundo_factor.sql",
                         "V33__entrada_con_proveedores_externos.sql", "V34__cubos_de_peticiones.sql",
                         "V35__bitacora.sql",
-                        "V36__seguridad_por_filas.sql", "V37__indices_que_faltaban.sql");
+                        "V36__seguridad_por_filas.sql", "V37__indices_que_faltaban.sql",
+                        "V38__estadisticas_de_las_consultas.sql");
     }
 
     @Test
