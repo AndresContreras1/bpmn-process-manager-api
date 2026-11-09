@@ -80,6 +80,8 @@ tagged. Each pull request adds its line under *Unreleased*.
   them, up to the 72 bytes BCrypt reads. Every hash carries its algorithm, and a login redoes an old one.
 - Spring Boot 4.1.1, Tomcat 11.0.26 and Jackson 3.1.7 and 2.21.7 for the vulnerabilities Trivy found in the API image,
   and NGINX 1.30 for the ones in the web image.
+- The error handler writes the request path, the database's message and an external service's answer to the log
+  on one line: a line break inside them turns into an underscore and can no longer fake a log line of its own.
 
 ## Before this file
 
