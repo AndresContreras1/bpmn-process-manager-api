@@ -10,9 +10,9 @@ immutable version that orders run on. This repository holds the REST API and the
 [![CI](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml)
 ![Java 25](https://img.shields.io/badge/Java-25-007396?logo=openjdk&logoColor=white)
 ![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white)
-![Spring Security 7](https://img.shields.io/badge/Spring%20Security-7%20%C2%B7%20JWT-6DB33F?logo=springsecurity&logoColor=white)
+![Spring Security 7](https://img.shields.io/badge/Spring%20Security-7%20%C2%B7%20JWT%20%C2%B7%20MFA%20%C2%B7%20OIDC-6DB33F?logo=springsecurity&logoColor=white)
 ![Hibernate 7.4](https://img.shields.io/badge/Hibernate-7.4-59666C?logo=hibernate&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-prod-4169E1?logo=postgresql&logoColor=white)
+![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16%20%C2%B7%20row--level%20security-4169E1?logo=postgresql&logoColor=white)
 ![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-1527-success?logo=junit5&logoColor=white)
@@ -63,7 +63,9 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Messaging and simulation** | Outbox and inbox per process, correlation by key, a clock in ticks per store, and four simulated partners — payments, carrier, notifications, customer — deterministic by seed. | [Simulation](docs/execution.md#messages-and-the-clock) |
 | **Dashboard** | Cases by state, cycle time with average and p95, work waiting per role and what did not go as expected, in six queries however many orders there are. | [Dashboard](docs/execution.md#the-dashboard) |
 | **Operations** | Health probes, Prometheus metrics on a management port of their own with business counters, JSON logs, OpenTelemetry traces, and a request id in every response, log line and error. | [Operations endpoints](docs/getting-started.md#operations-endpoints) |
-| **Security** | The session in `HttpOnly` cookies with a CSRF token, a short-lived JWT with rotating refresh tokens, and idle and maximum limits each store chooses; passwords as NIST SP 800-63B-4 asks, login rate limit, roles checked in one place, and store isolation enforced by the build. Read-only sharing between stores, and closing a store or anonymizing a person that really deletes. | [Security](docs/security.md) |
+| **Sign-in** | The session in `HttpOnly` cookies with a CSRF token, a short-lived JWT with rotating refresh tokens, and idle and maximum limits each store chooses. Passwords as NIST SP 800-63B-4 asks, a second factor with an authenticator app and recovery codes that each store can require, and signing in with Google or Microsoft, where an account is linked only after its owner confirms it. | [Authentication](docs/security.md#authentication) |
+| **Security** | Store isolation enforced twice: by the build and by row-level security in PostgreSQL, under a role that cannot bypass it. Rate limits in token buckets every instance shares, an audit trail per store chained with SHA-256 that nobody can change, roles checked in one place, read-only sharing between stores, and closing a store or anonymizing a person that really deletes. | [Security](docs/security.md) |
+| **E-mail** | Verifying the e-mail, recovering the password and inviting by e-mail, in Spanish, English and French, with links that work once. Sent over any SMTP server from a queue of jobs that retries. | [Links sent by e-mail](docs/api-reference.md#links-sent-by-e-mail) |
 | **API contract** | OpenAPI for every operation, Problem Details errors, optimistic locking, idempotency keys and stable pagination. | [API reference](docs/api-reference.md) |
 | **AI review** | An optional second opinion from a language model, answered in a validated schema and limited per store. It only advises. | [AI review](docs/diagnosis-and-versions.md#ai-review) |
 | **Web app** | Angular client for all of it: processes, diagram viewer and editor with live diagnosis, administration, cases, tasks, clock and dashboard. | [frontend/](frontend/README.md) |
@@ -74,19 +76,22 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 flowchart LR
     B(["Browser"]) --> W["<b>web</b><br/>NGINX · Angular 19"]
     W -- "/api" --> A["<b>api</b><br/>Spring Boot 4.1 · Java 25"]
-    A --> D[("<b>db</b><br/>PostgreSQL 16")]
+    A --> D[("<b>db</b><br/>PostgreSQL 16<br/>row-level security")]
     A -. "optional" .-> G["Gemini<br/>AI review"]
+    A -. "optional" .-> O["Google · Microsoft<br/>OpenID Connect"]
+    A -. "queue of jobs" .-> S["SMTP<br/>e-mail"]
 ```
 
 The browser only talks to the web container: NGINX serves the app and forwards `/api` inside the network, so there
-is no API URL baked into the build and no CORS to configure. Inside the API, the code is split into modules that
-only depend downwards:
+is no API URL baked into the build and no CORS to configure. Every outside service is optional: without its
+configuration the API starts and the feature is simply not offered. Inside the API, the code is split into modules
+that only depend downwards:
 
 ```mermaid
 flowchart BT
-    common["<b>common</b><br/>tenant base entity · identity<br/>errors · pagination · conditions"]
-    gestion["<b>gestion</b><br/>stores · users · sessions<br/>processes · process roles"]
-    security["<b>security</b><br/>filter chain · JWT<br/>login and its rate limit"]
+    common["<b>common</b><br/>tenant base entity · identity · store context<br/>errors · pagination · conditions"]
+    gestion["<b>gestion</b><br/>stores · users · sessions · second factor<br/>processes · process roles · audit trail"]
+    security["<b>security</b><br/>filter chain · JWT · cookies<br/>Google and Microsoft · rate limits"]
     modelado["<b>modelado</b><br/>pools · lanes · nodes · flows<br/>messages · diagnosis"]
     ejecucion["<b>ejecucion</b><br/>cases · trays · timeline<br/>message trays · clock · engine"]
     integracion["<b>integracion</b><br/>simulated gateway, carrier,<br/>notifier and customer"]
@@ -104,8 +109,8 @@ store's id, or if a request DTO carries one, and Spring Modulith if a module use
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 · JWT (jjwt) · Spring Data JPA · Hibernate 7.4 · MapStruct |
-| Data | PostgreSQL 16 in `prod`, in `dev` and in the tests · Flyway migrations, validated by Hibernate |
+| Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 (JWT, OAuth2 client) · Spring Data JPA · Hibernate 7.4 · MapStruct · Spring Modulith · Bucket4j |
+| Data | PostgreSQL 16 in `prod`, in `dev` and in the tests, with row-level security · Flyway migrations, validated by Hibernate |
 | Frontend | Angular 19 standalone · Bootstrap 5 · RxJS · NGINX |
 | Quality | JUnit 5 · Mockito · ArchUnit · Spring Modulith · Testcontainers · Selenium · k6 · JaCoCo · SonarCloud |
 | Delivery | Docker multi-stage images · Docker Compose · GitHub Actions |
@@ -198,8 +203,16 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 
 ## Roadmap
 
-Everything planned for modeling, execution, simulation, security and quality is done. Next is reviewing a change
-instead of the whole diagram, so the model only reads what moved. The [roadmap](docs/roadmap.md) lists every item.
+Modeling, execution, simulation, observability and the security of accounts and data are done. What is still
+open:
+
+- Passkeys (WebAuthn), as a second factor and as a sign-in without a password.
+- Exporting a store's data during the 30 days of its closing.
+- Anchoring the last hash of the audit trail every day in a bucket with Object Lock.
+- An AI review of a change instead of the whole diagram, so the model only reads what moved.
+- HSTS preload, a month after production runs on HTTPS.
+
+The [roadmap](docs/roadmap.md) lists every item, done and open.
 
 ## Credits
 
