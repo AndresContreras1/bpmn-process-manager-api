@@ -43,6 +43,9 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `CACHE_VERSIONES` | Keeps what a published version says in memory. `false` turns it off and the API answers the same, only slower. | `true` |
 | `CACHE_VERSIONES_MAXIMO` · `CACHE_VERSIONES_INACTIVIDAD` | Versions each cache remembers at a time, and how long an unused entry is kept | `200` · `2h` |
 | `DB_POOL_SIZE` | Connections to PostgreSQL. Requests run on virtual threads, so this is the real ceiling of concurrent work (`prod`) | `10` |
+| `DB_STATEMENT_TIMEOUT` | The longest a statement of the API can run before PostgreSQL cancels it. Each connection gets it when it takes the role `procesos_app`; Flyway migrates without it. `0` is no limit | `30s` |
+| `DB_IDLE_IN_TRANSACTION_TIMEOUT` | The longest a transaction of the API can stay open doing nothing: past it, PostgreSQL closes the connection and the pool replaces it | `60s` |
+| `DB_LEAK_DETECTION_THRESHOLD` | Milliseconds a connection can stay out of the pool before the log warns of a leak, with the stack of the code that took it. `0` turns it off; less than `2000` is not accepted | `20000` |
 | `MANAGEMENT_PORT` | Port of Actuator in `prod`: the probes and Prometheus read it inside the network, and it is not published | `8081` |
 | `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` | Where to send the spans, over OTLP and HTTP, for example `http://collector:4318/v1/traces`. Unset, no span leaves the API, and the `traceId` still reaches the logs and the errors. Leave it out rather than empty: an empty value counts as set | None |
 | `TRACING_SAMPLING` | Share of the requests whose trace is sent, from `0` to `1` | `0.1` |

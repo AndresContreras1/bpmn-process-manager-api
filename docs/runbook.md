@@ -46,6 +46,7 @@ Prometheus reads `http://api:8081/actuator/prometheus` from inside the network. 
 |---|---|
 | `http_server_requests_seconds` by `status` and `uri` | More `5xx`, or a slower p95, after a deployment |
 | `hikaricp_connections_pending` | Requests waiting for a connection; after three seconds they fail |
+| `hikaricp_connections_usage_seconds` | How long the code keeps a connection; a long tail is a slow query or a transaction that waits on something else |
 | `login_fallidos_total` by `motivo` | `credenciales` climbing is someone guessing; `bloqueado` is the limit doing its work |
 | `casos_eventos_total` by `tipo` | Cases stuck: many `error` lines, or `abierto` without `finalizado` |
 | `procesos_motor_avanzar_seconds` by `estado` | The engine getting slower, or more cases ending in `error` |
@@ -63,6 +64,22 @@ a deployment, go back to the previous build of the images and redeploy it while 
 **Requests time out waiting for the database.** `hikaricp_connections_pending` above zero for minutes means the pool
 (`DB_POOL_SIZE`, 10 by default) is not enough for the load or a query got slow. Every request runs on a virtual
 thread, so the pool is the real ceiling: raise it only if PostgreSQL has room for more connections.
+
+**A request fails with "canceling statement due to statement timeout".** A statement of the API ran longer than
+`DB_STATEMENT_TIMEOUT`, 30 seconds unless changed, and PostgreSQL cancelled it; the request answers `500` and the
+connection goes on serving. Find the statement in `pg_stat_statements` (below) and look at its plan with
+`EXPLAIN (ANALYZE, BUFFERS)` from `psql`: a missing index or a lock held by another transaction are the usual causes.
+Raise the limit only for a statement that has to be long, never to hide a slow one.
+
+**The log says "terminating connection due to idle-in-transaction timeout".** A transaction stayed open for more than
+`DB_IDLE_IN_TRANSACTION_TIMEOUT` doing nothing, usually while the code waited for something else, and PostgreSQL
+closed it so it would not keep its locks. The work of that transaction is rolled back. The stack of the request in the
+log says which code it was: nothing slow belongs inside a transaction.
+
+**The log says "Connection leak detection triggered".** A connection stayed out of the pool longer than
+`DB_LEAK_DETECTION_THRESHOLD`, 20 seconds unless changed. The warning carries the stack of the code that took it; if
+"Previously reported leaked connection ... was returned to the pool" follows, it was only slow, and if nothing follows,
+it leaked and the pool has one connection less until the instance restarts.
 
 **Many `429` on login.** The limit counts failed logins per email and address (`LOGIN_MAX_FAILED_ATTEMPTS` in
 `LOGIN_FAILED_ATTEMPTS_WINDOW`), in the table `intentos_login` that every instance shares. A person locked out
@@ -152,6 +169,27 @@ domain.
 
 **The AI review answers `503`.** `GEMINI_API_KEY` is missing or the model does not answer in `GEMINI_TIMEOUT`. Nothing
 else depends on it; removing the key turns the review off on purpose.
+
+## Which query got slow
+
+PostgreSQL counts, for every statement, how often it ran, how long it took and how many rows it touched, in
+`pg_stat_statements`. The Compose stack loads it when the database starts and the migrations create the extension; a
+managed database needs `shared_preload_libraries = 'pg_stat_statements'` in its settings and a superuser to create it.
+
+```sql
+-- What took the most time since the last reset
+select calls, round(total_exec_time) as total_ms, round(mean_exec_time::numeric, 2) as mean_ms, rows,
+       left(query, 120) as query
+from pg_stat_statements
+where dbid = (select oid from pg_database where datname = current_database())
+order by total_exec_time desc limit 15;
+
+-- Start counting again, for example after a deployment
+select pg_stat_statements_reset();
+```
+
+A statement with a high `mean_ms` is slow by itself: its `EXPLAIN (ANALYZE, BUFFERS)` says why. One with a low
+`mean_ms` and a huge `calls` runs once per row of something: look for a loop in the code.
 
 ## Backups
 
