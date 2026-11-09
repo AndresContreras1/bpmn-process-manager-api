@@ -16,8 +16,10 @@ import com.facimus.procesos.common.SesionInvalidaException;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.CambiarClaveRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
+import com.facimus.procesos.gestion.dto.request.ReautenticacionRequest;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.SesionResponse;
+import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -146,15 +148,44 @@ public class AuthController {
         return ResponseEntity.ok(abrir(sesionService.iniciar(empresaId, usuarioId), respuesta));
     }
 
+    @Operation(summary = "Confirm who you are again",
+            description = "Checks the password of the signed-in user and renews only the access cookie, marked as "
+                    + "verified now. What needs a recent verification, such as closing the store, asks for one "
+                    + "from the last 10 minutes; without it the answer is 403 with the title \"Verificación "
+                    + "requerida\", and this is how to get it back. Wrong passwords count with the login's limit.")
+    @ApiResponse(responseCode = "200", description = "A new access cookie of the same session, and in the body the "
+            + "user's profile")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "429", ref = "TooManyRequests")
+    @PostMapping("/reautenticacion")
+    public ResponseEntity<SesionResponse> reautenticar(@Validated @RequestBody ReautenticacionRequest request,
+            @AuthenticationPrincipal ApiPrincipal principal, HttpServletRequest peticion,
+            HttpServletResponse respuesta) {
+        // La misma comprobacion del login, con su limite de intentos: una cookie robada no prueba claves gratis.
+        loginAuthenticator.autenticar(principal.email(), request.password(), peticion.getRemoteAddr());
+        SesionVerificada verificada = sesionService.reverificar(principal.empresaId(), principal.usuarioId(),
+                principal.sesion());
+        Duration vidaDelAcceso = vidaDelAcceso(verificada.vidaRestante());
+        cookies.renovarAcceso(respuesta, jwtService.generarToken(verificada.usuario().comoPrincipal(verificada.sesion()),
+                verificada.factores(), verificada.verificadaEn(), vidaDelAcceso), vidaDelAcceso);
+        return ResponseEntity.ok(new SesionResponse(vidaDelAcceso.toSeconds(), verificada.usuario()));
+    }
+
     /**
      * Las cookies de la sesion, con su access token recien firmado; el cuerpo, sin tokens. El acceso no pasa del fin
      * de la sesion: a las 24 horas se vuelve a entrar, no a las 24 y cuarto.
      */
     private SesionResponse abrir(SesionIniciada sesion, HttpServletResponse respuesta) {
-        Duration maximo = Duration.ofSeconds(jwtService.getExpirationSeconds());
-        Duration vidaDelAcceso = sesion.vidaRestante().compareTo(maximo) < 0 ? sesion.vidaRestante() : maximo;
-        String accessToken = jwtService.generarToken(sesion.usuario().comoPrincipal(sesion.sesion()), vidaDelAcceso);
+        Duration vidaDelAcceso = vidaDelAcceso(sesion.vidaRestante());
+        String accessToken = jwtService.generarToken(sesion.usuario().comoPrincipal(sesion.sesion()),
+                sesion.factores(), sesion.verificadaEn(), vidaDelAcceso);
         cookies.abrir(respuesta, accessToken, vidaDelAcceso, sesion.refreshToken(), sesion.vidaDelRefresco());
         return new SesionResponse(vidaDelAcceso.toSeconds(), sesion.usuario());
+    }
+
+    private Duration vidaDelAcceso(Duration vidaRestante) {
+        Duration maximo = Duration.ofSeconds(jwtService.getExpirationSeconds());
+        return vidaRestante.compareTo(maximo) < 0 ? vidaRestante : maximo;
     }
 }

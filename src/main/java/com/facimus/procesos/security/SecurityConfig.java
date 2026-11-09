@@ -13,6 +13,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationManagers;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -130,13 +132,16 @@ public class SecurityConfig {
                         // y el administrador se reserva usuarios (HU-02), roles (HU-17 a HU-19), compartir procesos
                         // (HU-23) y los borrados de procesos (HU-06), actividades (HU-10), arcos (HU-13),
                         // gateways (HU-16) y eventos (HU-04).
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/password", "/api/v1/auth/verificacion")
-                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/password", "/api/v1/auth/verificacion",
+                                "/api/v1/auth/reautenticacion").authenticated()
                         .requestMatchers("/api/v1/usuarios/**").hasAuthority(ADMINISTRADOR)
                         // El gobierno de la tienda es del administrador: su historial, su configuracion y su baja.
+                        // La baja, y cancelarla, piden ademas haber confirmado la identidad hace poco (PR 49).
+                        .requestMatchers("/api/v1/empresas/actual/baja")
+                        .access(AuthorizationManagers.allOf(AuthorityAuthorizationManager.hasAuthority(ADMINISTRADOR),
+                                VerificacionReciente.requerida()))
                         .requestMatchers("/api/v1/empresas/actual/historial",
-                                "/api/v1/empresas/actual/configuracion", "/api/v1/empresas/actual/baja")
-                        .hasAuthority(ADMINISTRADOR)
+                                "/api/v1/empresas/actual/configuracion").hasAuthority(ADMINISTRADOR)
                         // D8: mover el reloj cambia lo que les pasa a todos los casos de la tienda a la vez,
                         // asi que la simulacion entera es del administrador, tambien para mirarla.
                         .requestMatchers("/api/v1/simulacion", "/api/v1/simulacion/**")

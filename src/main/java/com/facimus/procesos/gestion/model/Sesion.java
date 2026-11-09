@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.model;
 import java.time.LocalDateTime;
 
 import com.facimus.procesos.common.EntidadEmpresa;
+import com.facimus.procesos.common.security.Factor;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -46,6 +48,15 @@ public class Sesion extends EntidadEmpresa {
 
     @Column(name = "fecha_cierre")
     private LocalDateTime fechaCierre;
+
+    /** PR 49: con que probo la persona quien es al abrirla, como "PASSWORD" ({@link Factor#escribir}). */
+    @Column(nullable = false, length = 100)
+    @Builder.Default
+    private String factores = Factor.PASSWORD.name();
+
+    /** Cuando confirmo la persona quien es por ultima vez: al abrirla, o al verificarse otra vez despues. */
+    @Column(name = "verificada_en", nullable = false)
+    private LocalDateTime verificadaEn;
 
     public boolean estaAbierta() {
         return fechaCierre == null;

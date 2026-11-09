@@ -7,8 +7,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.facimus.procesos.common.security.ApiPrincipal;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,7 +15,8 @@ import jakarta.servlet.http.HttpServletResponse;
 /**
  * Autentica la peticion si trae en la cookie de acceso un token valido y su sesion sigue abierta (D29). La identidad
  * sale de los claims y las sesiones cerradas se miran en memoria, asi que el filtro no consulta la base. Si no, deja
- * pasar sin autenticar: decide SecurityConfig. Un {@code Authorization: Bearer} queda para las claves de API.
+ * pasar sin autenticar: decide SecurityConfig. Un {@code Authorization: Bearer} queda para las claves de API. Las
+ * autoridades son el rol y un factor por cada uno con que la persona probo quien es (PR 49).
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -33,15 +32,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         CookiesDeSesion.leer(request, CookiesDeSesion.ACCESO)
-                .flatMap(jwtService::validar)
-                .filter(principal -> !revokedSessions.estaRevocada(principal.sesion()))
-                .ifPresent(principal -> autenticar(principal, request));
+                .flatMap(jwtService::validarAcceso)
+                .filter(token -> !revokedSessions.estaRevocada(token.principal().sesion()))
+                .ifPresent(token -> autenticar(token, request));
         filterChain.doFilter(request, response);
     }
 
-    private void autenticar(ApiPrincipal principal, HttpServletRequest request) {
+    private void autenticar(TokenDeAcceso token, HttpServletRequest request) {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(principal, null, principal.authorities());
+                new UsernamePasswordAuthenticationToken(token.principal(), null, token.autoridades());
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }

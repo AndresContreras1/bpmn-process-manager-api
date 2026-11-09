@@ -1,15 +1,31 @@
 package com.facimus.procesos.gestion.service;
 
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
+import com.facimus.procesos.common.security.Factor;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
+import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 
 /** Sesiones con refresh token: se abren en el login, se renuevan rotando el token y se cierran. */
 public interface SesionService {
 
-    /** Abre una sesion para el usuario que acaba de autenticarse y emite su primer refresh token. */
-    SesionIniciada iniciar(Long empresaId, Long usuarioId);
+    /** Abre una sesion para el usuario que acaba de entrar con su contrasena y emite su primer refresh token. */
+    default SesionIniciada iniciar(Long empresaId, Long usuarioId) {
+        return iniciar(empresaId, usuarioId, EnumSet.of(Factor.PASSWORD));
+    }
+
+    /** PR 49: abre una sesion con los factores con que la persona probo quien es. */
+    SesionIniciada iniciar(Long empresaId, Long usuarioId, Set<Factor> factores);
+
+    /**
+     * PR 49: la persona de la sesion acaba de confirmar quien es otra vez. Lo que pide una verificacion reciente
+     * vuelve a estar a su alcance; lo devuelto alcanza para un access token nuevo de la misma sesion. Una sesion
+     * cerrada, o de otra persona, lanza SesionInvalidaException.
+     */
+    SesionVerificada reverificar(Long empresaId, Long usuarioId, String codigo);
 
     /**
      * Cambia un refresh token vigente por uno nuevo de la misma sesion. Un token desconocido, vencido o de una sesion

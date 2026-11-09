@@ -2,10 +2,12 @@ package com.facimus.procesos.gestion.service.impl;
 
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Base64;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -17,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.SesionInvalidaException;
+import com.facimus.procesos.common.security.Factor;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
+import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 import com.facimus.procesos.gestion.event.SesionesCerradas;
 import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.ConfiguracionTienda;
@@ -68,7 +72,7 @@ public class SesionServiceImpl implements SesionService {
 
     @Override
     @Transactional
-    public SesionIniciada iniciar(Long empresaId, Long usuarioId) {
+    public SesionIniciada iniciar(Long empresaId, Long usuarioId, Set<Factor> factores) {
         Usuario usuario = usuarioRepository.findByIdAndEmpresaId(usuarioId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
         LocalDateTime ahora = LocalDateTime.now();
@@ -77,8 +81,23 @@ public class SesionServiceImpl implements SesionService {
                 .usuario(usuario)
                 .codigo(UUID.randomUUID().toString())
                 .fechaInicio(ahora)
+                .factores(Factor.escribir(factores))
+                .verificadaEn(ahora)
                 .build());
         return emitir(sesion, usuario, limites(empresaId), ahora);
+    }
+
+    @Override
+    @Transactional
+    public SesionVerificada reverificar(Long empresaId, Long usuarioId, String codigo) {
+        Sesion sesion = sesionRepository.findByCodigoAndUsuarioIdAndEmpresaId(codigo, usuarioId, empresaId)
+                .filter(Sesion::estaAbierta)
+                .orElseThrow(SesionInvalidaException::new);
+        LocalDateTime ahora = LocalDateTime.now();
+        sesion.setVerificadaEn(ahora);
+        return new SesionVerificada(codigo, usuarioMapper.toResponse(sesion.getUsuario()),
+                Factor.leer(sesion.getFactores()), instante(ahora),
+                Duration.between(ahora, limites(empresaId).fin(sesion)));
     }
 
     /** Sin rollback al rechazar: el cierre por un token reutilizado tiene que quedar guardado aunque responda 401. */
@@ -167,7 +186,13 @@ public class SesionServiceImpl implements SesionService {
         ZoneId zona = ZoneId.systemDefault();
         return new SesionIniciada(token, sesion.getCodigo(), usuarioMapper.toResponse(usuario),
                 Duration.between(ahora.atZone(zona), vence.atZone(zona)),
-                Duration.between(ahora.atZone(zona), fin.atZone(zona)));
+                Duration.between(ahora.atZone(zona), fin.atZone(zona)), Factor.leer(sesion.getFactores()),
+                instante(sesion.getVerificadaEn()));
+    }
+
+    /** Las fechas de la base son de la hora local de la JVM; el token las lleva como un instante. */
+    private static Instant instante(LocalDateTime fecha) {
+        return fecha.atZone(ZoneId.systemDefault()).toInstant();
     }
 
     /** Los de hoy: una sesion abierta toma la duracion nueva de la tienda en su proxima renovacion. */

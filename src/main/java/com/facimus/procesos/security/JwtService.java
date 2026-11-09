@@ -5,11 +5,15 @@ import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Date;
+import java.util.EnumSet;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 
@@ -20,6 +24,7 @@ import org.springframework.stereotype.Component;
 
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.ApiPrincipal;
+import com.facimus.procesos.common.security.Factor;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -47,6 +52,10 @@ public class JwtService {
     static final String CLAIM_SESION = "sid";
     /** D17: si entro con una clave temporal, el token lo dice y el filtro no tiene que consultar la base. */
     static final String CLAIM_CAMBIO_DE_CLAVE = "debeCambiarClave";
+    /** PR 49: con que factores probo la persona quien es. */
+    static final String CLAIM_FACTORES = "fac";
+    /** Claim registrado de OpenID Connect: cuando confirmo la persona quien es por ultima vez. */
+    static final String CLAIM_VERIFICADO = "auth_time";
 
     private static final Logger log = LoggerFactory.getLogger(JwtService.class);
 
@@ -78,12 +87,18 @@ public class JwtService {
         this.expirationSeconds = expirationSeconds;
     }
 
+    /** Un access token de quien acaba de entrar con su contrasena, con la vida de siempre. */
     public String generarToken(ApiPrincipal principal) {
         return generarToken(principal, Duration.ofSeconds(expirationSeconds));
     }
 
     /** Un access token que vence cuando se le pide: el de una sesion a punto de acabar, cuando ella acaba. */
     public String generarToken(ApiPrincipal principal, Duration vida) {
+        return generarToken(principal, EnumSet.of(Factor.PASSWORD), Instant.now(), vida);
+    }
+
+    /** PR 49: el token lleva los factores de la sesion y cuando confirmo la persona quien es por ultima vez. */
+    public String generarToken(ApiPrincipal principal, Set<Factor> factores, Instant verificadoEn, Duration vida) {
         Date ahora = new Date();
         return Jwts.builder()
                 .header().keyId(idDeLaClave).and()
@@ -96,6 +111,8 @@ public class JwtService {
                 .claim(CLAIM_ROL, principal.rol().name())
                 .claim(CLAIM_SESION, principal.sesion())
                 .claim(CLAIM_CAMBIO_DE_CLAVE, principal.debeCambiarClave())
+                .claim(CLAIM_FACTORES, factores.stream().sorted().map(Factor::name).toList())
+                .claim(CLAIM_VERIFICADO, verificadoEn.getEpochSecond())
                 .issuedAt(ahora)
                 .expiration(new Date(ahora.getTime() + vida.toMillis()))
                 .signWith(clave, Jwts.SIG.HS256)
@@ -107,8 +124,13 @@ public class JwtService {
      * sus claims; vacio en cualquier otro caso. Sale entera de los claims, sin consultar la base.
      */
     public Optional<ApiPrincipal> validar(String token) {
+        return validarAcceso(token).map(TokenDeAcceso::principal);
+    }
+
+    /** Lo mismo que validar, con los factores y la ultima verificacion: lo que el filtro convierte en autoridades. */
+    public Optional<TokenDeAcceso> validarAcceso(String token) {
         try {
-            return principal(Jwts.parser()
+            return acceso(Jwts.parser()
                     .keyLocator(new LocatorAdapter<Key>() {
                         @Override
                         protected Key locate(ProtectedHeader header) {
@@ -141,6 +163,22 @@ public class JwtService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 tiene que existir en toda JVM.", e);
         }
+    }
+
+    /**
+     * Un token de antes del PR 49 no trae factores: entro con su contrasena, y su verificacion es cuando se emitio.
+     * Un factor que esta version no conoce no cuenta.
+     */
+    private static Optional<TokenDeAcceso> acceso(Claims claims) {
+        return principal(claims).map(principal -> {
+            List<?> nombres = claims.get(CLAIM_FACTORES, List.class);
+            Set<Factor> factores = nombres == null ? EnumSet.of(Factor.PASSWORD)
+                    : Factor.leer(String.join(",", nombres.stream().map(String::valueOf).toList()));
+            Long verificado = claims.get(CLAIM_VERIFICADO, Long.class);
+            Instant verificadoEn = verificado == null ? claims.getIssuedAt().toInstant()
+                    : Instant.ofEpochSecond(verificado);
+            return new TokenDeAcceso(principal, factores, verificadoEn);
+        });
     }
 
     /** Un rol desconocido lanza IllegalArgumentException, y validar lo trata como un token invalido. */
