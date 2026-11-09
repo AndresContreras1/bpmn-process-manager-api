@@ -39,6 +39,10 @@ tagged. Each pull request adds its line under *Unreleased*.
   account of a provider is linked to an existing user only after the owner confirms it with the password or the
   second factor; a store can verify its e-mail domains with a TXT record so that its people join with a default
   role, and can ask its people to sign in only with a provider.
+- A rate limit on every change, with token buckets that every instance shares through PostgreSQL: signing in,
+  registering a store and what sends e-mail count by address, every other change counts by person, and an empty
+  bucket answers `429` with `Retry-After`. Bodies over 1 MB answer `413`, and Cloudflare Turnstile can guard the
+  registration of a store.
 
 ### Changed
 

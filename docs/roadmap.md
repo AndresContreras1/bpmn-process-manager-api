@@ -33,6 +33,8 @@
 - [x] The browser's session in `HttpOnly` cookies with a CSRF token, and a JWT as RFC 8725 asks, with a signing key
       that rotates without closing sessions
 - [x] Rate limiting on login (`429` with `Retry-After`)
+- [x] Rate limiting on every change, in token buckets every instance shares through PostgreSQL, a cap on the body
+      of a request, and Cloudflare Turnstile on the registration of a store
 - [x] Scheduled purge of expired sessions, refresh tokens and old idempotency keys
 - [x] Several instances on one database: closed sessions announced with `LISTEN/NOTIFY`, failed logins and AI
       reviews in tables, and every scheduled job locked with ShedLock

@@ -39,6 +39,7 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.util.unit.DataSize;
 
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.service.EmpresaService;
@@ -97,8 +98,9 @@ public class SecurityConfig {
     @SuppressWarnings("java:S107") // las piezas de la cadena de filtros, cada una por su nombre
     public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, RevokedSessions revokedSessions,
             IdempotenciaService idempotenciaService, EmpresaService empresaService, JsonMapper jsonMapper,
-            ProveedoresOidc.Clientes clientesOidc, PeticionesOidc peticionesOidc, EntradaExterna entradaExterna)
-            throws Exception {
+            ProveedoresOidc.Clientes clientesOidc, PeticionesOidc peticionesOidc, EntradaExterna entradaExterna,
+            LimitesDePeticiones limites, VerificacionHumana verificacionHumana,
+            @Value("${limites.cuerpo-maximo}") DataSize cuerpoMaximo) throws Exception {
         reglasComunes(http)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthEntryPoint)
@@ -112,6 +114,9 @@ public class SecurityConfig {
                 // PR 49: el login a medias solo sirve para dar el codigo, asi que va antes de cualquier regla.
                 .addFilterAfter(new SegundoFactorPendienteFilter(jsonMapper), CambioDeClaveFilter.class)
                 .addFilterAfter(new InscripcionObligatoriaFilter(jsonMapper), SegundoFactorPendienteFilter.class)
+                // PR 32: el cubo de cada peticion, ya sabiendo quien es: lo que cambia algo cuenta por persona.
+                .addFilterAfter(new LimiteDePeticionesFilter(limites, verificacionHumana, jsonMapper,
+                        cuerpoMaximo.toBytes()), InscripcionObligatoriaFilter.class)
                 // Detras de la autorizacion: una peticion que el rol rechaza no le pregunta nada a la base.
                 .addFilterAfter(new TiendaEnBajaFilter(empresaService, jsonMapper), AuthorizationFilter.class)
                 .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), TiendaEnBajaFilter.class);

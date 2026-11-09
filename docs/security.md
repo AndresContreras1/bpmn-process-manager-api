@@ -164,6 +164,29 @@ attempts over several instances gives no extra tries. Each instance keeps the cl
 is what lets the JWT filter run no SQL, and learns of a session closed in another one at once, through
 PostgreSQL's `NOTIFY`; [Several instances](architecture.md#several-instances) has the detail.
 
+## Rate limiting
+
+Every request that changes something spends a token of a bucket (Bucket4j) before it reaches anything. Each bucket
+fills up again a token at a time over its period, and its state lives in PostgreSQL (`cubos_de_peticiones`), taken
+with `SELECT ... FOR UPDATE`: every instance spends from the same bucket, and two requests at once do not spend the
+same token.
+
+| Class | What it covers | Counted by | Default |
+|---|---|---|---|
+| Signing in | Login, renewal, the code of the second factor, reauthenticating and confirming a link | Address | 30 a minute |
+| Registration | Registering a store | Address | 10 an hour |
+| E-mail | Verifying the e-mail, recovering the password and inviting | Address | 20 an hour |
+| Changes | Every other `POST`, `PUT`, `PATCH` and `DELETE` | Person | 600 a minute |
+
+Reading spends nothing. An empty bucket answers `429` with the title "Demasiadas peticiones" and `Retry-After` in
+seconds. The limit of failed logins per e-mail still applies on top of the one per address. The AI review keeps
+its own limit per store, which is what it costs.
+
+A body over 1 MB answers `413` before it is read, and NGINX cuts at the same size in front of the API. When
+`TURNSTILE_SECRET` is set, registering a store asks for Cloudflare Turnstile: the web app sends what the widget gave
+it in `X-Turnstile-Token`, the API asks Cloudflare whether it is good for that address, and without it the answer
+is `400`. If Cloudflare does not answer, the registration does not go through.
+
 ## Headers and HTTPS
 
 Every response tells the browser what it may do with it. The API answers JSON and never a page, so its policy

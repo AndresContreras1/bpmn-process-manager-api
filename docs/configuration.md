@@ -30,6 +30,10 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `JWT_PREVIOUS_SECRET` | The signing key before the last rotation: its tokens are still accepted, and nobody signs with it. Empty outside a rotation | Empty |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime. Keep it under 30 minutes, the shortest idle timeout a store can choose: the refresh token and the session last what each store decides in its settings | `900` |
 | `CLAVES_COSTO_BCRYPT` | Cost of BCrypt, from 4 to 31: each step doubles the time of a hash. Raising it invalidates no password, because each login rehashes with the new one | `10` |
+| `LIMITE_AUTENTICACION_POR_MINUTO` · `LIMITE_REGISTRO_POR_HORA` · `LIMITE_CORREO_POR_HORA` · `LIMITE_ESCRITURA_POR_MINUTO` | The [rate limits](security.md#rate-limiting): signing in, registering and e-mail per address, every other change per person | `30` · `10` · `20` · `600` |
+| `LIMITES_ACTIVOS` | `false` turns every rate limit off | `true` |
+| `LIMITE_CUERPO` | The largest body a request can bring; more answers `413` | `1MB` |
+| `TURNSTILE_SECRET` | The secret of Cloudflare Turnstile. Set, registering a store asks for its verification | Empty |
 | `LOGIN_MAX_FAILED_ATTEMPTS` · `LOGIN_FAILED_ATTEMPTS_WINDOW` | Failed logins for an email from one address before `429`, and the window that counts them | `5` · `15m` |
 | `CORS_ALLOWED_ORIGINS` | Allowed storefront or back-office origins | `http://localhost:4200` |
 | `LIMPIEZA_CRON` | When the nightly purge runs; it also deletes the stores whose closing is 30 days old. `-` turns it off. | `0 30 3 * * *` |
