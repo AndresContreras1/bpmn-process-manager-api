@@ -402,14 +402,38 @@ jobs:
           exit-code: '1'
           version: v0.74.0
 
-      - name: NGINX serves the compiled app
+      - name: NGINX serves the compiled app in each of its languages
         run: |
-          curl -sS --fail-with-body http://localhost:8082/ | grep -q "<app-root"
+          # F12: one build per language, each in its own folder and with its own lang and base href.
+          for idioma in es-CO en-US en-AU fr-FR; do
+            curl -sS --fail-with-body "http://localhost:8082/$idioma/" -o index.html
+            grep -q "<app-root" index.html
+            grep -q "<html lang=\"$idioma\"" index.html
+            grep -q "<base href=\"/$idioma/\">" index.html
+          done
 
       - name: A deep link answers with the app, not with a 404
         run: |
           # Angular resolves its own routes, so any path that is not a file has to come back as the index.
-          curl -sS --fail-with-body http://localhost:8082/procesos/1 | grep -q "<app-root"
+          curl -sS --fail-with-body http://localhost:8082/es-CO/procesos/1 | grep -q "<app-root"
+
+      - name: A link without a language goes to the reader's
+        run: |
+          # The cookie the web sets when someone picks a language wins; without it, the first language the browser
+          # asks for; without anything close, Spanish. The redirect is relative, so it keeps the port of the browser.
+          base=http://localhost:8082
+          destino() { curl -sS -o /dev/null -D headers.txt "$@"; grep -i '^location:' headers.txt | tr -d '\r' | cut -d' ' -f2; }
+          test "$(destino "$base/procesos/1?pagina=2")" = "/es-CO/procesos/1?pagina=2"
+          test "$(destino -H 'Accept-Language: fr-CA,fr;q=0.9' "$base/casos")" = "/fr-FR/casos"
+          test "$(destino -H 'Accept-Language: en-AU,en;q=0.8' "$base/")" = "/en-AU/"
+          test "$(destino -H 'Accept-Language: en-GB' "$base/")" = "/en-US/"
+          test "$(destino -H 'Accept-Language: de-DE' "$base/")" = "/es-CO/"
+          test "$(destino -H 'Accept-Language: fr-FR' -H 'Cookie: idioma=en-US' "$base/tareas")" = "/en-US/tareas"
+          test "$(destino -H 'Accept-Language: fr-FR' -H 'Cookie: idioma=xx-YY' "$base/tareas")" = "/fr-FR/tareas"
+          # The answer depends on who asks, so no cache can keep it for someone else.
+          destino "$base/" > /dev/null
+          grep -qi '^vary: Cookie, Accept-Language' headers.txt
+          grep -qi '^cache-control: no-store' headers.txt
 
       - name: NGINX serves security.txt
         run: |
@@ -429,9 +453,10 @@ jobs:
           # NGINX drops the add_header of the server block in a location that has its own, so each location
           # includes them: this reads every kind of response, the 404 of a missing file included.
           base=http://localhost:8082
-          main=$(curl -sS --fail-with-body "$base/" | grep -o 'main-[A-Z0-9]*\.js' | head -1)
+          main=$(curl -sS --fail-with-body "$base/es-CO/" | grep -o 'main-[A-Z0-9]*\.js' | head -1)
           test -n "$main"
-          for ruta in / /index.html /procesos/1 "/$main" /favicon.ico /.well-known/security.txt /healthz /no-such-file.js; do
+          for ruta in / /procesos/1 /es-CO/ /es-CO/index.html /es-CO/procesos/1 "/es-CO/$main" /fr-FR/ /favicon.ico \
+              /.well-known/security.txt /healthz /es-CO/no-such-file.js; do
             curl -sS -o /dev/null -D headers.txt "$base$ruta"
             for esperada in \
                 "content-security-policy: default-src 'self'; script-src 'self' 'sha256-" \
@@ -452,7 +477,7 @@ jobs:
             done
           done
           # The scripts of the CSP are the ones Angular hashed into the index, not a placeholder.
-          curl -sS -o /dev/null -D headers.txt "$base/"
+          curl -sS -o /dev/null -D headers.txt "$base/es-CO/"
           if grep -q '@HASHES_DE_LOS_SCRIPTS@' headers.txt; then
             echo "::error file=frontend/Dockerfile::The CSP still has the placeholder of the script hashes."
             exit 1

@@ -7,9 +7,11 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
-# La CSP que manda NGINX lleva los hashes de los scripts que Angular dejo en el index (autoCsp): salen del index
-# compilado, asi que cambian solos con cada build. Sin hashes no hay imagen, en vez de una web que no arranca.
-RUN hashes="$(grep -o "'sha256-[A-Za-z0-9+/=]*'" dist/bpmn-process-manager-web/browser/index.html | sort -u \
+# La CSP que manda NGINX lleva los hashes de los scripts que Angular dejo en el index (autoCsp): salen de los index
+# compilados, uno por idioma (F12), asi que cambian solos con cada build. Sin hashes, o sin alguno de los cuatro
+# idiomas, no hay imagen, en vez de una web que no arranca.
+RUN for idioma in es-CO en-US en-AU fr-FR; do test -f "dist/bpmn-process-manager-web/browser/$idioma/index.html"; done \
+ && hashes="$(cat dist/bpmn-process-manager-web/browser/*/index.html | grep -o "'sha256-[A-Za-z0-9+/=]*'" | sort -u \
       | tr '\n' ' ')" \
  && test -n "$hashes" \
  && sed "s|@HASHES_DE_LOS_SCRIPTS@|${hashes% }|" cabeceras.conf > cabeceras-de-la-imagen.conf
