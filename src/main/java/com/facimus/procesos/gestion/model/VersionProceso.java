@@ -74,4 +74,12 @@ public class VersionProceso extends EntidadEmpresa {
     @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
     @Column(nullable = false, updatable = false)
     private String definicion;
+
+    /**
+     * PR 53: el mismo diagrama en BPMN 2.0.2, escrito al publicar. Se guarda y no se vuelve a calcular: lo que se
+     * descargue de esta version tiene que ser lo mismo hoy que dentro de un ano, aunque el exportador cambie.
+     */
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
+    @Column(name = "modelo_bpmn", nullable = false, updatable = false)
+    private String modeloBpmn;
 }

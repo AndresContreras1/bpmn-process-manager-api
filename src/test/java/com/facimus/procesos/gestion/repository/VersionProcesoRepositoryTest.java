@@ -116,6 +116,7 @@ class VersionProcesoRepositoryTest {
                 .fechaPublicacion(LocalDateTime.now())
                 .huella(HUELLA)
                 .definicion("{}")
+                .modeloBpmn("<bpmn:definitions/>")
                 .build());
 
         assertThat(versionProcesoRepository
@@ -181,6 +182,7 @@ class VersionProcesoRepositoryTest {
                 .publicadoPor(null)
                 .huella(huella)
                 .definicion(definicion)
+                .modeloBpmn("<bpmn:definitions/>")
                 .build();
     }
 

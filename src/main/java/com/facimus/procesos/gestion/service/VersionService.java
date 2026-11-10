@@ -38,6 +38,12 @@ public interface VersionService {
      */
     Optional<String> definicionVigente(Long empresaPropietariaId, Long procesoId);
 
+    /** PR 53: esa version en BPMN 2.0.2, tal como se escribio al publicarla. */
+    ModeloBpmn modelo(Long empresaId, Long procesoId, int numero);
+
+    /** PR 53: la version vigente en BPMN, para quien solo puede ver lo publicado. Vacio como en la definicion. */
+    Optional<ModeloBpmn> modeloVigente(Long empresaPropietariaId, Long procesoId);
+
     /**
      * La version vigente de un proceso propio y activo: la unica sobre la que se abren casos nuevos (R-47). Se
      * devuelve la entidad y no un DTO porque el caso se ata a ella, y de ella cuelgan el proceso y la tienda.

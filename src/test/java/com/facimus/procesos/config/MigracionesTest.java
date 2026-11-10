@@ -108,7 +108,8 @@ class MigracionesTest {
                         "V35__bitacora.sql",
                         "V36__seguridad_por_filas.sql", "V37__indices_que_faltaban.sql",
                         "V38__estadisticas_de_las_consultas.sql", "V39__passkeys.sql", "V40__idioma_y_zona_horaria.sql",
-                        "V41__geometria_bpmn_di.sql", "db.migration.common.V42__geometria_de_los_diagramas");
+                        "V41__geometria_bpmn_di.sql", "db.migration.common.V42__geometria_de_los_diagramas",
+                        "V43__modelo_bpmn_de_las_versiones.sql", "db.migration.common.V44__bpmn_de_las_versiones");
     }
 
     @Test

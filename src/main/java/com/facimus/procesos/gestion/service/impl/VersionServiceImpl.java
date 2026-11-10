@@ -21,6 +21,7 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.repository.VersionProcesoRepository;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.Instantanea;
+import com.facimus.procesos.gestion.service.ModeloBpmn;
 import com.facimus.procesos.gestion.service.VersionService;
 
 import lombok.RequiredArgsConstructor;
@@ -64,6 +65,7 @@ public class VersionServiceImpl implements VersionService {
                 .publicadoPor(usuarioId)
                 .huella(instantanea.huella())
                 .definicion(instantanea.definicion())
+                .modeloBpmn(instantanea.bpmn())
                 .build());
         metricas.versionPublicada();
     }
@@ -138,6 +140,23 @@ public class VersionServiceImpl implements VersionService {
         exigirProceso(empresaId, procesoId);
         return versionProcesoRepository.findByProcesoIdAndNumeroAndEmpresaId(procesoId, numero, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada."));
+    }
+
+    @Override
+    public ModeloBpmn modelo(Long empresaId, Long procesoId, int numero) {
+        Proceso proceso = exigirProceso(empresaId, procesoId);
+        String xml = versionProcesoRepository.idDeLaVersion(procesoId, numero, empresaId)
+                .flatMap(versionId -> versionProcesoRepository.modeloBpmnDe(versionId, empresaId))
+                .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada."));
+        return ModeloBpmn.deLaVersion(proceso.getNombre(), numero, xml);
+    }
+
+    @Override
+    public Optional<ModeloBpmn> modeloVigente(Long empresaPropietariaId, Long procesoId) {
+        return versionProcesoRepository.findFirstByProcesoIdAndEmpresaIdAndEstadoOrderByNumeroDesc(procesoId,
+                        empresaPropietariaId, EstadoVersion.VIGENTE)
+                .map(version -> ModeloBpmn.deLaVersion(version.getProceso().getNombre(), version.getNumero(),
+                        version.getModeloBpmn()));
     }
 
     /** Las versiones son del proceso: un proceso de otra tienda, o eliminado, no tiene ninguna que mostrar. */

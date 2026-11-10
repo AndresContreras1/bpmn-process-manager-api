@@ -318,6 +318,7 @@ class CasoRepositoryTest {
                 .fechaPublicacion(LocalDateTime.now())
                 .huella(HUELLA)
                 .definicion("{}")
+                .modeloBpmn("<bpmn:definitions/>")
                 .build());
     }
 }

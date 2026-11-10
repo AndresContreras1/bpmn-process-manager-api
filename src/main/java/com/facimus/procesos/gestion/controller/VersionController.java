@@ -14,10 +14,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.SolicitudInvalidaException;
+import com.facimus.procesos.common.api.Descargas;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.CambiarEstadoVersionRequest;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
 import com.facimus.procesos.gestion.model.EstadoVersion;
+import com.facimus.procesos.gestion.service.ModeloBpmn;
 import com.facimus.procesos.gestion.service.VersionService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -94,5 +96,21 @@ public class VersionController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         // Se devuelve el JSON guardado tal cual: leerlo para volver a escribirlo igual no anade nada.
         return ResponseEntity.ok(versionService.definicion(principal.empresaId(), procesoId, numero));
+    }
+
+    @Operation(summary = "Download one version as BPMN 2.0.2",
+            description = "The version as a .bpmn file: a collaboration with a participant per pool and a message "
+                    + "flow per message, a process per modeled pool, and the diagram with its geometry. What BPMN "
+                    + "has no element for (participant kind, lane role, message content, fields and correlation) "
+                    + "goes in extensionElements under urn:bpmn-process-manager:bpm:1. The file is written when the "
+                    + "version is published and answered as it was then.")
+    @ApiResponse(responseCode = "200", description = "The version as a BPMN 2.0.2 file (application/xml)")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @GetMapping("/{numero}/modelo")
+    public ResponseEntity<byte[]> modelo(@PathVariable Long procesoId, @PathVariable int numero,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        ModeloBpmn modelo = versionService.modelo(principal.empresaId(), procesoId, numero);
+        return Descargas.xml(modelo.archivo(), modelo.xml());
     }
 }

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PR 53: lo que BPMN 2.0.2 no tiene y el modelo de BPMN Process Manager si. Va en extensionElements, o como atributo
+  calificado en el elemento, y los dos son legales en BPMN: extensionElements admite cualquier espacio de nombres y
+  tBaseElement acepta atributos de otros espacios. Otra herramienta lo ignora; al importar, se lee.
+
+  Cambiar una version del espacio (bpm:1) es romper el contrato: lo que se agregue despues tiene que ser opcional.
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="urn:bpmn-process-manager:bpm:1"
+            targetNamespace="urn:bpmn-process-manager:bpm:1"
+            elementFormDefault="qualified"
+            attributeFormDefault="unqualified">
+
+  <!-- El orden en que un gateway evalua sus salidas. Va en el sequenceFlow. -->
+  <xsd:attribute name="orden" type="xsd:int"/>
+
+  <!-- Lo del proceso que no es su nombre ni su descripcion. Va en la collaboration. -->
+  <xsd:element name="proceso">
+    <xsd:complexType>
+      <xsd:attribute name="categoria" type="xsd:string"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <!-- Que es un participante y en que lugar del proceso va. Va en el participant. -->
+  <xsd:element name="participante">
+    <xsd:complexType>
+      <xsd:attribute name="tipo" type="tTipoParticipante" use="required"/>
+      <xsd:attribute name="integracion" type="tIntegracion" default="NINGUNA"/>
+      <xsd:attribute name="orden" type="xsd:int" use="required"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <!-- El rol que hace el trabajo de la lane, por su nombre en la organizacion. Va en la lane. -->
+  <xsd:element name="lane">
+    <xsd:complexType>
+      <xsd:attribute name="rol" type="xsd:string" use="required"/>
+      <xsd:attribute name="orden" type="xsd:int" use="required"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <!-- Como viaja un mensaje, que lleva y que pasa si no llega. Va en el messageFlow. -->
+  <xsd:element name="mensaje">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="contenido" type="xsd:string"/>
+        <xsd:element name="usoDeLosDatos" type="xsd:string" minOccurs="0"/>
+        <xsd:element name="campo" minOccurs="0" maxOccurs="unbounded">
+          <xsd:complexType>
+            <xsd:attribute name="nombre" type="xsd:string" use="required"/>
+            <xsd:attribute name="tipo" type="tTipoDeDato" use="required"/>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="correlacion" minOccurs="0">
+          <xsd:complexType>
+            <xsd:attribute name="criterio" type="xsd:string" use="required"/>
+            <xsd:attribute name="campo" type="xsd:string"/>
+            <xsd:attribute name="sinCaso" type="tPoliticaSinCaso" default="DESCARTAR"/>
+          </xsd:complexType>
+        </xsd:element>
+      </xsd:sequence>
+      <xsd:attribute name="destino" type="tTipoDestino"/>
+      <xsd:attribute name="siFalla" type="tAccionSiFalla" default="CONTINUAR"/>
+      <xsd:attribute name="manejoError" type="xsd:IDREF"/>
+      <xsd:attribute name="origenExterno" type="xsd:boolean" default="false"/>
+      <xsd:attribute name="variable" type="xsd:string"/>
+      <xsd:attribute name="respuesta" type="xsd:IDREF"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <xsd:simpleType name="tTipoParticipante">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="EMPRESA"/>
+      <xsd:enumeration value="CLIENTE"/>
+      <xsd:enumeration value="PROVEEDOR"/>
+      <xsd:enumeration value="SISTEMA_EXTERNO"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="tIntegracion">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="NINGUNA"/>
+      <xsd:enumeration value="CLIENTE"/>
+      <xsd:enumeration value="PAGOS"/>
+      <xsd:enumeration value="TRANSPORTE"/>
+      <xsd:enumeration value="NOTIFICACIONES"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="tTipoDestino">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="CORREO"/>
+      <xsd:enumeration value="SERVICIO_WEB"/>
+      <xsd:enumeration value="COLA"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="tAccionSiFalla">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="CONTINUAR"/>
+      <xsd:enumeration value="MANEJAR_ERROR"/>
+      <xsd:enumeration value="FINALIZAR"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="tTipoDeDato">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="TEXTO"/>
+      <xsd:enumeration value="NUMERO"/>
+      <xsd:enumeration value="FECHA"/>
+      <xsd:enumeration value="BOOLEANO"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="tPoliticaSinCaso">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="DESCARTAR"/>
+      <xsd:enumeration value="INICIAR_CASO"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+</xsd:schema>
