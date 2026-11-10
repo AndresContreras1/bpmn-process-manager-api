@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
+import com.facimus.procesos.gestion.event.ProcesoModificado;
 import com.facimus.procesos.gestion.mapper.HistorialCambioMapper;
 import com.facimus.procesos.gestion.model.HistorialCambio;
 import com.facimus.procesos.gestion.model.Proceso;
@@ -34,6 +36,7 @@ public class HistorialCambioServiceImpl implements HistorialCambioService {
     private final HistorialCambioRepository historialCambioRepository;
     private final UsuarioRepository usuarioRepository;
     private final HistorialCambioMapper historialCambioMapper;
+    private final ApplicationEventPublisher eventos;
 
     @Override
     @Transactional
@@ -47,6 +50,8 @@ public class HistorialCambioServiceImpl implements HistorialCambioService {
                 .fechaCambio(LocalDateTime.now())
                 .descripcionCambio(descripcion)
                 .build());
+        // PR 52: el diagrama pudo cambiar; modelado recalcula su geometria en esta misma transaccion
+        eventos.publishEvent(new ProcesoModificado(proceso.getEmpresa().getId(), proceso.getId()));
     }
 
     /** La empresa sale del autor: quien anota un cambio de la tienda siempre es alguien de esa tienda. */

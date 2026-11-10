@@ -42,3 +42,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0041 | [PostgreSQL in development and in the tests](0041-postgresql-everywhere.md) | Accepted |
 | 0049 | [Passkeys without an HTTP session, on tables of the store](0049-passkeys-without-http-session.md) | Accepted |
 | 0050 | [One build of the web per language, chosen by NGINX](0050-one-build-per-language.md) | Accepted |
+| 0052 | [The diagram's geometry in the domain, and one way to read XML](0052-geometry-in-the-domain.md) | Accepted |

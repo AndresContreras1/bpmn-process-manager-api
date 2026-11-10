@@ -430,6 +430,21 @@ A major version of a base image is a decision rather than an update, so Dependab
 and the minor releases of the images: moving to the next Java or Node line, or to a new PostgreSQL, comes in
 a pull request of its own.
 
+## Reading XML
+
+Every XML parser the code creates comes from `SecureXml`: StAX, DOM, SAX, `Transformer` and `SchemaFactory`. An
+ArchUnit rule fails the build if anything else creates a factory, so no parser can be built without its flags:
+
+| Control | What it prevents |
+|---|---|
+| DTDs forbidden, external entities off, `ACCESS_EXTERNAL_DTD`, `_SCHEMA` and `_STYLESHEET` empty, secure processing on, XInclude off | XXE: reading a file of the server, or making it call an internal address, through an entity, a schema, a stylesheet or an include |
+| A limited StAX reader goes first and stops on the first DTD or entity | *Billion laughs* and the quadratic blow-up, which expand entities defined in the document itself |
+| Limits before and while parsing: size, elements, depth, attributes per element, text length and time. BPMN: 5 MB, 100,000 elements, 64 levels, 64 attributes, 1 MB of text and 10 seconds | A document that is valid but built to exhaust memory or CPU |
+| Only UTF-8 and UTF-16 | Rare encodings, the usual way of hiding a `DOCTYPE` from a filter |
+
+A rejected document is a 400 with the reason. The tests send each attack while a local HTTP server listens, and
+require that it receives no request.
+
 ## Reporting a vulnerability
 
 [SECURITY.md](../SECURITY.md) says how to report one privately, what is in scope and how soon the answer comes.

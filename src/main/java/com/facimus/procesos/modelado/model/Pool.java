@@ -16,6 +16,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Builder;
 import lombok.Getter;
@@ -38,6 +39,10 @@ public class Pool extends EntidadEditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** PR 52: su id en el XML de BPMN, estable de una exportacion a la siguiente. Se asigna al guardarse. */
+    @Column(name = "bpmn_id", nullable = false, updatable = false, length = 64)
+    private String bpmnId;
 
     @Column(nullable = false, length = 120)
     private String nombre;
@@ -62,4 +67,12 @@ public class Pool extends EntidadEditable {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "proceso_id", nullable = false)
     private Proceso proceso;
+
+    /** El id BPMN, si nadie le dio uno: el importador (PR 54) trae el suyo. */
+    @PrePersist
+    void asignarBpmnId() {
+        if (bpmnId == null) {
+            bpmnId = BpmnId.nuevo("Participant");
+        }
+    }
 }

@@ -113,3 +113,98 @@ describe('dibujarDiagrama', () => {
     expect(lienzo.lanes[0].alto).toBeGreaterThan(0);
   });
 });
+
+/**
+ * PR 52: el diagrama de referencia que la API recalcula en Java (DisposicionBpmnTest) con los mismos numeros. Si uno
+ * de los dos cambia la cuenta, falla su prueba: la geometria BPMN DI y el dibujo de la web no pueden separarse.
+ */
+describe('el diagrama de referencia de la geometria BPMN DI', () => {
+  const lienzo = dibujarDiagrama(
+    diagrama({
+      pools: [pool(1, 'EMPRESA', 0), pool(2, 'CLIENTE', 0, true)],
+      lanes: [lane(10, 1, 0), lane(11, 1, 1)],
+      actividades: [actividad(101, 10, 180, 0)],
+      gateways: [
+        { id: 102, nombre: 'Paid?', tipoGateway: 'EXCLUSIVO', posicionX: 360, posicionY: 40, laneId: 11, version: 0 },
+      ],
+      eventos: [
+        { id: 100, nombre: 'Order received', tipoEvento: 'INICIO', posicionX: 0, posicionY: 0, laneId: 10, version: 0 },
+        { id: 103, nombre: 'End', tipoEvento: 'FIN', posicionX: 540, posicionY: 40, laneId: 11, version: 0 },
+      ],
+      arcos: [
+        {
+          id: 1,
+          etiqueta: null,
+          condicion: null,
+          porDefecto: false,
+          orden: 0,
+          origenId: 100,
+          destinoId: 101,
+          poolId: 1,
+          version: 0,
+        },
+        {
+          id: 2,
+          etiqueta: null,
+          condicion: null,
+          porDefecto: false,
+          orden: 0,
+          origenId: 101,
+          destinoId: 102,
+          poolId: 1,
+          version: 0,
+        },
+        {
+          id: 3,
+          etiqueta: 'Yes',
+          condicion: null,
+          porDefecto: false,
+          orden: 0,
+          origenId: 102,
+          destinoId: 103,
+          poolId: 1,
+          version: 0,
+        },
+      ] as Diagrama['arcos'],
+      mensajes: [
+        {
+          id: 200,
+          nombre: 'Order',
+          contenido: '',
+          poolOrigenId: 2,
+          poolDestinoId: 1,
+          nodoOrigenId: null,
+          nodoDestinoId: 100,
+        },
+      ] as unknown as Diagrama['mensajes'],
+    }),
+  );
+
+  it('ubica los pools, las lanes y los nodos donde los pone la API', () => {
+    expect(lienzo.pools.map((p) => [p.id, p.x, p.y, p.ancho, p.alto])).toEqual([
+      [2, 16, 16, 824, 56],
+      [1, 16, 120, 824, 240],
+    ]);
+    expect(lienzo.lanes.map((l) => [l.id, l.x, l.y, l.ancho, l.alto])).toEqual([
+      [10, 46, 120, 794, 120],
+      [11, 46, 240, 794, 120],
+    ]);
+    expect(lienzo.actividades.map((a) => [a.id, a.x, a.y, a.ancho, a.alto])).toEqual([[101, 304, 144, 128, 56]]);
+    expect(lienzo.gateways.map((g) => [g.id, g.cx, g.cy])).toEqual([[102, 548, 292]]);
+    expect(lienzo.eventos.map((e) => [e.id, e.cx, e.cy])).toEqual([
+      [100, 188, 172],
+      [103, 728, 292],
+    ]);
+  });
+
+  it('traza los flujos y el mensaje por los mismos puntos', () => {
+    expect(lienzo.arcos.map((a) => a.ruta)).toEqual([
+      'M 206 172 H 304',
+      'M 432 172 H 477.5 V 292 H 523',
+      'M 573 292 H 710',
+    ]);
+    expect(lienzo.arcos[2].etiquetaX).toBe(641.5);
+    expect(lienzo.arcos[2].etiquetaY).toBe(286);
+    expect(lienzo.mensajes.map((m) => m.ruta)).toEqual(['M 188 72 V 154']);
+  });
+});
