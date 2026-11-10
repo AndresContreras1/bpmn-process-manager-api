@@ -95,9 +95,14 @@ class CorreosDeCuentaIntegracionTest {
         MimeMessage correo = elUnicoCorreoA(admin);
         assertThat(correo.getSubject()).isEqualTo("Verifica tu correo");
         String token = tokenDe(correo);
+        mockMvc.perform(get("/api/v1/auth/sesion").with(SesionEnCookies.conSesion(entrar(admin, CLAVE))))
+                .andExpect(jsonPath("$.usuario.correoVerificadoEn").doesNotExist());
 
         confirmar("/api/v1/auth/verificacion/confirmar", Map.of("token", token)).andExpect(status().isNoContent());
         assertThat(verificado(admin)).isTrue();
+        // F14: el perfil dice desde cuando, para que la cuenta no ofrezca volver a verificarlo
+        mockMvc.perform(get("/api/v1/auth/sesion").with(SesionEnCookies.conSesion(entrar(admin, CLAVE))))
+                .andExpect(jsonPath("$.usuario.correoVerificadoEn").isNotEmpty());
         confirmar("/api/v1/auth/verificacion/confirmar", Map.of("token", token))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Enlace no válido"));
