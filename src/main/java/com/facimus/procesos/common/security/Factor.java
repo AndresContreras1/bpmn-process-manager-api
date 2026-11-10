@@ -26,7 +26,13 @@ public enum Factor {
     CODIGO_DE_RECUPERACION("FACTOR_RECOVERY_CODE"),
 
     /** PR 50: Google o Microsoft dijeron quien es, con OpenID Connect. */
-    PROVEEDOR_EXTERNO(FactorGrantedAuthority.AUTHORIZATION_CODE_AUTHORITY);
+    PROVEEDOR_EXTERNO(FactorGrantedAuthority.AUTHORIZATION_CODE_AUTHORITY),
+
+    /**
+     * PR 49b: una passkey (WebAuthn), con la verificacion del dispositivo: la huella, el rostro o su PIN. Es algo que
+     * la persona tiene y algo que sabe o es a la vez, asi que sola cumple lo de un segundo factor.
+     */
+    PASSKEY(FactorGrantedAuthority.WEBAUTHN_AUTHORITY);
 
     private final String autoridad;
 

@@ -82,6 +82,9 @@ public class SecurityConfig {
     /** PR 50: confirmar un vinculo abre una sesion, como el login: pide CSRF aunque no traiga cookies. */
     private static final String VINCULO = "/api/v1/auth/identidades/vinculo";
 
+    /** PR 49b: la entrada sin clave, con una passkey. */
+    static final String ENTRADA_CON_PASSKEY = "/api/v1/auth/passkeys";
+
     private static final RequestMatcher DOCUMENTACION = new OrRequestMatcher(
             PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui/**"),
             PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui.html"));
@@ -164,6 +167,9 @@ public class SecurityConfig {
                         // quien los usa todavia no tiene sesion.
                         .requestMatchers(HttpMethod.GET, OIDC + "/**", "/api/v1/auth/proveedores").permitAll()
                         .requestMatchers(HttpMethod.POST, VINCULO).permitAll()
+                        // PR 49b: entrar con una passkey, sin clave: quien la usa todavia no tiene sesion.
+                        .requestMatchers(HttpMethod.POST, ENTRADA_CON_PASSKEY + "/opciones",
+                                ENTRADA_CON_PASSKEY + "/entrada").permitAll()
                         // Los enlaces del correo: quien los sigue todavia no tiene sesion, y el token es la
                         // credencial. Pedir una recuperacion responde igual exista o no el correo.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/verificacion/confirmar",
@@ -181,12 +187,15 @@ public class SecurityConfig {
                         // (HU-23) y los borrados de procesos (HU-06), actividades (HU-10), arcos (HU-13),
                         // gateways (HU-16) y eventos (HU-04).
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/password", "/api/v1/auth/verificacion",
-                                "/api/v1/auth/reautenticacion").authenticated()
+                                "/api/v1/auth/reautenticacion", "/api/v1/auth/reautenticacion/passkey").authenticated()
                         // PR 49: dar el codigo del login a medias, y mirar el propio segundo factor. Inscribirlo,
                         // confirmarlo, quitarlo y renovar los codigos piden haber confirmado la identidad hace poco:
                         // una cookie robada no le cambia el segundo factor a nadie.
-                        .requestMatchers(HttpMethod.POST, SegundoFactorPendienteFilter.VERIFICACION).authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/segundo-factor").authenticated()
+                        .requestMatchers(HttpMethod.POST, SegundoFactorPendienteFilter.VERIFICACION,
+                                SegundoFactorPendienteFilter.VERIFICACION_CON_PASSKEY,
+                                SegundoFactorPendienteFilter.OPCIONES_DE_PASSKEY).authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/segundo-factor",
+                                "/api/v1/auth/segundo-factor/passkeys").authenticated()
                         .requestMatchers("/api/v1/auth/segundo-factor/**")
                         .access(AuthorizationManagers.allOf(AuthenticatedAuthorizationManager.authenticated(),
                                 VerificacionReciente.requerida()))

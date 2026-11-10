@@ -10,12 +10,12 @@ immutable version that orders run on. This repository holds the REST API and the
 [![CI](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml)
 ![Java 25](https://img.shields.io/badge/Java-25-007396?logo=openjdk&logoColor=white)
 ![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white)
-![Spring Security 7](https://img.shields.io/badge/Spring%20Security-7%20%C2%B7%20JWT%20%C2%B7%20MFA%20%C2%B7%20OIDC-6DB33F?logo=springsecurity&logoColor=white)
+![Spring Security 7](https://img.shields.io/badge/Spring%20Security-7%20%C2%B7%20JWT%20%C2%B7%20MFA%20%C2%B7%20passkeys%20%C2%B7%20OIDC-6DB33F?logo=springsecurity&logoColor=white)
 ![Hibernate 7.4](https://img.shields.io/badge/Hibernate-7.4-59666C?logo=hibernate&logoColor=white)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16%20%C2%B7%20row--level%20security-4169E1?logo=postgresql&logoColor=white)
 ![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-1541-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-1561-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -63,7 +63,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Messaging and simulation** | Outbox and inbox per process, correlation by key, a clock in ticks per store, and four simulated partners — payments, carrier, notifications, customer — deterministic by seed. | [Simulation](docs/execution.md#messages-and-the-clock) |
 | **Dashboard** | Cases by state, cycle time with average and p95, work waiting per role and what did not go as expected, in six queries however many orders there are. | [Dashboard](docs/execution.md#the-dashboard) |
 | **Operations** | Health probes, Prometheus metrics on a management port of their own with business counters, JSON logs, OpenTelemetry traces, and a request id in every response, log line and error. | [Operations endpoints](docs/getting-started.md#operations-endpoints) |
-| **Sign-in** | The session in `HttpOnly` cookies with a CSRF token, a short-lived JWT with rotating refresh tokens, and idle and maximum limits each store chooses. Passwords as NIST SP 800-63B-4 asks, a second factor with an authenticator app and recovery codes that each store can require, and signing in with Google or Microsoft, where an account is linked only after its owner confirms it. | [Authentication](docs/security.md#authentication) |
+| **Sign-in** | The session in `HttpOnly` cookies with a CSRF token, a short-lived JWT with rotating refresh tokens, and idle and maximum limits each store chooses. Passwords as NIST SP 800-63B-4 asks, a second factor with an authenticator app or a passkey and recovery codes that each store can require, signing in without a password with a passkey, and signing in with Google or Microsoft, where an account is linked only after its owner confirms it. | [Authentication](docs/security.md#authentication) |
 | **Security** | Store isolation enforced twice: by the build and by row-level security in PostgreSQL, under a role that cannot bypass it. Rate limits in token buckets every instance shares, an audit trail per store chained with SHA-256 that nobody can change, roles checked in one place, read-only sharing between stores, and closing a store or anonymizing a person that really deletes. | [Security](docs/security.md) |
 | **E-mail** | Verifying the e-mail, recovering the password and inviting by e-mail, in Spanish, English and French, with links that work once. Sent over any SMTP server from a queue of jobs that retries. | [Links sent by e-mail](docs/api-reference.md#links-sent-by-e-mail) |
 | **API contract** | OpenAPI for every operation, Problem Details errors, optimistic locking, idempotency keys and stable pagination. | [API reference](docs/api-reference.md) |
@@ -172,7 +172,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **1541 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+- **1561 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
   controller and repository slices, service units, security and store isolation, and integration across modules.
 - **Coverage gate** with JaCoCo: 96 % of lines and 85 % of branches today, and the build fails below 90 % and 80 %
   in the service packages, where the business rules live.
@@ -206,7 +206,6 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 Modeling, execution, simulation, observability and the security of accounts and data are done. What is still
 open:
 
-- Passkeys (WebAuthn), as a second factor and as a sign-in without a password.
 - Exporting a store's data during the 30 days of its closing.
 - Anchoring the last hash of the audit trail every day in a bucket with Object Lock.
 - An AI review of a change instead of the whole diagram, so the model only reads what moved.

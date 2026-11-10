@@ -107,7 +107,7 @@ class MigracionesTest {
                         "V33__entrada_con_proveedores_externos.sql", "V34__cubos_de_peticiones.sql",
                         "V35__bitacora.sql",
                         "V36__seguridad_por_filas.sql", "V37__indices_que_faltaban.sql",
-                        "V38__estadisticas_de_las_consultas.sql");
+                        "V38__estadisticas_de_las_consultas.sql", "V39__passkeys.sql");
     }
 
     @Test

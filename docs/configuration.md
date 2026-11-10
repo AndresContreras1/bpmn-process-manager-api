@@ -26,6 +26,9 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `MFA_CLAVE_DE_CIFRADO` | Key of at least 32 characters from which the API derives the AES-GCM key of the TOTP secrets and the HMAC key of the recovery codes. `dev` and `test` have a fixed one, and `prod` does not start without it. It does not rotate: changing it voids every enrolled second factor | None in `prod` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | The OAuth client of Google. Without the id, Google is not offered. Its redirect URI is `<API>/api/v1/auth/oidc/callback/google` | Empty |
 | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | The app registration of Microsoft Entra ID. Without the id, Microsoft is not offered. Its redirect URI is `<API>/api/v1/auth/oidc/callback/microsoft`, and it has to emit the optional claims `email` and `xms_edov` | Empty |
+| `WEBAUTHN_RP_ID` | The domain of the web app, without scheme or port: a passkey only works on the site it was created for and its subdomains | `localhost` |
+| `WEBAUTHN_ORIGINS` | The exact addresses the browser signs passkeys from, separated by commas; the web app's address in production | `APP_PUBLIC_URL` |
+| `WEBAUTHN_RP_NAME` | The name the device shows when it creates a passkey | `BPMN Process Manager` |
 | `MICROSOFT_TENANT` | `organizations` for any work or school account, or the id of one organization to accept only it | `organizations` |
 | `JWT_PREVIOUS_SECRET` | The signing key before the last rotation: its tokens are still accepted, and nobody signs with it. Empty outside a rotation | Empty |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime. Keep it under 30 minutes, the shortest idle timeout a store can choose: the refresh token and the session last what each store decides in its settings | `900` |

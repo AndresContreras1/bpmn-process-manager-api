@@ -27,6 +27,9 @@ public interface UsuarioRepository extends RepositorioTenant<Usuario>, JpaSpecif
 
     Optional<Usuario> findByEmail(String email);
 
+    /** PR 49b: la persona de un user handle de WebAuthn, que es unico en toda la base. */
+    Optional<Usuario> findByWebauthnId(byte[] webauthnId);
+
     /** Sin pasar por la entidad: un update en bloque no sube la version, y rehacer un hash no es una edicion. */
     @Modifying
     @Query("update Usuario u set u.passwordHash = :hash where u.empresa.id = :empresaId and u.id = :usuarioId")

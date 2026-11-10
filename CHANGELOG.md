@@ -49,6 +49,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 - Row-level security in PostgreSQL on every table of a store: the API works as a role that owns nothing and cannot
   bypass it, and each connection carries the store of whoever asks, so a query that forgets to filter cannot see or
   write another store's rows.
+- Passkeys (WebAuthn): as the second factor after the password, to confirm who someone is, and to sign in
+  without a password. Each ceremony keeps its challenge in PostgreSQL, works once and asks the device to verify the
+  person; passkeys live with the store of their owner, under row-level security.
 - Database health: each connection of the API gets a statement timeout and an idle-in-transaction timeout when it
   takes its role, the pool warns of a connection that does not come back, Hibernate sends repeated updates in
   batches, every foreign key has an index, and `pg_stat_statements` counts what each query costs.

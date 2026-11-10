@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.service;
 
+import java.util.List;
 import java.util.Optional;
 
 import com.facimus.procesos.common.model.RolAcceso;
@@ -10,7 +11,8 @@ import com.facimus.procesos.gestion.dto.response.SegundoFactorResponse;
 
 /**
  * PR 49: el segundo factor de una persona: un TOTP (RFC 6238) de su aplicacion de autenticacion y diez codigos de
- * recuperacion de un solo uso. El login lo pide solo cuando el TOTP esta confirmado.
+ * recuperacion de un solo uso. Desde el PR 49b tambien sus passkeys. El login lo pide cuando tiene el TOTP confirmado
+ * o alguna passkey, y los codigos de recuperacion salen con el primero de los dos.
  */
 public interface SegundoFactorService {
 
@@ -40,15 +42,28 @@ public interface SegundoFactorService {
      */
     Optional<Factor> verificar(Long empresaId, Long usuarioId, String codigo);
 
-    /** Diez codigos nuevos; los que quedaban dejan de servir. Sin TOTP confirmado lanza ReglaNegocioException. */
+    /** Diez codigos nuevos; los que quedaban dejan de servir. Sin segundo factor lanza ReglaNegocioException. */
     CodigosDeRecuperacionResponse renovarCodigos(Long empresaId, Long usuarioId);
 
-    /** La persona quita su propio segundo factor y sus codigos. */
-    void quitarPropio(Long empresaId, Long usuarioId);
+    /**
+     * PR 49b: los diez codigos de quien acaba de activar su primer segundo factor sin la aplicacion, con una passkey.
+     * Vacio si ya tenia codigos: no se le cambian por agregar otro factor.
+     */
+    List<String> codigosDelPrimerFactor(Long empresaId, Long usuarioId);
 
     /**
-     * Un administrador se lo quita a otra persona, que perdio el telefono y los codigos, y le cierra las sesiones. El
-     * suyo no: lanza ReglaNegocioException y el propio se quita desde la cuenta.
+     * La persona quita su propia aplicacion de autenticacion. Sus codigos de recuperacion se van con ella si no le
+     * quedan passkeys.
+     */
+    void quitarPropio(Long empresaId, Long usuarioId);
+
+    /** PR 49b: despues de quitar un factor, los codigos de recuperacion se borran si ya no queda ninguno. */
+    void olvidarCodigosSinFactor(Long empresaId, Long usuarioId);
+
+    /**
+     * Un administrador se lo quita a otra persona, que perdio el telefono y los codigos, y le cierra las sesiones: la
+     * aplicacion, sus passkeys y sus codigos. El suyo no: lanza ReglaNegocioException y el propio se quita desde la
+     * cuenta.
      */
     void quitarDeOtro(Long empresaId, Long autorId, Long usuarioId);
 

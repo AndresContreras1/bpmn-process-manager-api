@@ -29,6 +29,9 @@ public class LoginAuthenticator {
 
     static final String CODIGO_INVALIDO = "El código no es válido o ya se usó.";
 
+    /** PR 49b: lo que responde una entrada con passkey que no verifica, sea cual sea el motivo. */
+    public static final String PASSKEY_INVALIDA = "La passkey no sirvió para entrar.";
+
     private final AuthenticationManager authenticationManager;
     private final LimiteDeIntentos limitador;
     private final MetricasDeNegocio metricas;
@@ -79,6 +82,25 @@ public class LoginAuthenticator {
         }
         limitador.reiniciar(clave);
         return resultado.get();
+    }
+
+    /**
+     * PR 49b: la firma de una passkey de una persona, con su mismo limite: quien tiene una cookie robada o el desafio
+     * de otro no prueba firmas gratis. Lo que no verifica cuenta como un fallo y devuelve vacio; quien llama decide la
+     * respuesta, 400 en un login a medias y 401 al entrar sin clave.
+     */
+    public <T> Optional<T> comprobarPasskey(String email, String ip, Supplier<Optional<T>> comprobacion) {
+        String clave = clave(email, ip);
+        esperar(clave);
+        Optional<T> resultado = comprobacion.get();
+        if (resultado.isEmpty()) {
+            limitador.registrar(clave);
+            metricas.loginFallido(false);
+            anotarFallo(email, "PASSKEY_FALLIDA");
+        } else {
+            limitador.reiniciar(clave);
+        }
+        return resultado;
     }
 
     /**

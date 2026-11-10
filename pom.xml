@@ -85,6 +85,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-oauth2-client</artifactId>
 		</dependency>
+		<!-- PR 49b: passkeys (WebAuthn). Trae webauthn4j, que verifica las firmas y la atestacion; la API usa sus
+		     operaciones del relying party desde sus propios controladores, sin la sesion HTTP del DSL webAuthn(). -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-webauthn</artifactId>
+		</dependency>
 		<!-- PR 32: limite de peticiones con cubos de fichas (Bucket4j). El estado de cada cubo vive en PostgreSQL, asi que
 		     todas las instancias de la API gastan del mismo. -->
 		<dependency>

@@ -34,7 +34,8 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
 
     private static final Set<String> AUTENTICACION = Set.of("/api/v1/auth/login", "/api/v1/auth/refresh",
             "/api/v1/auth/reautenticacion", "/api/v1/auth/segundo-factor/verificacion",
-            "/api/v1/auth/identidades/vinculo");
+            "/api/v1/auth/identidades/vinculo", "/api/v1/auth/passkeys/opciones", "/api/v1/auth/passkeys/entrada",
+            "/api/v1/auth/segundo-factor/verificacion/passkey", "/api/v1/auth/reautenticacion/passkey");
 
     private static final String REGISTRO = "/api/v1/empresas";
 

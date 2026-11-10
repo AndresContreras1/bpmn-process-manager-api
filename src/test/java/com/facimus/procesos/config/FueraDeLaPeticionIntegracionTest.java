@@ -28,6 +28,7 @@ import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.LimpiezaService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.modelado.service.RevisionService;
+import com.facimus.procesos.security.DesafiosWebAuthn;
 import com.facimus.procesos.security.IntentosDeLogin;
 import com.facimus.procesos.security.LimitesDePeticiones;
 import com.facimus.procesos.security.RevokedSessions;
@@ -53,6 +54,7 @@ class FueraDeLaPeticionIntegracionTest {
     @Autowired private IntentosDeLogin intentosDeLogin;
     @Autowired private ColaDeTrabajos colaDeTrabajos;
     @Autowired private CuentaService cuentaService;
+    @Autowired private DesafiosWebAuthn desafiosWebAuthn;
     @Autowired private LimitesDePeticiones limitesDePeticiones;
     @Autowired private ConfiguracionTiendaService configuracionTiendaService;
     @Autowired private SimulacionService simulacionService;
@@ -102,14 +104,19 @@ class FueraDeLaPeticionIntegracionTest {
         jdbc.update("insert into enlaces_de_un_uso (empresa_id, usuario_id, email, proposito, token_hash, creado_en, "
                 + "vence_en) values (?, ?, 'x@filas.test', 'RECUPERAR_CLAVE', ?, ?, ?)", empresaId, adminId,
                 "vencido-" + empresaId, LocalDateTime.now().minusDays(30), LocalDateTime.now().minusDays(29));
+        // PR 49b: un desafio de passkey que nadie uso.
+        jdbc.update("insert into desafios_webauthn (id_hash, proposito, opciones, creado_en) values (?, 'ENTRADA', "
+                + "'{}', ?)", "vencido-" + empresaId, LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
         LimpiezaConfig limpieza = new LimpiezaConfig(limpiezaService, revisionService, intentosDeLogin,
-                colaDeTrabajos, cuentaService, empresaService, limitesDePeticiones);
+                colaDeTrabajos, cuentaService, empresaService, limitesDePeticiones, desafiosWebAuthn);
 
         comoEnProduccion(() -> {
             limpieza.limpiar();
             return null;
         });
         assertThat(jdbc.queryForObject("select count(*) from enlaces_de_un_uso where token_hash = ?", Integer.class,
+                "vencido-" + empresaId)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from desafios_webauthn where id_hash = ?", Integer.class,
                 "vencido-" + empresaId)).isZero();
     }
 

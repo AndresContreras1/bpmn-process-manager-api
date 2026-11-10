@@ -61,4 +61,11 @@ public class Usuario extends EntidadEditable {
     /** PR 35: cuando se borraron sus datos personales a pedido. Desde entonces la fila ya no es de nadie. */
     @Column(name = "anonimizado_en")
     private LocalDateTime anonimizadoEn;
+
+    /**
+     * PR 49b: su identificador WebAuthn (user handle), 64 bytes al azar que no dicen quien es. Se crea con su primera
+     * passkey y es lo que el dispositivo devuelve al entrar sin clave.
+     */
+    @Column(name = "webauthn_id")
+    private byte[] webauthnId;
 }
