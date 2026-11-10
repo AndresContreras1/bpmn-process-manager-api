@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, ParamMap, RouterLink } from '@angular/router';
 import { EMPTY, Subject, catchError, debounceTime, switchMap, tap } from 'rxjs';
 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
@@ -121,7 +121,11 @@ export class ProcesosComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((pagina: PageResponse<ProcesoRecibido>) => (this.recibidos = pagina.content));
-    this.buscar();
+    // F11: la busqueda del encabezado llega como ?nombre=, tambien con la lista ya abierta
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((parametros: ParamMap) => {
+      this.filtros.nombre = parametros.get('nombre') ?? '';
+      this.filtrar();
+    });
   }
 
   buscar(): void {
