@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 
 import org.junit.jupiter.api.AfterEach;
@@ -32,6 +33,10 @@ import org.openqa.selenium.support.ui.WebDriverWait;
  * Lo que comparten todas las pruebas de punta a punta: el navegador, la espera y la captura de lo que se vio al
  * fallar.
  *
+ * F12: el navegador pide la web en espanol de Colombia, que es el idioma de una organizacion nueva, y NGINX le sirve
+ * esa compilacion. Las pruebas encuentran todo por id y leen los textos en espanol; la que recorre la web en ingles
+ * cambia el idioma del navegador.
+ *
  * Nunca hay un Thread.sleep. Una espera fija o sobra o se queda corta segun el dia; lo que se espera aqui es una
  * condicion concreta de la pagina, y si no se cumple en diez segundos la prueba falla diciendo que esperaba.
  */
@@ -52,7 +57,10 @@ abstract class PruebaE2E {
     void abrirNavegador() {
         ChromeOptions opciones = new ChromeOptions();
         opciones.addArguments("--headless=new", "--window-size=1440,900", "--no-sandbox",
-                "--disable-dev-shm-usage", "--disable-gpu");
+                "--disable-dev-shm-usage", "--disable-gpu", "--lang=" + idiomaDelNavegador());
+        // El Accept-Language de cada peticion: sin esto el navegador sin pantalla pide ingles, diga lo que diga --lang
+        opciones.setExperimentalOption("prefs", Map.of("intl.accept_languages",
+                idiomaDelNavegador() + "," + idiomaDelNavegador().substring(0, 2)));
         // La consola del navegador, para leer al final si alguna pantalla tropezo con la CSP.
         LoggingPreferences consola = new LoggingPreferences();
         consola.enable(LogType.BROWSER, Level.ALL);
@@ -60,6 +68,11 @@ abstract class PruebaE2E {
         navegador = new ChromeDriver(opciones);
         espera = new WebDriverWait(navegador, ESPERA);
         api = new ApiDeDatos(API);
+    }
+
+    /** El idioma que pide el navegador, como lo escribiria su Accept-Language. */
+    protected String idiomaDelNavegador() {
+        return "es-CO";
     }
 
     /**
@@ -98,6 +111,10 @@ abstract class PruebaE2E {
                 .toList();
     }
 
+    /**
+     * Una ruta sin idioma, como /procesos: NGINX la manda a la carpeta del idioma de quien la abre (/es-CO/procesos),
+     * que es lo mismo que pasa con un enlace viejo o escrito a mano.
+     */
     protected void ir(String ruta) {
         navegador.get(BASE + ruta);
     }

@@ -1,10 +1,10 @@
 <div class="container py-5" id="compartir">
   <div class="row justify-content-center">
     <div class="col-lg-7">
-      <h1 class="h4 fw-bold mb-0">Share “{{ nombreProceso }}”</h1>
-      <p class="text-body-secondary">
-        A store you share it with can read the version in force of the diagram, and nothing else. It is a read-only
-        door: they cannot edit it, publish it or see your drafts.
+      <h1 i18n class="h4 fw-bold mb-0">Share “{{ nombreProceso }}”</h1>
+      <p i18n class="text-body-secondary">
+        An organization you share it with can read the version in force of the diagram, and nothing else. It is a
+        read-only door: they cannot edit it, publish it or see your drafts.
       </p>
 
       @if (aviso) {
@@ -18,7 +18,7 @@
         <div class="card border-0 shadow-sm mb-3">
           <div class="card-body p-4">
             <form [formGroup]="nitForm" (ngSubmit)="compartir()" novalidate>
-              <label class="form-label small" for="compartir-nit">Tax id of the other store</label>
+              <label i18n class="form-label small" for="compartir-nit">Tax id of the other organization</label>
               <div class="d-flex gap-2">
                 <input
                   type="text"
@@ -28,12 +28,24 @@
                   placeholder="900123456-1"
                   autocomplete="off"
                 />
-                <button type="submit" class="btn btn-primary flex-shrink-0" id="compartir-enviar" [disabled]="enviando">
-                  {{ enviando ? 'Sharing…' : 'Share' }}
+                <button
+                  i18n
+                  type="submit"
+                  class="btn btn-primary flex-shrink-0"
+                  id="compartir-enviar"
+                  [disabled]="enviando"
+                >
+                  @if (enviando) {
+                    Sharing…
+                  } @else {
+                    Share
+                  }
                 </button>
               </div>
               <app-error-campo [control]="nitForm.get('nit')" />
-              <div class="form-text small">A store is known to other stores by its tax id, not by its name.</div>
+              <div i18n class="form-text small">
+                An organization is known to other organizations by its tax id, not by its name.
+              </div>
             </form>
           </div>
         </div>
@@ -41,25 +53,26 @@
 
       <div class="card border-0 shadow-sm">
         <div class="card-body p-4">
-          <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Shared with</h2>
+          <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Shared with</h2>
           @if (cargando) {
-            <div class="text-body-secondary" id="compartir-cargando">
+            <div i18n class="text-body-secondary" id="compartir-cargando">
               <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading…
             </div>
           } @else if (invitadas.length === 0) {
-            <p class="text-body-secondary mb-0" id="compartir-vacio">Nobody yet.</p>
+            <p i18n class="text-body-secondary mb-0" id="compartir-vacio">Nobody yet.</p>
           } @else {
             <ul class="list-group list-group-flush">
               @for (invitada of invitadas; track invitada.empresaId) {
                 <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-testid="invitada">
                   <div class="flex-grow-1">
                     <span class="fw-semibold">{{ invitada.nombre }}</span>
-                    <div class="small text-body-secondary">
-                      {{ invitada.nit }} · since {{ invitada.fechaCompartido | date: 'mediumDate' }}
+                    <div i18n class="small text-body-secondary">
+                      {{ invitada.nit }} · since {{ invitada.fechaCompartido | fecha: 'fecha' }}
                     </div>
                   </div>
                   @if (esAdministrador) {
                     <button
+                      i18n
                       type="button"
                       class="btn btn-sm btn-outline-danger"
                       data-testid="invitada-quitar"
@@ -81,10 +94,12 @@
 </div>
 
 <app-modal-confirmar
+  i18n-titulo
+  i18n-mensaje
   idModal="modal-dejar-de-compartir"
   titulo="Stop sharing?"
   textoBoton="Stop sharing"
   [peligro]="true"
-  mensaje="That store stops being able to read this process. Nothing of theirs is deleted, and it can be shared again."
+  mensaje="That organization stops being able to read this process. Nothing of theirs is deleted, and it can be shared again."
   (confirmar)="confirmarRetirada()"
 />

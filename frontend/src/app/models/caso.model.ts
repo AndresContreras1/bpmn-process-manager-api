@@ -111,11 +111,12 @@ export interface FiltrosCaso {
 }
 
 export const NOMBRE_ESTADO_CASO: Record<EstadoCaso, string> = {
-  ABIERTO: 'Open',
-  TERMINADO: 'Finished',
-  CANCELADO: 'Cancelled',
-  FALLIDO: 'Failed',
-  ERROR: 'Stuck',
+  // El mismo Open que el boton de abrir uno, pero adjetivo: el significado los separa al traducir (Abierto, Abrir)
+  ABIERTO: $localize`:estado de un caso|El caso sigue corriendo:Open`,
+  TERMINADO: $localize`Finished`,
+  CANCELADO: $localize`Cancelled`,
+  FALLIDO: $localize`Failed`,
+  ERROR: $localize`Stuck`,
 };
 
 /** El tono de la insignia de cada estado, con su color y su icono, para que la lista se lea de un vistazo. */
@@ -128,27 +129,27 @@ export const TONO_ESTADO_CASO: Record<EstadoCaso, Tono> = {
 };
 
 export const NOMBRE_ESTADO_PASO: Record<EstadoPaso, string> = {
-  PENDIENTE: 'Waiting for more tokens',
-  EN_ESPERA: 'Waiting for someone',
-  COMPLETADA: 'Done',
-  FALLIDA: 'Failed',
-  OMITIDA: 'Skipped',
+  PENDIENTE: $localize`Waiting for more tokens`,
+  EN_ESPERA: $localize`Waiting for someone`,
+  COMPLETADA: $localize`Done`,
+  FALLIDA: $localize`Failed`,
+  OMITIDA: $localize`Skipped`,
 };
 
 /** Que paso, en una palabra, para la linea de tiempo. */
 export const NOMBRE_EVENTO_CASO: Record<TipoEventoCaso, string> = {
-  CASO_ABIERTO: 'Case opened',
-  NODO_ACTIVADO: 'Node reached',
-  TAREA_CREADA: 'Task created',
-  TAREA_COMPLETADA: 'Task completed',
-  GATEWAY_DECIDIO: 'Gateway decided',
-  MENSAJE_ENVIADO: 'Message sent',
-  MENSAJE_RECIBIDO: 'Message received',
-  ENVIO_FALLIDO: 'Delivery failed',
-  SIN_CAMINO: 'No path',
-  VARIABLE_AUSENTE: 'Variable missing',
-  CASO_TERMINADO: 'Case finished',
-  CASO_CANCELADO: 'Case cancelled',
+  CASO_ABIERTO: $localize`Case opened`,
+  NODO_ACTIVADO: $localize`Node reached`,
+  TAREA_CREADA: $localize`Task created`,
+  TAREA_COMPLETADA: $localize`Task completed`,
+  GATEWAY_DECIDIO: $localize`Gateway decided`,
+  MENSAJE_ENVIADO: $localize`Message sent`,
+  MENSAJE_RECIBIDO: $localize`Message received`,
+  ENVIO_FALLIDO: $localize`Delivery failed`,
+  SIN_CAMINO: $localize`No path`,
+  VARIABLE_AUSENTE: $localize`Variable missing`,
+  CASO_TERMINADO: $localize`Case finished`,
+  CASO_CANCELADO: $localize`Case cancelled`,
 };
 
 /** Los que cuentan algo que no salio bien: se pintan en rojo. */

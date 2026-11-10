@@ -17,7 +17,8 @@ import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
 /**
  * Escribe los correos con las plantillas de {@code correos/}: cada una en HTML y en texto, y sus palabras en
- * {@code correos/mensajes}, en espanol, ingles y frances. Thymeleaf es aqui solo el motor de las plantillas: la web es
+ * {@code correos/mensajes}, en espanol, ingles y frances, mas las del ingles de Australia que se escriben distinto
+ * ({@code mensajes_en_AU}). Thymeleaf es aqui solo el motor de las plantillas: la web es
  * una SPA y no hay vistas del servidor (D18). En el HTML, lo que viene de afuera, como el nombre de una tienda, sale
  * escapado.
  */
@@ -43,10 +44,16 @@ public class Redactor {
         this.texto = motor(TemplateMode.TEXT, ".txt");
     }
 
-    /** El idioma en que se escribe: el pedido si tiene sus palabras, el espanol si no. */
+    /**
+     * El idioma en que se escribe: el pedido si tiene sus palabras, el espanol si no. Del pais solo cuenta Australia,
+     * que es el unico que cambia palabras; los demas comparten las de su lengua.
+     */
     public static Locale idioma(Locale pedido) {
-        return pedido != null && IDIOMAS.contains(pedido.getLanguage()) ? Locale.of(pedido.getLanguage())
-                : POR_DEFECTO;
+        if (pedido == null || !IDIOMAS.contains(pedido.getLanguage())) {
+            return POR_DEFECTO;
+        }
+        return "en".equals(pedido.getLanguage()) && "AU".equals(pedido.getCountry()) ? Locale.of("en", "AU")
+                : Locale.of(pedido.getLanguage());
     }
 
     public CorreoSaliente redactar(String plantilla, Locale pedido, String para, Map<String, Object> datos) {

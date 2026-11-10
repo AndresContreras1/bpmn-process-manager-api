@@ -14,90 +14,96 @@ import { LoginComponent } from './pages/login/login.component';
  */
 export const routes: Routes = [
   { path: '', component: InicioComponent, title: 'BPMN Process Manager' },
-  { path: 'login', component: LoginComponent, title: 'Sign in · BPMN Process Manager' },
+  { path: 'login', component: LoginComponent, title: $localize`Sign in · BPMN Process Manager` },
   {
     path: 'registro',
     loadComponent: () => import('./pages/registro/registro.component').then((modulo) => modulo.RegistroComponent),
-    title: 'Create a store · BPMN Process Manager',
+    title: $localize`Create an organization · BPMN Process Manager`,
   },
   {
     path: 'cuenta',
     loadComponent: () => import('./pages/cuenta/cuenta.component').then((modulo) => modulo.CuentaComponent),
     canActivate: [authGuard],
-    title: 'My account · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'My account' }] },
+    title: $localize`My account · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`My account` }] },
   },
   {
     path: 'procesos',
     loadComponent: () => import('./pages/procesos/procesos.component').then((modulo) => modulo.ProcesosComponent),
     canActivate: [authGuard],
-    title: 'Processes · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Processes' }] },
+    title: $localize`Processes · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Processes` }] },
   },
   {
     path: 'casos',
     loadComponent: () => import('./pages/casos/casos.component').then((modulo) => modulo.CasosComponent),
     canActivate: [authGuard],
-    title: 'Cases · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Work' }, { etiqueta: 'Cases' }] },
+    title: $localize`Cases · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Work` }, { etiqueta: $localize`Cases` }] },
   },
   {
     path: 'casos/:id',
     loadComponent: () =>
       import('./pages/caso-detalle/caso-detalle.component').then((modulo) => modulo.CasoDetalleComponent),
     canActivate: [authGuard],
-    title: 'Case · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Work' }, { etiqueta: 'Cases', ruta: '/casos' }, { etiqueta: 'Case' }] },
+    title: $localize`Case · BPMN Process Manager`,
+    data: {
+      migas: [
+        { etiqueta: $localize`Work` },
+        { etiqueta: $localize`Cases`, ruta: '/casos' },
+        { etiqueta: $localize`Case` },
+      ],
+    },
   },
   {
     path: 'simulacion',
     loadComponent: () => import('./pages/simulacion/simulacion.component').then((modulo) => modulo.SimulacionComponent),
     canActivate: [authGuard],
-    title: 'Simulation · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Dashboard' }, { etiqueta: 'Simulation' }] },
+    title: $localize`Simulation · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Dashboard` }, { etiqueta: $localize`Simulation` }] },
   },
   {
     path: 'tablero',
     loadComponent: () => import('./pages/tablero/tablero.component').then((modulo) => modulo.TableroComponent),
     canActivate: [authGuard],
-    title: 'Dashboard · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Dashboard' }] },
+    title: $localize`Dashboard · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Dashboard` }] },
   },
   {
     path: 'tareas',
     loadComponent: () => import('./pages/tareas/tareas.component').then((modulo) => modulo.TareasComponent),
     canActivate: [authGuard],
-    title: 'Task tray · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Work' }, { etiqueta: 'Task tray' }] },
+    title: $localize`Task tray · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Work` }, { etiqueta: $localize`Task tray` }] },
   },
   {
     path: 'usuarios',
     loadComponent: () => import('./pages/usuarios/usuarios.component').then((modulo) => modulo.UsuariosComponent),
     canActivate: [authGuard],
-    title: 'Users · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Administration' }, { etiqueta: 'Users' }] },
+    title: $localize`Users · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Administration` }, { etiqueta: $localize`Users` }] },
   },
   {
     path: 'roles',
     loadComponent: () => import('./pages/roles/roles.component').then((modulo) => modulo.RolesComponent),
     canActivate: [authGuard],
-    title: 'Process roles · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Administration' }, { etiqueta: 'Process roles' }] },
+    title: $localize`Process roles · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Administration` }, { etiqueta: $localize`Process roles` }] },
   },
   {
     path: 'configuracion',
     loadComponent: () =>
       import('./pages/configuracion/configuracion.component').then((modulo) => modulo.ConfiguracionComponent),
     canActivate: [authGuard],
-    title: 'Store settings · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Administration' }, { etiqueta: 'Store settings' }] },
+    title: $localize`Organization settings · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Administration` }, { etiqueta: $localize`Organization settings` }] },
   },
   {
     path: 'historial',
     loadComponent: () => import('./pages/historial/historial.component').then((modulo) => modulo.HistorialComponent),
     canActivate: [authGuard],
-    title: 'Store history · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Administration' }, { etiqueta: 'Store history' }] },
+    title: $localize`Organization history · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Administration` }, { etiqueta: $localize`Organization history` }] },
   },
   // nuevo va antes de :id, o Angular tomaria "nuevo" como el id de un proceso
   {
@@ -105,20 +111,20 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/proceso-form/proceso-form.component').then((modulo) => modulo.ProcesoFormComponent),
     canActivate: [authGuard],
-    title: 'New process · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Processes', ruta: '/procesos' }, { etiqueta: 'New process' }] },
+    title: $localize`New process · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Processes`, ruta: '/procesos' }, { etiqueta: $localize`New process` }] },
   },
   {
     path: 'procesos/:id/editar',
     loadComponent: () =>
       import('./pages/proceso-form/proceso-form.component').then((modulo) => modulo.ProcesoFormComponent),
     canActivate: [authGuard],
-    title: 'Edit process · BPMN Process Manager',
+    title: $localize`Edit process · BPMN Process Manager`,
     data: {
       migas: [
-        { etiqueta: 'Processes', ruta: '/procesos' },
-        { etiqueta: 'Process', ruta: '/procesos/:id' },
-        { etiqueta: 'Edit' },
+        { etiqueta: $localize`Processes`, ruta: '/procesos' },
+        { etiqueta: $localize`Process`, ruta: '/procesos/:id' },
+        { etiqueta: $localize`Edit` },
       ],
     },
   },
@@ -126,12 +132,12 @@ export const routes: Routes = [
     path: 'procesos/:id/compartir',
     loadComponent: () => import('./pages/compartir/compartir.component').then((modulo) => modulo.CompartirComponent),
     canActivate: [authGuard],
-    title: 'Share the process · BPMN Process Manager',
+    title: $localize`Share the process · BPMN Process Manager`,
     data: {
       migas: [
-        { etiqueta: 'Processes', ruta: '/procesos' },
-        { etiqueta: 'Process', ruta: '/procesos/:id' },
-        { etiqueta: 'Share' },
+        { etiqueta: $localize`Processes`, ruta: '/procesos' },
+        { etiqueta: $localize`Process`, ruta: '/procesos/:id' },
+        { etiqueta: $localize`Share` },
       ],
     },
   },
@@ -140,12 +146,12 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/proceso-editor/proceso-editor.component').then((modulo) => modulo.ProcesoEditorComponent),
     canActivate: [authGuard],
-    title: 'Model the diagram · BPMN Process Manager',
+    title: $localize`Model the diagram · BPMN Process Manager`,
     data: {
       migas: [
-        { etiqueta: 'Processes', ruta: '/procesos' },
-        { etiqueta: 'Process', ruta: '/procesos/:id' },
-        { etiqueta: 'Diagram' },
+        { etiqueta: $localize`Processes`, ruta: '/procesos' },
+        { etiqueta: $localize`Process`, ruta: '/procesos/:id' },
+        { etiqueta: $localize`Diagram` },
       ],
     },
   },
@@ -154,13 +160,13 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/proceso-detalle/proceso-detalle.component').then((modulo) => modulo.ProcesoDetalleComponent),
     canActivate: [authGuard],
-    title: 'Process · BPMN Process Manager',
-    data: { migas: [{ etiqueta: 'Processes', ruta: '/procesos' }, { etiqueta: 'Process' }] },
+    title: $localize`Process · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Processes`, ruta: '/procesos' }, { etiqueta: $localize`Process` }] },
   },
   {
     path: '**',
     loadComponent: () =>
       import('./pages/no-encontrada/no-encontrada.component').then((modulo) => modulo.NoEncontradaComponent),
-    title: 'Page not found · BPMN Process Manager',
+    title: $localize`Page not found · BPMN Process Manager`,
   },
 ];

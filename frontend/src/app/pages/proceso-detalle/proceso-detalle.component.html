@@ -2,7 +2,7 @@
   @if (aviso) {
     <div class="alert alert-success alert-dismissible" role="status" id="proceso-detalle-aviso">
       <i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ aviso }}
-      <button type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
+      <button i18n-aria-label type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
     </div>
   }
   @if (error) {
@@ -13,9 +13,9 @@
     <div class="card border-0 shadow-sm">
       <div class="card-body p-5 text-center" id="proceso-detalle-no-encontrado">
         <i class="fa-solid fa-circle-question fa-2x text-body-tertiary mb-3" aria-hidden="true"></i>
-        <h1 class="h4 fw-bold">Process not found</h1>
-        <p class="text-body-secondary">This process does not exist in your store, or it was deleted.</p>
-        <a class="btn btn-primary" routerLink="/procesos">Back to processes</a>
+        <h1 i18n class="h4 fw-bold">Process not found</h1>
+        <p i18n class="text-body-secondary">This process does not exist in your organization, or it was deleted.</p>
+        <a i18n class="btn btn-primary" routerLink="/procesos">Back to processes</a>
       </div>
     </div>
   } @else if (detalle) {
@@ -38,11 +38,16 @@
         <!-- Un proceso sin version publicada no tiene casos que mirar, y una invitada ve los de su propia tienda -->
         @if (detalle.proceso.versionPublicada !== null && !soloLectura) {
           <div class="small mt-1">
-            <a [routerLink]="['/casos']" [queryParams]="{ procesoId: detalle.proceso.id }" id="proceso-detalle-casos"
+            <a
+              i18n
+              [routerLink]="['/casos']"
+              [queryParams]="{ procesoId: detalle.proceso.id }"
+              id="proceso-detalle-casos"
               >Its cases</a
             >
             ·
             <a
+              i18n
               [routerLink]="['/tablero']"
               [queryParams]="{ procesoId: detalle.proceso.id }"
               id="proceso-detalle-tablero"
@@ -55,6 +60,7 @@
       @if (puedeEditar && !soloLectura) {
         <div class="d-flex flex-wrap gap-2">
           <a
+            i18n
             class="btn btn-outline-secondary"
             [routerLink]="['/procesos', detalle.proceso.id, 'editar']"
             id="proceso-detalle-editar"
@@ -62,6 +68,7 @@
             <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
           </a>
           <a
+            i18n
             class="btn btn-outline-primary"
             [routerLink]="['/procesos', detalle.proceso.id, 'editar-diagrama']"
             id="proceso-detalle-modelar"
@@ -70,6 +77,7 @@
           </a>
           @if (detalle.proceso.estado === 'BORRADOR') {
             <button
+              i18n
               type="button"
               class="btn btn-success"
               id="proceso-detalle-publicar"
@@ -82,6 +90,7 @@
           }
           @if (esAdministrador) {
             <a
+              i18n
               class="btn btn-outline-secondary"
               [routerLink]="['/procesos', detalle.proceso.id, 'compartir']"
               id="proceso-detalle-compartir"
@@ -89,6 +98,7 @@
               <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Share
             </a>
             <button
+              i18n
               type="button"
               class="btn btn-outline-danger"
               id="proceso-detalle-eliminar"
@@ -107,7 +117,7 @@
       <div class="col-lg-8">
         <section class="card border-0 shadow-sm h-100">
           <div class="card-body p-4">
-            <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Description</h2>
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Description</h2>
             <p class="descripcion mb-0" id="proceso-detalle-descripcion">{{ detalle.proceso.descripcion }}</p>
           </div>
         </section>
@@ -116,17 +126,19 @@
       <div class="col-lg-4">
         <section class="card border-0 shadow-sm h-100">
           <div class="card-body p-4">
-            <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Details</h2>
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Details</h2>
             <dl class="row small mb-0">
-              <dt class="col-5 fw-normal text-body-secondary">State</dt>
+              <dt i18n class="col-5 fw-normal text-body-secondary">State</dt>
               <dd class="col-7">{{ nombreEstado[detalle.proceso.estado] }}</dd>
-              <dt class="col-5 fw-normal text-body-secondary">Category</dt>
+              <dt i18n class="col-5 fw-normal text-body-secondary">Category</dt>
               <dd class="col-7">{{ detalle.proceso.categoria }}</dd>
-              <dt class="col-5 fw-normal text-body-secondary">Created</dt>
-              <dd class="col-7" id="proceso-detalle-creado">{{ detalle.proceso.fechaCreacion | date: 'medium' }}</dd>
-              <dt class="col-5 fw-normal text-body-secondary">Last change</dt>
+              <dt i18n class="col-5 fw-normal text-body-secondary">Created</dt>
+              <dd class="col-7" id="proceso-detalle-creado">
+                {{ detalle.proceso.fechaCreacion | fecha: 'fechaHora' }}
+              </dd>
+              <dt i18n class="col-5 fw-normal text-body-secondary">Last change</dt>
               <dd class="col-7 mb-0" id="proceso-detalle-modificado">
-                {{ detalle.proceso.fechaModificacion | date: 'medium' }}
+                {{ detalle.proceso.fechaModificacion | fecha: 'fechaHora' }}
               </dd>
             </dl>
           </div>
@@ -137,17 +149,17 @@
         <section class="card border-0 shadow-sm" id="proceso-detalle-diagrama">
           <div class="card-body p-4">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-              <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-0">Diagram</h2>
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold mb-0">Diagram</h2>
               <div class="d-flex flex-wrap align-items-center gap-3">
                 @if (diagrama) {
-                  <span class="small text-body-secondary" id="proceso-detalle-conteo">
+                  <span i18n class="small text-body-secondary" id="proceso-detalle-conteo">
                     Tasks: {{ diagrama.actividades.length }} · Gateways: {{ diagrama.gateways.length }} · Events:
                     {{ diagrama.eventos.length }} · Message flows: {{ diagrama.mensajes.length }}
                   </span>
                 }
                 @if (versiones.length && !diagrama?.compartido) {
                   <div class="d-flex align-items-center gap-2">
-                    <label class="small text-body-secondary mb-0" for="proceso-detalle-version">Showing</label>
+                    <label i18n class="small text-body-secondary mb-0" for="proceso-detalle-version">Showing</label>
                     <select
                       class="form-select form-select-sm w-auto"
                       id="proceso-detalle-version"
@@ -155,10 +167,20 @@
                       [ngModel]="verVersion"
                       (ngModelChange)="mostrarVersion($event)"
                     >
-                      <option [ngValue]="null">Working copy</option>
+                      <option i18n [ngValue]="null">Working copy</option>
                       @for (version of versiones; track version.id) {
-                        <option [ngValue]="version.numero">
-                          Version {{ version.numero }}{{ version.estado === 'VIGENTE' ? ' · in force' : ' · retired' }}
+                        <option
+                          i18n
+                          [ngValue]="version.numero"
+                          [attr.data-version]="version.numero"
+                          [attr.data-estado]="version.estado"
+                        >
+                          Version {{ version.numero }}
+                          @if (version.estado === 'VIGENTE') {
+                            · in force
+                          } @else {
+                            · retired
+                          }
                         </option>
                       }
                     </select>
@@ -168,21 +190,22 @@
             </div>
 
             @if (diagrama?.compartido) {
-              <div class="alert alert-info py-2 small" id="proceso-detalle-invitada">
-                This process belongs to another store and is shared with yours, so what you see is the version in force,
-                not their working copy.
+              <div i18n class="alert alert-info py-2 small" id="proceso-detalle-invitada">
+                This process belongs to another organization and is shared with yours, so what you see is the version in
+                force, not their working copy.
               </div>
             } @else if (verVersion !== null) {
               <div
                 class="alert alert-secondary py-2 small d-flex flex-wrap align-items-center gap-2"
                 id="proceso-detalle-congelado"
               >
-                <span class="flex-grow-1">
+                <span i18n class="flex-grow-1">
                   Version {{ verVersion }}, exactly as it was published. A published version never changes: the cases
                   that started on it keep running on it.
                 </span>
                 @if (esAdministrador && versionVista?.estado === 'VIGENTE') {
                   <button
+                    i18n
                     type="button"
                     class="btn btn-sm btn-outline-danger"
                     id="proceso-detalle-retirar"
@@ -194,6 +217,7 @@
                   </button>
                 }
                 <button
+                  i18n
                   type="button"
                   class="btn btn-sm btn-outline-secondary"
                   id="proceso-detalle-ver-borrador"
@@ -203,7 +227,7 @@
                 </button>
               </div>
             } @else if (detalle.proceso.borradorPendiente) {
-              <div class="alert alert-warning py-2 small" id="proceso-detalle-borrador">
+              <div i18n class="alert alert-warning py-2 small" id="proceso-detalle-borrador">
                 This working copy has changes that are not published yet, so it is not what runs.
                 @if (detalle.proceso.versionPublicada) {
                   Version {{ detalle.proceso.versionPublicada }} is the one in force.
@@ -214,7 +238,8 @@
             @if (diagrama && lienzo) {
               <app-diagrama-bpmn
                 [lienzo]="lienzo"
-                [titulo]="'BPMN diagram of ' + detalle.proceso.nombre"
+                titulo="BPMN diagram of {{ detalle.proceso.nombre }}"
+                i18n-titulo
                 [seleccionadoId]="nodoElegido?.id ?? null"
                 (seleccionar)="elegirNodo($event)"
               />
@@ -225,11 +250,12 @@
                     <div>
                       <span class="badge text-bg-light border" id="diagrama-detalle-tipo">{{ nodoElegido.tipo }}</span>
                       <h3 class="h6 fw-bold mt-2 mb-1" id="diagrama-detalle-nombre">{{ nodoElegido.nombre }}</h3>
-                      <div class="small text-body-secondary">
+                      <div i18n class="small text-body-secondary">
                         {{ nodoElegido.pool }} · lane {{ nodoElegido.lane }} · role {{ nodoElegido.rol }}
                       </div>
                     </div>
                     <button
+                      i18n-aria-label
                       type="button"
                       class="btn-close"
                       aria-label="Close the details"
@@ -242,9 +268,9 @@
                   }
                   <div class="row g-3 mt-0 small">
                     <div class="col-md-6">
-                      <div class="fw-semibold mb-1">Comes from</div>
+                      <div i18n class="fw-semibold mb-1">Comes from</div>
                       @if (nodoElegido.entrantes.length === 0) {
-                        <span class="text-body-secondary">Nothing: the flow starts here.</span>
+                        <span i18n class="text-body-secondary">Nothing: the flow starts here.</span>
                       } @else {
                         <ul class="list-unstyled mb-0">
                           @for (flujo of nodoElegido.entrantes; track $index) {
@@ -259,9 +285,9 @@
                       }
                     </div>
                     <div class="col-md-6">
-                      <div class="fw-semibold mb-1">Goes to</div>
+                      <div i18n class="fw-semibold mb-1">Goes to</div>
                       @if (nodoElegido.salientes.length === 0) {
-                        <span class="text-body-secondary">Nothing: the flow ends here.</span>
+                        <span i18n class="text-body-secondary">Nothing: the flow ends here.</span>
                       } @else {
                         <ul class="list-unstyled mb-0">
                           @for (flujo of nodoElegido.salientes; track $index) {
@@ -283,23 +309,23 @@
                     <div class="row g-3 mt-0 small" id="diagrama-detalle-mensajes">
                       @if (nodoElegido.envia.length) {
                         <div class="col-md-6">
-                          <div class="fw-semibold mb-1">Sends</div>
+                          <div i18n class="fw-semibold mb-1">Sends</div>
                           <ul class="list-unstyled mb-0">
                             @for (mensaje of nodoElegido.envia; track mensaje.numero) {
                               <li class="mb-2" data-testid="mensaje-enviado">
                                 <span class="badge text-bg-primary">{{ mensaje.numero }}</span>
                                 {{ mensaje.nombre }}
-                                <span class="text-body-secondary">to {{ mensaje.participante }}</span>
+                                <span i18n class="text-body-secondary">to {{ mensaje.participante }}</span>
                                 @if (mensaje.comoViaja) {
-                                  <div class="text-body-secondary">Travels as a {{ mensaje.comoViaja }}.</div>
+                                  <div i18n class="text-body-secondary">Travels as a {{ mensaje.comoViaja }}.</div>
                                 }
                                 @if (mensaje.siFalla) {
-                                  <div class="text-body-secondary">
+                                  <div i18n class="text-body-secondary">
                                     If it cannot be delivered, {{ mensaje.siFalla }}.
                                   </div>
                                 }
                                 @if (mensaje.campos.length) {
-                                  <div class="text-body-secondary">Carries {{ mensaje.campos.join(', ') }}.</div>
+                                  <div i18n class="text-body-secondary">Carries {{ mensaje.campos.join(', ') }}.</div>
                                 }
                               </li>
                             }
@@ -308,21 +334,21 @@
                       }
                       @if (nodoElegido.espera.length) {
                         <div class="col-md-6">
-                          <div class="fw-semibold mb-1">Waits for</div>
+                          <div i18n class="fw-semibold mb-1">Waits for</div>
                           <ul class="list-unstyled mb-0">
                             @for (mensaje of nodoElegido.espera; track mensaje.numero) {
                               <li class="mb-2" data-testid="mensaje-esperado">
                                 <span class="badge text-bg-primary">{{ mensaje.numero }}</span>
                                 {{ mensaje.nombre }}
-                                <span class="text-body-secondary">from {{ mensaje.participante }}</span>
+                                <span i18n class="text-body-secondary">from {{ mensaje.participante }}</span>
                                 @if (mensaje.variable) {
-                                  <div class="text-body-secondary">
+                                  <div i18n class="text-body-secondary">
                                     Its body becomes <code>{{ mensaje.variable }}</code
                                     >.
                                   </div>
                                 }
                                 @if (mensaje.correlacion) {
-                                  <div class="text-body-secondary">Matched by {{ mensaje.correlacion }}.</div>
+                                  <div i18n class="text-body-secondary">Matched by {{ mensaje.correlacion }}.</div>
                                 }
                               </li>
                             }
@@ -333,15 +359,17 @@
                   }
                 </div>
               } @else if (diagrama.actividades.length + diagrama.gateways.length + diagrama.eventos.length > 0) {
-                <p class="small text-body-secondary mt-3 mb-0" id="diagrama-ayuda">
+                <p i18n class="small text-body-secondary mt-3 mb-0" id="diagrama-ayuda">
                   Select a task, a gateway or an event to see its details.
                 </p>
               } @else {
-                <p class="small text-body-secondary mt-3 mb-0" id="diagrama-vacio">This process has no tasks yet.</p>
+                <p i18n class="small text-body-secondary mt-3 mb-0" id="diagrama-vacio">
+                  This process has no tasks yet.
+                </p>
               }
 
               @if (lienzo.mensajes.length) {
-                <h3 class="h6 fw-semibold mt-4 mb-2">Message flows</h3>
+                <h3 i18n class="h6 fw-semibold mt-4 mb-2">Message flows</h3>
                 <ol class="mensajes list-unstyled mb-0" id="diagrama-mensajes">
                   @for (mensaje of lienzo.mensajes; track mensaje.id) {
                     <li class="d-flex gap-2 mb-2" data-testid="mensaje-item">
@@ -353,7 +381,7 @@
                         >
                         <div class="text-body-secondary">{{ mensaje.contenido }}</div>
                         @if (mensaje.claves.length) {
-                          <div class="text-body-secondary">
+                          <div i18n class="text-body-secondary">
                             Correlated by
                             @for (clave of mensaje.claves; track clave) {
                               <code>{{ clave }}</code>
@@ -366,7 +394,7 @@
                 </ol>
               }
             } @else {
-              <div class="alert alert-warning mb-0" role="alert" id="diagrama-error">
+              <div i18n class="alert alert-warning mb-0" role="alert" id="diagrama-error">
                 The diagram could not be loaded. The rest of the process is shown.
               </div>
             }
@@ -377,13 +405,13 @@
       <div class="col-12">
         <section class="card border-0 shadow-sm">
           <div class="card-body p-4">
-            <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Change history</h2>
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Change history</h2>
             @if (soloLectura) {
-              <p class="text-body-secondary mb-0" id="proceso-detalle-historial-ajeno">
-                The history of a process belongs to the store that owns it.
+              <p i18n class="text-body-secondary mb-0" id="proceso-detalle-historial-ajeno">
+                The history of a process belongs to the organization that owns it.
               </p>
             } @else if (detalle.historial.length === 0) {
-              <p class="text-body-secondary mb-0" id="proceso-detalle-sin-historial">No changes recorded yet.</p>
+              <p i18n class="text-body-secondary mb-0" id="proceso-detalle-sin-historial">No changes recorded yet.</p>
             } @else {
               <ol class="historial list-unstyled mb-0" id="proceso-detalle-historial">
                 @for (cambio of detalle.historial; track cambio.id) {
@@ -392,7 +420,7 @@
                     <div>
                       <div class="fw-semibold">{{ cambioEnIngles(cambio.descripcionCambio) }}</div>
                       <div class="small text-body-secondary">
-                        {{ cambio.autorNombre }} · {{ cambio.fechaCambio | date: 'medium' }}
+                        {{ cambio.autorNombre }} · {{ cambio.fechaCambio | fecha: 'fechaHora' }}
                       </div>
                     </div>
                   </li>
@@ -404,23 +432,25 @@
       </div>
     </div>
   } @else if (cargando) {
-    <div class="text-center text-body-secondary py-5" id="proceso-detalle-cargando">
+    <div i18n class="text-center text-body-secondary py-5" id="proceso-detalle-cargando">
       <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading the process…
     </div>
   }
 </div>
 
 <app-modal-confirmar
+  i18n-titulo
   idModal="modal-publicar"
   titulo="Publish this process?"
   textoBoton="Publish"
-  [mensaje]="
-    '“' + (detalle?.proceso?.nombre ?? '') + '” will be published. A published process cannot go back to draft.'
-  "
+  mensaje="“{{ detalle?.proceso?.nombre ?? '' }}” will be published. A published process cannot go back to draft."
+  i18n-mensaje
   (confirmar)="publicar()"
 />
 
 <app-modal-confirmar
+  i18n-titulo
+  i18n-mensaje
   idModal="modal-retirar"
   titulo="Retire this version?"
   textoBoton="Retire"
@@ -432,10 +462,12 @@
 />
 
 <app-modal-confirmar
+  i18n-titulo
   idModal="modal-eliminar"
   titulo="Delete this process?"
   textoBoton="Delete"
   [peligro]="true"
-  [mensaje]="'“' + (detalle?.proceso?.nombre ?? '') + '” will leave every list. Its change history is kept.'"
+  mensaje="“{{ detalle?.proceso?.nombre ?? '' }}” will leave every list. Its change history is kept."
+  i18n-mensaje
   (confirmar)="eliminar()"
 />

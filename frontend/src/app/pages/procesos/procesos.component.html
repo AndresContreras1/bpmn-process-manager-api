@@ -1,11 +1,13 @@
 <div class="container py-5" id="procesos">
   <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
     <div>
-      <h1 class="h3 fw-bold mb-1" id="procesos-titulo">Processes</h1>
-      <p class="text-body-secondary mb-0">The BPMN processes of your store. Click a column title to sort them.</p>
+      <h1 i18n class="h3 fw-bold mb-1" id="procesos-titulo">Processes</h1>
+      <p i18n class="text-body-secondary mb-0">
+        The BPMN processes of your organization. Click a column title to sort them.
+      </p>
     </div>
     @if (puedeEditar) {
-      <a class="btn btn-primary" routerLink="/procesos/nuevo" id="procesos-nuevo">
+      <a i18n class="btn btn-primary" routerLink="/procesos/nuevo" id="procesos-nuevo">
         <i class="fa-solid fa-plus" aria-hidden="true"></i> New process
       </a>
     }
@@ -14,13 +16,19 @@
   @if (aviso) {
     <div class="alert alert-success alert-dismissible" role="status" id="procesos-aviso">
       <i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ aviso }}
-      <button type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
+      <button i18n-aria-label type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
     </div>
   }
   @if (desactualizado) {
     <div class="alert alert-warning alert-dismissible" role="alert" id="procesos-desactualizado">
       <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ desactualizado }}
-      <button type="button" class="btn-close" aria-label="Close" (click)="desactualizado = null"></button>
+      <button
+        i18n-aria-label
+        type="button"
+        class="btn-close"
+        aria-label="Close"
+        (click)="desactualizado = null"
+      ></button>
     </div>
   }
   @if (error) {
@@ -34,6 +42,8 @@
           <div class="input-group">
             <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
             <input
+              i18n-placeholder
+              i18n-aria-label
               type="search"
               class="form-control"
               id="procesos-buscar"
@@ -48,6 +58,7 @@
         </div>
         <div class="col-md-4">
           <select
+            i18n-aria-label
             class="form-select"
             id="procesos-estado"
             name="estado"
@@ -55,7 +66,7 @@
             [(ngModel)]="filtros.estado"
             (ngModelChange)="filtrar()"
           >
-            <option value="">All states</option>
+            <option i18n value="">All states</option>
             <option value="BORRADOR">{{ nombreEstado['BORRADOR'] }}</option>
             <option value="PUBLICADO">{{ nombreEstado['PUBLICADO'] }}</option>
           </select>
@@ -65,11 +76,13 @@
       @if (filtros.categoria) {
         <div class="mb-3">
           <span
+            i18n
             class="badge rounded-pill text-bg-light border fw-normal d-inline-flex align-items-center gap-2"
             id="procesos-filtro-categoria"
           >
             Category: {{ filtros.categoria }}
             <button
+              i18n-aria-label
               type="button"
               class="btn-close"
               aria-label="Show every category"
@@ -82,21 +95,30 @@
 
       @if (!pagina) {
         @if (cargando) {
-          <app-cargando id="procesos-cargando" texto="Loading processes…" />
+          <app-cargando i18n-texto id="procesos-cargando" texto="Loading processes…" />
         }
       } @else if (pagina.content.length === 0) {
         @if (hayFiltros()) {
-          <app-vacio id="procesos-vacio" icono="fa-solid fa-filter" titulo="No process matches these filters." />
+          <app-vacio
+            i18n-titulo
+            id="procesos-vacio"
+            icono="fa-solid fa-filter"
+            titulo="No process matches these filters."
+          />
         } @else if (puedeEditar) {
           <app-vacio
+            i18n-titulo
+            i18n-texto
             id="procesos-vacio"
-            titulo="Your store has no processes yet."
+            titulo="Your organization has no processes yet."
             texto="Create the first one with New process."
           />
         } @else {
           <app-vacio
+            i18n-titulo
+            i18n-texto
             id="procesos-vacio"
-            titulo="Your store has no processes yet."
+            titulo="Your organization has no processes yet."
             texto="An administrator or an editor can create them."
           />
         }
@@ -119,7 +141,7 @@
                   </th>
                 }
                 @if (puedeEditar) {
-                  <th scope="col" class="text-end"><span class="visually-hidden">Actions</span></th>
+                  <th scope="col" class="text-end"><span i18n class="visually-hidden">Actions</span></th>
                 }
               </tr>
             </thead>
@@ -136,7 +158,8 @@
                       type="button"
                       class="btn btn-link btn-sm p-0 text-body-secondary text-start"
                       data-testid="proceso-categoria"
-                      [title]="'Show only ' + proceso.categoria"
+                      title="Show only {{ proceso.categoria }}"
+                      i18n-title
                       (click)="filtrarPorCategoria(proceso.categoria)"
                     >
                       {{ proceso.categoria }}
@@ -150,53 +173,56 @@
                     />
                   </td>
                   <td class="d-none d-md-table-cell text-body-secondary small">
-                    {{ proceso.fechaModificacion | date: 'medium' }}
+                    {{ proceso.fechaModificacion | fecha: 'fechaHora' }}
                   </td>
                   @if (puedeEditar) {
                     <td class="text-end text-nowrap">
                       <div
                         class="btn-group btn-group-sm"
                         role="group"
-                        [attr.aria-label]="'Actions for ' + proceso.nombre"
+                        [attr.aria-label]="etiqueta.accionesDe(proceso.nombre)"
                       >
                         <a
+                          i18n-title
                           class="btn btn-outline-secondary"
                           [routerLink]="['/procesos', proceso.id, 'editar']"
                           data-testid="proceso-editar"
                           title="Edit"
-                          [attr.aria-label]="'Edit ' + proceso.nombre"
+                          [attr.aria-label]="etiqueta.editar(proceso.nombre)"
                         >
                           <i class="fa-solid fa-pen" aria-hidden="true"></i
-                          ><span class="d-none d-lg-inline ms-1">Edit</span>
+                          ><span i18n class="d-none d-lg-inline ms-1">Edit</span>
                         </a>
                         @if (proceso.estado === 'BORRADOR') {
                           <button
+                            i18n-title
                             type="button"
                             class="btn btn-outline-success"
                             data-testid="proceso-publicar"
                             title="Publish"
-                            [attr.aria-label]="'Publish ' + proceso.nombre"
+                            [attr.aria-label]="etiqueta.publicar(proceso.nombre)"
                             data-bs-toggle="modal"
                             data-bs-target="#modal-publicar"
                             (click)="seleccionado = proceso"
                           >
                             <i class="fa-solid fa-rocket" aria-hidden="true"></i
-                            ><span class="d-none d-lg-inline ms-1">Publish</span>
+                            ><span i18n class="d-none d-lg-inline ms-1">Publish</span>
                           </button>
                         }
                         @if (esAdministrador) {
                           <button
+                            i18n-title
                             type="button"
                             class="btn btn-outline-danger"
                             data-testid="proceso-eliminar"
                             title="Delete"
-                            [attr.aria-label]="'Delete ' + proceso.nombre"
+                            [attr.aria-label]="etiqueta.eliminar(proceso.nombre)"
                             data-bs-toggle="modal"
                             data-bs-target="#modal-eliminar"
                             (click)="seleccionado = proceso"
                           >
                             <i class="fa-solid fa-trash-can" aria-hidden="true"></i
-                            ><span class="d-none d-lg-inline ms-1">Delete</span>
+                            ><span i18n class="d-none d-lg-inline ms-1">Delete</span>
                           </button>
                         }
                       </div>
@@ -209,14 +235,15 @@
         </div>
 
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
-          <span class="small text-body-secondary" id="procesos-total">
-            {{ pagina.totalElements }} {{ pagina.totalElements === 1 ? 'process' : 'processes' }}
+          <span i18n class="small text-body-secondary" id="procesos-total">
+            {pagina.totalElements, plural, =1 {1 process} other {{{ pagina.totalElements }} processes}}
           </span>
           @if (pagina.totalPages > 1) {
-            <nav aria-label="Process pages">
+            <nav i18n-aria-label aria-label="Process pages">
               <ul class="pagination pagination-sm mb-0" id="procesos-paginacion">
                 <li class="page-item" [class.disabled]="pagina.page === 0">
                   <button
+                    i18n
                     type="button"
                     class="page-link"
                     id="procesos-anterior"
@@ -227,12 +254,13 @@
                   </button>
                 </li>
                 <li class="page-item active" aria-current="page">
-                  <span class="page-link" id="procesos-pagina-actual"
+                  <span i18n class="page-link" id="procesos-pagina-actual"
                     >Page {{ pagina.page + 1 }} of {{ pagina.totalPages }}</span
                   >
                 </li>
                 <li class="page-item" [class.disabled]="pagina.page + 1 >= pagina.totalPages">
                   <button
+                    i18n
                     type="button"
                     class="page-link"
                     id="procesos-siguiente"
@@ -252,36 +280,40 @@
 </div>
 
 <app-modal-confirmar
+  i18n-titulo
   idModal="modal-publicar"
   titulo="Publish this process?"
   textoBoton="Publish"
-  [mensaje]="'“' + (seleccionado?.nombre ?? '') + '” will be published. A published process cannot go back to draft.'"
+  mensaje="“{{ seleccionado?.nombre ?? '' }}” will be published. A published process cannot go back to draft."
+  i18n-mensaje
   (confirmar)="confirmarPublicacion()"
 />
 
 <app-modal-confirmar
+  i18n-titulo
   idModal="modal-eliminar"
   titulo="Delete this process?"
   textoBoton="Delete"
   [peligro]="true"
-  [mensaje]="'“' + (seleccionado?.nombre ?? '') + '” will leave every list. Its change history is kept.'"
+  mensaje="“{{ seleccionado?.nombre ?? '' }}” will leave every list. Its change history is kept."
+  i18n-mensaje
   (confirmar)="confirmarEliminacion()"
 />
 
 @if (recibidos.length) {
   <div class="container pb-5" id="procesos-recibidos">
-    <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Shared with your store</h2>
-    <p class="small text-body-secondary">
-      Processes another store shares with you. You see the version in force of each one, and cannot change it.
+    <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Shared with your organization</h2>
+    <p i18n class="small text-body-secondary">
+      Processes another organization shares with you. You see the version in force of each one, and cannot change it.
     </p>
     <ul class="list-group list-group-flush">
       @for (recibido of recibidos; track recibido.proceso.id) {
         <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-testid="proceso-recibido">
           <div class="flex-grow-1">
             <a [routerLink]="['/procesos', recibido.proceso.id]" class="fw-semibold">{{ recibido.proceso.nombre }}</a>
-            <div class="small text-body-secondary">from {{ recibido.empresaPropietariaNombre }}</div>
+            <div i18n class="small text-body-secondary">from {{ recibido.empresaPropietariaNombre }}</div>
           </div>
-          <span class="badge text-bg-light border">read-only</span>
+          <span i18n class="badge text-bg-light border">read-only</span>
         </li>
       }
     </ul>

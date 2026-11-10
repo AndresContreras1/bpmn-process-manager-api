@@ -1,11 +1,19 @@
 import { provideHttpClient, withFetch, withInterceptors, withXsrfConfiguration } from '@angular/common/http';
-import { ApplicationConfig, inject, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
+import {
+  ApplicationConfig,
+  DEFAULT_CURRENCY_CODE,
+  inject,
+  provideAppInitializer,
+  provideZoneChangeDetection,
+} from '@angular/core';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './interceptors/auth.interceptor';
 import { idempotenciaInterceptor } from './interceptors/idempotencia.interceptor';
 import { AuthService } from './service/auth.service';
+import { IdiomaService, MONEDA } from './service/idioma.service';
+import { PreferenciasService } from './service/preferencias.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -22,5 +30,9 @@ export const appConfig: ApplicationConfig = {
     ),
     // El login ya pide el token CSRF, asi que la cookie se pide antes de pintar nada
     provideAppInitializer(() => inject(AuthService).prepararCsrf()),
+    // F12: con cada sesion, el idioma y la zona horaria de la persona; si el idioma es otro, la web se abre en el suyo
+    provideAppInitializer(() => inject(PreferenciasService).seguirLaSesion()),
+    // F12: cada idioma con su moneda, la del pipe currency cuando no se le dice otra
+    { provide: DEFAULT_CURRENCY_CODE, useFactory: () => MONEDA[inject(IdiomaService).actual] },
   ],
 };

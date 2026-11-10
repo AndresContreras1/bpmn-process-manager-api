@@ -1,20 +1,20 @@
 <div class="container py-5" id="usuarios">
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
     <div>
-      <h1 class="h4 fw-bold mb-0">Users</h1>
-      <p class="text-body-secondary mb-0">Who can sign in to your store, and what each of them may do.</p>
+      <h1 i18n class="h4 fw-bold mb-0">Users</h1>
+      <p i18n class="text-body-secondary mb-0">Who can sign in to your organization, and what each of them may do.</p>
     </div>
   </div>
 
   @if (!esAdministrador) {
-    <div class="alert alert-info" role="alert" id="usuarios-solo-admin">
-      Only an administrator can manage the users of a store.
+    <div i18n class="alert alert-info" role="alert" id="usuarios-solo-admin">
+      Only an administrator can manage the users of an organization.
     </div>
   } @else {
     @if (aviso) {
       <div class="alert alert-success alert-dismissible" role="status" id="usuarios-aviso">
         {{ aviso }}
-        <button type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
+        <button i18n-aria-label type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
       </div>
     }
     @if (error) {
@@ -22,13 +22,19 @@
     }
     @if (claveTemporal) {
       <div class="alert alert-warning clave-temporal" role="status" id="usuarios-clave-temporal">
-        <p class="mb-1 fw-semibold">Give this password to {{ claveTemporal.usuario }} now.</p>
+        <p i18n class="mb-1 fw-semibold">Give this password to {{ claveTemporal.usuario }} now.</p>
         <code>{{ claveTemporal.clave }}</code>
-        <p class="small mb-0 mt-1">
+        <p i18n class="small mb-0 mt-1">
           It is shown once and is not stored anywhere. They will have to change it before doing anything else; if it is
           lost, reset it and a new one comes out.
         </p>
-        <button type="button" class="btn-close" aria-label="Close" (click)="claveTemporal = null"></button>
+        <button
+          i18n-aria-label
+          type="button"
+          class="btn-close"
+          aria-label="Close"
+          (click)="claveTemporal = null"
+        ></button>
       </div>
     }
 
@@ -36,15 +42,15 @@
       <div class="col-lg-4">
         <div class="card border-0 shadow-sm">
           <div class="card-body p-4">
-            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Add someone</h2>
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Add someone</h2>
             <form [formGroup]="altaForm" (ngSubmit)="crear()" novalidate>
               <div class="mb-2">
-                <label class="form-label small" for="usuarios-nombre">Name</label>
+                <label i18n class="form-label small" for="usuarios-nombre">Name</label>
                 <input type="text" class="form-control" id="usuarios-nombre" formControlName="nombre" />
                 <app-error-campo [control]="altaForm.get('nombre')" />
               </div>
               <div class="mb-2">
-                <label class="form-label small" for="usuarios-email">Email</label>
+                <label i18n class="form-label small" for="usuarios-email">Email</label>
                 <input
                   type="email"
                   class="form-control"
@@ -55,17 +61,21 @@
                 <app-error-campo [control]="altaForm.get('email')" />
               </div>
               <div class="mb-3">
-                <label class="form-label small" for="usuarios-rol">Role</label>
+                <label i18n class="form-label small" for="usuarios-rol">Role</label>
                 <select class="form-select" id="usuarios-rol" formControlName="rolAcceso">
                   @for (rol of roles; track rol) {
                     <option [value]="rol">{{ nombreRol[rol] }}</option>
                   }
                 </select>
               </div>
-              <button type="submit" class="btn btn-primary w-100" id="usuarios-crear" [disabled]="enviando">
-                {{ enviando ? 'Adding…' : 'Add' }}
+              <button i18n type="submit" class="btn btn-primary w-100" id="usuarios-crear" [disabled]="enviando">
+                @if (enviando) {
+                  Adding…
+                } @else {
+                  Add
+                }
               </button>
-              <p class="form-text small mb-0 mt-2">
+              <p i18n class="form-text small mb-0 mt-2">
                 They get a temporary password, shown once here, and have to change it before they can work.
               </p>
             </form>
@@ -78,10 +88,11 @@
           <div class="card-body p-4">
             <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
               <div class="flex-grow-1" style="min-width: 14rem">
-                <label class="visually-hidden" for="usuarios-buscar">Search by name</label>
+                <label i18n class="visually-hidden" for="usuarios-buscar">Search by name</label>
                 <div class="input-group input-group-sm">
                   <span class="input-group-text" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
                   <input
+                    i18n-placeholder
                     type="search"
                     class="form-control"
                     id="usuarios-buscar"
@@ -100,15 +111,15 @@
                   [(ngModel)]="filtros.incluirInactivos"
                   (ngModelChange)="filtrar()"
                 />
-                <label class="form-check-label small" for="usuarios-inactivos">Show deactivated</label>
+                <label i18n class="form-check-label small" for="usuarios-inactivos">Show deactivated</label>
               </div>
             </div>
             @if (cargando) {
-              <div class="text-center text-body-secondary py-4" id="usuarios-cargando">
+              <div i18n class="text-center text-body-secondary py-4" id="usuarios-cargando">
                 <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading…
               </div>
             } @else if (pagina && pagina.content.length === 0) {
-              <p class="text-body-secondary mb-0" id="usuarios-vacio">
+              <p i18n class="text-body-secondary mb-0" id="usuarios-vacio">
                 @if (filtros.nombre.trim() !== '') {
                   Nobody here is called "{{ filtros.nombre }}".
                 } @else {
@@ -133,7 +144,7 @@
                           </button>
                         </th>
                       }
-                      <th scope="col" class="text-end">Actions</th>
+                      <th i18n scope="col" class="text-end">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -142,13 +153,15 @@
                         <td>
                           {{ usuario.nombre }}
                           @if (esYo(usuario)) {
-                            <span class="badge text-bg-light border ms-1">you</span>
+                            <span i18n class="badge text-bg-light border ms-1">you</span>
                           }
                           @if (!usuario.activo) {
-                            <span class="badge text-bg-secondary ms-1" data-testid="usuario-inactivo">deactivated</span>
+                            <span i18n class="badge text-bg-secondary ms-1" data-testid="usuario-inactivo"
+                              >deactivated</span
+                            >
                           }
                           @if (usuario.debeCambiarClave) {
-                            <span class="badge text-bg-warning ms-1">must change the password</span>
+                            <span i18n class="badge text-bg-warning ms-1">must change the password</span>
                           }
                         </td>
                         <td class="d-none d-md-table-cell text-body-secondary">{{ usuario.email }}</td>
@@ -156,7 +169,7 @@
                           <select
                             class="form-select form-select-sm"
                             [value]="usuario.rolAcceso"
-                            [attr.aria-label]="'Role of ' + usuario.nombre"
+                            [attr.aria-label]="etiqueta.rolDe(usuario.nombre)"
                             data-testid="usuario-rol"
                             [disabled]="!usuario.activo"
                             (change)="cambiarRol(usuario, $event)"
@@ -169,6 +182,7 @@
                         <td class="text-end">
                           <div class="btn-group btn-group-sm">
                             <button
+                              i18n
                               type="button"
                               class="btn btn-outline-secondary"
                               data-testid="usuario-roles"
@@ -177,6 +191,7 @@
                               Process roles
                             </button>
                             <button
+                              i18n
                               type="button"
                               class="btn btn-outline-secondary"
                               data-testid="usuario-clave"
@@ -186,6 +201,7 @@
                             </button>
                             @if (!usuario.activo) {
                               <button
+                                i18n
                                 type="button"
                                 class="btn btn-outline-success"
                                 data-testid="usuario-alta"
@@ -195,6 +211,7 @@
                               </button>
                             } @else if (!esYo(usuario)) {
                               <button
+                                i18n
                                 type="button"
                                 class="btn btn-outline-danger"
                                 data-testid="usuario-baja"
@@ -211,16 +228,18 @@
                       @if (seleccionado?.id === usuario.id) {
                         <tr data-testid="usuario-panel-roles">
                           <td colspan="4" class="bg-body-tertiary">
-                            <p class="small fw-semibold mb-2">
+                            <p i18n class="small fw-semibold mb-2">
                               Which process roles {{ usuario.nombre }} answers for. Their task tray comes from this.
                             </p>
                             @if (cargandoRoles) {
-                              <p class="small text-body-secondary mb-0" id="usuarios-cargando-roles">
+                              <p i18n class="small text-body-secondary mb-0" id="usuarios-cargando-roles">
                                 <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
                                 Reading the ones they already answer for…
                               </p>
                             } @else if (rolesDeProceso.length === 0) {
-                              <p class="small text-body-secondary mb-0">Your store has no process roles yet.</p>
+                              <p i18n class="small text-body-secondary mb-0">
+                                Your organization has no process roles yet.
+                              </p>
                             } @else {
                               <div class="d-flex flex-wrap gap-3 mb-2">
                                 @for (rol of rolesDeProceso; track rol.id) {
@@ -239,6 +258,7 @@
                                 }
                               </div>
                               <button
+                                i18n
                                 type="button"
                                 class="btn btn-sm btn-primary"
                                 id="usuarios-guardar-roles"
@@ -257,7 +277,7 @@
               </div>
 
               @if (pagina.totalPages > 1) {
-                <nav aria-label="Pages of users">
+                <nav i18n-aria-label aria-label="Pages of users">
                   <ul class="pagination pagination-sm mb-0">
                     @for (numero of [].constructor(pagina.totalPages); track $index) {
                       <li class="page-item" [class.active]="$index === pagina.page">
@@ -276,6 +296,8 @@
 </div>
 
 <app-modal-confirmar
+  i18n-titulo
+  i18n-mensaje
   idModal="modal-baja-usuario"
   titulo="Deactivate this person?"
   textoBoton="Deactivate"

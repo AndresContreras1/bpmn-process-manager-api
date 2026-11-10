@@ -122,14 +122,14 @@ export class RolesComponent implements OnInit {
       )
       .subscribe({
         next: (rol: RolProceso) => {
-          this.aviso = this.editando ? `"${rol.nombre}" was saved.` : `"${rol.nombre}" was created.`;
+          this.aviso = this.editando ? $localize`"${rol.nombre}" was saved.` : $localize`"${rol.nombre}" was created.`;
           this.vaciarFormulario();
           this.buscar();
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 400) {
             marcarErroresDelServidor(this.rolForm, error);
-            this.error = 'Check the highlighted fields.';
+            this.error = $localize`Check the highlighted fields.`;
           } else {
             this.error = mensajeDeError(error);
           }
@@ -148,7 +148,7 @@ export class RolesComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aviso = `"${rol.nombre}" was deleted.`;
+          this.aviso = $localize`"${rol.nombre}" was deleted.`;
           this.buscar();
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),

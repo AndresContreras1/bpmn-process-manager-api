@@ -88,6 +88,12 @@ interface RamaDelEsquema {
   styleUrl: './proceso-editor.component.scss',
 })
 export class ProcesoEditorComponent implements OnInit {
+  /** Lo que un lector de pantalla dice de los controles que nombran algo de la fila: el texto va con el valor. */
+  readonly etiqueta = {
+    subir: (valor: string | number): string => $localize`Move ${valor} up`,
+    bajar: (valor: string | number): string => $localize`Move ${valor} down`,
+  };
+
   private readonly procesoService: ProcesoService = inject(ProcesoService);
   private readonly diagramaService: DiagramaService = inject(DiagramaService);
   private readonly diagnosticoService: DiagnosticoService = inject(DiagnosticoService);
@@ -230,7 +236,7 @@ export class ProcesoEditorComponent implements OnInit {
     this.origenConexion = null;
     this.conectando = false;
     if (origen === id) {
-      this.error = 'A flow needs two different nodes.';
+      this.error = $localize`A flow needs two different nodes.`;
       return;
     }
     const poolOrigen: number | null = this.poolDelNodo(origen);
@@ -254,7 +260,7 @@ export class ProcesoEditorComponent implements OnInit {
     }
     this.crear(
       this.mensajeService.crear(this.procesoId, {
-        nombre: this.nombreLibre('New message'),
+        nombre: this.nombreLibre($localize`New message`),
         contenido: '',
         poolOrigenId: poolOrigen,
         poolDestinoId: poolDestino,
@@ -346,8 +352,8 @@ export class ProcesoEditorComponent implements OnInit {
         next: (publicado: Proceso) => {
           this.publicado =
             publicado.versionPublicada === null
-              ? 'The process is published.'
-              : `Published as version ${publicado.versionPublicada}.`;
+              ? $localize`The process is published.`
+              : $localize`Published as version ${publicado.versionPublicada}.`;
           this.refrescar();
         },
         error: (error: HttpErrorResponse) => {
@@ -376,9 +382,9 @@ export class ProcesoEditorComponent implements OnInit {
         error: (error: HttpErrorResponse) => {
           this.errorRevision =
             error.status === 503
-              ? 'The AI review is not set up in this installation.'
+              ? $localize`The AI review is not set up in this installation.`
               : error.status === 429
-                ? 'Your store has asked for too many reviews. Try again later.'
+                ? $localize`Your organization has asked for too many reviews. Try again later.`
                 : mensajeDeError(error);
         },
       });
@@ -423,7 +429,7 @@ export class ProcesoEditorComponent implements OnInit {
   agregarPool(): void {
     this.crear(
       this.poolService.crear(this.procesoId, {
-        nombre: this.nombreLibre('New participant'),
+        nombre: this.nombreLibre($localize`New participant`),
         tipoParticipante: 'CLIENTE',
         cajaNegra: true,
         integracion: 'NINGUNA',
@@ -436,15 +442,15 @@ export class ProcesoEditorComponent implements OnInit {
   agregarLane(): void {
     const poolId: number | null = this.poolDelContexto();
     if (poolId === null) {
-      this.error = 'Pick a participant first: a lane belongs to one.';
+      this.error = $localize`Pick a participant first: a lane belongs to one.`;
       return;
     }
     if (this.roles.length === 0) {
-      this.error = 'Your store has no process roles yet, and a lane needs one.';
+      this.error = $localize`Your organization has no process roles yet, and a lane needs one.`;
       return;
     }
     this.crear(
-      this.laneService.crear(poolId, { nombre: this.nombreLibre('New lane'), rolProcesoId: this.roles[0].id }),
+      this.laneService.crear(poolId, { nombre: this.nombreLibre($localize`New lane`), rolProcesoId: this.roles[0].id }),
       'LANE',
     );
   }
@@ -457,7 +463,7 @@ export class ProcesoEditorComponent implements OnInit {
     const sitio = this.sitioLibre(lane);
     this.crear(
       this.actividadService.crear(lane, {
-        nombre: this.nombreLibre('New task'),
+        nombre: this.nombreLibre($localize`New task`),
         descripcion: null,
         tipoActividad: this.nuevaActividad,
         posicionX: sitio.x,
@@ -475,7 +481,7 @@ export class ProcesoEditorComponent implements OnInit {
     const sitio = this.sitioLibre(lane);
     this.crear(
       this.gatewayService.crear(lane, {
-        nombre: this.nombreLibre('New gateway'),
+        nombre: this.nombreLibre($localize`New gateway`),
         tipoGateway: this.nuevoGateway,
         posicionX: sitio.x,
         posicionY: sitio.y,
@@ -492,7 +498,7 @@ export class ProcesoEditorComponent implements OnInit {
     const sitio = this.sitioLibre(lane);
     this.crear(
       this.eventoService.crear(lane, {
-        nombre: this.nombreLibre('New event'),
+        nombre: this.nombreLibre($localize`New event`),
         tipoEvento: this.nuevoEvento,
         posicionX: sitio.x,
         posicionY: sitio.y,
@@ -504,12 +510,12 @@ export class ProcesoEditorComponent implements OnInit {
   /** Un mensaje va de un participante a otro, asi que lo primero que hay que decir son esos dos. */
   agregarMensaje(): void {
     if (this.mensajeOrigen === null || this.mensajeDestino === null || this.mensajeOrigen === this.mensajeDestino) {
-      this.error = 'A message flow goes between two different participants.';
+      this.error = $localize`A message flow goes between two different participants.`;
       return;
     }
     this.crear(
       this.mensajeService.crear(this.procesoId, {
-        nombre: this.nombreLibre('New message'),
+        nombre: this.nombreLibre($localize`New message`),
         contenido: '',
         poolOrigenId: this.mensajeOrigen,
         poolDestinoId: this.mensajeDestino,
@@ -539,7 +545,7 @@ export class ProcesoEditorComponent implements OnInit {
     if (!seleccion) {
       return;
     }
-    this.impacto = 'Working out what would be left…';
+    this.impacto = $localize`Working out what would be left…`;
     const antes: number = this.diagnostico?.errores ?? 0;
     this.diagnosticoService
       .sinElemento(this.procesoId, seleccion.tipo, seleccion.id)
@@ -549,10 +555,10 @@ export class ProcesoEditorComponent implements OnInit {
           const nombre: string = this.nombreElegido;
           this.impacto =
             despues.errores === antes
-              ? `Deleting "${nombre}" leaves the diagram with the same ${conErrores(antes)} it has now.`
-              : `Deleting "${nombre}" takes the diagram from ${antes} to ${conErrores(despues.errores)}.`;
+              ? $localize`Deleting "${nombre}" leaves the diagram with the same ${conErrores(antes)} it has now.`
+              : $localize`Deleting "${nombre}" takes the diagram from ${antes} to ${conErrores(despues.errores)}.`;
         },
-        error: () => (this.impacto = 'The impact could not be worked out. Deleting cannot be undone.'),
+        error: () => (this.impacto = $localize`The impact could not be worked out. Deleting cannot be undone.`),
       });
   }
 
@@ -617,7 +623,7 @@ export class ProcesoEditorComponent implements OnInit {
   private laneDelContexto(): number | null {
     const lane: number | null = this.laneDelContextoSinQuejarse();
     if (lane === null) {
-      this.error = 'Pick a lane first: tasks, gateways and events live inside one.';
+      this.error = $localize`Pick a lane first: tasks, gateways and events live inside one.`;
     }
     return lane;
   }

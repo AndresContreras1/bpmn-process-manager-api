@@ -34,6 +34,13 @@ interface Estado {
   templateUrl: './simulacion.component.html',
 })
 export class SimulacionComponent implements OnInit {
+  /** Lo que un lector de pantalla dice de los controles que nombran algo de la fila: el texto va con el valor. */
+  readonly etiqueta = {
+    nombre: (valor: string | number): string => $localize`Name ${valor}`,
+    valor: (valor: string | number): string => $localize`Value ${valor}`,
+    quitar: (valor: string | number): string => $localize`Remove ${valor}`,
+  };
+
   private readonly simulacionService: SimulacionService = inject(SimulacionService);
   private readonly configuracionService: ConfiguracionService = inject(ConfiguracionService);
   private readonly procesoService: ProcesoService = inject(ProcesoService);
@@ -117,7 +124,7 @@ export class SimulacionComponent implements OnInit {
         next: (panel: PanelDeSimulacion) => {
           this.moviendo = false;
           this.panel = panel;
-          this.aviso = `The clock is on tick ${panel.reloj}.`;
+          this.aviso = $localize`The clock is on tick ${panel.reloj}.`;
           // El reloj vive en la misma fila que la configuracion, asi que moverlo le cambia la version: sin volver
           // a leerla, guardar los socios despues respondería 409
           this.recargarConfiguracion();
@@ -207,7 +214,7 @@ export class SimulacionComponent implements OnInit {
           this.guardando = false;
           this.configuracion = guardada;
           this.llenarSocios(guardada);
-          this.aviso = 'The partners answer like this from now on.';
+          this.aviso = $localize`The partners answer like this from now on.`;
           this.refrescarPanel();
         },
         error: (error: HttpErrorResponse) => {

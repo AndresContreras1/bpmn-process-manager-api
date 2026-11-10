@@ -3,11 +3,11 @@
     <div class="col-md-8 col-lg-5">
       <div class="card border-0 shadow-sm">
         <div class="card-body p-4 p-md-5">
-          <h1 class="h3 fw-bold mb-1" id="login-titulo">Sign in</h1>
-          <p class="text-body-secondary mb-4">Use the account of your store.</p>
+          <h1 i18n class="h3 fw-bold mb-1" id="login-titulo">Sign in</h1>
+          <p i18n class="text-body-secondary mb-4">Use the account of your organization.</p>
 
           @if (sesionVencida) {
-            <div class="alert alert-warning" role="alert" id="login-sesion-vencida">
+            <div i18n class="alert alert-warning" role="alert" id="login-sesion-vencida">
               Your session expired. Please sign in again.
             </div>
           }
@@ -18,19 +18,21 @@
           <form [formGroup]="loginForm" (ngSubmit)="iniciarSesion()" novalidate>
             <div class="form-floating mb-3">
               <input
+                i18n-placeholder
                 type="email"
                 class="form-control"
                 id="login-email"
                 formControlName="email"
-                placeholder="name@store.com"
+                placeholder="name@company.com"
                 autocomplete="email"
               />
-              <label for="login-email">Email</label>
+              <label i18n for="login-email">Email</label>
               <app-error-campo [control]="loginForm.get('email')" />
             </div>
 
             <div class="form-floating mb-4">
               <input
+                i18n-placeholder
                 type="password"
                 class="form-control"
                 id="login-password"
@@ -38,11 +40,12 @@
                 placeholder="Password"
                 autocomplete="current-password"
               />
-              <label for="login-password">Password</label>
+              <label i18n for="login-password">Password</label>
               <app-error-campo [control]="loginForm.get('password')" />
             </div>
 
             <button
+              i18n
               type="submit"
               class="btn btn-primary w-100 py-2"
               id="login-enviar"
@@ -57,9 +60,12 @@
 
           @if (demo) {
             <div class="border rounded-3 p-3 mt-4 bg-body-tertiary small" id="login-demo">
-              <div class="fw-semibold mb-1"><i class="fa-solid fa-store" aria-hidden="true"></i> Demo store</div>
-              <p class="text-body-secondary mb-2">admin&#64;demo.com · every-order-on-time · administrator</p>
+              <div i18n class="fw-semibold mb-1">
+                <i class="fa-solid fa-store" aria-hidden="true"></i> Demo organization
+              </div>
+              <p i18n class="text-body-secondary mb-2">admin&#64;demo.com · every-order-on-time · administrator</p>
               <button
+                i18n
                 type="button"
                 class="btn btn-sm btn-outline-primary"
                 id="login-usar-demo"
@@ -70,8 +76,8 @@
             </div>
           }
 
-          <p class="text-center small mt-4 mb-0">
-            No store yet? <a routerLink="/registro" id="login-ir-registro">Create one</a>
+          <p i18n class="text-center small mt-4 mb-0">
+            No organization yet? <a routerLink="/registro" id="login-ir-registro">Create one</a>
           </p>
         </div>
       </div>

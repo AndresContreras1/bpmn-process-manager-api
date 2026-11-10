@@ -6,7 +6,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
   template: `
     <div class="alert alert-danger d-flex align-items-center justify-content-between gap-3" role="alert">
       <span><i class="fa-solid fa-triangle-exclamation me-2" aria-hidden="true"></i>{{ mensaje() }}</span>
-      <button type="button" class="btn btn-sm btn-outline-danger" (click)="reintentar.emit()">Try again</button>
+      <button type="button" class="btn btn-sm btn-outline-danger" (click)="reintentar.emit()" i18n>Try again</button>
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.Eager,

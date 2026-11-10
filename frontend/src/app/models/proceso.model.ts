@@ -62,23 +62,23 @@ export interface FiltrosProceso {
 
 /** Nombre de cada estado en la interfaz. */
 export const NOMBRE_ESTADO: Record<EstadoProceso, string> = {
-  BORRADOR: 'Draft',
-  PUBLICADO: 'Published',
+  BORRADOR: $localize`Draft`,
+  PUBLICADO: $localize`Published`,
 };
 
 // La API registra el historial en espanol. Estos textos son fijos...
 const CAMBIOS: Partial<Record<string, string>> = {
-  'Proceso creado.': 'Process created.',
-  'Proceso editado.': 'Name, description or category edited.',
-  'Proceso publicado.': 'Process published.',
-  'Estado del proceso actualizado.': 'State updated.',
-  'Proceso eliminado (baja logica).': 'Process deleted.',
+  'Proceso creado.': $localize`Process created.`,
+  'Proceso editado.': $localize`Name, description or category edited.`,
+  'Proceso publicado.': $localize`Process published.`,
+  'Estado del proceso actualizado.': $localize`State updated.`,
+  'Proceso eliminado (baja logica).': $localize`Process deleted.`,
 };
 
 // ...y estos terminan con el nombre de la otra tienda
 const CAMBIOS_CON_TIENDA: [string, string][] = [
-  ['Proceso compartido en solo lectura con ', 'Shared read-only with '],
-  ['Se dejó de compartir el proceso con ', 'Stopped sharing with '],
+  ['Proceso compartido en solo lectura con ', $localize`Shared read-only with `],
+  ['Se dejó de compartir el proceso con ', $localize`Stopped sharing with `],
 ];
 
 /** Un cambio del historial en ingles; si la API trae un texto que no esta aqui, se muestra el original. */

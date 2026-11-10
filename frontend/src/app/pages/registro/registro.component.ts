@@ -10,6 +10,8 @@ import { marcarErroresDelServidor, mensajeDeError } from '../../helpers/errores-
 import { RegistroEmpresaRequest } from '../../models/empresa.model';
 import { AuthService } from '../../service/auth.service';
 import { EmpresaService } from '../../service/empresa.service';
+import { IdiomaService } from '../../service/idioma.service';
+import { zonaDelNavegador } from '../../service/preferencias.service';
 
 @Component({
   selector: 'app-registro',
@@ -21,6 +23,7 @@ import { EmpresaService } from '../../service/empresa.service';
 export class RegistroComponent {
   private readonly empresaService: EmpresaService = inject(EmpresaService);
   private readonly authService: AuthService = inject(AuthService);
+  private readonly idiomaService: IdiomaService = inject(IdiomaService);
   private readonly router: Router = inject(Router);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
@@ -48,6 +51,9 @@ export class RegistroComponent {
       nombreAdmin: valores.nombreAdmin ?? '',
       emailAdmin: valores.emailAdmin ?? '',
       passwordAdmin: valores.passwordAdmin ?? '',
+      // F12: la organizacion empieza a trabajar en el idioma de esta web y en la hora de este navegador
+      idioma: this.idiomaService.actual,
+      zonaHoraria: zonaDelNavegador(),
     };
     // Registrar y entrar con el administrador nuevo, encadenados sin un subscribe dentro de otro
     this.empresaService
@@ -65,10 +71,10 @@ export class RegistroComponent {
 
   private mostrarError(error: HttpErrorResponse): void {
     if (error.status === 409) {
-      this.error = 'A store with that tax ID, or an account with that email, already exists.';
+      this.error = $localize`An organization with that tax ID, or an account with that email, already exists.`;
     } else if (error.status === 400) {
       marcarErroresDelServidor(this.registroForm, error);
-      this.error = 'Check the highlighted fields.';
+      this.error = $localize`Check the highlighted fields.`;
     } else {
       this.error = mensajeDeError(error);
     }

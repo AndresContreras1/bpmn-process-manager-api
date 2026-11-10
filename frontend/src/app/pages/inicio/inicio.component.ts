@@ -29,18 +29,18 @@ export class InicioComponent {
   readonly caracteristicas: Caracteristica[] = [
     {
       icono: 'fa-list-check',
-      titulo: 'Processes',
-      descripcion: 'Create processes, edit them as drafts and publish them. Every change keeps its author.',
+      titulo: $localize`Processes`,
+      descripcion: $localize`Create processes, edit them as drafts and publish them. Every change keeps its author.`,
     },
     {
       icono: 'fa-diagram-project',
-      titulo: 'BPMN diagrams',
-      descripcion: 'Pools, lanes, tasks, gateways, sequence flows and messages between participants.',
+      titulo: $localize`BPMN diagrams`,
+      descripcion: $localize`Pools, lanes, tasks, gateways, sequence flows and messages between participants.`,
     },
     {
       icono: 'fa-user-shield',
-      titulo: 'Roles and isolation',
-      descripcion: 'Administrators, editors and read-only users. A store never sees the data of another.',
+      titulo: $localize`Roles and isolation`,
+      descripcion: $localize`Administrators, editors and read-only users. An organization never sees the data of another.`,
     },
   ];
 }

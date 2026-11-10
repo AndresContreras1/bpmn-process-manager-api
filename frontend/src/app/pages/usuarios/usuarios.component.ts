@@ -33,6 +33,11 @@ interface Columna {
   styleUrl: './usuarios.component.scss',
 })
 export class UsuariosComponent implements OnInit {
+  /** Lo que un lector de pantalla dice de los controles que nombran algo de la fila: el texto va con el valor. */
+  readonly etiqueta = {
+    rolDe: (valor: string | number): string => $localize`Role of ${valor}`,
+  };
+
   private readonly usuarioService: UsuarioService = inject(UsuarioService);
   private readonly rolProcesoService: RolProcesoService = inject(RolProcesoService);
   private readonly authService: AuthService = inject(AuthService);
@@ -43,9 +48,9 @@ export class UsuariosComponent implements OnInit {
   readonly nombreRol: Record<RolAcceso, string> = NOMBRE_ROL;
   readonly roles: RolAcceso[] = ['ADMINISTRADOR', 'EDITOR', 'SOLO_LECTURA'];
   readonly columnas: Columna[] = [
-    { campo: 'nombre', titulo: 'Name', clase: '' },
-    { campo: 'email', titulo: 'Email', clase: 'd-none d-md-table-cell' },
-    { campo: 'rolAcceso', titulo: 'Role', clase: '' },
+    { campo: 'nombre', titulo: $localize`Name`, clase: '' },
+    { campo: 'email', titulo: $localize`Email`, clase: 'd-none d-md-table-cell' },
+    { campo: 'rolAcceso', titulo: $localize`Role`, clase: '' },
   ];
   readonly esAdministrador: boolean = this.authService.esAdministrador();
   /** Quien esta mirando: la API no le deja desactivarse a si mismo, asi que no se le ofrece. */
@@ -192,7 +197,7 @@ export class UsuariosComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aviso = `${usuario.nombre} is now ${this.nombreRol[rolAcceso].toLowerCase()}.`;
+          this.aviso = $localize`${usuario.nombre} is now ${this.nombreRol[rolAcceso].toLowerCase()}.`;
           this.buscar();
         },
         error: (error: HttpErrorResponse) => this.mostrarError(error),
@@ -210,7 +215,7 @@ export class UsuariosComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aviso = `${usuario.nombre} can no longer sign in, and left the list.`;
+          this.aviso = $localize`${usuario.nombre} can no longer sign in, and left the list.`;
           this.paraBaja = null;
           this.buscar();
         },
@@ -226,7 +231,7 @@ export class UsuariosComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aviso = `${usuario.nombre} can sign in again.`;
+          this.aviso = $localize`${usuario.nombre} can sign in again.`;
           this.buscar();
         },
         error: (error: HttpErrorResponse) => this.mostrarError(error),
@@ -299,7 +304,7 @@ export class UsuariosComponent implements OnInit {
       )
       .subscribe({
         next: () => {
-          this.aviso = `The process roles of ${usuario.nombre} were saved.`;
+          this.aviso = $localize`The process roles of ${usuario.nombre} were saved.`;
           this.seleccionado = null;
         },
         error: (error: HttpErrorResponse) => this.mostrarError(error),
@@ -309,7 +314,7 @@ export class UsuariosComponent implements OnInit {
   private mostrarError(error: HttpErrorResponse, formulario?: FormGroup): void {
     if (error.status === 400 && formulario) {
       marcarErroresDelServidor(formulario, error);
-      this.error = 'Check the highlighted fields.';
+      this.error = $localize`Check the highlighted fields.`;
     } else {
       this.error = mensajeDeError(error);
     }

@@ -6,7 +6,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Map;
 
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,18 +15,20 @@ import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.auditoria.Auditoria;
-import com.facimus.procesos.common.correo.Redactor;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.model.ConfiguracionTienda;
 import com.facimus.procesos.gestion.model.EnlaceDeUnUso;
 import com.facimus.procesos.gestion.model.PropositoDeEnlace;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.repository.ConfiguracionTiendaRepository;
 import com.facimus.procesos.gestion.repository.EnlaceDeUnUsoRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
+import com.facimus.procesos.gestion.service.Idiomas;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
@@ -41,6 +42,7 @@ public class CuentaServiceImpl implements CuentaService {
 
     private final UsuarioRepository usuarioRepository;
     private final EnlaceDeUnUsoRepository enlaceRepository;
+    private final ConfiguracionTiendaRepository configuracionRepository;
     private final UsuarioService usuarioService;
     private final SesionService sesionService;
     private final HistorialCambioService historialCambioService;
@@ -58,7 +60,7 @@ public class CuentaServiceImpl implements CuentaService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
         if (usuario.getCorreoVerificadoEn() == null) {
             encolar(new PedidoDeCorreo(PropositoDeEnlace.VERIFICAR_CORREO, empresaId, usuarioId, usuario.getEmail(),
-                    null, null, idioma()));
+                    null, null, idiomaDe(usuario)));
         }
     }
 
@@ -78,7 +80,8 @@ public class CuentaServiceImpl implements CuentaService {
         usuarioRepository.findByEmail(email.trim().toLowerCase(Locale.ROOT))
                 .filter(Usuario::isActivo)
                 .ifPresent(usuario -> encolar(new PedidoDeCorreo(PropositoDeEnlace.RECUPERAR_CLAVE,
-                        usuario.getEmpresa().getId(), usuario.getId(), usuario.getEmail(), null, null, idioma())));
+                        usuario.getEmpresa().getId(), usuario.getId(), usuario.getEmail(), null, null,
+                        idiomaDe(usuario))));
     }
 
     @Override
@@ -114,8 +117,9 @@ public class CuentaServiceImpl implements CuentaService {
         }
         String correo = email.trim().toLowerCase(Locale.ROOT);
         usuarioService.validarCorreoDisponible(correo);
+        // Quien recibe la invitacion todavia no eligio nada: le llega en el idioma de la organizacion a la que entra
         encolar(new PedidoDeCorreo(PropositoDeEnlace.INVITACION, empresaId, null, correo, rolAcceso, autorId,
-                idioma()));
+                idiomaDeLaOrganizacion(empresaId)));
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
                 "Invitación por correo a " + correo + " con rol " + rolAcceso + ".");
         auditoria.registrar(empresaId, autorId, "INVITACION_ENVIADA", "EMPRESA", empresaId,
@@ -162,9 +166,17 @@ public class CuentaServiceImpl implements CuentaService {
         cola.encolar(pedido.empresaId(), PedidoDeCorreo.TIPO, jsonMapper.writeValueAsString(pedido));
     }
 
-    /** El idioma de quien hizo la peticion, si los correos lo hablan; si no, el espanol. */
-    private static String idioma() {
-        return Redactor.idioma(LocaleContextHolder.getLocale()).getLanguage();
+    /**
+     * F12: el correo sale en el idioma de quien lo recibe, no en el de quien lo pidio: el que eligio, o el de su
+     * organizacion. Un enlace de recuperacion lo pide cualquiera que escriba el correo.
+     */
+    private String idiomaDe(Usuario usuario) {
+        return usuario.getIdioma() != null ? usuario.getIdioma() : idiomaDeLaOrganizacion(usuario.getEmpresa().getId());
+    }
+
+    private String idiomaDeLaOrganizacion(Long empresaId) {
+        return configuracionRepository.findByEmpresaId(empresaId).map(ConfiguracionTienda::getIdioma)
+                .orElse(Idiomas.POR_DEFECTO);
     }
 
     /** PostgreSQL guarda microsegundos: lo que se escribe es lo que se leera despues. */

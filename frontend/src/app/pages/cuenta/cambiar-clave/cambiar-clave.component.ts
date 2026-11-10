@@ -52,17 +52,17 @@ export class CambiarClaveComponent {
       )
       .subscribe({
         next: () => {
-          this.aviso = 'Your password was changed. The sessions you had open elsewhere were closed.';
+          this.aviso = $localize`Your password was changed. The sessions you had open elsewhere were closed.`;
           this.claveForm.reset({ actual: '', nueva: '' });
           this.cambiada.emit();
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 400) {
             marcarErroresDelServidor(this.claveForm, error);
-            this.error = 'Check the highlighted fields.';
+            this.error = $localize`Check the highlighted fields.`;
           } else if (error.status === 401) {
-            this.claveForm.get('actual')?.setErrors({ servidor: 'That is not your current password.' });
-            this.error = 'Check the highlighted fields.';
+            this.claveForm.get('actual')?.setErrors({ servidor: $localize`That is not your current password.` });
+            this.error = $localize`Check the highlighted fields.`;
           } else {
             this.error = mensajeDeError(error);
           }

@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -18,6 +17,7 @@ import { VersionService } from '../../service/version.service';
 import { DetalleNodo, detallarNodo } from './components/diagrama-bpmn/detalle-nodo';
 import { DiagramaBpmnComponent } from './components/diagrama-bpmn/diagrama-bpmn.component';
 import { Lienzo, dibujarDiagrama } from './components/diagrama-bpmn/lienzo';
+import { FechaPipe } from '../../pipes/fecha.pipe';
 
 /** Lo que la pagina pide al abrir un proceso: sus datos con el historial y su diagrama. */
 interface Carga {
@@ -36,7 +36,7 @@ interface Respuesta {
 /** Un proceso con sus datos, su diagrama y su historial de cambios, y las acciones que permite el rol del usuario. */
 @Component({
   selector: 'app-proceso-detalle',
-  imports: [DatePipe, FormsModule, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent],
+  imports: [FechaPipe, FormsModule, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent],
   templateUrl: './proceso-detalle.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './proceso-detalle.component.scss',
@@ -82,9 +82,9 @@ export class ProcesoDetalleComponent implements OnInit {
   ngOnInit(): void {
     const consulta: ParamMap = this.route.snapshot.queryParamMap;
     if (consulta.has('creado')) {
-      this.aviso = 'Process created as a draft.';
+      this.aviso = $localize`Process created as a draft.`;
     } else if (consulta.has('editado')) {
-      this.aviso = 'Changes saved.';
+      this.aviso = $localize`Changes saved.`;
     }
     // Si el id de la ruta cambia, switchMap cancela la peticion anterior y carga el proceso nuevo
     this.route.paramMap
@@ -176,7 +176,7 @@ export class ProcesoDetalleComponent implements OnInit {
         next: (publicado: { detalle: ProcesoDetalle; versiones: Version[] }) => {
           this.detalle = publicado.detalle;
           this.versiones = publicado.versiones;
-          this.aviso = 'The process is now published.';
+          this.aviso = $localize`The process is now published.`;
         },
         error: (error: HttpErrorResponse) => this.noSePudoPublicar(proceso.id, error),
       });
@@ -205,7 +205,7 @@ export class ProcesoDetalleComponent implements OnInit {
       .subscribe({
         next: (carga: Carga) => {
           this.mostrar(carga);
-          this.aviso = `Version ${numero} was retired. New cases will start on whatever is in force now.`;
+          this.aviso = $localize`Version ${numero} was retired. New cases will start on whatever is in force now.`;
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
@@ -239,9 +239,7 @@ export class ProcesoDetalleComponent implements OnInit {
       this.error = mensajeDeError(error);
       return;
     }
-    this.error =
-      'Someone saved a change before you, so the process was not published. This page now shows the ' +
-      'latest version: check it and publish again.';
+    this.error = $localize`Someone saved a change before you, so the process was not published. This page now shows the latest version: check it and publish again.`;
     this.cargar(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((carga: Carga) => this.mostrar(carga));

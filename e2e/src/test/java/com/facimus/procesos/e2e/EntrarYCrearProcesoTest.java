@@ -23,7 +23,7 @@ class EntrarYCrearProcesoTest extends PruebaE2E {
 
         // El mensaje exacto, no "hay un error": la primera version de esta prueba pasaba con un 403 de CORS,
         // que no tiene nada que ver con la clave, y por eso no se entero de que el login estaba roto.
-        assertEquals("Wrong email or password.", textoDe(Paginas.Login.ERROR),
+        assertEquals("Correo o contraseña incorrectos.", textoDe(Paginas.Login.ERROR),
                 "una clave equivocada es un 401, y la pagina tiene que decir eso y no otra cosa");
         assertTrue(navegador.getCurrentUrl().contains("/login"), "y quedarse en el login");
     }
@@ -49,7 +49,7 @@ class EntrarYCrearProcesoTest extends PruebaE2E {
 
         // Crear lleva al detalle del proceso recien creado, y nace como borrador
         esperarTexto(Paginas.Detalle.NOMBRE, "Returns and refunds");
-        assertEquals("Draft", textoDe(Paginas.Detalle.ESTADO), "un proceso nuevo nace como borrador");
+        assertEquals("Borrador", textoDe(Paginas.Detalle.ESTADO), "un proceso nuevo nace como borrador");
 
         ir("/procesos");
         esperarTexto(Paginas.Procesos.FILA, "Returns and refunds");

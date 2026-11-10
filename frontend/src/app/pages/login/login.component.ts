@@ -63,7 +63,7 @@ export class LoginComponent implements OnInit {
       .subscribe({
         next: () => this.router.navigateByUrl(this.volver),
         error: (error: HttpErrorResponse) => {
-          this.error = error.status === 401 ? 'Wrong email or password.' : mensajeDeError(error);
+          this.error = error.status === 401 ? $localize`Wrong email or password.` : mensajeDeError(error);
         },
       });
   }

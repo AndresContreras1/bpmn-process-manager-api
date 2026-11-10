@@ -1,2 +1,4 @@
 # Generado desde los tokens
 src/styles/_tokens.scss
+# Los mensajes los escribe ng extract-i18n y las traducciones siguen su forma: no se reformatean a mano
+/src/locale/

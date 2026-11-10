@@ -39,14 +39,14 @@ class ModelarYPublicarTest extends PruebaE2E {
 
         // Un inicio y un fin sin nada entre ellos no es un proceso: el diagnostico lo dice y publicar esta cerrado
         String antes = textoDe(Paginas.Editor.CUENTA);
-        assertFalse(antes.startsWith("0 errors"), "un diagrama a medias tiene que tener errores, y tiene: " + antes);
+        assertFalse(antes.startsWith("0 errores"), "un diagrama a medias tiene que tener errores, y tiene: " + antes);
         // visible y no pulsable: pulsable espera a que se pueda pulsar, que es justo lo que aqui no tiene que pasar
         assertFalse(visible(Paginas.Editor.PUBLICAR).isEnabled(), "con errores no se puede publicar");
 
         // Se agrega la tarea que falta, desde la paleta, sobre la lane elegida
         pulsable(Paginas.Editor.LANE).click();
         pulsable(By.id("paleta-actividad")).click();
-        esperarTexto(Paginas.Editor.ELEGIDO, "New task");
+        esperarTexto(Paginas.Editor.ELEGIDO, "Nueva tarea");
         escribir(Paginas.Editor.NOMBRE_ACTIVIDAD, "Wrap the order");
         pulsable(Paginas.Editor.GUARDAR).click();
         esperarTexto(Paginas.Editor.ELEGIDO, "Wrap the order");
@@ -55,27 +55,30 @@ class ModelarYPublicarTest extends PruebaE2E {
         conectar("Gift requested", "Wrap the order");
         conectar("Wrap the order", "Gift ready");
         espera.until(ExpectedConditions.visibilityOfElementLocated(Paginas.Editor.LIMPIO));
-        assertTrue(textoDe(Paginas.Editor.CUENTA).startsWith("0 errors"), "el diagrama tendria que quedar limpio");
+        assertTrue(textoDe(Paginas.Editor.CUENTA).startsWith("0 errores"), "el diagrama tendria que quedar limpio");
 
         pulsable(Paginas.Editor.PUBLICAR).click();
-        esperarTexto(Paginas.Editor.PUBLICADO, "version 1");
+        esperarTexto(Paginas.Editor.PUBLICADO, "versión 1");
 
         // Y el proceso queda publicado, con su version, para quien lo mire desde fuera del editor
         ir("/procesos/" + proceso);
         esperarTexto(Paginas.Detalle.NOMBRE, "Gift wrapping");
-        assertEquals("Published", textoDe(Paginas.Detalle.ESTADO));
-        assertTrue(textoDe(Paginas.Detalle.CONTEO).contains("Tasks: 1"),
+        assertEquals("Publicado", textoDe(Paginas.Detalle.ESTADO));
+        assertTrue(textoDe(Paginas.Detalle.CONTEO).contains("Tareas: 1"),
                 "el visor tiene que contar la tarea que se acaba de modelar");
-        assertTrue(textoDe(Paginas.Detalle.CONTEO).contains("Events: 2"),
+        assertTrue(textoDe(Paginas.Detalle.CONTEO).contains("Eventos: 2"),
                 "y los dos eventos, que antes de F4b no se dibujaban");
 
         // Y la vuelta atras: retirar la version que se acaba de publicar, que es lo unico que se le puede cambiar
-        elegir(Paginas.Detalle.VERSION, "Version 1 \u00b7 in force");
-        esperarTexto(Paginas.Detalle.CONGELADO, "exactly as it was published");
+        assertEquals("VIGENTE", visible(Paginas.Detalle.version(1)).getDomAttribute("data-estado"));
+        pulsable(Paginas.Detalle.version(1)).click();
+        esperarTexto(Paginas.Detalle.CONGELADO, "tal como se publicó");
         pulsable(Paginas.Detalle.RETIRAR).click();
         pulsable(Paginas.Detalle.CONFIRMAR_RETIRO).click();
-        esperarTexto(Paginas.Detalle.AVISO, "was retired");
-        elegir(Paginas.Detalle.VERSION, "Version 1 \u00b7 retired");
+        esperarTexto(Paginas.Detalle.AVISO, "Se retiró la versión 1");
+        espera.until(ExpectedConditions.attributeToBe(Paginas.Detalle.version(1), "data-estado", "RETIRADA"));
+        assertTrue(textoDe(Paginas.Detalle.version(1)).contains("retirada"),
+                "el selector dice, en espanol, que la version 1 ya no esta vigente");
     }
 
     /** Dos clics en el lienzo: el modo de conectar no elige nodos, los une. */

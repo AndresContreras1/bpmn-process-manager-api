@@ -54,6 +54,6 @@ export const LIMITES_DE_SESION = {
 
 /** Quien puede tocar la estructura, en la interfaz. */
 export const NOMBRE_POLITICA: Record<PoliticaEstructura, string> = {
-  SOLO_ADMINISTRADOR: 'Only administrators',
-  ADMINISTRADOR_Y_EDITOR: 'Administrators and editors',
+  SOLO_ADMINISTRADOR: $localize`Only administrators`,
+  ADMINISTRADOR_Y_EDITOR: $localize`Administrators and editors`,
 };

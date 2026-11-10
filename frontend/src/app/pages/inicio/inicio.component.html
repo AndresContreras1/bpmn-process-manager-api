@@ -2,27 +2,29 @@
   <div class="container py-5">
     <div class="row align-items-center g-5">
       <div class="col-lg-6">
-        <p class="text-primary-emphasis fw-semibold small text-uppercase mb-2">BPMN for online stores</p>
-        <h1 class="display-5 fw-bold mb-3" id="inicio-titulo">Model how your store operates</h1>
-        <p class="lead text-body-secondary mb-3" id="inicio-descripcion">
-          Each online store documents its operations, from order fulfillment to returns, as BPMN processes. Its data
-          never reaches another store.
+        <p i18n class="text-primary-emphasis fw-semibold small text-uppercase mb-2">BPMN for organizations</p>
+        <h1 i18n class="display-5 fw-bold mb-3" id="inicio-titulo">Model how your organization operates</h1>
+        <p i18n class="lead text-body-secondary mb-3" id="inicio-descripcion">
+          Each online organization documents its operations, from order fulfillment to returns, as BPMN processes. Its
+          data never reaches another organization.
         </p>
         <div class="d-flex flex-wrap gap-2 mb-3">
           @if (usuario$ | async) {
-            <a class="btn btn-primary btn-lg" routerLink="/procesos" id="inicio-ir-procesos">Open my processes</a>
-            <a class="btn btn-outline-primary btn-lg" routerLink="/cuenta" id="inicio-ir-cuenta">My account</a>
+            <a i18n class="btn btn-primary btn-lg" routerLink="/procesos" id="inicio-ir-procesos">Open my processes</a>
+            <a i18n class="btn btn-outline-primary btn-lg" routerLink="/cuenta" id="inicio-ir-cuenta">My account</a>
           } @else {
-            <a class="btn btn-primary btn-lg" routerLink="/login" id="inicio-login">Sign in</a>
-            <a class="btn btn-outline-primary btn-lg" routerLink="/registro" id="inicio-registro">Create your store</a>
+            <a i18n class="btn btn-primary btn-lg" routerLink="/login" id="inicio-login">Sign in</a>
+            <a i18n class="btn btn-outline-primary btn-lg" routerLink="/registro" id="inicio-registro"
+              >Create your organization</a
+            >
           }
         </div>
-        <p class="text-body-secondary small mb-0" id="inicio-demo">
+        <p i18n class="text-body-secondary small mb-0" id="inicio-demo">
           @if (demo) {
-            The demo store comes with a published order fulfillment process: sign in with admin&#64;demo.com and
+            The demo organization comes with a published order fulfillment process: sign in with admin&#64;demo.com and
             every-order-on-time.
           } @else {
-            Create your store and model your first process; nothing you put in it is visible to anyone else.
+            Create your organization and model your first process; nothing you put in it is visible to anyone else.
           }
         </p>
       </div>
@@ -37,7 +39,7 @@
               aria-labelledby="inicio-diagrama-titulo"
               id="inicio-diagrama"
             >
-              <title id="inicio-diagrama-titulo">Order fulfillment process of the demo store</title>
+              <title i18n id="inicio-diagrama-titulo">Order fulfillment process of the demo organization</title>
               <defs>
                 <marker
                   id="inicio-flecha"
@@ -54,16 +56,16 @@
 
               <rect class="pool" x="4" y="4" width="472" height="232" rx="8" />
               <line class="division" x1="4" y1="120" x2="476" y2="120" />
-              <text class="etiqueta" x="16" y="24">Sales</text>
-              <text class="etiqueta" x="16" y="140">Warehouse</text>
+              <text i18n class="etiqueta" x="16" y="24">Sales</text>
+              <text i18n class="etiqueta" x="16" y="140">Warehouse</text>
 
               <g class="tarea">
                 <rect x="16" y="50" width="104" height="40" rx="8" />
-                <text x="68" y="74">Receive order</text>
+                <text i18n x="68" y="74">Receive order</text>
               </g>
               <g class="tarea">
                 <rect x="146" y="50" width="112" height="40" rx="8" />
-                <text x="202" y="74">Request payment</text>
+                <text i18n x="202" y="74">Request payment</text>
               </g>
               <g class="decision">
                 <polygon points="304,48 326,70 304,92 282,70" />
@@ -71,15 +73,15 @@
               </g>
               <g class="tarea">
                 <rect x="356" y="50" width="104" height="40" rx="8" />
-                <text x="408" y="74">Cancel order</text>
+                <text i18n x="408" y="74">Cancel order</text>
               </g>
               <g class="tarea">
                 <rect x="252" y="166" width="104" height="40" rx="8" />
-                <text x="304" y="190">Pick and pack</text>
+                <text i18n x="304" y="190">Pick and pack</text>
               </g>
               <g class="tarea">
                 <rect x="376" y="166" width="96" height="40" rx="8" />
-                <text x="424" y="190">Ship order</text>
+                <text i18n x="424" y="190">Ship order</text>
               </g>
 
               <line class="flujo" x1="120" y1="70" x2="144" y2="70" marker-end="url(#inicio-flecha)" />
@@ -96,7 +98,7 @@
 </section>
 
 <section class="container py-5" id="inicio-caracteristicas">
-  <h2 class="h4 fw-bold mb-4">What you can do</h2>
+  <h2 i18n class="h4 fw-bold mb-4">What you can do</h2>
   <div class="row g-4">
     @for (caracteristica of caracteristicas; track caracteristica.titulo) {
       <div class="col-md-4">

@@ -8,6 +8,13 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- The web in Spanish of Colombia, English of the United States and of Australia, and French: one build per language,
+  with its dates, numbers and currency, that NGINX chooses by the cookie of the language menu or by the browser's
+  `Accept-Language`. Each organization and each person keep a language and an IANA time zone
+  (`/api/v1/auth/preferencias`, `/api/v1/empresas/actual/preferencias`); an organization starts in the language of
+  whoever registers it, the e-mails go in the language of whoever receives them, and the dates are shown in the time
+  zone of whoever reads them. The web says *organization* where it said *store*.
+
 - Supply-chain checks: every action pinned to a commit SHA, a read-only token per job, Dependabot, CodeQL, gitleaks,
   a CycloneDX SBOM of the API and of the web app, and Trivy over both images.
 - Mutation testing with PIT every night, and a format check on the files each change touches.

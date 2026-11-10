@@ -94,7 +94,7 @@ export class TableroComponent implements OnInit {
   /** El nombre de lo que se esta mirando, para el encabezado. */
   get mirando(): string {
     const proceso: Proceso | undefined = this.procesos.find((candidato) => candidato.id === this.procesoId);
-    return proceso?.nombre ?? 'the whole store';
+    return proceso?.nombre ?? $localize`the whole organization`;
   }
 
   /** Los casos de lo que se esta mirando, para el enlace que los lista. */

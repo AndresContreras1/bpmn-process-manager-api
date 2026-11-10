@@ -1,4 +1,9 @@
-<a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-light" href="#contenido" id="saltar">
+<a
+  i18n
+  class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-light"
+  href="#contenido"
+  id="saltar"
+>
   Skip to the content
 </a>
 
@@ -9,6 +14,7 @@
     <div class="container-fluid gap-2">
       @if (usuario) {
         <button
+          i18n-aria-label
           class="btn btn-link nav-link d-lg-none px-1"
           type="button"
           data-bs-toggle="collapse"
@@ -23,13 +29,14 @@
       }
       <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold" routerLink="/" id="navbar-marca">
         <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
-        <span class="d-none d-sm-inline">BPMN Process Manager</span>
+        <span i18n class="d-none d-sm-inline">BPMN Process Manager</span>
       </a>
 
       @if (usuario) {
         <form class="d-none d-md-flex flex-grow-1 mx-lg-4 busqueda" role="search" (ngSubmit)="buscar()" id="busqueda">
-          <label class="visually-hidden" for="busqueda-global">Search processes by name</label>
+          <label i18n class="visually-hidden" for="busqueda-global">Search processes by name</label>
           <input
+            i18n-placeholder
             class="form-control form-control-sm"
             type="search"
             id="busqueda-global"
@@ -40,8 +47,40 @@
       }
 
       <ul class="navbar-nav ms-auto align-items-center gap-1">
+        <li class="nav-item dropdown">
+          <button
+            i18n-aria-label
+            class="nav-link dropdown-toggle px-2"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+            aria-label="Language"
+            id="navbar-idioma"
+          >
+            <i class="fa-solid fa-language" aria-hidden="true"></i>
+            <span class="d-none d-md-inline" [attr.lang]="idiomaService.actual"> {{ idiomaService.actual }}</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            @for (opcion of idiomas; track opcion.codigo) {
+              <li>
+                <button
+                  type="button"
+                  class="dropdown-item"
+                  [class.active]="opcion.codigo === idiomaService.actual"
+                  [attr.aria-current]="opcion.codigo === idiomaService.actual ? 'true' : null"
+                  [attr.lang]="opcion.codigo"
+                  [id]="'navbar-idioma-' + opcion.codigo"
+                  (click)="cambiarIdioma(opcion.codigo)"
+                >
+                  {{ opcion.nombre }}
+                </button>
+              </li>
+            }
+          </ul>
+        </li>
         <li class="nav-item">
           <button
+            i18n-aria-label
             type="button"
             class="nav-link px-2"
             id="navbar-tema"
@@ -72,16 +111,18 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
               <li>
-                <h2 class="dropdown-header h6">{{ nombreRol[usuario.rolAcceso] }} · store {{ usuario.empresaId }}</h2>
+                <h2 i18n class="dropdown-header h6">
+                  {{ nombreRol[usuario.rolAcceso] }} · organization {{ usuario.empresaId }}
+                </h2>
               </li>
               <li>
-                <a class="dropdown-item" routerLink="/cuenta" id="navbar-cuenta">
+                <a i18n class="dropdown-item" routerLink="/cuenta" id="navbar-cuenta">
                   <i class="fa-solid fa-id-badge" aria-hidden="true"></i> My account
                 </a>
               </li>
               <li><hr class="dropdown-divider" /></li>
               <li>
-                <button type="button" class="dropdown-item" id="navbar-salir" (click)="cerrarSesion()">
+                <button i18n type="button" class="dropdown-item" id="navbar-salir" (click)="cerrarSesion()">
                   <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign out
                 </button>
               </li>
@@ -89,15 +130,18 @@
           </li>
         } @else {
           <li class="nav-item">
-            <a class="nav-link" routerLink="/login" routerLinkActive="active" id="navbar-login">Sign in</a>
+            <a i18n class="nav-link" routerLink="/login" routerLinkActive="active" id="navbar-login">Sign in</a>
           </li>
           <li class="nav-item">
-            <a class="btn btn-outline-light btn-sm" routerLink="/registro" id="navbar-registro">Create a store</a>
+            <a i18n class="btn btn-outline-light btn-sm" routerLink="/registro" id="navbar-registro"
+              >Create an organization</a
+            >
           </li>
         }
 
         <li class="nav-item d-none d-sm-block">
           <a
+            i18n-aria-label
             class="nav-link px-2"
             [href]="repositorio"
             target="_blank"
@@ -115,44 +159,45 @@
   <div class="d-lg-flex flex-grow-1">
     @if (usuario) {
       <nav
+        i18n-aria-label
         class="barra-lateral collapse d-lg-block border-end bg-body-tertiary"
         id="barra-lateral"
         aria-label="Sections"
       >
         <div class="p-3">
-          <p class="barra-titulo" id="seccion-procesos">Processes</p>
+          <p i18n class="barra-titulo" id="seccion-procesos">Processes</p>
           <ul class="nav flex-column mb-3" aria-labelledby="seccion-procesos">
             <li class="nav-item">
-              <a class="nav-link" routerLink="/procesos" routerLinkActive="active" id="navbar-procesos">
+              <a i18n class="nav-link" routerLink="/procesos" routerLinkActive="active" id="navbar-procesos">
                 <i class="fa-solid fa-diagram-project fa-fw" aria-hidden="true"></i> Processes
               </a>
             </li>
           </ul>
 
-          <p class="barra-titulo" id="seccion-trabajo">Work</p>
+          <p i18n class="barra-titulo" id="seccion-trabajo">Work</p>
           <ul class="nav flex-column mb-3" aria-labelledby="seccion-trabajo">
             <li class="nav-item">
-              <a class="nav-link" routerLink="/tareas" routerLinkActive="active" id="navbar-tareas">
+              <a i18n class="nav-link" routerLink="/tareas" routerLinkActive="active" id="navbar-tareas">
                 <i class="fa-solid fa-list-check fa-fw" aria-hidden="true"></i> Task tray
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" routerLink="/casos" routerLinkActive="active" id="navbar-casos">
+              <a i18n class="nav-link" routerLink="/casos" routerLinkActive="active" id="navbar-casos">
                 <i class="fa-solid fa-clipboard-list fa-fw" aria-hidden="true"></i> Cases
               </a>
             </li>
           </ul>
 
-          <p class="barra-titulo" id="seccion-tablero">Dashboard</p>
+          <p i18n class="barra-titulo" id="seccion-tablero">Dashboard</p>
           <ul class="nav flex-column mb-3" aria-labelledby="seccion-tablero">
             <li class="nav-item">
-              <a class="nav-link" routerLink="/tablero" routerLinkActive="active" id="navbar-tablero">
+              <a i18n class="nav-link" routerLink="/tablero" routerLinkActive="active" id="navbar-tablero">
                 <i class="fa-solid fa-chart-column fa-fw" aria-hidden="true"></i> Dashboard
               </a>
             </li>
             @if (usuario.rolAcceso === 'ADMINISTRADOR') {
               <li class="nav-item">
-                <a class="nav-link" routerLink="/simulacion" routerLinkActive="active" id="navbar-simulacion">
+                <a i18n class="nav-link" routerLink="/simulacion" routerLinkActive="active" id="navbar-simulacion">
                   <i class="fa-solid fa-gauge-high fa-fw" aria-hidden="true"></i> Simulation
                 </a>
               </li>
@@ -160,26 +205,32 @@
           </ul>
 
           @if (usuario.rolAcceso === 'ADMINISTRADOR') {
-            <p class="barra-titulo" id="seccion-administracion">Administration</p>
+            <p i18n class="barra-titulo" id="seccion-administracion">Administration</p>
             <ul class="nav flex-column" aria-labelledby="seccion-administracion">
               <li class="nav-item">
-                <a class="nav-link" routerLink="/usuarios" routerLinkActive="active" id="navbar-usuarios">
+                <a i18n class="nav-link" routerLink="/usuarios" routerLinkActive="active" id="navbar-usuarios">
                   <i class="fa-solid fa-users fa-fw" aria-hidden="true"></i> Users
                 </a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" routerLink="/roles" routerLinkActive="active" id="navbar-roles">
+                <a i18n class="nav-link" routerLink="/roles" routerLinkActive="active" id="navbar-roles">
                   <i class="fa-solid fa-user-tag fa-fw" aria-hidden="true"></i> Process roles
                 </a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" routerLink="/configuracion" routerLinkActive="active" id="navbar-configuracion">
-                  <i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> Store settings
+                <a
+                  i18n
+                  class="nav-link"
+                  routerLink="/configuracion"
+                  routerLinkActive="active"
+                  id="navbar-configuracion"
+                >
+                  <i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> Organization settings
                 </a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" routerLink="/historial" routerLinkActive="active" id="navbar-historial">
-                  <i class="fa-solid fa-clock-rotate-left fa-fw" aria-hidden="true"></i> Store history
+                <a i18n class="nav-link" routerLink="/historial" routerLinkActive="active" id="navbar-historial">
+                  <i class="fa-solid fa-clock-rotate-left fa-fw" aria-hidden="true"></i> Organization history
                 </a>
               </li>
             </ul>
@@ -190,7 +241,7 @@
 
     <div class="flex-grow-1 d-flex flex-column min-w-0">
       @if (migas.length > 0) {
-        <nav class="px-3 pt-3" aria-label="Breadcrumb">
+        <nav i18n-aria-label class="px-3 pt-3" aria-label="Breadcrumb">
           <ol class="breadcrumb small mb-0" id="migas">
             @for (miga of migas; track $index; let ultima = $last) {
               @if (ultima || !miga.ruta) {
@@ -211,8 +262,8 @@
 
       <footer class="border-top bg-body py-3" id="pie">
         <div class="container d-flex flex-wrap justify-content-between gap-2 small text-body-secondary">
-          <span>BPMN Process Manager · Angular and Spring Boot</span>
-          <a [href]="repositorio" target="_blank" rel="noopener" id="pie-repositorio">
+          <span i18n>BPMN Process Manager · Angular and Spring Boot</span>
+          <a i18n [href]="repositorio" target="_blank" rel="noopener" id="pie-repositorio">
             <i class="fa-brands fa-github" aria-hidden="true"></i> Source on GitHub
           </a>
         </div>

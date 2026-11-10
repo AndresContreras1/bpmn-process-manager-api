@@ -1,3 +1,5 @@
+import { Idioma } from './preferencias.model';
+
 export interface RegistroEmpresaRequest {
   nombreEmpresa: string;
   nit: string;
@@ -5,9 +7,12 @@ export interface RegistroEmpresaRequest {
   nombreAdmin: string;
   emailAdmin: string;
   passwordAdmin: string;
+  /** F12: el idioma y la zona horaria con que empieza; sin ellos, la API los deduce del navegador. */
+  idioma?: Idioma;
+  zonaHoraria?: string;
 }
 
-/** Tienda registrada, con los mismos campos que EmpresaResponse de la API. */
+/** Organizacion registrada, con los mismos campos que EmpresaResponse de la API. */
 export interface Empresa {
   id: number;
   nombre: string;

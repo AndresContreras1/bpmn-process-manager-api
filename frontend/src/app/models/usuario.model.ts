@@ -43,7 +43,7 @@ export interface RolDeUsuario {
 
 /** Nombre de cada rol en la interfaz. */
 export const NOMBRE_ROL: Record<RolAcceso, string> = {
-  ADMINISTRADOR: 'Administrator',
-  EDITOR: 'Editor',
-  SOLO_LECTURA: 'Read-only',
+  ADMINISTRADOR: $localize`Administrator`,
+  EDITOR: $localize`Editor`,
+  SOLO_LECTURA: $localize`Read-only`,
 };

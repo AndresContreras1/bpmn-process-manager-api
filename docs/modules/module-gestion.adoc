@@ -16,6 +16,7 @@
 * `c.f.p.g.service.LimpiezaService` (via `c.f.p.g.service.impl.LimpiezaServiceImpl`)
 * `c.f.p.g.service.MembresiaRolService` (via `c.f.p.g.service.impl.MembresiaRolServiceImpl`)
 * `c.f.p.g.service.PasskeyService` (via `c.f.p.g.service.impl.PasskeyServiceImpl`)
+* `c.f.p.g.service.PreferenciasService` (via `c.f.p.g.service.impl.PreferenciasServiceImpl`)
 * `c.f.p.g.service.ProcesoCompartidoService` (via `c.f.p.g.service.impl.ProcesoCompartidoServiceImpl`)
 * `c.f.p.g.service.ProcesoService` (via `c.f.p.g.service.impl.ProcesoServiceImpl`)
 * `c.f.p.g.service.RolProcesoService` (via `c.f.p.g.service.impl.RolProcesoServiceImpl`)

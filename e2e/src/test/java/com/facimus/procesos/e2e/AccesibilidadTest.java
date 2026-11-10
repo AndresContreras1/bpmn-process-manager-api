@@ -6,7 +6,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.openqa.selenium.By;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 
 import com.deque.html.axecore.results.Results;
 import com.deque.html.axecore.results.Rule;
@@ -56,6 +57,7 @@ class AccesibilidadTest extends PruebaE2E {
         for (String ruta : rutas) {
             ir(ruta);
             visible(By.cssSelector("main h1"));
+            quieta();
             Results resultado = new AxeBuilder().withTags(REGLAS).analyze(navegador);
             List<String> graves = resultado.getViolations().stream()
                     .filter(violacion -> GRAVES.contains(violacion.getImpact()))
@@ -64,6 +66,22 @@ class AccesibilidadTest extends PruebaE2E {
             assertEquals(List.of(), graves, "Violaciones serias de accesibilidad en " + ruta + " con el tema "
                     + navegador.findElement(By.tagName("html")).getDomAttribute("data-bs-theme"));
         }
+    }
+
+    /**
+     * La pagina sin transiciones ni animaciones, y con dos cuadros ya pintados: axe mide el color que hay en el momento,
+     * y un boton a mitad de su transicion de color tiene un contraste que no es el suyo. Sin esto, la medida dependia
+     * de cuanto tardara el navegador en terminar de pintar.
+     */
+    private void quieta() {
+        JavascriptExecutor js = (JavascriptExecutor) navegador;
+        js.executeScript("""
+                const quieta = document.createElement('style');
+                quieta.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+                document.head.appendChild(quieta);
+                """);
+        js.executeAsyncScript("const listo = arguments[arguments.length - 1];"
+                + "requestAnimationFrame(() => requestAnimationFrame(() => listo()));");
     }
 
     /** El boton del encabezado, como lo usa una persona: el tema queda guardado y vale en las demas pantallas. */

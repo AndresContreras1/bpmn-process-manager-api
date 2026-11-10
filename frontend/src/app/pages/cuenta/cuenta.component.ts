@@ -1,4 +1,4 @@
-import { AsyncPipe, DatePipe } from '@angular/common';
+import { AsyncPipe } from '@angular/common';
 import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -9,7 +9,9 @@ import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
 import { EmpresaService } from '../../service/empresa.service';
 import { SesionLocalService } from '../../service/sesion-local.service';
+import { PreferenciasComponent } from '../../components/preferencias/preferencias.component';
 import { CambiarClaveComponent } from './cambiar-clave/cambiar-clave.component';
+import { FechaPipe } from '../../pipes/fecha.pipe';
 
 /** Una accion de la aplicacion y los roles que pueden hacerla: la misma matriz que aplica la API. */
 interface Permiso {
@@ -19,7 +21,7 @@ interface Permiso {
 
 @Component({
   selector: 'app-cuenta',
-  imports: [AsyncPipe, DatePipe, RouterLink, CambiarClaveComponent],
+  imports: [AsyncPipe, FechaPipe, RouterLink, CambiarClaveComponent, PreferenciasComponent],
   templateUrl: './cuenta.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './cuenta.component.scss',
@@ -34,11 +36,14 @@ export class CuentaComponent implements OnInit {
   readonly usuario$: Observable<Usuario | null> = this.authService.usuario$;
   readonly nombreRol: Record<RolAcceso, string> = NOMBRE_ROL;
   readonly permisos: Permiso[] = [
-    { accion: 'View processes and their diagrams', roles: ['ADMINISTRADOR', 'EDITOR', 'SOLO_LECTURA'] },
-    { accion: 'Create, edit and publish processes', roles: ['ADMINISTRADOR', 'EDITOR'] },
-    { accion: 'Model diagrams: pools, lanes, tasks, gateways and messages', roles: ['ADMINISTRADOR', 'EDITOR'] },
-    { accion: 'Delete processes and diagram elements', roles: ['ADMINISTRADOR'] },
-    { accion: 'Manage users and process roles', roles: ['ADMINISTRADOR'] },
+    { accion: $localize`View processes and their diagrams`, roles: ['ADMINISTRADOR', 'EDITOR', 'SOLO_LECTURA'] },
+    { accion: $localize`Create, edit and publish processes`, roles: ['ADMINISTRADOR', 'EDITOR'] },
+    {
+      accion: $localize`Model diagrams: pools, lanes, tasks, gateways and messages`,
+      roles: ['ADMINISTRADOR', 'EDITOR'],
+    },
+    { accion: $localize`Delete processes and diagram elements`, roles: ['ADMINISTRADOR'] },
+    { accion: $localize`Manage users and process roles`, roles: ['ADMINISTRADOR'] },
   ];
 
   /** La tienda a la que pertenece la cuenta. Si no llega, la tarjeta ensena su id y ya. */
@@ -69,7 +74,7 @@ export class CuentaComponent implements OnInit {
   claveCambiada(): void {
     if (this.claveTemporal) {
       // Cambiar la clave obligatoria cierra la tarjeta que lo confirmaba: sin esto no quedaria nada dicho
-      this.avisoDeClave = 'Your password was changed, and the sessions you had open elsewhere were closed.';
+      this.avisoDeClave = $localize`Your password was changed, and the sessions you had open elsewhere were closed.`;
     }
     this.claveTemporal = false;
   }

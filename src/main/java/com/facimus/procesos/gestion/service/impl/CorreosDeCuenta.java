@@ -25,6 +25,7 @@ import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.EnlaceDeUnUsoRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.Idiomas;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -34,7 +35,8 @@ import tools.jackson.databind.json.JsonMapper;
  * claro solo existe en el correo; la base guarda su SHA-256.
  *
  * <p>El enlace lleva el token despues de {@code #}: el navegador no manda esa parte al servidor, asi que el token no
- * queda en el registro de NGINX ni de nadie.
+ * queda en el registro de NGINX ni de nadie. Y va a la web en el idioma del correo (F12): {@code /fr-FR/...} abre la
+ * compilacion en frances aunque el navegador de quien lo abre pida otra.
  */
 @Component
 public class CorreosDeCuenta implements ManejadorDeTrabajo {
@@ -94,12 +96,13 @@ public class CorreosDeCuenta implements ManejadorDeTrabajo {
                 .venceEn(ahora.plus(proposito.vigencia()))
                 .build());
 
+        String idioma = Idiomas.deLaWeb(pedido.idioma());
         Map<String, Object> datos = new HashMap<>();
-        datos.put("enlace", web + proposito.pantalla() + "#token=" + token);
+        datos.put("enlace", web + "/" + idioma + proposito.pantalla() + "#token=" + token);
         datos.put("horas", proposito.vigencia().toHours());
         datos.put("minutos", proposito.vigencia().toMinutes());
         datos.put("dias", proposito.vigencia().toDays());
-        datos.put("tienda", empresa.getNombre());
+        datos.put("organizacion", empresa.getNombre());
         if (usuario != null) {
             datos.put("nombre", usuario.getNombre());
         }
@@ -107,7 +110,7 @@ public class CorreosDeCuenta implements ManejadorDeTrabajo {
             usuarioRepository.findByIdAndEmpresaId(pedido.autorId(), pedido.empresaId())
                     .ifPresent(autor -> datos.put("quienInvita", autor.getNombre()));
         }
-        correo.enviar(redactor.redactar(proposito.plantilla(), Locale.of(pedido.idioma()), pedido.email(), datos));
+        correo.enviar(redactor.redactar(proposito.plantilla(), Locale.forLanguageTag(idioma), pedido.email(), datos));
     }
 
     /**

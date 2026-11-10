@@ -1,20 +1,20 @@
 <div class="container py-5" id="simulacion">
   <div class="mb-4">
-    <h1 class="h3 fw-bold mb-1" id="simulacion-titulo">Simulation</h1>
-    <p class="text-body-secondary mb-0">
-      The clock of your store, the orders its simulated customer places, and how its partners answer.
+    <h1 i18n class="h3 fw-bold mb-1" id="simulacion-titulo">Simulation</h1>
+    <p i18n class="text-body-secondary mb-0">
+      The clock of your organization, the orders its simulated customer places, and how its partners answer.
     </p>
   </div>
 
   @if (!esAdministrador) {
-    <div class="alert alert-info" role="alert" id="simulacion-solo-admin">
-      Only an administrator can move the clock of a store: it moves every case at once.
+    <div i18n class="alert alert-info" role="alert" id="simulacion-solo-admin">
+      Only an administrator can move the clock of an organization: it moves every case at once.
     </div>
   } @else {
     @if (aviso) {
       <div class="alert alert-success alert-dismissible" role="status" id="simulacion-aviso">
         <i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ aviso }}
-        <button type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
+        <button i18n-aria-label type="button" class="btn-close" aria-label="Close" (click)="aviso = null"></button>
       </div>
     }
     @if (error) {
@@ -22,7 +22,7 @@
     }
 
     @if (cargando) {
-      <div class="text-center text-body-secondary py-5" id="simulacion-cargando">
+      <div i18n class="text-center text-body-secondary py-5" id="simulacion-cargando">
         <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading the simulation…
       </div>
     } @else if (panel) {
@@ -30,21 +30,27 @@
         <div class="col-lg-5">
           <div class="card border-0 shadow-sm h-100">
             <div class="card-body p-3 p-md-4">
-              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">The clock</h2>
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">The clock</h2>
               <div class="d-flex align-items-baseline gap-2">
                 <span class="display-5 fw-bold" id="simulacion-reloj">{{ panel.reloj }}</span>
                 <span class="text-body-secondary">
-                  {{ panel.reloj === 1 ? 'tick' : 'ticks' }} ·
-                  <span id="simulacion-modo">{{ panel.modo === 'MANUAL' ? 'moved by hand' : 'moved by a job' }}</span>
+                  <ng-container i18n>{panel.reloj, plural, =1 {tick} other {ticks}}</ng-container> ·
+                  <span i18n id="simulacion-modo">
+                    @if (panel.modo === 'MANUAL') {
+                      moved by hand
+                    } @else {
+                      moved by a job
+                    }
+                  </span>
                 </span>
               </div>
-              <p class="form-text small">
+              <p i18n class="form-text small">
                 It only goes up. Moving it delivers the messages that are due, each one to the simulated partner of its
                 participant, and the cases go on from there.
               </p>
               <form [formGroup]="relojForm" (ngSubmit)="avanzar()" novalidate class="row g-2 align-items-end">
                 <div class="col-5">
-                  <label class="form-label small" for="simulacion-ticks">Ticks</label>
+                  <label i18n class="form-label small" for="simulacion-ticks">Ticks</label>
                   <input
                     type="number"
                     class="form-control"
@@ -56,8 +62,18 @@
                   <app-error-campo [control]="relojForm.get('ticks')" />
                 </div>
                 <div class="col-7">
-                  <button type="submit" class="btn btn-primary w-100" id="simulacion-avanzar" [disabled]="moviendo">
-                    {{ moviendo ? 'Moving…' : 'Move the clock' }}
+                  <button
+                    i18n
+                    type="submit"
+                    class="btn btn-primary w-100"
+                    id="simulacion-avanzar"
+                    [disabled]="moviendo"
+                  >
+                    @if (moviendo) {
+                      Moving…
+                    } @else {
+                      Move the clock
+                    }
                   </button>
                 </div>
               </form>
@@ -68,31 +84,31 @@
         <div class="col-lg-7">
           <div class="card border-0 shadow-sm h-100">
             <div class="card-body p-3 p-md-4">
-              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">What is still in the trays</h2>
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">What is still in the trays</h2>
               <div class="row text-center g-3 mb-3">
                 <div class="col-6">
                   <div class="border rounded-3 py-3">
                     <div class="h4 fw-bold mb-0" id="simulacion-salientes">{{ panel.salientesPendientes }}</div>
-                    <div class="small text-body-secondary">sent, not delivered yet</div>
+                    <div i18n class="small text-body-secondary">sent, not delivered yet</div>
                   </div>
                 </div>
                 <div class="col-6">
                   <div class="border rounded-3 py-3">
                     <div class="h4 fw-bold mb-0" id="simulacion-entrantes">{{ panel.entrantesEnEspera }}</div>
-                    <div class="small text-body-secondary">arrived before anyone expected them</div>
+                    <div i18n class="small text-body-secondary">arrived before anyone expected them</div>
                   </div>
                 </div>
               </div>
               @if (panel.porSocio.length === 0) {
-                <p class="text-body-secondary mb-0" id="simulacion-sin-socios">
+                <p i18n class="text-body-secondary mb-0" id="simulacion-sin-socios">
                   No message is waiting for a partner right now.
                 </p>
               } @else {
                 <table class="table table-sm align-middle mb-0" id="simulacion-por-socio">
                   <thead>
                     <tr>
-                      <th scope="col">Waiting for</th>
-                      <th scope="col" class="text-end">Messages</th>
+                      <th i18n scope="col">Waiting for</th>
+                      <th i18n scope="col" class="text-end">Messages</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -112,18 +128,18 @@
         <div class="col-lg-6">
           <div class="card border-0 shadow-sm h-100">
             <div class="card-body p-3 p-md-4">
-              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">A batch of orders</h2>
-              <p class="form-text small">
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">A batch of orders</h2>
+              <p i18n class="form-text small">
                 The simulated customer sends the message that opens a case, once per order, with a numbered reference
-                and an amount made up from the seed: the same batch of the same store always gives the same orders. The
-                process has to be one that starts with a message.
+                and an amount made up from the seed: the same batch of the same organization always gives the same
+                orders. The process has to be one that starts with a message.
               </p>
               <form [formGroup]="pedidosForm" (ngSubmit)="pedirPedidos()" novalidate>
                 <div class="row g-2">
                   <div class="col-8">
-                    <label class="form-label small" for="simulacion-proceso">Process</label>
+                    <label i18n class="form-label small" for="simulacion-proceso">Process</label>
                     <select class="form-select" id="simulacion-proceso" formControlName="procesoId">
-                      <option [ngValue]="null">Pick a process</option>
+                      <option i18n [ngValue]="null">Pick a process</option>
                       @for (proceso of procesos; track proceso.id) {
                         <option [ngValue]="proceso.id">{{ proceso.nombre }}</option>
                       }
@@ -131,7 +147,7 @@
                     <app-error-campo [control]="pedidosForm.get('procesoId')" />
                   </div>
                   <div class="col-4">
-                    <label class="form-label small" for="simulacion-cantidad">How many</label>
+                    <label i18n class="form-label small" for="simulacion-cantidad">How many</label>
                     <input
                       type="number"
                       class="form-control"
@@ -146,8 +162,9 @@
 
                 <div class="mt-3">
                   <div class="d-flex align-items-center justify-content-between">
-                    <span class="small fw-semibold">The same in every order</span>
+                    <span i18n class="small fw-semibold">The same in every order</span>
                     <button
+                      i18n
                       type="button"
                       class="btn btn-sm btn-outline-secondary"
                       id="simulacion-dato-nuevo"
@@ -160,20 +177,22 @@
                     <div class="row g-2 mt-1" data-testid="simulacion-dato">
                       <div class="col-5">
                         <input
+                          i18n-placeholder
                           type="text"
                           class="form-control form-control-sm"
                           placeholder="channel"
-                          [attr.aria-label]="'Name ' + ($index + 1)"
+                          [attr.aria-label]="etiqueta.nombre($index + 1)"
                           [(ngModel)]="dato.clave"
                           [ngModelOptions]="{ standalone: true }"
                         />
                       </div>
                       <div class="col-6">
                         <input
+                          i18n-placeholder
                           type="text"
                           class="form-control form-control-sm"
                           placeholder="web"
-                          [attr.aria-label]="'Value ' + ($index + 1)"
+                          [attr.aria-label]="etiqueta.valor($index + 1)"
                           [(ngModel)]="dato.valor"
                           [ngModelOptions]="{ standalone: true }"
                         />
@@ -182,7 +201,7 @@
                         <button
                           type="button"
                           class="btn btn-sm btn-outline-danger w-100"
-                          [attr.aria-label]="'Remove ' + ($index + 1)"
+                          [attr.aria-label]="etiqueta.quitar($index + 1)"
                           (click)="quitarDato($index)"
                         >
                           <i class="fa-solid fa-xmark" aria-hidden="true"></i>
@@ -192,18 +211,27 @@
                   }
                 </div>
 
-                <button type="submit" class="btn btn-primary mt-3" id="simulacion-pedir" [disabled]="pidiendo">
-                  {{ pidiendo ? 'Asking…' : 'Ask for the orders' }}
+                <button i18n type="submit" class="btn btn-primary mt-3" id="simulacion-pedir" [disabled]="pidiendo">
+                  @if (pidiendo) {
+                    Asking…
+                  } @else {
+                    Ask for the orders
+                  }
                 </button>
               </form>
 
               @if (pedidos) {
                 <div class="alert alert-success mt-3 mb-0" role="status" id="simulacion-pedidos">
-                  <p class="mb-1">
-                    {{ pedidos.pedidos }} {{ pedidos.pedidos === 1 ? 'order' : 'orders' }} came in as "{{
+                  <p i18n class="mb-1">
+                    {pedidos.pedidos, plural, =1 {1 order came in} other {{{ pedidos.pedidos }} orders came in}} as "{{
                       pedidos.mensaje
-                    }}", and {{ pedidos.casosNuevos }}
-                    {{ pedidos.casosNuevos === 1 ? 'opened a case' : 'opened cases' }}.
+                    }}", and
+                    {pedidos.casosNuevos, plural,
+                      =0 {none opened a case}
+                      =1 {1 opened a case}
+                      other {{{ pedidos.casosNuevos }} opened cases}
+
+                    }.
                   </p>
                   @if (pedidos.referencias.length > 0) {
                     <p class="small mb-0">
@@ -212,7 +240,7 @@
                       }
                     </p>
                   }
-                  <a class="small" routerLink="/casos" id="simulacion-ver-casos">See them in the cases</a>
+                  <a i18n class="small" routerLink="/casos" id="simulacion-ver-casos">See them in the cases</a>
                 </div>
               }
             </div>
@@ -222,31 +250,31 @@
         <div class="col-lg-6">
           <div class="card border-0 shadow-sm h-100">
             <div class="card-body p-3 p-md-4">
-              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">The partners</h2>
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">The partners</h2>
               @if (!configuracion) {
-                <p class="text-body-secondary mb-0" id="simulacion-sin-configuracion">
-                  The settings of the store could not be read, so the partners cannot be changed from here.
+                <p i18n class="text-body-secondary mb-0" id="simulacion-sin-configuracion">
+                  The settings of the organization could not be read, so the partners cannot be changed from here.
                 </p>
               } @else {
-                <p class="form-text small">
-                  How the store's partners behave. The seed is what makes it repeatable: with the same seed and the same
-                  steps they decide the same way every time.
+                <p i18n class="form-text small">
+                  How the organization's partners behave. The seed is what makes it repeatable: with the same seed and
+                  the same steps they decide the same way every time.
                 </p>
                 <form [formGroup]="sociosForm" (ngSubmit)="guardarSocios()" novalidate>
                   <div class="row g-2">
                     <div class="col-6">
-                      <label class="form-label small" for="simulacion-modo-select">Who moves the clock</label>
+                      <label i18n class="form-label small" for="simulacion-modo-select">Who moves the clock</label>
                       <select
                         class="form-select form-select-sm"
                         id="simulacion-modo-select"
                         formControlName="modoSimulacion"
                       >
-                        <option value="MANUAL">Whoever is testing</option>
-                        <option value="AUTOMATICO">A job, every few seconds</option>
+                        <option i18n value="MANUAL">Whoever is testing</option>
+                        <option i18n value="AUTOMATICO">A job, every few seconds</option>
                       </select>
                     </div>
                     <div class="col-6">
-                      <label class="form-label small" for="simulacion-semilla">Seed</label>
+                      <label i18n class="form-label small" for="simulacion-semilla">Seed</label>
                       <input
                         type="number"
                         class="form-control form-control-sm"
@@ -257,7 +285,9 @@
                       <app-error-campo [control]="sociosForm.get('semilla')" />
                     </div>
                     <div class="col-6">
-                      <label class="form-label small" for="simulacion-rechazo">Payments declined, out of 100</label>
+                      <label i18n class="form-label small" for="simulacion-rechazo"
+                        >Payments declined, out of 100</label
+                      >
                       <input
                         type="number"
                         class="form-control form-control-sm"
@@ -269,7 +299,7 @@
                       <app-error-campo [control]="sociosForm.get('tasaRechazoPagos')" />
                     </div>
                     <div class="col-6">
-                      <label class="form-label small" for="simulacion-ticks-pagos">Ticks the gateway takes</label>
+                      <label i18n class="form-label small" for="simulacion-ticks-pagos">Ticks the gateway takes</label>
                       <input
                         type="number"
                         class="form-control form-control-sm"
@@ -280,8 +310,9 @@
                       <app-error-campo [control]="sociosForm.get('ticksRespuestaPagos')" />
                     </div>
                     <div class="col-12">
-                      <label class="form-label small" for="simulacion-regla">When to decline a payment</label>
+                      <label i18n class="form-label small" for="simulacion-regla">When to decline a payment</label>
                       <input
+                        i18n-placeholder
                         type="text"
                         class="form-control form-control-sm"
                         id="simulacion-regla"
@@ -290,13 +321,15 @@
                         autocomplete="off"
                       />
                       <app-error-campo [control]="sociosForm.get('reglaRechazoPagos')" />
-                      <p class="form-text small mb-0">
+                      <p i18n class="form-text small mb-0">
                         In the same language as the flow conditions, read over the body of the outgoing message. Empty
                         leaves it to the rate.
                       </p>
                     </div>
                     <div class="col-6">
-                      <label class="form-label small" for="simulacion-ticks-transporte">Ticks the carrier takes</label>
+                      <label i18n class="form-label small" for="simulacion-ticks-transporte"
+                        >Ticks the carrier takes</label
+                      >
                       <input
                         type="number"
                         class="form-control form-control-sm"
@@ -307,7 +340,7 @@
                       <app-error-campo [control]="sociosForm.get('ticksRespuestaTransporte')" />
                     </div>
                     <div class="col-6">
-                      <label class="form-label small" for="simulacion-ticks-entrega">Ticks a delivery takes</label>
+                      <label i18n class="form-label small" for="simulacion-ticks-entrega">Ticks a delivery takes</label>
                       <input
                         type="number"
                         class="form-control form-control-sm"
@@ -318,7 +351,7 @@
                       <app-error-campo [control]="sociosForm.get('ticksEntrega')" />
                     </div>
                     <div class="col-6">
-                      <label class="form-label small" for="simulacion-perdidas">Shipments lost, out of 100</label>
+                      <label i18n class="form-label small" for="simulacion-perdidas">Shipments lost, out of 100</label>
                       <input
                         type="number"
                         class="form-control form-control-sm"
@@ -330,7 +363,7 @@
                       <app-error-campo [control]="sociosForm.get('tasaPerdidaEnvios')" />
                     </div>
                     <div class="col-6">
-                      <label class="form-label small" for="simulacion-notificaciones">
+                      <label i18n class="form-label small" for="simulacion-notificaciones">
                         Notifications lost, out of 100
                       </label>
                       <input
@@ -345,12 +378,17 @@
                     </div>
                   </div>
                   <button
+                    i18n
                     type="submit"
                     class="btn btn-primary btn-sm mt-3"
                     id="simulacion-guardar-socios"
                     [disabled]="guardando"
                   >
-                    {{ guardando ? 'Saving…' : 'Save the partners' }}
+                    @if (guardando) {
+                      Saving…
+                    } @else {
+                      Save the partners
+                    }
                   </button>
                 </form>
               }

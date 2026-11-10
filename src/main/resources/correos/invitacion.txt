@@ -1,6 +1,6 @@
 [(#{invitacion.saludo})]
 
-[(#{invitacion.cuerpo(${quienInvita}, ${tienda})})]
+[(#{invitacion.cuerpo(${quienInvita}, ${organizacion})})]
 
 [(${enlace})]
 

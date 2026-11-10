@@ -33,7 +33,7 @@ class CompartirYAdministrarTest extends PruebaE2E {
         entrar(duena);
         ir("/procesos/" + proceso + "/editar-diagrama");
         pulsable(Paginas.Editor.PUBLICAR).click();
-        esperarTexto(Paginas.Editor.PUBLICADO, "version 1");
+        esperarTexto(Paginas.Editor.PUBLICADO, "versión 1");
 
         // Compartirlo, por el NIT de la otra tienda
         ir("/procesos/" + proceso + "/compartir");
@@ -80,7 +80,7 @@ class CompartirYAdministrarTest extends PruebaE2E {
         // La clave temporal se ensena una sola vez, y esta es esa vez
         String panel = textoDe(Paginas.Usuarios.CLAVE_TEMPORAL);
         assertTrue(panel.contains(correoDe("elena")), "el panel tiene que decir de quien es la clave");
-        assertTrue(panel.contains("shown once"), "y avisar de que no se vuelve a ver");
+        assertTrue(panel.contains("Se muestra una vez"), "y avisar de que no se vuelve a ver");
         esperarTexto(Paginas.Usuarios.FILA, "Elena Editora");
 
         // Recargar la pagina la pierde, que es justo lo que el panel advierte
@@ -112,7 +112,7 @@ class CompartirYAdministrarTest extends PruebaE2E {
         assertFalse(visible(Paginas.Usuarios.CAJA_DE_ROL).isSelected(), "todavia no atiende ningun rol");
         pulsable(Paginas.Usuarios.CAJA_DE_ROL).click();
         pulsable(Paginas.Usuarios.GUARDAR_ROLES).click();
-        esperarTexto(Paginas.Usuarios.AVISO, "process roles");
+        esperarTexto(Paginas.Usuarios.AVISO, "roles de proceso");
         pulsable(Paginas.Usuarios.ROLES).click();
         assertTrue(visible(Paginas.Usuarios.CAJA_DE_ROL).isSelected(),
                 "al volver a abrirlo tiene que estar marcado: en blanco, guardar le quitaria el rol");
@@ -120,14 +120,14 @@ class CompartirYAdministrarTest extends PruebaE2E {
         // La baja saca a la persona del listado de todos los dias, y el vacio dice que se estaba buscando
         pulsable(Paginas.Usuarios.BAJA).click();
         pulsable(Paginas.Usuarios.CONFIRMAR_BAJA).click();
-        esperarTexto(Paginas.Usuarios.AVISO, "no longer sign in");
+        esperarTexto(Paginas.Usuarios.AVISO, "ya no puede entrar");
         esperarTexto(Paginas.Usuarios.VACIO, "bruno");
 
         // Y se deshace desde la misma pantalla, que es lo que la API no dejaba hacer hasta ahora
         pulsable(Paginas.Usuarios.INACTIVOS).click();
-        esperarTexto(Paginas.Usuarios.FILA, "deactivated");
+        esperarTexto(Paginas.Usuarios.FILA, "desactivado");
         pulsable(Paginas.Usuarios.ALTA).click();
-        esperarTexto(Paginas.Usuarios.AVISO, "can sign in again");
+        esperarTexto(Paginas.Usuarios.AVISO, "puede entrar otra vez");
         esperarFilas(Paginas.Usuarios.ALTA, 0);
         assertTrue(navegador.findElements(Paginas.Usuarios.ALTA).isEmpty(),
                 "ya esta activa: no hay nada que reactivar");

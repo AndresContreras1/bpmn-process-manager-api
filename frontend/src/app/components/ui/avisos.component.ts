@@ -25,6 +25,7 @@ const CLASE: Record<TipoDeAviso, string> = { exito: 'text-bg-success', error: 't
               type="button"
               class="btn-close btn-close-white me-2 m-auto"
               aria-label="Close"
+              i18n-aria-label
               (click)="avisosService.cerrar(aviso.id)"
             ></button>
           </div>

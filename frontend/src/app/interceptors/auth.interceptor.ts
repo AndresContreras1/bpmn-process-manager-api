@@ -36,9 +36,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   );
 };
 
-/** Entrar, renovar, salir y cambiar la clave: su 401 lo muestra la pantalla, no lo arregla una renovacion. */
+/**
+ * Entrar, renovar, salir y cambiar la clave: su 401 lo muestra la pantalla, no lo arregla una renovacion. Las
+ * preferencias (F12) viven bajo /auth pero son un recurso mas de quien entro: su 401 es un acceso vencido.
+ */
 function esDeSesion(req: HttpRequest<unknown>): boolean {
-  return req.url.includes('/api/v1/auth/');
+  return req.url.includes('/api/v1/auth/') && !req.url.includes('/api/v1/auth/preferencias');
 }
 
 /** La sesion dejo de valer: se olvida y se vuelve al login diciendo por que. */

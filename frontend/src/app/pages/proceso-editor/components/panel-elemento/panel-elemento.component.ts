@@ -154,7 +154,7 @@ export class PanelElementoComponent {
       )
       .subscribe({
         next: () => {
-          this.aviso = 'Saved.';
+          this.aviso = $localize`Saved.`;
           this.guardado.emit();
         },
         error: (error: HttpErrorResponse) => this.mostrarError(error),
@@ -200,7 +200,7 @@ export class PanelElementoComponent {
       )
       .subscribe({
         next: () => {
-          this.aviso = 'Correlation saved.';
+          this.aviso = $localize`Correlation saved.`;
           this.guardado.emit();
         },
         error: (error: HttpErrorResponse) => this.mostrarError(error),
@@ -210,11 +210,11 @@ export class PanelElementoComponent {
   private mostrarError(error: HttpErrorResponse): void {
     if (esConflictoDeVersion(error)) {
       // La pagina se recarga sola al guardar cualquier cosa, asi que basta con decir que hay que volver a intentar
-      this.error = 'Someone changed this element before you. The diagram was reloaded: check it and try again.';
+      this.error = $localize`Someone changed this element before you. The diagram was reloaded: check it and try again.`;
       this.guardado.emit();
     } else if (error.status === 400) {
       marcarErroresDelServidor(this.formulario, error);
-      this.error = 'Check the highlighted fields.';
+      this.error = $localize`Check the highlighted fields.`;
     } else {
       this.error = mensajeDeError(error);
     }

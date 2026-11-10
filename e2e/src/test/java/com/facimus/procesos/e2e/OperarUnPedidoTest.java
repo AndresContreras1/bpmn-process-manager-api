@@ -44,7 +44,7 @@ class OperarUnPedidoTest extends PruebaE2E {
 
         // Y la pagina del caso dice donde se detuvo: en la tarea, con el token encima
         esperarTexto(Paginas.Caso.REFERENCIA, "ORD-9001");
-        assertEquals("Open", textoDe(Paginas.Caso.ESTADO));
+        assertEquals("Abierto", textoDe(Paginas.Caso.ESTADO));
         // El titulo de un nodo del SVG no se "ve", asi que se lee su texto del DOM y no con getText
         assertEquals("Pick and pack",
                 visible(Paginas.Caso.ACTIVO).findElement(By.tagName("title")).getDomProperty("textContent"),
@@ -72,7 +72,7 @@ class OperarUnPedidoTest extends PruebaE2E {
         ir("/casos");
         esperarTexto(Paginas.Casos.FILA, "ORD-9001");
         pulsable(Paginas.Casos.FILA).click();
-        esperarTexto(Paginas.Caso.ESTADO, "Finished");
+        esperarTexto(Paginas.Caso.ESTADO, "Terminado");
         assertTrue(navegador.findElements(Paginas.Caso.ACTIVO).isEmpty(),
                 "un caso terminado no tiene ningun token vivo");
         assertEquals(3, navegador.findElements(Paginas.Caso.RECORRIDO).size(),
@@ -97,14 +97,14 @@ class OperarUnPedidoTest extends PruebaE2E {
         assertEquals("0", textoDe(Paginas.Simulacion.RELOJ), "una tienda nueva empieza en el tick cero");
         escribir(Paginas.Simulacion.TICKS, "3");
         pulsable(Paginas.Simulacion.AVANZAR).click();
-        esperarTexto(Paginas.Simulacion.AVISO, "tick 3");
+        esperarTexto(Paginas.Simulacion.AVISO, "tic 3");
         assertEquals("3", textoDe(Paginas.Simulacion.RELOJ), "el reloj tiene que quedar donde lo dejaron");
 
         // El reloj vive en la misma fila que la configuracion, asi que guardar los socios justo despues es lo que
         // descubre si la pantalla volvio a leer su version: si no lo hizo, esto responde 409
         escribir(Paginas.Simulacion.ENTREGA, "4");
         enviarConEnter(Paginas.Simulacion.ENTREGA);
-        esperarTexto(Paginas.Simulacion.AVISO, "partners answer like this");
+        esperarTexto(Paginas.Simulacion.AVISO, "Los socios responden así");
         assertEquals("4", visible(Paginas.Simulacion.ENTREGA).getDomProperty("value"),
                 "y lo que se guardo es lo que la API devolvio");
     }
