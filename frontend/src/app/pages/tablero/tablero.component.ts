@@ -6,8 +6,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Subject, catchError, of, switchMap, tap } from 'rxjs';
 
+import { InsigniaComponent } from '../../components/ui/insignia.component';
 import { mensajeDeError } from '../../helpers/errores-api';
-import { COLOR_ESTADO_CASO, EstadoCaso, NOMBRE_ESTADO_CASO } from '../../models/caso.model';
+import { TONO_ESTADO_CASO, EstadoCaso, NOMBRE_ESTADO_CASO } from '../../models/caso.model';
+import { Tono } from '../../models/tono.model';
 import {
   EstadoMensajeSaliente,
   NOMBRE_ESTADO_SALIENTE,
@@ -25,7 +27,7 @@ import { TableroService } from '../../service/tablero.service';
  */
 @Component({
   selector: 'app-tablero',
-  imports: [DecimalPipe, FormsModule, RouterLink],
+  imports: [DecimalPipe, FormsModule, RouterLink, InsigniaComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './tablero.component.html',
 })
@@ -36,7 +38,7 @@ export class TableroComponent implements OnInit {
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   readonly nombreEstado: Record<EstadoCaso, string> = NOMBRE_ESTADO_CASO;
-  readonly colorEstado: Record<EstadoCaso, string> = COLOR_ESTADO_CASO;
+  readonly tonoEstado: Record<EstadoCaso, Tono> = TONO_ESTADO_CASO;
   readonly nombreEstadoSaliente: Record<EstadoMensajeSaliente, string> = NOMBRE_ESTADO_SALIENTE;
   readonly nombreResultado: Record<ResultadoCorrelacion, string> = NOMBRE_RESULTADO;
 

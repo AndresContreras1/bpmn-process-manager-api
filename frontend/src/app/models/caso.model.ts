@@ -1,4 +1,6 @@
 /** Lo que le puede pasar a un caso. ERROR es un gateway sin camino: se arregla y se reintenta. */
+import { Tono } from './tono.model';
+
 export type EstadoCaso = 'ABIERTO' | 'TERMINADO' | 'CANCELADO' | 'FALLIDO' | 'ERROR';
 
 /** Cada linea de la linea de tiempo es uno de estos. */
@@ -116,13 +118,13 @@ export const NOMBRE_ESTADO_CASO: Record<EstadoCaso, string> = {
   ERROR: 'Stuck',
 };
 
-/** El color de Bootstrap que le toca a cada estado, para que la lista se lea de un vistazo. */
-export const COLOR_ESTADO_CASO: Record<EstadoCaso, string> = {
-  ABIERTO: 'text-bg-primary',
-  TERMINADO: 'text-bg-success',
-  CANCELADO: 'text-bg-secondary',
-  FALLIDO: 'text-bg-dark',
-  ERROR: 'text-bg-danger',
+/** El tono de la insignia de cada estado, con su color y su icono, para que la lista se lea de un vistazo. */
+export const TONO_ESTADO_CASO: Record<EstadoCaso, Tono> = {
+  ABIERTO: 'primario',
+  TERMINADO: 'exito',
+  CANCELADO: 'neutro',
+  FALLIDO: 'peligro',
+  ERROR: 'aviso',
 };
 
 export const NOMBRE_ESTADO_PASO: Record<EstadoPaso, string> = {

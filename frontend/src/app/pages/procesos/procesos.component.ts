@@ -7,6 +7,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Subject, catchError, debounceTime, switchMap, tap } from 'rxjs';
 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
+import { CargandoComponent } from '../../components/ui/cargando.component';
+import { InsigniaComponent } from '../../components/ui/insignia.component';
+import { VacioComponent } from '../../components/ui/vacio.component';
 import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
 import { ProcesoRecibido } from '../../models/compartir.model';
 import { PageResponse } from '../../models/page-response.model';
@@ -24,7 +27,15 @@ interface ColumnaOrdenable {
 
 @Component({
   selector: 'app-procesos',
-  imports: [DatePipe, FormsModule, RouterLink, ModalConfirmarComponent],
+  imports: [
+    DatePipe,
+    FormsModule,
+    RouterLink,
+    ModalConfirmarComponent,
+    CargandoComponent,
+    VacioComponent,
+    InsigniaComponent,
+  ],
   templateUrl: './procesos.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './procesos.component.scss',

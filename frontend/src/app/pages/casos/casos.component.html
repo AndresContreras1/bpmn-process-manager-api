@@ -222,9 +222,11 @@
                     </a>
                   </td>
                   <td>
-                    <span class="badge" [class]="colorEstado[caso.estado]" data-testid="caso-estado">
-                      {{ nombreEstado[caso.estado] }}
-                    </span>
+                    <app-insignia
+                      data-testid="caso-estado"
+                      [tono]="tonoEstado[caso.estado]"
+                      [texto]="nombreEstado[caso.estado]"
+                    />
                   </td>
                   <td class="d-none d-sm-table-cell text-body-secondary">#{{ caso.id }}</td>
                   <td class="d-none d-md-table-cell">

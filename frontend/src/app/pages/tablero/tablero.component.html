@@ -98,7 +98,7 @@
                   @for (fila of tablero.casosPorEstado; track fila.estado) {
                     <tr data-testid="tablero-estado">
                       <td>
-                        <span class="badge" [class]="colorEstado[fila.estado]">{{ nombreEstado[fila.estado] }}</span>
+                        <app-insignia [tono]="tonoEstado[fila.estado]" [texto]="nombreEstado[fila.estado]" />
                       </td>
                       <td class="text-end fw-semibold">{{ fila.cantidad }}</td>
                     </tr>
