@@ -69,7 +69,8 @@
                 "silenceDeprecations": [
                   "import",
                   "global-builtin",
-                  "color-functions"
+                  "color-functions",
+                  "if-function"
                 ]
               }
             }
