@@ -34,11 +34,14 @@ export class LoginComponent implements OnInit {
   enviando: boolean = false;
   error: string | null = null;
   sesionVencida: boolean = false;
+  /** F13: se salio desde otra pestaña de la web. */
+  sesionCerrada: boolean = false;
   private volver: string = '/procesos';
 
   ngOnInit(): void {
     const parametros: ParamMap = this.route.snapshot.queryParamMap;
     this.sesionVencida = parametros.get('sesion') === 'vencida';
+    this.sesionCerrada = parametros.get('sesion') === 'cerrada';
     const volver: string | null = parametros.get('volver');
     // Solo rutas internas: un enlace manipulado no puede mandar al usuario a otro sitio
     if (volver?.startsWith('/') && !volver.startsWith('//')) {

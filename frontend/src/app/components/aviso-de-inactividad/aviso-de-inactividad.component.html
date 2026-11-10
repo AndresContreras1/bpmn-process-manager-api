@@ -1,0 +1,44 @@
+@if (avisoDeInactividad()) {
+  <div
+    class="aviso-de-sesion alert alert-warning shadow mb-0"
+    role="alertdialog"
+    aria-modal="false"
+    aria-labelledby="aviso-inactividad-titulo"
+    aria-describedby="aviso-inactividad-texto"
+    id="aviso-inactividad"
+  >
+    <h2 i18n class="h6 fw-bold mb-1" id="aviso-inactividad-titulo">Are you still there?</h2>
+    <p i18n class="small mb-2" id="aviso-inactividad-texto">
+      Your session closes in <span class="fw-semibold" id="aviso-inactividad-restante">{{ mmss(restante()) }}</span>
+      if nothing happens.
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+      <button
+        #seguir
+        i18n
+        type="button"
+        class="btn btn-primary btn-sm"
+        id="aviso-inactividad-seguir"
+        [disabled]="renovando"
+        (click)="seguirConectado()"
+      >
+        Stay signed in
+      </button>
+      <button
+        i18n
+        type="button"
+        class="btn btn-outline-secondary btn-sm"
+        id="aviso-inactividad-salir"
+        (click)="salir()"
+      >
+        Sign out
+      </button>
+    </div>
+  </div>
+} @else if (finCercano(); as fin) {
+  <div class="aviso-de-sesion alert alert-info shadow mb-0" role="status" id="aviso-fin-de-sesion">
+    <p i18n class="small mb-0">
+      Your session ends at {{ fin | fecha: 'hora' }}: save what you are doing, then sign in again.
+    </p>
+  </div>
+}
