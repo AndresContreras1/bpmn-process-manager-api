@@ -11,3 +11,8 @@ regexes = ['''clave-de-pruebas-de-al-menos-32-bytes''']
 description = "The address where Prometheus reads Actuator inside the compose network: a host, a port and a path"
 regexTarget = "match"
 regexes = ['''api:8081/actuator/prometheus''']
+
+[[allowlists]]
+description = "The names of the Flyway migrations, which the migrations test lists: a version and some words, not a key"
+regexTarget = "match"
+regexes = ['''V\d+__[a-z0-9_]+\.sql''']
