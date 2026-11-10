@@ -8,6 +8,14 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- The account's security in the web: the screens of the e-mail links (verify, recover the password, accept an
+  invitation) and of linking Google or Microsoft; the second factor with an authenticator app from a QR code, recovery
+  codes and passkeys; signing in with a passkey or a provider and finishing a half-done login; a dialog for the recent
+  verification the API asks for; the open sessions, which `GET` and `DELETE /api/v1/auth/sesiones` now list and close;
+  and, for administrators, the second-factor policy, e-mail domains, closing the organization, inviting by e-mail,
+  anonymizing a person and the audit log with filters, export and the chain check. The profile says when the e-mail
+  was verified.
+
 - The web no longer keeps who signed in in the browser: it asks `GET /api/v1/auth/sesion` when it starts. Tabs renew
   the session one at a time and tell each other when someone signs in, renews or signs out, so signing out in one
   signs out all of them; and a notice two minutes before the session closes for being idle offers to keep it open.
