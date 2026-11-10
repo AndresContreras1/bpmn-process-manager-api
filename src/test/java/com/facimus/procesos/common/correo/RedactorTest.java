@@ -25,17 +25,23 @@ class RedactorTest {
             "recuperar-clave  | es | Restablece tu contraseña | 15 minutos",
             "recuperar-clave  | en | Reset your password | 15 minutes",
             "recuperar-clave  | fr | Réinitialisez votre mot de passe | 15 minutes",
-            "invitacion       | es | Te invitaron a una tienda en BPMN Process Manager | 7 días",
-            "invitacion       | en | You were invited to a store on BPMN Process Manager | 7 days",
-            "invitacion       | fr | Vous êtes invité à une boutique sur BPMN Process Manager | 7 jours"})
-    @DisplayName("Cada correo sale en su idioma, con el enlace y el plazo en el texto y en el HTML")
+            "invitacion       | es | Te invitaron a una organización en BPMN Process Manager | 7 días",
+            "invitacion       | en | You were invited to an organization on BPMN Process Manager | 7 days",
+            "invitacion       | en-AU | You were invited to an organisation on BPMN Process Manager | 7 days",
+            "recuperar-clave  | en-AU | Reset your password | 15 minutes",
+            "invitacion       | fr-FR | Vous êtes invité à rejoindre une organisation sur BPMN Process Manager | 7 jours",
+            "verificar-correo | es-CO | Verifica tu correo | 48 horas",
+            "invitacion       | fr | Vous êtes invité à rejoindre une organisation sur BPMN Process Manager | 7 jours"})
+    @DisplayName("Cada correo sale en su idioma, con el enlace y el plazo en el texto y en el HTML; el ingles de "
+            + "Australia cambia solo las palabras que escribe distinto")
     void cadaPlantilla_enCadaIdioma(String plantilla, String idioma, String asunto, String plazo) {
-        CorreoSaliente correo = redactor.redactar(plantilla, Locale.of(idioma), "ana@acme.com", datos("Ana"));
+        Locale locale = Locale.forLanguageTag(idioma);
+        CorreoSaliente correo = redactor.redactar(plantilla, locale, "ana@acme.com", datos("Ana"));
 
         assertThat(correo.para()).isEqualTo("ana@acme.com");
         assertThat(correo.asunto()).isEqualTo(asunto);
         assertThat(correo.texto()).contains(ENLACE, plazo);
-        assertThat(correo.html()).contains("href=\"" + ENLACE + "\"", plazo, "lang=\"" + idioma + "\"");
+        assertThat(correo.html()).contains("href=\"" + ENLACE + "\"", plazo, "lang=\"" + locale.getLanguage() + "\"");
     }
 
     @Test
@@ -48,10 +54,10 @@ class RedactorTest {
     }
 
     @Test
-    @DisplayName("Lo que viene de afuera, como el nombre de una tienda, sale escapado en el HTML")
+    @DisplayName("Lo que viene de afuera, como el nombre de una organizacion, sale escapado en el HTML")
     void datosDeAfuera_salenEscapadosEnElHtml() {
         Map<String, Object> datos = Map.of("enlace", ENLACE, "dias", 7L, "quienInvita", "<b>Ana</b>",
-                "tienda", "<script>alert(1)</script>");
+                "organizacion", "<script>alert(1)</script>");
 
         CorreoSaliente correo = redactor.redactar("invitacion", Locale.of("es"), "luis@acme.com", datos);
 
@@ -69,6 +75,6 @@ class RedactorTest {
 
     private static Map<String, Object> datos(String nombre) {
         return Map.of("nombre", nombre, "enlace", ENLACE, "horas", 48L, "minutos", 15L, "dias", 7L,
-                "tienda", "Acme Store", "quienInvita", "Ana");
+                "organizacion", "Acme Store", "quienInvita", "Ana");
     }
 }

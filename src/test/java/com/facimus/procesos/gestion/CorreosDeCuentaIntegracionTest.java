@@ -104,11 +104,36 @@ class CorreosDeCuentaIntegracionTest {
     }
 
     @Test
-    @DisplayName("El correo sale en el idioma de quien hizo la peticion")
-    void correo_enElIdiomaDeLaPeticion() throws Exception {
-        String admin = registrarTienda("fr-CA");
+    @DisplayName("F12: quien registra desde un navegador en frances deja su organizacion en frances, y el correo le "
+            + "llega en frances con el enlace a la web en frances")
+    void correo_enElIdiomaDeLaOrganizacionNueva() throws Exception {
+        String admin = registrarTienda("fr-CA,fr;q=0.9,en;q=0.5");
 
-        assertThat(elUnicoCorreoA(admin).getSubject()).isEqualTo("Vérifiez votre adresse e-mail");
+        MimeMessage correo = elUnicoCorreoA(admin);
+        assertThat(correo.getSubject()).isEqualTo("Vérifiez votre adresse e-mail");
+        assertThat(texto(correo)).contains("https://tienda.example/fr-FR/verificar-correo#token=");
+    }
+
+    @Test
+    @DisplayName("F12: el correo sale en el idioma de quien lo recibe, no en el de quien lo pide: el que eligio, o el "
+            + "de su organizacion")
+    void correo_enElIdiomaDeQuienLoRecibe() throws Exception {
+        String admin = registrarTienda();
+        SMTP.purgeEmailFromAllMailboxes();
+        jdbc.update("update usuarios set idioma = 'en-AU' where email = ?", admin);
+
+        mockMvc.perform(post("/api/v1/auth/recuperacion").header(HttpHeaders.ACCEPT_LANGUAGE, "fr-FR")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(Map.of("email", admin))))
+                .andExpect(status().isAccepted());
+        MimeMessage correo = elUnicoCorreoA(admin);
+        assertThat(correo.getSubject()).isEqualTo("Reset your password");
+        assertThat(texto(correo)).contains("https://tienda.example/en-AU/restablecer-clave#token=");
+
+        SMTP.purgeEmailFromAllMailboxes();
+        jdbc.update("update usuarios set idioma = null where email = ?", admin);
+        pedirRecuperacion(admin).andExpect(status().isAccepted());
+        assertThat(elUnicoCorreoA(admin).getSubject()).isEqualTo("Restablece tu contraseña");
     }
 
     @Test
@@ -146,7 +171,7 @@ class CorreosDeCuentaIntegracionTest {
                 .andExpect(status().isAccepted());
 
         MimeMessage correo = elUnicoCorreoA(invitada);
-        assertThat(correo.getSubject()).isEqualTo("Te invitaron a una tienda en BPMN Process Manager");
+        assertThat(correo.getSubject()).isEqualTo("Te invitaron a una organización en BPMN Process Manager");
         assertThat(texto(correo)).contains("Administradora", "Tienda de cuentas");
         Map<String, Object> aceptar = Map.of("token", tokenDe(correo), "nombre", "Luis Invitado",
                 "password", "violin-junto-al-mar");
