@@ -36,3 +36,6 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Lo genera scripts/tokens.mjs desde src/design/tokens.json antes de compilar, servir y probar
+/src/styles/_tokens.scss

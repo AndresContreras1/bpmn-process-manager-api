@@ -1,20 +1,43 @@
-// Bootstrap se personaliza con Sass: primero se sobrescriben sus variables y despues se importa.
+// Bootstrap se personaliza con Sass: primero se sobrescriben sus variables y despues se importa. Las variables salen
+// de los tokens de diseno (src/design/tokens.json), que scripts/tokens.mjs convierte en styles/_tokens.scss.
 // Los estilos propios van al final para que tengan prioridad sobre los de Bootstrap.
-$primary: #0f6e56;
-$body-bg: #f5f6f8;
-$border-radius: 0.5rem;
-$border-radius-lg: 0.75rem;
-$link-decoration: none;
-$font-family-sans-serif:
-  system-ui,
-  -apple-system,
-  'Segoe UI',
-  Roboto,
-  'Helvetica Neue',
-  Arial,
-  sans-serif;
+@import 'styles/tokens';
 
-@import '../node_modules/bootstrap/scss/bootstrap';
+// La pila de Bootstrap sin lo que la web no usa: el acordeon, la barra de progreso, los tooltips, los popovers, el
+// carrusel y el offcanvas. Si una pantalla los necesita, vuelven aqui.
+@import '../node_modules/bootstrap/scss/functions';
+@import '../node_modules/bootstrap/scss/variables';
+@import '../node_modules/bootstrap/scss/variables-dark';
+@import '../node_modules/bootstrap/scss/maps';
+@import '../node_modules/bootstrap/scss/mixins';
+@import '../node_modules/bootstrap/scss/utilities';
+@import '../node_modules/bootstrap/scss/root';
+@import '../node_modules/bootstrap/scss/reboot';
+@import '../node_modules/bootstrap/scss/type';
+@import '../node_modules/bootstrap/scss/images';
+@import '../node_modules/bootstrap/scss/containers';
+@import '../node_modules/bootstrap/scss/grid';
+@import '../node_modules/bootstrap/scss/tables';
+@import '../node_modules/bootstrap/scss/forms';
+@import '../node_modules/bootstrap/scss/buttons';
+@import '../node_modules/bootstrap/scss/transitions';
+@import '../node_modules/bootstrap/scss/dropdown';
+@import '../node_modules/bootstrap/scss/button-group';
+@import '../node_modules/bootstrap/scss/nav';
+@import '../node_modules/bootstrap/scss/navbar';
+@import '../node_modules/bootstrap/scss/card';
+@import '../node_modules/bootstrap/scss/breadcrumb';
+@import '../node_modules/bootstrap/scss/pagination';
+@import '../node_modules/bootstrap/scss/badge';
+@import '../node_modules/bootstrap/scss/alert';
+@import '../node_modules/bootstrap/scss/list-group';
+@import '../node_modules/bootstrap/scss/close';
+@import '../node_modules/bootstrap/scss/toasts';
+@import '../node_modules/bootstrap/scss/modal';
+@import '../node_modules/bootstrap/scss/spinners';
+@import '../node_modules/bootstrap/scss/placeholders';
+@import '../node_modules/bootstrap/scss/helpers';
+@import '../node_modules/bootstrap/scss/utilities/api';
 
 .navbar-brand i {
   font-size: 1.25rem;
@@ -29,4 +52,36 @@ $font-family-sans-serif:
   color: inherit;
   text-decoration: none;
   white-space: nowrap;
+}
+
+// Un enlace dentro de un texto se distingue por algo mas que el color (WCAG 1.4.1): va subrayado. Los de las barras,
+// los botones, las migas y los menus ya lo quitan por su cuenta.
+a:not(.btn, .nav-link, .navbar-brand, .dropdown-item) {
+  text-underline-offset: 0.2em;
+}
+
+// En el tema oscuro, el gris de los botones secundarios sobre el fondo no llega a 4,5: toman el texto secundario del
+// tema, que si llega, y su borde.
+[data-bs-theme='dark'] .btn-outline-secondary {
+  --bs-btn-color: var(--bs-secondary-color);
+  --bs-btn-border-color: var(--bs-border-color);
+  --bs-btn-hover-bg: var(--bs-secondary-bg);
+  --bs-btn-hover-border-color: var(--bs-secondary-color);
+  --bs-btn-hover-color: var(--bs-body-color);
+  --bs-btn-active-bg: var(--bs-tertiary-bg);
+  --bs-btn-active-color: var(--bs-body-color);
+}
+
+// Igual con los botones de contorno de cada color: en oscuro, el color de marca o de estado no llega a 4,5 sobre el
+// fondo, y su variante enfatizada del tema si.
+@each $color in primary, success, danger, warning, info {
+  [data-bs-theme='dark'] .btn-outline-#{$color} {
+    --bs-btn-color: var(--bs-#{$color}-text-emphasis);
+    --bs-btn-border-color: var(--bs-#{$color}-text-emphasis);
+    --bs-btn-hover-color: var(--bs-body-bg);
+    --bs-btn-hover-bg: var(--bs-#{$color}-text-emphasis);
+    --bs-btn-hover-border-color: var(--bs-#{$color}-text-emphasis);
+    --bs-btn-active-color: var(--bs-body-bg);
+    --bs-btn-active-bg: var(--bs-#{$color}-text-emphasis);
+  }
 }
