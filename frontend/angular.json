@@ -61,9 +61,7 @@
               "node_modules/@fortawesome/fontawesome-free/css/all.min.css",
               "src/styles.scss"
             ],
-            "scripts": [
-              "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"
-            ],
+            "scripts": [],
             "stylePreprocessorOptions": {
               "sass": {
                 "silenceDeprecations": [
@@ -80,8 +78,8 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "900kB",
-                  "maximumError": "1.2MB"
+                  "maximumWarning": "790kB",
+                  "maximumError": "800kB"
                 },
                 {
                   "type": "anyComponentStyle",
