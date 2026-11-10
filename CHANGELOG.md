@@ -8,6 +8,13 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- The diagram's geometry in the domain, ready for BPMN DI: a stable `bpmn_id` for every pool, lane, node and flow,
+  and the absolute bounds, waypoints and label bounds of each one, recalculated with every change to a process with
+  the same calculation as the web. A Java migration converts the diagrams that already existed.
+- `SecureXml`, the only way to create an XML parser: no DTDs, no external entities, limits on size, elements,
+  depth, attributes, text and time, and a 400 for whatever breaks them. An architecture rule forbids creating XML
+  factories anywhere else.
+
 - The account's security in the web: the screens of the e-mail links (verify, recover the password, accept an
   invitation) and of linking Google or Microsoft; the second factor with an authenticator app from a QR code, recovery
   codes and passkeys; signing in with a passkey or a provider and finishing a half-done login; a dialog for the recent

@@ -27,6 +27,12 @@ Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory 
 Activities, gateways and events share one table through single-table inheritance, so a sequence flow can point to
 any of them. The database makes each subtype fill its own type column and leaves the others empty.
 
+Pools, lanes, nodes, sequence flows and message flows carry a `bpmn_id` that never changes, the `id` they take in a
+BPMN file. Where each of them is drawn (BPMN DI) lives in `formas_bpmn` and `aristas_bpmn`: absolute bounds for each
+pool, lane and node, the points of each flow and the bounds of each label. The server works them out from the
+positions relative to the lane with the same calculation the web draws with, every time the process changes
+([ADR-0052](adr/0052-geometry-in-the-domain.md)).
+
 ## Modeling rules
 
 - A sequence flow joins two different nodes of the same pool, so it never crosses pools. There is at most one
