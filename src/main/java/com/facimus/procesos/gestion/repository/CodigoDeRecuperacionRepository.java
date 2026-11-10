@@ -16,6 +16,8 @@ public interface CodigoDeRecuperacionRepository extends RepositorioTenant<Codigo
 
     long countByUsuarioIdAndEmpresaIdAndUsadoEnIsNull(Long usuarioId, Long empresaId);
 
+    boolean existsByUsuarioIdAndEmpresaId(Long usuarioId, Long empresaId);
+
     /** Lo marca usado solo si nadie lo uso antes: de dos usos a la vez, el segundo cambia 0 filas. */
     @Modifying
     @Query("update CodigoDeRecuperacion c set c.usadoEn = :ahora where c.id = :id and c.usadoEn is null")

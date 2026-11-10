@@ -30,6 +30,7 @@ public class BorradoDeTiendas {
             "delete from identidades_externas where empresa_id = ?",
             "delete from dominios_verificados where empresa_id = ?",
             "delete from segundos_factores where empresa_id = ?",
+            "delete from passkeys where empresa_id = ?",
             "delete from claves_idempotencia where empresa_id = ?",
             "delete from trabajos where empresa_id = ?",
             "delete from membresias_rol where empresa_id = ?",

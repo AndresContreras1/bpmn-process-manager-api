@@ -34,6 +34,7 @@ import com.facimus.procesos.gestion.model.SegundoFactor;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.CodigoDeRecuperacionRepository;
 import com.facimus.procesos.gestion.repository.ConfiguracionTiendaRepository;
+import com.facimus.procesos.gestion.repository.PasskeyRepository;
 import com.facimus.procesos.gestion.repository.SegundoFactorRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
@@ -59,6 +60,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
 
     private final SegundoFactorRepository segundoFactorRepository;
     private final CodigoDeRecuperacionRepository codigoRepository;
+    private final PasskeyRepository passkeyRepository;
     private final UsuarioRepository usuarioRepository;
     private final CifradoDeSecretos cifrado;
     private final HistorialCambioService historialCambioService;
@@ -70,11 +72,13 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
 
     @SuppressWarnings("java:S107") // las piezas del segundo factor, cada una por su nombre
     public SegundoFactorServiceImpl(SegundoFactorRepository segundoFactorRepository,
-            CodigoDeRecuperacionRepository codigoRepository, UsuarioRepository usuarioRepository,
-            CifradoDeSecretos cifrado, HistorialCambioService historialCambioService, SesionService sesionService,
+            CodigoDeRecuperacionRepository codigoRepository, PasskeyRepository passkeyRepository,
+            UsuarioRepository usuarioRepository, CifradoDeSecretos cifrado,
+            HistorialCambioService historialCambioService, SesionService sesionService,
             ConfiguracionTiendaRepository configuracionRepository, Auditoria auditoria, Clock reloj) {
         this.segundoFactorRepository = segundoFactorRepository;
         this.codigoRepository = codigoRepository;
+        this.passkeyRepository = passkeyRepository;
         this.usuarioRepository = usuarioRepository;
         this.cifrado = cifrado;
         this.historialCambioService = historialCambioService;
@@ -86,13 +90,18 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
 
     @Override
     public SegundoFactorResponse estado(Long empresaId, Long usuarioId) {
-        boolean totp = loPide(empresaId, usuarioId);
-        return new SegundoFactorResponse(totp,
-                totp ? codigoRepository.countByUsuarioIdAndEmpresaIdAndUsadoEnIsNull(usuarioId, empresaId) : 0);
+        boolean totp = tieneTotp(empresaId, usuarioId);
+        long passkeys = passkeyRepository.countByUsuarioIdAndEmpresaId(usuarioId, empresaId);
+        return new SegundoFactorResponse(totp, passkeys, totp || passkeys > 0
+                ? codigoRepository.countByUsuarioIdAndEmpresaIdAndUsadoEnIsNull(usuarioId, empresaId) : 0);
     }
 
     @Override
     public boolean loPide(Long empresaId, Long usuarioId) {
+        return tieneTotp(empresaId, usuarioId) || passkeyRepository.existsByUsuarioIdAndEmpresaId(usuarioId, empresaId);
+    }
+
+    private boolean tieneTotp(Long empresaId, Long usuarioId) {
         return segundoFactorRepository.existsByUsuarioIdAndEmpresaIdAndConfirmadoEnIsNotNull(usuarioId, empresaId);
     }
 
@@ -146,7 +155,26 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Segundo factor de \"" + usuario.getNombre() + "\" activado.");
         auditoria.registrar(empresaId, usuarioId, "SEGUNDO_FACTOR_ACTIVADO", "USUARIO", usuarioId, Map.of());
-        return new CodigosDeRecuperacionResponse(nuevosCodigos(usuario));
+        // PR 49b: quien ya tenia una passkey ya tiene sus codigos, y no se le cambian por agregar la aplicacion.
+        return new CodigosDeRecuperacionResponse(codigoRepository.existsByUsuarioIdAndEmpresaId(usuarioId, empresaId)
+                ? List.of() : nuevosCodigos(usuario));
+    }
+
+    @Override
+    @Transactional
+    public List<String> codigosDelPrimerFactor(Long empresaId, Long usuarioId) {
+        if (codigoRepository.existsByUsuarioIdAndEmpresaId(usuarioId, empresaId)) {
+            return List.of();
+        }
+        return nuevosCodigos(buscar(empresaId, usuarioId));
+    }
+
+    @Override
+    @Transactional
+    public void olvidarCodigosSinFactor(Long empresaId, Long usuarioId) {
+        if (!loPide(empresaId, usuarioId)) {
+            codigoRepository.borrarLosDe(empresaId, usuarioId);
+        }
     }
 
     @Override
@@ -175,11 +203,11 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     @Override
     @Transactional
     public CodigosDeRecuperacionResponse renovarCodigos(Long empresaId, Long usuarioId) {
-        SegundoFactor factor = segundoFactorRepository.findByUsuarioIdAndEmpresaId(usuarioId, empresaId)
-                .filter(SegundoFactor::estaConfirmado)
-                .orElseThrow(() -> new ReglaNegocioException("Los códigos de recuperación son del segundo factor: "
-                        + "activa primero una aplicación de autenticación."));
-        Usuario usuario = factor.getUsuario();
+        if (!loPide(empresaId, usuarioId)) {
+            throw new ReglaNegocioException("Los códigos de recuperación son del segundo factor: activa primero una "
+                    + "aplicación de autenticación o una passkey.");
+        }
+        Usuario usuario = buscar(empresaId, usuarioId);
         codigoRepository.borrarLosDe(empresaId, usuarioId);
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Códigos de recuperación de \"" + usuario.getNombre() + "\" renovados.");
@@ -191,7 +219,8 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     @Transactional
     public void quitarPropio(Long empresaId, Long usuarioId) {
         Usuario usuario = buscar(empresaId, usuarioId);
-        if (borrar(empresaId, usuarioId)) {
+        if (segundoFactorRepository.borrarElDe(empresaId, usuarioId) > 0) {
+            olvidarCodigosSinFactor(empresaId, usuarioId);
             historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                     "Segundo factor de \"" + usuario.getNombre() + "\" quitado.");
             auditoria.registrar(empresaId, usuarioId, "SEGUNDO_FACTOR_QUITADO", "USUARIO", usuarioId, Map.of());
@@ -219,12 +248,15 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     @Transactional
     public void borrarDe(Long empresaId, Long usuarioId) {
         borrar(empresaId, usuarioId);
+        // PR 49b: el user handle de WebAuthn tampoco queda: una passkey vieja de su dispositivo ya no lleva a nadie.
+        usuarioRepository.findByIdAndEmpresaId(usuarioId, empresaId).ifPresent(usuario -> usuario.setWebauthnId(null));
     }
 
-    /** Si habia algo que quitar. */
+    /** Todo el segundo factor: la aplicacion, las passkeys y sus codigos. Si habia algo que quitar. */
     private boolean borrar(Long empresaId, Long usuarioId) {
         codigoRepository.borrarLosDe(empresaId, usuarioId);
-        return segundoFactorRepository.borrarElDe(empresaId, usuarioId) > 0;
+        int passkeys = passkeyRepository.borrarLasDe(empresaId, usuarioId);
+        return segundoFactorRepository.borrarElDe(empresaId, usuarioId) + passkeys > 0;
     }
 
     private List<String> nuevosCodigos(Usuario usuario) {
