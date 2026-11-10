@@ -20,13 +20,13 @@ public interface RefreshTokenRepository extends RepositorioTenant<RefreshToken> 
     @EntityGraph(attributePaths = {"sesion", "sesion.usuario"})
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
-    /**
-     * Marca el token como usado solo si nadie lo uso antes: de dos renovaciones a la vez, la segunda cambia 0 filas.
-     */
     /** F13: el refresh token vigente de una sesion, el ultimo que se emitio y nadie uso: su vencimiento es el de ella. */
     Optional<RefreshToken> findFirstBySesionIdAndEmpresaIdAndFechaUsoIsNullOrderByFechaEmisionDesc(Long sesionId,
             Long empresaId);
 
+    /**
+     * Marca el token como usado solo si nadie lo uso antes: de dos renovaciones a la vez, la segunda cambia 0 filas.
+     */
     @Modifying
     @Query("update RefreshToken t set t.fechaUso = :ahora where t.id = :id and t.fechaUso is null")
     int marcarUsado(Long id, LocalDateTime ahora);
