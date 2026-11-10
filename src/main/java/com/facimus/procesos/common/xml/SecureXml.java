@@ -47,7 +47,7 @@ import org.xml.sax.SAXNotSupportedException;
  * <li>solo UTF-8 y UTF-16: una codificacion rara es la forma de esconder un DOCTYPE a un filtro ingenuo.</li>
  * </ul>
  *
- * Todo lo que no se lee termina en {@link XmlRechazadoException}, que responde 400.
+ * Lo que no se puede leer termina en {@link XmlRechazadoException}, que responde 400.
  */
 public final class SecureXml {
 
@@ -305,16 +305,18 @@ public final class SecureXml {
                 case XMLStreamConstants.START_ELEMENT -> abrir();
                 case XMLStreamConstants.END_ELEMENT -> profundidad--;
                 case XMLStreamConstants.CHARACTERS, XMLStreamConstants.CDATA, XMLStreamConstants.SPACE,
-                        XMLStreamConstants.COMMENT -> {
-                    if (getTextLength() > limites.texto()) {
-                        throw new XmlRechazadoException("Un texto del XML pasa de " + limites.texto() + " caracteres.");
-                    }
-                }
+                        XMLStreamConstants.COMMENT -> medirTexto();
                 default -> {
                     // Instrucciones de proceso y fin del documento: nada que contar
                 }
             }
             return evento;
+        }
+
+        private void medirTexto() {
+            if (getTextLength() > limites.texto()) {
+                throw new XmlRechazadoException("Un texto del XML pasa de " + limites.texto() + " caracteres.");
+            }
         }
 
         private void abrir() {

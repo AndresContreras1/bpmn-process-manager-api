@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import com.facimus.procesos.common.xml.SecureXml;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.lang.ArchRule;
 
 /** PR 52: la regla de {@link XmlSeguroTest} de verdad ve una factoria de XML, y no pasa por no mirar. */
 class XmlSeguroReglaTest {
@@ -17,8 +18,9 @@ class XmlSeguroReglaTest {
     @DisplayName("La regla ve las factorias: aplicada a SecureXml, sin su excepcion, falla")
     void laReglaVeLasFactorias() {
         JavaClasses secureXml = new ClassFileImporter().importClasses(SecureXml.class);
+        ArchRule sinExcepcion = noClasses().should().callCodeUnitWhere(XmlSeguroTest.CREAR_UNA_FACTORIA_XML);
 
-        assertThatThrownBy(() -> noClasses().should().callCodeUnitWhere(XmlSeguroTest.CREAR_UNA_FACTORIA_XML).check(secureXml))
+        assertThatThrownBy(() -> sinExcepcion.check(secureXml))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("DocumentBuilderFactory.newInstance")
                 .hasMessageContaining("XMLInputFactory.newFactory");

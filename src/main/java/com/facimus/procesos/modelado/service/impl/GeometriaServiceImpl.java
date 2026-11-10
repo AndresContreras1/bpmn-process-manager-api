@@ -56,16 +56,20 @@ public class GeometriaServiceImpl implements GeometriaService {
     private final FormaBpmnRepository formaRepository;
     private final AristaBpmnRepository aristaRepository;
 
-    /** Todo cambio de un proceso pasa por su historial, y el historial lo avisa. */
+    /** Cada cambio de un proceso pasa por su historial, y el historial lo avisa. */
     @EventListener
     @Transactional
     public void alModificarse(ProcesoModificado evento) {
-        recalcular(evento.empresaId(), evento.procesoId());
+        reemplazar(evento.empresaId(), evento.procesoId());
     }
 
     @Override
     @Transactional
     public void recalcular(Long empresaId, Long procesoId) {
+        reemplazar(empresaId, procesoId);
+    }
+
+    private void reemplazar(Long empresaId, Long procesoId) {
         List<Pool> pools = poolRepository.findAllByProcesoIdAndEmpresaIdOrderByOrdenAsc(procesoId, empresaId);
         formaRepository.borrarDelProceso(procesoId, empresaId);
         aristaRepository.borrarDelProceso(procesoId, empresaId);

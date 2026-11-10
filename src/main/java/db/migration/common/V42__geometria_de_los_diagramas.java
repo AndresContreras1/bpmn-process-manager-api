@@ -32,6 +32,7 @@ import com.facimus.procesos.modelado.model.DisposicionBpmn.PoolPlano;
  * <p>Va en Java porque la cuenta no cabe en SQL. Usa la clase del dominio: si la cuenta cambia algun dia, esta
  * migracion ya habra corrido en cada base que tenia diagramas, y en una base nueva no hay nada que convertir.
  */
+@SuppressWarnings("java:S101") // Flyway saca la version y la descripcion del nombre de la clase
 public class V42__geometria_de_los_diagramas extends BaseJavaMigration {
 
     @Override
@@ -139,9 +140,10 @@ public class V42__geometria_de_los_diagramas extends BaseJavaMigration {
                     etiqueta_x, etiqueta_y, etiqueta_ancho, etiqueta_alto)
                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
+            // Un lote guarda los parametros que no se vuelven a poner: el proceso es el mismo en cada fila
+            insercion.setLong(1, empresaId);
+            insercion.setLong(2, procesoId);
             for (Forma forma : geometria.formas()) {
-                insercion.setLong(1, empresaId);
-                insercion.setLong(2, procesoId);
                 insercion.setString(3, forma.elemento());
                 insercion.setString(4, forma.tipo());
                 insercion.setDouble(5, forma.limites().x());
@@ -158,9 +160,9 @@ public class V42__geometria_de_los_diagramas extends BaseJavaMigration {
                     etiqueta_x, etiqueta_y, etiqueta_ancho, etiqueta_alto)
                 values (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
+            insercion.setLong(1, empresaId);
+            insercion.setLong(2, procesoId);
             for (Arista arista : geometria.aristas()) {
-                insercion.setLong(1, empresaId);
-                insercion.setLong(2, procesoId);
                 insercion.setString(3, arista.elemento());
                 insercion.setString(4, arista.tipo());
                 insercion.setString(5, AristaBpmn.escribir(arista.puntos()));

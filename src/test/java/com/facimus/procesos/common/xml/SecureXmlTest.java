@@ -14,8 +14,12 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.SAXParser;
 import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -92,35 +96,40 @@ class SecureXmlTest {
     @DisplayName("Un DOCTYPE se rechaza, con entidades internas, externas o de parametro, sin llamar a nadie")
     void doctype_seRechaza(String plantilla) {
         String xml = plantilla.replace("@URL@", url);
+        InputStream paraComprobar = entrada(xml);
+        InputStream paraDom = entrada(xml);
+        InputStream paraSax = entrada(xml);
+        DocumentBuilder dom = SecureXml.documentos();
+        SAXParser sax = SecureXml.sax();
+        DefaultHandler manejador = new DefaultHandler();
 
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada(xml), LIMITES))
+        assertThatThrownBy(() -> SecureXml.comprobar(paraComprobar, LIMITES))
                 .isInstanceOf(XmlRechazadoException.class);
-        assertThatThrownBy(() -> SecureXml.documentos().parse(entrada(xml))).isInstanceOf(SAXException.class);
-        assertThatThrownBy(() -> SecureXml.sax().parse(entrada(xml), new DefaultHandler()))
-                .isInstanceOf(SAXException.class);
+        assertThatThrownBy(() -> dom.parse(paraDom)).isInstanceOf(SAXException.class);
+        assertThatThrownBy(() -> sax.parse(paraSax, manejador)).isInstanceOf(SAXException.class);
     }
 
     @Test
     @DisplayName("La explosion cuadratica, una entidad grande repetida miles de veces, tampoco pasa")
     void explosionCuadratica() {
         String grande = "x".repeat(50_000);
-        String xml = "<!DOCTYPE r [<!ENTITY g \"" + grande + "\">]><r>" + "&g;".repeat(10_000) + "</r>";
+        InputStream xml = entrada("<!DOCTYPE r [<!ENTITY g \"" + grande + "\">]><r>" + "&g;".repeat(10_000) + "</r>");
 
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada(xml), LIMITES)).isInstanceOf(XmlRechazadoException.class);
+        assertThatThrownBy(() -> SecureXml.comprobar(xml, LIMITES)).isInstanceOf(XmlRechazadoException.class);
     }
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"UTF-7", "ISO-8859-1", "EBCDIC-CP-US", "x-unknown"})
     @DisplayName("Solo UTF-8 o UTF-16: una codificacion rara es como se le esconde un DOCTYPE a un filtro")
     void codificacionesRaras(String codificacion) {
-        String xml = "<?xml version=\"1.0\" encoding=\"" + codificacion + "\"?><r/>";
+        InputStream xml = entrada("<?xml version=\"1.0\" encoding=\"" + codificacion + "\"?><r/>");
 
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada(xml), LIMITES)).isInstanceOf(XmlRechazadoException.class);
+        assertThatThrownBy(() -> SecureXml.comprobar(xml, LIMITES)).isInstanceOf(XmlRechazadoException.class);
     }
 
     @Test
     @DisplayName("UTF-16 con su BOM se lee, y un BPMN normal tambien, como DOM")
-    void loNormal_seLee() throws IOException {
+    void loNormal_seLee() {
         byte[] utf16 = "<?xml version=\"1.0\" encoding=\"UTF-16\"?><r a=\"1\">hola</r>".getBytes(StandardCharsets.UTF_16);
         assertThat(SecureXml.comprobar(new ByteArrayInputStream(utf16), LIMITES)).isEqualTo(utf16);
 
@@ -150,7 +159,10 @@ class SecureXmlTest {
         String xslt = "<xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\">"
                 + "<xsl:include href=\"" + url + "/x.xsl\"/></xsl:stylesheet>";
 
-        assertThatThrownBy(() -> SecureXml.transformadores().newTransformer(new StreamSource(new StringReader(xslt))))
+        TransformerFactory transformadores = SecureXml.transformadores();
+        StreamSource hoja = new StreamSource(new StringReader(xslt));
+
+        assertThatThrownBy(() -> transformadores.newTransformer(hoja))
                 .isInstanceOf(TransformerConfigurationException.class);
     }
 
@@ -161,7 +173,10 @@ class SecureXmlTest {
                 + "<xs:import namespace=\"urn:otro\" schemaLocation=\"" + url + "/x.xsd\"/>"
                 + "<xs:element name=\"r\" type=\"xs:string\"/></xs:schema>";
 
-        assertThatThrownBy(() -> SecureXml.esquemas().newSchema(new StreamSource(new StringReader(xsd))))
+        SchemaFactory esquemas = SecureXml.esquemas();
+        StreamSource esquema = new StreamSource(new StringReader(xsd));
+
+        assertThatThrownBy(() -> esquemas.newSchema(esquema))
                 .isInstanceOf(SAXException.class);
     }
 
@@ -169,28 +184,37 @@ class SecureXmlTest {
     @DisplayName("Cada limite corta: tamano, elementos, profundidad, atributos, texto y tiempo")
     void limites() {
         LimitesXml chicos = new LimitesXml(1024, 5, 3, 2, 10, Duration.ofSeconds(5));
-
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada("<r>" + "x".repeat(2000) + "</r>"), chicos))
-                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("bytes");
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada("<r><a/><a/><a/><a/><a/></r>"), chicos))
-                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("elementos");
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada("<r><a><b><c/></b></a></r>"), chicos))
-                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("niveles");
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada("<r a=\"1\" b=\"2\" c=\"3\"/>"), chicos))
-                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("atributos");
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada("<r>texto demasiado largo</r>"), chicos))
-                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("caracteres");
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada("<r a=\"atributo demasiado largo\"/>"), chicos))
-                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("caracteres");
         LimitesXml sinTiempo = new LimitesXml(1024, 5, 3, 2, 10, Duration.ZERO);
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada("<r><a/></r>"), sinTiempo))
+        InputStream grande = entrada("<r>" + "x".repeat(2000) + "</r>");
+        InputStream muchos = entrada("<r><a/><a/><a/><a/><a/></r>");
+        InputStream hondo = entrada("<r><a><b><c/></b></a></r>");
+        InputStream conAtributos = entrada("<r a=\"1\" b=\"2\" c=\"3\"/>");
+        InputStream textoLargo = entrada("<r>texto demasiado largo</r>");
+        InputStream atributoLargo = entrada("<r a=\"atributo demasiado largo\"/>");
+        InputStream lento = entrada("<r><a/></r>");
+
+        assertThatThrownBy(() -> SecureXml.comprobar(grande, chicos))
+                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("bytes");
+        assertThatThrownBy(() -> SecureXml.comprobar(muchos, chicos))
+                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("elementos");
+        assertThatThrownBy(() -> SecureXml.comprobar(hondo, chicos))
+                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("niveles");
+        assertThatThrownBy(() -> SecureXml.comprobar(conAtributos, chicos))
+                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("atributos");
+        assertThatThrownBy(() -> SecureXml.comprobar(textoLargo, chicos))
+                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("caracteres");
+        assertThatThrownBy(() -> SecureXml.comprobar(atributoLargo, chicos))
+                .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("caracteres");
+        assertThatThrownBy(() -> SecureXml.comprobar(lento, sinTiempo))
                 .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("segundos");
     }
 
     @Test
     @DisplayName("Lo mal formado tambien se rechaza, con su motivo")
     void malFormado() {
-        assertThatThrownBy(() -> SecureXml.comprobar(entrada("<r><a></r>"), LIMITES))
+        InputStream xml = entrada("<r><a></r>");
+
+        assertThatThrownBy(() -> SecureXml.comprobar(xml, LIMITES))
                 .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("no se pudo leer");
     }
 

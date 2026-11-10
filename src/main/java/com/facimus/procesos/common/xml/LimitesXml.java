@@ -7,7 +7,7 @@ import java.time.Duration;
  * mano (unos cientos de elementos) y cortan antes de que un archivo hostil gaste memoria o tiempo.
  *
  * @param bytes tamano del documento, antes de parsearlo y mientras se lee
- * @param elementos numero de elementos de todo el documento
+ * @param elementos numero de elementos del documento entero
  * @param profundidad anidamiento maximo de elementos
  * @param atributosPorElemento atributos de un mismo elemento
  * @param texto largo de un mismo texto o atributo, en caracteres

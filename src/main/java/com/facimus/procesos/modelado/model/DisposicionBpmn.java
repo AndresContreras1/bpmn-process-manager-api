@@ -10,7 +10,7 @@ import java.util.Map;
 /**
  * PR 52: la geometria BPMN DI de un diagrama, con la misma cuenta que dibuja la web ({@code lienzo.ts}): los pools en
  * filas (clientes arriba, la organizacion con sus lanes en medio, los demas abajo), cada lane tan alta como sus
- * nodos, la x de cada nodo comun a todo el diagrama y su y relativa a su lane. Lo que sale son coordenadas absolutas,
+ * nodos, la x de cada nodo comun al diagrama entero y su y relativa a su lane. Lo que sale son coordenadas absolutas,
  * con el origen arriba a la izquierda: formas con sus limites y los de su etiqueta, y aristas con sus puntos.
  *
  * <p>Es una funcion pura, sin base ni Spring: la usan la migracion que convierte los diagramas que ya existian y el
@@ -85,14 +85,16 @@ public final class DisposicionBpmn {
     private record Caja(double x, double y, double ancho, double alto) {
     }
 
+    /** Lo que se va armando mientras se ubican los pools: comun a todos, para no pasarlo pieza por pieza. */
+    private record Lienzo(double minX, double anchoPool, List<Forma> formas, Map<Long, Ubicado> ubicados) {
+    }
+
     public static Geometria calcular(List<PoolPlano> pools, List<LanePlana> lanes, List<NodoPlano> nodos,
             List<ArcoPlano> arcos, List<MensajePlano> mensajes) {
-        List<Forma> formas = new ArrayList<>();
-        List<Arista> aristas = new ArrayList<>();
         double minX = nodos.stream().mapToInt(NodoPlano::posicionX).min().orElse(0);
         double maxX = nodos.stream().mapToInt(NodoPlano::posicionX).max().orElse(0);
         double anchoPool = Math.max(2 * FRANJA + maxX - minX + ANCHO_TAREA + 2 * RELLENO_X, ANCHO_MINIMO);
-        Map<Long, Ubicado> ubicados = new HashMap<>();
+        Lienzo lienzo = new Lienzo(minX, anchoPool, new ArrayList<>(), new HashMap<>());
         Map<Long, Caja> cajas = new LinkedHashMap<>();
 
         List<PoolPlano> ordenados = pools.stream()
@@ -101,45 +103,63 @@ public final class DisposicionBpmn {
                 .toList();
         double y = MARGEN;
         for (PoolPlano pool : ordenados) {
-            List<LanePlana> suyas = lanes.stream().filter(lane -> lane.poolId() == pool.id())
-                    .sorted(Comparator.comparingInt(LanePlana::orden).thenComparingLong(LanePlana::id)).toList();
-            double yLane = y;
-            if (!pool.cajaNegra()) {
-                for (LanePlana lane : suyas) {
-                    List<NodoPlano> dentro = nodos.stream().filter(nodo -> nodo.laneId() == lane.id()).toList();
-                    double minY = dentro.stream().mapToInt(NodoPlano::posicionY).min().orElse(0);
-                    double maxY = dentro.stream().mapToInt(NodoPlano::posicionY).max().orElse(0);
-                    double alto = dentro.isEmpty() ? ALTO_VACIO
-                            : RELLENO_ARRIBA + maxY - minY + ALTO_TAREA + RELLENO_ABAJO;
-                    formas.add(new Forma(lane.bpmnId(), "LANE",
-                            new Limites(MARGEN + FRANJA, yLane, anchoPool - FRANJA, alto), null));
-                    for (NodoPlano nodo : dentro) {
-                        double cx = MARGEN + 2 * FRANJA + RELLENO_X + ANCHO_TAREA / 2 + nodo.posicionX() - minX;
-                        double cy = yLane + RELLENO_ARRIBA + ALTO_TAREA / 2 + nodo.posicionY() - minY;
-                        Ubicado ubicado = ubicar(nodo, cx, cy);
-                        ubicados.put(nodo.id(), ubicado);
-                        formas.add(forma(nodo, ubicado));
-                    }
-                    yLane += alto;
-                }
-            }
-            double alto = pool.cajaNegra() ? ALTO_CAJA_NEGRA : suyas.isEmpty() ? ALTO_VACIO : yLane - y;
+            double alto = ubicarPool(pool, y, lanes, nodos, lienzo);
             Caja caja = new Caja(MARGEN, y, anchoPool, alto);
             cajas.put(pool.id(), caja);
-            formas.add(new Forma(pool.bpmnId(), "PARTICIPANTE", new Limites(caja.x(), caja.y(), caja.ancho(),
-                    caja.alto()), null));
+            lienzo.formas().add(new Forma(pool.bpmnId(), "PARTICIPANTE",
+                    new Limites(caja.x(), caja.y(), caja.ancho(), caja.alto()), null));
             y += alto + SEPARACION;
         }
 
+        List<Arista> aristas = new ArrayList<>();
         for (ArcoPlano arco : arcos) {
-            Ubicado origen = ubicados.get(arco.origenId());
-            Ubicado destino = ubicados.get(arco.destinoId());
+            Ubicado origen = lienzo.ubicados().get(arco.origenId());
+            Ubicado destino = lienzo.ubicados().get(arco.destinoId());
             if (origen != null && destino != null) {
                 aristas.add(trazarArco(arco, origen, destino));
             }
         }
-        aristas.addAll(trazarMensajes(mensajes, cajas, ubicados, anchoPool));
-        return new Geometria(List.copyOf(formas), List.copyOf(aristas));
+        aristas.addAll(trazarMensajes(mensajes, cajas, lienzo.ubicados(), anchoPool));
+        return new Geometria(List.copyOf(lienzo.formas()), List.copyOf(aristas));
+    }
+
+    /**
+     * Las lanes de un pool, una debajo de otra, con sus nodos; devuelve el alto del pool. Una caja negra no muestra
+     * lanes, y un pool sin lanes queda con el alto de uno vacio.
+     */
+    private static double ubicarPool(PoolPlano pool, double y, List<LanePlana> lanes, List<NodoPlano> nodos,
+            Lienzo lienzo) {
+        if (pool.cajaNegra()) {
+            return ALTO_CAJA_NEGRA;
+        }
+        List<LanePlana> suyas = lanes.stream().filter(lane -> lane.poolId() == pool.id())
+                .sorted(Comparator.comparingInt(LanePlana::orden).thenComparingLong(LanePlana::id)).toList();
+        if (suyas.isEmpty()) {
+            return ALTO_VACIO;
+        }
+        double yLane = y;
+        for (LanePlana lane : suyas) {
+            yLane += ubicarLane(lane, yLane, nodos, lienzo);
+        }
+        return yLane - y;
+    }
+
+    /** Una lane y sus nodos: tan alta como ellos, o como una vacia. Devuelve su alto. */
+    private static double ubicarLane(LanePlana lane, double yLane, List<NodoPlano> nodos, Lienzo lienzo) {
+        List<NodoPlano> dentro = nodos.stream().filter(nodo -> nodo.laneId() == lane.id()).toList();
+        double minY = dentro.stream().mapToInt(NodoPlano::posicionY).min().orElse(0);
+        double maxY = dentro.stream().mapToInt(NodoPlano::posicionY).max().orElse(0);
+        double alto = dentro.isEmpty() ? ALTO_VACIO : RELLENO_ARRIBA + maxY - minY + ALTO_TAREA + RELLENO_ABAJO;
+        lienzo.formas().add(new Forma(lane.bpmnId(), "LANE",
+                new Limites(MARGEN + FRANJA, yLane, lienzo.anchoPool() - FRANJA, alto), null));
+        for (NodoPlano nodo : dentro) {
+            double cx = MARGEN + 2 * FRANJA + RELLENO_X + ANCHO_TAREA / 2 + nodo.posicionX() - lienzo.minX();
+            double cy = yLane + RELLENO_ARRIBA + ALTO_TAREA / 2 + nodo.posicionY() - minY;
+            Ubicado ubicado = ubicar(nodo, cx, cy);
+            lienzo.ubicados().put(nodo.id(), ubicado);
+            lienzo.formas().add(forma(nodo, ubicado));
+        }
+        return alto;
     }
 
     private static Ubicado ubicar(NodoPlano nodo, double cx, double cy) {
@@ -251,25 +271,42 @@ public final class DisposicionBpmn {
         double paso = (anchoPool - 2 * FRANJA - 48) / Math.max(sueltos.size(), 1);
         List<Arista> aristas = new ArrayList<>();
         for (MensajePlano mensaje : validos) {
-            Caja origen = cajas.get(mensaje.poolOrigenId());
-            Caja destino = cajas.get(mensaje.poolDestinoId());
-            boolean baja = destino.y() > origen.y();
-            double hacia = baja ? 1 : -1;
             double columna = inicio + paso * (sueltos.indexOf(mensaje.id()) + 0.5);
-            Ubicado desde = ubicados.get(clave(mensaje.nodoOrigenId()));
-            Ubicado hasta = ubicados.get(clave(mensaje.nodoDestinoId()));
-            double yHueco = baja ? origen.y() + origen.alto() + SEPARACION / 2 : origen.y() - SEPARACION / 2;
-            double x1 = desde != null ? desde.cx() : hasta != null ? hasta.cx() : columna;
-            double x2 = hasta != null ? hasta.cx() : x1;
-            double y1 = desde != null ? desde.cy() + hacia * desde.medioAlto() : baja ? origen.y() + origen.alto()
-                    : origen.y();
-            double y2 = hasta != null ? hasta.cy() - hacia * hasta.medioAlto() : baja ? destino.y()
-                    : destino.y() + destino.alto();
-            List<Punto> puntos = x1 == x2 ? List.of(new Punto(x1, y1), new Punto(x2, y2))
-                    : List.of(new Punto(x1, y1), new Punto(x1, yHueco), new Punto(x2, yHueco), new Punto(x2, y2));
-            aristas.add(new Arista(mensaje.bpmnId(), "MENSAJE", puntos, null));
+            aristas.add(trazarMensaje(mensaje, cajas.get(mensaje.poolOrigenId()), cajas.get(mensaje.poolDestinoId()),
+                    ubicados.get(clave(mensaje.nodoOrigenId())), ubicados.get(clave(mensaje.nodoDestinoId())), columna));
         }
         return aristas;
+    }
+
+    /**
+     * Un mensaje entre dos pools. {@code desde} y {@code hasta} son sus nodos, o {@code null} si ese extremo es el
+     * pool; {@code columna} es la x que le toca si no tiene ninguno.
+     */
+    private static Arista trazarMensaje(MensajePlano mensaje, Caja origen, Caja destino, Ubicado desde, Ubicado hasta,
+            double columna) {
+        boolean baja = destino.y() > origen.y();
+        double hacia = baja ? 1 : -1;
+        double yHueco = baja ? origen.y() + origen.alto() + SEPARACION / 2 : origen.y() - SEPARACION / 2;
+        double x1 = xDeSalida(desde, hasta, columna);
+        double x2 = hasta != null ? hasta.cx() : x1;
+        double y1 = desde != null ? desde.cy() + hacia * desde.medioAlto() : bordeHacia(origen, baja);
+        double y2 = hasta != null ? hasta.cy() - hacia * hasta.medioAlto() : bordeHacia(destino, !baja);
+        List<Punto> puntos = x1 == x2 ? List.of(new Punto(x1, y1), new Punto(x2, y2))
+                : List.of(new Punto(x1, y1), new Punto(x1, yHueco), new Punto(x2, yHueco), new Punto(x2, y2));
+        return new Arista(mensaje.bpmnId(), "MENSAJE", puntos, null);
+    }
+
+    /** Sin nodo de salida, el mensaje sale a la altura del que lo recibe, y si tampoco hay, por su columna. */
+    private static double xDeSalida(Ubicado desde, Ubicado hasta, double columna) {
+        if (desde != null) {
+            return desde.cx();
+        }
+        return hasta != null ? hasta.cx() : columna;
+    }
+
+    /** El borde de un pool que mira hacia abajo o hacia arriba. */
+    private static double bordeHacia(Caja pool, boolean abajo) {
+        return abajo ? pool.y() + pool.alto() : pool.y();
     }
 
     private static long clave(Long id) {
