@@ -6,13 +6,13 @@ import { ProblemDetail } from '../models/problem-detail.model';
 /** Mensaje general de un error de la API, para mostrarlo encima del formulario. */
 export function mensajeDeError(error: HttpErrorResponse): string {
   if (error.status === 0) {
-    return 'The server cannot be reached. Check that the backend is running.';
+    return $localize`The server cannot be reached. Check that the backend is running.`;
   }
   if (error.status === 403) {
-    return 'Your role does not allow this action.';
+    return $localize`Your role does not allow this action.`;
   }
   const problema: ProblemDetail | null = error.error as ProblemDetail | null;
-  return problema?.detail ?? 'Something went wrong. Please try again.';
+  return problema?.detail ?? $localize`Something went wrong. Please try again.`;
 }
 
 /**

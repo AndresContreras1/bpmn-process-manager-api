@@ -74,7 +74,7 @@ export class ProcesoFormComponent implements OnInit {
     if (this.procesoId !== null && this.version === null) {
       // El proceso no se llego a cargar. Sin version no se puede editar, y crear otro seria peor
       this.enviando = false;
-      this.error = 'The process could not be loaded, so the change cannot be saved. Reload the page.';
+      this.error = $localize`The process could not be loaded, so the change cannot be saved. Reload the page.`;
       return;
     }
     const guardado$: Observable<Proceso> =
@@ -135,11 +135,11 @@ export class ProcesoFormComponent implements OnInit {
       // El nombre es unico entre los procesos activos de la tienda
       this.procesoForm
         .get('nombre')
-        ?.setErrors({ servidor: 'Another active process of your store already uses this name.' });
-      this.error = 'Check the highlighted fields.';
+        ?.setErrors({ servidor: $localize`Another active process of your organization already uses this name.` });
+      this.error = $localize`Check the highlighted fields.`;
     } else if (error.status === 400) {
       marcarErroresDelServidor(this.procesoForm, error);
-      this.error = 'Check the highlighted fields.';
+      this.error = $localize`Check the highlighted fields.`;
     } else {
       this.error = mensajeDeError(error);
     }

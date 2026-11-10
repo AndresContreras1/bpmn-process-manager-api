@@ -75,7 +75,7 @@ export function detallarNodo(diagrama: Diagrama, id: number, dibujados: MensajeD
 
   return {
     id,
-    tipo: evento ? NOMBRE_EVENTO[evento.tipoEvento] : gateway ? NOMBRE_GATEWAY[gateway.tipoGateway] : 'Task',
+    tipo: evento ? NOMBRE_EVENTO[evento.tipoEvento] : gateway ? NOMBRE_GATEWAY[gateway.tipoGateway] : $localize`Task`,
     nombre: nodo.nombre,
     descripcion: actividad?.descripcion ?? null,
     pool: pool?.nombre ?? '',
@@ -108,8 +108,7 @@ function detallarMensaje(diagrama: Diagrama, dibujo: MensajeDibujo, participante
     campos: (mensaje?.campos ?? []).map((campo) => `${campo.nombre} (${NOMBRE_TIPO_DATO[campo.tipo]})`),
     variable: mensaje?.variable ?? null,
     correlacion: correlacion
-      ? `${correlacion.criterio}, from the field ${correlacion.campo}; with no open case, ` +
-        NOMBRE_SIN_CASO[correlacion.sinCaso]
+      ? $localize`${correlacion.criterio}, from the field ${correlacion.campo}; with no open case, ${NOMBRE_SIN_CASO[correlacion.sinCaso]}`
       : null,
   };
 }
@@ -119,5 +118,5 @@ function nombreDeNodo(diagrama: Diagrama, id: number): string {
   const nodo = [...diagrama.actividades, ...diagrama.gateways, ...diagrama.eventos].find(
     (candidato) => candidato.id === id,
   );
-  return nodo?.nombre ?? 'Unknown';
+  return nodo?.nombre ?? $localize`Unknown`;
 }

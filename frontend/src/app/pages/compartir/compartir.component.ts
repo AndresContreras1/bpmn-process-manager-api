@@ -1,5 +1,4 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -14,6 +13,7 @@ import { ProcesoDetalle } from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
 import { CompartirService } from '../../service/compartir.service';
 import { ProcesoService } from '../../service/proceso.service';
+import { FechaPipe } from '../../pipes/fecha.pipe';
 
 /**
  * Con que tiendas se comparte un proceso. Es una puerta de solo lectura: la invitada ve la version vigente del
@@ -21,7 +21,7 @@ import { ProcesoService } from '../../service/proceso.service';
  */
 @Component({
   selector: 'app-compartir',
-  imports: [DatePipe, ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
+  imports: [FechaPipe, ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './compartir.component.html',
 })
@@ -73,7 +73,7 @@ export class CompartirComponent implements OnInit {
       )
       .subscribe({
         next: (invitada: EmpresaInvitada) => {
-          this.aviso = `${invitada.nombre} can now read this process.`;
+          this.aviso = $localize`${invitada.nombre} can now read this process.`;
           this.nitForm.reset({ nit: '' });
           this.cargar();
         },
@@ -92,7 +92,7 @@ export class CompartirComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aviso = `${invitada.nombre} can no longer read it.`;
+          this.aviso = $localize`${invitada.nombre} can no longer read it.`;
           this.cargar();
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),

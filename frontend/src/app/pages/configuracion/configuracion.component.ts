@@ -11,6 +11,7 @@ import {
   NOMBRE_POLITICA,
   PoliticaEstructura,
 } from '../../models/configuracion.model';
+import { PreferenciasComponent } from '../../components/preferencias/preferencias.component';
 import { AuthService } from '../../service/auth.service';
 import { ConfiguracionService } from '../../service/configuracion.service';
 
@@ -20,7 +21,7 @@ import { ConfiguracionService } from '../../service/configuracion.service';
  */
 @Component({
   selector: 'app-configuracion',
-  imports: [FormsModule],
+  imports: [FormsModule, PreferenciasComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './configuracion.component.html',
 })
@@ -109,7 +110,7 @@ export class ConfiguracionComponent implements OnInit {
       .subscribe({
         next: (guardada: ConfiguracionTienda) => {
           this.mostrar(guardada);
-          this.aviso = 'Saved.';
+          this.aviso = $localize`Saved.`;
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });

@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -17,6 +16,7 @@ import { CampoOrden, EstadoProceso, FiltrosProceso, NOMBRE_ESTADO, Proceso } fro
 import { AuthService } from '../../service/auth.service';
 import { CompartirService } from '../../service/compartir.service';
 import { ProcesoService } from '../../service/proceso.service';
+import { FechaPipe } from '../../pipes/fecha.pipe';
 
 /** Columna de la tabla que ordena la lista al hacer clic en su titulo. */
 interface ColumnaOrdenable {
@@ -28,7 +28,7 @@ interface ColumnaOrdenable {
 @Component({
   selector: 'app-procesos',
   imports: [
-    DatePipe,
+    FechaPipe,
     FormsModule,
     RouterLink,
     ModalConfirmarComponent,
@@ -41,6 +41,14 @@ interface ColumnaOrdenable {
   styleUrl: './procesos.component.scss',
 })
 export class ProcesosComponent implements OnInit {
+  /** Lo que un lector de pantalla dice de los controles que nombran algo de la fila: el texto va con el valor. */
+  readonly etiqueta = {
+    accionesDe: (valor: string | number): string => $localize`Actions for ${valor}`,
+    editar: (valor: string | number): string => $localize`Edit ${valor}`,
+    publicar: (valor: string | number): string => $localize`Publish ${valor}`,
+    eliminar: (valor: string | number): string => $localize`Delete ${valor}`,
+  };
+
   private readonly procesoService: ProcesoService = inject(ProcesoService);
   private readonly authService: AuthService = inject(AuthService);
   private readonly compartirService: CompartirService = inject(CompartirService);
@@ -56,10 +64,10 @@ export class ProcesosComponent implements OnInit {
 
   // En pantallas pequenas se ocultan la categoria y la fecha para que quepan las acciones
   readonly columnas: ColumnaOrdenable[] = [
-    { campo: 'nombre', titulo: 'Name', clase: '' },
-    { campo: 'categoria', titulo: 'Category', clase: 'd-none d-sm-table-cell' },
-    { campo: 'estado', titulo: 'State', clase: '' },
-    { campo: 'fechaModificacion', titulo: 'Last change', clase: 'd-none d-md-table-cell' },
+    { campo: 'nombre', titulo: $localize`Name`, clase: '' },
+    { campo: 'categoria', titulo: $localize`Category`, clase: 'd-none d-sm-table-cell' },
+    { campo: 'estado', titulo: $localize`State`, clase: '' },
+    { campo: 'fechaModificacion', titulo: $localize`Last change`, clase: 'd-none d-md-table-cell' },
   ];
 
   filtros: FiltrosProceso = {
@@ -83,7 +91,7 @@ export class ProcesosComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.route.snapshot.queryParamMap.has('eliminado')) {
-      this.aviso = 'The process was deleted.';
+      this.aviso = $localize`The process was deleted.`;
     }
     this.busqueda$
       .pipe(
@@ -188,15 +196,15 @@ export class ProcesosComponent implements OnInit {
       .subscribe({
         // La lista se vuelve a pedir con la respuesta de la API: el proceso cambia de estado y sube por su fecha
         next: (publicado: Proceso) => {
-          this.aviso = `"${publicado.nombre}" is now published.`;
+          this.aviso = $localize`"${publicado.nombre}" is now published.`;
           this.buscar();
         },
         error: (error: HttpErrorResponse) => {
           // Si la version de la fila ya no vale, la lista se recarga: con la version nueva el boton vuelve a servir
           if (esConflictoDeVersion(error)) {
             this.desactualizado =
-              `"${proceso.nombre}" changed while this list was open, so it was not published. ` +
-              'The list is up to date now: try again.';
+              $localize`"${proceso.nombre}" changed while this list was open, so it was not published. ` +
+              $localize`The list is up to date now: try again.`;
             this.buscar();
           } else {
             this.error = mensajeDeError(error);
@@ -216,7 +224,7 @@ export class ProcesosComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aviso = `"${proceso.nombre}" was deleted.`;
+          this.aviso = $localize`"${proceso.nombre}" was deleted.`;
           this.buscar();
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),

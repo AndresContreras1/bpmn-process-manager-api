@@ -1,5 +1,5 @@
 @if (control()?.invalid && (control()?.touched || control()?.errors?.['servidor'])) {
-  <div class="invalid-feedback d-block" data-testid="error-campo">
+  <div i18n class="invalid-feedback d-block" data-testid="error-campo">
     @if (control()?.errors?.['required']) {
       This field is required.
     } @else if (control()?.errors?.['email']) {

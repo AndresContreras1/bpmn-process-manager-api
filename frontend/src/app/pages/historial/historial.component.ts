@@ -1,5 +1,4 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
@@ -9,11 +8,12 @@ import { PageResponse } from '../../models/page-response.model';
 import { HistorialCambio, cambioEnIngles } from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
 import { ConfiguracionService } from '../../service/configuracion.service';
+import { FechaPipe } from '../../pipes/fecha.pipe';
 
 /** Todo lo que ha pasado en la tienda, de lo mas nuevo a lo mas viejo. */
 @Component({
   selector: 'app-historial',
-  imports: [DatePipe],
+  imports: [FechaPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './historial.component.html',
 })

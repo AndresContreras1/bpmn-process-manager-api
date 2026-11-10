@@ -3,10 +3,13 @@ import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit } from '
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { Observable, filter, finalize } from 'rxjs';
+import { Observable, filter, finalize, map, of, switchMap } from 'rxjs';
 
+import { Idioma, Preferencias } from '../../models/preferencias.model';
 import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
+import { IDIOMAS, IdiomaService, OpcionDeIdioma } from '../../service/idioma.service';
+import { PreferenciasService } from '../../service/preferencias.service';
 import { TemaService } from '../../service/tema.service';
 import { AvisosComponent } from '../ui/avisos.component';
 import { Miga, migasDe } from './migas';
@@ -27,7 +30,10 @@ export class EstructuraComponent implements OnInit {
   private readonly authService: AuthService = inject(AuthService);
   private readonly router: Router = inject(Router);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
+  private readonly preferenciasService: PreferenciasService = inject(PreferenciasService);
   readonly temaService: TemaService = inject(TemaService);
+  readonly idiomaService: IdiomaService = inject(IdiomaService);
+  readonly idiomas: readonly OpcionDeIdioma[] = IDIOMAS;
 
   readonly usuario$: Observable<Usuario | null> = this.authService.usuario$;
   readonly nombreRol: Record<RolAcceso, string> = NOMBRE_ROL;
@@ -51,6 +57,28 @@ export class EstructuraComponent implements OnInit {
   buscar(): void {
     const texto: string = this.busqueda.value.trim();
     this.router.navigate(['/procesos'], { queryParams: texto ? { nombre: texto } : {} });
+  }
+
+  /**
+   * F12: quien entro elige su idioma, y queda guardado en su cuenta con la zona que ya tenia; quien no, solo en el
+   * navegador. Si la API no lo guarda, la web cambia igual: la eleccion es de quien la mira.
+   */
+  cambiarIdioma(idioma: Idioma): void {
+    if (!this.authService.usuarioActual()) {
+      this.idiomaService.ir(idioma);
+      return;
+    }
+    // La zona propia viaja tal cual: cambiar el idioma no puede llevarse la zona que la persona ya habia elegido
+    const actuales: Preferencias | null = this.preferenciasService.actuales();
+    const zonaPropia: Observable<string | null> = actuales
+      ? of(actuales.zonaHorariaPropia)
+      : this.preferenciasService.cargar().pipe(map((cargadas: Preferencias) => cargadas.zonaHorariaPropia));
+    zonaPropia
+      .pipe(
+        switchMap((zonaHoraria: string | null) => this.preferenciasService.cambiarLasPropias({ idioma, zonaHoraria })),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({ next: () => this.idiomaService.ir(idioma), error: () => this.idiomaService.ir(idioma) });
   }
 
   cerrarSesion(): void {

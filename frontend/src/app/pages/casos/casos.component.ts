@@ -39,6 +39,13 @@ interface Columna {
   templateUrl: './casos.component.html',
 })
 export class CasosComponent implements OnInit {
+  /** Lo que un lector de pantalla dice de los controles que nombran algo de la fila: el texto va con el valor. */
+  readonly etiqueta = {
+    nombreDeVariable: (valor: string | number): string => $localize`Name of variable ${valor}`,
+    valorDeVariable: (valor: string | number): string => $localize`Value of variable ${valor}`,
+    quitarVariable: (valor: string | number): string => $localize`Remove variable ${valor}`,
+  };
+
   private readonly casoService: CasoService = inject(CasoService);
   private readonly procesoService: ProcesoService = inject(ProcesoService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
@@ -50,9 +57,9 @@ export class CasosComponent implements OnInit {
   readonly tonoEstado: Record<EstadoCaso, Tono> = TONO_ESTADO_CASO;
   readonly estados = Object.keys(NOMBRE_ESTADO_CASO) as EstadoCaso[];
   readonly columnas: Columna[] = [
-    { campo: 'referencia', titulo: 'Reference', clase: '' },
-    { campo: 'estado', titulo: 'State', clase: '' },
-    { campo: 'id', titulo: 'Opened', clase: 'd-none d-sm-table-cell' },
+    { campo: 'referencia', titulo: $localize`Reference`, clase: '' },
+    { campo: 'estado', titulo: $localize`State`, clase: '' },
+    { campo: 'id', titulo: $localize`Opened`, clase: 'd-none d-sm-table-cell' },
   ];
 
   private readonly busqueda$ = new Subject<void>();

@@ -57,23 +57,23 @@ export interface MensajesDelCaso {
 }
 
 export const NOMBRE_ESTADO_SALIENTE: Record<EstadoMensajeSaliente, string> = {
-  PENDIENTE: 'Waiting for the clock',
-  ENTREGADO: 'Delivered',
-  FALLIDO: 'Failed',
+  PENDIENTE: $localize`Waiting for the clock`,
+  ENTREGADO: $localize`Delivered`,
+  FALLIDO: $localize`Failed`,
 };
 
 export const NOMBRE_RESULTADO: Record<ResultadoCorrelacion, string> = {
-  ENTREGADO_A_CASO: 'Delivered to a case',
-  CASO_NUEVO: 'Opened a case',
-  EN_ESPERA: 'Nobody was waiting for it',
-  PROGRAMADO: 'Held for a later tick',
-  DESCARTADO: 'Discarded',
+  ENTREGADO_A_CASO: $localize`Delivered to a case`,
+  CASO_NUEVO: $localize`Opened a case`,
+  EN_ESPERA: $localize`Nobody was waiting for it`,
+  PROGRAMADO: $localize`Held for a later tick`,
+  DESCARTADO: $localize`Discarded`,
 };
 
 export const NOMBRE_ORIGEN: Record<OrigenMensajeEntrante, string> = {
-  MANUAL: 'sent by hand',
-  CLIENTE_SIMULADO: 'the simulated customer',
-  SIMULADOR_PAGOS: 'the payment gateway',
-  SIMULADOR_TRANSPORTE: 'the carrier',
-  SIMULADOR_NOTIFICACIONES: 'the notification service',
+  MANUAL: $localize`sent by hand`,
+  CLIENTE_SIMULADO: $localize`the simulated customer`,
+  SIMULADOR_PAGOS: $localize`the payment gateway`,
+  SIMULADOR_TRANSPORTE: $localize`the carrier`,
+  SIMULADOR_NOTIFICACIONES: $localize`the notification service`,
 };

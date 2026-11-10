@@ -59,6 +59,13 @@ interface Carga {
   templateUrl: './caso-detalle.component.html',
 })
 export class CasoDetalleComponent implements OnInit {
+  /** Lo que un lector de pantalla dice de los controles que nombran algo de la fila: el texto va con el valor. */
+  readonly etiqueta = {
+    nombre: (valor: string | number): string => $localize`Name ${valor}`,
+    valor: (valor: string | number): string => $localize`Value ${valor}`,
+    quitar: (valor: string | number): string => $localize`Remove ${valor}`,
+  };
+
   private readonly casoService: CasoService = inject(CasoService);
   private readonly mensajeriaService: MensajeriaService = inject(MensajeriaService);
   private readonly versionService: VersionService = inject(VersionService);
@@ -98,7 +105,7 @@ export class CasoDetalleComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.route.snapshot.queryParamMap.has('abierto')) {
-      this.aviso = 'The case is open. This is where it stopped.';
+      this.aviso = $localize`The case is open. This is where it stopped.`;
     }
     this.route.paramMap
       .pipe(
@@ -178,11 +185,11 @@ export class CasoDetalleComponent implements OnInit {
   // ------------------------------------------------------------------ acciones
 
   cancelar(): void {
-    this.hacer(this.casoService.cancelar(this.casoId), 'The case was cancelled. Nothing it did was deleted.');
+    this.hacer(this.casoService.cancelar(this.casoId), $localize`The case was cancelled. Nothing it did was deleted.`);
   }
 
   reintentar(): void {
-    this.hacer(this.casoService.reintentar(this.casoId), 'Tried again with the variables it has now.');
+    this.hacer(this.casoService.reintentar(this.casoId), $localize`Tried again with the variables it has now.`);
   }
 
   alternarVariables(): void {
@@ -215,7 +222,7 @@ export class CasoDetalleComponent implements OnInit {
         next: () => {
           this.enviando = false;
           this.editandoVariables = false;
-          this.aviso = 'The variables were replaced.';
+          this.aviso = $localize`The variables were replaced.`;
           this.recargar();
         },
         error: (error: HttpErrorResponse) => {

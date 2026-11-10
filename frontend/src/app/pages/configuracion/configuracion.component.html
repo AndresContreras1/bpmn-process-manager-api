@@ -1,12 +1,12 @@
 <div class="container py-5" id="configuracion">
   <div class="row justify-content-center">
     <div class="col-lg-7">
-      <h1 class="h4 fw-bold mb-0">Store settings</h1>
-      <p class="text-body-secondary">What holds for every process of your store.</p>
+      <h1 i18n class="h4 fw-bold mb-0">Organization settings</h1>
+      <p i18n class="text-body-secondary">What holds for every process of your organization.</p>
 
       @if (!esAdministrador) {
-        <div class="alert alert-info" role="alert" id="configuracion-solo-admin">
-          Only an administrator can read or change the settings of a store.
+        <div i18n class="alert alert-info" role="alert" id="configuracion-solo-admin">
+          Only an administrator can read or change the settings of an organization.
         </div>
       }
       @if (aviso) {
@@ -17,14 +17,14 @@
       }
 
       @if (cargando) {
-        <div class="text-center text-body-secondary py-4" id="configuracion-cargando">
+        <div i18n class="text-center text-body-secondary py-4" id="configuracion-cargando">
           <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading…
         </div>
       } @else if (configuracion) {
         <div class="card border-0 shadow-sm">
           <div class="card-body p-4">
-            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Who may change the structure</h2>
-            <p class="small text-body-secondary">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Who may change the structure</h2>
+            <p i18n class="small text-body-secondary">
               Adding, moving or removing participants, lanes, tasks, gateways, events and flows. Writing what they say
               —names, descriptions, conditions— is not structure, and editors can always do that.
             </p>
@@ -47,14 +47,14 @@
 
         <div class="card border-0 shadow-sm mt-3">
           <div class="card-body p-4">
-            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Sessions</h2>
-            <p class="small text-body-secondary">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Sessions</h2>
+            <p i18n class="small text-body-secondary">
               A session closes when it goes this long without being used, and ends this long after its sign-in however
               much it is used: then the user signs in again.
             </p>
             <div class="row g-3">
               <div class="col-sm-6">
-                <label class="form-label small" for="configuracion-inactividad">Idle timeout, in minutes</label>
+                <label i18n class="form-label small" for="configuracion-inactividad">Idle timeout, in minutes</label>
                 <input
                   type="number"
                   class="form-control"
@@ -66,12 +66,12 @@
                   [(ngModel)]="inactividad"
                   [disabled]="!esAdministrador"
                 />
-                <div class="form-text small">
+                <div i18n class="form-text small">
                   From {{ limites.inactividad.minimo }} to {{ limites.inactividad.maximo }}.
                 </div>
               </div>
               <div class="col-sm-6">
-                <label class="form-label small" for="configuracion-duracion">Maximum duration, in hours</label>
+                <label i18n class="form-label small" for="configuracion-duracion">Maximum duration, in hours</label>
                 <input
                   type="number"
                   class="form-control"
@@ -83,11 +83,13 @@
                   [(ngModel)]="duracion"
                   [disabled]="!esAdministrador"
                 />
-                <div class="form-text small">From {{ limites.duracion.minimo }} to {{ limites.duracion.maximo }}.</div>
+                <div i18n class="form-text small">
+                  From {{ limites.duracion.minimo }} to {{ limites.duracion.maximo }}.
+                </div>
               </div>
             </div>
             @if (!dentroDeLosLimites()) {
-              <div class="invalid-feedback d-block" id="configuracion-limites-error">
+              <div i18n class="invalid-feedback d-block" id="configuracion-limites-error">
                 Use whole numbers inside those ranges.
               </div>
             }
@@ -96,26 +98,48 @@
 
         @if (esAdministrador) {
           <button
+            i18n
             type="button"
             class="btn btn-primary mt-3"
             id="configuracion-guardar"
             [disabled]="enviando || !sePuedeGuardar"
             (click)="guardar()"
           >
-            {{ enviando ? 'Saving…' : 'Save' }}
+            @if (enviando) {
+              Saving…
+            } @else {
+              Save
+            }
           </button>
         } @else {
-          <p class="small text-body-secondary mb-0 mt-3" id="configuracion-solo-admin">
+          <p i18n class="small text-body-secondary mb-0 mt-3" id="configuracion-solo-admin">
             Only an administrator can change this.
           </p>
         }
 
         <div class="card border-0 shadow-sm mt-3">
           <div class="card-body p-4">
-            <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Simulation</h2>
-            <p class="small text-body-secondary mb-0">
-              The store clock is at tick {{ configuracion.reloj }} and runs in
-              <span class="fw-semibold">{{ configuracion.modoSimulacion === 'MANUAL' ? 'manual' : 'automatic' }}</span>
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Language and time zone</h2>
+            <p i18n class="small text-body-secondary">
+              What everyone in the organization works in, unless they chose their own in their account: the language of
+              the screens and the e-mails, and the time zone of the dates.
+            </p>
+            <app-preferencias de="organizacion" prefijo="configuracion" />
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-3">
+          <div class="card-body p-4">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Simulation</h2>
+            <p i18n class="small text-body-secondary mb-0">
+              The organization clock is at tick {{ configuracion.reloj }} and runs in
+              <span class="fw-semibold">
+                @if (configuracion.modoSimulacion === 'MANUAL') {
+                  manual
+                } @else {
+                  automatic
+                }
+              </span>
               mode. The clock and the simulated partners are set from the operations screens.
             </p>
           </div>

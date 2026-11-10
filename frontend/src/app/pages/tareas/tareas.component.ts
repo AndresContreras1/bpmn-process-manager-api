@@ -29,6 +29,13 @@ import { TareaService } from '../../service/tarea.service';
   templateUrl: './tareas.component.html',
 })
 export class TareasComponent implements OnInit {
+  /** Lo que un lector de pantalla dice de los controles que nombran algo de la fila: el texto va con el valor. */
+  readonly etiqueta = {
+    nombreDeDato: (valor: string | number): string => $localize`Name of data ${valor}`,
+    valorDeDato: (valor: string | number): string => $localize`Value of data ${valor}`,
+    quitarDato: (valor: string | number): string => $localize`Remove data ${valor}`,
+  };
+
   private readonly tareaService: TareaService = inject(TareaService);
   private readonly procesoService: ProcesoService = inject(ProcesoService);
   private readonly rolProcesoService: RolProcesoService = inject(RolProcesoService);
@@ -130,11 +137,17 @@ export class TareasComponent implements OnInit {
 
   /** Tomarla es una nota para el equipo: el rol entero la sigue viendo y cualquiera la puede completar. */
   tomar(tarea: Tarea): void {
-    this.mandar(this.tareaService.asignar(tarea.id, { usuarioId: this.yo }), `You took "${tarea.nodoNombre}".`);
+    this.mandar(
+      this.tareaService.asignar(tarea.id, { usuarioId: this.yo }),
+      $localize`You took "${tarea.nodoNombre}".`,
+    );
   }
 
   soltar(tarea: Tarea): void {
-    this.mandar(this.tareaService.asignar(tarea.id, { usuarioId: null }), `"${tarea.nodoNombre}" is free again.`);
+    this.mandar(
+      this.tareaService.asignar(tarea.id, { usuarioId: null }),
+      $localize`"${tarea.nodoNombre}" is free again.`,
+    );
   }
 
   /** Abre el formulario de completar, con los datos que la tarea ya tuviera. */
@@ -172,7 +185,7 @@ export class TareasComponent implements OnInit {
           this.enviando = false;
           this.completando = null;
           this.datos = [];
-          this.aviso = `"${tarea.nodoNombre}" is done. The case moved on.`;
+          this.aviso = $localize`"${tarea.nodoNombre}" is done. The case moved on.`;
           this.buscar();
         },
         error: (error: HttpErrorResponse) => {

@@ -1,0 +1,57 @@
+@if (cargando) {
+  <p i18n class="text-body-secondary small mb-0" [id]="prefijo() + '-preferencias-cargando'">Loading…</p>
+} @else {
+  <form (ngSubmit)="guardar()" novalidate [id]="prefijo() + '-preferencias'">
+    @if (error) {
+      <div class="alert alert-danger py-2 small" role="alert" [id]="prefijo() + '-preferencias-error'">{{ error }}</div>
+    }
+    @if (aviso) {
+      <div class="alert alert-success py-2 small" role="status" [id]="prefijo() + '-preferencias-aviso'">
+        {{ aviso }}
+      </div>
+    }
+    @if (preferencias; as guardadas) {
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label i18n class="form-label" [for]="prefijo() + '-idioma'">Language</label>
+          <select class="form-select" [id]="prefijo() + '-idioma'" name="idioma" [(ngModel)]="idioma">
+            @if (de() === 'persona') {
+              <option i18n value="">The organization's: {{ nombreDe(guardadas.idiomaDeLaOrganizacion) }}</option>
+            }
+            @for (opcion of idiomas; track opcion.codigo) {
+              <option [value]="opcion.codigo" [attr.lang]="opcion.codigo">{{ opcion.nombre }}</option>
+            }
+          </select>
+          <div i18n class="form-text">The language of the screens, and of the e-mails you receive.</div>
+        </div>
+        <div class="col-md-6">
+          <label i18n class="form-label" [for]="prefijo() + '-zona'">Time zone</label>
+          <select class="form-select" [id]="prefijo() + '-zona'" name="zona" [(ngModel)]="zona">
+            @if (de() === 'persona') {
+              <option i18n value="">The organization's: {{ guardadas.zonaHorariaDeLaOrganizacion }}</option>
+            }
+            @for (opcion of zonas; track opcion) {
+              <option [value]="opcion">{{ opcion }}</option>
+            }
+          </select>
+          <div i18n class="form-text">
+            Dates are shown in this time zone. This browser is on {{ zonaDelNavegador }}.
+          </div>
+        </div>
+      </div>
+      <button
+        i18n
+        type="submit"
+        class="btn btn-primary mt-3"
+        [id]="prefijo() + '-preferencias-guardar'"
+        [disabled]="enviando || !hayCambios"
+      >
+        @if (enviando) {
+          Saving…
+        } @else {
+          Save
+        }
+      </button>
+    }
+  </form>
+}

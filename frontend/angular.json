@@ -50,7 +50,8 @@
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
-              "zone.js"
+              "zone.js",
+              "@angular/localize/init"
             ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
@@ -74,7 +75,8 @@
                   "if-function"
                 ]
               }
-            }
+            },
+            "i18nMissingTranslation": "error"
           },
           "configurations": {
             "production": {
@@ -93,7 +95,8 @@
               "outputHashing": "all",
               "security": {
                 "autoCsp": true
-              }
+              },
+              "localize": true
             },
             "development": {
               "optimization": false,
@@ -125,7 +128,12 @@
           }
         },
         "extract-i18n": {
-          "builder": "@angular/build:extract-i18n"
+          "builder": "@angular/build:extract-i18n",
+          "options": {
+            "buildTarget": "bpmn-process-manager-web:build",
+            "format": "json",
+            "outputPath": "src/locale"
+          }
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",
@@ -142,6 +150,26 @@
             "tsConfig": "tsconfig.spec.json",
             "runner": "vitest",
             "buildTarget": "bpmn-process-manager-web:build:development"
+          }
+        }
+      },
+      "i18n": {
+        "sourceLocale": {
+          "code": "en-US",
+          "subPath": "en-US"
+        },
+        "locales": {
+          "en-AU": {
+            "translation": "src/locale/messages.en-AU.json",
+            "subPath": "en-AU"
+          },
+          "es-CO": {
+            "translation": "src/locale/messages.es-CO.json",
+            "subPath": "es-CO"
+          },
+          "fr-FR": {
+            "translation": "src/locale/messages.fr-FR.json",
+            "subPath": "fr-FR"
           }
         }
       }

@@ -11,5 +11,5 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class CargandoComponent {
-  readonly texto = input<string>('Loading…');
+  readonly texto = input<string>($localize`Loading…`);
 }

@@ -1,7 +1,8 @@
 <div class="container py-5" id="cuenta">
   @if (bienvenida) {
-    <div class="alert alert-success" role="alert" id="cuenta-bienvenida">
-      <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Your store is ready, and you are its administrator.
+    <div i18n class="alert alert-success" role="alert" id="cuenta-bienvenida">
+      <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Your organization is ready, and you are its
+      administrator.
       <a routerLink="/procesos/nuevo" class="alert-link" id="cuenta-primer-proceso">Create your first process</a>
     </div>
   }
@@ -18,7 +19,7 @@
         <div class="col-lg-6" id="cuenta-clave-obligatoria">
           <div class="card border-0 shadow-sm">
             <div class="card-body p-4">
-              <h1 class="h5 fw-bold">Change your password</h1>
+              <h1 i18n class="h5 fw-bold">Change your password</h1>
               <app-cambiar-clave [obligatorio]="true" (cambiada)="claveCambiada()" />
             </div>
           </div>
@@ -42,21 +43,23 @@
                 </div>
               </div>
               <dl class="row mb-0">
-                <dt class="col-5 text-body-secondary fw-normal">Role</dt>
+                <dt i18n class="col-5 text-body-secondary fw-normal">Role</dt>
                 <dd class="col-7">
                   <span class="badge text-bg-primary" id="cuenta-rol">{{ nombreRol[usuario.rolAcceso] }}</span>
                 </dd>
                 @if (empresa) {
-                  <dt class="col-5 text-body-secondary fw-normal">Store</dt>
+                  <dt i18n class="col-5 text-body-secondary fw-normal">Organization</dt>
                   <dd class="col-7" id="cuenta-empresa">{{ empresa.nombre }}</dd>
-                  <dt class="col-5 text-body-secondary fw-normal">Tax id</dt>
+                  <dt i18n class="col-5 text-body-secondary fw-normal">Tax id</dt>
                   <dd class="col-7" id="cuenta-empresa-nit">{{ empresa.nit }}</dd>
-                  <dt class="col-5 text-body-secondary fw-normal">Contact</dt>
+                  <dt i18n class="col-5 text-body-secondary fw-normal">Contact</dt>
                   <dd class="col-7" id="cuenta-empresa-correo">{{ empresa.correoContacto }}</dd>
-                  <dt class="col-5 text-body-secondary fw-normal">Registered</dt>
-                  <dd class="col-7 mb-0" id="cuenta-empresa-fecha">{{ empresa.fechaRegistro | date: 'longDate' }}</dd>
+                  <dt i18n class="col-5 text-body-secondary fw-normal">Registered</dt>
+                  <dd class="col-7 mb-0" id="cuenta-empresa-fecha">
+                    {{ empresa.fechaRegistro | fecha: 'fechaLarga' }}
+                  </dd>
                 } @else {
-                  <dt class="col-5 text-body-secondary fw-normal">Store ID</dt>
+                  <dt i18n class="col-5 text-body-secondary fw-normal">Organization ID</dt>
                   <dd class="col-7 mb-0" id="cuenta-empresa">{{ usuario.empresaId }}</dd>
                 }
               </dl>
@@ -67,7 +70,7 @@
         <div class="col-lg-7">
           <div class="card border-0 shadow-sm h-100">
             <div class="card-body p-4">
-              <h2 class="h5 fw-bold mb-3">What your role can do</h2>
+              <h2 i18n class="h5 fw-bold mb-3">What your role can do</h2>
               <ul class="list-group list-group-flush">
                 @for (permiso of permisos; track permiso.accion) {
                   <li
@@ -76,9 +79,19 @@
                   >
                     <span>{{ permiso.accion }}</span>
                     @if (permiso.roles.includes(usuario.rolAcceso)) {
-                      <i class="fa-solid fa-circle-check text-success" role="img" aria-label="Allowed"></i>
+                      <i
+                        i18n-aria-label
+                        class="fa-solid fa-circle-check text-success"
+                        role="img"
+                        aria-label="Allowed"
+                      ></i>
                     } @else {
-                      <i class="fa-solid fa-circle-xmark text-body-tertiary" role="img" aria-label="Not allowed"></i>
+                      <i
+                        i18n-aria-label
+                        class="fa-solid fa-circle-xmark text-body-tertiary"
+                        role="img"
+                        aria-label="Not allowed"
+                      ></i>
                     }
                   </li>
                 }
@@ -90,8 +103,20 @@
         <div class="col-12">
           <div class="card border-0 shadow-sm">
             <div class="card-body p-4">
-              <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Password</h2>
-              <p class="small text-body-secondary">
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Language and time zone</h2>
+              <p i18n class="small text-body-secondary">
+                Yours, if you choose them; if not, the ones of your organization, which an administrator sets.
+              </p>
+              <app-preferencias de="persona" prefijo="cuenta" />
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Password</h2>
+              <p i18n class="small text-body-secondary">
                 Changing it closes every session you have open, this one included, and opens a new one here.
               </p>
               <app-cambiar-clave />

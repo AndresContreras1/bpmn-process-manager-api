@@ -248,34 +248,34 @@ export interface Diagrama {
 
 /** Nombre de cada tipo de participante en la interfaz. */
 export const NOMBRE_PARTICIPANTE: Record<TipoParticipante, string> = {
-  EMPRESA: 'store',
-  CLIENTE: 'customer',
-  PROVEEDOR: 'supplier',
-  SISTEMA_EXTERNO: 'external system',
+  EMPRESA: $localize`organization`,
+  CLIENTE: $localize`customer`,
+  PROVEEDOR: $localize`supplier`,
+  SISTEMA_EXTERNO: $localize`external system`,
 };
 
 /** Nombre de cada tipo de gateway en la interfaz. */
 export const NOMBRE_GATEWAY: Record<TipoGateway, string> = {
-  EXCLUSIVO: 'Exclusive gateway',
-  PARALELO: 'Parallel gateway',
-  INCLUSIVO: 'Inclusive gateway',
+  EXCLUSIVO: $localize`Exclusive gateway`,
+  PARALELO: $localize`Parallel gateway`,
+  INCLUSIVO: $localize`Inclusive gateway`,
 };
 
 /** Nombre de cada tipo de actividad en la interfaz. */
 export const NOMBRE_ACTIVIDAD: Record<TipoActividad, string> = {
-  USUARIO: 'User task',
-  SERVICIO: 'Service task',
-  ENVIO: 'Send task',
-  RECEPCION: 'Receive task',
+  USUARIO: $localize`User task`,
+  SERVICIO: $localize`Service task`,
+  ENVIO: $localize`Send task`,
+  RECEPCION: $localize`Receive task`,
 };
 
 /** Que socio simulado atiende a ese participante cuando el proceso corre. */
 export const NOMBRE_INTEGRACION: Record<Integracion, string> = {
-  NINGUNA: 'none',
-  CLIENTE: 'customer',
-  PAGOS: 'payments',
-  TRANSPORTE: 'shipping',
-  NOTIFICACIONES: 'notifications',
+  NINGUNA: $localize`none`,
+  CLIENTE: $localize`customer`,
+  PAGOS: $localize`payments`,
+  TRANSPORTE: $localize`shipping`,
+  NOTIFICACIONES: $localize`notifications`,
 };
 
 /** Solo una actividad de envio o de servicio manda mensajes, y solo una de recepcion los espera. */
@@ -289,39 +289,39 @@ export function actividadPuedeRecibir(tipo: TipoActividad): boolean {
 
 /** Nombre de cada tipo de evento en la interfaz. */
 export const NOMBRE_EVENTO: Record<TipoEvento, string> = {
-  INICIO: 'Start event',
-  FIN: 'End event',
-  MENSAJE_INICIO: 'Message start event',
-  MENSAJE_INTERMEDIO: 'Message catch event',
-  MENSAJE_FIN: 'Message end event',
+  INICIO: $localize`Start event`,
+  FIN: $localize`End event`,
+  MENSAJE_INICIO: $localize`Message start event`,
+  MENSAJE_INTERMEDIO: $localize`Message catch event`,
+  MENSAJE_FIN: $localize`Message end event`,
 };
 
 /** Como sale el mensaje hacia el otro participante. */
 export const NOMBRE_DESTINO: Record<TipoDestino, string> = {
-  CORREO: 'email',
-  SERVICIO_WEB: 'web service',
-  COLA: 'queue',
+  CORREO: $localize`email`,
+  SERVICIO_WEB: $localize`web service`,
+  COLA: $localize`queue`,
 };
 
 /** Que hace el proceso si el mensaje no se puede entregar. */
 export const NOMBRE_SI_FALLA: Record<AccionSiFalla, string> = {
-  CONTINUAR: 'the process carries on',
-  MANEJAR_ERROR: 'the process goes to a task that handles it',
-  FINALIZAR: 'the process ends',
+  CONTINUAR: $localize`the process carries on`,
+  MANEJAR_ERROR: $localize`the process goes to a task that handles it`,
+  FINALIZAR: $localize`the process ends`,
 };
 
 /** El tipo de un campo del mensaje. La API los nombra en espanol, como el historial de cambios. */
 export const NOMBRE_TIPO_DATO: Record<TipoDeDato, string> = {
-  TEXTO: 'text',
-  NUMERO: 'number',
-  FECHA: 'date',
-  BOOLEANO: 'yes/no',
+  TEXTO: $localize`text`,
+  NUMERO: $localize`number`,
+  FECHA: $localize`date`,
+  BOOLEANO: $localize`yes/no`,
 };
 
 /** Que hace un mensaje que llega y no corresponde a ningun caso abierto. */
 export const NOMBRE_SIN_CASO: Record<PoliticaSinCaso, string> = {
-  DESCARTAR: 'it is discarded',
-  INICIAR_CASO: 'it opens a new case',
+  DESCARTAR: $localize`it is discarded`,
+  INICIAR_CASO: $localize`it opens a new case`,
 };
 
 /** Un evento de inicio no recibe flujo de secuencia y uno de fin no lo emite. */

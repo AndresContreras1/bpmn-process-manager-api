@@ -79,13 +79,13 @@ export function elementoEnIngles(elemento: string | null): string | null {
 
 /** Como se llama cada tipo de elemento en la interfaz. */
 export const NOMBRE_ELEMENTO: Record<TipoElemento, string> = {
-  POOL: 'Participant',
-  LANE: 'Lane',
-  ACTIVIDAD: 'Task',
-  GATEWAY: 'Gateway',
-  EVENTO: 'Event',
-  ARCO: 'Sequence flow',
-  MENSAJE: 'Message flow',
+  POOL: $localize`Participant`,
+  LANE: $localize`Lane`,
+  ACTIVIDAD: $localize`Task`,
+  GATEWAY: $localize`Gateway`,
+  EVENTO: $localize`Event`,
+  ARCO: $localize`Sequence flow`,
+  MENSAJE: $localize`Message flow`,
 };
 
 /** Los tres tipos que viven dentro de un lane y comparten numeracion de ids. */

@@ -35,6 +35,15 @@ interface Arrastre {
   styleUrl: './diagrama-bpmn.component.scss',
 })
 export class DiagramaBpmnComponent {
+  /** Lo que un lector de pantalla dice de los controles que nombran algo de la fila: el texto va con el valor. */
+  readonly etiqueta = {
+    tarea: (valor: string | number): string => $localize`Task: ${valor}`,
+    compuerta: (valor: string | number): string => $localize`Gateway: ${valor}`,
+  };
+
+  /** Lo que dice la etiqueta de una lane al pasar el puntero: su nombre y su rol. Un title de SVG no se marca con i18n. */
+  readonly etiquetaRol: string = $localize`:Rol de una lane en el diagrama:role`;
+
   lienzo = input.required<Lienzo>();
   titulo = input.required<string>();
   seleccionadoId = input<number | null>(null);
