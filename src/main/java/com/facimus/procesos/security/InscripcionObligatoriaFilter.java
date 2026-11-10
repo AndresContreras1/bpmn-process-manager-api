@@ -35,7 +35,7 @@ public class InscripcionObligatoriaFilter extends OncePerRequestFilter {
             "/api/v1/auth/segundo-factor/totp", "/api/v1/auth/segundo-factor/totp/confirmacion",
             "/api/v1/auth/segundo-factor/passkeys", "/api/v1/auth/segundo-factor/passkeys/opciones",
             "/api/v1/auth/reautenticacion", "/api/v1/auth/password", "/api/v1/auth/refresh", "/api/v1/auth/logout",
-            "/api/v1/auth/csrf");
+            "/api/v1/auth/csrf", "/api/v1/auth/sesion");
 
     private final JsonMapper jsonMapper;
 

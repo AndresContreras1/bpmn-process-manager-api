@@ -222,6 +222,8 @@ public class SecurityConfig {
                         .hasAuthority(ADMINISTRADOR)
                         // F12: el idioma y la zona horaria de cada persona son suyos, sea cual sea su rol.
                         .requestMatchers("/api/v1/auth/preferencias").authenticated()
+                        // F13: la sesion de quien tiene las cookies, para la web que arranca
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/sesion").authenticated()
                         // D8: mover el reloj cambia lo que les pasa a todos los casos de la tienda a la vez,
                         // asi que la simulacion entera es del administrador, tambien para mirarla.
                         .requestMatchers("/api/v1/simulacion", "/api/v1/simulacion/**")

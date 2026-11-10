@@ -46,7 +46,8 @@ public class AperturaDeSesion {
         String accessToken = jwtService.generarToken(principal(sesion.usuario(), sesion.sesion()),
                 sesion.factores(), sesion.verificadaEn(), vidaDelAcceso);
         cookies.abrir(respuesta, accessToken, vidaDelAcceso, sesion.refreshToken(), sesion.vidaDelRefresco());
-        return new SesionResponse(vidaDelAcceso.toSeconds(), sesion.usuario(), false);
+        return new SesionResponse(vidaDelAcceso.toSeconds(), sesion.usuario(), false,
+                sesion.vidaDelRefresco().toSeconds(), sesion.vidaRestante().toSeconds());
     }
 
     /**
@@ -66,7 +67,9 @@ public class AperturaDeSesion {
         Duration vidaDelAcceso = vidaDelAcceso(verificada.vidaRestante());
         cookies.renovarAcceso(respuesta, jwtService.generarToken(principal(verificada.usuario(), verificada.sesion()),
                 verificada.factores(), verificada.verificadaEn(), vidaDelAcceso), vidaDelAcceso);
-        return new SesionResponse(vidaDelAcceso.toSeconds(), verificada.usuario(), false);
+        // El refresh token no cambia: lo que aguanta sin usarse sigue siendo lo que la web ya sabia
+        return new SesionResponse(vidaDelAcceso.toSeconds(), verificada.usuario(), false, null,
+                verificada.vidaRestante().toSeconds());
     }
 
     /**

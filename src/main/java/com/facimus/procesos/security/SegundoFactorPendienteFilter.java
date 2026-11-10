@@ -39,7 +39,9 @@ public class SegundoFactorPendienteFilter extends OncePerRequestFilter {
     static final String VERIFICACION_CON_PASSKEY = VERIFICACION + "/passkey";
 
     private static final Set<String> PERMITIDAS = Set.of(VERIFICACION, OPCIONES_DE_PASSKEY, VERIFICACION_CON_PASSKEY,
-            "/api/v1/auth/logout", "/api/v1/auth/csrf");
+            "/api/v1/auth/logout", "/api/v1/auth/csrf",
+            // F13: la web que se recarga a mitad del login sabe que solo falta el codigo
+            "/api/v1/auth/sesion");
 
     private final JsonMapper jsonMapper;
 
