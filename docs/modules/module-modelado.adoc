@@ -13,14 +13,17 @@
 |* `c.f.p.m.model.NodoFlujo`
 * `c.f.p.m.model.Actividad`
 * `c.f.p.m.model.Arco`
+* `c.f.p.m.model.AristaBpmn`
 * `c.f.p.m.model.Correlacion`
 * `c.f.p.m.model.Evento`
+* `c.f.p.m.model.FormaBpmn`
 * `c.f.p.m.model.Gateway`
 * `c.f.p.m.model.Lane`
 * `c.f.p.m.model.Mensaje`
 * `c.f.p.m.model.Pool`
 * `c.f.p.m.model.RevisionIa`
 |Events listened to
-|* `c.f.p.g.event.ProcesoEliminado` 
+|* `c.f.p.g.event.ProcesoModificado` 
+* `c.f.p.g.event.ProcesoEliminado` 
 * `c.f.p.g.event.ProcesoCreado` 
 |===

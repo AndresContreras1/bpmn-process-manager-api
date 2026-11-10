@@ -15,6 +15,7 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,6 +41,10 @@ public abstract class NodoFlujo extends EntidadEditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** PR 52: su id en el XML de BPMN, estable de una exportacion a la siguiente. Se asigna al guardarse. */
+    @Column(name = "bpmn_id", nullable = false, updatable = false, length = 64)
+    private String bpmnId;
 
     @Column(nullable = false, length = 120)
     private String nombre;
@@ -83,5 +88,21 @@ public abstract class NodoFlujo extends EntidadEditable {
     /** Si este nodo puede esperar un mensaje de otro participante. */
     public boolean puedeRecibirMensajes() {
         return false;
+    }
+
+    /** El id BPMN, si nadie le dio uno: el importador (PR 54) trae el suyo. */
+    @PrePersist
+    void asignarBpmnId() {
+        if (bpmnId == null) {
+            bpmnId = BpmnId.nuevo(prefijoBpmn());
+        }
+    }
+
+    /** El tipo de nodo en BPMN: Activity, Gateway o Event, segun la subclase. */
+    public String prefijoBpmn() {
+        if (this instanceof Gateway) {
+            return "Gateway";
+        }
+        return this instanceof Evento ? "Event" : "Activity";
     }
 }
