@@ -1,0 +1,36 @@
+<div class="container py-5" id="verificar-correo">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+          <h1 i18n class="h4 fw-bold mb-3">Verify your e-mail</h1>
+          @switch (estado) {
+            @case ('verificando') {
+              <p i18n class="text-body-secondary mb-0" id="verificar-correo-cargando">
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Checking the link…
+              </p>
+            }
+            @case ('verificado') {
+              <div i18n class="alert alert-success" role="status" id="verificar-correo-hecho">
+                Your e-mail is verified. Your organization can now invite people by e-mail.
+              </div>
+              @if (conSesion) {
+                <a i18n class="btn btn-primary" routerLink="/procesos" id="verificar-correo-seguir"
+                  >Go to my processes</a
+                >
+              } @else {
+                <a i18n class="btn btn-primary" routerLink="/login" id="verificar-correo-entrar">Sign in</a>
+              }
+            }
+            @case ('fallo') {
+              <div class="alert alert-danger" role="alert" id="verificar-correo-error">{{ error }}</div>
+              <a i18n class="btn btn-outline-primary" routerLink="/cuenta/seguridad" id="verificar-correo-cuenta"
+                >Open my account</a
+              >
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,91 @@
+@if (verificacion.pidiendo()) {
+  <div class="modal-backdrop fade show"></div>
+  <div
+    class="modal d-block"
+    tabindex="-1"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="verificacion-titulo"
+    id="verificacion"
+    (keydown.escape)="cancelar()"
+  >
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" (ngSubmit)="confirmar()" novalidate>
+        <div class="modal-header">
+          <h2 i18n class="modal-title h5" id="verificacion-titulo">Confirm it is you</h2>
+        </div>
+        <div class="modal-body">
+          <p i18n class="small text-body-secondary">
+            This asks for a confirmation of the last ten minutes. It does not sign you out.
+          </p>
+          @if (error) {
+            <div class="alert alert-danger py-2 small" role="alert" id="verificacion-error">{{ error }}</div>
+          }
+          @if (modo === 'clave') {
+            <label i18n class="form-label small" for="verificacion-clave">Your password</label>
+            <input
+              #campo
+              type="password"
+              class="form-control"
+              id="verificacion-clave"
+              name="clave"
+              autocomplete="current-password"
+              [(ngModel)]="clave"
+            />
+          } @else {
+            <label i18n class="form-label small" for="verificacion-codigo"
+              >A code of your authenticator app, or a recovery code</label
+            >
+            <input
+              #campo
+              type="text"
+              class="form-control"
+              id="verificacion-codigo"
+              name="codigo"
+              inputmode="text"
+              autocomplete="one-time-code"
+              [(ngModel)]="codigo"
+            />
+          }
+          <div class="d-flex flex-wrap gap-3 mt-3 small">
+            @if (factores && (factores.totp || factores.codigosRestantes > 0)) {
+              <button i18n type="button" class="btn btn-link p-0" id="verificacion-modo" (click)="cambiarModo()">
+                @if (modo === 'clave') {
+                  Use a code instead
+                } @else {
+                  Use your password instead
+                }
+              </button>
+            }
+            @if (factores && factores.passkeys > 0 && passkeysEnEsteNavegador) {
+              <button
+                i18n
+                type="button"
+                class="btn btn-link p-0"
+                id="verificacion-passkey"
+                [disabled]="enviando"
+                (click)="conPasskey()"
+              >
+                Use a passkey
+              </button>
+            }
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button i18n type="button" class="btn btn-outline-secondary" id="verificacion-cancelar" (click)="cancelar()">
+            Cancel
+          </button>
+          <button
+            i18n
+            type="submit"
+            class="btn btn-primary"
+            id="verificacion-confirmar"
+            [disabled]="enviando || (modo === 'clave' ? !clave : !codigo.trim())"
+          >
+            Confirm
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

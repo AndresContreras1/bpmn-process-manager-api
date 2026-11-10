@@ -2,23 +2,75 @@ import { Routes } from '@angular/router';
 
 import { authGuard } from './guards/auth.guard';
 import { InicioComponent } from './pages/inicio/inicio.component';
-import { LoginComponent } from './pages/login/login.component';
 
 /*
  * Angular evalua las rutas de arriba hacia abajo: las especificas van primero y el comodin al final.
  *
  * Cada pantalla llega cuando alguien entra en ella, no al abrir la aplicacion: asi el paquete inicial lleva el
  * armazon y poco mas, en vez de las veintiuna pantallas juntas -incluido el editor de diagramas, que es la mas
- * grande y la que menos gente abre-. Las dos que siguen viajando dentro son la portada y el login, que es lo
- * primero que ve cualquiera: cargarlas aparte costaria una peticion mas justo en el primer segundo.
+ * grande y la que menos gente abre-. La portada sigue viajando dentro, que es lo primero que ve cualquiera. El login
+ * tambien viajaba, hasta que F14 le sumo el segundo factor, las passkeys y los proveedores: ahora llega aparte, y la
+ * carga inicial sigue bajo su tope.
  */
 export const routes: Routes = [
   { path: '', component: InicioComponent, title: 'BPMN Process Manager' },
-  { path: 'login', component: LoginComponent, title: $localize`Sign in · BPMN Process Manager` },
+  {
+    path: 'login',
+    loadComponent: () => import('./pages/login/login.component').then((modulo) => modulo.LoginComponent),
+    title: $localize`Sign in · BPMN Process Manager`,
+  },
   {
     path: 'registro',
     loadComponent: () => import('./pages/registro/registro.component').then((modulo) => modulo.RegistroComponent),
     title: $localize`Create an organization · BPMN Process Manager`,
+  },
+  // F14: las pantallas de los enlaces del correo y de la vuelta de un proveedor, sin sesion
+  {
+    path: 'verificar-correo',
+    loadComponent: () =>
+      import('./pages/verificar-correo/verificar-correo.component').then((modulo) => modulo.VerificarCorreoComponent),
+    title: $localize`Verify your e-mail · BPMN Process Manager`,
+  },
+  {
+    path: 'recuperar-clave',
+    loadComponent: () =>
+      import('./pages/recuperar-clave/recuperar-clave.component').then((modulo) => modulo.RecuperarClaveComponent),
+    title: $localize`Forgot your password? · BPMN Process Manager`,
+  },
+  {
+    path: 'restablecer-clave',
+    loadComponent: () =>
+      import('./pages/restablecer-clave/restablecer-clave.component').then(
+        (modulo) => modulo.RestablecerClaveComponent,
+      ),
+    title: $localize`Choose a new password · BPMN Process Manager`,
+  },
+  {
+    path: 'aceptar-invitacion',
+    loadComponent: () =>
+      import('./pages/aceptar-invitacion/aceptar-invitacion.component').then(
+        (modulo) => modulo.AceptarInvitacionComponent,
+      ),
+    title: $localize`Join your organization · BPMN Process Manager`,
+  },
+  {
+    path: 'vincular',
+    loadComponent: () => import('./pages/vincular/vincular.component').then((modulo) => modulo.VincularComponent),
+    title: $localize`Link the provider · BPMN Process Manager`,
+  },
+  {
+    path: 'cuenta/seguridad',
+    loadComponent: () => import('./pages/seguridad/seguridad.component').then((modulo) => modulo.SeguridadComponent),
+    canActivate: [authGuard],
+    title: $localize`Security · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`My account`, ruta: '/cuenta' }, { etiqueta: $localize`Security` }] },
+  },
+  {
+    path: 'bitacora',
+    loadComponent: () => import('./pages/bitacora/bitacora.component').then((modulo) => modulo.BitacoraComponent),
+    canActivate: [authGuard],
+    title: $localize`Audit log · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Administration` }, { etiqueta: $localize`Audit log` }] },
   },
   {
     path: 'cuenta',

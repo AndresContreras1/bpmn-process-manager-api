@@ -11,6 +11,8 @@ export interface Usuario {
   version: number;
   /** True mientras entre con una clave temporal: hasta cambiarla no puede hacer nada mas. */
   debeCambiarClave: boolean;
+  /** F14: cuando confirmo su correo con el enlace que le llego; null mientras no lo haga. */
+  correoVerificadoEn?: string | null;
   /**
    * La clave temporal, y solo en la respuesta de crearlo o de restablecerla. No se guarda en ningun sitio: si la
    * pantalla no la ensena en ese momento, se pierde y hay que restablecerla otra vez.

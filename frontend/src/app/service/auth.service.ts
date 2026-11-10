@@ -110,13 +110,26 @@ export class AuthService {
     );
   }
 
+  /**
+   * Con segundo factor, la clave deja un login a medias (F14): todavia no hay sesion, solo el permiso de mandar el
+   * codigo, y quien entro no se publica hasta que lo mande.
+   */
   login(credenciales: LoginRequest): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.url}/login`, credenciales).pipe(
-      tap((respuesta: LoginResponse) => {
-        this.guardarSesion(respuesta);
-        this.canal.publicar({ tipo: 'entrada' });
-      }),
-    );
+    return this.http
+      .post<LoginResponse>(`${this.url}/login`, credenciales)
+      .pipe(tap((respuesta: LoginResponse) => this.abrir(respuesta)));
+  }
+
+  /**
+   * Lo que hace cualquier puerta que abre una sesion: la clave, el segundo factor, una passkey o el vinculo con un
+   * proveedor. Un login a medias no abre nada.
+   */
+  abrir(respuesta: LoginResponse): void {
+    if (respuesta.segundoFactorPendiente) {
+      return;
+    }
+    this.guardarSesion(respuesta);
+    this.canal.publicar({ tipo: 'entrada' });
   }
 
   /**

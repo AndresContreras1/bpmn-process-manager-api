@@ -1,0 +1,59 @@
+<div class="container py-5" id="aceptar-invitacion">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+          <h1 i18n class="h4 fw-bold mb-1">Join your organization</h1>
+          <p i18n class="text-body-secondary mb-4">
+            Someone invited you. Write your name and choose your password; you sign in with this e-mail.
+          </p>
+          @if (!token) {
+            <div i18n class="alert alert-danger" role="alert" id="aceptar-invitacion-sin-token">
+              This link has no token. Open the one in the e-mail again, whole.
+            </div>
+          } @else {
+            @if (error) {
+              <div class="alert alert-danger" role="alert" id="aceptar-invitacion-error">{{ error }}</div>
+            }
+            <form [formGroup]="formulario" (ngSubmit)="aceptar()" novalidate>
+              <div class="mb-3">
+                <label i18n class="form-label" for="aceptar-invitacion-nombre">Full name</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="aceptar-invitacion-nombre"
+                  formControlName="nombre"
+                  autocomplete="name"
+                />
+                <app-error-campo [control]="formulario.get('nombre')" />
+              </div>
+              <div class="mb-3">
+                <label i18n class="form-label" for="aceptar-invitacion-clave">Password</label>
+                <input
+                  type="password"
+                  class="form-control"
+                  id="aceptar-invitacion-clave"
+                  formControlName="password"
+                  autocomplete="new-password"
+                />
+                <div i18n class="form-text">
+                  At least 15 characters: a few words make a good one, no symbols needed.
+                </div>
+                <app-error-campo [control]="formulario.get('password')" />
+              </div>
+              <button
+                i18n
+                type="submit"
+                class="btn btn-primary w-100"
+                id="aceptar-invitacion-enviar"
+                [disabled]="enviando"
+              >
+                Accept and sign in
+              </button>
+            </form>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

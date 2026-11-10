@@ -1,0 +1,52 @@
+<div class="container py-5" id="restablecer-clave">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+          <h1 i18n class="h4 fw-bold mb-1">Choose a new password</h1>
+          <p i18n class="text-body-secondary mb-4">It closes every session you have open, on every device.</p>
+          @if (hecho) {
+            <div i18n class="alert alert-success" role="status" id="restablecer-clave-hecho">
+              Your password was changed. Sign in with the new one.
+            </div>
+            <a i18n class="btn btn-primary" routerLink="/login" id="restablecer-clave-entrar">Sign in</a>
+          } @else if (!token) {
+            <div i18n class="alert alert-danger" role="alert" id="restablecer-clave-sin-token">
+              This link has no token. Open the one in the e-mail again, whole.
+            </div>
+            <a i18n routerLink="/recuperar-clave">Ask for another link</a>
+          } @else {
+            @if (error) {
+              <div class="alert alert-danger" role="alert" id="restablecer-clave-error">{{ error }}</div>
+            }
+            <form (ngSubmit)="guardar()" novalidate>
+              <div class="mb-3">
+                <label i18n class="form-label" for="restablecer-clave-nueva">New password</label>
+                <input
+                  type="password"
+                  class="form-control"
+                  id="restablecer-clave-nueva"
+                  autocomplete="new-password"
+                  [formControl]="nueva"
+                />
+                <div i18n class="form-text">
+                  At least 15 characters: a few words make a good one, no symbols needed.
+                </div>
+                <app-error-campo [control]="nueva" />
+              </div>
+              <button
+                i18n
+                type="submit"
+                class="btn btn-primary w-100"
+                id="restablecer-clave-guardar"
+                [disabled]="enviando"
+              >
+                Save the new password
+              </button>
+            </form>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

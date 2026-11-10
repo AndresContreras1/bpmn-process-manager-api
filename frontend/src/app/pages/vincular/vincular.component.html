@@ -1,0 +1,71 @@
+<div class="container py-5" id="vincular">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+          <h1 i18n class="h4 fw-bold mb-1">Link the provider to your account</h1>
+          <p i18n class="text-body-secondary mb-4">
+            An account already uses that e-mail. Confirm that it is yours, and from now on the provider opens it too.
+          </p>
+          @if (!token) {
+            <div i18n class="alert alert-danger" role="alert" id="vincular-sin-token">
+              This link has no token. Sign in with the provider again.
+            </div>
+            <a i18n routerLink="/login">Back to sign in</a>
+          } @else {
+            @if (error) {
+              <div class="alert alert-danger" role="alert" id="vincular-error">{{ error }}</div>
+            }
+            <form (ngSubmit)="vincular()" novalidate>
+              @if (conCodigo) {
+                <label i18n class="form-label" for="vincular-codigo"
+                  >A code of your authenticator app, or a recovery code</label
+                >
+                <input
+                  type="text"
+                  class="form-control mb-3"
+                  id="vincular-codigo"
+                  name="codigo"
+                  autocomplete="one-time-code"
+                  [(ngModel)]="codigo"
+                />
+              } @else {
+                <label i18n class="form-label" for="vincular-clave">Your password</label>
+                <input
+                  type="password"
+                  class="form-control mb-3"
+                  id="vincular-clave"
+                  name="clave"
+                  autocomplete="current-password"
+                  [(ngModel)]="clave"
+                />
+              }
+              <button
+                i18n
+                type="submit"
+                class="btn btn-primary w-100"
+                id="vincular-enviar"
+                [disabled]="enviando || (conCodigo ? !codigo.trim() : !clave)"
+              >
+                Link and sign in
+              </button>
+            </form>
+            <button
+              i18n
+              type="button"
+              class="btn btn-link px-0 mt-2 small"
+              id="vincular-modo"
+              (click)="conCodigo = !conCodigo"
+            >
+              @if (conCodigo) {
+                Use your password instead
+              } @else {
+                I have a second factor: use a code
+              }
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
