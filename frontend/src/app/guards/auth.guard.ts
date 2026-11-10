@@ -2,7 +2,6 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
 import { AuthService } from '../service/auth.service';
-import { SesionLocalService } from '../service/sesion-local.service';
 
 /**
  * Deja entrar solo con una sesion abierta; si no, manda al login y recuerda a que pagina iba el usuario.
@@ -12,10 +11,11 @@ import { SesionLocalService } from '../service/sesion-local.service';
  */
 export const authGuard: CanActivateFn = (_route, state) => {
   const router: Router = inject(Router);
-  if (!inject(AuthService).estaAutenticado()) {
+  const authService: AuthService = inject(AuthService);
+  if (!authService.estaAutenticado()) {
     return router.createUrlTree(['/login'], { queryParams: { volver: state.url } });
   }
-  const debeCambiarClave: boolean = inject(SesionLocalService).obtenerUsuario()?.debeCambiarClave === true;
+  const debeCambiarClave: boolean = authService.usuarioActual()?.debeCambiarClave === true;
   return debeCambiarClave && !state.url.startsWith('/cuenta')
     ? router.createUrlTree(['/cuenta'], { queryParams: { clave: 'temporal' } })
     : true;

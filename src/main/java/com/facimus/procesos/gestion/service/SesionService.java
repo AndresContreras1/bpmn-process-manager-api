@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.facimus.procesos.common.security.Factor;
+import com.facimus.procesos.gestion.dto.response.SesionActual;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 
@@ -38,6 +39,12 @@ public interface SesionService {
      * copia.
      */
     SesionIniciada renovar(String refreshToken);
+
+    /**
+     * F13: la sesion del codigo como esta ahora, sin renovarla: de quien es y cuanto le queda por inactividad y hasta su
+     * fin. Una sesion cerrada, o de otra persona, lanza SesionInvalidaException.
+     */
+    SesionActual actual(Long empresaId, Long usuarioId, String codigo);
 
     /** Cierra la sesion del codigo, si es del usuario. Sus access tokens dejan de servir aunque no hayan vencido. */
     void cerrar(Long empresaId, Long usuarioId, String codigo);

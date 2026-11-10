@@ -8,6 +8,11 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- The web no longer keeps who signed in in the browser: it asks `GET /api/v1/auth/sesion` when it starts. Tabs renew
+  the session one at a time and tell each other when someone signs in, renews or signs out, so signing out in one
+  signs out all of them; and a notice two minutes before the session closes for being idle offers to keep it open.
+  Every session answer says how long the session survives without being renewed and how long it has left.
+
 - The web in Spanish of Colombia, English of the United States and of Australia, and French: one build per language,
   with its dates, numbers and currency, that NGINX chooses by the cookie of the language menu or by the browser's
   `Accept-Language`. Each organization and each person keep a language and an IANA time zone

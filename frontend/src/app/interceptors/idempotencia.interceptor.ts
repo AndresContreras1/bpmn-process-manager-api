@@ -1,7 +1,7 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 
-import { SesionLocalService } from '../service/sesion-local.service';
+import { AuthService } from '../service/auth.service';
 
 /**
  * Marca cada POST con sesion con una Idempotency-Key. Si el mismo envio llega dos veces —un doble clic, o el
@@ -15,7 +15,7 @@ import { SesionLocalService } from '../service/sesion-local.service';
  * atribuir la clave.
  */
 export const idempotenciaInterceptor: HttpInterceptorFn = (req, next) => {
-  if (req.method !== 'POST' || !inject(SesionLocalService).hayUsuario()) {
+  if (req.method !== 'POST' || !inject(AuthService).estaAutenticado()) {
     return next(req);
   }
   return next(req.clone({ setHeaders: { 'Idempotency-Key': clave() } }));

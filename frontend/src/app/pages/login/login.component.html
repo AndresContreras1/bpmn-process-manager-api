@@ -11,6 +11,11 @@
               Your session expired. Please sign in again.
             </div>
           }
+          @if (sesionCerrada) {
+            <div i18n class="alert alert-info" role="status" id="login-sesion-cerrada">
+              You signed out in another tab of this browser.
+            </div>
+          }
           @if (error) {
             <div class="alert alert-danger" role="alert" id="login-error">{{ error }}</div>
           }

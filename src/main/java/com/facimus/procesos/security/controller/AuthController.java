@@ -24,6 +24,8 @@ import com.facimus.procesos.gestion.dto.request.CambiarClaveRequest;
 import com.facimus.procesos.gestion.dto.request.CodigoRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.ReautenticacionRequest;
+import com.facimus.procesos.gestion.dto.response.SesionActual;
+import com.facimus.procesos.gestion.dto.response.SesionActualResponse;
 import com.facimus.procesos.gestion.dto.response.SesionResponse;
 import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
@@ -83,6 +85,24 @@ public class AuthController {
         // Leerlo es lo que lo crea y escribe su cookie: el token se carga cuando alguien lo pide.
         token.getToken();
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Get the current session",
+            description = "Who the session cookies belong to and how long the session has left: before it closes for "
+                    + "being idle, and before it ends. It renews nothing, so asking does not keep a session alive. "
+                    + "The web app asks when it starts, instead of remembering the profile in the browser. On the "
+                    + "half-done login of a second factor it says only that the code is missing.")
+    @ApiResponse(responseCode = "200", description = "The profile and the time the session has left")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @GetMapping("/sesion")
+    public ResponseEntity<SesionActualResponse> sesion(@AuthenticationPrincipal ApiPrincipal principal) {
+        if (principal.segundoFactorPendiente()) {
+            return ResponseEntity.ok(new SesionActualResponse(
+                    usuarioService.obtener(principal.empresaId(), principal.usuarioId()), true, null, null));
+        }
+        SesionActual actual = sesionService.actual(principal.empresaId(), principal.usuarioId(), principal.sesion());
+        return ResponseEntity.ok(new SesionActualResponse(actual.usuario(), false, actual.inactividad().toSeconds(),
+                actual.restante().toSeconds()));
     }
 
     @Operation(summary = "Log in", description = "Checks the email and password and opens a session: an access "

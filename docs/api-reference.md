@@ -11,7 +11,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Resource | Endpoints |
 |---|---|
 | Stores | `POST /api/v1/empresas` · `GET /api/v1/empresas/actual` · `GET /api/v1/empresas/{id}` · `POST, DELETE /api/v1/empresas/actual/baja` · `PUT /api/v1/empresas/actual/preferencias` |
-| Authentication | `GET /api/v1/auth/csrf` · `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` |
+| Authentication | `GET /api/v1/auth/csrf` · `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` · `GET /api/v1/auth/sesion` |
 | Language and time zone | `GET, PUT /api/v1/auth/preferencias` (each person: empty follows the organization) · `PUT /api/v1/empresas/actual/preferencias` (administrators) |
 | Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` · `GET, PUT /api/v1/usuarios/{id}/roles-proceso` · `POST /api/v1/usuarios/invitaciones` · `POST /api/v1/usuarios/{id}/anonimizar` |
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |

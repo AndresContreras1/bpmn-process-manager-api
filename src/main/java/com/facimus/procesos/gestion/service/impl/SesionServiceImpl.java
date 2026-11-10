@@ -22,6 +22,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.SesionInvalidaException;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.security.Factor;
+import com.facimus.procesos.gestion.dto.response.SesionActual;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 import com.facimus.procesos.gestion.event.SesionesCerradas;
@@ -107,6 +108,27 @@ public class SesionServiceImpl implements SesionService {
         ZoneId zona = ZoneId.systemDefault();
         return new SesionVerificada(codigo, usuarioMapper.toResponse(sesion.getUsuario()), factores, instante(ahora),
                 Duration.between(ahora.atZone(zona), limites(empresaId).fin(sesion).atZone(zona)));
+    }
+
+    @Override
+    public SesionActual actual(Long empresaId, Long usuarioId, String codigo) {
+        Sesion sesion = sesionRepository.findByCodigoAndUsuarioIdAndEmpresaId(codigo, usuarioId, empresaId)
+                .filter(Sesion::estaAbierta)
+                .orElseThrow(SesionInvalidaException::new);
+        LocalDateTime ahora = LocalDateTime.now();
+        // Sin un refresh token vigente, la sesion ya no se puede renovar: le queda lo que dure su acceso
+        LocalDateTime inactiva = refreshTokenRepository
+                .findFirstBySesionIdAndEmpresaIdAndFechaUsoIsNullOrderByFechaEmisionDesc(sesion.getId(), empresaId)
+                .map(RefreshToken::getFechaExpiracion)
+                .orElse(ahora);
+        ZoneId zona = ZoneId.systemDefault();
+        return new SesionActual(usuarioMapper.toResponse(sesion.getUsuario()),
+                hastaCero(Duration.between(ahora.atZone(zona), inactiva.atZone(zona))),
+                hastaCero(Duration.between(ahora.atZone(zona), limites(empresaId).fin(sesion).atZone(zona))));
+    }
+
+    private static Duration hastaCero(Duration duracion) {
+        return duracion.isNegative() ? Duration.ZERO : duracion;
     }
 
     /** Sin rollback al rechazar: el cierre por un token reutilizado tiene que quedar guardado aunque responda 401. */

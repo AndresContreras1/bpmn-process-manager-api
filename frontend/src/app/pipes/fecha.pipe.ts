@@ -2,13 +2,14 @@ import { LOCALE_ID, Pipe, PipeTransform, inject } from '@angular/core';
 
 import { PreferenciasService } from '../service/preferencias.service';
 
-/** Como se escribe una fecha: solo el dia, el dia con el mes en letras, o el dia con la hora. */
-export type EstiloDeFecha = 'fecha' | 'fechaLarga' | 'fechaHora';
+/** Como se escribe una fecha: solo el dia, el dia con el mes en letras, el dia con la hora, o solo la hora. */
+export type EstiloDeFecha = 'fecha' | 'fechaLarga' | 'fechaHora' | 'hora';
 
 const OPCIONES: Readonly<Record<EstiloDeFecha, Intl.DateTimeFormatOptions>> = {
   fecha: { dateStyle: 'medium' },
   fechaLarga: { dateStyle: 'long' },
   fechaHora: { dateStyle: 'medium', timeStyle: 'short' },
+  hora: { timeStyle: 'short' },
 };
 
 /** Un formateador por idioma, estilo y zona: crearlos cuesta, y una lista pinta la misma combinacion muchas veces. */

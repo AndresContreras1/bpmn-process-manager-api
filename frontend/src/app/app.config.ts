@@ -28,8 +28,9 @@ export const appConfig: ApplicationConfig = {
       withInterceptors([idempotenciaInterceptor, authInterceptor]),
       withXsrfConfiguration({ cookieName: 'XSRF-TOKEN', headerName: 'X-XSRF-TOKEN' }),
     ),
-    // El login ya pide el token CSRF, asi que la cookie se pide antes de pintar nada
-    provideAppInitializer(() => inject(AuthService).prepararCsrf()),
+    // El login ya pide el token CSRF, asi que la cookie se pide antes de pintar nada; despues, F13, quien entro, que
+    // ya no se recuerda en el navegador: las guardas leen la sesion que trae la API
+    provideAppInitializer(() => inject(AuthService).iniciar()),
     // F12: con cada sesion, el idioma y la zona horaria de la persona; si el idioma es otro, la web se abre en el suyo
     provideAppInitializer(() => inject(PreferenciasService).seguirLaSesion()),
     // F12: cada idioma con su moneda, la del pipe currency cuando no se le dice otra

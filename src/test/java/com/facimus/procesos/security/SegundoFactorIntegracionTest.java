@@ -134,6 +134,12 @@ class SegundoFactorIntegracionTest {
         assertThat(principal.segundoFactorPendiente()).isTrue();
         assertThat(jdbc.queryForObject("select count(*) from sesiones where codigo = ?", Integer.class,
                 principal.sesion())).isZero();
+        // F13: la web que se recarga a mitad del login sabe de quien es y que solo falta el codigo
+        mockMvc.perform(get("/api/v1/auth/sesion").with(SesionEnCookies.conSesion(pendiente)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.usuario.email").value(admin))
+                .andExpect(jsonPath("$.segundoFactorPendiente").value(true))
+                .andExpect(jsonPath("$.inactividadSegundos").doesNotExist());
     }
 
     @ParameterizedTest(name = "{0} {1}")

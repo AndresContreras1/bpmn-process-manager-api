@@ -11,6 +11,7 @@ import { AuthService } from '../../service/auth.service';
 import { IDIOMAS, IdiomaService, OpcionDeIdioma } from '../../service/idioma.service';
 import { PreferenciasService } from '../../service/preferencias.service';
 import { TemaService } from '../../service/tema.service';
+import { AvisoDeInactividadComponent } from '../aviso-de-inactividad/aviso-de-inactividad.component';
 import { AvisosComponent } from '../ui/avisos.component';
 import { Miga, migasDe } from './migas';
 
@@ -21,7 +22,15 @@ import { Miga, migasDe } from './migas';
  */
 @Component({
   selector: 'app-estructura',
-  imports: [AsyncPipe, ReactiveFormsModule, RouterLink, RouterLinkActive, RouterOutlet, AvisosComponent],
+  imports: [
+    AsyncPipe,
+    ReactiveFormsModule,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    AvisosComponent,
+    AvisoDeInactividadComponent,
+  ],
   templateUrl: './estructura.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './estructura.component.scss',

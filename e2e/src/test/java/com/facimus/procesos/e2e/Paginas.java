@@ -165,6 +165,13 @@ final class Paginas {
         static final By TODO_BIEN = By.id("tablero-todo-bien");
     }
 
+    /** F13: quien entro, en el encabezado, y el login que dice por que se volvio a el. */
+    static final class Sesion {
+        static final By USUARIO = By.id("navbar-usuario");
+        static final By SALIR = By.id("navbar-salir");
+        static final By CERRADA_EN_OTRA = By.id("login-sesion-cerrada");
+    }
+
     /** F12: el idioma, en la barra y en la cuenta. */
     static final class Idioma {
         static final By MENU = By.id("navbar-idioma");

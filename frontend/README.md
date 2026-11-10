@@ -97,18 +97,27 @@ EUR). English (en-US) is the language of the source.
 
 ## Session
 
-- **The app never sees a token** (D29). The session lives in two `HttpOnly` cookies that the API sets and clears;
-  the app only remembers who signed in, in `localStorage`, behind a `SesionLocalService`, to show their name and
-  what their role allows. The demo store signs in with `admin@demo.com` / `every-order-on-time`.
-- When it starts, the app asks `GET /api/v1/auth/csrf` for the `XSRF-TOKEN` cookie, and `HttpClient` copies it into
-  the `X-XSRF-TOKEN` header of every change, the login included.
+- **The app never sees a token** (D29). The session lives in two `HttpOnly` cookies that the API sets and clears.
+  Who signed in lives in memory, not in the browser's storage: when it starts, the app asks `GET /api/v1/auth/csrf`
+  for the `XSRF-TOKEN` cookie, which `HttpClient` copies into the `X-XSRF-TOKEN` header of every change, and then
+  `GET /api/v1/auth/sesion` for the profile and how long the session has left. The route guards wait for that answer.
+  `localStorage` keeps only a mark that there was a session, so that a visit without one asks nothing. The demo
+  organization signs in with `admin@demo.com` / `every-order-on-time`.
 - **The session renews itself.** The access token lives fifteen minutes, so a `401` does not mean the session is
   over: the interceptor asks `POST /api/v1/auth/refresh`, which trades the refresh cookie for new ones, and retries
   the request. The user sees nothing. The sign-in page comes back only when the renewal is itself rejected, and
   then it says why (`?sesion=vencida`).
 - A refresh token works **once**, and sending it twice closes the session on purpose, as reuse detection. So the
   renewal is shared: every request that expires at the same moment waits for the same call. Opening a process runs
-  two requests in parallel, and both are served by one renewal.
+  two requests in parallel, and both are served by one renewal. Between tabs too: a Web Lock lets one tab renew at a
+  time, and a tab that gets the lock just after another renewed only retries, since the cookies are already new.
+- **Tabs talk to each other** through a `BroadcastChannel`: signing in, renewing and signing out reach every tab of
+  the web. Signing out in one takes the others to the sign-in page, which says it happened in another tab
+  (`?sesion=cerrada`).
+- **A warning before the session closes.** Each session answer says how long the session survives without being
+  renewed (the organization's idle timeout) and how long it has left. Two minutes before closing for being idle, a
+  notice counts down and offers to stay signed in, which renews it; at zero the app forgets the session in every tab.
+  Five minutes before its end, which cannot be extended, it says at what time it ends.
 - A session counts as open while the refresh token exists, not while the access token is valid. Tying the route
   guard to the access token would throw the user out fifteen minutes in, which is the same bug seen from the
   other side.

@@ -1,9 +1,15 @@
-import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
+import { HttpContextToken, HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, catchError, switchMap, throwError } from 'rxjs';
 
 import { AuthService } from '../service/auth.service';
+
+/**
+ * F13: una peticion que maneja su propio 401, como la de saber si hay sesion al arrancar: sin sesion no hay que
+ * mandar a nadie al login, y la renovacion la decide quien pregunta.
+ */
+export const SIN_RENOVAR = new HttpContextToken<boolean>(() => false);
 
 /**
  * D29: la sesion viaja sola, en cookies HttpOnly que el navegador manda a la API; aqui no se firma ninguna peticion.
@@ -19,7 +25,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
       // En las rutas de sesion un 401 es la respuesta, no un acceso vencido: clave incorrecta o refresco invalido
-      if (error.status !== 401 || esDeSesion(req)) {
+      if (error.status !== 401 || esDeSesion(req) || req.context.get(SIN_RENOVAR)) {
         return throwError(() => error);
       }
       if (!authService.estaAutenticado()) {
