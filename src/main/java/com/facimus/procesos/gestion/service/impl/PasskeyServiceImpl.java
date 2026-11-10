@@ -172,7 +172,7 @@ public class PasskeyServiceImpl implements PasskeyService {
                 .objetoDeAtestacion(nueva.objetoDeAtestacion().clone())
                 .datosDelCliente(nueva.datosDelCliente().clone())
                 .etiqueta(etiqueta(nueva.etiqueta()))
-                .creadaEn(LocalDateTime.now())
+                .creadaEn(LocalDateTime.now(ZoneId.systemDefault()))
                 .build());
     }
 
@@ -228,6 +228,7 @@ public class PasskeyServiceImpl implements PasskeyService {
     }
 
     private static LocalDateTime local(Instant momento) {
-        return momento == null ? LocalDateTime.now() : LocalDateTime.ofInstant(momento, ZoneId.systemDefault());
+        return momento == null ? LocalDateTime.now(ZoneId.systemDefault())
+                : LocalDateTime.ofInstant(momento, ZoneId.systemDefault());
     }
 }

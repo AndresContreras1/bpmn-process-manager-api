@@ -57,7 +57,7 @@ import tools.jackson.databind.json.JsonMapper;
  * del DSL: guarda el desafio en la sesion HTTP, que la API no tiene, y abre la sesion de Spring en vez de las cookies de
  * siempre. Los desafios viven en {@link DesafiosWebAuthn} y las credenciales en la tabla {@code passkeys}.
  *
- * <p>Todo pide la verificacion del dispositivo (huella, rostro o PIN) y una credencial descubrible, la que permite
+ * <p>Cada ceremonia pide la verificacion del dispositivo (huella, rostro o PIN) y una credencial descubrible, la que permite
  * entrar sin escribir el correo. No se pide atestacion: la API no decide que marcas de dispositivo acepta.
  */
 @Component
@@ -148,7 +148,7 @@ public class CeremoniasWebAuthn {
     public OpcionesWebAuthnResponse opcionesDeVerificacion(ApiPrincipal principal) {
         PublicKeyCredentialRequestOptions opciones = operaciones.createCredentialRequestOptions(
                 new ImmutablePublicKeyCredentialRequestOptionsRequest(autenticacion(principal)));
-        if (opciones.getAllowCredentials() == null || opciones.getAllowCredentials().isEmpty()) {
+        if (opciones.getAllowCredentials().isEmpty()) {
             throw new ReglaNegocioException("No tienes passkeys: usa el código de tu aplicación o uno de "
                     + "recuperación.");
         }
@@ -181,15 +181,14 @@ public class CeremoniasWebAuthn {
     public Optional<byte[]> credencialDe(JsonNode credencial) {
         try {
             return Optional.of(Bytes.fromBase64(credencial.path("rawId").asString()).getBytes());
-        } catch (RuntimeException ilegible) {
+        } catch (RuntimeException _) {
             return Optional.empty();
         }
     }
 
     private OpcionesWebAuthnResponse opcionesDePeticion(Proposito proposito, Long usuarioId,
             PublicKeyCredentialRequestOptions opciones) {
-        List<PublicKeyCredentialDescriptor> permitidas = opciones.getAllowCredentials() == null ? List.of()
-                : opciones.getAllowCredentials();
+        List<PublicKeyCredentialDescriptor> permitidas = opciones.getAllowCredentials();
         String desafio = desafios.guardar(proposito, usuarioId, new Guardado(
                 opciones.getChallenge().toBase64UrlString(), null, null, null,
                 permitidas.stream().map(descriptor -> descriptor.getId().toBase64UrlString()).toList()));
@@ -204,7 +203,7 @@ public class CeremoniasWebAuthn {
             PublicKeyCredentialUserEntity persona = verificado(() -> transaccion.execute(estado ->
                     operaciones.authenticate(new RelyingPartyAuthenticationRequest(peticion(guardado), leida))));
             return passkeys.personaPorHandle(persona.getId().getBytes());
-        } catch (SolicitudInvalidaException noVerifica) {
+        } catch (SolicitudInvalidaException _) {
             return Optional.empty();
         }
     }
@@ -212,11 +211,7 @@ public class CeremoniasWebAuthn {
     /** Lo que firma el dispositivo se rechaza igual sea cual sea el motivo; el motivo queda en el log. */
     private static <T> T verificado(Supplier<T> verificacion) {
         try {
-            T resultado = verificacion.get();
-            if (resultado == null) {
-                throw new SolicitudInvalidaException(NO_VERIFICADA);
-            }
-            return resultado;
+            return verificacion.get();
         } catch (SolicitudInvalidaException | ReglaNegocioException propia) {
             throw propia;
         } catch (RuntimeException rechazo) {
@@ -228,7 +223,7 @@ public class CeremoniasWebAuthn {
     private <T> T leer(JsonNode credencial, TypeReference<T> tipo) {
         try {
             return json.treeToValue(credencial, json.constructType(tipo));
-        } catch (RuntimeException ilegible) {
+        } catch (RuntimeException _) {
             throw new SolicitudInvalidaException("La credencial no tiene la forma de PublicKeyCredential.toJSON().");
         }
     }

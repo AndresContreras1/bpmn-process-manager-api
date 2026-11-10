@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -72,7 +73,7 @@ class PasskeyServiceTest {
         service.guardarNueva(nueva("a".repeat(70)));
         service.guardarNueva(nueva("Mi\tportatil\n"));
 
-        verify(passkeyRepository, org.mockito.Mockito.times(3)).save(guardada.capture());
+        verify(passkeyRepository, times(3)).save(guardada.capture());
         assertThat(guardada.getAllValues()).extracting(Passkey::getEtiqueta)
                 .containsExactly("Passkey", "a".repeat(64), "Miportatil");
         assertThat(guardada.getAllValues().getFirst().getEmpresa().getId()).isEqualTo(7L);
@@ -84,10 +85,11 @@ class PasskeyServiceTest {
         Usuario usuario = usuario(true, null);
         when(usuarioRepository.findByWebauthnId(HANDLE)).thenReturn(Optional.of(usuario));
         when(passkeyRepository.countByUsuarioIdAndEmpresaId(5L, 7L)).thenReturn(10L);
-        assertThatThrownBy(() -> service.guardarNueva(nueva(null))).isInstanceOf(ReglaNegocioException.class);
+        PasskeyGuardada once = nueva(null);
+        assertThatThrownBy(() -> service.guardarNueva(once)).isInstanceOf(ReglaNegocioException.class);
 
         usuario.setActivo(false);
-        assertThatThrownBy(() -> service.guardarNueva(nueva(null))).isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> service.guardarNueva(once)).isInstanceOf(RecursoNoEncontradoException.class);
         verify(passkeyRepository, never()).save(any());
     }
 

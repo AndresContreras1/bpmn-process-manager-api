@@ -38,7 +38,7 @@ public class DesafiosWebAuthn {
 
     /**
      * Lo que hace falta para rehacer las opciones al verificar: el desafio, la persona del registro y las credenciales
-     * que se le ofrecieron al dispositivo, todo en base64url.
+     * que se le ofrecieron al dispositivo, en base64url.
      */
     record Guardado(String desafio, String handle, String nombre, String nombreVisible, List<String> credenciales) {
     }

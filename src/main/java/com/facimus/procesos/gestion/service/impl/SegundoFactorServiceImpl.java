@@ -172,6 +172,10 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     @Override
     @Transactional
     public void olvidarCodigosSinFactor(Long empresaId, Long usuarioId) {
+        borrarCodigosSinFactor(empresaId, usuarioId);
+    }
+
+    private void borrarCodigosSinFactor(Long empresaId, Long usuarioId) {
         if (!loPide(empresaId, usuarioId)) {
             codigoRepository.borrarLosDe(empresaId, usuarioId);
         }
@@ -220,7 +224,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
     public void quitarPropio(Long empresaId, Long usuarioId) {
         Usuario usuario = buscar(empresaId, usuarioId);
         if (segundoFactorRepository.borrarElDe(empresaId, usuarioId) > 0) {
-            olvidarCodigosSinFactor(empresaId, usuarioId);
+            borrarCodigosSinFactor(empresaId, usuarioId);
             historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.USUARIO, usuarioId,
                     "Segundo factor de \"" + usuario.getNombre() + "\" quitado.");
             auditoria.registrar(empresaId, usuarioId, "SEGUNDO_FACTOR_QUITADO", "USUARIO", usuarioId, Map.of());
@@ -252,7 +256,7 @@ public class SegundoFactorServiceImpl implements SegundoFactorService {
         usuarioRepository.findByIdAndEmpresaId(usuarioId, empresaId).ifPresent(usuario -> usuario.setWebauthnId(null));
     }
 
-    /** Todo el segundo factor: la aplicacion, las passkeys y sus codigos. Si habia algo que quitar. */
+    /** El segundo factor entero: la aplicacion, las passkeys y sus codigos. Si habia algo que quitar. */
     private boolean borrar(Long empresaId, Long usuarioId) {
         codigoRepository.borrarLosDe(empresaId, usuarioId);
         int passkeys = passkeyRepository.borrarLasDe(empresaId, usuarioId);
