@@ -28,6 +28,7 @@ import com.facimus.procesos.common.security.Factor;
 import com.facimus.procesos.gestion.dto.request.EtiquetaPasskeyRequest;
 import com.facimus.procesos.gestion.dto.request.PasskeyFirmaRequest;
 import com.facimus.procesos.gestion.dto.request.PasskeyRegistroRequest;
+import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
 import com.facimus.procesos.gestion.dto.response.OpcionesWebAuthnResponse;
 import com.facimus.procesos.gestion.dto.response.PasskeyRegistradaResponse;
 import com.facimus.procesos.gestion.dto.response.PasskeyResponse;
@@ -246,7 +247,7 @@ public class PasskeyController {
                 : ceremonias.entrar(request.desafio(), request.credencial());
         UsuarioResponse usuario = persona
                 .flatMap(encontrada -> usuarioService.buscarCredenciales(encontrada.email()))
-                .map(credenciales -> credenciales.usuario())
+                .map(CredencialesUsuario::usuario)
                 .orElseThrow(() -> new BadCredentialsException(LoginAuthenticator.PASSKEY_INVALIDA));
         // PR 50: una tienda que entra con un proveedor tampoco entra con passkey, salvo su administrador.
         if (identidadExternaService.exigeEntradaExterna(usuario.empresaId(), usuario.rolAcceso())) {

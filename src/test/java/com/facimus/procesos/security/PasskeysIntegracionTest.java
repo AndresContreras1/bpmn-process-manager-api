@@ -40,7 +40,7 @@ import tools.jackson.databind.node.ObjectNode;
 /**
  * PR 49b: las passkeys, de punta a punta, con un autenticador que firma como un navegador. Se registran con la sesion
  * recien confirmada, completan el login a medias que deja la clave, confirman quien es la persona y entran sin clave;
- * todo lo que el dispositivo firma se rechaza si viene de otro origen, sin verificar a la persona, con la firma rota,
+ * lo que el dispositivo firma se rechaza si viene de otro origen, sin verificar a la persona, con la firma rota,
  * con un contador que no sube o para otro desafio, que ademas sirve una sola vez.
  */
 @SpringBootTest

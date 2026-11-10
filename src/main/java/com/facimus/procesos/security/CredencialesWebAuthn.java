@@ -82,8 +82,8 @@ public class CredencialesWebAuthn implements UserCredentialRepository {
     static PasskeyGuardada guardada(CredentialRecord registro) {
         return new PasskeyGuardada(registro.getCredentialId().getBytes(), registro.getUserEntityUserId().getBytes(),
                 registro.getPublicKey().getBytes(), registro.getSignatureCount(), registro.isUvInitialized(),
-                registro.getTransports() == null ? "" : registro.getTransports().stream()
-                        .map(AuthenticatorTransport::getValue).sorted().collect(Collectors.joining(",")),
+                registro.getTransports().stream().map(AuthenticatorTransport::getValue).sorted()
+                        .collect(Collectors.joining(",")),
                 registro.isBackupEligible(), registro.isBackupState(), registro.getAttestationObject().getBytes(),
                 registro.getAttestationClientDataJSON().getBytes(), registro.getLabel(), registro.getCreated(),
                 registro.getLastUsed());
