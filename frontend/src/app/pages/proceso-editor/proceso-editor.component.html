@@ -1,12 +1,4 @@
 <div class="container-fluid py-4" id="proceso-editor">
-  <nav aria-label="breadcrumb">
-    <ol class="breadcrumb small">
-      <li class="breadcrumb-item"><a routerLink="/procesos">Processes</a></li>
-      <li class="breadcrumb-item"><a [routerLink]="['/procesos', procesoId]">Process</a></li>
-      <li class="breadcrumb-item active" aria-current="page">Model</li>
-    </ol>
-  </nav>
-
   @if (noEncontrado) {
     <div class="alert alert-warning" role="alert" id="proceso-editor-no-encontrado">
       This process does not exist in your store.

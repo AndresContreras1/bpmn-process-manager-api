@@ -42,6 +42,13 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- F11: axe-core de Deque, que revisa la accesibilidad de cada pantalla con las reglas de WCAG 2.1 AA. -->
+        <dependency>
+            <groupId>com.deque.html.axe-core</groupId>
+            <artifactId>selenium</artifactId>
+            <version>4.10.1</version>
+            <scope>test</scope>
+        </dependency>
         <!-- Los datos de cada prueba se crean por la API. El cliente HTTP viene con Java; esto solo lee el JSON. -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

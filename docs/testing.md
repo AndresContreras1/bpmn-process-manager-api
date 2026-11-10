@@ -100,7 +100,7 @@ Every push to `main` and every pull request runs the GitHub Actions pipeline:
 | SonarCloud Analysis | Static analysis and its quality gate: the job waits for SonarCloud to judge the analysis and goes red when the gate does not pass. Skipped while the token is not configured |
 | Frontend Build | The SBOM of the web app, `npm ci`, angular-eslint and Prettier, the Vitest unit tests of the logic that is not a screen, and a production build within its 800 kB budget |
 | Web Image & Stack | Builds the web image and scans it with Trivy, then brings up database, API and web together: NGINX serves the compiled app, a deep link answers with the app instead of a `404`, the API answers through the web container, and NGINX sends the security headers on every kind of response, with the script hashes of the build in its CSP, while what the API answers keeps the API's own |
-| E2E | Drives a headless Chrome against that stack with the Selenium suite of [e2e/](../e2e/README.md), fails if the browser's console reports something the CSP blocked, and keeps what the browser saw as an artifact |
+| E2E | Drives a headless Chrome against that stack with the Selenium suite of [e2e/](../e2e/README.md), runs axe-core over every screen in both themes and fails on a serious or critical violation, fails if the browser's console reports something the CSP blocked, and keeps what the browser saw as an artifact |
 | Code Format | `spotless:check` on the files the change touches |
 | Supply Chain | Every action is pinned to a commit SHA, and gitleaks finds no secret in the commits of the change |
 | CodeQL | A separate workflow that reads the Java, the TypeScript and the workflows themselves, on every change and every Monday, and publishes what it finds in the Security tab |

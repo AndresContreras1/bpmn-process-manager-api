@@ -1,15 +1,10 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
-
-import { NavbarComponent } from './components/navbar/navbar.component';
+import { EstructuraComponent } from './components/estructura/estructura.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, NavbarComponent],
+  imports: [EstructuraComponent],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  styleUrl: './app.component.scss',
 })
-export class AppComponent {
-  readonly repositorio: string = 'https://github.com/AndresContreras1/bpmn-process-manager-api';
-}
+export class AppComponent {}

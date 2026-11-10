@@ -3,12 +3,16 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "tokens": "node scripts/tokens.mjs",
+    "prestart": "npm run tokens",
     "start": "ng serve",
+    "prebuild": "npm run tokens",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "lint": "ng lint",
     "format": "prettier --write \"src/**/*.{ts,html,scss,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,html,scss,json}\"",
+    "pretest": "npm run tokens",
     "test": "ng test --watch=false"
   },
   "private": true,

@@ -1,11 +1,4 @@
 <div class="container py-5" id="proceso-detalle">
-  <nav aria-label="breadcrumb">
-    <ol class="breadcrumb small">
-      <li class="breadcrumb-item"><a routerLink="/procesos" id="proceso-detalle-ir-procesos">Processes</a></li>
-      <li class="breadcrumb-item active" aria-current="page">{{ detalle?.proceso?.nombre ?? 'Process' }}</li>
-    </ol>
-  </nav>
-
   @if (aviso) {
     <div class="alert alert-success alert-dismissible" role="status" id="proceso-detalle-aviso">
       <i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ aviso }}

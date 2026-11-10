@@ -82,23 +82,24 @@
 
       @if (!pagina) {
         @if (cargando) {
-          <div class="text-center text-body-secondary py-5" id="procesos-cargando">
-            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading processes…
-          </div>
+          <app-cargando id="procesos-cargando" texto="Loading processes…" />
         }
       } @else if (pagina.content.length === 0) {
-        <div class="text-center py-5" id="procesos-vacio">
-          <i class="fa-regular fa-folder-open fa-2x text-body-tertiary mb-3" aria-hidden="true"></i>
-          @if (hayFiltros()) {
-            <p class="text-body-secondary mb-0">No process matches these filters.</p>
-          } @else if (puedeEditar) {
-            <p class="fw-semibold mb-1">Your store has no processes yet.</p>
-            <p class="text-body-secondary mb-0">Create the first one with New process.</p>
-          } @else {
-            <p class="fw-semibold mb-1">Your store has no processes yet.</p>
-            <p class="text-body-secondary mb-0">An administrator or an editor can create them.</p>
-          }
-        </div>
+        @if (hayFiltros()) {
+          <app-vacio id="procesos-vacio" icono="fa-solid fa-filter" titulo="No process matches these filters." />
+        } @else if (puedeEditar) {
+          <app-vacio
+            id="procesos-vacio"
+            titulo="Your store has no processes yet."
+            texto="Create the first one with New process."
+          />
+        } @else {
+          <app-vacio
+            id="procesos-vacio"
+            titulo="Your store has no processes yet."
+            texto="An administrator or an editor can create them."
+          />
+        }
       } @else {
         <div class="table-responsive" [class.opacity-50]="cargando" [attr.aria-busy]="cargando">
           <table class="table table-hover align-middle mb-0" id="procesos-tabla">
@@ -142,14 +143,11 @@
                     </button>
                   </td>
                   <td>
-                    <span
-                      class="badge"
+                    <app-insignia
                       data-testid="proceso-estado"
-                      [class.text-bg-success]="proceso.estado === 'PUBLICADO'"
-                      [class.text-bg-secondary]="proceso.estado === 'BORRADOR'"
-                    >
-                      {{ nombreEstado[proceso.estado] }}
-                    </span>
+                      [tono]="proceso.estado === 'PUBLICADO' ? 'exito' : 'neutro'"
+                      [texto]="nombreEstado[proceso.estado]"
+                    />
                   </td>
                   <td class="d-none d-md-table-cell text-body-secondary small">
                     {{ proceso.fechaModificacion | date: 'medium' }}

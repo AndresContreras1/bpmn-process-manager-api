@@ -23,9 +23,11 @@
       <div>
         <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
           <h1 class="h3 fw-bold mb-0" id="caso-detalle-referencia">{{ detalle.caso.referencia }}</h1>
-          <span class="badge" [class]="colorEstado[detalle.caso.estado]" id="caso-detalle-estado">
-            {{ nombreEstado[detalle.caso.estado] }}
-          </span>
+          <app-insignia
+            id="caso-detalle-estado"
+            [tono]="tonoEstado[detalle.caso.estado]"
+            [texto]="nombreEstado[detalle.caso.estado]"
+          />
         </div>
         <p class="text-body-secondary mb-0">
           <a [routerLink]="['/procesos', detalle.caso.procesoId]" id="caso-detalle-proceso">

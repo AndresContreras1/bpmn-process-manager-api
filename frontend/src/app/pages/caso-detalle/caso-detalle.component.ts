@@ -5,11 +5,12 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, ParamMap, RouterLink } from '@angular/router';
 import { EMPTY, Observable, catchError, finalize, forkJoin, map, of, switchMap, tap } from 'rxjs';
 
+import { InsigniaComponent } from '../../components/ui/insignia.component';
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { ParClaveValor, aDatos, aPares, comoTexto } from '../../helpers/datos-libres';
 import { mensajeDeError } from '../../helpers/errores-api';
 import {
-  COLOR_ESTADO_CASO,
+  TONO_ESTADO_CASO,
   Caso,
   CasoDetalle,
   EVENTOS_MALOS,
@@ -30,6 +31,7 @@ import {
   NOMBRE_ORIGEN,
   NOMBRE_RESULTADO,
 } from '../../models/mensajeria.model';
+import { Tono } from '../../models/tono.model';
 import { AuthService } from '../../service/auth.service';
 import { CasoService } from '../../service/caso.service';
 import { MensajeriaService } from '../../service/mensajeria.service';
@@ -52,7 +54,7 @@ interface Carga {
  */
 @Component({
   selector: 'app-caso-detalle',
-  imports: [FormsModule, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent],
+  imports: [FormsModule, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent, InsigniaComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './caso-detalle.component.html',
 })
@@ -67,7 +69,7 @@ export class CasoDetalleComponent implements OnInit {
   readonly puedeEditar: boolean = this.authService.puedeEditar();
   readonly esAdministrador: boolean = this.authService.esAdministrador();
   readonly nombreEstado: Record<EstadoCaso, string> = NOMBRE_ESTADO_CASO;
-  readonly colorEstado: Record<EstadoCaso, string> = COLOR_ESTADO_CASO;
+  readonly tonoEstado: Record<EstadoCaso, Tono> = TONO_ESTADO_CASO;
   readonly nombreEstadoPaso: Record<EstadoPaso, string> = NOMBRE_ESTADO_PASO;
   readonly nombreEvento: Record<TipoEventoCaso, string> = NOMBRE_EVENTO_CASO;
   readonly nombreEstadoSaliente = NOMBRE_ESTADO_SALIENTE;

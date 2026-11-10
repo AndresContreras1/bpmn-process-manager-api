@@ -58,6 +58,10 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- The web app has a design system: tokens in the DTCG format turned into Bootstrap's Sass variables and CSS
+  variables, a green scale checked against WCAG AA, a dark mode, a shell with a sidebar, breadcrumbs and a search,
+  shared components for loading, empty, errors, notices and statuses, and axe-core over every screen in the
+  end-to-end suite.
 - The web app runs on Angular 22, built with `@angular/build` on Node 24, linted with angular-eslint, formatted with
   Prettier and with Vitest for its logic; only three plugins of Bootstrap's JavaScript are loaded.
 

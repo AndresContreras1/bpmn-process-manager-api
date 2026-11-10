@@ -1,14 +1,6 @@
 <div class="container py-5" id="compartir">
   <div class="row justify-content-center">
     <div class="col-lg-7">
-      <nav aria-label="breadcrumb">
-        <ol class="breadcrumb small">
-          <li class="breadcrumb-item"><a routerLink="/procesos">Processes</a></li>
-          <li class="breadcrumb-item"><a [routerLink]="['/procesos', procesoId]">Process</a></li>
-          <li class="breadcrumb-item active" aria-current="page">Share</li>
-        </ol>
-      </nav>
-
       <h1 class="h4 fw-bold mb-0">Share “{{ nombreProceso }}”</h1>
       <p class="text-body-secondary">
         A store you share it with can read the version in force of the diagram, and nothing else. It is a read-only

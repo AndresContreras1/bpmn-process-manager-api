@@ -18,6 +18,7 @@ docker compose up -d --build --wait   # from the root of the repository
 | `ModelarYPublicarTest` | A half-modelled diagram cannot be published; a task is added from the palette, named, and connected to the start and the end; the diagnosis drops to zero errors and the process is published as version 1, with its task and its two events counted by the viewer; and then version 1 is retired from the banner of the frozen diagram, which is the one change a published version accepts |
 | `CompartirYAdministrarTest` | A process is published and shared by tax id; the other store finds it in *shared with your store*, opens it, is told it is the version in force, and has no edit or model button. An administrator creates a role and adds someone, whose temporary password is shown once and is gone after a reload. The search box leaves one row of two; the panel of process roles comes back with what was saved already ticked; somebody is deactivated, disappears from the list, is found again with *Show deactivated* and brought back. An editor, signed in as herself, sees neither the users menu nor the store history, and the users screen tells her whose it is |
 | `OperarUnPedidoTest` | An order from end to end: it is opened from the cases, the case page shows the token standing on the task that is waiting, the task is taken and completed from the tray, and the case finishes with its three nodes marked while the dashboard counts one order and nothing wrong. A second scenario moves the clock and then saves the partners, in that order, which is what finds out whether the panel read their version again |
+| `AccesibilidadTest` | axe-core over the home page, the sign-in and the registration, and over every screen of the sidebar with an administrator, in the light theme and then in the dark one, switched from the header as a person would: a serious or critical violation of WCAG 2.1 AA fails the test and names the rule and the elements |
 
 ## Why it is built this way
 
@@ -42,6 +43,9 @@ is for a condition of the page, and after ten seconds the failure says what it w
 **A failure leaves a screenshot in `target/e2e/`.** An end-to-end failure without the screen is a guessing game:
 the message says what did not appear, and the picture says what appeared instead. Both bugs this suite found on its
 first run were diagnosed from those images.
+
+**Accessibility is checked with axe-core** (`com.deque.html.axe-core:selenium`), the engine behind most
+accessibility tools. Only serious and critical violations fail: those are the ones that leave someone out.
 
 **Selenium 4 finds its own driver.** Selenium Manager downloads the one that matches the installed Chrome, so there
 is no WebDriverManager and no driver to keep up to date.

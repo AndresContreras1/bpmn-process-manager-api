@@ -47,6 +47,29 @@ npm run format:check   # Prettier over src; npm run format writes it
 npm test               # Vitest over the logic that is not a screen: helpers and the geometry of the canvas
 ```
 
+## Design system
+
+- **Tokens.** `src/design/tokens.json`, in the format of the W3C Design Tokens group (DTCG 2025.10), holds the colors,
+  spacing, radii, font and layout sizes: a scale of ten steps of the green `#0f6e56`, the grays, four status colors,
+  the dark palette and aliases such as `color.marca.primario`. `npm run tokens` (run by itself before `start`,
+  `build` and `test`) turns them into `src/styles/_tokens.scss`: the Sass variables Bootstrap reads before it
+  compiles, and CSS variables (`--bpm-…`) for the app's own styles. The generated file is not committed, so it never
+  drifts from the tokens.
+- **Contrast.** `contraste.spec.ts` measures every pair of text and background the app uses, in light and in dark,
+  against WCAG 2.2 AA: 4.5 for text and 3 for the border of a control.
+- **Dark mode.** The header switches `data-bs-theme` on the page, which Bootstrap reads; the choice is remembered in
+  this browser, and without one the app follows the system.
+- **Shell.** A header with the brand, a search of processes by name, the theme and the account; for whoever signed
+  in, a sidebar with the sections (Processes, Work, Dashboard and, for administrators, Administration) and the
+  breadcrumbs each route declares in `data.migas`. A skip link jumps to the content. The links keep the ids the
+  navbar had, which the end-to-end suite looks for.
+- **Components** in `components/ui`: loading (`role="status"`), empty, a load error with a retry button, the status
+  badge with its icon, so status is not told by color alone, and the passing notices, in an `aria-live` region.
+- Only the Bootstrap components the screens use are compiled: no accordion, progress bar, tooltip, popover,
+  carousel or offcanvas.
+- **Accessibility.** The end-to-end suite runs axe-core over every screen, signed in and not, in both themes, and
+  fails on any serious or critical violation of WCAG 2.1 AA.
+
 ## Session
 
 - **The app never sees a token** (D29). The session lives in two `HttpOnly` cookies that the API sets and clears;
@@ -69,7 +92,7 @@ npm test               # Vitest over the logic that is not a screen: helpers and
   request is signed, so the retry carries the same key.
 - Signing out sends the refresh token, so the API closes that session instead of leaving a token that still renews.
 - A route guard keeps private pages behind an open session and remembers the page the user asked for.
-- `AuthService` publishes the current user through a `BehaviorSubject`, so the navbar and the pages react to sign in
+- `AuthService` publishes the current user through a `BehaviorSubject`, so the shell and the pages react to sign in
   and sign out.
 
 ## Processes

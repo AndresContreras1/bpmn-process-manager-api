@@ -5,12 +5,14 @@ import { FormArray, FormControl, FormGroup, FormsModule, ReactiveFormsModule, Va
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EMPTY, Subject, catchError, debounceTime, of, switchMap, tap } from 'rxjs';
 
+import { InsigniaComponent } from '../../components/ui/insignia.component';
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
 import { ParClaveValor, aDatos } from '../../helpers/datos-libres';
 import { mensajeDeError } from '../../helpers/errores-api';
-import { COLOR_ESTADO_CASO, Caso, EstadoCaso, FiltrosCaso, NOMBRE_ESTADO_CASO } from '../../models/caso.model';
+import { TONO_ESTADO_CASO, Caso, EstadoCaso, FiltrosCaso, NOMBRE_ESTADO_CASO } from '../../models/caso.model';
 import { PageResponse } from '../../models/page-response.model';
 import { Proceso } from '../../models/proceso.model';
+import { Tono } from '../../models/tono.model';
 import { AuthService } from '../../service/auth.service';
 import { CasoService } from '../../service/caso.service';
 import { ProcesoService } from '../../service/proceso.service';
@@ -32,7 +34,7 @@ interface Columna {
  */
 @Component({
   selector: 'app-casos',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, ErrorCampoComponent],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, ErrorCampoComponent, InsigniaComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './casos.component.html',
 })
@@ -45,7 +47,7 @@ export class CasosComponent implements OnInit {
 
   readonly puedeEditar: boolean = inject(AuthService).puedeEditar();
   readonly nombreEstado: Record<EstadoCaso, string> = NOMBRE_ESTADO_CASO;
-  readonly colorEstado: Record<EstadoCaso, string> = COLOR_ESTADO_CASO;
+  readonly tonoEstado: Record<EstadoCaso, Tono> = TONO_ESTADO_CASO;
   readonly estados = Object.keys(NOMBRE_ESTADO_CASO) as EstadoCaso[];
   readonly columnas: Columna[] = [
     { campo: 'referencia', titulo: 'Reference', clase: '' },

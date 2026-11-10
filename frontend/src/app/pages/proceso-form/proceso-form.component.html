@@ -1,16 +1,6 @@
 <div class="container py-5" id="proceso-form">
   <div class="row justify-content-center">
     <div class="col-lg-8 col-xl-7">
-      <nav aria-label="breadcrumb">
-        <ol class="breadcrumb small">
-          <li class="breadcrumb-item"><a routerLink="/procesos" id="proceso-form-ir-procesos">Processes</a></li>
-          @if (procesoId !== null && !noEncontrado) {
-            <li class="breadcrumb-item"><a [routerLink]="['/procesos', procesoId]">Process</a></li>
-          }
-          <li class="breadcrumb-item active" aria-current="page">{{ isEdit ? 'Edit' : 'New' }}</li>
-        </ol>
-      </nav>
-
       @if (noEncontrado) {
         <div class="alert alert-warning" role="alert" id="proceso-form-no-encontrado">
           This process does not exist in your store.

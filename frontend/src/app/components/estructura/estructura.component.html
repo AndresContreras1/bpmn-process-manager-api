@@ -1,0 +1,224 @@
+<a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-light" href="#contenido" id="saltar">
+  Skip to the content
+</a>
+
+@let usuario = usuario$ | async;
+
+<div class="d-flex flex-column min-vh-100">
+  <header class="navbar navbar-expand bg-primary encabezado" data-bs-theme="dark" id="navbar">
+    <div class="container-fluid gap-2">
+      @if (usuario) {
+        <button
+          class="btn btn-link nav-link d-lg-none px-1"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#barra-lateral"
+          aria-controls="barra-lateral"
+          aria-expanded="false"
+          aria-label="Show the sections"
+          id="navbar-boton-menu"
+        >
+          <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        </button>
+      }
+      <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold" routerLink="/" id="navbar-marca">
+        <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
+        <span class="d-none d-sm-inline">BPMN Process Manager</span>
+      </a>
+
+      @if (usuario) {
+        <form class="d-none d-md-flex flex-grow-1 mx-lg-4 busqueda" role="search" (ngSubmit)="buscar()" id="busqueda">
+          <label class="visually-hidden" for="busqueda-global">Search processes by name</label>
+          <input
+            class="form-control form-control-sm"
+            type="search"
+            id="busqueda-global"
+            placeholder="Search processes"
+            [formControl]="busqueda"
+          />
+        </form>
+      }
+
+      <ul class="navbar-nav ms-auto align-items-center gap-1">
+        <li class="nav-item">
+          <button
+            type="button"
+            class="nav-link px-2"
+            id="navbar-tema"
+            (click)="temaService.alternar()"
+            [attr.aria-pressed]="temaService.tema() === 'dark'"
+            aria-label="Dark theme"
+          >
+            <i
+              class="fa-solid"
+              [class.fa-moon]="temaService.tema() === 'light'"
+              [class.fa-sun]="temaService.tema() === 'dark'"
+              aria-hidden="true"
+            ></i>
+          </button>
+        </li>
+
+        @if (usuario) {
+          <li class="nav-item dropdown">
+            <button
+              class="nav-link dropdown-toggle"
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              id="navbar-usuario"
+            >
+              <i class="fa-solid fa-circle-user" aria-hidden="true"></i>
+              <span class="d-none d-md-inline"> {{ usuario.nombre }}</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <h2 class="dropdown-header h6">{{ nombreRol[usuario.rolAcceso] }} · store {{ usuario.empresaId }}</h2>
+              </li>
+              <li>
+                <a class="dropdown-item" routerLink="/cuenta" id="navbar-cuenta">
+                  <i class="fa-solid fa-id-badge" aria-hidden="true"></i> My account
+                </a>
+              </li>
+              <li><hr class="dropdown-divider" /></li>
+              <li>
+                <button type="button" class="dropdown-item" id="navbar-salir" (click)="cerrarSesion()">
+                  <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign out
+                </button>
+              </li>
+            </ul>
+          </li>
+        } @else {
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/login" routerLinkActive="active" id="navbar-login">Sign in</a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-outline-light btn-sm" routerLink="/registro" id="navbar-registro">Create a store</a>
+          </li>
+        }
+
+        <li class="nav-item d-none d-sm-block">
+          <a
+            class="nav-link px-2"
+            [href]="repositorio"
+            target="_blank"
+            rel="noopener"
+            id="navbar-github"
+            aria-label="Source on GitHub"
+          >
+            <i class="fa-brands fa-github" aria-hidden="true"></i>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </header>
+
+  <div class="d-lg-flex flex-grow-1">
+    @if (usuario) {
+      <nav
+        class="barra-lateral collapse d-lg-block border-end bg-body-tertiary"
+        id="barra-lateral"
+        aria-label="Sections"
+      >
+        <div class="p-3">
+          <p class="barra-titulo" id="seccion-procesos">Processes</p>
+          <ul class="nav flex-column mb-3" aria-labelledby="seccion-procesos">
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/procesos" routerLinkActive="active" id="navbar-procesos">
+                <i class="fa-solid fa-diagram-project fa-fw" aria-hidden="true"></i> Processes
+              </a>
+            </li>
+          </ul>
+
+          <p class="barra-titulo" id="seccion-trabajo">Work</p>
+          <ul class="nav flex-column mb-3" aria-labelledby="seccion-trabajo">
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/tareas" routerLinkActive="active" id="navbar-tareas">
+                <i class="fa-solid fa-list-check fa-fw" aria-hidden="true"></i> Task tray
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/casos" routerLinkActive="active" id="navbar-casos">
+                <i class="fa-solid fa-clipboard-list fa-fw" aria-hidden="true"></i> Cases
+              </a>
+            </li>
+          </ul>
+
+          <p class="barra-titulo" id="seccion-tablero">Dashboard</p>
+          <ul class="nav flex-column mb-3" aria-labelledby="seccion-tablero">
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/tablero" routerLinkActive="active" id="navbar-tablero">
+                <i class="fa-solid fa-chart-column fa-fw" aria-hidden="true"></i> Dashboard
+              </a>
+            </li>
+            @if (usuario.rolAcceso === 'ADMINISTRADOR') {
+              <li class="nav-item">
+                <a class="nav-link" routerLink="/simulacion" routerLinkActive="active" id="navbar-simulacion">
+                  <i class="fa-solid fa-gauge-high fa-fw" aria-hidden="true"></i> Simulation
+                </a>
+              </li>
+            }
+          </ul>
+
+          @if (usuario.rolAcceso === 'ADMINISTRADOR') {
+            <p class="barra-titulo" id="seccion-administracion">Administration</p>
+            <ul class="nav flex-column" aria-labelledby="seccion-administracion">
+              <li class="nav-item">
+                <a class="nav-link" routerLink="/usuarios" routerLinkActive="active" id="navbar-usuarios">
+                  <i class="fa-solid fa-users fa-fw" aria-hidden="true"></i> Users
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" routerLink="/roles" routerLinkActive="active" id="navbar-roles">
+                  <i class="fa-solid fa-user-tag fa-fw" aria-hidden="true"></i> Process roles
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" routerLink="/configuracion" routerLinkActive="active" id="navbar-configuracion">
+                  <i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> Store settings
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" routerLink="/historial" routerLinkActive="active" id="navbar-historial">
+                  <i class="fa-solid fa-clock-rotate-left fa-fw" aria-hidden="true"></i> Store history
+                </a>
+              </li>
+            </ul>
+          }
+        </div>
+      </nav>
+    }
+
+    <div class="flex-grow-1 d-flex flex-column min-w-0">
+      @if (migas.length > 0) {
+        <nav class="px-3 pt-3" aria-label="Breadcrumb">
+          <ol class="breadcrumb small mb-0" id="migas">
+            @for (miga of migas; track $index; let ultima = $last) {
+              @if (ultima || !miga.ruta) {
+                <li class="breadcrumb-item active" [attr.aria-current]="ultima ? 'page' : null">{{ miga.etiqueta }}</li>
+              } @else {
+                <li class="breadcrumb-item">
+                  <a [routerLink]="miga.ruta">{{ miga.etiqueta }}</a>
+                </li>
+              }
+            }
+          </ol>
+        </nav>
+      }
+
+      <main class="flex-grow-1" id="contenido" tabindex="-1">
+        <router-outlet />
+      </main>
+
+      <footer class="border-top bg-body py-3" id="pie">
+        <div class="container d-flex flex-wrap justify-content-between gap-2 small text-body-secondary">
+          <span>BPMN Process Manager · Angular and Spring Boot</span>
+          <a [href]="repositorio" target="_blank" rel="noopener" id="pie-repositorio">
+            <i class="fa-brands fa-github" aria-hidden="true"></i> Source on GitHub
+          </a>
+        </div>
+      </footer>
+    </div>
+  </div>
+</div>
+
+<app-avisos />

@@ -3,7 +3,7 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
@@ -21,7 +21,7 @@ import { ProcesoService } from '../../service/proceso.service';
  */
 @Component({
   selector: 'app-compartir',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, ErrorCampoComponent, ModalConfirmarComponent],
+  imports: [DatePipe, ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './compartir.component.html',
 })
