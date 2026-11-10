@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, ParamMap, RouterLink } from '@angular/router';
@@ -53,6 +53,7 @@ interface Carga {
 @Component({
   selector: 'app-caso-detalle',
   imports: [FormsModule, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './caso-detalle.component.html',
 })
 export class CasoDetalleComponent implements OnInit {

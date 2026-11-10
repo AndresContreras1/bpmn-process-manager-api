@@ -1,5 +1,5 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 
@@ -18,6 +18,7 @@ interface Caracteristica {
   selector: 'app-inicio',
   imports: [AsyncPipe, RouterLink],
   templateUrl: './inicio.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './inicio.component.scss',
 })
 export class InicioComponent {

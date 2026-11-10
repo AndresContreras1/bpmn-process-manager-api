@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -84,6 +84,7 @@ interface RamaDelEsquema {
   selector: 'app-proceso-editor',
   imports: [FormsModule, RouterLink, DiagramaBpmnComponent, ModalConfirmarComponent, PanelElementoComponent],
   templateUrl: './proceso-editor.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './proceso-editor.component.scss',
 })
 export class ProcesoEditorComponent implements OnInit {

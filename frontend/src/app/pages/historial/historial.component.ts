@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -14,6 +14,7 @@ import { ConfiguracionService } from '../../service/configuracion.service';
 @Component({
   selector: 'app-historial',
   imports: [DatePipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './historial.component.html',
 })
 export class HistorialComponent implements OnInit {

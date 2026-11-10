@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject, input, output } from '@angular/core';
+import { Component, DestroyRef, inject, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
@@ -15,6 +15,7 @@ import { AuthService } from '../../../service/auth.service';
 @Component({
   selector: 'app-cambiar-clave',
   imports: [ReactiveFormsModule, ErrorCampoComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './cambiar-clave.component.html',
 })
 export class CambiarClaveComponent {

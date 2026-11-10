@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { EMPTY, Subject, catchError, debounceTime, finalize, switchMap, tap } from 'rxjs';
@@ -29,6 +29,7 @@ interface Columna {
   selector: 'app-usuarios',
   imports: [FormsModule, ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
   templateUrl: './usuarios.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './usuarios.component.scss',
 })
 export class UsuariosComponent implements OnInit {

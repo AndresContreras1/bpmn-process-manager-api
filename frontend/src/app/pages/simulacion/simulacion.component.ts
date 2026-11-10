@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -30,6 +30,7 @@ interface Estado {
 @Component({
   selector: 'app-simulacion',
   imports: [FormsModule, ReactiveFormsModule, RouterLink, ErrorCampoComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './simulacion.component.html',
 })
 export class SimulacionComponent implements OnInit {

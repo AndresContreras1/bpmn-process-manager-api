@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -26,6 +26,7 @@ interface ColumnaOrdenable {
   selector: 'app-procesos',
   imports: [DatePipe, FormsModule, RouterLink, ModalConfirmarComponent],
   templateUrl: './procesos.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './procesos.component.scss',
 })
 export class ProcesosComponent implements OnInit {

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { EMPTY, Observable, Subject, catchError, debounceTime, finalize, switchMap, tap } from 'rxjs';
@@ -19,6 +19,7 @@ import { RolProcesoService } from '../../service/rol-proceso.service';
 @Component({
   selector: 'app-roles',
   imports: [FormsModule, ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './roles.component.html',
 })
 export class RolesComponent implements OnInit {

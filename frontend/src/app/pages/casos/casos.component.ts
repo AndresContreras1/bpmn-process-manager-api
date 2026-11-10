@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -39,6 +39,7 @@ interface Columna {
 @Component({
   selector: 'app-casos',
   imports: [FormsModule, ReactiveFormsModule, RouterLink, ErrorCampoComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './casos.component.html',
 })
 export class CasosComponent implements OnInit {
