@@ -40,6 +40,16 @@ Keeping the JWT in `localStorage` is what the course teaches; this decision goes
 - Rotating `JWT_SECRET` does not sign anybody out: the old key goes to `JWT_PREVIOUS_SECRET` for the fifteen minutes
   an access token lives.
 
+## Completed in F13
+
+- The web kept the profile of who signed in in `localStorage`. It now lives in memory and comes from
+  `GET /api/v1/auth/sesion` when the web starts; the browser keeps only a mark that there was a session.
+- Tabs renew one at a time, behind a Web Lock, because a refresh token works once and two tabs sending the same one
+  would close the session. They tell each other through a `BroadcastChannel` when someone signs in, renews or signs
+  out, so signing out in one signs out all of them.
+- Every session answer says how long the session survives without being renewed and how long it has left, and the
+  web warns two minutes before it closes for being idle.
+
 ## Verification
 
 - `AuthControllerTest`: the attributes of both cookies, a body without tokens, the `403` without the CSRF token, a
@@ -49,3 +59,5 @@ Keeping the JWT in `localStorage` is what the course teaches; this decision goes
 - `JwtServiceTest`: the `kid`, `iss`, `aud` and `jti` of every token; another audience, another issuer, an unknown
   `kid` and an unsigned token refused; a key rotated without closing sessions.
 - The end-to-end suite signs in through the web app with the cookies and the CSRF token, as a person does.
+- F13: `SesionActualIntegracionTest` (the session as it is, without renewing it, and closed sessions refused),
+  `AuthService` and the inactivity notice in Vitest, and `SesionEnPestanasTest` end to end.
