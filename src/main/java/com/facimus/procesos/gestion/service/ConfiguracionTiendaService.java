@@ -11,8 +11,10 @@ import com.facimus.procesos.gestion.model.PoliticaSegundoFactor;
 /** D16: lo que cada tienda decide sobre si misma, y la regla que de ahi sale (R-46). */
 public interface ConfiguracionTiendaService {
 
-    /** Crea la configuracion de una tienda recien registrada, con lo que trae de fabrica. */
-    /** F12: con el idioma y la zona horaria con que empieza a trabajar su gente. */
+    /**
+     * Crea la configuracion de una tienda recien registrada, con lo que trae de fabrica. F12: con el idioma y la zona
+     * horaria con que empieza a trabajar su gente.
+     */
     void crearPara(Long empresaId, String idioma, String zonaHoraria);
 
     ConfiguracionTiendaResponse obtener(Long empresaId);

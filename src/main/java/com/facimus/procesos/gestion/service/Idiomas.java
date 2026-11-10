@@ -14,18 +14,23 @@ import com.facimus.procesos.common.SolicitudInvalidaException;
  */
 public final class Idiomas {
 
+    public static final String ES_CO = "es-CO";
+    public static final String EN_US = "en-US";
+    public static final String EN_AU = "en-AU";
+    public static final String FR_FR = "fr-FR";
+
     /** El de una organizacion que no dijo otro, y el de cualquier peticion que no se parece a ninguno. */
-    public static final String POR_DEFECTO = "es-CO";
+    public static final String POR_DEFECTO = ES_CO;
 
     /** En el orden en que la web los ofrece. */
-    public static final List<String> DE_LA_WEB = List.of("es-CO", "en-US", "en-AU", "fr-FR");
+    public static final List<String> DE_LA_WEB = List.of(ES_CO, EN_US, EN_AU, FR_FR);
 
     /** La hora con que empieza una organizacion nueva que no dijo la suya: la de la capital de su idioma. */
     private static final Map<String, String> ZONA_POR_DEFECTO = Map.of(
-            "es-CO", "America/Bogota",
-            "en-US", "America/New_York",
-            "en-AU", "Australia/Sydney",
-            "fr-FR", "Europe/Paris");
+            ES_CO, "America/Bogota",
+            EN_US, "America/New_York",
+            EN_AU, "Australia/Sydney",
+            FR_FR, "Europe/Paris");
 
     private Idiomas() {
     }
@@ -101,9 +106,9 @@ public final class Idiomas {
             }
         }
         return switch (locale.getLanguage()) {
-            case "es" -> "es-CO";
-            case "en" -> "AU".equals(locale.getCountry()) || "NZ".equals(locale.getCountry()) ? "en-AU" : "en-US";
-            case "fr" -> "fr-FR";
+            case "es" -> ES_CO;
+            case "en" -> "AU".equals(locale.getCountry()) || "NZ".equals(locale.getCountry()) ? EN_AU : EN_US;
+            case "fr" -> FR_FR;
             default -> null;
         };
     }
