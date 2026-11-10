@@ -1,29 +1,28 @@
 package com.facimus.procesos.modelado.controller;
 
+import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doNothing;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.service.GatewayService;
-
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doNothing;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @WebMvcTest(GatewayController.class)
 class GatewayControllerTest {
@@ -103,7 +102,7 @@ class GatewayControllerTest {
     @Test
     @DisplayName("PUT /api/v1/gateways/{id} - editar gateway (200)")
     void editar_gateway() throws Exception {
-        GatewayResponse gw = new GatewayResponse(1L, "Decision envio", TipoGateway.PARALELO, 300, 150, 3L, 0L, null,
+        GatewayResponse gw = new GatewayResponse(1L, "Gateway_1", "Decision envio", TipoGateway.PARALELO, 300, 150, 3L, 0L, null,
                 null, null, null);
         given(gatewayService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), any(), anyInt(), anyInt(),
                 eq(3L))).willReturn(gw);
@@ -128,7 +127,7 @@ class GatewayControllerTest {
     }
 
     private GatewayResponse crearGateway(Long id, String nombre) {
-        return new GatewayResponse(id, nombre, TipoGateway.EXCLUSIVO, 300, 150, 3L, 0L, null, null, null, null);
+        return new GatewayResponse(id, "Gateway_" + id, nombre, TipoGateway.EXCLUSIVO, 300, 150, 3L, 0L, null, null, null, null);
     }
 
 }

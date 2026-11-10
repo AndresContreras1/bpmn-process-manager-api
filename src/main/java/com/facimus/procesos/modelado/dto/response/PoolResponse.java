@@ -10,6 +10,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "A participant of the process")
 public record PoolResponse(
         @Schema(example = "3") Long id,
+        @Schema(description = "BPMN id of the participant, stable for its whole life: the id in an exported .bpmn file",
+                example = "Participant_1f3a9c0b7e42") String bpmnId,
         @Schema(example = "Payment gateway") String nombre,
         @Schema(example = "SISTEMA_EXTERNO") TipoParticipante tipoParticipante,
         @Schema(example = "true") boolean cajaNegra,

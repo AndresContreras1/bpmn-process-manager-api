@@ -120,7 +120,7 @@ public class DiagramaArmado {
 
     public Long pool(String nombre, TipoParticipante tipo, boolean cajaNegra, Integracion integracion) {
         Long id = registrar(nombre);
-        pools.add(new PoolResponse(id, nombre, tipo, cajaNegra, integracion, pools.size(), 1L, 0L, null, null, null,
+        pools.add(new PoolResponse(id, "Participant_" + id, nombre, tipo, cajaNegra, integracion, pools.size(), 1L, 0L, null, null, null,
                 null));
         return id;
     }
@@ -132,26 +132,26 @@ public class DiagramaArmado {
     /** Con el rol de proceso de la lane, que es el rol en cuya bandeja caen las tareas de sus nodos. */
     public Long lane(String pool, String nombre, Long rolProcesoId) {
         Long id = registrar(nombre);
-        lanes.add(new LaneResponse(id, nombre, lanes.size(), id(pool), rolProcesoId, nombre, 0L, null, null, null,
+        lanes.add(new LaneResponse(id, "Lane_" + id, nombre, lanes.size(), id(pool), rolProcesoId, nombre, 0L, null, null, null,
                 null));
         return id;
     }
 
     public Long actividad(String lane, String nombre, TipoActividad tipo) {
         Long id = registrar(nombre);
-        actividades.add(new ActividadResponse(id, nombre, null, tipo, 0, 0, id(lane), 0L, null, null, null, null));
+        actividades.add(new ActividadResponse(id, "Activity_" + id, nombre, null, tipo, 0, 0, id(lane), 0L, null, null, null, null));
         return id;
     }
 
     public Long gateway(String lane, String nombre, TipoGateway tipo) {
         Long id = registrar(nombre);
-        gateways.add(new GatewayResponse(id, nombre, tipo, 0, 0, id(lane), 0L, null, null, null, null));
+        gateways.add(new GatewayResponse(id, "Gateway_" + id, nombre, tipo, 0, 0, id(lane), 0L, null, null, null, null));
         return id;
     }
 
     public Long evento(String lane, String nombre, TipoEvento tipo) {
         Long id = registrar(nombre);
-        eventos.add(new EventoResponse(id, nombre, tipo, 0, 0, id(lane), 0L, null, null, null, null));
+        eventos.add(new EventoResponse(id, "Event_" + id, nombre, tipo, 0, 0, id(lane), 0L, null, null, null, null));
         return id;
     }
 
@@ -165,13 +165,15 @@ public class DiagramaArmado {
 
     /** Con la etiqueta que se le puso al dibujarlo, que es como lo nombra quien mira el diagrama. */
     public void arcoConEtiqueta(String origen, String destino, String etiqueta, String condicion) {
-        arcos.add(new ArcoResponse(siguienteId(), etiqueta, condicion, false, 0, id(origen), id(destino), id(TIENDA),
+        Long nuevo = siguienteId();
+        arcos.add(new ArcoResponse(nuevo, "Flow_" + nuevo, etiqueta, condicion, false, 0, id(origen), id(destino), id(TIENDA),
                 0L, null, null, null, null));
     }
 
     /** Con el orden en que el gateway lo evalua; sin el, todos valen 0 y desempata el id. */
     public void arcoCon(String origen, String destino, String condicion, int orden) {
-        arcos.add(new ArcoResponse(siguienteId(), null, condicion, false, orden, id(origen), id(destino), id(TIENDA),
+        Long nuevo = siguienteId();
+        arcos.add(new ArcoResponse(nuevo, "Flow_" + nuevo, null, condicion, false, orden, id(origen), id(destino), id(TIENDA),
                 0L, null, null, null, null));
     }
 
@@ -201,7 +203,7 @@ public class DiagramaArmado {
     public void mensaje(String nombre, String poolOrigen, String poolDestino, String nodoOrigen, String nodoDestino,
             TipoDestino tipoDestino, AccionSiFalla siFalla, String nodoManejoError, boolean origenExterno) {
         Long id = registrar(nombre);
-        mensajes.add(new MensajeResponse(id, nombre, "Contenido de prueba", id(poolOrigen), id(poolDestino),
+        mensajes.add(new MensajeResponse(id, "MessageFlow_" + id, nombre, "Contenido de prueba", id(poolOrigen), id(poolDestino),
                 id(nodoOrigen), id(nodoDestino), tipoDestino, siFalla, id(nodoManejoError), origenExterno, List.of(),
                 null, null, null, 1L, 0L, null, null, null, null));
     }
@@ -211,7 +213,7 @@ public class DiagramaArmado {
      * que es lo que una condicion nombra despues: "payment" hace que se lea payment.status.
      */
     public void datosDelMensaje(String mensaje, String variable, CampoDeMensaje... campos) {
-        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.bpmnId(), viejo.nombre(), viejo.contenido(),
                 viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), viejo.nodoDestinoId(),
                 viejo.tipoDestino(), viejo.siFalla(), viejo.nodoManejoErrorId(), viejo.origenExterno(),
                 List.of(campos), viejo.usoDeLosDatos(), variable, viejo.respuestaEsperadaId(), viejo.procesoId(),
@@ -227,7 +229,7 @@ public class DiagramaArmado {
 
     /** Declara con que mensaje contesta el otro participante, como la pasarela contesta la autorizacion. */
     public void respuestaEsperada(String mensaje, String respuesta) {
-        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.bpmnId(), viejo.nombre(), viejo.contenido(),
                 viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), viejo.nodoDestinoId(),
                 viejo.tipoDestino(), viejo.siFalla(), viejo.nodoManejoErrorId(), viejo.origenExterno(),
                 viejo.campos(), viejo.usoDeLosDatos(), viejo.variable(), id(respuesta), viejo.procesoId(),
@@ -236,7 +238,7 @@ public class DiagramaArmado {
 
     /** Cambia la actividad que atiende el fallo de un envio, sin tocar nada mas del mensaje. */
     public void manejaElError(String mensaje, String actividad) {
-        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.bpmnId(), viejo.nombre(), viejo.contenido(),
                 viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), viejo.nodoDestinoId(),
                 viejo.tipoDestino(), viejo.siFalla(), id(actividad), viejo.origenExterno(), viejo.campos(),
                 viejo.usoDeLosDatos(), viejo.variable(), viejo.respuestaEsperadaId(), viejo.procesoId(),
@@ -245,7 +247,7 @@ public class DiagramaArmado {
 
     /** Desancla un mensaje del nodo que lo espera, dejando solo el participante que lo recibe. */
     public void desanclarDestinoDe(String mensaje) {
-        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.bpmnId(), viejo.nombre(), viejo.contenido(),
                 viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), null, viejo.tipoDestino(),
                 viejo.siFalla(), viejo.nodoManejoErrorId(), viejo.origenExterno(), viejo.campos(),
                 viejo.usoDeLosDatos(), viejo.variable(), viejo.respuestaEsperadaId(), viejo.procesoId(),
@@ -266,7 +268,7 @@ public class DiagramaArmado {
 
     /** Deja un mensaje a un sistema externo sin decir por donde viaja. */
     public void sinTipoDestino(String mensaje) {
-        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.nombre(), viejo.contenido(),
+        cambiarMensaje(mensaje, viejo -> new MensajeResponse(viejo.id(), viejo.bpmnId(), viejo.nombre(), viejo.contenido(),
                 viejo.poolOrigenId(), viejo.poolDestinoId(), viejo.nodoOrigenId(), viejo.nodoDestinoId(), null,
                 viejo.siFalla(), viejo.nodoManejoErrorId(), viejo.origenExterno(), viejo.campos(),
                 viejo.usoDeLosDatos(), viejo.variable(), viejo.respuestaEsperadaId(), viejo.procesoId(),
@@ -279,7 +281,7 @@ public class DiagramaArmado {
                 .filter(mensaje -> mensaje.id().equals(id(nombre)))
                 .findFirst().orElseThrow();
         Long copia = siguienteId();
-        mensajes.add(new MensajeResponse(copia, original.nombre(), original.contenido(), original.poolOrigenId(),
+        mensajes.add(new MensajeResponse(copia, "MessageFlow_" + copia, original.nombre(), original.contenido(), original.poolOrigenId(),
                 original.poolDestinoId(), original.nodoOrigenId(), original.nodoDestinoId(), original.tipoDestino(),
                 original.siFalla(), original.nodoManejoErrorId(), original.origenExterno(), original.campos(),
                 original.usoDeLosDatos(), original.variable(), null, original.procesoId(), 0L, null, null, null,
@@ -311,7 +313,7 @@ public class DiagramaArmado {
     public void dejaDeSerCajaNegra(String nombre) {
         Long poolId = id(nombre);
         pools.replaceAll(pool -> pool.id().equals(poolId)
-                ? new PoolResponse(pool.id(), pool.nombre(), pool.tipoParticipante(), false, pool.integracion(),
+                ? new PoolResponse(pool.id(), pool.bpmnId(), pool.nombre(), pool.tipoParticipante(), false, pool.integracion(),
                         pool.orden(), pool.procesoId(), pool.version(), null, null, null, null)
                 : pool);
     }
@@ -346,7 +348,8 @@ public class DiagramaArmado {
     }
 
     private void nuevoArco(String origen, String destino, String condicion, boolean porDefecto) {
-        arcos.add(new ArcoResponse(siguienteId(), null, condicion, porDefecto, 0, id(origen), id(destino), id(TIENDA),
+        Long nuevo = siguienteId();
+        arcos.add(new ArcoResponse(nuevo, "Flow_" + nuevo, null, condicion, porDefecto, 0, id(origen), id(destino), id(TIENDA),
                 0L, null, null, null, null));
     }
 

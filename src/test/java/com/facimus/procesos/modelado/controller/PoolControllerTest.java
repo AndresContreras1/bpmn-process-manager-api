@@ -1,15 +1,25 @@
 package com.facimus.procesos.modelado.controller;
 
+import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doNothing;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
@@ -17,17 +27,6 @@ import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.PoolService;
-
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
-
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doNothing;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @WebMvcTest(PoolController.class)
 class PoolControllerTest {
@@ -185,7 +184,7 @@ class PoolControllerTest {
     }
 
     private PoolResponse crearPool(Long id, String nombre) {
-        return new PoolResponse(id, nombre, TipoParticipante.CLIENTE, false, Integracion.CLIENTE, 0, 10L,
+        return new PoolResponse(id, "Participant_" + id, nombre, TipoParticipante.CLIENTE, false, Integracion.CLIENTE, 0, 10L,
                 0L, null, null, null, null);
     }
 

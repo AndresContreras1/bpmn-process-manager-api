@@ -1,15 +1,24 @@
 package com.facimus.procesos.modelado.controller;
 
+import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doNothing;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
@@ -18,16 +27,6 @@ import com.facimus.procesos.modelado.model.TipoDeDato;
 import com.facimus.procesos.modelado.model.TipoDestino;
 import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.MensajeService;
-
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doNothing;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @WebMvcTest(MensajeController.class)
 class MensajeControllerTest {
@@ -155,7 +154,7 @@ class MensajeControllerTest {
     }
 
     private MensajeResponse crearMensaje(Long id, String nombre) {
-        return new MensajeResponse(id, nombre, "Contenido test", 1L, 2L, 12L, null,
+        return new MensajeResponse(id, "MessageFlow_" + id, nombre, "Contenido test", 1L, 2L, 12L, null,
                 TipoDestino.SERVICIO_WEB, AccionSiFalla.MANEJAR_ERROR, 18L, false,
                 List.of(new CampoDeMensaje("orderId", TipoDeDato.TEXTO)), null, "paymentRequest", null,
                 10L, 0L, null, null, null, null);

@@ -40,7 +40,7 @@ class HuellaDelDiagramaTest {
         DiagramaResponse original = DiagramaArmado.demo().diagrama();
         ActividadResponse primera = original.actividades().getFirst();
         DiagramaResponse renombrada = conActividades(original, cambiar(original.actividades(), 0,
-                new ActividadResponse(primera.id(), "Otro nombre", primera.descripcion(), primera.tipoActividad(),
+                new ActividadResponse(primera.id(), primera.bpmnId(), "Otro nombre", primera.descripcion(), primera.tipoActividad(),
                         primera.posicionX(), primera.posicionY(), primera.laneId(), primera.version(),
                         primera.creadoPor(), primera.fechaCreacion(), primera.modificadoPor(),
                         primera.fechaModificacion())));
@@ -54,12 +54,26 @@ class HuellaDelDiagramaTest {
         DiagramaResponse original = DiagramaArmado.demo().diagrama();
         ActividadResponse primera = original.actividades().getFirst();
         DiagramaResponse movida = conActividades(original, cambiar(original.actividades(), 0,
-                new ActividadResponse(primera.id(), primera.nombre(), primera.descripcion(),
+                new ActividadResponse(primera.id(), primera.bpmnId(), primera.nombre(), primera.descripcion(),
                         primera.tipoActividad(), primera.posicionX() + 40, primera.posicionY(), primera.laneId(),
                         primera.version(), primera.creadoPor(), primera.fechaCreacion(), primera.modificadoPor(),
                         primera.fechaModificacion())));
 
         assertThat(huella(movida)).isNotEqualTo(huella(original));
+    }
+
+    @Test
+    @DisplayName("El bpmn_id no entra en la huella: las versiones de antes del PR 53 no lo tenian")
+    void otroBpmnId_mismaHuella() {
+        DiagramaResponse original = DiagramaArmado.demo().diagrama();
+        ActividadResponse primera = original.actividades().getFirst();
+        DiagramaResponse sinBpmnId = conActividades(original, cambiar(original.actividades(), 0,
+                new ActividadResponse(primera.id(), null, primera.nombre(), primera.descripcion(),
+                        primera.tipoActividad(), primera.posicionX(), primera.posicionY(), primera.laneId(),
+                        primera.version(), primera.creadoPor(), primera.fechaCreacion(), primera.modificadoPor(),
+                        primera.fechaModificacion())));
+
+        assertThat(huella(sinBpmnId)).isEqualTo(huella(original));
     }
 
     @Test
@@ -69,7 +83,7 @@ class HuellaDelDiagramaTest {
         int conCondicion = indiceDelArcoConCondicion(original);
         ArcoResponse arco = original.arcos().get(conCondicion);
         DiagramaResponse otra = conArcos(original, cambiar(original.arcos(), conCondicion,
-                new ArcoResponse(arco.id(), arco.etiqueta(), "pedido.total > 100", arco.porDefecto(), arco.orden(),
+                new ArcoResponse(arco.id(), arco.bpmnId(), arco.etiqueta(), "pedido.total > 100", arco.porDefecto(), arco.orden(),
                         arco.origenId(), arco.destinoId(), arco.poolId(), arco.version(), arco.creadoPor(),
                         arco.fechaCreacion(), arco.modificadoPor(), arco.fechaModificacion())));
 
@@ -158,7 +172,7 @@ class HuellaDelDiagramaTest {
         DiagramaResponse original = DiagramaArmado.demo().diagrama();
         ActividadResponse primera = original.actividades().getFirst();
         DiagramaResponse guardada = conActividades(original, cambiar(original.actividades(), 0,
-                new ActividadResponse(primera.id(), primera.nombre(), primera.descripcion(),
+                new ActividadResponse(primera.id(), primera.bpmnId(), primera.nombre(), primera.descripcion(),
                         primera.tipoActividad(), primera.posicionX(), primera.posicionY(), primera.laneId(),
                         99L, 7L, LocalDateTime.of(2026, 1, 1, 8, 0), 8L, LocalDateTime.of(2026, 2, 2, 9, 0))));
 

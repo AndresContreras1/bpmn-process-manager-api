@@ -114,7 +114,8 @@ final class SimulacionDeBorrado {
         if (intacto) {
             return mensaje;
         }
-        return new MensajeResponse(mensaje.id(), mensaje.nombre(), mensaje.contenido(), mensaje.poolOrigenId(),
+        return new MensajeResponse(mensaje.id(), mensaje.bpmnId(), mensaje.nombre(), mensaje.contenido(),
+                mensaje.poolOrigenId(),
                 mensaje.poolDestinoId(), fuera(mensaje.nodoOrigenId(), nodos), fuera(mensaje.nodoDestinoId(), nodos),
                 mensaje.tipoDestino(), mensaje.siFalla(), fuera(mensaje.nodoManejoErrorId(), nodos),
                 mensaje.origenExterno(), mensaje.campos(), mensaje.usoDeLosDatos(), mensaje.variable(),

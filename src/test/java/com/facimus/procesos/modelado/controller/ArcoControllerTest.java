@@ -1,29 +1,28 @@
 package com.facimus.procesos.modelado.controller;
 
+import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doNothing;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.DatosDeArco;
-
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doNothing;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @WebMvcTest(ArcoController.class)
 class ArcoControllerTest {
@@ -114,7 +113,7 @@ class ArcoControllerTest {
     @Test
     @DisplayName("PUT /api/v1/arcos/{id} - editar arco (200)")
     void editar_arco() throws Exception {
-        ArcoResponse arco = new ArcoResponse(1L, "no", "aprobado", false, 0, 10L, 20L, 5L, 0L, null, null, null,
+        ArcoResponse arco = new ArcoResponse(1L, "Flow_1", "no", "aprobado", false, 0, 10L, 20L, 5L, 0L, null, null, null,
                 null);
         given(arcoService.editar(eq(1L), eq(1L), eq(1L), any(DatosDeArco.class), eq(3L))).willReturn(arco);
 
@@ -137,7 +136,7 @@ class ArcoControllerTest {
     }
 
     private ArcoResponse crearArco(Long id) {
-        return new ArcoResponse(id, "si", "aprobado", false, 0, 10L, 20L, 5L, 0L, null, null, null, null);
+        return new ArcoResponse(id, "Flow_" + id, "si", "aprobado", false, 0, 10L, 20L, 5L, 0L, null, null, null, null);
     }
 
 }

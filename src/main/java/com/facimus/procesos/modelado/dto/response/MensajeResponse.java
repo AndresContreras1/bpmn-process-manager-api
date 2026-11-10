@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "A message flow of the process")
 public record MensajeResponse(
         @Schema(example = "5") Long id,
+        @Schema(description = "BPMN id of the message flow, stable for its whole life: the id in an exported .bpmn file",
+                example = "MessageFlow_9a3c0e5b71d8") String bpmnId,
         @Schema(example = "Payment authorization request") String nombre,
         @Schema(example = "Order total and tokenized card.") String contenido,
         @Schema(example = "1") Long poolOrigenId,
