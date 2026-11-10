@@ -28,9 +28,8 @@
       <div class="card-body p-3 p-md-4">
         <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Open a case</h2>
         <p class="small text-body-secondary">
-          It runs on the version in force until it stops, normally at the first task of a tray. A process that
-          starts with a message is not opened here: its message opens it, and the simulation panel can send a batch
-          of them.
+          It runs on the version in force until it stops, normally at the first task of a tray. A process that starts
+          with a message is not opened here: its message opens it, and the simulation panel can send a batch of them.
         </p>
         <form [formGroup]="abrirForm" (ngSubmit)="abrir()" novalidate>
           <div class="row g-2">
@@ -46,8 +45,14 @@
             </div>
             <div class="col-md-5">
               <label class="form-label small" for="casos-abrir-referencia">Reference</label>
-              <input type="text" class="form-control" id="casos-abrir-referencia" formControlName="referencia"
-                     placeholder="ORD-1001" autocomplete="off">
+              <input
+                type="text"
+                class="form-control"
+                id="casos-abrir-referencia"
+                formControlName="referencia"
+                placeholder="ORD-1001"
+                autocomplete="off"
+              />
               <app-error-campo [control]="abrirForm.get('referencia')" />
               <p class="form-text small mb-0">What the messages of this case will be matched by.</p>
             </div>
@@ -56,8 +61,14 @@
           <div class="mt-3" formArrayName="variables">
             <div class="d-flex align-items-center justify-content-between">
               <span class="small fw-semibold">Variables</span>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="casos-abrir-variable"
-                      (click)="agregarVariable()">Add one</button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                id="casos-abrir-variable"
+                (click)="agregarVariable()"
+              >
+                Add one
+              </button>
             </div>
             <p class="form-text small">
               What the conditions of the gateways will read. A number is a number, true and false are booleans, and
@@ -66,16 +77,31 @@
             @for (fila of variables.controls; track $index) {
               <div class="row g-2 mb-2" [formGroupName]="$index" data-testid="casos-variable">
                 <div class="col-5">
-                  <input type="text" class="form-control form-control-sm" formControlName="clave" placeholder="order"
-                         [attr.aria-label]="'Name of variable ' + ($index + 1)">
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    formControlName="clave"
+                    placeholder="order"
+                    [attr.aria-label]="'Name of variable ' + ($index + 1)"
+                  />
                 </div>
                 <div class="col-6">
-                  <input type="text" class="form-control form-control-sm" formControlName="valor"
-                         placeholder="{&quot;total&quot;: 150}" [attr.aria-label]="'Value of variable ' + ($index + 1)">
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    formControlName="valor"
+                    placeholder='{"total": 150}'
+                    [attr.aria-label]="'Value of variable ' + ($index + 1)"
+                  />
                 </div>
                 <div class="col-1">
-                  <button type="button" class="btn btn-sm btn-outline-danger w-100" data-testid="casos-quitar-variable"
-                          [attr.aria-label]="'Remove variable ' + ($index + 1)" (click)="quitarVariable($index)">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger w-100"
+                    data-testid="casos-quitar-variable"
+                    [attr.aria-label]="'Remove variable ' + ($index + 1)"
+                    (click)="quitarVariable($index)"
+                  >
                     <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                   </button>
                 </div>
@@ -87,8 +113,9 @@
             <button type="submit" class="btn btn-primary" id="casos-abrir-enviar" [disabled]="enviando">
               {{ enviando ? 'Opening…' : 'Open the case' }}
             </button>
-            <button type="button" class="btn btn-outline-secondary" id="casos-abrir-cancelar"
-                    (click)="alternarPanel()">Cancel</button>
+            <button type="button" class="btn btn-outline-secondary" id="casos-abrir-cancelar" (click)="alternarPanel()">
+              Cancel
+            </button>
           </div>
         </form>
       </div>
@@ -101,14 +128,28 @@
         <div class="col-md-5">
           <div class="input-group">
             <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
-            <input type="search" class="form-control" id="casos-referencia" name="referencia"
-                   placeholder="Exact reference" aria-label="Search by reference" autocomplete="off"
-                   [(ngModel)]="filtros.referencia" (ngModelChange)="filtrar()">
+            <input
+              type="search"
+              class="form-control"
+              id="casos-referencia"
+              name="referencia"
+              placeholder="Exact reference"
+              aria-label="Search by reference"
+              autocomplete="off"
+              [(ngModel)]="filtros.referencia"
+              (ngModelChange)="filtrar()"
+            />
           </div>
         </div>
         <div class="col-md-4">
-          <select class="form-select" id="casos-proceso" name="procesoId" aria-label="Filter by process"
-                  [(ngModel)]="filtros.procesoId" (ngModelChange)="filtrar()">
+          <select
+            class="form-select"
+            id="casos-proceso"
+            name="procesoId"
+            aria-label="Filter by process"
+            [(ngModel)]="filtros.procesoId"
+            (ngModelChange)="filtrar()"
+          >
             <option value="">Every process</option>
             @for (proceso of procesos; track proceso.id) {
               <option [ngValue]="proceso.id">{{ proceso.nombre }}</option>
@@ -116,8 +157,14 @@
           </select>
         </div>
         <div class="col-md-3">
-          <select class="form-select" id="casos-estado" name="estado" aria-label="Filter by state"
-                  [(ngModel)]="filtros.estado" (ngModelChange)="filtrar()">
+          <select
+            class="form-select"
+            id="casos-estado"
+            name="estado"
+            aria-label="Filter by state"
+            [(ngModel)]="filtros.estado"
+            (ngModelChange)="filtrar()"
+          >
             <option value="">Every state</option>
             @for (estado of estados; track estado) {
               <option [ngValue]="estado">{{ nombreEstado[estado] }}</option>
@@ -151,9 +198,14 @@
               <tr>
                 @for (columna of columnas; track columna.campo) {
                   <th scope="col" [class]="columna.clase" [attr.aria-sort]="ariaOrden(columna.campo)">
-                    <button type="button" class="btn btn-link btn-orden" [id]="'casos-orden-' + columna.campo"
-                            (click)="ordenarPor(columna.campo)">
-                      {{ columna.titulo }} <i class="fa-solid" [class]="iconoOrden(columna.campo)" aria-hidden="true"></i>
+                    <button
+                      type="button"
+                      class="btn btn-link btn-orden"
+                      [id]="'casos-orden-' + columna.campo"
+                      (click)="ordenarPor(columna.campo)"
+                    >
+                      {{ columna.titulo }}
+                      <i class="fa-solid" [class]="iconoOrden(columna.campo)" aria-hidden="true"></i>
                     </button>
                   </th>
                 }
@@ -203,8 +255,15 @@
             <nav aria-label="Case pages">
               <ul class="pagination pagination-sm mb-0" id="casos-paginacion">
                 <li class="page-item" [class.disabled]="pagina.page === 0">
-                  <button type="button" class="page-link" id="casos-anterior" [disabled]="pagina.page === 0"
-                          (click)="irAPagina(pagina.page - 1)">Previous</button>
+                  <button
+                    type="button"
+                    class="page-link"
+                    id="casos-anterior"
+                    [disabled]="pagina.page === 0"
+                    (click)="irAPagina(pagina.page - 1)"
+                  >
+                    Previous
+                  </button>
                 </li>
                 <li class="page-item active" aria-current="page">
                   <span class="page-link" id="casos-pagina-actual">
@@ -212,9 +271,15 @@
                   </span>
                 </li>
                 <li class="page-item" [class.disabled]="pagina.page + 1 >= pagina.totalPages">
-                  <button type="button" class="page-link" id="casos-siguiente"
-                          [disabled]="pagina.page + 1 >= pagina.totalPages"
-                          (click)="irAPagina(pagina.page + 1)">Next</button>
+                  <button
+                    type="button"
+                    class="page-link"
+                    id="casos-siguiente"
+                    [disabled]="pagina.page + 1 >= pagina.totalPages"
+                    (click)="irAPagina(pagina.page + 1)"
+                  >
+                    Next
+                  </button>
                 </li>
               </ul>
             </nav>

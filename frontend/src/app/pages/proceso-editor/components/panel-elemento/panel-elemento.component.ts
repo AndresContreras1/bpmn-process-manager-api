@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, computed, effect, inject, input, output } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, finalize } from 'rxjs';
@@ -54,6 +54,7 @@ interface NodoElegible {
 @Component({
   selector: 'app-panel-elemento',
   imports: [ReactiveFormsModule, ErrorCampoComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './panel-elemento.component.html',
 })
 export class PanelElementoComponent {

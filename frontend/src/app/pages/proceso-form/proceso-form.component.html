@@ -37,14 +37,18 @@
               <div class="alert alert-danger" role="alert" id="proceso-form-error">{{ error }}</div>
             }
             @if (conflicto) {
-              <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert"
-                   id="proceso-form-conflicto">
+              <div
+                class="alert alert-warning d-flex flex-wrap align-items-center gap-2"
+                role="alert"
+                id="proceso-form-conflicto"
+              >
                 <span class="flex-grow-1">
-                  Someone saved a change to this process before you, so it was not saved. Reload it to see the
-                  current values; what you typed here will be replaced.
+                  Someone saved a change to this process before you, so it was not saved. Reload it to see the current
+                  values; what you typed here will be replaced.
                 </span>
-                <button type="button" class="btn btn-sm btn-warning" id="proceso-form-recargar"
-                        (click)="recargar()">Reload</button>
+                <button type="button" class="btn btn-sm btn-warning" id="proceso-form-recargar" (click)="recargar()">
+                  Reload
+                </button>
               </div>
             }
 
@@ -55,15 +59,28 @@
             } @else {
               <form [formGroup]="procesoForm" (ngSubmit)="guardar()" novalidate>
                 <div class="form-floating mb-3">
-                  <input type="text" class="form-control" id="proceso-form-nombre" formControlName="nombre"
-                         placeholder="Name" autocomplete="off">
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="proceso-form-nombre"
+                    formControlName="nombre"
+                    placeholder="Name"
+                    autocomplete="off"
+                  />
                   <label for="proceso-form-nombre">Name</label>
                   <app-error-campo [control]="procesoForm.get('nombre')" />
                 </div>
 
                 <div class="form-floating mb-3">
-                  <input type="text" class="form-control" id="proceso-form-categoria" formControlName="categoria"
-                         placeholder="Category" autocomplete="off" aria-describedby="proceso-form-ayuda-categoria">
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="proceso-form-categoria"
+                    formControlName="categoria"
+                    placeholder="Category"
+                    autocomplete="off"
+                    aria-describedby="proceso-form-ayuda-categoria"
+                  />
                   <label for="proceso-form-categoria">Category</label>
                   <div class="form-text" id="proceso-form-ayuda-categoria">
                     Free text, such as Fulfillment, Returns or Payments. The process list filters by it.
@@ -72,8 +89,12 @@
                 </div>
 
                 <div class="form-floating">
-                  <textarea class="form-control descripcion" id="proceso-form-descripcion" formControlName="descripcion"
-                            placeholder="Description"></textarea>
+                  <textarea
+                    class="form-control descripcion"
+                    id="proceso-form-descripcion"
+                    formControlName="descripcion"
+                    placeholder="Description"
+                  ></textarea>
                   <label for="proceso-form-descripcion">Description</label>
                   <app-error-campo [control]="procesoForm.get('descripcion')" />
                 </div>
@@ -82,10 +103,18 @@
                 </div>
 
                 <div class="d-flex flex-wrap justify-content-end gap-2">
-                  <a class="btn btn-outline-secondary" id="proceso-form-cancelar"
-                     [routerLink]="procesoId === null ? '/procesos' : ['/procesos', procesoId]">Cancel</a>
-                  <button type="submit" class="btn btn-primary" id="proceso-form-guardar"
-                          [disabled]="procesoForm.invalid || procesoForm.pristine || enviando || !puedeEditar">
+                  <a
+                    class="btn btn-outline-secondary"
+                    id="proceso-form-cancelar"
+                    [routerLink]="procesoId === null ? '/procesos' : ['/procesos', procesoId]"
+                    >Cancel</a
+                  >
+                  <button
+                    type="submit"
+                    class="btn btn-primary"
+                    id="proceso-form-guardar"
+                    [disabled]="procesoForm.invalid || procesoForm.pristine || enviando || !puedeEditar"
+                  >
                     @if (enviando) {
                       <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
                     }

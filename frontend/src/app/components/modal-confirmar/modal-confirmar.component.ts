@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 
 /**
  * Modal de Bootstrap que pide confirmar una accion. Se abre con data-bs-toggle="modal" y data-bs-target="#<idModal>";
@@ -8,6 +8,7 @@ import { Component, input, output } from '@angular/core';
   selector: 'app-modal-confirmar',
   imports: [],
   templateUrl: './modal-confirmar.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './modal-confirmar.component.scss',
 })
 export class ModalConfirmarComponent {

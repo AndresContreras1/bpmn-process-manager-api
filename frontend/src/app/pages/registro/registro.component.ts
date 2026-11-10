@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject } from '@angular/core';
+import { Component, DestroyRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -15,6 +15,7 @@ import { EmpresaService } from '../../service/empresa.service';
   selector: 'app-registro',
   imports: [ReactiveFormsModule, RouterLink, ErrorCampoComponent],
   templateUrl: './registro.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './registro.component.scss',
 })
 export class RegistroComponent {

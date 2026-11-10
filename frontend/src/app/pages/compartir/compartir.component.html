@@ -28,10 +28,17 @@
             <form [formGroup]="nitForm" (ngSubmit)="compartir()" novalidate>
               <label class="form-label small" for="compartir-nit">Tax id of the other store</label>
               <div class="d-flex gap-2">
-                <input type="text" class="form-control" id="compartir-nit" formControlName="nit"
-                       placeholder="900123456-1" autocomplete="off">
-                <button type="submit" class="btn btn-primary flex-shrink-0" id="compartir-enviar"
-                        [disabled]="enviando">{{ enviando ? 'Sharing…' : 'Share' }}</button>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="compartir-nit"
+                  formControlName="nit"
+                  placeholder="900123456-1"
+                  autocomplete="off"
+                />
+                <button type="submit" class="btn btn-primary flex-shrink-0" id="compartir-enviar" [disabled]="enviando">
+                  {{ enviando ? 'Sharing…' : 'Share' }}
+                </button>
               </div>
               <app-error-campo [control]="nitForm.get('nit')" />
               <div class="form-text small">A store is known to other stores by its tax id, not by its name.</div>
@@ -60,9 +67,16 @@
                     </div>
                   </div>
                   @if (esAdministrador) {
-                    <button type="button" class="btn btn-sm btn-outline-danger" data-testid="invitada-quitar"
-                            data-bs-toggle="modal" data-bs-target="#modal-dejar-de-compartir"
-                            (click)="seleccionada = invitada">Stop sharing</button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      data-testid="invitada-quitar"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal-dejar-de-compartir"
+                      (click)="seleccionada = invitada"
+                    >
+                      Stop sharing
+                    </button>
                   }
                 </li>
               }
@@ -74,7 +88,11 @@
   </div>
 </div>
 
-<app-modal-confirmar idModal="modal-dejar-de-compartir" titulo="Stop sharing?" textoBoton="Stop sharing"
-                     [peligro]="true"
-                     mensaje="That store stops being able to read this process. Nothing of theirs is deleted, and it can be shared again."
-                     (confirmar)="confirmarRetirada()" />
+<app-modal-confirmar
+  idModal="modal-dejar-de-compartir"
+  titulo="Stop sharing?"
+  textoBoton="Stop sharing"
+  [peligro]="true"
+  mensaje="That store stops being able to read this process. Nothing of theirs is deleted, and it can be shared again."
+  (confirmar)="confirmarRetirada()"
+/>

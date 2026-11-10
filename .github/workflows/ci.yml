@@ -324,15 +324,24 @@ jobs:
           path: sbom-web.cdx.json
           if-no-files-found: error
 
-      - name: Setup Node 22
+      - name: Setup Node 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      # angular-eslint over the TypeScript and the templates, accessibility rules included, and Prettier over src.
+      - name: Lint and format
+        run: |
+          npm run lint
+          npm run format:check
+
+      - name: Unit tests
+        run: npm test
 
       - name: Build for production
         run: npm run build

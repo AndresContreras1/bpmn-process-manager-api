@@ -58,6 +58,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- The web app runs on Angular 22, built with `@angular/build` on Node 24, linted with angular-eslint, formatted with
+  Prettier and with Vitest for its logic; only three plugins of Bootstrap's JavaScript are loaded.
+
 - **Breaking:** a password chosen by a person needs 15 characters and passes the policy of NIST SP 800-63B-4, and
   the demo administrator signs in with `every-order-on-time`. `JWT_REFRESH_EXPIRATION_SECONDS` is gone: the
   refresh token lives what each store decides.

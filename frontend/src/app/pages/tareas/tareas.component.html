@@ -21,8 +21,13 @@
       <form class="row g-2 align-items-end mb-3">
         <div class="col-md-4">
           <label class="form-label small" for="tareas-proceso">Process</label>
-          <select class="form-select" id="tareas-proceso" name="procesoId" [(ngModel)]="filtros.procesoId"
-                  (ngModelChange)="filtrar()">
+          <select
+            class="form-select"
+            id="tareas-proceso"
+            name="procesoId"
+            [(ngModel)]="filtros.procesoId"
+            (ngModelChange)="filtrar()"
+          >
             <option value="">Every process</option>
             @for (proceso of procesos; track proceso.id) {
               <option [ngValue]="proceso.id">{{ proceso.nombre }}</option>
@@ -31,8 +36,13 @@
         </div>
         <div class="col-md-3">
           <label class="form-label small" for="tareas-rol">Process role</label>
-          <select class="form-select" id="tareas-rol" name="rolProcesoId" [(ngModel)]="filtros.rolProcesoId"
-                  (ngModelChange)="filtrar()">
+          <select
+            class="form-select"
+            id="tareas-rol"
+            name="rolProcesoId"
+            [(ngModel)]="filtros.rolProcesoId"
+            (ngModelChange)="filtrar()"
+          >
             <option value="">Every role</option>
             @for (rol of roles; track rol.id) {
               <option [ngValue]="rol.id">{{ rol.nombre }}</option>
@@ -41,8 +51,13 @@
         </div>
         <div class="col-md-3">
           <label class="form-label small" for="tareas-estado">Show</label>
-          <select class="form-select" id="tareas-estado" name="estado" [(ngModel)]="filtros.estado"
-                  (ngModelChange)="filtrar()">
+          <select
+            class="form-select"
+            id="tareas-estado"
+            name="estado"
+            [(ngModel)]="filtros.estado"
+            (ngModelChange)="filtrar()"
+          >
             @for (estado of estados; track estado) {
               <option [ngValue]="estado">{{ nombreEstado[estado] }}</option>
             }
@@ -50,8 +65,14 @@
         </div>
         <div class="col-md-2">
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="tareas-mias" name="mias"
-                   [(ngModel)]="filtros.mias" (ngModelChange)="filtrar()">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="tareas-mias"
+              name="mias"
+              [(ngModel)]="filtros.mias"
+              (ngModelChange)="filtrar()"
+            />
             <label class="form-check-label small" for="tareas-mias">Only my roles</label>
           </div>
         </div>
@@ -121,14 +142,34 @@
                       @if (enEspera(tarea)) {
                         <div class="btn-group btn-group-sm">
                           @if (tarea.asignadoA === null) {
-                            <button type="button" class="btn btn-outline-secondary" data-testid="tarea-tomar"
-                                    [disabled]="enviando" (click)="tomar(tarea)">Take</button>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary"
+                              data-testid="tarea-tomar"
+                              [disabled]="enviando"
+                              (click)="tomar(tarea)"
+                            >
+                              Take
+                            </button>
                           } @else if (esMia(tarea)) {
-                            <button type="button" class="btn btn-outline-secondary" data-testid="tarea-soltar"
-                                    [disabled]="enviando" (click)="soltar(tarea)">Leave</button>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary"
+                              data-testid="tarea-soltar"
+                              [disabled]="enviando"
+                              (click)="soltar(tarea)"
+                            >
+                              Leave
+                            </button>
                           }
-                          <button type="button" class="btn btn-primary" data-testid="tarea-completar"
-                                  (click)="alternarCompletar(tarea)">Complete</button>
+                          <button
+                            type="button"
+                            class="btn btn-primary"
+                            data-testid="tarea-completar"
+                            (click)="alternarCompletar(tarea)"
+                          >
+                            Complete
+                          </button>
                         </div>
                       }
                     </td>
@@ -140,36 +181,61 @@
                     <td [attr.colspan]="puedeEditar ? 5 : 4" class="bg-body-tertiary">
                       <p class="small fw-semibold mb-1">What are you handing over?</p>
                       <p class="form-text small mt-0">
-                        It lands in the variables of the case, so a gateway further on can ask for it. Nothing here
-                        is also an answer: plenty of tasks are just done.
+                        It lands in the variables of the case, so a gateway further on can ask for it. Nothing here is
+                        also an answer: plenty of tasks are just done.
                       </p>
                       @for (dato of datos; track $index) {
                         <div class="row g-2 mb-2" data-testid="tarea-dato">
                           <div class="col-5">
-                            <input type="text" class="form-control form-control-sm" placeholder="packedItems"
-                                   data-testid="tarea-dato-clave" [(ngModel)]="dato.clave"
-                                   [attr.aria-label]="'Name of data ' + ($index + 1)"
-                                   [ngModelOptions]="{ standalone: true }">
+                            <input
+                              type="text"
+                              class="form-control form-control-sm"
+                              placeholder="packedItems"
+                              data-testid="tarea-dato-clave"
+                              [(ngModel)]="dato.clave"
+                              [attr.aria-label]="'Name of data ' + ($index + 1)"
+                              [ngModelOptions]="{ standalone: true }"
+                            />
                           </div>
                           <div class="col-6">
-                            <input type="text" class="form-control form-control-sm" placeholder="3"
-                                   data-testid="tarea-dato-valor" [(ngModel)]="dato.valor"
-                                   [attr.aria-label]="'Value of data ' + ($index + 1)"
-                                   [ngModelOptions]="{ standalone: true }">
+                            <input
+                              type="text"
+                              class="form-control form-control-sm"
+                              placeholder="3"
+                              data-testid="tarea-dato-valor"
+                              [(ngModel)]="dato.valor"
+                              [attr.aria-label]="'Value of data ' + ($index + 1)"
+                              [ngModelOptions]="{ standalone: true }"
+                            />
                           </div>
                           <div class="col-1">
-                            <button type="button" class="btn btn-sm btn-outline-danger w-100"
-                                    [attr.aria-label]="'Remove data ' + ($index + 1)" (click)="quitarDato($index)">
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-danger w-100"
+                              [attr.aria-label]="'Remove data ' + ($index + 1)"
+                              (click)="quitarDato($index)"
+                            >
                               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                             </button>
                           </div>
                         </div>
                       }
                       <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-testid="tarea-dato-nuevo"
-                                (click)="agregarDato()">Add data</button>
-                        <button type="button" class="btn btn-sm btn-primary" id="tareas-confirmar"
-                                [disabled]="enviando" (click)="completar()">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-secondary"
+                          data-testid="tarea-dato-nuevo"
+                          (click)="agregarDato()"
+                        >
+                          Add data
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-primary"
+                          id="tareas-confirmar"
+                          [disabled]="enviando"
+                          (click)="completar()"
+                        >
                           {{ enviando ? 'Completing…' : 'Complete the task' }}
                         </button>
                       </div>
@@ -182,7 +248,9 @@
                     <td [attr.colspan]="puedeEditar ? 5 : 4" class="small text-body-secondary">
                       Handed over:
                       @for (dato of entregado(tarea); track dato.clave) {
-                        <span class="badge text-bg-light border fw-normal me-1">{{ dato.clave }}: {{ dato.valor }}</span>
+                        <span class="badge text-bg-light border fw-normal me-1"
+                          >{{ dato.clave }}: {{ dato.valor }}</span
+                        >
                       }
                     </td>
                   </tr>
@@ -200,8 +268,15 @@
             <nav aria-label="Task pages">
               <ul class="pagination pagination-sm mb-0" id="tareas-paginacion">
                 <li class="page-item" [class.disabled]="pagina.page === 0">
-                  <button type="button" class="page-link" id="tareas-anterior" [disabled]="pagina.page === 0"
-                          (click)="irAPagina(pagina.page - 1)">Previous</button>
+                  <button
+                    type="button"
+                    class="page-link"
+                    id="tareas-anterior"
+                    [disabled]="pagina.page === 0"
+                    (click)="irAPagina(pagina.page - 1)"
+                  >
+                    Previous
+                  </button>
                 </li>
                 <li class="page-item active" aria-current="page">
                   <span class="page-link" id="tareas-pagina-actual">
@@ -209,9 +284,15 @@
                   </span>
                 </li>
                 <li class="page-item" [class.disabled]="pagina.page + 1 >= pagina.totalPages">
-                  <button type="button" class="page-link" id="tareas-siguiente"
-                          [disabled]="pagina.page + 1 >= pagina.totalPages"
-                          (click)="irAPagina(pagina.page + 1)">Next</button>
+                  <button
+                    type="button"
+                    class="page-link"
+                    id="tareas-siguiente"
+                    [disabled]="pagina.page + 1 >= pagina.totalPages"
+                    (click)="irAPagina(pagina.page + 1)"
+                  >
+                    Next
+                  </button>
                 </li>
               </ul>
             </nav>

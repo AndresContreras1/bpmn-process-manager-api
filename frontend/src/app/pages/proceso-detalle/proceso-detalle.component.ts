@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
@@ -38,6 +38,7 @@ interface Respuesta {
   selector: 'app-proceso-detalle',
   imports: [DatePipe, FormsModule, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent],
   templateUrl: './proceso-detalle.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './proceso-detalle.component.scss',
 })
 export class ProcesoDetalleComponent implements OnInit {
@@ -238,8 +239,9 @@ export class ProcesoDetalleComponent implements OnInit {
       this.error = mensajeDeError(error);
       return;
     }
-    this.error = 'Someone saved a change before you, so the process was not published. This page now shows the '
-      + 'latest version: check it and publish again.';
+    this.error =
+      'Someone saved a change before you, so the process was not published. This page now shows the ' +
+      'latest version: check it and publish again.';
     this.cargar(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((carga: Carga) => this.mostrar(carga));

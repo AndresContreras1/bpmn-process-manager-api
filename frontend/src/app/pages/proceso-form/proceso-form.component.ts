@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -16,6 +16,7 @@ import { ProcesoService } from '../../service/proceso.service';
   selector: 'app-proceso-form',
   imports: [ReactiveFormsModule, RouterLink, ErrorCampoComponent],
   templateUrl: './proceso-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './proceso-form.component.scss',
 })
 export class ProcesoFormComponent implements OnInit {
@@ -132,7 +133,9 @@ export class ProcesoFormComponent implements OnInit {
       this.conflicto = true;
     } else if (error.status === 409) {
       // El nombre es unico entre los procesos activos de la tienda
-      this.procesoForm.get('nombre')?.setErrors({ servidor: 'Another active process of your store already uses this name.' });
+      this.procesoForm
+        .get('nombre')
+        ?.setErrors({ servidor: 'Another active process of your store already uses this name.' });
       this.error = 'Check the highlighted fields.';
     } else if (error.status === 400) {
       marcarErroresDelServidor(this.procesoForm, error);

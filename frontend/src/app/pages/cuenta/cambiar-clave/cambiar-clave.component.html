@@ -13,14 +13,24 @@
 
   <div class="mb-2">
     <label class="form-label small" for="cambiar-clave-actual">Current password</label>
-    <input type="password" class="form-control" id="cambiar-clave-actual" formControlName="actual"
-           autocomplete="current-password">
+    <input
+      type="password"
+      class="form-control"
+      id="cambiar-clave-actual"
+      formControlName="actual"
+      autocomplete="current-password"
+    />
     <app-error-campo [control]="claveForm.get('actual')" />
   </div>
   <div class="mb-3">
     <label class="form-label small" for="cambiar-clave-nueva">New password</label>
-    <input type="password" class="form-control" id="cambiar-clave-nueva" formControlName="nueva"
-           autocomplete="new-password">
+    <input
+      type="password"
+      class="form-control"
+      id="cambiar-clave-nueva"
+      formControlName="nueva"
+      autocomplete="new-password"
+    />
     <div class="form-text small">At least 15 characters: a few words make a good one, no symbols needed.</div>
     <app-error-campo [control]="claveForm.get('nueva')" />
   </div>

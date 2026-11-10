@@ -244,7 +244,13 @@ export function dibujarDiagrama(diagrama: Diagrama): Lienzo {
             alto: ALTO_TAREA,
             texto: { lineas, x: cx, y: cy - ((lineas.length - 1) * ALTO_LINEA) / 2 + 4 },
           });
-          ubicados.set(actividad.id, { cx, cy, medioAncho: ANCHO_TAREA / 2, medioAlto: ALTO_TAREA / 2, esGateway: false });
+          ubicados.set(actividad.id, {
+            cx,
+            cy,
+            medioAncho: ANCHO_TAREA / 2,
+            medioAlto: ALTO_TAREA / 2,
+            esGateway: false,
+          });
         }
         for (const gateway of gateways) {
           const cx: number = xDe(gateway.posicionX);
@@ -352,9 +358,7 @@ function dibujarMensajes(
     const hasta: NodoUbicado | undefined = ubicados.get(mensaje.nodoDestinoId ?? -1);
 
     // El hueco que hay justo despues del pool de origen: por ahi corre el tramo horizontal y va el numero
-    const yHueco: number = baja
-      ? origen.y + origen.alto + SEPARACION / 2
-      : origen.y - SEPARACION / 2;
+    const yHueco: number = baja ? origen.y + origen.alto + SEPARACION / 2 : origen.y - SEPARACION / 2;
     const x1: number = desde ? desde.cx : hasta ? hasta.cx : columna;
     const x2: number = hasta ? hasta.cx : x1;
     const y1: number = desde ? desde.cy + hacia * desde.medioAlto : baja ? origen.y + origen.alto : origen.y;
@@ -423,7 +427,12 @@ function dibujarEvento(evento: Evento, cx: number, cy: number): EventoDibujo {
     nombre: evento.nombre,
     tipo: evento.tipoEvento,
     titulo: `${evento.nombre} · ${NOMBRE_EVENTO[evento.tipoEvento]}`,
-    clase: evento.tipoEvento === 'MENSAJE_INTERMEDIO' ? 'intermedio' : terminaElProceso(evento.tipoEvento) ? 'fin' : 'inicio',
+    clase:
+      evento.tipoEvento === 'MENSAJE_INTERMEDIO'
+        ? 'intermedio'
+        : terminaElProceso(evento.tipoEvento)
+          ? 'fin'
+          : 'inicio',
     cx,
     cy,
     radio: RADIO_EVENTO,
@@ -464,7 +473,12 @@ function trazarArco(origen: NodoUbicado, destino: NodoUbicado): Omit<ArcoDibujo,
   const x2: number = destino.cx - haciaX * destino.medioAncho;
   if (Math.abs(dy) < 2) {
     const x1: number = origen.cx + haciaX * origen.medioAncho;
-    return { ruta: `M ${x1} ${origen.cy} H ${x2}`, etiquetaX: (x1 + x2) / 2, etiquetaY: origen.cy - 6, anclaje: 'middle' };
+    return {
+      ruta: `M ${x1} ${origen.cy} H ${x2}`,
+      etiquetaX: (x1 + x2) / 2,
+      etiquetaY: origen.cy - 6,
+      anclaje: 'middle',
+    };
   }
   // De un gateway, cada salida parte de su vertice de arriba o de abajo y dobla hacia el destino
   if (origen.esGateway) {

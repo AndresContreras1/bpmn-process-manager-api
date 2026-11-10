@@ -1,5 +1,5 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Observable, catchError } from 'rxjs';
@@ -21,6 +21,7 @@ interface Permiso {
   selector: 'app-cuenta',
   imports: [AsyncPipe, DatePipe, RouterLink, CambiarClaveComponent],
   templateUrl: './cuenta.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './cuenta.component.scss',
 })
 export class CuentaComponent implements OnInit {

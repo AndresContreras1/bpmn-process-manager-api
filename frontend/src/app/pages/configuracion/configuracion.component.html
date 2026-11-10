@@ -25,13 +25,20 @@
           <div class="card-body p-4">
             <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Who may change the structure</h2>
             <p class="small text-body-secondary">
-              Adding, moving or removing participants, lanes, tasks, gateways, events and flows. Writing what they
-              say —names, descriptions, conditions— is not structure, and editors can always do that.
+              Adding, moving or removing participants, lanes, tasks, gateways, events and flows. Writing what they say
+              —names, descriptions, conditions— is not structure, and editors can always do that.
             </p>
             @for (opcion of politicas; track opcion) {
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="politica" [id]="'politica-' + opcion"
-                       [value]="opcion" [(ngModel)]="politica" [disabled]="!esAdministrador">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="politica"
+                  [id]="'politica-' + opcion"
+                  [value]="opcion"
+                  [(ngModel)]="politica"
+                  [disabled]="!esAdministrador"
+                />
                 <label class="form-check-label" [for]="'politica-' + opcion">{{ nombrePolitica[opcion] }}</label>
               </div>
             }
@@ -42,22 +49,40 @@
           <div class="card-body p-4">
             <h2 class="h6 text-uppercase text-body-secondary fw-semibold">Sessions</h2>
             <p class="small text-body-secondary">
-              A session closes when it goes this long without being used, and ends this long after its sign-in
-              however much it is used: then the user signs in again.
+              A session closes when it goes this long without being used, and ends this long after its sign-in however
+              much it is used: then the user signs in again.
             </p>
             <div class="row g-3">
               <div class="col-sm-6">
                 <label class="form-label small" for="configuracion-inactividad">Idle timeout, in minutes</label>
-                <input type="number" class="form-control" id="configuracion-inactividad" name="inactividad"
-                       [min]="limites.inactividad.minimo" [max]="limites.inactividad.maximo" step="1"
-                       [(ngModel)]="inactividad" [disabled]="!esAdministrador">
-                <div class="form-text small">From {{ limites.inactividad.minimo }} to {{ limites.inactividad.maximo }}.</div>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="configuracion-inactividad"
+                  name="inactividad"
+                  [min]="limites.inactividad.minimo"
+                  [max]="limites.inactividad.maximo"
+                  step="1"
+                  [(ngModel)]="inactividad"
+                  [disabled]="!esAdministrador"
+                />
+                <div class="form-text small">
+                  From {{ limites.inactividad.minimo }} to {{ limites.inactividad.maximo }}.
+                </div>
               </div>
               <div class="col-sm-6">
                 <label class="form-label small" for="configuracion-duracion">Maximum duration, in hours</label>
-                <input type="number" class="form-control" id="configuracion-duracion" name="duracion"
-                       [min]="limites.duracion.minimo" [max]="limites.duracion.maximo" step="1"
-                       [(ngModel)]="duracion" [disabled]="!esAdministrador">
+                <input
+                  type="number"
+                  class="form-control"
+                  id="configuracion-duracion"
+                  name="duracion"
+                  [min]="limites.duracion.minimo"
+                  [max]="limites.duracion.maximo"
+                  step="1"
+                  [(ngModel)]="duracion"
+                  [disabled]="!esAdministrador"
+                />
                 <div class="form-text small">From {{ limites.duracion.minimo }} to {{ limites.duracion.maximo }}.</div>
               </div>
             </div>
@@ -70,8 +95,13 @@
         </div>
 
         @if (esAdministrador) {
-          <button type="button" class="btn btn-primary mt-3" id="configuracion-guardar"
-                  [disabled]="enviando || !sePuedeGuardar" (click)="guardar()">
+          <button
+            type="button"
+            class="btn btn-primary mt-3"
+            id="configuracion-guardar"
+            [disabled]="enviando || !sePuedeGuardar"
+            (click)="guardar()"
+          >
             {{ enviando ? 'Saving…' : 'Save' }}
           </button>
         } @else {

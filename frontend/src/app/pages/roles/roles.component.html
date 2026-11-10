@@ -27,14 +27,18 @@
             <form [formGroup]="rolForm" (ngSubmit)="guardar()" novalidate>
               <div class="mb-2">
                 <label class="form-label small" for="roles-nombre">Name</label>
-                <input type="text" class="form-control" id="roles-nombre" formControlName="nombre"
-                       placeholder="Sales">
+                <input
+                  type="text"
+                  class="form-control"
+                  id="roles-nombre"
+                  formControlName="nombre"
+                  placeholder="Sales"
+                />
                 <app-error-campo [control]="rolForm.get('nombre')" />
               </div>
               <div class="mb-3">
                 <label class="form-label small" for="roles-descripcion">What it does</label>
-                <textarea class="form-control" id="roles-descripcion" rows="3"
-                          formControlName="descripcion"></textarea>
+                <textarea class="form-control" id="roles-descripcion" rows="3" formControlName="descripcion"></textarea>
                 <app-error-campo [control]="rolForm.get('descripcion')" />
               </div>
               <div class="d-flex gap-2">
@@ -42,8 +46,9 @@
                   {{ enviando ? 'Saving…' : editando ? 'Save' : 'Create' }}
                 </button>
                 @if (editando) {
-                  <button type="button" class="btn btn-outline-secondary" id="roles-cancelar"
-                          (click)="cancelar()">Cancel</button>
+                  <button type="button" class="btn btn-outline-secondary" id="roles-cancelar" (click)="cancelar()">
+                    Cancel
+                  </button>
                 }
               </div>
             </form>
@@ -54,8 +59,15 @@
       <div class="col-lg-8">
         <div class="card border-0 shadow-sm">
           <div class="card-body p-4">
-            <input type="search" class="form-control mb-3" id="roles-buscar" placeholder="Search by name"
-                   [(ngModel)]="nombre" (ngModelChange)="filtrar()" aria-label="Search by name">
+            <input
+              type="search"
+              class="form-control mb-3"
+              id="roles-buscar"
+              placeholder="Search by name"
+              [(ngModel)]="nombre"
+              (ngModelChange)="filtrar()"
+              aria-label="Search by name"
+            />
 
             @if (cargando) {
               <div class="text-center text-body-secondary py-4" id="roles-cargando">
@@ -75,11 +87,25 @@
                       <div class="small text-body-secondary">{{ rol.descripcion }}</div>
                     </div>
                     <div class="btn-group btn-group-sm">
-                      <button type="button" class="btn btn-outline-secondary" data-testid="rol-editar"
-                              (click)="editar(rol)">Edit</button>
-                      <button type="button" class="btn btn-outline-danger" data-testid="rol-borrar"
-                              [disabled]="rol.enUso" data-bs-toggle="modal" data-bs-target="#modal-borrar-rol"
-                              (click)="seleccionado = rol">Delete</button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        data-testid="rol-editar"
+                        (click)="editar(rol)"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger"
+                        data-testid="rol-borrar"
+                        [disabled]="rol.enUso"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modal-borrar-rol"
+                        (click)="seleccionado = rol"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </li>
                 }
@@ -104,6 +130,11 @@
   }
 </div>
 
-<app-modal-confirmar idModal="modal-borrar-rol" titulo="Delete this role?" textoBoton="Delete" [peligro]="true"
-                     mensaje="A role a lane is using cannot be deleted; the API refuses it. This one is used by nothing."
-                     (confirmar)="confirmarBorrado()" />
+<app-modal-confirmar
+  idModal="modal-borrar-rol"
+  titulo="Delete this role?"
+  textoBoton="Delete"
+  [peligro]="true"
+  mensaje="A role a lane is using cannot be deleted; the API refuses it. This one is used by nothing."
+  (confirmar)="confirmarBorrado()"
+/>

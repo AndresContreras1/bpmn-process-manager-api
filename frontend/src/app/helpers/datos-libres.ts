@@ -32,7 +32,7 @@ export function aPares(datos: Datos | null): ParClaveValor[] {
 
 /** Como se ensena un valor cualquiera: el texto tal cual, y lo demas en JSON. */
 export function comoTexto(valor: unknown): string {
-  return typeof valor === 'string' ? valor : JSON.stringify(valor) ?? '';
+  return typeof valor === 'string' ? valor : (JSON.stringify(valor) ?? '');
 }
 
 /** Lo que parece un numero es un numero; lo que parece JSON se lee como JSON; el resto es texto. */

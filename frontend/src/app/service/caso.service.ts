@@ -3,14 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
-import {
-  AbrirCasoRequest,
-  Caso,
-  CasoDetalle,
-  EventoCaso,
-  FiltrosCaso,
-  VariablesRequest,
-} from '../models/caso.model';
+import { AbrirCasoRequest, Caso, CasoDetalle, EventoCaso, FiltrosCaso, VariablesRequest } from '../models/caso.model';
 import { PageResponse } from '../models/page-response.model';
 
 /** Los casos de la tienda: cada uno es una ejecucion de una version publicada, es decir un pedido. */

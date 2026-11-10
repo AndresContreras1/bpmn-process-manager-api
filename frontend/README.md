@@ -6,13 +6,16 @@ in, store registration, the account page, the process screens and the diagram vi
 
 ## Stack
 
-- Angular 19 with standalone components, `inject()` and the built-in control flow (`@if`, `@for`).
-- Bootstrap 5.3, customized through its Sass variables, and Font Awesome icons.
+- Angular 22 with standalone components, `inject()` and the built-in control flow (`@if`, `@for`). Every component
+  keeps the `Eager` change detection it had before Angular 22 made `OnPush` the default, until the move to signals.
+- Bootstrap 5.3, customized through its Sass variables, and Font Awesome icons. Of Bootstrap's JavaScript only the
+  modals, the dropdowns and the collapse are loaded, from their ES module sources, so the initial load stays under its
+  800 kB budget.
 - RxJS and `HttpClient` to talk to the REST API.
 
 ## Run it
 
-Requirements: Node.js 22 or later (Angular 19 warns on Node 24 but builds with it) and the backend running on port
+Requirements: Node.js 24 (or 22.22 and later), as Angular 22 asks, and the backend running on port
 8080 (see [Getting started](../docs/getting-started.md)).
 
 ```bash
@@ -34,6 +37,14 @@ A production build goes to `dist/bpmn-process-manager-web/browser/`:
 
 ```bash
 npm run build
+```
+
+What the pipeline checks before it builds:
+
+```bash
+npm run lint           # angular-eslint over the TypeScript and the templates, accessibility rules included
+npm run format:check   # Prettier over src; npm run format writes it
+npm test               # Vitest over the logic that is not a screen: helpers and the geometry of the canvas
 ```
 
 ## Session

@@ -13,7 +13,7 @@ immutable version that orders run on. This repository holds the REST API and the
 ![Spring Security 7](https://img.shields.io/badge/Spring%20Security-7%20%C2%B7%20JWT%20%C2%B7%20MFA%20%C2%B7%20passkeys%20%C2%B7%20OIDC-6DB33F?logo=springsecurity&logoColor=white)
 ![Hibernate 7.4](https://img.shields.io/badge/Hibernate-7.4-59666C?logo=hibernate&logoColor=white)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16%20%C2%B7%20row--level%20security-4169E1?logo=postgresql&logoColor=white)
-![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
+![Angular 22](https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-1561-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
@@ -74,7 +74,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 
 ```mermaid
 flowchart LR
-    B(["Browser"]) --> W["<b>web</b><br/>NGINX · Angular 19"]
+    B(["Browser"]) --> W["<b>web</b><br/>NGINX · Angular 22"]
     W -- "/api" --> A["<b>api</b><br/>Spring Boot 4.1 · Java 25"]
     A --> D[("<b>db</b><br/>PostgreSQL 16<br/>row-level security")]
     A -. "optional" .-> G["Gemini<br/>AI review"]
@@ -111,7 +111,7 @@ store's id, or if a request DTO carries one, and Spring Modulith if a module use
 |---|---|
 | Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 (JWT, OAuth2 client) · Spring Data JPA · Hibernate 7.4 · MapStruct · Spring Modulith · Bucket4j |
 | Data | PostgreSQL 16 in `prod`, in `dev` and in the tests, with row-level security, timeouts per role, an index behind every foreign key and `pg_stat_statements` · Flyway migrations, validated by Hibernate · HikariCP with leak detection |
-| Frontend | Angular 19 standalone · Bootstrap 5 · RxJS · NGINX |
+| Frontend | Angular 22 standalone · Bootstrap 5 · RxJS · NGINX · ESLint · Prettier · Vitest |
 | Quality | JUnit 5 · Mockito · ArchUnit · Spring Modulith · Testcontainers · Selenium · k6 · JaCoCo · SonarCloud |
 | Delivery | Docker multi-stage images · Docker Compose · GitHub Actions |
 

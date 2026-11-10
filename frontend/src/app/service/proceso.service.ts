@@ -4,13 +4,7 @@ import { Observable, map } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { PageResponse } from '../models/page-response.model';
-import {
-  EditarProcesoRequest,
-  FiltrosProceso,
-  Proceso,
-  ProcesoDetalle,
-  ProcesoRequest,
-} from '../models/proceso.model';
+import { EditarProcesoRequest, FiltrosProceso, Proceso, ProcesoDetalle, ProcesoRequest } from '../models/proceso.model';
 
 /** Procesos de la tienda del usuario: la API solo devuelve los de su empresa. */
 @Injectable({ providedIn: 'root' })
