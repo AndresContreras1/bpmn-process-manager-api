@@ -1,5 +1,6 @@
 # La aplicacion compilada, servida por NGINX. Dos etapas: Node solo existe para compilarla.
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
+# Node 24, el LTS que pide Angular 22 (22.22 o 24.15 en adelante).
+FROM node:24-alpine@sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8 AS build
 WORKDIR /build
 # El manifiesto primero: mientras no cambie, la capa de dependencias se reutiliza y no se vuelven a bajar
 COPY package.json package-lock.json ./
