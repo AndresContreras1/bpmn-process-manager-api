@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.facimus.procesos.common.security.Factor;
+import com.facimus.procesos.gestion.dto.response.SesionAbiertaResponse;
 import com.facimus.procesos.gestion.dto.response.SesionActual;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.SesionVerificada;
@@ -45,6 +46,18 @@ public interface SesionService {
      * fin. Una sesion cerrada, o de otra persona, lanza SesionInvalidaException.
      */
     SesionActual actual(Long empresaId, Long usuarioId, String codigo);
+
+    /**
+     * F14: las sesiones de la persona que siguen sirviendo (abiertas, con un refresh token vigente y antes de su fin),
+     * de la mas reciente a la mas vieja; la del codigo va marcada como actual.
+     */
+    List<SesionAbiertaResponse> abiertas(Long empresaId, Long usuarioId, String actual);
+
+    /** F14: cierra una de sus sesiones por su id. Una que no es suya, o no existe, es un 404. */
+    void cerrarPorId(Long empresaId, Long usuarioId, Long sesionId);
+
+    /** F14: cierra todas sus sesiones menos la del codigo. Devuelve cuantas cerro. */
+    int cerrarLasDemas(Long empresaId, Long usuarioId, String actual);
 
     /** Cierra la sesion del codigo, si es del usuario. Sus access tokens dejan de servir aunque no hayan vencido. */
     void cerrar(Long empresaId, Long usuarioId, String codigo);

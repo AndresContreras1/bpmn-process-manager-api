@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,6 +23,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.SesionInvalidaException;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.security.Factor;
+import com.facimus.procesos.gestion.dto.response.SesionAbiertaResponse;
 import com.facimus.procesos.gestion.dto.response.SesionActual;
 import com.facimus.procesos.gestion.dto.response.SesionIniciada;
 import com.facimus.procesos.gestion.dto.response.SesionVerificada;
@@ -125,6 +127,46 @@ public class SesionServiceImpl implements SesionService {
         return new SesionActual(usuarioMapper.toResponse(sesion.getUsuario()),
                 hastaCero(Duration.between(ahora.atZone(zona), inactiva.atZone(zona))),
                 hastaCero(Duration.between(ahora.atZone(zona), limites(empresaId).fin(sesion).atZone(zona))));
+    }
+
+    @Override
+    public List<SesionAbiertaResponse> abiertas(Long empresaId, Long usuarioId, String actual) {
+        LocalDateTime ahora = LocalDateTime.now();
+        Limites limites = limites(empresaId);
+        return sesionRepository.findAllByUsuarioIdAndEmpresaIdAndFechaCierreIsNull(usuarioId, empresaId).stream()
+                .filter(sesion -> limites.fin(sesion).isAfter(ahora))
+                .filter(sesion -> refreshTokenRepository
+                        .findFirstBySesionIdAndEmpresaIdAndFechaUsoIsNullOrderByFechaEmisionDesc(sesion.getId(),
+                                empresaId)
+                        .filter(token -> token.getFechaExpiracion().isAfter(ahora))
+                        .isPresent())
+                .map(sesion -> new SesionAbiertaResponse(sesion.getId(), sesion.getFechaInicio(),
+                        refreshTokenRepository.findFirstBySesionIdAndEmpresaIdOrderByFechaEmisionDesc(sesion.getId(),
+                                empresaId).map(RefreshToken::getFechaEmision).orElse(sesion.getFechaInicio()),
+                        Factor.leer(sesion.getFactores()).stream().map(Factor::name).sorted().toList(),
+                        sesion.getCodigo().equals(actual)))
+                .sorted(Comparator.comparing(SesionAbiertaResponse::ultimaActividad).reversed())
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void cerrarPorId(Long empresaId, Long usuarioId, Long sesionId) {
+        Sesion sesion = sesionRepository.findByIdAndEmpresaId(sesionId, empresaId)
+                .filter(encontrada -> encontrada.getUsuario().getId().equals(usuarioId))
+                .orElseThrow(() -> new RecursoNoEncontradoException("Sesión no encontrada."));
+        cerrarSesiones(List.of(sesion), LocalDateTime.now());
+    }
+
+    @Override
+    @Transactional
+    public int cerrarLasDemas(Long empresaId, Long usuarioId, String actual) {
+        List<Sesion> demas = sesionRepository.findAllByUsuarioIdAndEmpresaIdAndFechaCierreIsNull(usuarioId, empresaId)
+                .stream()
+                .filter(sesion -> !sesion.getCodigo().equals(actual))
+                .toList();
+        cerrarSesiones(demas, LocalDateTime.now());
+        return demas.size();
     }
 
     private static Duration hastaCero(Duration duracion) {

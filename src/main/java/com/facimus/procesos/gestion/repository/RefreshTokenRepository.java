@@ -23,6 +23,9 @@ public interface RefreshTokenRepository extends RepositorioTenant<RefreshToken> 
     /**
      * Marca el token como usado solo si nadie lo uso antes: de dos renovaciones a la vez, la segunda cambia 0 filas.
      */
+    /** F14: el ultimo refresh token que se emitio para la sesion, usado o no: cuando se renovo por ultima vez. */
+    Optional<RefreshToken> findFirstBySesionIdAndEmpresaIdOrderByFechaEmisionDesc(Long sesionId, Long empresaId);
+
     /** F13: el refresh token vigente de una sesion, el ultimo que se emitio y nadie uso: su vencimiento es el de ella. */
     Optional<RefreshToken> findFirstBySesionIdAndEmpresaIdAndFechaUsoIsNullOrderByFechaEmisionDesc(Long sesionId,
             Long empresaId);
