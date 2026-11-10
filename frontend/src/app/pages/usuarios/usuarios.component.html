@@ -81,6 +81,46 @@
             </form>
           </div>
         </div>
+
+        <div class="card border-0 shadow-sm mt-3">
+          <div class="card-body p-4">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Invite by e-mail</h2>
+            <form [formGroup]="invitacionForm" (ngSubmit)="invitar()" novalidate>
+              <div class="mb-2">
+                <label i18n class="form-label small" for="usuarios-invitacion-email">Email</label>
+                <input
+                  type="email"
+                  class="form-control"
+                  id="usuarios-invitacion-email"
+                  formControlName="email"
+                  autocomplete="off"
+                />
+                <app-error-campo [control]="invitacionForm.get('email')" />
+              </div>
+              <div class="mb-3">
+                <label i18n class="form-label small" for="usuarios-invitacion-rol">Role</label>
+                <select class="form-select" id="usuarios-invitacion-rol" formControlName="rolAcceso">
+                  @for (rol of roles; track rol) {
+                    <option [value]="rol">{{ nombreRol[rol] }}</option>
+                  }
+                </select>
+              </div>
+              <button
+                i18n
+                type="submit"
+                class="btn btn-outline-primary w-100"
+                id="usuarios-invitar"
+                [disabled]="invitando"
+              >
+                Send the invitation
+              </button>
+              <p i18n class="form-text small mb-0 mt-2">
+                They choose their own name and password from the link, which works once and for seven days. Your e-mail
+                has to be verified first.
+              </p>
+            </form>
+          </div>
+        </div>
       </div>
 
       <div class="col-lg-8">
@@ -209,6 +249,17 @@
                               >
                                 Reactivate
                               </button>
+                              <button
+                                i18n
+                                type="button"
+                                class="btn btn-outline-danger"
+                                data-testid="usuario-anonimizar"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modal-anonimizar-usuario"
+                                (click)="paraAnonimizar = usuario"
+                              >
+                                Anonymize
+                              </button>
                             } @else if (!esYo(usuario)) {
                               <button
                                 i18n
@@ -294,6 +345,18 @@
     </div>
   }
 </div>
+
+<app-modal-confirmar
+  i18n-titulo
+  i18n-mensaje
+  i18n-textoBoton
+  idModal="modal-anonimizar-usuario"
+  titulo="Anonymize this person?"
+  textoBoton="Anonymize"
+  [peligro]="true"
+  mensaje="Their name and e-mail are replaced by a pseudonym, and the history names them by it. It cannot be undone."
+  (confirmar)="confirmarAnonimizar()"
+/>
 
 <app-modal-confirmar
   i18n-titulo

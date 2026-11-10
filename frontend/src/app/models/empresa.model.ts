@@ -19,4 +19,8 @@ export interface Empresa {
   nit: string;
   correoContacto: string;
   fechaRegistro: string;
+  /** F14: cuando un administrador pidio darla de baja; null mientras siga abierta. */
+  bajaSolicitadaEn?: string | null;
+  /** Cuando se borrara todo lo suyo, treinta dias despues; hasta entonces es de solo lectura y la baja se cancela. */
+  borradoProgramadoPara?: string | null;
 }

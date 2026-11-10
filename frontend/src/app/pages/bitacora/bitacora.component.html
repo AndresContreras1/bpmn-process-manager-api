@@ -1,0 +1,143 @@
+<div class="container py-5" id="bitacora">
+  <h1 i18n class="h4 fw-bold mb-1">Audit log</h1>
+  <p i18n class="text-body-secondary">
+    Every sign-in, change of a factor and administrative action of your organization, newest first. Each entry carries
+    the fingerprint of the one before it, so a deleted or changed entry shows.
+  </p>
+
+  @if (!esAdministrador) {
+    <div i18n class="alert alert-info" role="alert" id="bitacora-solo-admin">
+      Only an administrator can read the audit log of an organization.
+    </div>
+  } @else {
+    @if (error) {
+      <div class="alert alert-danger" role="alert" id="bitacora-error">{{ error }}</div>
+    }
+
+    <form class="row g-2 align-items-end mb-3" (ngSubmit)="buscar()" novalidate id="bitacora-filtros">
+      <div class="col-sm-4">
+        <label i18n class="form-label small" for="bitacora-accion">Action</label>
+        <input
+          i18n-placeholder
+          class="form-control form-control-sm font-monospace"
+          id="bitacora-accion"
+          name="accion"
+          placeholder="SESION_INICIADA"
+          list="bitacora-acciones"
+          [(ngModel)]="accion"
+        />
+        <datalist id="bitacora-acciones">
+          @for (conocida of acciones; track conocida) {
+            <option [value]="conocida"></option>
+          }
+        </datalist>
+      </div>
+      <div class="col-6 col-sm-3">
+        <label i18n class="form-label small" for="bitacora-desde">From</label>
+        <input type="date" class="form-control form-control-sm" id="bitacora-desde" name="desde" [(ngModel)]="desde" />
+      </div>
+      <div class="col-6 col-sm-3">
+        <label i18n class="form-label small" for="bitacora-hasta">To</label>
+        <input type="date" class="form-control form-control-sm" id="bitacora-hasta" name="hasta" [(ngModel)]="hasta" />
+      </div>
+      <div class="col-sm-2 d-grid">
+        <button i18n type="submit" class="btn btn-sm btn-primary" id="bitacora-buscar" [disabled]="cargando">
+          Filter
+        </button>
+      </div>
+    </form>
+
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+      <button
+        i18n
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        id="bitacora-verificar"
+        [disabled]="verificando"
+        (click)="verificar()"
+      >
+        <i class="fa-solid fa-link" aria-hidden="true"></i> Check the chain
+      </button>
+      <a i18n class="btn btn-sm btn-outline-secondary" [href]="exportacion('csv')" download id="bitacora-csv">
+        <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV
+      </a>
+      <a i18n class="btn btn-sm btn-outline-secondary" [href]="exportacion('json')" download id="bitacora-json">
+        <i class="fa-solid fa-file-code" aria-hidden="true"></i> Export JSON
+      </a>
+      @if (verificacion; as resultado) {
+        @if (resultado.integra) {
+          <span i18n class="text-success small" role="status" id="bitacora-integra">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Intact: {{ resultado.registros }} entries, each
+            one follows the one before.
+          </span>
+        } @else {
+          <span i18n class="text-danger small" role="alert" id="bitacora-rota">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Broken at entry {{ resultado.rotaEn }}:
+            {{ resultado.motivo }}
+          </span>
+        }
+      }
+    </div>
+
+    @if (registros.length === 0 && !cargando) {
+      <p i18n class="text-body-secondary" id="bitacora-vacia">No entry matches these filters.</p>
+    } @else {
+      <div class="table-responsive">
+        <table class="table table-sm align-middle small" id="bitacora-tabla">
+          <thead>
+            <tr>
+              <th i18n scope="col">#</th>
+              <th i18n scope="col">When</th>
+              <th i18n scope="col">Action</th>
+              <th i18n scope="col">Who</th>
+              <th i18n scope="col">On</th>
+              <th i18n scope="col">Result</th>
+              <th i18n scope="col">From</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (registro of registros; track registro.secuencia) {
+              <tr data-testid="bitacora-registro">
+                <td class="text-body-secondary">{{ registro.secuencia }}</td>
+                <td class="text-nowrap">{{ registro.momento | fecha: 'fechaHora' }}</td>
+                <td class="font-monospace" data-testid="bitacora-accion">{{ registro.accion }}</td>
+                <td>
+                  {{ registro.actorTipo }}
+                  @if (registro.actorId) {
+                    {{ registro.actorId }}
+                  }
+                </td>
+                <td>
+                  {{ registro.recurso }}
+                  @if (registro.recursoId) {
+                    {{ registro.recursoId }}
+                  }
+                </td>
+                <td>
+                  @if (registro.exito) {
+                    <span i18n class="badge text-bg-success">OK</span>
+                  } @else {
+                    <span i18n class="badge text-bg-danger">Refused</span>
+                  }
+                </td>
+                <td class="text-body-secondary">{{ registro.ip }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (siguiente !== null) {
+        <button
+          i18n
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          id="bitacora-mas"
+          [disabled]="cargando"
+          (click)="masAntiguos()"
+        >
+          Older entries
+        </button>
+      }
+    }
+  }
+</div>

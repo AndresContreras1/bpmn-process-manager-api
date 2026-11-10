@@ -26,6 +26,11 @@ final class Paginas {
         static final By CLAVE = By.id("login-password");
         static final By ENTRAR = By.id("login-enviar");
         static final By ERROR = By.id("login-error");
+        /** F14: el segundo factor del login a medias, y entrar con passkey. */
+        static final By CODIGO = By.id("login-codigo");
+        static final By ENVIAR_CODIGO = By.id("login-codigo-enviar");
+        static final By SEGUNDO_CON_PASSKEY = By.id("login-segundo-passkey");
+        static final By CON_PASSKEY = By.id("login-passkey");
     }
 
     /** La lista de procesos. */
@@ -163,6 +168,22 @@ final class Paginas {
         static final By CASOS = By.id("tablero-casos");
         static final By TERMINADOS = By.id("tablero-terminados");
         static final By TODO_BIEN = By.id("tablero-todo-bien");
+    }
+
+    /** F14: la seguridad de la cuenta. */
+    static final class Seguridad {
+        static final By ETIQUETA_PASSKEY = By.id("seguridad-passkey-etiqueta");
+        static final By REGISTRAR_PASSKEY = By.id("seguridad-passkey-registrar");
+        static final By PASSKEY = By.cssSelector("[data-testid='passkey']");
+        static final By CODIGO_DE_RECUPERACION = By.cssSelector("[data-testid='codigo-de-recuperacion']");
+        static final By EMPEZAR_TOTP = By.id("seguridad-totp-empezar");
+        static final By QR = By.id("seguridad-totp-qr");
+        static final By SECRETO = By.id("seguridad-totp-secreto");
+        static final By CODIGO_TOTP = By.id("seguridad-totp-codigo");
+        static final By CONFIRMAR_TOTP = By.id("seguridad-totp-confirmar");
+        static final By TOTP_ACTIVO = By.id("seguridad-totp-activo");
+        static final By CODIGOS_RESTANTES = By.id("seguridad-codigos-restantes");
+        static final By SESION = By.cssSelector("[data-testid='sesion']");
     }
 
     /** F13: quien entro, en el encabezado, y el login que dice por que se volvio a el. */

@@ -1,0 +1,379 @@
+<div class="container py-5" id="seguridad">
+  <h1 i18n class="h4 fw-bold mb-1">Security of my account</h1>
+  <p i18n class="text-body-secondary">How you sign in, and where you are signed in now.</p>
+
+  <div aria-live="polite">
+    @if (aviso) {
+      <div class="alert alert-success" role="status" id="seguridad-aviso">{{ aviso }}</div>
+    }
+    @if (error) {
+      <div class="alert alert-danger" role="alert" id="seguridad-error">{{ error }}</div>
+    }
+  </div>
+
+  @if (codigosNuevos) {
+    <div class="alert alert-warning" role="alert" id="seguridad-codigos-nuevos">
+      <h2 i18n class="h6 fw-bold">Your recovery codes</h2>
+      <p i18n class="small">
+        Each one works once, instead of the code of your app if you lose your phone. Keep them somewhere safe: they are
+        shown only now.
+      </p>
+      <ul class="list-unstyled font-monospace row row-cols-2 row-cols-md-5 g-1 mb-2">
+        @for (codigo of codigosNuevos; track codigo) {
+          <li data-testid="codigo-de-recuperacion">{{ codigo }}</li>
+        }
+      </ul>
+      <button
+        i18n
+        type="button"
+        class="btn btn-sm btn-outline-dark"
+        id="seguridad-codigos-listo"
+        (click)="codigosNuevos = null"
+      >
+        I saved them
+      </button>
+    </div>
+  }
+
+  @if (cargando) {
+    <p i18n class="text-body-secondary" id="seguridad-cargando">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading…
+    </p>
+  } @else {
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <section class="card border-0 shadow-sm h-100" aria-labelledby="seguridad-correo-titulo">
+          <div class="card-body p-4">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold" id="seguridad-correo-titulo">E-mail</h2>
+            <p class="mb-2">{{ usuario?.email }}</p>
+            @if (usuario?.correoVerificadoEn; as verificado) {
+              <p i18n class="small text-success mb-0" id="seguridad-correo-verificado">
+                <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Verified on
+                {{ verificado | fecha: 'fecha' }}.
+              </p>
+            } @else {
+              <p i18n class="small text-body-secondary" id="seguridad-correo-sin-verificar">
+                Not verified yet. Until it is, your organization cannot invite people by e-mail.
+              </p>
+              <button
+                i18n
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                id="seguridad-reenviar"
+                [disabled]="ocupado"
+                (click)="reenviarVerificacion()"
+              >
+                Send the link again
+              </button>
+            }
+          </div>
+        </section>
+      </div>
+
+      <div class="col-lg-6">
+        <section class="card border-0 shadow-sm h-100" aria-labelledby="seguridad-totp-titulo">
+          <div class="card-body p-4">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold" id="seguridad-totp-titulo">
+              Authenticator app
+            </h2>
+            @if (estado?.totp) {
+              <p i18n class="small mb-2" id="seguridad-totp-activo">
+                <i class="fa-solid fa-shield-halved text-success" aria-hidden="true"></i> On: the login asks for its
+                code after your password.
+              </p>
+              <p i18n class="small text-body-secondary" id="seguridad-codigos-restantes">
+                Recovery codes left: {{ estado?.codigosRestantes }}
+              </p>
+              <div class="d-flex flex-wrap gap-2">
+                <button
+                  i18n
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  id="seguridad-codigos-renovar"
+                  [disabled]="ocupado"
+                  (click)="renovarCodigos()"
+                >
+                  New recovery codes
+                </button>
+                <button
+                  i18n
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  id="seguridad-totp-quitar"
+                  [disabled]="ocupado"
+                  (click)="quitarTotp()"
+                >
+                  Remove the app
+                </button>
+              </div>
+            } @else if (inscripcion) {
+              <p i18n class="small">
+                Scan the code with your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password…),
+                then write the six digits it shows.
+              </p>
+              <div class="d-flex flex-wrap align-items-start gap-3 mb-3">
+                @if (qr) {
+                  <img
+                    i18n-alt
+                    class="border rounded bg-white p-1"
+                    [src]="qr"
+                    width="192"
+                    height="192"
+                    alt="QR code of your authenticator app"
+                    id="seguridad-totp-qr"
+                  />
+                }
+                <div class="small">
+                  <div i18n class="text-body-secondary">Or type this key:</div>
+                  <code class="user-select-all text-break" id="seguridad-totp-secreto">{{ inscripcion.secreto }}</code>
+                </div>
+              </div>
+              <form class="d-flex flex-wrap gap-2" (ngSubmit)="confirmarTotp()" novalidate>
+                <label i18n class="visually-hidden" for="seguridad-totp-codigo">Code of the app</label>
+                <input
+                  i18n-placeholder
+                  type="text"
+                  class="form-control w-auto"
+                  id="seguridad-totp-codigo"
+                  name="codigoTotp"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                  placeholder="123456"
+                  [(ngModel)]="codigoTotp"
+                />
+                <button
+                  i18n
+                  type="submit"
+                  class="btn btn-primary"
+                  id="seguridad-totp-confirmar"
+                  [disabled]="ocupado || !codigoTotp.trim()"
+                >
+                  Turn it on
+                </button>
+                <button i18n type="button" class="btn btn-link" id="seguridad-totp-cancelar" (click)="cancelarTotp()">
+                  Cancel
+                </button>
+              </form>
+            } @else {
+              <p i18n class="small text-body-secondary">
+                Off. With it, your password alone does not open your account: the login also asks for a code from your
+                phone.
+              </p>
+              <button
+                i18n
+                type="button"
+                class="btn btn-sm btn-primary"
+                id="seguridad-totp-empezar"
+                [disabled]="ocupado"
+                (click)="empezarTotp()"
+              >
+                Set up an authenticator app
+              </button>
+            }
+          </div>
+        </section>
+      </div>
+
+      <div class="col-lg-6">
+        <section class="card border-0 shadow-sm h-100" aria-labelledby="seguridad-passkeys-titulo">
+          <div class="card-body p-4">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold" id="seguridad-passkeys-titulo">
+              Passkeys
+            </h2>
+            <p i18n class="small text-body-secondary">
+              Your fingerprint, face or the PIN of your device, instead of a password and a code. Each one counts as
+              both factors.
+            </p>
+            @if (passkeys.length > 0) {
+              <ul class="list-group list-group-flush mb-3">
+                @for (passkey of passkeys; track passkey.id) {
+                  <li class="list-group-item px-0" data-testid="passkey">
+                    @if (renombrando === passkey.id) {
+                      <form class="d-flex gap-2" (ngSubmit)="renombrar(passkey)" novalidate>
+                        <label i18n class="visually-hidden" [for]="'seguridad-passkey-nombre-' + passkey.id"
+                          >Name of the passkey</label
+                        >
+                        <input
+                          class="form-control form-control-sm"
+                          [id]="'seguridad-passkey-nombre-' + passkey.id"
+                          name="etiquetaNueva"
+                          maxlength="64"
+                          [(ngModel)]="etiquetaNueva"
+                        />
+                        <button
+                          i18n
+                          type="submit"
+                          class="btn btn-sm btn-primary"
+                          [disabled]="ocupado || !etiquetaNueva.trim()"
+                        >
+                          Save
+                        </button>
+                      </form>
+                    } @else {
+                      <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                          <div class="fw-semibold" data-testid="passkey-nombre">{{ passkey.etiqueta }}</div>
+                          <div i18n class="small text-body-secondary">
+                            Added {{ passkey.creadaEn | fecha: 'fecha' }}
+                            @if (passkey.ultimoUsoEn) {
+                              · last used {{ passkey.ultimoUsoEn | fecha: 'fechaHora' }}
+                            }
+                            @if (passkey.sincronizada) {
+                              · synced to your other devices
+                            }
+                          </div>
+                        </div>
+                        <div class="d-flex gap-1">
+                          <button
+                            i18n
+                            type="button"
+                            class="btn btn-sm btn-link"
+                            data-testid="passkey-renombrar"
+                            (click)="empezarARenombrar(passkey)"
+                          >
+                            Rename
+                          </button>
+                          <button
+                            i18n
+                            type="button"
+                            class="btn btn-sm btn-link text-danger"
+                            data-testid="passkey-quitar"
+                            [disabled]="ocupado"
+                            (click)="quitarPasskey(passkey)"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+            @if (passkeysEnEsteNavegador) {
+              <form class="d-flex flex-wrap gap-2" (ngSubmit)="registrarPasskey()" novalidate>
+                <label i18n class="visually-hidden" for="seguridad-passkey-etiqueta">Name of the new passkey</label>
+                <input
+                  i18n-placeholder
+                  class="form-control w-auto flex-grow-1"
+                  id="seguridad-passkey-etiqueta"
+                  name="etiquetaPasskey"
+                  maxlength="64"
+                  placeholder="Work laptop"
+                  [(ngModel)]="etiquetaPasskey"
+                />
+                <button
+                  i18n
+                  type="submit"
+                  class="btn btn-primary"
+                  id="seguridad-passkey-registrar"
+                  [disabled]="ocupado"
+                >
+                  Add a passkey
+                </button>
+              </form>
+            } @else {
+              <p i18n class="small text-body-secondary mb-0" id="seguridad-sin-passkeys">
+                This browser cannot use passkeys.
+              </p>
+            }
+          </div>
+        </section>
+      </div>
+
+      <div class="col-lg-6">
+        <section class="card border-0 shadow-sm h-100" aria-labelledby="seguridad-identidades-titulo">
+          <div class="card-body p-4">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold" id="seguridad-identidades-titulo">
+              Google and Microsoft
+            </h2>
+            @if (identidades.length === 0) {
+              <p i18n class="small text-body-secondary mb-0" id="seguridad-sin-identidades">
+                No provider opens your account. Signing in with one whose e-mail is yours links it.
+              </p>
+            } @else {
+              <ul class="list-group list-group-flush">
+                @for (identidad of identidades; track identidad.id) {
+                  <li
+                    class="list-group-item px-0 d-flex justify-content-between align-items-center"
+                    data-testid="identidad"
+                  >
+                    <span>
+                      <span class="fw-semibold text-capitalize">{{ identidad.proveedor }}</span>
+                      <span class="small text-body-secondary"> · {{ identidad.email }}</span>
+                    </span>
+                    <button
+                      i18n
+                      type="button"
+                      class="btn btn-sm btn-link text-danger"
+                      data-testid="identidad-quitar"
+                      [disabled]="ocupado"
+                      (click)="desvincular(identidad)"
+                    >
+                      Unlink
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12">
+        <section class="card border-0 shadow-sm" aria-labelledby="seguridad-sesiones-titulo">
+          <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold mb-0" id="seguridad-sesiones-titulo">
+                Where you are signed in
+              </h2>
+              @if (sesiones.length > 1) {
+                <button
+                  i18n
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  id="seguridad-sesiones-demas"
+                  [disabled]="ocupado"
+                  (click)="cerrarLasDemas()"
+                >
+                  Sign out everywhere else
+                </button>
+              }
+            </div>
+            <ul class="list-group list-group-flush" id="seguridad-sesiones">
+              @for (sesion of sesiones; track sesion.id) {
+                <li
+                  class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2"
+                  data-testid="sesion"
+                >
+                  <div>
+                    <div class="fw-semibold">
+                      {{ nombresDeFactores(sesion.factores) }}
+                      @if (sesion.actual) {
+                        <span i18n class="badge text-bg-primary ms-1" data-testid="sesion-actual">This one</span>
+                      }
+                    </div>
+                    <div i18n class="small text-body-secondary">
+                      Signed in {{ sesion.inicio | fecha: 'fechaHora' }} · last active
+                      {{ sesion.ultimaActividad | fecha: 'fechaHora' }}
+                    </div>
+                  </div>
+                  <button
+                    i18n
+                    type="button"
+                    class="btn btn-sm btn-link text-danger"
+                    data-testid="sesion-cerrar"
+                    [disabled]="ocupado"
+                    (click)="cerrarSesion(sesion)"
+                  >
+                    Sign out
+                  </button>
+                </li>
+              }
+            </ul>
+          </div>
+        </section>
+      </div>
+    </div>
+  }
+</div>

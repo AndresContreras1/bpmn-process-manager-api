@@ -1,3 +1,5 @@
+import { PoliticaSegundoFactor } from './seguridad.model';
+
 /** Quien puede tocar la estructura del diagrama: solo el administrador, o tambien los editores. */
 export type PoliticaEstructura = 'SOLO_ADMINISTRADOR' | 'ADMINISTRADOR_Y_EDITOR';
 /** Si el reloj de la tienda lo mueve una persona o corre solo. */
@@ -27,6 +29,10 @@ export interface ConfiguracionTienda {
   inactividadSesionMinutos: number;
   /** Horas desde el login tras las que hay que volver a entrar, de 1 a 24. */
   duracionSesionHoras: number;
+  /** F14: a quien pide el login un segundo factor. */
+  politicaSegundoFactor: PoliticaSegundoFactor;
+  /** F14: su gente entra solo con Google o Microsoft; los administradores conservan la clave. */
+  soloEntradaExterna: boolean;
   version: number;
   fechaModificacion: string;
   modificadoPor: number | null;
@@ -43,6 +49,8 @@ export interface ConfiguracionTiendaRequest {
   simulacion: ParametrosSimulacion | null;
   inactividadSesionMinutos?: number | null;
   duracionSesionHoras?: number | null;
+  politicaSegundoFactor?: PoliticaSegundoFactor | null;
+  soloEntradaExterna?: boolean | null;
   version: number;
 }
 

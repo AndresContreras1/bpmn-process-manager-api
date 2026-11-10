@@ -11,7 +11,9 @@ import { AuthService } from '../../service/auth.service';
 import { IDIOMAS, IdiomaService, OpcionDeIdioma } from '../../service/idioma.service';
 import { PreferenciasService } from '../../service/preferencias.service';
 import { TemaService } from '../../service/tema.service';
+import { VerificacionService } from '../../service/verificacion.service';
 import { AvisoDeInactividadComponent } from '../aviso-de-inactividad/aviso-de-inactividad.component';
+import { DialogoDeVerificacionComponent } from '../dialogo-de-verificacion/dialogo-de-verificacion.component';
 import { AvisosComponent } from '../ui/avisos.component';
 import { Miga, migasDe } from './migas';
 
@@ -30,6 +32,7 @@ import { Miga, migasDe } from './migas';
     RouterOutlet,
     AvisosComponent,
     AvisoDeInactividadComponent,
+    DialogoDeVerificacionComponent,
   ],
   templateUrl: './estructura.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -42,6 +45,7 @@ export class EstructuraComponent implements OnInit {
   private readonly preferenciasService: PreferenciasService = inject(PreferenciasService);
   readonly temaService: TemaService = inject(TemaService);
   readonly idiomaService: IdiomaService = inject(IdiomaService);
+  readonly verificacion: VerificacionService = inject(VerificacionService);
   readonly idiomas: readonly OpcionDeIdioma[] = IDIOMAS;
 
   readonly usuario$: Observable<Usuario | null> = this.authService.usuario$;

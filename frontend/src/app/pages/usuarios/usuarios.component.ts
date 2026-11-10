@@ -11,6 +11,8 @@ import { PageResponse } from '../../models/page-response.model';
 import { RolProceso } from '../../models/rol-proceso.model';
 import { NOMBRE_ROL, RolAcceso, RolDeUsuario, Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
+import { CuentaService } from '../../service/cuenta.service';
+import { SeguridadDeLaCuentaService } from '../../service/seguridad-de-la-cuenta.service';
 import { RolProcesoService } from '../../service/rol-proceso.service';
 import { FiltrosUsuario, UsuarioService } from '../../service/usuario.service';
 
@@ -74,6 +76,18 @@ export class UsuariosComponent implements OnInit {
   /** Mientras se leen los roles que la persona ya tiene: sin ellos, guardar seria quitarselos. */
   cargandoRoles: boolean = false;
   enviando: boolean = false;
+  /** F14: invitar por correo, en vez de dar una clave temporal. */
+  readonly invitacionForm = new FormGroup({
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.email, Validators.maxLength(254)],
+    }),
+    rolAcceso: new FormControl<RolAcceso>('EDITOR', { nonNullable: true }),
+  });
+  invitando: boolean = false;
+  paraAnonimizar: Usuario | null = null;
+  private readonly cuentaService: CuentaService = inject(CuentaService);
+  private readonly seguridad: SeguridadDeLaCuentaService = inject(SeguridadDeLaCuentaService);
   error: string | null = null;
   aviso: string | null = null;
   /** La clave temporal recien creada. Se ensena una vez y no se vuelve a poder leer. */
@@ -198,6 +212,53 @@ export class UsuariosComponent implements OnInit {
       .subscribe({
         next: () => {
           this.aviso = $localize`${usuario.nombre} is now ${this.nombreRol[rolAcceso].toLowerCase()}.`;
+          this.buscar();
+        },
+        error: (error: HttpErrorResponse) => this.mostrarError(error),
+      });
+  }
+
+  /** F14: la persona recibe un enlace para entrar; la cuenta se crea cuando lo acepta. */
+  invitar(): void {
+    if (this.invitacionForm.invalid) {
+      this.invitacionForm.markAllAsTouched();
+      return;
+    }
+    const { email, rolAcceso } = this.invitacionForm.getRawValue();
+    this.limpiarMensajes();
+    this.invitando = true;
+    this.cuentaService
+      .invitar(email.trim(), rolAcceso)
+      .pipe(
+        finalize(() => (this.invitando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          this.aviso = $localize`An invitation is on its way to ${email.trim()}:correo:. Its link works for seven days.`;
+          this.invitacionForm.reset({ email: '', rolAcceso: 'EDITOR' });
+        },
+        error: (error: HttpErrorResponse) => this.mostrarError(error),
+      });
+  }
+
+  /**
+   * F14: anonimizar a alguien que lo pidio. Su usuario queda con un seudonimo, sin correo ni nombre, y el historial lo
+   * nombra asi. No se deshace.
+   */
+  confirmarAnonimizar(): void {
+    const usuario: Usuario | null = this.paraAnonimizar;
+    if (!usuario) {
+      return;
+    }
+    this.limpiarMensajes();
+    this.seguridad
+      .anonimizar(usuario.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.aviso = $localize`${usuario.nombre}:nombre: was anonymized.`;
+          this.paraAnonimizar = null;
           this.buscar();
         },
         error: (error: HttpErrorResponse) => this.mostrarError(error),

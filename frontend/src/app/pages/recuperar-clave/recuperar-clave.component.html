@@ -1,0 +1,48 @@
+<div class="container py-5" id="recuperar-clave">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+          <h1 i18n class="h4 fw-bold mb-1">Forgot your password?</h1>
+          <p i18n class="text-body-secondary mb-4">
+            Write the e-mail you sign in with, and a link to choose a new password goes there.
+          </p>
+          @if (enviado) {
+            <div i18n class="alert alert-success" role="status" id="recuperar-clave-enviado">
+              If an account uses that e-mail, the link is on its way. It works once and for 15 minutes.
+            </div>
+          } @else {
+            @if (error) {
+              <div class="alert alert-danger" role="alert" id="recuperar-clave-error">{{ error }}</div>
+            }
+            <form (ngSubmit)="pedir()" novalidate>
+              <div class="mb-3">
+                <label i18n class="form-label" for="recuperar-clave-email">Email</label>
+                <input
+                  type="email"
+                  class="form-control"
+                  id="recuperar-clave-email"
+                  autocomplete="email"
+                  [formControl]="email"
+                />
+                <app-error-campo [control]="email" />
+              </div>
+              <button
+                i18n
+                type="submit"
+                class="btn btn-primary w-100"
+                id="recuperar-clave-enviar"
+                [disabled]="enviando"
+              >
+                Send me the link
+              </button>
+            </form>
+          }
+          <p class="text-center small mt-4 mb-0">
+            <a i18n routerLink="/login" id="recuperar-clave-login">Back to sign in</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

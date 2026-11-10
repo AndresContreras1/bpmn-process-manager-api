@@ -129,6 +129,28 @@ EUR). English (en-US) is the language of the source.
 - `AuthService` publishes the current user through a `BehaviorSubject`, so the shell and the pages react to sign in
   and sign out.
 
+## Account security
+
+- **Second factor.** *My account → Security* sets up an authenticator app from a QR code (the `qrcode` library draws
+  it; the key can be typed by hand too) and confirms it with its first code; then come ten recovery codes, shown once.
+  With a second factor, the password leaves a half-done login and the sign-in page asks for the code, a recovery code
+  or a passkey. Coming back from Google or Microsoft (`/login?paso=segundo-factor`) lands on the same step.
+- **Passkeys.** Registered and removed from the same screen with `navigator.credentials`; `helpers/webauthn.ts`
+  turns the API's JSON options into what the browser takes and the credential into the shape Spring Security reads.
+  A passkey signs in without a password and also completes the half-done login.
+- **Recent verification.** What removes a factor or closes the organization answers `403 Verificación requerida`
+  when the person has not confirmed who they are in the last ten minutes. An interceptor opens a dialog that asks for
+  the password, a code or a passkey, and repeats the request; cancelling leaves the `403`.
+- **Links of the e-mails.** `/verificar-correo`, `/restablecer-clave` and `/aceptar-invitacion` read the token after
+  `#`, which no server receives, and remove it from the address at once. `/recuperar-clave` asks for the link and
+  answers the same whether the e-mail has an account or not. `/vincular` links a provider to an existing account.
+- **Sessions and providers.** The same screen lists where the person is signed in, closes one session or all the
+  others, and unlinks Google or Microsoft.
+- **Administration.** *Organization settings* chooses who needs a second factor and whether people sign in only with
+  a provider, verifies e-mail domains with a TXT record, and closes the organization (30 days of read-only grace,
+  cancellable). *Users* invites by e-mail and anonymizes a deactivated person. The *Audit log* filters by action and
+  dates, checks the chain and exports CSV or JSON.
+
 ## Processes
 
 - The list shows the pages of 10 processes the API returns, the most recently changed first. Clicking a column title

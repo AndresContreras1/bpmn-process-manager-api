@@ -76,7 +76,10 @@
                 ]
               }
             },
-            "i18nMissingTranslation": "error"
+            "i18nMissingTranslation": "error",
+            "allowedCommonJsDependencies": [
+              "qrcode"
+            ]
           },
           "configurations": {
             "production": {

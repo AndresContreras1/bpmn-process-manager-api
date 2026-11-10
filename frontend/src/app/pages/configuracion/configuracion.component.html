@@ -96,6 +96,46 @@
           </div>
         </div>
 
+        <div class="card border-0 shadow-sm mt-3">
+          <div class="card-body p-4">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Sign-in</h2>
+            <p i18n class="small text-body-secondary">
+              Who has to use a second factor (an authenticator app or a passkey) after the password. Whoever has to and
+              has none yet is asked to set one up before doing anything else.
+            </p>
+            @for (opcion of politicasDeSegundoFactor; track opcion) {
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="politicaSegundoFactor"
+                  [id]="'segundo-factor-' + opcion"
+                  [value]="opcion"
+                  [(ngModel)]="politicaSegundoFactor"
+                  [disabled]="!esAdministrador"
+                />
+                <label class="form-check-label" [for]="'segundo-factor-' + opcion">{{
+                  nombrePoliticaDeSegundoFactor[opcion]
+                }}</label>
+              </div>
+            }
+            <div class="form-check form-switch mt-3">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="configuracion-solo-externa"
+                name="soloEntradaExterna"
+                [(ngModel)]="soloEntradaExterna"
+                [disabled]="!esAdministrador"
+              />
+              <label i18n class="form-check-label" for="configuracion-solo-externa">
+                Your people sign in only with Google or Microsoft; administrators keep their password
+              </label>
+            </div>
+          </div>
+        </div>
+
         @if (esAdministrador) {
           <button
             i18n
@@ -144,6 +184,154 @@
             </p>
           </div>
         </div>
+
+        @if (esAdministrador) {
+          <div class="card border-0 shadow-sm mt-3">
+            <div class="card-body p-4">
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">E-mail domains</h2>
+              <p i18n class="small text-body-secondary">
+                Whoever signs in with Google or Microsoft and an e-mail of a verified domain joins your organization
+                with the role you choose. A domain is verified with a TXT record in its DNS.
+              </p>
+              @if (dominios.length > 0) {
+                <ul class="list-group list-group-flush mb-3">
+                  @for (dominio of dominios; track dominio.id) {
+                    <li class="list-group-item px-0" data-testid="dominio">
+                      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div>
+                          <span class="fw-semibold">{{ dominio.dominio }}</span>
+                          <span class="small text-body-secondary"> · {{ nombreRol[dominio.rolPorDefecto] }}</span>
+                          @if (dominio.verificado) {
+                            <span i18n class="badge text-bg-success ms-1">Verified</span>
+                          } @else {
+                            <span i18n class="badge text-bg-warning ms-1">Not verified</span>
+                          }
+                        </div>
+                        <div class="d-flex gap-1">
+                          @if (!dominio.verificado) {
+                            <button
+                              i18n
+                              type="button"
+                              class="btn btn-sm btn-outline-primary"
+                              data-testid="dominio-verificar"
+                              [disabled]="ocupado"
+                              (click)="verificarDominio(dominio)"
+                            >
+                              Verify
+                            </button>
+                          }
+                          <button
+                            i18n
+                            type="button"
+                            class="btn btn-sm btn-link text-danger"
+                            data-testid="dominio-quitar"
+                            [disabled]="ocupado"
+                            (click)="quitarDominio(dominio)"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                      @if (!dominio.verificado) {
+                        <div i18n class="small mt-1">
+                          Publish this TXT record: <code class="user-select-all">{{ dominio.registroTxt }}</code>
+                        </div>
+                      }
+                    </li>
+                  }
+                </ul>
+              }
+              <form class="row g-2" (ngSubmit)="agregarDominio()" novalidate>
+                <div class="col-sm-6">
+                  <label i18n class="visually-hidden" for="configuracion-dominio">Domain</label>
+                  <input
+                    i18n-placeholder
+                    class="form-control form-control-sm"
+                    id="configuracion-dominio"
+                    name="dominioNuevo"
+                    placeholder="acme.com"
+                    [(ngModel)]="dominioNuevo"
+                  />
+                </div>
+                <div class="col-sm-4">
+                  <label i18n class="visually-hidden" for="configuracion-dominio-rol">Role of who joins</label>
+                  <select
+                    class="form-select form-select-sm"
+                    id="configuracion-dominio-rol"
+                    name="rolDelDominio"
+                    [(ngModel)]="rolDelDominio"
+                  >
+                    @for (rol of roles; track rol) {
+                      <option [value]="rol">{{ nombreRol[rol] }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="col-sm-2 d-grid">
+                  <button
+                    i18n
+                    type="submit"
+                    class="btn btn-sm btn-outline-primary"
+                    id="configuracion-dominio-agregar"
+                    [disabled]="ocupado || !dominioNuevo.trim()"
+                  >
+                    Add
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="card border border-danger-subtle shadow-sm mt-3" id="configuracion-baja">
+            <div class="card-body p-4">
+              <h2 i18n class="h6 text-uppercase text-danger-emphasis fw-semibold">Close the organization</h2>
+              @if (empresa?.bajaSolicitadaEn) {
+                <p i18n class="small" id="configuracion-baja-programada">
+                  Closing since {{ empresa?.bajaSolicitadaEn | fecha: 'fechaHora' }}. Until
+                  {{ empresa?.borradoProgramadoPara | fecha: 'fechaHora' }} it is read-only and the closing can be
+                  cancelled; then every piece of it is deleted.
+                </p>
+                <button
+                  i18n
+                  type="button"
+                  class="btn btn-outline-primary"
+                  id="configuracion-baja-cancelar"
+                  [disabled]="ocupado"
+                  (click)="cancelarBaja()"
+                >
+                  Cancel the closing
+                </button>
+              } @else {
+                <p i18n class="small text-body-secondary">
+                  For 30 days the organization stays read-only and the closing can be cancelled. Then every process,
+                  case, user and entry of it is deleted, and only its id and its dates remain. Write its name to
+                  confirm.
+                </p>
+                <form class="d-flex flex-wrap gap-2" (ngSubmit)="pedirBaja()" novalidate>
+                  <label i18n class="visually-hidden" for="configuracion-baja-confirmacion"
+                    >Name of the organization</label
+                  >
+                  <input
+                    class="form-control w-auto flex-grow-1"
+                    id="configuracion-baja-confirmacion"
+                    name="confirmacionDeBaja"
+                    autocomplete="off"
+                    [placeholder]="empresa?.nombre ?? ''"
+                    [(ngModel)]="confirmacionDeBaja"
+                  />
+                  <button
+                    i18n
+                    type="submit"
+                    class="btn btn-danger"
+                    id="configuracion-baja-pedir"
+                    [disabled]="ocupado || !empresa || confirmacionDeBaja !== empresa.nombre"
+                  >
+                    Close the organization
+                  </button>
+                </form>
+              }
+            </div>
+          </div>
+        }
       }
     </div>
   </div>

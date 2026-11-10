@@ -1,6 +1,7 @@
 package com.facimus.procesos.security.controller;
 
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
@@ -8,7 +9,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +27,7 @@ import com.facimus.procesos.gestion.dto.request.CambiarClaveRequest;
 import com.facimus.procesos.gestion.dto.request.CodigoRequest;
 import com.facimus.procesos.gestion.dto.request.LoginRequest;
 import com.facimus.procesos.gestion.dto.request.ReautenticacionRequest;
+import com.facimus.procesos.gestion.dto.response.SesionAbiertaResponse;
 import com.facimus.procesos.gestion.dto.response.SesionActual;
 import com.facimus.procesos.gestion.dto.response.SesionActualResponse;
 import com.facimus.procesos.gestion.dto.response.SesionResponse;
@@ -103,6 +107,45 @@ public class AuthController {
         SesionActual actual = sesionService.actual(principal.empresaId(), principal.usuarioId(), principal.sesion());
         return ResponseEntity.ok(new SesionActualResponse(actual.usuario(), false, actual.inactividad().toSeconds(),
                 actual.restante().toSeconds()));
+    }
+
+    @Operation(summary = "List your open sessions",
+            description = "The sessions of the caller that still work, newest activity first: when each started, when "
+                    + "it was last renewed and with which factors, and which one is asking. Dates in UTC.")
+    @ApiResponse(responseCode = "200", description = "The open sessions")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @GetMapping("/sesiones")
+    public ResponseEntity<List<SesionAbiertaResponse>> sesiones(@AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(sesionService.abiertas(principal.empresaId(), principal.usuarioId(),
+                principal.sesion()));
+    }
+
+    @Operation(summary = "Close one of your sessions",
+            description = "Closes it at once: its access cookie stops working on the next request and its refresh "
+                    + "token renews nothing. Closing the one asking also clears its cookies.")
+    @ApiResponse(responseCode = "204", description = "Session closed")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @DeleteMapping("/sesiones/{id}")
+    public ResponseEntity<Void> cerrarSesion(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal,
+            HttpServletResponse respuesta) {
+        boolean esLaActual = sesionService.abiertas(principal.empresaId(), principal.usuarioId(), principal.sesion())
+                .stream().anyMatch(sesion -> sesion.actual() && sesion.id().equals(id));
+        sesionService.cerrarPorId(principal.empresaId(), principal.usuarioId(), id);
+        if (esLaActual) {
+            cookies.cerrar(respuesta);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Close your other sessions",
+            description = "Closes every session of the caller except the one asking, as after losing a device.")
+    @ApiResponse(responseCode = "204", description = "The other sessions are closed")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @DeleteMapping("/sesiones")
+    public ResponseEntity<Void> cerrarLasDemas(@AuthenticationPrincipal ApiPrincipal principal) {
+        sesionService.cerrarLasDemas(principal.empresaId(), principal.usuarioId(), principal.sesion());
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Log in", description = "Checks the email and password and opens a session: an access "

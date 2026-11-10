@@ -20,48 +20,134 @@
             <div class="alert alert-danger" role="alert" id="login-error">{{ error }}</div>
           }
 
-          <form [formGroup]="loginForm" (ngSubmit)="iniciarSesion()" novalidate>
-            <div class="form-floating mb-3">
-              <input
-                i18n-placeholder
-                type="email"
-                class="form-control"
-                id="login-email"
-                formControlName="email"
-                placeholder="name@company.com"
-                autocomplete="email"
-              />
-              <label i18n for="login-email">Email</label>
-              <app-error-campo [control]="loginForm.get('email')" />
-            </div>
-
-            <div class="form-floating mb-4">
-              <input
-                i18n-placeholder
-                type="password"
-                class="form-control"
-                id="login-password"
-                formControlName="password"
-                placeholder="Password"
-                autocomplete="current-password"
-              />
-              <label i18n for="login-password">Password</label>
-              <app-error-campo [control]="loginForm.get('password')" />
-            </div>
-
-            <button
-              i18n
-              type="submit"
-              class="btn btn-primary w-100 py-2"
-              id="login-enviar"
-              [disabled]="loginForm.invalid || enviando"
-            >
-              @if (enviando) {
-                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+          @if (paso === 'segundo-factor') {
+            <form (ngSubmit)="enviarCodigo()" novalidate id="login-segundo-factor">
+              <p i18n class="small mb-3" id="login-falta-el-codigo">
+                Your account has a second factor. Enter the code your authenticator app shows now, or one of your
+                recovery codes.
+              </p>
+              <div class="mb-3">
+                <label i18n class="form-label" for="login-codigo">Code</label>
+                <input
+                  type="text"
+                  class="form-control form-control-lg"
+                  id="login-codigo"
+                  name="codigo"
+                  autocomplete="one-time-code"
+                  [(ngModel)]="codigo"
+                />
+              </div>
+              <button
+                i18n
+                type="submit"
+                class="btn btn-primary w-100 py-2"
+                id="login-codigo-enviar"
+                [disabled]="!codigo.trim() || enviando"
+              >
+                Continue
+              </button>
+            </form>
+            <div class="d-flex flex-wrap justify-content-between gap-2 mt-3 small">
+              @if (passkeysEnEsteNavegador) {
+                <button
+                  i18n
+                  type="button"
+                  class="btn btn-link p-0"
+                  id="login-segundo-passkey"
+                  [disabled]="enviando"
+                  (click)="segundoFactorConPasskey()"
+                >
+                  Use a passkey instead
+                </button>
               }
-              Sign in
-            </button>
-          </form>
+              <button i18n type="button" class="btn btn-link p-0" id="login-volver" (click)="volverALaClave()">
+                Start again
+              </button>
+            </div>
+          } @else {
+            <form [formGroup]="loginForm" (ngSubmit)="iniciarSesion()" novalidate>
+              <div class="form-floating mb-3">
+                <input
+                  i18n-placeholder
+                  type="email"
+                  class="form-control"
+                  id="login-email"
+                  formControlName="email"
+                  placeholder="name@company.com"
+                  autocomplete="email"
+                />
+                <label i18n for="login-email">Email</label>
+                <app-error-campo [control]="loginForm.get('email')" />
+              </div>
+
+              <div class="form-floating mb-4">
+                <input
+                  i18n-placeholder
+                  type="password"
+                  class="form-control"
+                  id="login-password"
+                  formControlName="password"
+                  placeholder="Password"
+                  autocomplete="current-password"
+                />
+                <label i18n for="login-password">Password</label>
+                <app-error-campo [control]="loginForm.get('password')" />
+              </div>
+
+              <button
+                i18n
+                type="submit"
+                class="btn btn-primary w-100 py-2"
+                id="login-enviar"
+                [disabled]="loginForm.invalid || enviando"
+              >
+                @if (enviando) {
+                  <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                }
+                Sign in
+              </button>
+            </form>
+            <p class="text-end small mt-2 mb-0">
+              <a i18n routerLink="/recuperar-clave" id="login-olvide">Forgot your password?</a>
+            </p>
+
+            @if (passkeysEnEsteNavegador || proveedores.length > 0) {
+              <div class="d-flex align-items-center gap-2 my-3 text-body-secondary small" aria-hidden="true">
+                <hr class="flex-grow-1" />
+                <span i18n>or</span>
+                <hr class="flex-grow-1" />
+              </div>
+              <div class="d-grid gap-2">
+                @if (passkeysEnEsteNavegador) {
+                  <button
+                    i18n
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="login-passkey"
+                    [disabled]="enviando"
+                    (click)="entrarConPasskey()"
+                  >
+                    <i class="fa-solid fa-fingerprint" aria-hidden="true"></i> Sign in with a passkey
+                  </button>
+                }
+                @for (proveedor of proveedores; track proveedor) {
+                  <a
+                    class="btn btn-outline-secondary"
+                    [href]="entradaCon(proveedor)"
+                    [id]="'login-proveedor-' + proveedor"
+                  >
+                    <i
+                      class="fa-brands"
+                      [class.fa-google]="proveedor === 'google'"
+                      [class.fa-microsoft]="proveedor === 'microsoft'"
+                      aria-hidden="true"
+                    ></i>
+                    <span i18n>Sign in with {{ nombreDe(proveedor) }}</span>
+                  </a>
+                }
+              </div>
+            }
+          }
 
           @if (demo) {
             <div class="border rounded-3 p-3 mt-4 bg-body-tertiary small" id="login-demo">

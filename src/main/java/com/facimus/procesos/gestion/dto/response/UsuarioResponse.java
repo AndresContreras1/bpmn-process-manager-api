@@ -25,9 +25,20 @@ public record UsuarioResponse(
         @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,
         @Schema(description = "True while the user still has to change a temporary password", example = "false")
         boolean debeCambiarClave,
+        @Schema(description = "When the user confirmed the e-mail with the link it received; empty while not "
+                + "confirmed. UTC", example = "2026-09-21T15:10:00") LocalDateTime correoVerificadoEn,
         @Schema(description = "The temporary password, answered once and only when it was just generated; it is "
                 + "never stored in the clear and no other response carries it", example = "Xk7pQm2rT9vB4nLw")
         @JsonInclude(JsonInclude.Include.NON_NULL) String claveTemporal) {
+
+    /** Sin la fecha de verificacion del correo, como antes de F14. */
+    @SuppressWarnings("java:S107") // los campos del perfil, por su nombre
+    public UsuarioResponse(Long id, String nombre, String email, RolAcceso rolAcceso, boolean activo, Long empresaId,
+            Long version, Long creadoPor, LocalDateTime fechaCreacion, Long modificadoPor,
+            LocalDateTime fechaModificacion, boolean debeCambiarClave, String claveTemporal) {
+        this(id, nombre, email, rolAcceso, activo, empresaId, version, creadoPor, fechaCreacion, modificadoPor,
+                fechaModificacion, debeCambiarClave, null, claveTemporal);
+    }
 
     /** La identidad con la que entra este usuario: el tenant y el rol salen de aqui, nunca del request. */
     public ApiPrincipal comoPrincipal(String sesion) {
@@ -37,6 +48,6 @@ public record UsuarioResponse(
     /** La clave temporal solo viaja en la respuesta que la genera; el mapper deja el campo vacio siempre. */
     public UsuarioResponse conClaveTemporal(String clave) {
         return new UsuarioResponse(id, nombre, email, rolAcceso, activo, empresaId, version, creadoPor, fechaCreacion,
-                modificadoPor, fechaModificacion, debeCambiarClave, clave);
+                modificadoPor, fechaModificacion, debeCambiarClave, correoVerificadoEn, clave);
     }
 }
