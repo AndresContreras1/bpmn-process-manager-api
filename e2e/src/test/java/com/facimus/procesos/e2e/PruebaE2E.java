@@ -160,7 +160,7 @@ abstract class PruebaE2E {
 
     /**
      * Sale sin pasar por el menu: la sesion son las cookies HttpOnly, que el navegador de la prueba si puede borrar
-     * aunque la pagina no, y lo que la web recuerda de quien entro, en localStorage.
+     * aunque la pagina no, y la marca de que hubo una sesion, en localStorage (F13: el perfil ya no se guarda ahi).
      */
     protected void salir() {
         navegador.manage().deleteAllCookies();
