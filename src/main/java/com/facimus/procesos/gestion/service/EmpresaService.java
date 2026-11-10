@@ -8,8 +8,17 @@ import com.facimus.procesos.gestion.dto.response.EmpresaResponse;
 /** HU-01: registro de empresa + usuario administrador inicial. */
 public interface EmpresaService {
 
+    /** Una organizacion en espanol de Colombia y en la hora de Bogota. */
+    default EmpresaResponse registrar(String nombre, String nit, String correoContacto,
+            String nombreAdmin, String emailAdmin, String passwordAdmin) {
+        return registrar(nombre, nit, correoContacto, nombreAdmin, emailAdmin, passwordAdmin, Idiomas.POR_DEFECTO,
+                Idiomas.zonaPorDefecto(Idiomas.POR_DEFECTO));
+    }
+
+    /** F12: con el idioma y la zona horaria con que empieza a trabajar su gente, ya validados. */
+    @SuppressWarnings("java:S107") // cada dato del registro, por su nombre
     EmpresaResponse registrar(String nombre, String nit, String correoContacto,
-            String nombreAdmin, String emailAdmin, String passwordAdmin);
+            String nombreAdmin, String emailAdmin, String passwordAdmin, String idioma, String zonaHoraria);
 
     /** Para quien la pide solo existe su propia empresa: cualquier otro id responde 404. */
     EmpresaResponse obtener(Long empresaId, Long id);

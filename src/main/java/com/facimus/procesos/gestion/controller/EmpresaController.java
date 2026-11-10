@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +30,7 @@ import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
+import com.facimus.procesos.gestion.service.Idiomas;
 import com.facimus.procesos.gestion.service.LimitesDeSesion;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -54,16 +56,25 @@ public class EmpresaController {
     private final ConfiguracionTiendaService configuracionTiendaService;
 
     @Operation(summary = "Register a store",
-            description = "Creates the store together with its first administrator, whose email becomes the login.")
+            description = "Creates the store together with its first administrator, whose email becomes the login. "
+                    + "Its language and time zone are the ones sent, or else the closest language of the web to the "
+                    + "Accept-Language header and the time zone of that language's capital.")
     @ApiResponse(responseCode = "201", description = "Store and administrator created",
             headers = @Header(name = HttpHeaders.LOCATION, description = "URL of the new store"))
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "409", ref = "Conflict")
     @SecurityRequirements()
     @PostMapping
-    public ResponseEntity<EmpresaResponse> registrar(@Validated @RequestBody RegistroEmpresaRequest request) {
+    public ResponseEntity<EmpresaResponse> registrar(@Validated @RequestBody RegistroEmpresaRequest request,
+            @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+            String acceptLanguage) {
+        // F12: la organizacion empieza a trabajar en el idioma de quien la registra, que es el de la web que uso
+        String idioma = Idiomas.esDeLaWeb(request.idioma()) ? request.idioma() : Idiomas.deLaCabecera(acceptLanguage);
+        String zona = request.zonaHoraria() == null || request.zonaHoraria().isBlank()
+                ? Idiomas.zonaPorDefecto(idioma) : Idiomas.validarZona(request.zonaHoraria());
         EmpresaResponse empresa = empresaService.registrar(request.nombreEmpresa(), request.nit(),
-                request.correoContacto(), request.nombreAdmin(), request.emailAdmin(), request.passwordAdmin());
+                request.correoContacto(), request.nombreAdmin(), request.emailAdmin(), request.passwordAdmin(),
+                idioma, zona);
         return ResponseEntity.created(URI.create("/api/v1/empresas/" + empresa.id())).body(empresa);
     }
 

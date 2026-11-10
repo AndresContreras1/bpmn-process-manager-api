@@ -53,12 +53,14 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
 
     @Override
     @Transactional
-    public void crearPara(Long empresaId) {
+    public void crearPara(Long empresaId, String idioma, String zonaHoraria) {
         Empresa empresa = empresaRepository.findById(empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Empresa no encontrada."));
         configuracionTiendaRepository.save(ConfiguracionTienda.builder()
                 .empresa(empresa)
                 .politicaEstructura(PoliticaEstructura.ADMINISTRADOR_Y_EDITOR)
+                .idioma(idioma)
+                .zonaHoraria(zonaHoraria)
                 .build());
     }
 

@@ -76,6 +76,16 @@ public class ConfiguracionTienda extends EntidadEditable {
     @Builder.Default
     private PoliticaSegundoFactor politicaSegundoFactor = PoliticaSegundoFactor.OPCIONAL;
 
+    /** F12: el idioma con que trabaja su gente, salvo quien elija otro. */
+    @Column(name = "idioma", nullable = false, length = 5)
+    @Builder.Default
+    private String idioma = "es-CO";
+
+    /** F12: la zona horaria en que se leen sus fechas, salvo quien elija otra. */
+    @Column(name = "zona_horaria", nullable = false, length = 40)
+    @Builder.Default
+    private String zonaHoraria = "America/Bogota";
+
     /** PR 50: su gente entra solo con Google o Microsoft; los administradores conservan la clave. */
     @Column(name = "solo_entrada_externa", nullable = false)
     @Builder.Default

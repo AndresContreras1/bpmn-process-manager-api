@@ -49,8 +49,9 @@ public class EmpresaServiceImpl implements EmpresaService {
 
     @Override
     @Transactional
+    @SuppressWarnings("java:S107") // cada dato del registro, por su nombre
     public EmpresaResponse registrar(String nombre, String nit, String correoContacto,
-            String nombreAdmin, String emailAdmin, String passwordAdmin) {
+            String nombreAdmin, String emailAdmin, String passwordAdmin, String idioma, String zonaHoraria) {
         if (empresaRepository.existsByNit(nit)) {
             throw new ReglaNegocioException("Ya existe una empresa registrada con el NIT " + nit + ".");
         }
@@ -67,7 +68,7 @@ public class EmpresaServiceImpl implements EmpresaService {
         // Sin autor: el primer administrador todavia no existe, y al crearse firma su propia alta.
         UsuarioResponse administrador = usuarioService.crearColaborador(empresa.getId(), null, nombreAdmin,
                 emailAdmin, passwordAdmin, RolAcceso.ADMINISTRADOR);
-        configuracionTiendaService.crearPara(empresa.getId());
+        configuracionTiendaService.crearPara(empresa.getId(), idioma, zonaHoraria);
         historialCambioService.registrarDeTienda(empresa.getId(), administrador.id(), RecursoDeHistorial.EMPRESA,
                 empresa.getId(), "Tienda \"" + nombre + "\" registrada.");
         // Hasta que el administrador siga el enlace, la tienda no invita a nadie por correo.

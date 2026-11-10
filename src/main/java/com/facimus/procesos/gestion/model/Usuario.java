@@ -68,4 +68,12 @@ public class Usuario extends EntidadEditable {
      */
     @Column(name = "webauthn_id")
     private byte[] webauthnId;
+
+    /** F12: el idioma de la web que eligio, como es-CO; vacio sigue el de su organizacion. */
+    @Column(name = "idioma", length = 5)
+    private String idioma;
+
+    /** F12: su zona horaria de IANA, como America/Bogota; vacia sigue la de su organizacion. */
+    @Column(name = "zona_horaria", length = 40)
+    private String zonaHoraria;
 }

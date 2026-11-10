@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 @Schema(description = "A new store and its first administrator")
@@ -27,5 +28,18 @@ public record RegistroEmpresaRequest(
         @Schema(description = "At least 15 characters, with no other rule about what they are: a few words make a good one. It cannot be a known leaked password, a repeated character or a series, or carry the name, the e-mail or the store", example = "harbor lights at dusk", format = "password")
         @NotBlank(message = "La contrasena es obligatoria.")
         @Size(min = 15, message = "La contraseña debe tener al menos 15 caracteres.")
-        @Size(max = 72, message = "La contrasena no puede superar 72 caracteres.") String passwordAdmin) {
+        @Size(max = 72, message = "La contrasena no puede superar 72 caracteres.") String passwordAdmin,
+        @Schema(description = "Language the organization works in: es-CO, en-US, en-AU or fr-FR. Optional: without "
+                + "it, the closest one to the Accept-Language header", example = "es-CO")
+        @Pattern(regexp = "(es-CO|en-US|en-AU|fr-FR)?", message = "El idioma es es-CO, en-US, en-AU o fr-FR.")
+        String idioma,
+        @Schema(description = "IANA time zone of the organization. Optional: without it, the one of its language's "
+                + "capital", example = "America/Bogota")
+        @Size(max = 40, message = "La zona horaria no puede superar 40 caracteres.") String zonaHoraria) {
+
+    /** Sin idioma ni zona: los deduce la API. */
+    public RegistroEmpresaRequest(String nombreEmpresa, String nit, String correoContacto, String nombreAdmin,
+            String emailAdmin, String passwordAdmin) {
+        this(nombreEmpresa, nit, correoContacto, nombreAdmin, emailAdmin, passwordAdmin, null, null);
+    }
 }
