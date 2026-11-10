@@ -53,7 +53,9 @@ curl "http://localhost:8080/api/v1/procesos/1/diagnostico?sinElemento=GATEWAY:5"
 Publishing a process is `PATCH /api/v1/procesos/{id}` with `{ "estado": "PUBLICADO", "version": n }`. It runs the
 diagnosis first, and with a single error it answers `409` with the list in `errors` and saves nothing. Otherwise it
 saves the whole diagram as the next version, exactly as `GET /procesos/{id}/diagrama` returns it, and answers the
-process with `versionPublicada`.
+process with `versionPublicada`. The version also keeps the same diagram as a BPMN 2.0.2 file, written right then and
+never again: `GET /procesos/{id}/versiones/{n}/modelo` downloads the same bytes today and in a year, whatever changes
+in the exporter ([ADR-0053](adr/0053-bpmn-export.md)).
 
 The model keeps being editable: what is edited is the draft. A process read one by one says `borradorPendiente`,
 which is true when the diagram of today is not the one in force, and the diagnosis says the same with `A-13`. It is
@@ -69,6 +71,9 @@ curl -s http://localhost:8080/api/v1/procesos/1/versiones -b sesion.txt -H "X-XS
 
 # The diagram as it was published, however much the draft has changed since
 curl -s http://localhost:8080/api/v1/procesos/1/versiones/1/diagrama -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+
+# The same version as a .bpmn file, for bpmn.io or Camunda Modeler
+curl -s -OJ http://localhost:8080/api/v1/procesos/1/versiones/1/modelo -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
 ```
 
 A version that should not be used any more is retired by an administrator with
