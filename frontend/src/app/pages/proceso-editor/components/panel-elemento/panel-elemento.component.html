@@ -235,16 +235,17 @@
         </label>
       </div>
 
-      <div class="mb-3" formArrayName="campos">
+      <div class="mb-3" formArrayName="campos" role="group" aria-labelledby="panel-mensaje-campos">
         <div class="d-flex align-items-center justify-content-between">
-          <label class="form-label small mb-0">Fields it carries</label>
+          <span class="form-label small mb-0" id="panel-mensaje-campos">Fields it carries</span>
           <button type="button" class="btn btn-sm btn-outline-secondary" id="panel-mensaje-agregar-campo"
                   [disabled]="!puedeEditar()" (click)="agregarCampo()">Add</button>
         </div>
         @for (campo of campos.controls; track $index) {
           <div class="d-flex gap-1 mt-1" [formGroupName]="$index" data-testid="campo-mensaje">
-            <input type="text" class="form-control form-control-sm" formControlName="nombre" placeholder="orderId">
-            <select class="form-select form-select-sm w-auto" formControlName="tipo">
+            <input type="text" class="form-control form-control-sm" formControlName="nombre" placeholder="orderId"
+                   aria-label="Name of the field">
+            <select class="form-select form-select-sm w-auto" formControlName="tipo" aria-label="Type of the field">
               @for (tipo of tiposDato; track tipo) {
                 <option [value]="tipo">{{ tipo }}</option>
               }
