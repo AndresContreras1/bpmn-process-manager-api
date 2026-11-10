@@ -10,6 +10,9 @@ docker compose up -d --build --wait   # from the root of the repository
 
 `E2E_BASE_URL` and `E2E_API_URL` say where to look; without them it assumes the stack on port 80.
 
+Chrome asks for the web in Spanish of Colombia, the language of a new organization, so NGINX serves the `es-CO`
+build and the scenarios read Spanish. Everything is found by `id`; the texts they check are the Spanish ones.
+
 ## What each scenario covers
 
 | Class | What it walks through |
@@ -18,6 +21,7 @@ docker compose up -d --build --wait   # from the root of the repository
 | `ModelarYPublicarTest` | A half-modelled diagram cannot be published; a task is added from the palette, named, and connected to the start and the end; the diagnosis drops to zero errors and the process is published as version 1, with its task and its two events counted by the viewer; and then version 1 is retired from the banner of the frozen diagram, which is the one change a published version accepts |
 | `CompartirYAdministrarTest` | A process is published and shared by tax id; the other store finds it in *shared with your store*, opens it, is told it is the version in force, and has no edit or model button. An administrator creates a role and adds someone, whose temporary password is shown once and is gone after a reload. The search box leaves one row of two; the panel of process roles comes back with what was saved already ticked; somebody is deactivated, disappears from the list, is found again with *Show deactivated* and brought back. An editor, signed in as herself, sees neither the users menu nor the store history, and the users screen tells her whose it is |
 | `OperarUnPedidoTest` | An order from end to end: it is opened from the cases, the case page shows the token standing on the task that is waiting, the task is taken and completed from the tray, and the case finishes with its three nodes marked while the dashboard counts one order and nothing wrong. A second scenario moves the clock and then saves the partners, in that order, which is what finds out whether the panel read their version again |
+| `RecorrerEnInglesTest` | A browser in English: without a session the home page comes in English; signing in to an organization that works in Spanish opens the web in Spanish; picking English in the header saves it and reopens the same screen in English; a link without a language goes to English, the process reads *Draft* and the account shows its date in English; following the organization again brings the web back to Spanish |
 | `AccesibilidadTest` | axe-core over the home page, the sign-in and the registration, and over every screen of the sidebar with an administrator, in the light theme and then in the dark one, switched from the header as a person would: a serious or critical violation of WCAG 2.1 AA fails the test and names the rule and the elements |
 
 ## Why it is built this way

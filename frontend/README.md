@@ -1,7 +1,7 @@
 # BPMN Process Manager web
 
-The Angular front end of the [BPMN Process Manager API](../README.md). Each online store signs in, manages its
-processes and views their BPMN diagrams. Screens arrive in small pull requests; so far the app has the home page, sign
+The Angular front end of the [BPMN Process Manager API](../README.md). Each organization signs in, manages its
+processes and views their BPMN diagrams, in Spanish, English or French. Screens arrive in small pull requests; so far the app has the home page, sign
 in, store registration, the account page, the process screens and the diagram viewer.
 
 ## Stack
@@ -33,10 +33,16 @@ npm start -- --port 4201
 
 On Windows PowerShell, if running scripts is disabled, call `npm.cmd` instead of `npm`.
 
-A production build goes to `dist/bpmn-process-manager-web/browser/`:
+A production build goes to `dist/bpmn-process-manager-web/browser/`, one folder per language:
 
 ```bash
 npm run build
+```
+
+`npm start` serves the source language, English. To work on another one:
+
+```bash
+npm start -- --localize=es-CO
 ```
 
 What the pipeline checks before it builds:
@@ -46,6 +52,25 @@ npm run lint           # angular-eslint over the TypeScript and the templates, a
 npm run format:check   # Prettier over src; npm run format writes it
 npm test               # Vitest over the logic that is not a screen: helpers and the geometry of the canvas
 ```
+
+## Languages
+
+[ADR-0050](../docs/adr/0050-one-build-per-language.md): `@angular/localize`, with one build per language, each in its
+own folder: `es-CO`, `en-US`, `en-AU` and `fr-FR`, with the dates, numbers and currency of each (COP, USD, AUD and
+EUR). English (en-US) is the language of the source.
+
+- **Marking texts.** A template marks what a person reads with `i18n` and `i18n-<attribute>`, and the code with
+  `$localize`. A text that depends on a value is a block (`@if (enviando) {Saving…} @else {Save}`) or a whole plural
+  (`{n, plural, =1 {1 case} other {{{ n }} cases}}`), never a string inside an expression, so that each language can
+  write the sentence its own way.
+- **Translations.** `npm run extract-i18n` writes the messages to `src/locale/messages.json`; each language has its
+  `messages.<language>.json` beside it. The build stops on a message without its translation.
+- **Which one opens.** NGINX serves each folder and sends any other path to the reader's language: the cookie
+  `idioma`, which the language menu of the header sets, or else the browser's `Accept-Language`. After signing in, the
+  web opens in the language that holds for the person: their own, chosen in *My account*, or their organization's,
+  which an administrator sets in *Organization settings*. The same two places choose the time zone.
+- **Dates.** The API answers in UTC; the `fecha` pipe shows a date in the time zone that holds for the person, in the
+  language of the build. A date without a time, such as the day an organization registered, is that day everywhere.
 
 ## Design system
 
