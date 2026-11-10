@@ -28,11 +28,12 @@ import tools.jackson.databind.json.JsonMapper;
 public class InscripcionObligatoriaFilter extends OncePerRequestFilter {
 
     static final String MOTIVO = "Tu tienda exige un segundo factor: inscribe tu aplicación de autenticación en "
-            + "/api/v1/auth/segundo-factor/totp, confírmala y renueva la sesión.";
+            + "/api/v1/auth/segundo-factor/totp y confírmala, o registra una passkey, y renueva la sesión.";
 
     /** Lo minimo para inscribirlo y seguir: el segundo factor propio, la sesion y la clave. */
     private static final Set<String> PERMITIDAS = Set.of("/api/v1/auth/segundo-factor",
             "/api/v1/auth/segundo-factor/totp", "/api/v1/auth/segundo-factor/totp/confirmacion",
+            "/api/v1/auth/segundo-factor/passkeys", "/api/v1/auth/segundo-factor/passkeys/opciones",
             "/api/v1/auth/reautenticacion", "/api/v1/auth/password", "/api/v1/auth/refresh", "/api/v1/auth/logout",
             "/api/v1/auth/csrf");
 

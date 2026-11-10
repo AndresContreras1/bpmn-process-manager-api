@@ -29,11 +29,17 @@ import tools.jackson.databind.json.JsonMapper;
 public class SegundoFactorPendienteFilter extends OncePerRequestFilter {
 
     static final String MOTIVO = "Falta el segundo factor: envía el código de tu aplicación de autenticación o uno de "
-            + "tus códigos de recuperación a /api/v1/auth/segundo-factor/verificacion.";
+            + "tus códigos de recuperación a /api/v1/auth/segundo-factor/verificacion, o firma con una passkey.";
 
     static final String VERIFICACION = "/api/v1/auth/segundo-factor/verificacion";
 
-    private static final Set<String> PERMITIDAS = Set.of(VERIFICACION, "/api/v1/auth/logout", "/api/v1/auth/csrf");
+    /** PR 49b: el segundo factor tambien puede ser una passkey: sus opciones y su firma. */
+    static final String OPCIONES_DE_PASSKEY = VERIFICACION + "/passkey/opciones";
+
+    static final String VERIFICACION_CON_PASSKEY = VERIFICACION + "/passkey";
+
+    private static final Set<String> PERMITIDAS = Set.of(VERIFICACION, OPCIONES_DE_PASSKEY, VERIFICACION_CON_PASSKEY,
+            "/api/v1/auth/logout", "/api/v1/auth/csrf");
 
     private final JsonMapper jsonMapper;
 
