@@ -2,6 +2,7 @@ package com.facimus.procesos.gestion.controller;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -42,12 +43,14 @@ class EmpresaControllerTest {
     private EmpresaService empresaService;
 
     @Test
-    @DisplayName("POST /api/v1/empresas - registrar empresa exitoso (201)")
+    @DisplayName("POST /api/v1/empresas - registrar empresa exitoso (201); sin idioma ni Accept-Language, en espanol de "
+            + "Colombia y en la hora de Bogota")
     void registrar_exitoso() throws Exception {
         EmpresaResponse empresa = new EmpresaResponse(1L, "Acme Corp", "900123456", "info@acme.com", LocalDate.now(),
                 null, null);
 
-        given(empresaService.registrar(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+        given(empresaService.registrar(anyString(), anyString(), anyString(), anyString(), anyString(), anyString(),
+                eq("es-CO"), eq("America/Bogota")))
                 .willReturn(empresa);
 
         mockMvc.perform(post("/api/v1/empresas")
