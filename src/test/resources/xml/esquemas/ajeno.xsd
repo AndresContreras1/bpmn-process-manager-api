@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PR 53: importa un archivo que no esta en la carpeta: no se carga de ninguna otra parte. -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:ajeno">
+  <xsd:import namespace="urn:fuera" schemaLocation="../../../etc/no-esta.xsd"/>
+</xsd:schema>
