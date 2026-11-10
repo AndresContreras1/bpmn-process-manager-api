@@ -24,7 +24,7 @@
 - [x] Sessions with an idle timeout and a maximum duration that each store chooses, within AAL2
 - [x] A second factor with an authenticator app and recovery codes, a login in two steps, a recent verification
       for what changes it, and a policy per store that asks for it from administrators or from everybody
-- [ ] Passkeys (WebAuthn), as a second factor and as a sign-in without a password
+- [x] Passkeys (WebAuthn), as a second factor and as a sign-in without a password
 - [x] Signing in with Google or Microsoft (OpenID Connect with PKCE), linking an account only after its owner
       confirms it, verified e-mail domains that join a store, and a store that signs in only with a provider
 - [x] Closing a store with 30 days of read-only grace and then deleting everything it had, and anonymizing a

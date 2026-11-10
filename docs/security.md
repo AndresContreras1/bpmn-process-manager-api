@@ -115,7 +115,42 @@ else answers `403` with the title "Segundo factor obligatorio". Every token of a
 issued, so renewing after the confirmation is enough to work, and a store that starts asking for it reaches the
 open sessions at their next renewal.
 
-Passkeys (WebAuthn), as a second factor and as a sign-in without a password, come in a pull request of their own.
+### Passkeys
+
+A passkey (WebAuthn) is a pair of keys kept by the person's device or password manager: the API keeps only the
+public key and checks with it what the device signs. Every ceremony asks the device to verify the person
+(fingerprint, face or PIN), so a passkey is two factors at once: it works as the second factor after the password
+and alone to sign in without one. [ADR-0049](adr/0049-passkeys-without-http-session.md) explains why the API uses
+Spring Security's WebAuthn operations from its own controllers.
+
+Each ceremony has two steps: the API answers options with a challenge, the browser hands them to
+`navigator.credentials`, and the API checks what the device signed for them.
+
+| Ceremony | Options | Answer |
+|---|---|---|
+| Register one, with a recent verification | `POST /api/v1/auth/segundo-factor/passkeys/opciones` | `POST /api/v1/auth/segundo-factor/passkeys` |
+| Finish the half-done login | `POST /api/v1/auth/segundo-factor/verificacion/passkey/opciones` | `POST /api/v1/auth/segundo-factor/verificacion/passkey` |
+| Confirm who you are | the same options | `POST /api/v1/auth/reautenticacion/passkey` |
+| Sign in without a password | `POST /api/v1/auth/passkeys/opciones` | `POST /api/v1/auth/passkeys/entrada` |
+
+What makes it hard to abuse:
+
+- The challenge lives in `desafios_webauthn`, hashed: it works once, for its purpose and its person, and for five
+  minutes. What the device signed is checked against the origin of the web app (`WEBAUTHN_ORIGINS`), the RP id
+  (`WEBAUTHN_RP_ID`), the challenge, the user verification flag and the public key kept at registration.
+- The counter of signatures only goes up: the update that stores a new one moves it forward or changes nothing, so
+  the same signature used twice, or a copy of the key, signs in once.
+- To finish a login or confirm who someone is, only the passkeys of that person are offered and accepted. Each
+  failure counts with the limit of the login in that account; signing in without a password counts against the
+  owner of a known passkey, and against the address in any case. A failure of a known passkey lands in the audit
+  trail as `PASSKEY_FALLIDA`.
+- Signing in without a password treats a deactivated person, an unknown passkey and a signature that does not
+  verify the same way: `401`. A store that signs in only with Google or Microsoft does not take passkeys either,
+  except from its administrators.
+- The first second factor, app or passkey, brings the ten recovery codes; a second one keeps them. Removing the last
+  one removes the codes too, and the login goes back to the password alone. Up to ten passkeys per person.
+- The administrator who removes someone's second factor removes their passkeys too, and anonymizing a person
+  deletes them and the user handle.
 
 ## Signing in with Google or Microsoft
 
