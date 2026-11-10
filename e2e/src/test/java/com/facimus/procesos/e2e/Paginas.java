@@ -59,6 +59,11 @@ final class Paginas {
         static final By CONFIRMAR_RETIRO = By.id("modal-retirar-confirmar");
         static final By INVITADA = By.id("proceso-detalle-invitada");
         static final By AVISO = By.id("proceso-detalle-aviso");
+
+        /** La opcion de una version publicada en el selector, por su numero: su texto cambia con el idioma. */
+        static By version(int numero) {
+            return By.cssSelector("#proceso-detalle-version option[data-version='" + numero + "']");
+        }
     }
 
     /** El editor del diagrama. */
@@ -158,6 +163,22 @@ final class Paginas {
         static final By CASOS = By.id("tablero-casos");
         static final By TERMINADOS = By.id("tablero-terminados");
         static final By TODO_BIEN = By.id("tablero-todo-bien");
+    }
+
+    /** F12: el idioma, en la barra y en la cuenta. */
+    static final class Idioma {
+        static final By MENU = By.id("navbar-idioma");
+        static final By LOGIN = By.id("navbar-login");
+        static final By CUENTA_IDIOMA = By.id("cuenta-idioma");
+        static final By CUENTA_ZONA = By.id("cuenta-zona");
+        static final By CUENTA_GUARDAR = By.id("cuenta-preferencias-guardar");
+        static final By CUENTA_AVISO = By.id("cuenta-preferencias-aviso");
+        static final By CUENTA_FECHA = By.id("cuenta-empresa-fecha");
+        static final By SECCION_PROCESOS = By.id("navbar-procesos");
+
+        static By opcion(String idioma) {
+            return By.id("navbar-idioma-" + idioma);
+        }
     }
 
     /** Compartir un proceso. */
