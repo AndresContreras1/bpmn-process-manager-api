@@ -17,23 +17,40 @@
             <div class="row g-3 mb-4">
               <div class="col-12">
                 <div class="form-floating">
-                  <input type="text" class="form-control" id="registro-nombre-empresa" formControlName="nombreEmpresa"
-                         placeholder="Store name" autocomplete="organization">
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="registro-nombre-empresa"
+                    formControlName="nombreEmpresa"
+                    placeholder="Store name"
+                    autocomplete="organization"
+                  />
                   <label for="registro-nombre-empresa">Store name</label>
                   <app-error-campo [control]="registroForm.get('nombreEmpresa')" />
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="form-floating">
-                  <input type="text" class="form-control" id="registro-nit" formControlName="nit" placeholder="Tax ID">
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="registro-nit"
+                    formControlName="nit"
+                    placeholder="Tax ID"
+                  />
                   <label for="registro-nit">Tax ID (NIT)</label>
                   <app-error-campo [control]="registroForm.get('nit')" />
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="form-floating">
-                  <input type="email" class="form-control" id="registro-correo-contacto" formControlName="correoContacto"
-                         placeholder="contact@store.com">
+                  <input
+                    type="email"
+                    class="form-control"
+                    id="registro-correo-contacto"
+                    formControlName="correoContacto"
+                    placeholder="contact@store.com"
+                  />
                   <label for="registro-correo-contacto">Contact email</label>
                   <app-error-campo [control]="registroForm.get('correoContacto')" />
                 </div>
@@ -44,24 +61,42 @@
             <div class="row g-3 mb-4">
               <div class="col-12">
                 <div class="form-floating">
-                  <input type="text" class="form-control" id="registro-nombre-admin" formControlName="nombreAdmin"
-                         placeholder="Full name" autocomplete="name">
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="registro-nombre-admin"
+                    formControlName="nombreAdmin"
+                    placeholder="Full name"
+                    autocomplete="name"
+                  />
                   <label for="registro-nombre-admin">Full name</label>
                   <app-error-campo [control]="registroForm.get('nombreAdmin')" />
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="form-floating">
-                  <input type="email" class="form-control" id="registro-email-admin" formControlName="emailAdmin"
-                         placeholder="you@store.com" autocomplete="email">
+                  <input
+                    type="email"
+                    class="form-control"
+                    id="registro-email-admin"
+                    formControlName="emailAdmin"
+                    placeholder="you@store.com"
+                    autocomplete="email"
+                  />
                   <label for="registro-email-admin">Email (your login)</label>
                   <app-error-campo [control]="registroForm.get('emailAdmin')" />
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="form-floating">
-                  <input type="password" class="form-control" id="registro-password-admin" formControlName="passwordAdmin"
-                         placeholder="Password" autocomplete="new-password">
+                  <input
+                    type="password"
+                    class="form-control"
+                    id="registro-password-admin"
+                    formControlName="passwordAdmin"
+                    placeholder="Password"
+                    autocomplete="new-password"
+                  />
                   <label for="registro-password-admin">Password (15 to 72 characters)</label>
                   <app-error-campo [control]="registroForm.get('passwordAdmin')" />
                   <div class="form-text small">A few words make a good one: no symbols or capitals needed.</div>
@@ -69,8 +104,12 @@
               </div>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 py-2" id="registro-enviar"
-                    [disabled]="registroForm.invalid || enviando">
+            <button
+              type="submit"
+              class="btn btn-primary w-100 py-2"
+              id="registro-enviar"
+              [disabled]="registroForm.invalid || enviando"
+            >
               @if (enviando) {
                 <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
               }

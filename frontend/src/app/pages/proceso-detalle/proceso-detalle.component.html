@@ -30,9 +30,12 @@
       <div>
         <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
           <h1 class="h3 fw-bold mb-0" id="proceso-detalle-nombre">{{ detalle.proceso.nombre }}</h1>
-          <span class="badge" id="proceso-detalle-estado"
-                [class.text-bg-success]="detalle.proceso.estado === 'PUBLICADO'"
-                [class.text-bg-secondary]="detalle.proceso.estado === 'BORRADOR'">
+          <span
+            class="badge"
+            id="proceso-detalle-estado"
+            [class.text-bg-success]="detalle.proceso.estado === 'PUBLICADO'"
+            [class.text-bg-secondary]="detalle.proceso.estado === 'BORRADOR'"
+          >
             {{ nombreEstado[detalle.proceso.estado] }}
           </span>
         </div>
@@ -42,38 +45,64 @@
         <!-- Un proceso sin version publicada no tiene casos que mirar, y una invitada ve los de su propia tienda -->
         @if (detalle.proceso.versionPublicada !== null && !soloLectura) {
           <div class="small mt-1">
-            <a [routerLink]="['/casos']" [queryParams]="{ procesoId: detalle.proceso.id }"
-               id="proceso-detalle-casos">Its cases</a>
+            <a [routerLink]="['/casos']" [queryParams]="{ procesoId: detalle.proceso.id }" id="proceso-detalle-casos"
+              >Its cases</a
+            >
             ·
-            <a [routerLink]="['/tablero']" [queryParams]="{ procesoId: detalle.proceso.id }"
-               id="proceso-detalle-tablero">How it is going</a>
+            <a
+              [routerLink]="['/tablero']"
+              [queryParams]="{ procesoId: detalle.proceso.id }"
+              id="proceso-detalle-tablero"
+              >How it is going</a
+            >
           </div>
         }
       </div>
 
       @if (puedeEditar && !soloLectura) {
         <div class="d-flex flex-wrap gap-2">
-          <a class="btn btn-outline-secondary" [routerLink]="['/procesos', detalle.proceso.id, 'editar']"
-             id="proceso-detalle-editar">
+          <a
+            class="btn btn-outline-secondary"
+            [routerLink]="['/procesos', detalle.proceso.id, 'editar']"
+            id="proceso-detalle-editar"
+          >
             <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
           </a>
-          <a class="btn btn-outline-primary" [routerLink]="['/procesos', detalle.proceso.id, 'editar-diagrama']"
-             id="proceso-detalle-modelar">
+          <a
+            class="btn btn-outline-primary"
+            [routerLink]="['/procesos', detalle.proceso.id, 'editar-diagrama']"
+            id="proceso-detalle-modelar"
+          >
             <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Model
           </a>
           @if (detalle.proceso.estado === 'BORRADOR') {
-            <button type="button" class="btn btn-success" id="proceso-detalle-publicar" [disabled]="enviando"
-                    data-bs-toggle="modal" data-bs-target="#modal-publicar">
+            <button
+              type="button"
+              class="btn btn-success"
+              id="proceso-detalle-publicar"
+              [disabled]="enviando"
+              data-bs-toggle="modal"
+              data-bs-target="#modal-publicar"
+            >
               <i class="fa-solid fa-rocket" aria-hidden="true"></i> Publish
             </button>
           }
           @if (esAdministrador) {
-            <a class="btn btn-outline-secondary" [routerLink]="['/procesos', detalle.proceso.id, 'compartir']"
-               id="proceso-detalle-compartir">
+            <a
+              class="btn btn-outline-secondary"
+              [routerLink]="['/procesos', detalle.proceso.id, 'compartir']"
+              id="proceso-detalle-compartir"
+            >
               <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Share
             </a>
-            <button type="button" class="btn btn-outline-danger" id="proceso-detalle-eliminar" [disabled]="enviando"
-                    data-bs-toggle="modal" data-bs-target="#modal-eliminar">
+            <button
+              type="button"
+              class="btn btn-outline-danger"
+              id="proceso-detalle-eliminar"
+              [disabled]="enviando"
+              data-bs-toggle="modal"
+              data-bs-target="#modal-eliminar"
+            >
               <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete
             </button>
           }
@@ -119,16 +148,20 @@
               <div class="d-flex flex-wrap align-items-center gap-3">
                 @if (diagrama) {
                   <span class="small text-body-secondary" id="proceso-detalle-conteo">
-                    Tasks: {{ diagrama.actividades.length }} · Gateways: {{ diagrama.gateways.length }} ·
-                    Events: {{ diagrama.eventos.length }} · Message flows: {{ diagrama.mensajes.length }}
+                    Tasks: {{ diagrama.actividades.length }} · Gateways: {{ diagrama.gateways.length }} · Events:
+                    {{ diagrama.eventos.length }} · Message flows: {{ diagrama.mensajes.length }}
                   </span>
                 }
                 @if (versiones.length && !diagrama?.compartido) {
                   <div class="d-flex align-items-center gap-2">
                     <label class="small text-body-secondary mb-0" for="proceso-detalle-version">Showing</label>
-                    <select class="form-select form-select-sm w-auto" id="proceso-detalle-version"
-                            [disabled]="cambiandoVersion" [ngModel]="verVersion"
-                            (ngModelChange)="mostrarVersion($event)">
+                    <select
+                      class="form-select form-select-sm w-auto"
+                      id="proceso-detalle-version"
+                      [disabled]="cambiandoVersion"
+                      [ngModel]="verVersion"
+                      (ngModelChange)="mostrarVersion($event)"
+                    >
                       <option [ngValue]="null">Working copy</option>
                       @for (version of versiones; track version.id) {
                         <option [ngValue]="version.numero">
@@ -143,24 +176,38 @@
 
             @if (diagrama?.compartido) {
               <div class="alert alert-info py-2 small" id="proceso-detalle-invitada">
-                This process belongs to another store and is shared with yours, so what you see is the version in
-                force, not their working copy.
+                This process belongs to another store and is shared with yours, so what you see is the version in force,
+                not their working copy.
               </div>
             } @else if (verVersion !== null) {
-              <div class="alert alert-secondary py-2 small d-flex flex-wrap align-items-center gap-2"
-                   id="proceso-detalle-congelado">
+              <div
+                class="alert alert-secondary py-2 small d-flex flex-wrap align-items-center gap-2"
+                id="proceso-detalle-congelado"
+              >
                 <span class="flex-grow-1">
                   Version {{ verVersion }}, exactly as it was published. A published version never changes: the cases
                   that started on it keep running on it.
                 </span>
                 @if (esAdministrador && versionVista?.estado === 'VIGENTE') {
-                  <button type="button" class="btn btn-sm btn-outline-danger" id="proceso-detalle-retirar"
-                          [disabled]="enviando" data-bs-toggle="modal" data-bs-target="#modal-retirar">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    id="proceso-detalle-retirar"
+                    [disabled]="enviando"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modal-retirar"
+                  >
                     Retire this version
                   </button>
                 }
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="proceso-detalle-ver-borrador"
-                        (click)="mostrarVersion(null)">Back to the working copy</button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  id="proceso-detalle-ver-borrador"
+                  (click)="mostrarVersion(null)"
+                >
+                  Back to the working copy
+                </button>
               </div>
             } @else if (detalle.proceso.borradorPendiente) {
               <div class="alert alert-warning py-2 small" id="proceso-detalle-borrador">
@@ -172,8 +219,12 @@
             }
 
             @if (diagrama && lienzo) {
-              <app-diagrama-bpmn [lienzo]="lienzo" [titulo]="'BPMN diagram of ' + detalle.proceso.nombre"
-                                 [seleccionadoId]="nodoElegido?.id ?? null" (seleccionar)="elegirNodo($event)" />
+              <app-diagrama-bpmn
+                [lienzo]="lienzo"
+                [titulo]="'BPMN diagram of ' + detalle.proceso.nombre"
+                [seleccionadoId]="nodoElegido?.id ?? null"
+                (seleccionar)="elegirNodo($event)"
+              />
 
               @if (nodoElegido) {
                 <div class="border rounded-3 p-3 mt-3" id="diagrama-detalle-nodo" aria-live="polite">
@@ -185,8 +236,13 @@
                         {{ nodoElegido.pool }} · lane {{ nodoElegido.lane }} · role {{ nodoElegido.rol }}
                       </div>
                     </div>
-                    <button type="button" class="btn-close" aria-label="Close the details" id="diagrama-detalle-cerrar"
-                            (click)="elegirNodo(nodoElegido.id)"></button>
+                    <button
+                      type="button"
+                      class="btn-close"
+                      aria-label="Close the details"
+                      id="diagrama-detalle-cerrar"
+                      (click)="elegirNodo(nodoElegido.id)"
+                    ></button>
                   </div>
                   @if (nodoElegido.descripcion) {
                     <p class="small mt-2 mb-0" id="diagrama-detalle-descripcion">{{ nodoElegido.descripcion }}</p>
@@ -245,8 +301,9 @@
                                   <div class="text-body-secondary">Travels as a {{ mensaje.comoViaja }}.</div>
                                 }
                                 @if (mensaje.siFalla) {
-                                  <div class="text-body-secondary">If it cannot be delivered,
-                                    {{ mensaje.siFalla }}.</div>
+                                  <div class="text-body-secondary">
+                                    If it cannot be delivered, {{ mensaje.siFalla }}.
+                                  </div>
                                 }
                                 @if (mensaje.campos.length) {
                                   <div class="text-body-secondary">Carries {{ mensaje.campos.join(', ') }}.</div>
@@ -266,8 +323,10 @@
                                 {{ mensaje.nombre }}
                                 <span class="text-body-secondary">from {{ mensaje.participante }}</span>
                                 @if (mensaje.variable) {
-                                  <div class="text-body-secondary">Its body becomes
-                                    <code>{{ mensaje.variable }}</code>.</div>
+                                  <div class="text-body-secondary">
+                                    Its body becomes <code>{{ mensaje.variable }}</code
+                                    >.
+                                  </div>
                                 }
                                 @if (mensaje.correlacion) {
                                   <div class="text-body-secondary">Matched by {{ mensaje.correlacion }}.</div>
@@ -285,9 +344,7 @@
                   Select a task, a gateway or an event to see its details.
                 </p>
               } @else {
-                <p class="small text-body-secondary mt-3 mb-0" id="diagrama-vacio">
-                  This process has no tasks yet.
-                </p>
+                <p class="small text-body-secondary mt-3 mb-0" id="diagrama-vacio">This process has no tasks yet.</p>
               }
 
               @if (lienzo.mensajes.length) {
@@ -298,8 +355,9 @@
                       <span class="numero rounded-circle flex-shrink-0" aria-hidden="true">{{ mensaje.numero }}</span>
                       <div class="small">
                         <span class="fw-semibold">{{ mensaje.nombre }}</span>
-                        <span class="text-body-secondary"> · {{ mensaje.desde ?? mensaje.origen }} →
-                          {{ mensaje.hasta ?? mensaje.destino }}</span>
+                        <span class="text-body-secondary">
+                          · {{ mensaje.desde ?? mensaje.origen }} → {{ mensaje.hasta ?? mensaje.destino }}</span
+                        >
                         <div class="text-body-secondary">{{ mensaje.contenido }}</div>
                         @if (mensaje.claves.length) {
                           <div class="text-body-secondary">
@@ -359,16 +417,32 @@
   }
 </div>
 
-<app-modal-confirmar idModal="modal-publicar" titulo="Publish this process?" textoBoton="Publish"
-                     [mensaje]="'“' + (detalle?.proceso?.nombre ?? '') + '” will be published. A published process cannot go back to draft.'"
-                     (confirmar)="publicar()" />
+<app-modal-confirmar
+  idModal="modal-publicar"
+  titulo="Publish this process?"
+  textoBoton="Publish"
+  [mensaje]="
+    '“' + (detalle?.proceso?.nombre ?? '') + '” will be published. A published process cannot go back to draft.'
+  "
+  (confirmar)="publicar()"
+/>
 
-<app-modal-confirmar idModal="modal-retirar" titulo="Retire this version?" textoBoton="Retire" [peligro]="true"
-                     mensaje="No new case will start on it. Nothing is deleted: the cases that started on this
+<app-modal-confirmar
+  idModal="modal-retirar"
+  titulo="Retire this version?"
+  textoBoton="Retire"
+  [peligro]="true"
+  mensaje="No new case will start on it. Nothing is deleted: the cases that started on this
                               version keep running on it, and the process falls back to the previous one that is
                               still standing."
-                     (confirmar)="retirar()" />
+  (confirmar)="retirar()"
+/>
 
-<app-modal-confirmar idModal="modal-eliminar" titulo="Delete this process?" textoBoton="Delete" [peligro]="true"
-                     [mensaje]="'“' + (detalle?.proceso?.nombre ?? '') + '” will leave every list. Its change history is kept.'"
-                     (confirmar)="eliminar()" />
+<app-modal-confirmar
+  idModal="modal-eliminar"
+  titulo="Delete this process?"
+  textoBoton="Delete"
+  [peligro]="true"
+  [mensaje]="'“' + (detalle?.proceso?.nombre ?? '') + '” will leave every list. Its change history is kept.'"
+  (confirmar)="eliminar()"
+/>

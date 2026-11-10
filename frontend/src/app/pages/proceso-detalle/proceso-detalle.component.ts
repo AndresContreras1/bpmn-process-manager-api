@@ -239,8 +239,9 @@ export class ProcesoDetalleComponent implements OnInit {
       this.error = mensajeDeError(error);
       return;
     }
-    this.error = 'Someone saved a change before you, so the process was not published. This page now shows the '
-      + 'latest version: check it and publish again.';
+    this.error =
+      'Someone saved a change before you, so the process was not published. This page now shows the ' +
+      'latest version: check it and publish again.';
     this.cargar(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((carga: Carga) => this.mostrar(carga));

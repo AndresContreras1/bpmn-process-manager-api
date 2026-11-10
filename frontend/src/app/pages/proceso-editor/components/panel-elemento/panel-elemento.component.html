@@ -11,7 +11,7 @@
     @case ('POOL') {
       <div class="mb-2">
         <label class="form-label small" for="panel-pool-nombre">Name</label>
-        <input type="text" class="form-control form-control-sm" id="panel-pool-nombre" formControlName="nombre">
+        <input type="text" class="form-control form-control-sm" id="panel-pool-nombre" formControlName="nombre" />
         <app-error-campo [control]="formulario.get('nombre')" />
       </div>
       <div class="mb-2">
@@ -32,10 +32,8 @@
         <div class="form-text small">Who answers for this participant when the process runs.</div>
       </div>
       <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="panel-pool-caja" formControlName="cajaNegra">
-        <label class="form-check-label small" for="panel-pool-caja">
-          Black box: its inside is not modelled
-        </label>
+        <input class="form-check-input" type="checkbox" id="panel-pool-caja" formControlName="cajaNegra" />
+        <label class="form-check-label small" for="panel-pool-caja"> Black box: its inside is not modelled </label>
       </div>
     }
 
@@ -43,7 +41,7 @@
     @case ('LANE') {
       <div class="mb-2">
         <label class="form-label small" for="panel-lane-nombre">Name</label>
-        <input type="text" class="form-control form-control-sm" id="panel-lane-nombre" formControlName="nombre">
+        <input type="text" class="form-control form-control-sm" id="panel-lane-nombre" formControlName="nombre" />
         <app-error-campo [control]="formulario.get('nombre')" />
       </div>
       <div class="mb-3">
@@ -61,7 +59,7 @@
     @case ('ACTIVIDAD') {
       <div class="mb-2">
         <label class="form-label small" for="panel-actividad-nombre">Name</label>
-        <input type="text" class="form-control form-control-sm" id="panel-actividad-nombre" formControlName="nombre">
+        <input type="text" class="form-control form-control-sm" id="panel-actividad-nombre" formControlName="nombre" />
         <app-error-campo [control]="formulario.get('nombre')" />
       </div>
       <div class="mb-2">
@@ -84,8 +82,12 @@
       </div>
       <div class="mb-3">
         <label class="form-label small" for="panel-actividad-descripcion">Description</label>
-        <textarea class="form-control form-control-sm" id="panel-actividad-descripcion" rows="3"
-                  formControlName="descripcion"></textarea>
+        <textarea
+          class="form-control form-control-sm"
+          id="panel-actividad-descripcion"
+          rows="3"
+          formControlName="descripcion"
+        ></textarea>
         <app-error-campo [control]="formulario.get('descripcion')" />
       </div>
     }
@@ -94,7 +96,7 @@
     @case ('GATEWAY') {
       <div class="mb-2">
         <label class="form-label small" for="panel-gateway-nombre">Name</label>
-        <input type="text" class="form-control form-control-sm" id="panel-gateway-nombre" formControlName="nombre">
+        <input type="text" class="form-control form-control-sm" id="panel-gateway-nombre" formControlName="nombre" />
         <app-error-campo [control]="formulario.get('nombre')" />
       </div>
       <div class="mb-2">
@@ -119,7 +121,7 @@
     @case ('EVENTO') {
       <div class="mb-2">
         <label class="form-label small" for="panel-evento-nombre">Name</label>
-        <input type="text" class="form-control form-control-sm" id="panel-evento-nombre" formControlName="nombre">
+        <input type="text" class="form-control form-control-sm" id="panel-evento-nombre" formControlName="nombre" />
         <app-error-campo [control]="formulario.get('nombre')" />
       </div>
       <div class="mb-2">
@@ -144,20 +146,25 @@
     @case ('ARCO') {
       <div class="mb-2">
         <label class="form-label small" for="panel-arco-etiqueta">Label</label>
-        <input type="text" class="form-control form-control-sm" id="panel-arco-etiqueta" formControlName="etiqueta">
+        <input type="text" class="form-control form-control-sm" id="panel-arco-etiqueta" formControlName="etiqueta" />
         <app-error-campo [control]="formulario.get('etiqueta')" />
       </div>
       <div class="mb-2">
         <label class="form-label small" for="panel-arco-condicion">Condition</label>
-        <input type="text" class="form-control form-control-sm font-monospace" id="panel-arco-condicion"
-               formControlName="condicion" placeholder="payment.status == APPROVED">
+        <input
+          type="text"
+          class="form-control form-control-sm font-monospace"
+          id="panel-arco-condicion"
+          formControlName="condicion"
+          placeholder="payment.status == APPROVED"
+        />
         <div class="form-text small">
           A comparison the engine can read. Leave it empty on the flow that is taken when nothing else matches.
         </div>
         <app-error-campo [control]="formulario.get('condicion')" />
       </div>
       <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="panel-arco-defecto" formControlName="porDefecto">
+        <input class="form-check-input" type="checkbox" id="panel-arco-defecto" formControlName="porDefecto" />
         <label class="form-check-label small" for="panel-arco-defecto">
           Default flow: taken when no condition matches
         </label>
@@ -168,13 +175,17 @@
     @case ('MENSAJE') {
       <div class="mb-2">
         <label class="form-label small" for="panel-mensaje-nombre">Name</label>
-        <input type="text" class="form-control form-control-sm" id="panel-mensaje-nombre" formControlName="nombre">
+        <input type="text" class="form-control form-control-sm" id="panel-mensaje-nombre" formControlName="nombre" />
         <app-error-campo [control]="formulario.get('nombre')" />
       </div>
       <div class="mb-2">
         <label class="form-label small" for="panel-mensaje-contenido">What travels inside</label>
-        <textarea class="form-control form-control-sm" id="panel-mensaje-contenido" rows="2"
-                  formControlName="contenido"></textarea>
+        <textarea
+          class="form-control form-control-sm"
+          id="panel-mensaje-contenido"
+          rows="2"
+          formControlName="contenido"
+        ></textarea>
       </div>
       <div class="mb-2">
         <label class="form-label small" for="panel-mensaje-origen">Leaves from</label>
@@ -225,11 +236,16 @@
       }
       <div class="mb-2">
         <label class="form-label small" for="panel-mensaje-variable">Its body becomes the variable</label>
-        <input type="text" class="form-control form-control-sm font-monospace" id="panel-mensaje-variable"
-               formControlName="variable" placeholder="payment">
+        <input
+          type="text"
+          class="form-control form-control-sm font-monospace"
+          id="panel-mensaje-variable"
+          formControlName="variable"
+          placeholder="payment"
+        />
       </div>
       <div class="form-check mb-2">
-        <input class="form-check-input" type="checkbox" id="panel-mensaje-externo" formControlName="origenExterno">
+        <input class="form-check-input" type="checkbox" id="panel-mensaje-externo" formControlName="origenExterno" />
         <label class="form-check-label small" for="panel-mensaje-externo">
           It arrives from outside, so a case can start with it
         </label>
@@ -238,20 +254,39 @@
       <div class="mb-3" formArrayName="campos" role="group" aria-labelledby="panel-mensaje-campos">
         <div class="d-flex align-items-center justify-content-between">
           <span class="form-label small mb-0" id="panel-mensaje-campos">Fields it carries</span>
-          <button type="button" class="btn btn-sm btn-outline-secondary" id="panel-mensaje-agregar-campo"
-                  [disabled]="!puedeEditar()" (click)="agregarCampo()">Add</button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            id="panel-mensaje-agregar-campo"
+            [disabled]="!puedeEditar()"
+            (click)="agregarCampo()"
+          >
+            Add
+          </button>
         </div>
         @for (campo of campos.controls; track $index) {
           <div class="d-flex gap-1 mt-1" [formGroupName]="$index" data-testid="campo-mensaje">
-            <input type="text" class="form-control form-control-sm" formControlName="nombre" placeholder="orderId"
-                   aria-label="Name of the field">
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              formControlName="nombre"
+              placeholder="orderId"
+              aria-label="Name of the field"
+            />
             <select class="form-select form-select-sm w-auto" formControlName="tipo" aria-label="Type of the field">
               @for (tipo of tiposDato; track tipo) {
                 <option [value]="tipo">{{ tipo }}</option>
               }
             </select>
-            <button type="button" class="btn btn-sm btn-outline-danger" [disabled]="!puedeEditar()"
-                    (click)="quitarCampo($index)" aria-label="Remove the field">&times;</button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger"
+              [disabled]="!puedeEditar()"
+              (click)="quitarCampo($index)"
+              aria-label="Remove the field"
+            >
+              &times;
+            </button>
           </div>
         }
       </div>
@@ -271,13 +306,23 @@
       <p class="small text-body-secondary">Which field of the body says what case a message that arrives belongs to.</p>
       <div class="mb-2">
         <label class="form-label small" for="panel-correlacion-criterio">Key</label>
-        <input type="text" class="form-control form-control-sm font-monospace" id="panel-correlacion-criterio"
-               formControlName="criterio" placeholder="orderId">
+        <input
+          type="text"
+          class="form-control form-control-sm font-monospace"
+          id="panel-correlacion-criterio"
+          formControlName="criterio"
+          placeholder="orderId"
+        />
       </div>
       <div class="mb-2">
         <label class="form-label small" for="panel-correlacion-campo">Field that carries it</label>
-        <input type="text" class="form-control form-control-sm font-monospace" id="panel-correlacion-campo"
-               formControlName="campo" placeholder="orderId">
+        <input
+          type="text"
+          class="form-control form-control-sm font-monospace"
+          id="panel-correlacion-campo"
+          formControlName="campo"
+          placeholder="orderId"
+        />
       </div>
       <div class="mb-2">
         <label class="form-label small" for="panel-correlacion-sincaso">With no open case</label>
@@ -287,8 +332,15 @@
         </select>
       </div>
       @if (puedeEditar()) {
-        <button type="button" class="btn btn-outline-primary btn-sm w-100" id="panel-correlacion-guardar"
-                [disabled]="enviando" (click)="guardarCorrelacion()">Save the correlation</button>
+        <button
+          type="button"
+          class="btn btn-outline-primary btn-sm w-100"
+          id="panel-correlacion-guardar"
+          [disabled]="enviando"
+          (click)="guardarCorrelacion()"
+        >
+          Save the correlation
+        </button>
       }
     </div>
   }

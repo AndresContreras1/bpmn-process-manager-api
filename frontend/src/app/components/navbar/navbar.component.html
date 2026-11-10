@@ -5,16 +5,30 @@
       BPMN Process Manager
     </a>
 
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu"
-            aria-controls="navbar-menu" aria-expanded="false" aria-label="Toggle navigation" id="navbar-boton-menu">
+    <button
+      class="navbar-toggler"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#navbar-menu"
+      aria-controls="navbar-menu"
+      aria-expanded="false"
+      aria-label="Toggle navigation"
+      id="navbar-boton-menu"
+    >
       <span class="navbar-toggler-icon"></span>
     </button>
 
     <div class="collapse navbar-collapse" id="navbar-menu">
       <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
         <li class="nav-item">
-          <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
-             id="navbar-inicio">Home</a>
+          <a
+            class="nav-link"
+            routerLink="/"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            id="navbar-inicio"
+            >Home</a
+          >
         </li>
 
         @if (usuario$ | async; as usuario) {
@@ -22,8 +36,15 @@
             <a class="nav-link" routerLink="/procesos" routerLinkActive="active" id="navbar-procesos">Processes</a>
           </li>
           <li class="nav-item dropdown">
-            <button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                    id="navbar-operacion">Operation</button>
+            <button
+              class="nav-link dropdown-toggle"
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              id="navbar-operacion"
+            >
+              Operation
+            </button>
             <ul class="dropdown-menu">
               <li>
                 <a class="dropdown-item" routerLink="/casos" id="navbar-casos">
@@ -41,7 +62,7 @@
                 </a>
               </li>
               @if (usuario.rolAcceso === 'ADMINISTRADOR') {
-                <li><hr class="dropdown-divider"></li>
+                <li><hr class="dropdown-divider" /></li>
                 <li>
                   <a class="dropdown-item" routerLink="/simulacion" id="navbar-simulacion">
                     <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Simulation
@@ -51,12 +72,19 @@
             </ul>
           </li>
           <li class="nav-item dropdown">
-            <button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                    id="navbar-usuario">
+            <button
+              class="nav-link dropdown-toggle"
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              id="navbar-usuario"
+            >
               <i class="fa-solid fa-circle-user" aria-hidden="true"></i> {{ usuario.nombre }}
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
-              <li><h6 class="dropdown-header">{{ nombreRol[usuario.rolAcceso] }} · store {{ usuario.empresaId }}</h6></li>
+              <li>
+                <h6 class="dropdown-header">{{ nombreRol[usuario.rolAcceso] }} · store {{ usuario.empresaId }}</h6>
+              </li>
               <li>
                 <a class="dropdown-item" routerLink="/cuenta" id="navbar-cuenta">
                   <i class="fa-solid fa-id-badge" aria-hidden="true"></i> My account
@@ -64,7 +92,7 @@
               </li>
               <!-- Del observable y no de una foto al construirse: el navbar vive desde antes de que nadie entre -->
               @if (usuario.rolAcceso === 'ADMINISTRADOR') {
-                <li><hr class="dropdown-divider"></li>
+                <li><hr class="dropdown-divider" /></li>
                 <li><h6 class="dropdown-header">Administration</h6></li>
                 <li>
                   <a class="dropdown-item" routerLink="/usuarios" id="navbar-usuarios">
@@ -87,7 +115,7 @@
                   </a>
                 </li>
               }
-              <li><hr class="dropdown-divider"></li>
+              <li><hr class="dropdown-divider" /></li>
               <li>
                 <button type="button" class="dropdown-item" id="navbar-salir" (click)="cerrarSesion()">
                   <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign out
@@ -105,8 +133,14 @@
         }
 
         <li class="nav-item">
-          <a class="nav-link" [href]="repositorio" target="_blank" rel="noopener" id="navbar-github"
-             aria-label="Source on GitHub">
+          <a
+            class="nav-link"
+            [href]="repositorio"
+            target="_blank"
+            rel="noopener"
+            id="navbar-github"
+            aria-label="Source on GitHub"
+          >
             <i class="fa-brands fa-github" aria-hidden="true"></i><span class="d-lg-none"> GitHub</span>
           </a>
         </li>

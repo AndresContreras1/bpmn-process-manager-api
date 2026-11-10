@@ -25,8 +25,8 @@
         <p class="mb-1 fw-semibold">Give this password to {{ claveTemporal.usuario }} now.</p>
         <code>{{ claveTemporal.clave }}</code>
         <p class="small mb-0 mt-1">
-          It is shown once and is not stored anywhere. They will have to change it before doing anything else; if it
-          is lost, reset it and a new one comes out.
+          It is shown once and is not stored anywhere. They will have to change it before doing anything else; if it is
+          lost, reset it and a new one comes out.
         </p>
         <button type="button" class="btn-close" aria-label="Close" (click)="claveTemporal = null"></button>
       </div>
@@ -40,13 +40,18 @@
             <form [formGroup]="altaForm" (ngSubmit)="crear()" novalidate>
               <div class="mb-2">
                 <label class="form-label small" for="usuarios-nombre">Name</label>
-                <input type="text" class="form-control" id="usuarios-nombre" formControlName="nombre">
+                <input type="text" class="form-control" id="usuarios-nombre" formControlName="nombre" />
                 <app-error-campo [control]="altaForm.get('nombre')" />
               </div>
               <div class="mb-2">
                 <label class="form-label small" for="usuarios-email">Email</label>
-                <input type="email" class="form-control" id="usuarios-email" formControlName="email"
-                       autocomplete="off">
+                <input
+                  type="email"
+                  class="form-control"
+                  id="usuarios-email"
+                  formControlName="email"
+                  autocomplete="off"
+                />
                 <app-error-campo [control]="altaForm.get('email')" />
               </div>
               <div class="mb-3">
@@ -72,17 +77,29 @@
         <div class="card border-0 shadow-sm">
           <div class="card-body p-4">
             <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-              <div class="flex-grow-1" style="min-width: 14rem;">
+              <div class="flex-grow-1" style="min-width: 14rem">
                 <label class="visually-hidden" for="usuarios-buscar">Search by name</label>
                 <div class="input-group input-group-sm">
                   <span class="input-group-text" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
-                  <input type="search" class="form-control" id="usuarios-buscar" placeholder="Search by name"
-                         [(ngModel)]="filtros.nombre" (ngModelChange)="filtrar()">
+                  <input
+                    type="search"
+                    class="form-control"
+                    id="usuarios-buscar"
+                    placeholder="Search by name"
+                    [(ngModel)]="filtros.nombre"
+                    (ngModelChange)="filtrar()"
+                  />
                 </div>
               </div>
               <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" role="switch" id="usuarios-inactivos"
-                       [(ngModel)]="filtros.incluirInactivos" (ngModelChange)="filtrar()">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="usuarios-inactivos"
+                  [(ngModel)]="filtros.incluirInactivos"
+                  (ngModelChange)="filtrar()"
+                />
                 <label class="form-check-label small" for="usuarios-inactivos">Show deactivated</label>
               </div>
             </div>
@@ -105,8 +122,12 @@
                     <tr>
                       @for (columna of columnas; track columna.campo) {
                         <th scope="col" [class]="columna.clase" [attr.aria-sort]="ariaOrden(columna.campo)">
-                          <button type="button" class="btn btn-link btn-orden" [id]="'usuarios-orden-' + columna.campo"
-                                  (click)="ordenarPor(columna.campo)">
+                          <button
+                            type="button"
+                            class="btn btn-link btn-orden"
+                            [id]="'usuarios-orden-' + columna.campo"
+                            (click)="ordenarPor(columna.campo)"
+                          >
                             {{ columna.titulo }}
                             <i class="fa-solid" [class]="iconoOrden(columna.campo)" aria-hidden="true"></i>
                           </button>
@@ -132,9 +153,14 @@
                         </td>
                         <td class="d-none d-md-table-cell text-body-secondary">{{ usuario.email }}</td>
                         <td>
-                          <select class="form-select form-select-sm" [value]="usuario.rolAcceso"
-                                  [attr.aria-label]="'Role of ' + usuario.nombre" data-testid="usuario-rol"
-                                  [disabled]="!usuario.activo" (change)="cambiarRol(usuario, $event)">
+                          <select
+                            class="form-select form-select-sm"
+                            [value]="usuario.rolAcceso"
+                            [attr.aria-label]="'Role of ' + usuario.nombre"
+                            data-testid="usuario-rol"
+                            [disabled]="!usuario.activo"
+                            (change)="cambiarRol(usuario, $event)"
+                          >
                             @for (rol of roles; track rol) {
                               <option [value]="rol" [selected]="rol === usuario.rolAcceso">{{ nombreRol[rol] }}</option>
                             }
@@ -142,17 +168,42 @@
                         </td>
                         <td class="text-end">
                           <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-secondary" data-testid="usuario-roles"
-                                    (click)="abrirRoles(usuario)">Process roles</button>
-                            <button type="button" class="btn btn-outline-secondary" data-testid="usuario-clave"
-                                    (click)="restablecerClave(usuario)">Reset the password</button>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary"
+                              data-testid="usuario-roles"
+                              (click)="abrirRoles(usuario)"
+                            >
+                              Process roles
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary"
+                              data-testid="usuario-clave"
+                              (click)="restablecerClave(usuario)"
+                            >
+                              Reset the password
+                            </button>
                             @if (!usuario.activo) {
-                              <button type="button" class="btn btn-outline-success" data-testid="usuario-alta"
-                                      (click)="reactivar(usuario)">Reactivate</button>
+                              <button
+                                type="button"
+                                class="btn btn-outline-success"
+                                data-testid="usuario-alta"
+                                (click)="reactivar(usuario)"
+                              >
+                                Reactivate
+                              </button>
                             } @else if (!esYo(usuario)) {
-                              <button type="button" class="btn btn-outline-danger" data-testid="usuario-baja"
-                                      data-bs-toggle="modal" data-bs-target="#modal-baja-usuario"
-                                      (click)="paraBaja = usuario">Deactivate</button>
+                              <button
+                                type="button"
+                                class="btn btn-outline-danger"
+                                data-testid="usuario-baja"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modal-baja-usuario"
+                                (click)="paraBaja = usuario"
+                              >
+                                Deactivate
+                              </button>
                             }
                           </div>
                         </td>
@@ -174,14 +225,28 @@
                               <div class="d-flex flex-wrap gap-3 mb-2">
                                 @for (rol of rolesDeProceso; track rol.id) {
                                   <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" [id]="'rol-' + rol.id"
-                                           [checked]="rolesElegidos.includes(rol.id)" (change)="alternarRol(rol.id)">
-                                    <label class="form-check-label small" [for]="'rol-' + rol.id">{{ rol.nombre }}</label>
+                                    <input
+                                      class="form-check-input"
+                                      type="checkbox"
+                                      [id]="'rol-' + rol.id"
+                                      [checked]="rolesElegidos.includes(rol.id)"
+                                      (change)="alternarRol(rol.id)"
+                                    />
+                                    <label class="form-check-label small" [for]="'rol-' + rol.id">{{
+                                      rol.nombre
+                                    }}</label>
                                   </div>
                                 }
                               </div>
-                              <button type="button" class="btn btn-sm btn-primary" id="usuarios-guardar-roles"
-                                      [disabled]="enviando" (click)="guardarRoles()">Save the process roles</button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-primary"
+                                id="usuarios-guardar-roles"
+                                [disabled]="enviando"
+                                (click)="guardarRoles()"
+                              >
+                                Save the process roles
+                              </button>
                             }
                           </td>
                         </tr>
@@ -210,7 +275,11 @@
   }
 </div>
 
-<app-modal-confirmar idModal="modal-baja-usuario" titulo="Deactivate this person?" textoBoton="Deactivate"
-                     [peligro]="true"
-                     mensaje="They stop being able to sign in. Tick Show deactivated to find them and bring them back."
-                     (confirmar)="confirmarBaja()" />
+<app-modal-confirmar
+  idModal="modal-baja-usuario"
+  titulo="Deactivate this person?"
+  textoBoton="Deactivate"
+  [peligro]="true"
+  mensaje="They stop being able to sign in. Tick Show deactivated to find them and bring them back."
+  (confirmar)="confirmarBaja()"
+/>

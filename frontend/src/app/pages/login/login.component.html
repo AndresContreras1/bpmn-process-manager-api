@@ -17,21 +17,37 @@
 
           <form [formGroup]="loginForm" (ngSubmit)="iniciarSesion()" novalidate>
             <div class="form-floating mb-3">
-              <input type="email" class="form-control" id="login-email" formControlName="email"
-                     placeholder="name@store.com" autocomplete="email">
+              <input
+                type="email"
+                class="form-control"
+                id="login-email"
+                formControlName="email"
+                placeholder="name@store.com"
+                autocomplete="email"
+              />
               <label for="login-email">Email</label>
               <app-error-campo [control]="loginForm.get('email')" />
             </div>
 
             <div class="form-floating mb-4">
-              <input type="password" class="form-control" id="login-password" formControlName="password"
-                     placeholder="Password" autocomplete="current-password">
+              <input
+                type="password"
+                class="form-control"
+                id="login-password"
+                formControlName="password"
+                placeholder="Password"
+                autocomplete="current-password"
+              />
               <label for="login-password">Password</label>
               <app-error-campo [control]="loginForm.get('password')" />
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 py-2" id="login-enviar"
-                    [disabled]="loginForm.invalid || enviando">
+            <button
+              type="submit"
+              class="btn btn-primary w-100 py-2"
+              id="login-enviar"
+              [disabled]="loginForm.invalid || enviando"
+            >
               @if (enviando) {
                 <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
               }
@@ -40,13 +56,18 @@
           </form>
 
           @if (demo) {
-          <div class="border rounded-3 p-3 mt-4 bg-body-tertiary small" id="login-demo">
-            <div class="fw-semibold mb-1"><i class="fa-solid fa-store" aria-hidden="true"></i> Demo store</div>
-            <p class="text-body-secondary mb-2">admin&#64;demo.com · every-order-on-time · administrator</p>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="login-usar-demo" (click)="usarCuentaDemo()">
-              Use the demo account
-            </button>
-          </div>
+            <div class="border rounded-3 p-3 mt-4 bg-body-tertiary small" id="login-demo">
+              <div class="fw-semibold mb-1"><i class="fa-solid fa-store" aria-hidden="true"></i> Demo store</div>
+              <p class="text-body-secondary mb-2">admin&#64;demo.com · every-order-on-time · administrator</p>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                id="login-usar-demo"
+                (click)="usarCuentaDemo()"
+              >
+                Use the demo account
+              </button>
+            </div>
           }
 
           <p class="text-center small mt-4 mb-0">

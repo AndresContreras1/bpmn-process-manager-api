@@ -133,7 +133,9 @@ export class ProcesoFormComponent implements OnInit {
       this.conflicto = true;
     } else if (error.status === 409) {
       // El nombre es unico entre los procesos activos de la tienda
-      this.procesoForm.get('nombre')?.setErrors({ servidor: 'Another active process of your store already uses this name.' });
+      this.procesoForm
+        .get('nombre')
+        ?.setErrors({ servidor: 'Another active process of your store already uses this name.' });
       this.error = 'Check the highlighted fields.';
     } else if (error.status === 400) {
       marcarErroresDelServidor(this.procesoForm, error);

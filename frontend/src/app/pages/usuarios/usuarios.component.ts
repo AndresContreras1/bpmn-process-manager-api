@@ -175,9 +175,7 @@ export class UsuariosComponent implements OnInit {
       )
       .subscribe({
         next: (creado: Usuario) => {
-          this.claveTemporal = creado.claveTemporal
-            ? { usuario: creado.email, clave: creado.claveTemporal }
-            : null;
+          this.claveTemporal = creado.claveTemporal ? { usuario: creado.email, clave: creado.claveTemporal } : null;
           this.altaForm.reset({ rolAcceso: 'EDITOR' });
           this.buscar();
         },

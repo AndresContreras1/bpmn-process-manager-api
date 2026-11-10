@@ -40,7 +40,8 @@ export const routes: Routes = [
   },
   {
     path: 'casos/:id',
-    loadComponent: () => import('./pages/caso-detalle/caso-detalle.component').then((modulo) => modulo.CasoDetalleComponent),
+    loadComponent: () =>
+      import('./pages/caso-detalle/caso-detalle.component').then((modulo) => modulo.CasoDetalleComponent),
     canActivate: [authGuard],
     title: 'Case · BPMN Process Manager',
   },
@@ -76,7 +77,8 @@ export const routes: Routes = [
   },
   {
     path: 'configuracion',
-    loadComponent: () => import('./pages/configuracion/configuracion.component').then((modulo) => modulo.ConfiguracionComponent),
+    loadComponent: () =>
+      import('./pages/configuracion/configuracion.component').then((modulo) => modulo.ConfiguracionComponent),
     canActivate: [authGuard],
     title: 'Store settings · BPMN Process Manager',
   },
@@ -89,13 +91,15 @@ export const routes: Routes = [
   // nuevo va antes de :id, o Angular tomaria "nuevo" como el id de un proceso
   {
     path: 'procesos/nuevo',
-    loadComponent: () => import('./pages/proceso-form/proceso-form.component').then((modulo) => modulo.ProcesoFormComponent),
+    loadComponent: () =>
+      import('./pages/proceso-form/proceso-form.component').then((modulo) => modulo.ProcesoFormComponent),
     canActivate: [authGuard],
     title: 'New process · BPMN Process Manager',
   },
   {
     path: 'procesos/:id/editar',
-    loadComponent: () => import('./pages/proceso-form/proceso-form.component').then((modulo) => modulo.ProcesoFormComponent),
+    loadComponent: () =>
+      import('./pages/proceso-form/proceso-form.component').then((modulo) => modulo.ProcesoFormComponent),
     canActivate: [authGuard],
     title: 'Edit process · BPMN Process Manager',
   },
@@ -107,20 +111,22 @@ export const routes: Routes = [
   },
   {
     path: 'procesos/:id/editar-diagrama',
-    loadComponent: () => import('./pages/proceso-editor/proceso-editor.component').then((modulo) => modulo.ProcesoEditorComponent),
+    loadComponent: () =>
+      import('./pages/proceso-editor/proceso-editor.component').then((modulo) => modulo.ProcesoEditorComponent),
     canActivate: [authGuard],
     title: 'Model the diagram · BPMN Process Manager',
   },
   {
     path: 'procesos/:id',
-    loadComponent: () => import('./pages/proceso-detalle/proceso-detalle.component').then((modulo) => modulo.ProcesoDetalleComponent),
+    loadComponent: () =>
+      import('./pages/proceso-detalle/proceso-detalle.component').then((modulo) => modulo.ProcesoDetalleComponent),
     canActivate: [authGuard],
     title: 'Process · BPMN Process Manager',
   },
   {
     path: '**',
-    loadComponent: () => import('./pages/no-encontrada/no-encontrada.component').then(
-      (modulo) => modulo.NoEncontradaComponent),
+    loadComponent: () =>
+      import('./pages/no-encontrada/no-encontrada.component').then((modulo) => modulo.NoEncontradaComponent),
     title: 'Page not found · BPMN Process Manager',
   },
 ];

@@ -8,13 +8,7 @@ import { EMPTY, Subject, catchError, debounceTime, of, switchMap, tap } from 'rx
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
 import { ParClaveValor, aDatos } from '../../helpers/datos-libres';
 import { mensajeDeError } from '../../helpers/errores-api';
-import {
-  COLOR_ESTADO_CASO,
-  Caso,
-  EstadoCaso,
-  FiltrosCaso,
-  NOMBRE_ESTADO_CASO,
-} from '../../models/caso.model';
+import { COLOR_ESTADO_CASO, Caso, EstadoCaso, FiltrosCaso, NOMBRE_ESTADO_CASO } from '../../models/caso.model';
 import { PageResponse } from '../../models/page-response.model';
 import { Proceso } from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
@@ -182,9 +176,7 @@ export class CasosComponent implements OnInit {
 
   /** Las filas del formulario como pares de verdad: un control vacio es una cadena vacia, no un nulo. */
   private paresDeVariables(): ParClaveValor[] {
-    return this.variables
-      .getRawValue()
-      .map((par) => ({ clave: par.clave ?? '', valor: par.valor ?? '' }));
+    return this.variables.getRawValue().map((par) => ({ clave: par.clave ?? '', valor: par.valor ?? '' }));
   }
 
   /** Abre el caso y se va a su detalle: lo que se quiere ver despues de abrirlo es por donde se quedo. */

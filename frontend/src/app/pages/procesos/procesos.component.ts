@@ -179,8 +179,9 @@ export class ProcesosComponent implements OnInit {
         error: (error: HttpErrorResponse) => {
           // Si la version de la fila ya no vale, la lista se recarga: con la version nueva el boton vuelve a servir
           if (esConflictoDeVersion(error)) {
-            this.desactualizado = `"${proceso.nombre}" changed while this list was open, so it was not published. `
-              + 'The list is up to date now: try again.';
+            this.desactualizado =
+              `"${proceso.nombre}" changed while this list was open, so it was not published. ` +
+              'The list is up to date now: try again.';
             this.buscar();
           } else {
             this.error = mensajeDeError(error);

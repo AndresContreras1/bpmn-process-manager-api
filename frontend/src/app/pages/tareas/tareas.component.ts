@@ -134,10 +134,7 @@ export class TareasComponent implements OnInit {
   }
 
   soltar(tarea: Tarea): void {
-    this.mandar(
-      this.tareaService.asignar(tarea.id, { usuarioId: null }),
-      `"${tarea.nodoNombre}" is free again.`,
-    );
+    this.mandar(this.tareaService.asignar(tarea.id, { usuarioId: null }), `"${tarea.nodoNombre}" is free again.`);
   }
 
   /** Abre el formulario de completar, con los datos que la tarea ya tuviera. */

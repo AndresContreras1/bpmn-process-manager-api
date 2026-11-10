@@ -38,17 +38,36 @@
         </p>
       </div>
       <div class="d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-outline-secondary" id="caso-detalle-recargar" [disabled]="cargando"
-                (click)="recargar()">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          id="caso-detalle-recargar"
+          [disabled]="cargando"
+          (click)="recargar()"
+        >
           <i class="fa-solid fa-rotate" aria-hidden="true"></i> Refresh
         </button>
         @if (esAdministrador && estaAtascado) {
-          <button type="button" class="btn btn-warning" id="caso-detalle-reintentar" [disabled]="enviando"
-                  (click)="reintentar()">Try again</button>
+          <button
+            type="button"
+            class="btn btn-warning"
+            id="caso-detalle-reintentar"
+            [disabled]="enviando"
+            (click)="reintentar()"
+          >
+            Try again
+          </button>
         }
         @if (puedeEditar && sigueAbierto) {
-          <button type="button" class="btn btn-outline-danger" id="caso-detalle-cancelar" data-bs-toggle="modal"
-                  data-bs-target="#modal-cancelar-caso">Cancel the case</button>
+          <button
+            type="button"
+            class="btn btn-outline-danger"
+            id="caso-detalle-cancelar"
+            data-bs-toggle="modal"
+            data-bs-target="#modal-cancelar-caso"
+          >
+            Cancel the case
+          </button>
         }
       </div>
     </div>
@@ -72,8 +91,12 @@
           </span>
         </div>
         @if (lienzo) {
-          <app-diagrama-bpmn [lienzo]="lienzo" [titulo]="'Case ' + detalle.caso.referencia"
-                             [nodosActivos]="nodosActivos" [nodosRecorridos]="nodosRecorridos" />
+          <app-diagrama-bpmn
+            [lienzo]="lienzo"
+            [titulo]="'Case ' + detalle.caso.referencia"
+            [nodosActivos]="nodosActivos"
+            [nodosRecorridos]="nodosRecorridos"
+          />
         } @else if (sinDiagrama) {
           <p class="text-body-secondary mb-0" id="caso-detalle-sin-diagrama">
             The diagram of that version could not be read, so the steps below are the whole story.
@@ -95,7 +118,9 @@
                   <li class="d-flex gap-3 pb-3" data-testid="caso-evento">
                     <span class="badge text-bg-light border align-self-start">{{ evento.tick }}</span>
                     <div>
-                      <div class="fw-semibold" [class.text-danger]="esMalo(evento)">{{ nombreEvento[evento.tipo] }}</div>
+                      <div class="fw-semibold" [class.text-danger]="esMalo(evento)">
+                        {{ nombreEvento[evento.tipo] }}
+                      </div>
                       <div class="small">{{ evento.detalle }}</div>
                     </div>
                   </li>
@@ -112,8 +137,14 @@
             <div class="d-flex align-items-center justify-content-between">
               <h2 class="h6 text-uppercase text-body-secondary fw-semibold mb-0">Variables</h2>
               @if (esAdministrador) {
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="caso-detalle-editar-variables"
-                        (click)="alternarVariables()">{{ editandoVariables ? 'Cancel' : 'Replace them' }}</button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  id="caso-detalle-editar-variables"
+                  (click)="alternarVariables()"
+                >
+                  {{ editandoVariables ? 'Cancel' : 'Replace them' }}
+                </button>
               }
             </div>
             <p class="form-text small">What the conditions of the gateways read.</p>
@@ -122,32 +153,55 @@
               @for (variable of variables; track $index) {
                 <div class="row g-2 mb-2" data-testid="caso-variable">
                   <div class="col-5">
-                    <input type="text" class="form-control form-control-sm" [(ngModel)]="variable.clave"
-                           [ngModelOptions]="{ standalone: true }" [attr.aria-label]="'Name ' + ($index + 1)">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      [(ngModel)]="variable.clave"
+                      [ngModelOptions]="{ standalone: true }"
+                      [attr.aria-label]="'Name ' + ($index + 1)"
+                    />
                   </div>
                   <div class="col-6">
-                    <input type="text" class="form-control form-control-sm" [(ngModel)]="variable.valor"
-                           [ngModelOptions]="{ standalone: true }" [attr.aria-label]="'Value ' + ($index + 1)">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      [(ngModel)]="variable.valor"
+                      [ngModelOptions]="{ standalone: true }"
+                      [attr.aria-label]="'Value ' + ($index + 1)"
+                    />
                   </div>
                   <div class="col-1">
-                    <button type="button" class="btn btn-sm btn-outline-danger w-100"
-                            [attr.aria-label]="'Remove ' + ($index + 1)" (click)="quitarVariable($index)">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger w-100"
+                      [attr.aria-label]="'Remove ' + ($index + 1)"
+                      (click)="quitarVariable($index)"
+                    >
                       <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                     </button>
                   </div>
                 </div>
               }
               <div class="d-flex gap-2 mt-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="caso-detalle-variable-nueva"
-                        (click)="agregarVariable()">Add one</button>
-                <button type="button" class="btn btn-sm btn-primary" id="caso-detalle-guardar-variables"
-                        [disabled]="enviando" (click)="guardarVariables()">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  id="caso-detalle-variable-nueva"
+                  (click)="agregarVariable()"
+                >
+                  Add one
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-primary"
+                  id="caso-detalle-guardar-variables"
+                  [disabled]="enviando"
+                  (click)="guardarVariables()"
+                >
                   {{ enviando ? 'Saving…' : 'Replace the variables' }}
                 </button>
               </div>
-              <p class="form-text small mt-2 mb-0">
-                They are replaced as a whole: what is not here stops being there.
-              </p>
+              <p class="form-text small mt-2 mb-0">They are replaced as a whole: what is not here stops being there.</p>
             } @else if (paresDeVariables.length === 0) {
               <p class="text-body-secondary mb-0" id="caso-detalle-sin-variables">This case has no variables.</p>
             } @else {
@@ -156,7 +210,9 @@
                   <dt class="col-5 text-body-secondary fw-normal text-truncate" [title]="variable.clave">
                     {{ variable.clave }}
                   </dt>
-                  <dd class="col-7 mb-1"><code data-testid="caso-variable-valor">{{ variable.valor }}</code></dd>
+                  <dd class="col-7 mb-1">
+                    <code data-testid="caso-variable-valor">{{ variable.valor }}</code>
+                  </dd>
                 }
               </dl>
             }
@@ -270,7 +326,11 @@
   }
 </div>
 
-<app-modal-confirmar idModal="modal-cancelar-caso" titulo="Cancel this case?" textoBoton="Cancel the case"
-                     [peligro]="true"
-                     mensaje="Its live tokens are switched off and it stops moving. Nothing it did is deleted."
-                     (confirmar)="cancelar()" />
+<app-modal-confirmar
+  idModal="modal-cancelar-caso"
+  titulo="Cancel this case?"
+  textoBoton="Cancel the case"
+  [peligro]="true"
+  mensaje="Its live tokens are switched off and it stops moving. Nothing it did is deleted."
+  (confirmar)="cancelar()"
+/>

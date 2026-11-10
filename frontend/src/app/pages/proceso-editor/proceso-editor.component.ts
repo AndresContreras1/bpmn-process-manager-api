@@ -707,9 +707,7 @@ export class ProcesoEditorComponent implements OnInit {
       this.diagramaService.obtener(this.procesoId),
       this.diagnosticoService.obtener(this.procesoId).pipe(catchError(() => of(null))),
     ]).pipe(
-      map(
-        (respuesta): [Proceso, Diagrama, Diagnostico | null] => [respuesta[0].proceso, respuesta[1], respuesta[2]],
-      ),
+      map((respuesta): [Proceso, Diagrama, Diagnostico | null] => [respuesta[0].proceso, respuesta[1], respuesta[2]]),
       catchError((error: HttpErrorResponse) => {
         this.cargando = false;
         if (error.status === 404 || error.status === 400) {

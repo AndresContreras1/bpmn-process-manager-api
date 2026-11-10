@@ -9,11 +9,7 @@ export type ResultadoCorrelacion = 'ENTREGADO_A_CASO' | 'CASO_NUEVO' | 'EN_ESPER
 
 /** De donde salio un mensaje que llego: de una persona, o de uno de los socios simulados. */
 export type OrigenMensajeEntrante =
-  | 'MANUAL'
-  | 'CLIENTE_SIMULADO'
-  | 'SIMULADOR_PAGOS'
-  | 'SIMULADOR_TRANSPORTE'
-  | 'SIMULADOR_NOTIFICACIONES';
+  'MANUAL' | 'CLIENTE_SIMULADO' | 'SIMULADOR_PAGOS' | 'SIMULADOR_TRANSPORTE' | 'SIMULADOR_NOTIFICACIONES';
 
 /** Un mensaje que el proceso mando (MensajeSalienteResponse). */
 export interface MensajeSaliente {

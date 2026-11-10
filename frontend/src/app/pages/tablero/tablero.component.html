@@ -3,23 +3,33 @@
     <div>
       <h1 class="h3 fw-bold mb-1" id="tablero-titulo">Dashboard</h1>
       <p class="text-body-secondary mb-0">
-        How the operation is going in <span id="tablero-mirando">{{ mirando }}</span>, counted in ticks of the
-        store's clock.
+        How the operation is going in <span id="tablero-mirando">{{ mirando }}</span
+        >, counted in ticks of the store's clock.
       </p>
     </div>
     <div class="d-flex flex-wrap gap-2 align-items-end">
       <div>
         <label class="form-label small" for="tablero-proceso">Showing</label>
-        <select class="form-select" id="tablero-proceso" name="procesoId" [(ngModel)]="procesoId"
-                (ngModelChange)="pedir()">
+        <select
+          class="form-select"
+          id="tablero-proceso"
+          name="procesoId"
+          [(ngModel)]="procesoId"
+          (ngModelChange)="pedir()"
+        >
           <option value="">The whole store</option>
           @for (proceso of procesos; track proceso.id) {
             <option [ngValue]="proceso.id">{{ proceso.nombre }}</option>
           }
         </select>
       </div>
-      <button type="button" class="btn btn-outline-secondary" id="tablero-recargar" [disabled]="cargando"
-              (click)="pedir()">
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        id="tablero-recargar"
+        [disabled]="cargando"
+        (click)="pedir()"
+      >
         <i class="fa-solid fa-rotate" aria-hidden="true"></i> Refresh
       </button>
     </div>
@@ -87,7 +97,9 @@
                 <tbody>
                   @for (fila of tablero.casosPorEstado; track fila.estado) {
                     <tr data-testid="tablero-estado">
-                      <td><span class="badge" [class]="colorEstado[fila.estado]">{{ nombreEstado[fila.estado] }}</span></td>
+                      <td>
+                        <span class="badge" [class]="colorEstado[fila.estado]">{{ nombreEstado[fila.estado] }}</span>
+                      </td>
                       <td class="text-end fw-semibold">{{ fila.cantidad }}</td>
                     </tr>
                   }

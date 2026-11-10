@@ -56,8 +56,7 @@ export function nombreDeSeleccion(diagrama: Diagrama, seleccion: Seleccion): str
         return '';
       }
       const nodos = [...diagrama.actividades, ...diagrama.gateways, ...diagrama.eventos];
-      const nombre = (nodoId: number): string =>
-        nodos.find((candidato) => candidato.id === nodoId)?.nombre ?? '?';
+      const nombre = (nodoId: number): string => nodos.find((candidato) => candidato.id === nodoId)?.nombre ?? '?';
       return `${nombre(arco.origenId)} → ${nombre(arco.destinoId)}`;
     }
   }

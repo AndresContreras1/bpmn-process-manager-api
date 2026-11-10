@@ -262,12 +262,10 @@ export class CasoDetalleComponent implements OnInit {
         .pipe(catchError(() => of({ salientes: [], entrantes: [] } as MensajesDelCaso))),
     }).pipe(
       switchMap((parcial: Omit<Carga, 'diagrama'>) =>
-        this.versionService
-          .diagrama(parcial.detalle.caso.procesoId, parcial.detalle.caso.versionNumero)
-          .pipe(
-            catchError(() => of(null)),
-            map((diagrama: Diagrama | null) => ({ ...parcial, diagrama })),
-          ),
+        this.versionService.diagrama(parcial.detalle.caso.procesoId, parcial.detalle.caso.versionNumero).pipe(
+          catchError(() => of(null)),
+          map((diagrama: Diagrama | null) => ({ ...parcial, diagrama })),
+        ),
       ),
     );
   }
