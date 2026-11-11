@@ -18,6 +18,14 @@ public interface ProcesoService {
     PageResponse<ProcesoResponse> buscar(Long empresaId, String nombre, EstadoProceso estado, String categoria,
             boolean incluirInactivos, Pageable pageable);
 
+    /** PR 59: la lista con los filtros del repositorio. */
+    PageResponse<ProcesoResponse> buscar(Long empresaId, FiltrosDeProceso filtros, Pageable pageable);
+
+    /** PR 59: donde esta archivado y quien responde por el. La carpeta y el dueno tienen que ser de la empresa. */
+    ProcesoResponse editarFicha(Long empresaId, Long procesoId, Long usuarioId, DatosDeFicha ficha);
+
+    List<String> etiquetasEnUso(Long empresaId);
+
     ProcesoResponse crear(Long empresaId, Long usuarioId, String nombre, String descripcion, String categoria);
 
     ProcesoResponse obtener(Long empresaId, Long procesoId, boolean incluirInactivos);

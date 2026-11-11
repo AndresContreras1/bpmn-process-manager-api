@@ -1,0 +1,79 @@
+<section class="card border-0 shadow-sm" id="proceso-detalle-ficha">
+  <div class="card-body p-4">
+    <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold mb-3">Filing</h2>
+    @if (error) {
+      <div class="alert alert-danger py-2 small" role="alert" id="ficha-error">{{ error }}</div>
+    }
+    @if (aviso) {
+      <div class="alert alert-success py-2 small" role="status" id="ficha-aviso">{{ aviso }}</div>
+    }
+    <form (ngSubmit)="guardar()">
+      <fieldset class="row g-2 align-items-end" [disabled]="!puedeEditar">
+        <div class="col-md-4">
+          <label i18n class="form-label small mb-0" for="ficha-carpeta">Folder</label>
+          <select class="form-select form-select-sm" id="ficha-carpeta" name="carpeta" [(ngModel)]="carpetaId">
+            <option i18n [ngValue]="null">No folder</option>
+            @for (fila of filas; track fila.carpeta.id) {
+              <option [ngValue]="fila.carpeta.id">{{ '— '.repeat(fila.nivel) }}{{ fila.carpeta.nombre }}</option>
+            }
+          </select>
+        </div>
+        @if (eligeDueno) {
+          <div class="col-md-4">
+            <label i18n class="form-label small mb-0" for="ficha-dueno">Owner</label>
+            <select class="form-select form-select-sm" id="ficha-dueno" name="dueno" [(ngModel)]="duenoId">
+              <option i18n [ngValue]="null">Nobody</option>
+              @for (usuario of usuarios; track usuario.id) {
+                <option [ngValue]="usuario.id">{{ usuario.nombre }}</option>
+              }
+            </select>
+          </div>
+        }
+        <div class="col-md-4">
+          <label i18n class="form-label small mb-0" for="ficha-revision">Next review</label>
+          <input
+            type="date"
+            class="form-control form-control-sm"
+            id="ficha-revision"
+            name="revision"
+            [(ngModel)]="proximaRevision"
+          />
+        </div>
+        <div class="col-md-4">
+          <label i18n class="form-label small mb-0" for="ficha-clasificacion">Classification</label>
+          <select
+            class="form-select form-select-sm"
+            id="ficha-clasificacion"
+            name="clasificacion"
+            [(ngModel)]="clasificacion"
+          >
+            @for (uno of clasificaciones; track uno) {
+              <option [value]="uno">{{ nombreClasificacion[uno] }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label i18n class="form-label small mb-0" for="ficha-etiquetas">Tags, separated by commas</label>
+          <input
+            class="form-control form-control-sm"
+            id="ficha-etiquetas"
+            name="etiquetas"
+            autocomplete="off"
+            list="ficha-etiquetas-sugeridas"
+            [(ngModel)]="etiquetas"
+          />
+          <datalist id="ficha-etiquetas-sugeridas">
+            @for (etiqueta of etiquetasEnUso; track etiqueta) {
+              <option [value]="etiqueta"></option>
+            }
+          </datalist>
+        </div>
+        <div class="col-md-2">
+          <button i18n type="submit" class="btn btn-primary btn-sm w-100" id="ficha-guardar" [disabled]="enviando">
+            Save
+          </button>
+        </div>
+      </fieldset>
+    </form>
+  </div>
+</section>

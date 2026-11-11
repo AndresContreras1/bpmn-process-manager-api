@@ -1,0 +1,82 @@
+<nav class="card border-0 shadow-sm" id="carpetas" i18n-aria-label aria-label="Folders">
+  <div class="card-body p-3">
+    <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold mb-2">Folders</h2>
+    <ul class="list-unstyled mb-2">
+      <li>
+        <button
+          i18n
+          type="button"
+          class="btn btn-sm w-100 text-start"
+          [class.btn-secondary]="actual === null"
+          id="carpeta-todas"
+          [attr.aria-current]="actual === null ? 'true' : null"
+          (click)="elegirCarpeta(null)"
+        >
+          All processes
+        </button>
+      </li>
+      @for (fila of filas; track fila.carpeta.id) {
+        <li [style.padding-inline-start.rem]="fila.nivel * 0.75">
+          <button
+            type="button"
+            class="btn btn-sm w-100 text-start d-flex justify-content-between"
+            [class.btn-secondary]="actual?.id === fila.carpeta.id"
+            [id]="'carpeta-' + fila.carpeta.id"
+            [attr.data-carpeta]="fila.carpeta.nombre"
+            [attr.aria-current]="actual?.id === fila.carpeta.id ? 'true' : null"
+            (click)="elegirCarpeta(fila.carpeta)"
+          >
+            <span class="text-truncate">{{ fila.carpeta.nombre }}</span>
+            <span class="small">{{ fila.carpeta.procesos }}</span>
+          </button>
+        </li>
+      }
+    </ul>
+    @if (error) {
+      <div class="alert alert-danger py-1 small" role="alert" id="carpetas-error">{{ error }}</div>
+    }
+    @if (puedeEditar()) {
+      <label i18n class="form-label small mb-0" for="carpetas-nombre">Folder name</label>
+      <input
+        class="form-control form-control-sm mb-1"
+        id="carpetas-nombre"
+        name="carpeta-nombre"
+        autocomplete="off"
+        maxlength="120"
+        [(ngModel)]="nombre"
+      />
+      <div class="d-flex flex-wrap gap-1">
+        <button
+          i18n
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          id="carpetas-crear"
+          [disabled]="!nombre.trim()"
+          (click)="crear()"
+        >
+          Add here
+        </button>
+        <button
+          i18n
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          id="carpetas-renombrar"
+          [disabled]="!actual || !nombre.trim()"
+          (click)="renombrar()"
+        >
+          Rename
+        </button>
+        <button
+          i18n
+          type="button"
+          class="btn btn-sm btn-outline-danger"
+          id="carpetas-borrar"
+          [disabled]="!actual"
+          (click)="borrar()"
+        >
+          Delete
+        </button>
+      </div>
+    }
+  </div>
+</nav>

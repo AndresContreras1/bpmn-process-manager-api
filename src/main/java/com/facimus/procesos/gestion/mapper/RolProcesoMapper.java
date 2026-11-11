@@ -13,5 +13,6 @@ public interface RolProcesoMapper {
     /** El rol con su uso: cuantos procesos lo usan, y si por eso no se puede eliminar. */
     @Mapping(target = "procesosQueLoUsan", source = "usos")
     @Mapping(target = "enUso", expression = "java(usos > 0)")
+    @Mapping(target = "procesos", ignore = true)
     RolProcesoVistaResponse toResponse(RolProceso rol, long usos);
 }

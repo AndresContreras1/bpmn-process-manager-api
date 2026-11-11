@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, ParamMap, RouterLink } from '@angular/router';
 import { EMPTY, Subject, catchError, debounceTime, switchMap, tap } from 'rxjs';
 
+import { CarpetasComponent } from '../../components/carpetas/carpetas.component';
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { CargandoComponent } from '../../components/ui/cargando.component';
 import { InsigniaComponent } from '../../components/ui/insignia.component';
@@ -12,7 +13,16 @@ import { VacioComponent } from '../../components/ui/vacio.component';
 import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
 import { ProcesoRecibido } from '../../models/compartir.model';
 import { PageResponse } from '../../models/page-response.model';
-import { CampoOrden, EstadoProceso, FiltrosProceso, NOMBRE_ESTADO, Proceso } from '../../models/proceso.model';
+import {
+  CLASIFICACIONES,
+  CampoOrden,
+  Clasificacion,
+  EstadoProceso,
+  FiltrosProceso,
+  NOMBRE_CLASIFICACION,
+  NOMBRE_ESTADO,
+  Proceso,
+} from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
 import { CompartirService } from '../../service/compartir.service';
 import { ProcesoService } from '../../service/proceso.service';
@@ -32,6 +42,7 @@ interface ColumnaOrdenable {
     FormsModule,
     RouterLink,
     ModalConfirmarComponent,
+    CarpetasComponent,
     CargandoComponent,
     VacioComponent,
     InsigniaComponent,
@@ -59,6 +70,8 @@ export class ProcesosComponent implements OnInit {
   private readonly busqueda$ = new Subject<void>();
 
   readonly nombreEstado: Record<EstadoProceso, string> = NOMBRE_ESTADO;
+  readonly clasificaciones: Clasificacion[] = CLASIFICACIONES;
+  readonly nombreClasificacion: Record<Clasificacion, string> = NOMBRE_CLASIFICACION;
   readonly puedeEditar: boolean = this.authService.puedeEditar();
   readonly esAdministrador: boolean = this.authService.esAdministrador();
 
@@ -68,12 +81,17 @@ export class ProcesosComponent implements OnInit {
     { campo: 'categoria', titulo: $localize`Category`, clase: 'd-none d-sm-table-cell' },
     { campo: 'estado', titulo: $localize`State`, clase: '' },
     { campo: 'fechaModificacion', titulo: $localize`Last change`, clase: 'd-none d-md-table-cell' },
+    { campo: 'proximaRevision', titulo: $localize`Next review`, clase: 'd-none d-lg-table-cell' },
   ];
 
   filtros: FiltrosProceso = {
     nombre: '',
     estado: '',
     categoria: '',
+    carpetaId: null,
+    etiqueta: '',
+    clasificacion: '',
+    revisionAntesDe: '',
     orden: 'fechaModificacion',
     direccion: 'desc',
     pagina: 0,
@@ -145,6 +163,11 @@ export class ProcesosComponent implements OnInit {
     this.buscar();
   }
 
+  filtrarPorCarpeta(carpetaId: number | null): void {
+    this.filtros.carpetaId = carpetaId;
+    this.filtrar();
+  }
+
   filtrarPorCategoria(categoria: string): void {
     this.filtros.categoria = categoria;
     this.filtrar();
@@ -176,7 +199,15 @@ export class ProcesosComponent implements OnInit {
   }
 
   hayFiltros(): boolean {
-    return this.filtros.nombre.trim() !== '' || this.filtros.estado !== '' || this.filtros.categoria !== '';
+    return (
+      this.filtros.nombre.trim() !== '' ||
+      this.filtros.estado !== '' ||
+      this.filtros.categoria !== '' ||
+      !!this.filtros.carpetaId ||
+      !!this.filtros.etiqueta?.trim() ||
+      !!this.filtros.clasificacion ||
+      !!this.filtros.revisionAntesDe
+    );
   }
 
   irAPagina(pagina: number): void {

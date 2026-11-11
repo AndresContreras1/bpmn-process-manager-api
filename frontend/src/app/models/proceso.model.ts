@@ -1,8 +1,32 @@
 export type EstadoProceso = 'BORRADOR' | 'PUBLICADO';
+export type Clasificacion = 'INTERNA' | 'CONFIDENCIAL' | 'RESTRINGIDA';
+
+export const CLASIFICACIONES: Clasificacion[] = ['INTERNA', 'CONFIDENCIAL', 'RESTRINGIDA'];
+
+export const NOMBRE_CLASIFICACION: Record<Clasificacion, string> = {
+  INTERNA: $localize`Internal`,
+  CONFIDENCIAL: $localize`Confidential`,
+  RESTRINGIDA: $localize`Restricted`,
+};
+
+/** Cuerpo de PUT /procesos/{id}/ficha. */
+export interface FichaRequest {
+  carpetaId: number | null;
+  duenoId: number | null;
+  proximaRevision: string | null;
+  clasificacion: Clasificacion;
+  etiquetas: string[];
+  version: number;
+}
 
 /** Proceso de una tienda, con los mismos campos que ProcesoResponse de la API. */
 export interface Proceso {
   modo?: 'DOCUMENTAL' | 'EJECUTABLE';
+  carpetaId?: number | null;
+  duenoId?: number | null;
+  proximaRevision?: string | null;
+  clasificacion?: Clasificacion;
+  etiquetas?: string[];
   id: number;
   nombre: string;
   descripcion: string;
@@ -48,7 +72,7 @@ export interface ProcesoDetalle {
 }
 
 /** Campos por los que la API deja ordenar la lista de procesos. */
-export type CampoOrden = 'nombre' | 'categoria' | 'estado' | 'fechaModificacion';
+export type CampoOrden = 'nombre' | 'categoria' | 'estado' | 'fechaModificacion' | 'proximaRevision';
 export type Direccion = 'asc' | 'desc';
 
 /** Filtros de la lista: el nombre es parcial, la categoria exacta, y los vacios no se envian. */
@@ -56,6 +80,10 @@ export interface FiltrosProceso {
   nombre: string;
   estado: EstadoProceso | '';
   categoria: string;
+  carpetaId?: number | null;
+  etiqueta?: string;
+  clasificacion?: Clasificacion | '';
+  revisionAntesDe?: string;
   orden: CampoOrden;
   direccion: Direccion;
   pagina: number;
@@ -71,6 +99,7 @@ export const NOMBRE_ESTADO: Record<EstadoProceso, string> = {
 const CAMBIOS: Partial<Record<string, string>> = {
   'Proceso creado.': $localize`Process created.`,
   'Proceso editado.': $localize`Name, description or category edited.`,
+  'Ficha del repositorio editada.': $localize`Filing data edited.`,
   'Proceso publicado.': $localize`Process published.`,
   'Estado del proceso actualizado.': $localize`State updated.`,
   'Proceso eliminado (baja logica).': $localize`Process deleted.`,

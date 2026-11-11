@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.facimus.procesos.gestion.dto.response.ProcesoDelRolResponse;
 import com.facimus.procesos.gestion.service.UsoDeRoles;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.ProcesosDelRol;
@@ -30,6 +31,11 @@ public class UsoDeRolesEnLanes implements UsoDeRoles {
     @Override
     public List<String> procesosQueLoUsan(Long empresaId, Long rolId) {
         return laneRepository.nombresDeProcesosActivosDelRol(empresaId, rolId);
+    }
+
+    @Override
+    public List<ProcesoDelRolResponse> procesosDelRol(Long empresaId, Long rolId) {
+        return laneRepository.procesosActivosDelRol(empresaId, rolId);
     }
 
     @Override

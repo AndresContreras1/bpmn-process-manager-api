@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -53,4 +54,21 @@ public interface ProcesoRepository extends RepositorioTenant<Proceso>, JpaSpecif
               and exists (select 1 from ProcesoCompartido c where c.proceso = p and c.empresaInvitada.id = :empresaId)
             """)
     Page<Proceso> compartidosCon(@Param("empresaId") Long empresaId, Pageable pageable);
+
+    /** PR 59: cuantos procesos activos tiene cada carpeta, de una vez. */
+    @Query("""
+            select new com.facimus.procesos.gestion.repository.ProcesosPorCarpeta(p.carpetaId, count(p)) from Proceso p
+            where p.empresa.id = :empresaId and p.activo = true and p.carpetaId is not null
+            group by p.carpetaId
+            """)
+    List<ProcesosPorCarpeta> contarPorCarpeta(@Param("empresaId") Long empresaId);
+
+    long countByCarpetaIdAndEmpresaIdAndActivoTrue(Long carpetaId, Long empresaId);
+
+    /** PR 59: las etiquetas en uso, para sugerirlas. */
+    @Query(value = """
+            select distinct etiqueta from procesos, unnest(etiquetas) as etiqueta
+            where empresa_id = :empresaId and activo = true order by etiqueta
+            """, nativeQuery = true)
+    List<String> etiquetasEnUso(@Param("empresaId") Long empresaId);
 }

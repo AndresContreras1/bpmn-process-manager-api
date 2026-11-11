@@ -1,6 +1,9 @@
 package com.facimus.procesos.gestion.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.List;
+
+import com.facimus.procesos.common.Default;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -17,5 +20,25 @@ public record RolProcesoVistaResponse(
                 example = "2") Long creadoPor,
         @Schema(example = "2026-09-21T15:00:00") LocalDateTime fechaCreacion,
         @Schema(description = "Id of the user who saved the last change", example = "5") Long modificadoPor,
-        @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion) {
+        @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,
+        @Schema(description = "HU-20.4: the processes that use it. Only when asking for one role, not in the list")
+        List<ProcesoDelRolResponse> procesos) {
+
+    @Default
+    public RolProcesoVistaResponse {
+        procesos = procesos == null ? List.of() : List.copyOf(procesos);
+    }
+
+    /** El de la lista, que solo cuenta. */
+    public RolProcesoVistaResponse(Long id, String nombre, String descripcion, long procesosQueLoUsan, boolean enUso,
+            Long version, Long creadoPor, LocalDateTime fechaCreacion, Long modificadoPor,
+            LocalDateTime fechaModificacion) {
+        this(id, nombre, descripcion, procesosQueLoUsan, enUso, version, creadoPor, fechaCreacion, modificadoPor,
+                fechaModificacion, List.of());
+    }
+
+    public RolProcesoVistaResponse conProcesos(List<ProcesoDelRolResponse> lista) {
+        return new RolProcesoVistaResponse(id, nombre, descripcion, procesosQueLoUsan, enUso, version, creadoPor,
+                fechaCreacion, modificadoPor, fechaModificacion, lista);
+    }
 }

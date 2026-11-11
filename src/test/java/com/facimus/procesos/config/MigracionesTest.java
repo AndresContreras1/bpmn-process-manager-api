@@ -114,7 +114,8 @@ class MigracionesTest {
                         "V46__elementos_descriptivos.sql",
                         "V47__subprocesos_y_llamadas.sql",
                         "V48__revisiones_del_borrador.sql",
-                        "V49__presencia_y_bloqueo_suave.sql");
+                        "V49__presencia_y_bloqueo_suave.sql",
+                        "V50__repositorio_de_procesos.sql");
     }
 
     @Test

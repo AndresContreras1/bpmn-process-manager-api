@@ -153,6 +153,12 @@
         </section>
       </div>
 
+      @if (!diagrama?.compartido) {
+        <div class="col-12">
+          <app-ficha-repositorio [proceso]="detalle.proceso" (guardado)="alGuardarFicha($event)" />
+        </div>
+      }
+
       <div class="col-12">
         <section class="card border-0 shadow-sm" id="proceso-detalle-diagrama">
           <div class="card-body p-4">
