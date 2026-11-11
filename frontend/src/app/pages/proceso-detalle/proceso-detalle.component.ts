@@ -14,15 +14,16 @@ import { AuthService } from '../../service/auth.service';
 import { DiagramaService } from '../../service/diagrama.service';
 import { ProcesoService } from '../../service/proceso.service';
 import { VersionService } from '../../service/version.service';
-import { DetalleNodo, detallarNodo } from './components/diagrama-bpmn/detalle-nodo';
-import { DiagramaBpmnComponent } from './components/diagrama-bpmn/diagrama-bpmn.component';
-import { Lienzo, dibujarDiagrama } from './components/diagrama-bpmn/lienzo';
+import { DetalleNodo, MensajeDibujo, bpmnIdsDeNodos, detallarNodo, numerarMensajes } from '../../bpmn/detalle-nodo';
+import { ElementoElegido, LienzoBpmnComponent } from '../../bpmn/lienzo-bpmn.component';
+import { ModeloService } from '../../service/modelo.service';
 import { FechaPipe } from '../../pipes/fecha.pipe';
 
 /** Lo que la pagina pide al abrir un proceso: sus datos con el historial y su diagrama. */
 interface Carga {
   detalle: ProcesoDetalle;
   diagrama: Diagrama | null;
+  xml: string | null;
   versiones: Version[];
 }
 
@@ -30,13 +31,14 @@ interface Carga {
 interface Respuesta {
   detalle: ProcesoDetalle | null;
   diagrama: Diagrama | null;
+  xml: string | null;
   versiones: Version[];
 }
 
 /** Un proceso con sus datos, su diagrama y su historial de cambios, y las acciones que permite el rol del usuario. */
 @Component({
   selector: 'app-proceso-detalle',
-  imports: [FechaPipe, FormsModule, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent],
+  imports: [FechaPipe, FormsModule, RouterLink, ModalConfirmarComponent, LienzoBpmnComponent],
   templateUrl: './proceso-detalle.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './proceso-detalle.component.scss',
@@ -45,6 +47,7 @@ export class ProcesoDetalleComponent implements OnInit {
   private readonly procesoService: ProcesoService = inject(ProcesoService);
   private readonly diagramaService: DiagramaService = inject(DiagramaService);
   private readonly versionService: VersionService = inject(VersionService);
+  private readonly modelos: ModeloService = inject(ModeloService);
   private readonly authService: AuthService = inject(AuthService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
@@ -71,7 +74,8 @@ export class ProcesoDetalleComponent implements OnInit {
   /** Que se esta mirando: null es el modelo de hoy, y un numero, la version publicada con ese numero. */
   verVersion: number | null = null;
   cambiandoVersion: boolean = false;
-  lienzo: Lienzo | null = null;
+  xml: string | null = null;
+  mensajes: MensajeDibujo[] = [];
   nodoElegido: DetalleNodo | null = null;
   cargando: boolean = true;
   noEncontrado: boolean = false;
@@ -130,24 +134,35 @@ export class ProcesoDetalleComponent implements OnInit {
     this.verVersion = numero;
     const diagrama$: Observable<Diagrama> =
       numero === null ? this.diagramaService.obtener(id) : this.versionService.diagrama(id, numero);
-    diagrama$
+    const xml$: Observable<string> =
+      numero === null
+        ? this.modelos.leer(id).pipe(map((modelo) => modelo.xml))
+        : this.versionService.modelo(id, numero);
+    forkJoin({ diagrama: diagrama$, xml: xml$ })
       .pipe(
         finalize(() => (this.cambiandoVersion = false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (diagrama: Diagrama) =>
-          this.mostrar({ detalle: this.detalle as ProcesoDetalle, diagrama, versiones: this.versiones }),
+        next: ({ diagrama, xml }) =>
+          this.mostrar({ detalle: this.detalle as ProcesoDetalle, diagrama, xml, versiones: this.versiones }),
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
   }
 
   /** Muestra el detalle de la tarea, el gateway o el evento elegido; elegirlo otra vez lo cierra. */
-  elegirNodo(id: number): void {
-    this.nodoElegido =
-      this.diagrama && this.lienzo && this.nodoElegido?.id !== id
-        ? detallarNodo(this.diagrama, id, this.lienzo.mensajes)
-        : null;
+  elegirNodo(elegido: ElementoElegido | null): void {
+    const diagrama = this.diagrama;
+    if (!elegido || !diagrama) {
+      this.nodoElegido = null;
+      return;
+    }
+    const nodo = [...bpmnIdsDeNodos(diagrama)].find(([, bpmnId]) => bpmnId === elegido.id);
+    this.nodoElegido = nodo ? detallarNodo(diagrama, nodo[0], this.mensajes) : null;
+  }
+
+  cerrarNodo(): void {
+    this.nodoElegido = null;
   }
 
   publicar(): void {
@@ -250,7 +265,8 @@ export class ProcesoDetalleComponent implements OnInit {
     this.detalle = carga.detalle;
     this.diagrama = carga.diagrama;
     this.versiones = carga.versiones;
-    this.lienzo = carga.diagrama ? dibujarDiagrama(carga.diagrama) : null;
+    this.xml = carga.xml;
+    this.mensajes = carga.diagrama ? numerarMensajes(carga.diagrama) : [];
     this.nodoElegido = null;
   }
 
@@ -273,6 +289,10 @@ export class ProcesoDetalleComponent implements OnInit {
         }),
       ),
       diagrama: this.diagramaService.obtener(id).pipe(catchError(() => of(null))),
+      xml: this.modelos.leer(id).pipe(
+        map((modelo) => modelo.xml),
+        catchError(() => of(null)),
+      ),
       // Una invitada no puede listar las versiones del proceso de otra tienda: sin lista, no hay selector
       versiones: this.versionService.listar(id).pipe(catchError(() => of([] as Version[]))),
     }).pipe(
@@ -283,7 +303,7 @@ export class ProcesoDetalleComponent implements OnInit {
           respuesta.detalle ?? (respuesta.diagrama ? { proceso: respuesta.diagrama.proceso, historial: [] } : null);
         return detalle === null
           ? throwError(() => falloDelDetalle ?? new HttpErrorResponse({ status: 404 }))
-          : of({ detalle, diagrama: respuesta.diagrama, versiones: respuesta.versiones });
+          : of({ detalle, diagrama: respuesta.diagrama, xml: respuesta.xml, versiones: respuesta.versiones });
       }),
     );
   }

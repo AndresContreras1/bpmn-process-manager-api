@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
 /**
@@ -30,35 +30,47 @@ class ModelarYPublicarTest extends PruebaE2E {
         long pool = api.poolDeLaTienda(proceso);
         long rol = api.crearRol("Gift desk");
         long lane = api.crearLane(pool, "Gift desk", rol);
-        api.crearEvento(lane, "Gift requested", "INICIO", 20, 80);
-        api.crearEvento(lane, "Gift ready", "FIN", 340, 80);
+        long idInicio = api.crearEvento(lane, "Gift requested", "INICIO", 20, 80);
+        long idFin = api.crearEvento(lane, "Gift ready", "FIN", 340, 80);
+        String inicio = bpmnIdDe(proceso, idInicio);
+        String fin = bpmnIdDe(proceso, idFin);
 
         entrar(tienda);
-        ir("/procesos/" + proceso + "/editar-diagrama");
-        esperarTexto(Paginas.Editor.TITULO, "Gift wrapping");
+        ir("/procesos/" + proceso + "/modelar");
+        visible(elemento(inicio));
 
         // Un inicio y un fin sin nada entre ellos no es un proceso: el diagnostico lo dice y publicar esta cerrado
-        String antes = textoDe(Paginas.Editor.CUENTA);
-        assertFalse(antes.startsWith("0 errores"), "un diagrama a medias tiene que tener errores, y tiene: " + antes);
+        espera.until(ExpectedConditions.presenceOfElementLocated(Paginas.Modelador.RESUMEN));
+        String antes = textoDe(Paginas.Modelador.RESUMEN);
+        assertFalse(antes.startsWith("0 "), "un diagrama a medias tiene que tener errores, y tiene: " + antes);
         // visible y no pulsable: pulsable espera a que se pueda pulsar, que es justo lo que aqui no tiene que pasar
-        assertFalse(visible(Paginas.Editor.PUBLICAR).isEnabled(), "con errores no se puede publicar");
+        assertFalse(visible(Paginas.Modelador.PUBLICAR).isEnabled(), "con errores no se puede publicar");
 
-        // Se agrega la tarea que falta, desde la paleta, sobre la lane elegida
-        pulsable(Paginas.Editor.LANE).click();
-        pulsable(By.id("paleta-actividad")).click();
-        esperarTexto(Paginas.Editor.ELEGIDO, "Nueva tarea");
-        escribir(Paginas.Editor.NOMBRE_ACTIVIDAD, "Wrap the order");
-        pulsable(Paginas.Editor.GUARDAR).click();
-        esperarTexto(Paginas.Editor.ELEGIDO, "Wrap the order");
+        // Se agrega la tarea que falta desde el menu del inicio, y se le pone nombre al crearla
+        pulsable(elemento(inicio)).click();
+        pulsable(accion("append.append-task")).click();
+        WebElement nombre = visible(Paginas.Modelador.EDICION_DIRECTA);
+        nombre.sendKeys("Wrap the order", Keys.ENTER);
 
-        // Conectar el inicio con la tarea y la tarea con el fin es lo que convierte tres cajas en un proceso
-        conectar("Gift requested", "Wrap the order");
-        conectar("Wrap the order", "Gift ready");
-        espera.until(ExpectedConditions.visibilityOfElementLocated(Paginas.Editor.LIMPIO));
-        assertTrue(textoDe(Paginas.Editor.CUENTA).startsWith("0 errores"), "el diagrama tendria que quedar limpio");
+        // Conectar la tarea con el fin es lo que convierte tres cajas en un proceso; la tarea queda elegida al crearla
+        pulsable(accion("connect")).click();
+        new Actions(navegador).moveToElement(visible(elemento(fin))).click().perform();
 
-        pulsable(Paginas.Editor.PUBLICAR).click();
-        esperarTexto(Paginas.Editor.PUBLICADO, "versión 1");
+        // Lo guarda solo: el estado se comprueba por la API, que es lo que de verdad quedo
+        espera.until(navegador -> api.get("/procesos/" + proceso + "/diagrama").get("arcos").size() == 2);
+        // Una tarea sin tipo no se puede correr: el diagnostico la marca, y se elige desde su menu de cambiar de tipo
+        String tarea = api.get("/procesos/" + proceso + "/diagrama").get("actividades").get(0).get("bpmnId").asText();
+        pulsable(elemento(tarea)).click();
+        pulsable(accion("replace")).click();
+        pulsable(By.cssSelector(".djs-popup [data-id='replace-with-user-task']")).click();
+
+        espera.until(navegador -> textoDe(Paginas.Modelador.RESUMEN).startsWith("0 "));
+        espera.until(ExpectedConditions.elementToBeClickable(Paginas.Modelador.PUBLICAR));
+        assertEquals("Wrap the order",
+                api.get("/procesos/" + proceso + "/diagrama").get("actividades").get(0).get("nombre").asText());
+
+        pulsable(Paginas.Modelador.PUBLICAR).click();
+        esperarTexto(Paginas.Modelador.PUBLICADO, "versión 1");
 
         // Y el proceso queda publicado, con su version, para quien lo mire desde fuera del editor
         ir("/procesos/" + proceso);
@@ -81,24 +93,22 @@ class ModelarYPublicarTest extends PruebaE2E {
                 "el selector dice, en espanol, que la version 1 ya no esta vigente");
     }
 
-    /** Dos clics en el lienzo: el modo de conectar no elige nodos, los une. */
-    private void conectar(String desde, String hasta) {
-        pulsable(By.id("proceso-editor-conectar")).click();
-        nodoDelLienzo(desde).click();
-        nodoDelLienzo(hasta).click();
+    private String bpmnIdDe(long proceso, long evento) {
+        for (var uno : api.get("/procesos/" + proceso + "/diagrama").get("eventos")) {
+            if (uno.get("id").asLong() == evento) {
+                return uno.get("bpmnId").asText();
+            }
+        }
+        throw new AssertionError("No hay un evento " + evento);
     }
 
-    /** Un nodo del dibujo por su etiqueta accesible, que es como lo encontraria alguien con un lector de pantalla. */
-    private WebElement nodoDelLienzo(String nombre) {
-        By nodos = By.cssSelector("#diagrama-bpmn [role='button']");
-        espera.until(ExpectedConditions.presenceOfElementLocated(nodos));
-        List<WebElement> candidatos = navegador.findElements(nodos);
-        return candidatos.stream()
-                .filter(nodo -> {
-                    String etiqueta = nodo.getDomAttribute("aria-label");
-                    return etiqueta != null && etiqueta.contains(nombre);
-                })
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("No hay ningun nodo llamado \"" + nombre + "\" en el diagrama"));
+    /** Un elemento del dibujo por su bpmnId. */
+    private static By elemento(String bpmnId) {
+        return By.cssSelector("[data-element-id='" + bpmnId + "']");
+    }
+
+    /** Una accion del menu contextual del elemento elegido. */
+    private static By accion(String nombre) {
+        return By.cssSelector(".djs-context-pad.open [data-action='" + nombre + "']");
     }
 }

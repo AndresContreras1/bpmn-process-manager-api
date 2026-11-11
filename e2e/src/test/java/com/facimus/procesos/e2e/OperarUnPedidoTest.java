@@ -45,9 +45,9 @@ class OperarUnPedidoTest extends PruebaE2E {
         // Y la pagina del caso dice donde se detuvo: en la tarea, con el token encima
         esperarTexto(Paginas.Caso.REFERENCIA, "ORD-9001");
         assertEquals("Abierto", textoDe(Paginas.Caso.ESTADO));
-        // El titulo de un nodo del SVG no se "ve", asi que se lee su texto del DOM y no con getText
+        // El texto de un nodo del SVG se lee del DOM, y no con getText
         assertEquals("Pick and pack",
-                visible(Paginas.Caso.ACTIVO).findElement(By.tagName("title")).getDomProperty("textContent"),
+                visible(Paginas.Caso.ACTIVO).findElement(By.tagName("text")).getDomProperty("textContent"),
                 "el token tiene que quedar sobre la tarea que espera a alguien");
         assertFalse(navegador.findElements(Paginas.Caso.EVENTO).isEmpty(),
                 "la linea de tiempo no puede estar vacia: el caso ya hizo cosas");

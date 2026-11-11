@@ -209,20 +209,8 @@ export const routes: Routes = [
       ],
     },
   },
-  {
-    path: 'procesos/:id/editar-diagrama',
-    loadComponent: () =>
-      import('./pages/proceso-editor/proceso-editor.component').then((modulo) => modulo.ProcesoEditorComponent),
-    canActivate: [authGuard],
-    title: $localize`Model the diagram · BPMN Process Manager`,
-    data: {
-      migas: [
-        { etiqueta: $localize`Processes`, ruta: '/procesos' },
-        { etiqueta: $localize`Process`, ruta: '/procesos/:id' },
-        { etiqueta: $localize`Diagram` },
-      ],
-    },
-  },
+  // Los enlaces viejos al editor anterior siguen llevando al lugar donde se modela ahora
+  { path: 'procesos/:id/editar-diagrama', redirectTo: 'procesos/:id/modelar' },
   {
     path: 'procesos/:id',
     loadComponent: () =>

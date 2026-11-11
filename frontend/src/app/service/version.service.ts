@@ -22,6 +22,11 @@ export class VersionService {
     return this.http.get<Diagrama>(`${this.url}/${procesoId}/versiones/${numero}/diagrama`);
   }
 
+  /** El archivo BPMN de esa version, tal como se escribio al publicarla. */
+  modelo(procesoId: number, numero: number): Observable<string> {
+    return this.http.get(`${this.url}/${procesoId}/versiones/${numero}/modelo`, { responseType: 'text' });
+  }
+
   /**
    * Retira una version: deja de ser la vigente y el proceso vuelve a la anterior que siga en pie. No borra nada
    * -los casos que se abrieron con ella siguen corriendo con ella- y es lo unico que la API deja cambiarle a una

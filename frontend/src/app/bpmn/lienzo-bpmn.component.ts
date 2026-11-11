@@ -58,6 +58,8 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
   readonly titulo = input<string>('');
   /** Clases para pintar elementos: por bpmnId. */
   readonly marcas = input<Record<string, string[]>>({});
+  /** Numeros superpuestos, como los tokens de un caso: por bpmnId. Se ven si son mas de uno. */
+  readonly contadores = input<Record<string, number>>({});
 
   readonly listo = output<void>();
   readonly cambio = output<void>();
@@ -105,7 +107,7 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
     }
     if (cambios['xml'] && this.xml() !== this.xmlCargado) {
       await this.cargar(this.xml());
-    } else if (cambios['marcas']) {
+    } else if (cambios['marcas'] || cambios['contadores']) {
       this.pintar();
     }
   }
@@ -221,6 +223,21 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
       }
     });
     this.marcasPuestas = puestas;
+    this.contar();
+  }
+
+  private contar(): void {
+    const superpuestos = this.bpmn.get('overlays');
+    const registro = this.bpmn.get('elementRegistry');
+    superpuestos.remove({ type: 'contador' });
+    Object.entries(this.contadores()).forEach(([id, cuantos]) => {
+      if (cuantos > 1 && registro.get(id)) {
+        const insignia = document.createElement('span');
+        insignia.className = 'contador-bpmn';
+        insignia.textContent = String(cuantos);
+        superpuestos.add(id, 'contador', { position: { top: -8, right: 8 }, html: insignia });
+      }
+    });
   }
 }
 

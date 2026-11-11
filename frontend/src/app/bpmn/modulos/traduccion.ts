@@ -1,5 +1,7 @@
 /** Lo que bpmn-js escribe en la paleta y en los menus, en espanol. */
 const ES: Record<string, string> = {
+  'Open minimap': 'Abrir el minimapa',
+  'Close minimap': 'Cerrar el minimapa',
   'Activate hand tool': 'Activar la mano',
   'Activate lasso tool': 'Activar el lazo',
   'Activate create/remove space tool': 'Activar crear o quitar espacio',

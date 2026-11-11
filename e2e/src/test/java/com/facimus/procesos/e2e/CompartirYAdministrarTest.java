@@ -31,9 +31,9 @@ class CompartirYAdministrarTest extends PruebaE2E {
         duenaApi.conectar(revisar, fin);
 
         entrar(duena);
-        ir("/procesos/" + proceso + "/editar-diagrama");
-        pulsable(Paginas.Editor.PUBLICAR).click();
-        esperarTexto(Paginas.Editor.PUBLICADO, "versión 1");
+        ir("/procesos/" + proceso + "/modelar");
+        pulsable(Paginas.Modelador.PUBLICAR).click();
+        esperarTexto(Paginas.Modelador.PUBLICADO, "versión 1");
 
         // Compartirlo, por el NIT de la otra tienda
         ir("/procesos/" + proceso + "/compartir");
