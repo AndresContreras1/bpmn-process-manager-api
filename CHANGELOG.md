@@ -8,6 +8,12 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- BPMN import: `POST /api/v1/procesos/importar` turns a file from this product, Camunda Modeler, bpmn.io or any other
+  tool into a draft process, and `PUT /api/v1/procesos/{id}/modelo` applies one to a draft by differences, by
+  `bpmnId`. Each element is imported, converted to the closest thing or left out, and the report says which and why;
+  hard rules answer `409` with every problem. What other tools write in an element (Camunda's attributes and
+  properties, bpmn.io's colors) is kept and exported again. A golden corpus with the OMG MIWG class A models and
+  bpmn-js exports goes there and back with no change, and a nightly fuzzer breaks it on purpose.
 - BPMN 2.0.2 export: `GET /api/v1/procesos/{id}/modelo` downloads a process as a `.bpmn` file that validates against
   the OMG schemas and opens in bpmn.io and Camunda Modeler, with its geometry; what BPMN has no element for goes in
   `extensionElements` under its own namespace, with its own schema. Each published version stores its file, and

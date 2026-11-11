@@ -25,7 +25,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
 | Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
-| BPMN 2.0.2 | `GET /api/v1/procesos/{id}/modelo` · `GET /api/v1/procesos/{procesoId}/versiones/{numero}/modelo` |
+| BPMN 2.0.2 | `GET, PUT /api/v1/procesos/{id}/modelo` · `POST /api/v1/procesos/importar[?nombre=]` · `GET /api/v1/procesos/{procesoId}/versiones/{numero}/modelo` |
 | Published versions | `GET /api/v1/procesos/{procesoId}/versiones` · `GET, PATCH /api/v1/procesos/{procesoId}/versiones/{numero}` · `GET /api/v1/procesos/{procesoId}/versiones/{numero}/diagrama` |
 | Diagnosis | `GET /api/v1/procesos/{id}/diagnostico[?sinElemento=TYPE:id]` |
 | AI review | `POST /api/v1/procesos/{id}/revision` |
@@ -59,6 +59,22 @@ answer and correlation) goes in `extensionElements` under `urn:bpmn-process-mana
 [`bpm.xsd`](../src/main/resources/bpmn/xsd/bpm.xsd). The owning store gets its draft; a store the process is shared
 with gets the version in force. `GET .../versiones/{numero}/modelo` answers the file written when that version was
 published ([ADR-0053](adr/0053-bpmn-export.md)).
+
+The way back takes a BPMN 2.0 file from this product or any other tool as the body (`application/xml`, up to 5 MB).
+`POST /api/v1/procesos/importar` creates a draft process from it (`201`, with `Location`); `PUT
+/api/v1/procesos/{id}/modelo` makes the draft what the file says, element by element by `bpmnId`, and importing the
+file the process exports changes nothing. Both answer what was created, edited and deleted, and a report: what was
+imported as it was, what was converted to the closest thing the model has and how, what was left out and why, whose
+content from another tool was kept to export it again, and what the file breaks of the OMG schema. A file that breaks
+the model's rules answers `409` with every problem; deleting needs an administrator, pools and lanes follow the
+store's structure policy, and lanes asking for missing roles need an administrator, who creates them while importing
+([ADR-0054](adr/0054-bpmn-import.md)).
+
+```bash
+# A Camunda Modeler file as a new process, and the same process back after editing it there
+curl -s -X POST "http://localhost:8080/api/v1/procesos/importar?nombre=Returns" -b sesion.txt   -H "X-XSRF-TOKEN: $XSRF" -H "Content-Type: application/xml" --data-binary @returns.bpmn
+curl -s -X PUT http://localhost:8080/api/v1/procesos/7/modelo -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"   -H "Content-Type: application/xml" --data-binary @returns.bpmn
+```
 
 State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO", "version": 3 }`,
 which is what publishes a process and saves its version.

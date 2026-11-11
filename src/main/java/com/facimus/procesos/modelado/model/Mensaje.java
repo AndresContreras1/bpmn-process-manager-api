@@ -123,4 +123,30 @@ public class Mensaje extends EntidadEditable {
             bpmnId = BpmnId.nuevo("MessageFlow");
         }
     }
+
+    /** El largo de la columna de la variable. */
+    public static final int LARGO_DE_LA_VARIABLE = 60;
+
+    /**
+     * El nombre con el que el cuerpo entra a las variables del caso cuando no se dice otro, sacado del nombre del
+     * mensaje: "Payment authorization result" queda como paymentAuthorizationResult.
+     */
+    public static String variablePorDefecto(String nombre) {
+        StringBuilder variable = new StringBuilder();
+        boolean siguienteEnMayuscula = false;
+        for (char letra : nombre.toCharArray()) {
+            if (!Character.isLetterOrDigit(letra)) {
+                siguienteEnMayuscula = !variable.isEmpty();
+            } else if (variable.isEmpty()) {
+                variable.append(Character.isLetter(letra) ? Character.toLowerCase(letra) : 'm');
+            } else {
+                variable.append(siguienteEnMayuscula ? Character.toUpperCase(letra) : letra);
+                siguienteEnMayuscula = false;
+            }
+        }
+        String nombreDeVariable = variable.length() > LARGO_DE_LA_VARIABLE
+                ? variable.substring(0, LARGO_DE_LA_VARIABLE)
+                : variable.toString();
+        return nombreDeVariable.isEmpty() ? "mensaje" : nombreDeVariable;
+    }
 }

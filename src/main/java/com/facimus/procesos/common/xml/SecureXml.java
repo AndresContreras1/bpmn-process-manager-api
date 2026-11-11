@@ -36,9 +36,11 @@ import javax.xml.validation.Validator;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.ls.LSInput;
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXNotRecognizedException;
 import org.xml.sax.SAXNotSupportedException;
+import org.xml.sax.SAXParseException;
 
 /**
  * PR 52: la unica forma de crear un parser de XML en el proyecto; una regla de ArchUnit prohibe crear las factorias en
@@ -152,6 +154,23 @@ public final class SecureXml {
             DocumentBuilder constructor = factoria.newDocumentBuilder();
             constructor.setEntityResolver((publico, sistema) -> {
                 throw new SAXException(SIN_DTD);
+            });
+            // PR 54: el manejador por defecto imprime cada error en stderr antes de lanzarlo; aqui solo se lanza
+            constructor.setErrorHandler(new ErrorHandler() {
+                @Override
+                public void warning(SAXParseException aviso) {
+                    // Un aviso no impide leer el documento
+                }
+
+                @Override
+                public void error(SAXParseException error) throws SAXException {
+                    throw error;
+                }
+
+                @Override
+                public void fatalError(SAXParseException error) throws SAXException {
+                    throw error;
+                }
             });
             return constructor;
         } catch (ParserConfigurationException e) {

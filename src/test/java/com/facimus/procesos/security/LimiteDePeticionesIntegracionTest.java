@@ -3,6 +3,7 @@ package com.facimus.procesos.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,7 +48,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @SpringBootTest(properties = {"limites.activos=true", "limites.autenticacion-por-minuto=3",
         "limites.registro-por-hora=2", "limites.correo-por-hora=2", "limites.escritura-por-minuto=5",
-        "limites.cuerpo-maximo=2KB", "turnstile.secreto=secreto-de-pruebas"})
+        "limites.cuerpo-maximo=2KB", "limites.cuerpo-maximo-bpmn=4KB", "turnstile.secreto=secreto-de-pruebas"})
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 class LimiteDePeticionesIntegracionTest {
@@ -147,6 +148,26 @@ class LimiteDePeticionesIntegracionTest {
                         .content(grande))
                 .andExpect(status().isContentTooLarge())
                 .andExpect(jsonPath("$.title").value("Cuerpo demasiado grande"));
+    }
+
+    @Test
+    @DisplayName("PR 54: las dos rutas que reciben un BPMN tienen su propio tope; las demas, el de siempre")
+    void cuerpoDeUnBpmn() throws Exception {
+        String mediano = "<x>" + "a".repeat(3000) + "</x>";
+        String grande = "<x>" + "a".repeat(5000) + "</x>";
+        // Sin sesion: pasar el tope es llegar a la autorizacion, que responde 401
+        mockMvc.perform(post("/api/v1/procesos/importar").with(SesionEnCookies.conCsrf()).with(direccion())
+                        .contentType(MediaType.APPLICATION_XML).content(mediano))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/v1/procesos/7/modelo").with(SesionEnCookies.conCsrf()).with(direccion())
+                        .contentType(MediaType.APPLICATION_XML).content(mediano))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/procesos/importar").with(SesionEnCookies.conCsrf()).with(direccion())
+                        .contentType(MediaType.APPLICATION_XML).content(grande))
+                .andExpect(status().isContentTooLarge());
+        mockMvc.perform(post("/api/v1/procesos").with(SesionEnCookies.conCsrf()).with(direccion())
+                        .contentType(MediaType.APPLICATION_JSON).content(mediano))
+                .andExpect(status().isContentTooLarge());
     }
 
     @Test

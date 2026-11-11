@@ -103,7 +103,8 @@ public class SecurityConfig {
             IdempotenciaService idempotenciaService, EmpresaService empresaService, JsonMapper jsonMapper,
             ProveedoresOidc.Clientes clientesOidc, PeticionesOidc peticionesOidc, EntradaExterna entradaExterna,
             LimitesDePeticiones limites, VerificacionHumana verificacionHumana,
-            @Value("${limites.cuerpo-maximo}") DataSize cuerpoMaximo) throws Exception {
+            @Value("${limites.cuerpo-maximo}") DataSize cuerpoMaximo,
+            @Value("${limites.cuerpo-maximo-bpmn}") DataSize cuerpoMaximoBpmn) throws Exception {
         reglasComunes(http)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthEntryPoint)
@@ -121,7 +122,7 @@ public class SecurityConfig {
                 .addFilterAfter(new InscripcionObligatoriaFilter(jsonMapper), SegundoFactorPendienteFilter.class)
                 // PR 32: el cubo de cada peticion, ya sabiendo quien es: lo que cambia algo cuenta por persona.
                 .addFilterAfter(new LimiteDePeticionesFilter(limites, verificacionHumana, jsonMapper,
-                        cuerpoMaximo.toBytes()), InscripcionObligatoriaFilter.class)
+                        cuerpoMaximo.toBytes(), cuerpoMaximoBpmn.toBytes()), InscripcionObligatoriaFilter.class)
                 // Detras de la autorizacion: una peticion que el rol rechaza no le pregunta nada a la base.
                 .addFilterAfter(new TiendaEnBajaFilter(empresaService, jsonMapper), AuthorizationFilter.class)
                 .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), TiendaEnBajaFilter.class);

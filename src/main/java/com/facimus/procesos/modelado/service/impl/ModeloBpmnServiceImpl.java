@@ -12,6 +12,7 @@ import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.VersionService;
 import com.facimus.procesos.modelado.bpmn.EscritorBpmn;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.repository.ExtensionXmlRepository;
 import com.facimus.procesos.modelado.service.GeometriaService;
 import com.facimus.procesos.modelado.service.ModeloBpmnService;
 
@@ -30,6 +31,7 @@ public class ModeloBpmnServiceImpl implements ModeloBpmnService {
     private final VersionService versionService;
     private final ArmadoDelDiagrama armado;
     private final GeometriaService geometriaService;
+    private final ExtensionXmlRepository extensionXmlRepository;
 
     @Override
     public ModeloBpmn exportar(Long empresaId, Long procesoId) {
@@ -40,7 +42,8 @@ public class ModeloBpmnServiceImpl implements ModeloBpmnService {
         }
         DiagramaResponse diagrama = armado.armar(lectura.proceso(), false, lectura.empresaPropietariaId());
         byte[] bpmn = EscritorBpmn.escribir(diagrama,
-                geometriaService.obtener(lectura.empresaPropietariaId(), procesoId));
+                geometriaService.obtener(lectura.empresaPropietariaId(), procesoId),
+                ExtensionesGuardadas.de(extensionXmlRepository, procesoId, lectura.empresaPropietariaId()));
         return ModeloBpmn.delBorrador(lectura.proceso().nombre(), new String(bpmn, StandardCharsets.UTF_8));
     }
 }
