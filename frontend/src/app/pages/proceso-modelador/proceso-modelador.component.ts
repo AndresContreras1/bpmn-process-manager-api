@@ -19,6 +19,7 @@ import { ElementoElegido, LienzoBpmnComponent } from '../../bpmn/lienzo-bpmn.com
 import { elementoDe, marcasDe } from '../../bpmn/marcas';
 import { ModoProceso } from '../../bpmn/modulos/reglas';
 import { PanelPropiedadesComponent } from '../../bpmn/panel-propiedades.component';
+import { VistaEstructuraComponent } from '../../bpmn/vista-estructura.component';
 import { mensajeDeError } from '../../helpers/errores-api';
 import { Diagnostico, Hallazgo } from '../../models/diagnostico.model';
 import { Diagrama } from '../../models/diagrama.model';
@@ -30,7 +31,7 @@ import { ModeloService } from '../../service/modelo.service';
 /** El modelador: dibuja con bpmn-js, guarda solo y dice en vivo lo que el diagnostico encuentra. */
 @Component({
   selector: 'app-proceso-modelador',
-  imports: [RouterLink, LienzoBpmnComponent, PanelPropiedadesComponent],
+  imports: [RouterLink, LienzoBpmnComponent, PanelPropiedadesComponent, VistaEstructuraComponent],
   templateUrl: './proceso-modelador.component.html',
   styleUrl: './proceso-modelador.component.scss',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -55,6 +56,10 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   error: string | null = null;
   publicado: string | null = null;
   publicando = false;
+  /** La vista de estructura, y cuantos cambios lleva el dibujo: es lo que la hace releer. */
+  estructuraAbierta = false;
+  revision = 0;
+  dibujado = false;
   elegido: ElementoElegido | null = null;
   diagnostico: Diagnostico | null = null;
   marcas: Record<string, string[]> = {};
@@ -147,6 +152,8 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
 
   alEstarListo(): void {
     this.cargando = false;
+    this.dibujado = true;
+    this.revision++;
     if (this.pendienteDeGuardar) {
       this.pendienteDeGuardar = false;
       void this.autoguardado?.marcarCambio();
@@ -154,6 +161,7 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   }
 
   alCambiar(): void {
+    this.revision++;
     if (!this.cargando) {
       void this.autoguardado?.marcarCambio();
     }

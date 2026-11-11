@@ -1,0 +1,30 @@
+.estructura-arbol {
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.25rem;
+  // El borde del foco no se corta contra el marco de la lista
+  padding: 0.25rem;
+}
+
+// 2.5.8: cada fila mide al menos 24 px de alto, y ocupa todo el ancho
+.estructura-fila {
+  min-height: 1.75rem;
+  line-height: 1.75rem;
+  cursor: pointer;
+  border-radius: 0.125rem;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+  // 2.4.11: al recorrer con flechas, la fila nunca queda pegada al borde
+  scroll-margin-block: 0.5rem;
+}
+
+.estructura-actual {
+  background: var(--bs-secondary-bg);
+  font-weight: 600;
+}
+
+.estructura-fila:focus-visible {
+  outline: 3px solid var(--bs-primary);
+  outline-offset: -3px;
+}

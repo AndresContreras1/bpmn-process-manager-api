@@ -1,0 +1,123 @@
+<section class="estructura" id="vista-estructura" aria-labelledby="estructura-titulo">
+  <h2 i18n class="h6" id="estructura-titulo">Structure</h2>
+  <p i18n class="small text-body-secondary mb-1" id="estructura-ayuda">
+    Arrows move through the tree. Enter shows the element in the diagram, F2 renames it and Delete removes it.
+  </p>
+  <ul
+    class="list-unstyled estructura-arbol mb-2"
+    role="tree"
+    id="estructura-arbol"
+    aria-labelledby="estructura-titulo"
+    aria-describedby="estructura-ayuda"
+  >
+    @for (fila of filas; track fila.nodo.id) {
+      <li
+        role="treeitem"
+        class="estructura-fila"
+        [class.estructura-actual]="fila.nodo.id === foco"
+        [attr.data-fila]="fila.nodo.id"
+        [attr.aria-level]="fila.nivel"
+        [attr.aria-posinset]="fila.posicion"
+        [attr.aria-setsize]="fila.tamano"
+        [attr.aria-expanded]="abierto(fila.nodo)"
+        [attr.aria-selected]="fila.nodo.id === foco"
+        [attr.tabindex]="fila.nodo.id === foco ? 0 : -1"
+        [style.padding-inline-start.rem]="fila.nivel * 0.75"
+        (click)="enfocar(fila.nodo.id)"
+        (keydown)="teclear($event)"
+      >
+        {{ rotulo(fila.nodo) }}
+      </li>
+    }
+  </ul>
+
+  @if (actual) {
+    <div class="estructura-acciones" id="estructura-acciones">
+      <label i18n class="form-label small mb-0" for="estructura-nombre">Name</label>
+      <div class="input-group input-group-sm mb-2">
+        <input
+          class="form-control"
+          id="estructura-nombre"
+          [(ngModel)]="nombre"
+          (keydown.enter)="renombrar()"
+          autocomplete="off"
+        />
+        <button i18n type="button" class="btn btn-outline-secondary" id="estructura-renombrar" (click)="renombrar()">
+          Rename
+        </button>
+      </div>
+
+      @if (clase === 'lane') {
+        <label i18n class="form-label small mb-0" for="estructura-tipo">Add to this lane</label>
+        <select class="form-select form-select-sm mb-1" id="estructura-tipo" [(ngModel)]="tipoNuevo">
+          @for (tipo of tiposNuevos; track tipo.id) {
+            <option [value]="tipo.id">{{ tipo.nombre }}</option>
+          }
+        </select>
+        <label i18n class="visually-hidden" for="estructura-nombre-nuevo">Name of the new element</label>
+        <div class="input-group input-group-sm mb-2">
+          <input
+            class="form-control"
+            id="estructura-nombre-nuevo"
+            [(ngModel)]="nombreNuevo"
+            (keydown.enter)="agregar()"
+            autocomplete="off"
+          />
+          <button i18n type="button" class="btn btn-outline-secondary" id="estructura-agregar" (click)="agregar()">
+            Add
+          </button>
+        </div>
+      }
+
+      @if (clase === 'nodo') {
+        <label i18n class="form-label small mb-0" for="estructura-destino">Connect to</label>
+        <div class="input-group input-group-sm mb-2">
+          <select class="form-select" id="estructura-destino" [(ngModel)]="destino">
+            <option value=""></option>
+            @for (nodo of nodos; track nodo.id) {
+              @if (nodo.id !== foco) {
+                <option [value]="nodo.id">{{ nodo.nombre }}</option>
+              }
+            }
+          </select>
+          <button
+            i18n
+            type="button"
+            class="btn btn-outline-secondary"
+            id="estructura-conectar"
+            [disabled]="!destino"
+            (click)="conectar()"
+          >
+            Connect
+          </button>
+        </div>
+        <label i18n class="form-label small mb-0" for="estructura-lane">Move to lane</label>
+        <div class="input-group input-group-sm mb-2">
+          <select class="form-select" id="estructura-lane" [(ngModel)]="laneDestino">
+            <option value=""></option>
+            @for (lane of lanes; track lane.id) {
+              <option [value]="lane.id">{{ lane.nombre }}</option>
+            }
+          </select>
+          <button
+            i18n
+            type="button"
+            class="btn btn-outline-secondary"
+            id="estructura-mover"
+            [disabled]="!laneDestino"
+            (click)="mover()"
+          >
+            Move
+          </button>
+        </div>
+      }
+
+      @if (clase !== 'pool') {
+        <button i18n type="button" class="btn btn-outline-danger btn-sm" id="estructura-borrar" (click)="borrar()">
+          Delete
+        </button>
+      }
+    </div>
+  }
+  <p class="visually-hidden" role="status" aria-live="polite" id="estructura-anuncio">{{ anuncio }}</p>
+</section>
