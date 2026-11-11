@@ -49,3 +49,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0055 | [Descriptive BPMN elements, and a process that only documents](0055-descriptive-bpmn-elements.md) | Accepted |
 | 0056 | [Sub-processes as containers, and call activities between processes](0056-subprocesses-and-call-activity.md) | Accepted |
 | 0057 | [Comparing processes by meaning](0057-semantic-diff.md) | Accepted |
+| 0058 | [Presence over SSE and a soft lock](0058-presence-and-soft-lock.md) | Accepted |

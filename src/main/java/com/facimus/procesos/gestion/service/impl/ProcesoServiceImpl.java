@@ -19,6 +19,7 @@ import com.facimus.procesos.gestion.dto.response.ProcesoLectura;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.event.ProcesoCreado;
 import com.facimus.procesos.gestion.event.ProcesoEliminado;
+import com.facimus.procesos.gestion.event.ProcesoPublicado;
 import com.facimus.procesos.gestion.mapper.ProcesoMapper;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.ModoProceso;
@@ -195,6 +196,7 @@ public class ProcesoServiceImpl implements ProcesoService {
         proceso = procesoRepository.saveAndFlush(proceso);
 
         historialCambioService.registrar(proceso, autor, "Versión " + numero + " publicada.");
+        eventos.publishEvent(new ProcesoPublicado(empresaId, proceso.getId(), numero, autor.getNombre()));
         auditoria.registrar(empresaId, autor.getId(), "PROCESO_PUBLICADO", "PROCESO", proceso.getId(),
                 Map.of("version", numero));
         return procesoMapper.toResponse(proceso).conBorradorPendiente(false);

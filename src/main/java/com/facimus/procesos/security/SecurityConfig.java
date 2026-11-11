@@ -45,6 +45,7 @@ import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.IdempotenciaService;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -159,6 +160,8 @@ public class SecurityConfig {
                 .headers(SecurityConfig::cabeceras)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests
+                        // PR 58: una conexion en vivo se autorizo al abrirse; el despacho que la cierra no trae sesion
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         // D29: salir tambien sin un acceso vigente, para que un navegador siempre pueda borrar sus
                         // cookies; y el token CSRF, que la web pide al arrancar.
                         .requestMatchers(HttpMethod.POST, LOGIN, "/api/v1/auth/refresh", "/api/v1/auth/logout")
