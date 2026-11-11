@@ -34,6 +34,8 @@ export class VistaEstructuraComponent implements OnChanges {
   /** Sube con cada cambio del dibujo, venga de donde venga. */
   readonly revision = input<number>(0);
   readonly elegido = input<ElementoElegido | null>(null);
+  /** Cuando otra persona esta editando: se recorre, pero no se cambia. */
+  readonly soloLectura = input<boolean>(false);
 
   private readonly anfitrion = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly inyector = inject(Injector);
@@ -99,7 +101,7 @@ export class VistaEstructuraComponent implements OnChanges {
       this.hecho(evento);
       return;
     }
-    if (evento.key === 'Delete' && this.actual?.clase !== 'pool') {
+    if (evento.key === 'Delete' && this.actual?.clase !== 'pool' && !this.soloLectura()) {
       this.borrar();
       this.hecho(evento);
       return;

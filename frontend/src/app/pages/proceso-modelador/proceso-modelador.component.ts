@@ -11,27 +11,38 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { finalize, forkJoin, switchMap } from 'rxjs';
+import { Observable, Subscription, catchError, finalize, forkJoin, interval, of, switchMap } from 'rxjs';
 
 import { Autoguardado, EstadoGuardado } from '../../bpmn/autoguardado';
 import { CopiaLocal, CopiaLocalService } from '../../bpmn/copia-local.service';
+import { LeyendaComparacionComponent } from '../../bpmn/leyenda-comparacion.component';
 import { ElementoElegido, LienzoBpmnComponent } from '../../bpmn/lienzo-bpmn.component';
-import { elementoDe, marcasDe } from '../../bpmn/marcas';
+import { elementoDe, marcasDe, marcasDeComparacion } from '../../bpmn/marcas';
 import { ModoProceso } from '../../bpmn/modulos/reglas';
 import { PanelPropiedadesComponent } from '../../bpmn/panel-propiedades.component';
 import { VistaEstructuraComponent } from '../../bpmn/vista-estructura.component';
 import { mensajeDeError } from '../../helpers/errores-api';
 import { Diagnostico, Hallazgo } from '../../models/diagnostico.model';
 import { Diagrama } from '../../models/diagrama.model';
+import { Bloqueo, EventoEnVivo, Presente } from '../../models/en-vivo.model';
+import { Comparacion } from '../../models/modelo.model';
+import { AuthService } from '../../service/auth.service';
 import { DiagnosticoService } from '../../service/diagnostico.service';
 import { DiagramaService } from '../../service/diagrama.service';
+import { EnVivoService } from '../../service/en-vivo.service';
 import { ProcesoService } from '../../service/proceso.service';
 import { ModeloService } from '../../service/modelo.service';
 
 /** El modelador: dibuja con bpmn-js, guarda solo y dice en vivo lo que el diagnostico encuentra. */
 @Component({
   selector: 'app-proceso-modelador',
-  imports: [RouterLink, LienzoBpmnComponent, PanelPropiedadesComponent, VistaEstructuraComponent],
+  imports: [
+    RouterLink,
+    LienzoBpmnComponent,
+    PanelPropiedadesComponent,
+    VistaEstructuraComponent,
+    LeyendaComparacionComponent,
+  ],
   templateUrl: './proceso-modelador.component.html',
   styleUrl: './proceso-modelador.component.scss',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -42,6 +53,8 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   private readonly diagramas = inject(DiagramaService);
   private readonly diagnosticos = inject(DiagnosticoService);
   private readonly procesos = inject(ProcesoService);
+  private readonly enVivo = inject(EnVivoService);
+  private readonly auth = inject(AuthService);
   private readonly copias = inject(CopiaLocalService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cambios = inject(ChangeDetectorRef);
@@ -60,6 +73,14 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   estructuraAbierta = false;
   revision = 0;
   dibujado = false;
+  /** Quien esta y quien edita. Sin el bloqueo se mira, no se cambia. */
+  personas: Presente[] = [];
+  bloqueo: Bloqueo | null = null;
+  soloLectura = false;
+  conectado = true;
+  avisoControl: string | null = null;
+  comparacion: Comparacion | null = null;
+  private latidos: Subscription | null = null;
   elegido: ElementoElegido | null = null;
   diagnostico: Diagnostico | null = null;
   marcas: Record<string, string[]> = {};
@@ -80,20 +101,38 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.procesoId = Number(this.ruta.snapshot.paramMap.get('id'));
-    this.leer();
+    this.leer(this.enVivo.adquirir(this.procesoId));
+    this.enVivo
+      .eventos(this.procesoId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((evento) => this.alEvento(evento));
   }
 
   ngOnDestroy(): void {
     this.autoguardado?.detener();
+    this.latidos?.unsubscribe();
+    if (this.bloqueo?.mio) {
+      this.enVivo.soltar(this.procesoId).subscribe({ error: () => undefined });
+    }
   }
 
   /** Lo del servidor; si hay una copia local de esa misma base, se ofrece recuperarla. */
-  leer(): void {
-    forkJoin({ modelo: this.modelos.leer(this.procesoId), diagrama: this.diagramas.obtener(this.procesoId) })
+  leer(bloqueo$: Observable<Bloqueo> = this.enVivo.estado(this.procesoId)): void {
+    forkJoin({
+      modelo: this.modelos.leer(this.procesoId),
+      diagrama: this.diagramas.obtener(this.procesoId),
+      // Quien no puede editar recibe un 403: mira sin bloqueo
+      bloqueo: bloqueo$.pipe(catchError(() => of(null))),
+    })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ modelo, diagrama }) => {
-          this.cargando = true;
+        next: ({ modelo, diagrama, bloqueo }) => {
+          const antes = this.soloLectura;
+          this.aplicarBloqueo(bloqueo);
+          // Sin un dibujo nuevo el lienzo no avisa que termino: solo se espera si de verdad va a dibujar
+          this.cargando = modelo.xml !== this.xml || antes !== this.soloLectura;
+          this.dibujado = !this.cargando;
+          this.comparacion = null;
           this.xml = modelo.xml;
           this.diagrama = diagrama;
           this.nombre = diagrama.proceso.nombre;
@@ -101,11 +140,123 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
           this.versionDelProceso = diagrama.proceso.version;
           this.prepararGuardado(modelo.huella);
           this.refrescarDiagnostico();
-          void this.buscarCopia(modelo.huella, modelo.xml);
+          if (!this.soloLectura) {
+            void this.buscarCopia(modelo.huella, modelo.xml);
+          }
           this.cambios.markForCheck();
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
+  }
+
+  private aplicarBloqueo(bloqueo: Bloqueo | null): void {
+    this.bloqueo = bloqueo;
+    this.soloLectura = !bloqueo?.mio;
+    this.latidos?.unsubscribe();
+    this.latidos = null;
+    if (bloqueo?.mio) {
+      // El bloqueo vence a los 60 segundos sin latido
+      this.latidos = interval(20000).subscribe(() =>
+        this.enVivo.latido(this.procesoId).subscribe({ error: () => this.perderControl(null) }),
+      );
+    }
+  }
+
+  private alEvento(evento: EventoEnVivo): void {
+    const yo = this.auth.usuarioActual()?.id;
+    switch (evento.tipo) {
+      case 'conectado':
+        this.conectado = true;
+        break;
+      case 'desconectado':
+        this.conectado = false;
+        break;
+      case 'presencia':
+        this.personas = evento.datos.personas;
+        break;
+      case 'bloqueo':
+        this.refrescarBloqueo();
+        break;
+      case 'control-tomado':
+        if (evento.datos.anteriorId === yo) {
+          this.perderControl(evento.datos.nombre);
+        } else {
+          this.refrescarBloqueo();
+        }
+        break;
+      case 'guardado':
+      case 'publicado':
+        // Quien solo mira ve lo ultimo; quien edita se entera al guardar, con un conflicto que puede comparar
+        if (this.soloLectura && evento.datos.autor !== yo) {
+          this.leer();
+        }
+        break;
+    }
+    this.cambios.markForCheck();
+  }
+
+  private refrescarBloqueo(): void {
+    this.enVivo
+      .estado(this.procesoId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((bloqueo) => {
+        if (!this.soloLectura && !bloqueo.libre && !bloqueo.mio) {
+          this.perderControl(bloqueo.nombre);
+        } else {
+          this.bloqueo = bloqueo;
+          this.cambios.markForCheck();
+        }
+      });
+  }
+
+  /** Otra persona tomo el control: lo que no se guardo sigue en la copia de este navegador. */
+  private perderControl(nombre: string | null): void {
+    if (this.soloLectura) {
+      return;
+    }
+    this.autoguardado?.detener();
+    this.avisoControl = nombre
+      ? $localize`${nombre} took control. Your unsaved changes stay in this browser.`
+      : $localize`You lost control of this process. Your unsaved changes stay in this browser.`;
+    this.leer();
+  }
+
+  tomarControl(): void {
+    this.enVivo
+      .tomarControl(this.procesoId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.avisoControl = null;
+          this.leer();
+        },
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+      });
+  }
+
+  /** Lo que este dibujo le haria a lo que otra persona guardo. */
+  async compararConflicto(): Promise<void> {
+    const xml = await this.lienzo!.leerXml();
+    this.modelos
+      .compararArchivo(this.procesoId, xml)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (comparacion) => {
+          this.comparacion = comparacion;
+          this.marcas = marcasDeComparacion(comparacion);
+          this.cambios.markForCheck();
+        },
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+      });
+  }
+
+  iniciales(nombre: string): string {
+    return nombre
+      .split(/\s+/)
+      .filter((parte) => parte)
+      .slice(0, 2)
+      .map((parte) => parte[0].toUpperCase())
+      .join('');
   }
 
   private prepararGuardado(huella: string | null): void {

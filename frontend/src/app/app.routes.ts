@@ -209,6 +209,20 @@ export const routes: Routes = [
       ],
     },
   },
+  {
+    path: 'procesos/:id/comparar',
+    loadComponent: () =>
+      import('./pages/proceso-comparar/proceso-comparar.component').then((modulo) => modulo.ProcesoCompararComponent),
+    canActivate: [authGuard],
+    title: $localize`Compare versions · BPMN Process Manager`,
+    data: {
+      migas: [
+        { etiqueta: $localize`Processes`, ruta: '/procesos' },
+        { etiqueta: $localize`Process`, ruta: '/procesos/:id' },
+        { etiqueta: $localize`Compare` },
+      ],
+    },
+  },
   // Los enlaces viejos al editor anterior siguen llevando al lugar donde se modela ahora
   { path: 'procesos/:id/editar-diagrama', redirectTo: 'procesos/:id/modelar' },
   {

@@ -1,5 +1,6 @@
 import { Hallazgo } from '../models/diagnostico.model';
 import { Diagrama } from '../models/diagrama.model';
+import { Comparacion } from '../models/modelo.model';
 
 /** Cada clase de elemento numera sus ids en su tabla: lo que dice de cual es la etiqueta del hallazgo. */
 function bpmnIdDe(hallazgo: Hallazgo, diagrama: Diagrama): string | null {
@@ -48,4 +49,13 @@ export function marcasDe(hallazgos: Hallazgo[], diagrama: Diagrama): Record<stri
 /** El bpmnId del elemento de un hallazgo, para llevar la vista hasta el. */
 export function elementoDe(hallazgo: Hallazgo, diagrama: Diagrama): string | null {
   return bpmnIdDe(hallazgo, diagrama);
+}
+
+/** Lo que se pinta de una comparacion. Lo quitado no esta en el dibujo: solo lo puede decir la leyenda. */
+export function marcasDeComparacion(comparacion: Comparacion): Record<string, string[]> {
+  const marcas: Record<string, string[]> = {};
+  comparacion.agregados.forEach((uno) => (marcas[uno.bpmnId] = ['marca-agregado']));
+  comparacion.cambiados.forEach((uno) => (marcas[uno.bpmnId] = ['marca-cambiado']));
+  comparacion.movidos.forEach((uno) => (marcas[uno.bpmnId] = ['marca-movido']));
+  return marcas;
 }

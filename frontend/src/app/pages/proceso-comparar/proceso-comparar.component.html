@@ -1,0 +1,53 @@
+<section id="proceso-comparar">
+  <header class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h1 i18n class="h5 mb-0 me-auto">Compare versions</h1>
+    <a i18n class="btn btn-outline-secondary btn-sm" [routerLink]="['/procesos', procesoId]" id="comparar-volver"
+      >Back</a
+    >
+  </header>
+
+  @if (error) {
+    <div class="alert alert-danger" role="alert" id="comparar-error">{{ error }}</div>
+  }
+  @if (cargado && versiones.length === 0) {
+    <p i18n class="text-body-secondary" id="comparar-sin-versiones">
+      This process has no published versions yet, so there is nothing to compare it with.
+    </p>
+  }
+  @if (versiones.length) {
+    <form class="row g-2 align-items-end mb-3" (ngSubmit)="comparar()">
+      <div class="col-auto">
+        <label i18n class="form-label small mb-0" for="comparar-de">From</label>
+        <select class="form-select form-select-sm" id="comparar-de" name="de" [(ngModel)]="de">
+          @for (version of versiones; track version.id) {
+            <option [value]="version.numero" i18n>Version {{ version.numero }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-auto">
+        <label i18n class="form-label small mb-0" for="comparar-a">To</label>
+        <select class="form-select form-select-sm" id="comparar-a" name="a" [(ngModel)]="a">
+          <option i18n [value]="borrador">Working copy</option>
+          @for (version of versiones; track version.id) {
+            <option [value]="version.numero" i18n>Version {{ version.numero }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-auto">
+        <button i18n type="submit" class="btn btn-primary btn-sm" id="comparar-enviar">Compare</button>
+      </div>
+    </form>
+  }
+  @if (xml && comparacion) {
+    <div class="row g-3">
+      <div class="col-lg-8">
+        <div class="visor-bpmn border rounded-3" id="comparar-diagrama">
+          <app-lienzo-bpmn modo="comparar" [xml]="xml" [marcas]="marcas" titulo="Compared diagram" i18n-titulo />
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <app-leyenda-comparacion [comparacion]="comparacion" (mostrar)="lienzo?.mostrar($event)" />
+      </div>
+    </div>
+  }
+</section>

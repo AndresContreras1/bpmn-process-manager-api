@@ -8,10 +8,28 @@
         <ng-container i18n>Executable</ng-container>
       }
     </span>
-    <button i18n type="button" class="btn btn-link btn-sm p-0" id="modelador-cambiar-modo" (click)="cambiarModo()">
+    <button
+      i18n
+      type="button"
+      class="btn btn-link btn-sm p-0"
+      id="modelador-cambiar-modo"
+      [disabled]="soloLectura"
+      (click)="cambiarModo()"
+    >
       Change mode
     </button>
-    <span class="ms-auto small" role="status" aria-live="polite" id="modelador-estado" [attr.data-estado]="estado">
+    <ul class="list-inline mb-0 ms-auto" id="modelador-presencia" i18n-aria-label aria-label="Who is here">
+      @for (persona of personas; track persona.usuarioId) {
+        <li class="list-inline-item me-1" [attr.data-usuario]="persona.usuarioId" [title]="persona.nombre">
+          <span class="avatar" aria-hidden="true">{{ iniciales(persona.nombre) }}</span>
+          <span class="visually-hidden">{{ persona.nombre }}</span>
+        </li>
+      }
+    </ul>
+    @if (!conectado) {
+      <span i18n class="small text-body-secondary" role="status" id="modelador-reconectando">Reconnecting…</span>
+    }
+    <span class="small" role="status" aria-live="polite" id="modelador-estado" [attr.data-estado]="estado">
       {{ textoDeEstado[estado] }}
     </span>
     <button
@@ -19,7 +37,7 @@
       type="button"
       class="btn btn-primary btn-sm"
       id="modelador-publicar"
-      [disabled]="publicando || !diagnostico || diagnostico.errores > 0 || estado !== 'guardado'"
+      [disabled]="soloLectura || publicando || !diagnostico || diagnostico.errores > 0 || estado !== 'guardado'"
       (click)="publicar()"
     >
       Publish
@@ -32,6 +50,28 @@
   @if (error) {
     <div class="alert alert-danger" role="alert" id="modelador-error">{{ error }}</div>
   }
+  @if (soloLectura && bloqueo) {
+    <div class="alert alert-info d-flex align-items-center gap-2" role="status" id="modelador-bloqueo">
+      <span class="me-auto">
+        @if (avisoControl) {
+          {{ avisoControl }}
+        } @else if (bloqueo.libre) {
+          <ng-container i18n>Nobody is editing this process now.</ng-container>
+        } @else {
+          <ng-container i18n
+            >{{ bloqueo.nombre }} is editing this process. You can look, but not change it.</ng-container
+          >
+        }
+      </span>
+      <button type="button" class="btn btn-sm btn-primary" id="modelador-tomar-control" (click)="tomarControl()">
+        @if (bloqueo.libre) {
+          <ng-container i18n>Start editing</ng-container>
+        } @else {
+          <ng-container i18n>Take control</ng-container>
+        }
+      </button>
+    </div>
+  }
   @if (publicado) {
     <div class="alert alert-success" role="status" id="modelador-publicado">{{ publicado }}</div>
   }
@@ -41,7 +81,18 @@
   @if (estado === 'conflicto') {
     <div class="alert alert-warning d-flex align-items-center gap-2" role="alert" id="modelador-conflicto">
       <span i18n class="me-auto">Someone else saved this process while you were editing it.</span>
-      <button i18n type="button" class="btn btn-sm btn-outline-secondary" (click)="recargar()">Reload</button>
+      <button
+        i18n
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        id="modelador-comparar"
+        (click)="compararConflicto()"
+      >
+        Compare
+      </button>
+      <button i18n type="button" class="btn btn-sm btn-outline-secondary" id="modelador-recargar" (click)="recargar()">
+        Reload
+      </button>
     </div>
   }
   @if (copia) {
@@ -56,17 +107,41 @@
 
   <div class="btn-toolbar gap-2 mb-2" role="toolbar" i18n-aria-label aria-label="Modeler tools">
     <div class="btn-group btn-group-sm">
-      <button i18n type="button" class="btn btn-outline-secondary" id="modelador-deshacer" (click)="lienzo?.deshacer()">
+      <button
+        i18n
+        type="button"
+        class="btn btn-outline-secondary"
+        id="modelador-deshacer"
+        [disabled]="soloLectura"
+        (click)="lienzo?.deshacer()"
+      >
         Undo
       </button>
-      <button i18n type="button" class="btn btn-outline-secondary" id="modelador-rehacer" (click)="lienzo?.rehacer()">
+      <button
+        i18n
+        type="button"
+        class="btn btn-outline-secondary"
+        id="modelador-rehacer"
+        [disabled]="soloLectura"
+        (click)="lienzo?.rehacer()"
+      >
         Redo
       </button>
     </div>
     <div class="btn-group btn-group-sm">
-      <button i18n type="button" class="btn btn-outline-secondary" (click)="lienzo?.buscar()">Search</button>
+      <button i18n type="button" class="btn btn-outline-secondary" [disabled]="soloLectura" (click)="lienzo?.buscar()">
+        Search
+      </button>
       <button i18n type="button" class="btn btn-outline-secondary" (click)="lienzo?.ajustar()">Fit</button>
-      <button i18n type="button" class="btn btn-outline-secondary" (click)="lienzo?.alternarMinimapa()">Minimap</button>
+      <button
+        i18n
+        type="button"
+        class="btn btn-outline-secondary"
+        [disabled]="soloLectura"
+        (click)="lienzo?.alternarMinimapa()"
+      >
+        Minimap
+      </button>
     </div>
     <div class="btn-group btn-group-sm">
       <button i18n type="button" class="btn btn-outline-secondary" id="modelador-exportar" (click)="exportarBpmn()">
@@ -86,19 +161,32 @@
     >
       Structure view
     </button>
-    <label i18n class="btn btn-outline-secondary btn-sm mb-0" for="modelador-importar">Import .bpmn</label>
-    <input
-      class="visually-hidden"
-      type="file"
-      id="modelador-importar"
-      accept=".bpmn,.xml"
-      (change)="importar($event)"
-    />
+    @if (!soloLectura) {
+      <label i18n class="btn btn-outline-secondary btn-sm mb-0" for="modelador-importar">Import .bpmn</label>
+      <input
+        class="visually-hidden"
+        type="file"
+        id="modelador-importar"
+        accept=".bpmn,.xml"
+        (change)="importar($event)"
+      />
+    }
   </div>
 
   <div class="modelador-cuerpo" [class.con-estructura]="estructuraAbierta">
     <div class="modelador-lienzo">
-      @if (xml !== null) {
+      @if (xml !== null && soloLectura) {
+        <app-lienzo-bpmn
+          modo="ver"
+          [xml]="xml"
+          [marcas]="marcas"
+          titulo="Diagram of {{ nombre }}"
+          i18n-titulo
+          (listo)="alEstarListo()"
+          (elegir)="elegido = $event"
+          (fallo)="error = $event"
+        />
+      } @else if (xml !== null) {
         <app-lienzo-bpmn
           modo="editar"
           [xml]="xml"
@@ -115,11 +203,15 @@
     </div>
     <aside class="modelador-panel" id="modelador-panel">
       @if (estructuraAbierta && lienzo && dibujado) {
-        <app-vista-estructura [lienzo]="lienzo" [revision]="revision" [elegido]="elegido" />
+        <app-vista-estructura [lienzo]="lienzo" [revision]="revision" [elegido]="elegido" [soloLectura]="soloLectura" />
+        <hr />
+      }
+      @if (comparacion) {
+        <app-leyenda-comparacion [comparacion]="comparacion" (mostrar)="lienzo?.mostrar($event)" />
         <hr />
       }
       @if (elegido && lienzo) {
-        <app-panel-propiedades [elemento]="elegido" [lienzo]="lienzo" />
+        <app-panel-propiedades [elemento]="elegido" [lienzo]="lienzo" [soloLectura]="soloLectura" />
       } @else {
         <p i18n class="small text-body-secondary">Select an element to see its properties.</p>
       }

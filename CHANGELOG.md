@@ -8,6 +8,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Presence and comparison in the web: who is on a process, who is editing it and how to take control; a conflict can be
+  compared before reloading; `/procesos/{id}/comparar` shows two states of a process with colors and a text legend.
+  The live connection reconnects with a growing wait.
 - A structure view in the modeler: the diagram as a keyboard-navigable tree (pools, lanes, nodes and their outgoing
   flows) that can create, connect, move between lanes, rename and delete without dragging, with live announcements.
   Targets of at least 24 × 24 px in the canvas and a visible, unobscured focus.
