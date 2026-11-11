@@ -19,14 +19,6 @@ tagged. Each pull request adds its line under *Unreleased*.
   flows) that can create, connect, move between lanes, rename and delete without dragging, with live announcements.
   Targets of at least 24 × 24 px in the canvas and a visible, unobscured focus.
 
-### Changed
-
-- The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
-  old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
-  which can publish.
-
-### Added
-
 - The BPMN modeler in the web, on bpmn-js: `/procesos/{id}/modelar` draws and edits the process, limited to what the
   model has and to its mode, with undo, search, minimap, import and export to `.bpmn`, SVG and PNG, a properties panel,
   autosave with a visible status and a local copy, and the diagnosis as markers.
@@ -136,6 +128,11 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- The README and the guides cover BPMN files, the bpmn-js modeler, editing together, the process repository and
+  permissions, with the numbers of today's build.
+- The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
+  old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
+  which can publish.
 - The web app has a design system: tokens in the DTCG format turned into Bootstrap's Sass variables and CSS
   variables, a green scale checked against WCAG AA, a dark mode, a shell with a sidebar, breadcrumbs and a search,
   shared components for loading, empty, errors, notices and statuses, and axe-core over every screen in the
