@@ -51,3 +51,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0057 | [Comparing processes by meaning](0057-semantic-diff.md) | Accepted |
 | 0058 | [Presence over SSE and a soft lock](0058-presence-and-soft-lock.md) | Accepted |
 | 0059 | [bpmn-js as the one canvas](0059-bpmn-js-modeler.md) | Accepted |
+| 0060 | [A structure view as the alternative to dragging](0060-structure-view.md) | Accepted |

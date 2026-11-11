@@ -13,6 +13,7 @@ import {
   inject,
 } from '@angular/core';
 
+import { ElementoPlano, huecoEnLane } from './estructura';
 import { BPM_MODDLE } from './modulos/bpm.moddle';
 import { ModoDelLienzo, moduloDeModoYReglas, moduloDelModo } from './modulos/modulos-del-lienzo';
 import { ModoProceso } from './modulos/reglas';
@@ -182,6 +183,101 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
     }
   }
 
+  /** El dibujo como datos, para la vista de estructura. */
+  estructura(): ElementoPlano[] {
+    if (!this.bpmn) {
+      return [];
+    }
+    const todos: Cualquiera[] = this.bpmn.get('elementRegistry').getAll();
+    const lanes = todos.filter((elemento) => elemento.type === 'bpmn:Lane');
+    return todos
+      .filter((elemento) => !elemento.labelTarget && !elemento.waypoints && esDeLaEstructura(elemento))
+      .sort((uno, otro) => uno.y - otro.y || uno.x - otro.x)
+      .map((elemento) => ({
+        id: elemento.id,
+        tipo: elemento.type,
+        nombre: elemento.businessObject.name ?? '',
+        padre: padreDe(elemento, lanes),
+        salidas: (elemento.outgoing ?? []).map((salida: Cualquiera) => ({
+          id: salida.id,
+          tipo: salida.type,
+          nombre: salida.businessObject.name ?? '',
+          destino: salida.target.id,
+        })),
+      }));
+  }
+
+  /** Crea un elemento en una lane, en un hueco libre. Devuelve su id, o null si las reglas no lo dejan. */
+  agregar(laneId: string, tipo: string, nombre: string): string | null {
+    const lane = this.bpmn.get('elementRegistry').get(laneId);
+    const forma = this.bpmn.get('elementFactory').createShape({ type: tipo });
+    if (!lane || !this.bpmn.get('rules').allowed('shape.create', { shape: forma, target: lane })) {
+      return null;
+    }
+    const modelado = this.bpmn.get('modeling');
+    const creado = modelado.createShape(forma, huecoEnLane(lane, this.ocupadosEn(lane)), lane);
+    if (nombre) {
+      modelado.updateLabel(creado, nombre);
+    }
+    return creado.id;
+  }
+
+  renombrar(id: string, nombre: string): void {
+    const elemento = this.bpmn.get('elementRegistry').get(id);
+    if (elemento) {
+      this.bpmn.get('modeling').updateLabel(elemento, nombre);
+    }
+  }
+
+  /** Une dos nodos con lo que las reglas permitan. Devuelve el id de la conexion, o null si no se puede. */
+  conectar(origenId: string, destinoId: string): string | null {
+    const registro = this.bpmn.get('elementRegistry');
+    const source = registro.get(origenId);
+    const target = registro.get(destinoId);
+    const permitido = source && target && this.bpmn.get('rules').allowed('connection.create', { source, target });
+    if (!permitido) {
+      return null;
+    }
+    const conexion = this.bpmn.get('modeling').connect(source, target, permitido === true ? undefined : permitido);
+    return conexion?.id ?? null;
+  }
+
+  /** Lleva un nodo a un hueco de otra lane; bpmn-js actualiza a que lane pertenece por su posicion. */
+  moverALane(id: string, laneId: string): boolean {
+    const registro = this.bpmn.get('elementRegistry');
+    const elemento = registro.get(id);
+    const lane = registro.get(laneId);
+    if (!elemento || !lane || lane.parent !== elemento.parent) {
+      return false;
+    }
+    const hueco = huecoEnLane(lane, this.ocupadosEn(lane));
+    const delta = {
+      x: hueco.x - (elemento.x + elemento.width / 2),
+      y: hueco.y - (elemento.y + elemento.height / 2),
+    };
+    this.bpmn.get('modeling').moveElements([elemento], delta);
+    return true;
+  }
+
+  borrar(id: string): void {
+    const elemento = this.bpmn.get('elementRegistry').get(id);
+    if (elemento) {
+      this.bpmn.get('modeling').removeElements([elemento]);
+    }
+  }
+
+  private ocupadosEn(lane: Cualquiera): Cualquiera[] {
+    const dentro = (elemento: Cualquiera): boolean =>
+      elemento.y + elemento.height / 2 > lane.y && elemento.y + elemento.height / 2 < lane.y + lane.height;
+    return this.bpmn
+      .get('elementRegistry')
+      .getAll()
+      .filter(
+        (elemento: Cualquiera) =>
+          !elemento.labelTarget && !elemento.waypoints && esNodoDeFlujo(elemento) && dentro(elemento),
+      );
+  }
+
   private async cargar(xml: string): Promise<void> {
     try {
       await this.bpmn.importXML(xml);
@@ -239,6 +335,26 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
       }
     });
   }
+}
+
+function esNodoDeFlujo(elemento: Cualquiera): boolean {
+  return !!elemento.businessObject?.$instanceOf?.('bpmn:FlowNode');
+}
+
+function esDeLaEstructura(elemento: Cualquiera): boolean {
+  return elemento.type === 'bpmn:Participant' || elemento.type === 'bpmn:Lane' || esNodoDeFlujo(elemento);
+}
+
+/** En bpmn-js un nodo cuelga del pool: su lane se sabe por la referencia que la lane guarda de el. */
+function padreDe(elemento: Cualquiera, lanes: Cualquiera[]): string | null {
+  if (elemento.type === 'bpmn:Participant') {
+    return null;
+  }
+  if (elemento.type === 'bpmn:Lane' || elemento.parent?.type === 'bpmn:SubProcess') {
+    return elemento.parent?.id ?? null;
+  }
+  const lane = lanes.find((una) => (una.businessObject.flowNodeRef ?? []).includes(elemento.businessObject));
+  return lane?.id ?? elemento.parent?.id ?? null;
 }
 
 /** La hoja de estilos de bpmn-js se pide al abrir el primer lienzo: en las demas pantallas no pesa. */

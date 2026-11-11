@@ -75,6 +75,17 @@
       <button type="button" class="btn btn-outline-secondary" (click)="exportarSvg()">SVG</button>
       <button type="button" class="btn btn-outline-secondary" (click)="exportarPng()">PNG</button>
     </div>
+    <button
+      i18n
+      type="button"
+      class="btn btn-outline-secondary btn-sm"
+      id="modelador-estructura"
+      [attr.aria-pressed]="estructuraAbierta"
+      aria-controls="modelador-panel"
+      (click)="estructuraAbierta = !estructuraAbierta"
+    >
+      Structure view
+    </button>
     <label i18n class="btn btn-outline-secondary btn-sm mb-0" for="modelador-importar">Import .bpmn</label>
     <input
       class="visually-hidden"
@@ -85,7 +96,7 @@
     />
   </div>
 
-  <div class="modelador-cuerpo">
+  <div class="modelador-cuerpo" [class.con-estructura]="estructuraAbierta">
     <div class="modelador-lienzo">
       @if (xml !== null) {
         <app-lienzo-bpmn
@@ -102,7 +113,11 @@
         />
       }
     </div>
-    <aside class="modelador-panel">
+    <aside class="modelador-panel" id="modelador-panel">
+      @if (estructuraAbierta && lienzo && dibujado) {
+        <app-vista-estructura [lienzo]="lienzo" [revision]="revision" [elegido]="elegido" />
+        <hr />
+      }
       @if (elegido && lienzo) {
         <app-panel-propiedades [elemento]="elegido" [lienzo]="lienzo" />
       } @else {

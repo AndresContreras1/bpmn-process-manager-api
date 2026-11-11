@@ -14,6 +14,17 @@
     border-color: $bpm-color-gris-300;
   }
 
+  // WCAG 2.5.8: bpmn-js trae el menu contextual a 22 px; aqui cada accion mide al menos 24
+  .djs-context-pad .entry {
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+  }
+
+  .djs-context-pad .group {
+    gap: 2px;
+  }
+
   .djs-context-pad .entry:hover,
   .djs-palette .entry:hover {
     color: $bpm-color-verde-600;

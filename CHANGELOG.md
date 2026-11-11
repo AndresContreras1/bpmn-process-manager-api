@@ -6,6 +6,12 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ## [Unreleased]
 
+### Added
+
+- A structure view in the modeler: the diagram as a keyboard-navigable tree (pools, lanes, nodes and their outgoing
+  flows) that can create, connect, move between lanes, rename and delete without dragging, with live announcements.
+  Targets of at least 24 × 24 px in the canvas and a visible, unobscured focus.
+
 ### Changed
 
 - The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
