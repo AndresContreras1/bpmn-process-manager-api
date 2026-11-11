@@ -5,12 +5,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.Objects;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.facimus.procesos.common.xml.LimitesXml;
+import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.bpmn.InformeBpmn.Hallazgo;
+import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsociacion;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 
 /**
@@ -103,6 +108,28 @@ class CorpusBpmnTest {
                 .satisfies(arco -> assertThat(arco.etiqueta()).isEqualTo("No"));
         // Los colores que bpmn.io deja en el dibujo de la tarea se conservan
         assertThat(plan.informe().extensionesConservadas()).anySatisfy(clave -> assertThat(clave).endsWith("#di"));
+    }
+
+    @Test
+    @DisplayName("bpmn.io con lo descriptivo: temporizadores, terminacion, datos, anotacion y grupo entran tal cual")
+    void bpmnIoDescriptivo() {
+        PlanBpmn plan = plan("herramientas/bpmn-io-descriptivo.bpmn");
+
+        assertThat(plan.informe().noSoportados()).isEmpty();
+        assertThat(plan.modo()).isEqualTo(ModoProceso.DOCUMENTAL);
+        assertThat(plan.nodos()).extracting(PlanBpmn.Nodo::tipoEvento).filteredOn(Objects::nonNull)
+                .containsExactlyInAnyOrder(TipoEvento.TEMPORIZADOR_INICIO, TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                        TipoEvento.TEMPORIZADOR_BORDE, TipoEvento.FIN_TERMINACION, TipoEvento.FIN);
+        assertThat(plan.nodos()).filteredOn(nodo -> nodo.tipoEvento() == TipoEvento.TEMPORIZADOR_BORDE).singleElement()
+                .satisfies(borde -> {
+                    assertThat(borde.adjuntoA()).isNotNull();
+                    assertThat(borde.interrumpe()).isFalse();
+                    assertThat(borde.temporizador()).isEqualTo("PT2H");
+                });
+        assertThat(plan.artefactos()).extracting(PlanBpmn.Artefacto::tipo).containsExactlyInAnyOrder(
+                TipoArtefacto.ANOTACION, TipoArtefacto.GRUPO, TipoArtefacto.OBJETO_DATOS, TipoArtefacto.ALMACEN_DATOS);
+        assertThat(plan.asociaciones()).extracting(PlanBpmn.Asociacion::tipo).containsExactlyInAnyOrder(
+                TipoAsociacion.ASOCIACION, TipoAsociacion.ENTRADA_DATOS, TipoAsociacion.SALIDA_DATOS);
     }
 
     @Test

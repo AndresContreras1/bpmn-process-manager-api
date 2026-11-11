@@ -21,6 +21,8 @@ import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
+import com.facimus.procesos.modelado.mapper.ArtefactoMapper;
+import com.facimus.procesos.modelado.mapper.AsociacionMapper;
 import com.facimus.procesos.modelado.mapper.CorrelacionMapper;
 import com.facimus.procesos.modelado.mapper.EventoMapper;
 import com.facimus.procesos.modelado.mapper.GatewayMapper;
@@ -29,6 +31,8 @@ import com.facimus.procesos.modelado.mapper.MensajeMapper;
 import com.facimus.procesos.modelado.mapper.PoolMapper;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
+import com.facimus.procesos.modelado.repository.ArtefactoRepository;
+import com.facimus.procesos.modelado.repository.AsociacionRepository;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
@@ -59,6 +63,10 @@ class ArmadoDelDiagramaTest {
     private MensajeRepository mensajeRepository;
     @Mock
     private CorrelacionRepository correlacionRepository;
+    @Mock
+    private ArtefactoRepository artefactoRepository;
+    @Mock
+    private AsociacionRepository asociacionRepository;
 
     @Spy
     private PoolMapper poolMapper = Mappers.getMapper(PoolMapper.class);
@@ -76,6 +84,10 @@ class ArmadoDelDiagramaTest {
     private MensajeMapper mensajeMapper = Mappers.getMapper(MensajeMapper.class);
     @Spy
     private CorrelacionMapper correlacionMapper = Mappers.getMapper(CorrelacionMapper.class);
+    @Spy
+    private ArtefactoMapper artefactoMapper = Mappers.getMapper(ArtefactoMapper.class);
+    @Spy
+    private AsociacionMapper asociacionMapper = Mappers.getMapper(AsociacionMapper.class);
 
     @InjectMocks
     private ArmadoDelDiagrama armado;
@@ -97,6 +109,10 @@ class ArmadoDelDiagramaTest {
         verify(arcoRepository).findAllByPool_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
         verify(mensajeRepository).findAllByProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
         verify(correlacionRepository).findAllByMensaje_ProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
+        verify(artefactoRepository).findAllByProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
+        verify(asociacionRepository).findAllByProcesoIdAndEmpresaIdOrderByIdAsc(PROCESO, DUENA);
+        assertThat(diagrama.artefactos()).isEmpty();
+        assertThat(diagrama.asociaciones()).isEmpty();
     }
 
     private static ProcesoResponse proceso() {

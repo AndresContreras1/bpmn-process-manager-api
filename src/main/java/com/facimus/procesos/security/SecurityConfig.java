@@ -244,7 +244,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/procesos/**", "/api/v1/actividades/**",
                                 "/api/v1/arcos/**", "/api/v1/gateways/**", "/api/v1/eventos/**",
                                 "/api/v1/pools/**", "/api/v1/lanes/**",
-                                "/api/v1/mensajes/**").hasAuthority(ADMINISTRADOR)
+                                "/api/v1/mensajes/**", "/api/v1/artefactos/**",
+                                "/api/v1/asociaciones/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers("/api/v1/**").hasAnyAuthority(ADMINISTRADOR, EDITOR)
                         .anyRequest().authenticated());
     }

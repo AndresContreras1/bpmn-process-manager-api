@@ -1,9 +1,12 @@
 package com.facimus.procesos.modelado.service.impl;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.response.ArtefactoResponse;
+import com.facimus.procesos.modelado.dto.response.AsociacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
@@ -35,6 +38,10 @@ final class SimulacionDeBorrado {
         MapaDelDiagrama.nodosDe(diagrama).stream()
                 .filter(nodo -> lanes.contains(nodo.laneId()))
                 .forEach(nodo -> nodos.add(nodo.id()));
+        // PR 55: un evento de borde se va con su actividad
+        MapaDelDiagrama.nodosDe(diagrama).stream()
+                .filter(nodo -> nodo.adjuntoAId() != null && nodos.contains(nodo.adjuntoAId()))
+                .forEach(nodo -> nodos.add(nodo.id()));
 
         Set<Long> arcos = new HashSet<>();
         si(elemento, ElementoDelDiagrama.Tipo.ARCO, arcos);
@@ -51,6 +58,20 @@ final class SimulacionDeBorrado {
                 .map(MensajeResponse::id)
                 .forEach(mensajes::add);
 
+        // PR 55: los artefactos de un pool se van con el, y las asociaciones con cualquiera de sus extremos
+        Set<String> seVan = new HashSet<>();
+        MapaDelDiagrama.nodosDe(diagrama).stream().filter(nodo -> nodos.contains(nodo.id()))
+                .forEach(nodo -> seVan.add(nodo.bpmnId()));
+        diagrama.arcos().stream().filter(arco -> arcos.contains(arco.id())).forEach(arco -> seVan.add(arco.bpmnId()));
+        List<ArtefactoResponse> artefactos = diagrama.artefactos().stream()
+                .filter(artefacto -> artefacto.poolId() == null || !pools.contains(artefacto.poolId()))
+                .toList();
+        diagrama.artefactos().stream().filter(artefacto -> !artefactos.contains(artefacto))
+                .forEach(artefacto -> seVan.add(artefacto.bpmnId()));
+        List<AsociacionResponse> asociaciones = diagrama.asociaciones().stream()
+                .filter(asociacion -> !seVan.contains(asociacion.origen()) && !seVan.contains(asociacion.destino()))
+                .toList();
+
         return new DiagramaResponse(diagrama.proceso(), diagrama.compartido(),
                 diagrama.pools().stream().filter(pool -> !pools.contains(pool.id())).toList(),
                 diagrama.lanes().stream().filter(lane -> !lanes.contains(lane.id())).toList(),
@@ -64,7 +85,8 @@ final class SimulacionDeBorrado {
                         .toList(),
                 diagrama.correlaciones().stream()
                         .filter(correlacion -> !mensajes.contains(correlacion.mensajeId()))
-                        .toList());
+                        .toList(),
+                artefactos, asociaciones);
     }
 
     /** A-06: lo que el borrado se llevaria por delante ademas del elemento por el que se pregunto. */

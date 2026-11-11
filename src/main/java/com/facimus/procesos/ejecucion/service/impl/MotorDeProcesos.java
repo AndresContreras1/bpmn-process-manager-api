@@ -97,7 +97,10 @@ class MotorDeProcesos {
                 if (++pasos > PASOS_MAXIMOS || caso.getEstado() != EstadoCaso.ABIERTO) {
                     break;
                 }
-                procesar(caso, grafo, token, variables, momento);
+                // Un fin de terminacion pudo cerrar este token en esta misma vuelta
+                if (token.getEstado() == EstadoActividadCaso.PENDIENTE) {
+                    procesar(caso, grafo, token, variables, momento);
+                }
             }
             if (pasos > PASOS_MAXIMOS) {
                 enError(caso, momento, "El caso dio " + PASOS_MAXIMOS + " pasos sin detenerse: el diagrama tiene "
@@ -179,6 +182,13 @@ class MotorDeProcesos {
         }
         mandarLoQueTenga(caso, grafo, nodo, variables, momento);
         completar(caso, token, momento);
+        if (nodo.terminaElCaso()) {
+            // PR 55: el fin de terminacion se lleva todos los caminos del caso, no solo el suyo
+            apagarTokens(caso, momento);
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO,
+                    "El caso termina entero en " + comillas(nodo.nombre()) + ": los demas caminos se cierran.");
+            return;
+        }
         if (nodo.terminaElProceso()) {
             bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO,
                     "Un camino del caso termina en " + comillas(nodo.nombre()) + ".");

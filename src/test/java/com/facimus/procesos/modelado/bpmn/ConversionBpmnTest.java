@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.bpmn;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -13,9 +14,14 @@ import org.junit.jupiter.api.Test;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.xml.LimitesXml;
 import com.facimus.procesos.common.xml.XmlRechazadoException;
+import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.bpmn.InformeBpmn.Hallazgo;
+import com.facimus.procesos.modelado.model.DireccionAsociacion;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 
 /** PR 54: las decisiones de la conversion, una por una, con archivos chicos escritos para cada caso. */
 class ConversionBpmnTest {
@@ -59,9 +65,9 @@ class ConversionBpmnTest {
     @Test
     @DisplayName("Lo que el modelo no tiene se convierte a lo mas cercano y el informe dice que y como")
     void conversiones() {
-        PlanBpmn plan = convertir(proceso("<bpmn:startEvent id=\"I\"><bpmn:timerEventDefinition/></bpmn:startEvent>"
+        PlanBpmn plan = convertir(proceso("<bpmn:startEvent id=\"I\"><bpmn:signalEventDefinition/></bpmn:startEvent>"
                 + "<bpmn:manualTask id=\"M\" name=\"Pack\"/><bpmn:scriptTask id=\"S\" name=\"Score\"/>"
-                + "<bpmn:endEvent id=\"F\"><bpmn:terminateEventDefinition/></bpmn:endEvent>"
+                + "<bpmn:endEvent id=\"F\"><bpmn:errorEventDefinition/></bpmn:endEvent>"
                 + "<bpmn:sequenceFlow id=\"a\" sourceRef=\"I\" targetRef=\"M\"/>"
                 + "<bpmn:sequenceFlow id=\"b\" sourceRef=\"M\" targetRef=\"S\"/>"
                 + "<bpmn:sequenceFlow id=\"c\" sourceRef=\"S\" targetRef=\"F\"/>"));
@@ -74,10 +80,10 @@ class ConversionBpmnTest {
     }
 
     @Test
-    @DisplayName("Una espera de temporizador se deja fuera, y con ella los flujos que la tocaban")
+    @DisplayName("Una espera de senal se deja fuera, y con ella los flujos que la tocaban")
     void noSoportado() {
         PlanBpmn plan = convertir(proceso("<bpmn:startEvent id=\"I\"/><bpmn:intermediateCatchEvent id=\"E\">"
-                + "<bpmn:timerEventDefinition/></bpmn:intermediateCatchEvent><bpmn:endEvent id=\"F\"/>"
+                + "<bpmn:signalEventDefinition/></bpmn:intermediateCatchEvent><bpmn:endEvent id=\"F\"/>"
                 + "<bpmn:sequenceFlow id=\"a\" sourceRef=\"I\" targetRef=\"E\"/>"
                 + "<bpmn:sequenceFlow id=\"b\" sourceRef=\"E\" targetRef=\"F\"/>"));
 
@@ -188,6 +194,152 @@ class ConversionBpmnTest {
         byte[] utf7 = "<?xml version=\"1.0\" encoding=\"UTF-7\"?><x/>".getBytes(StandardCharsets.US_ASCII);
         assertThatThrownBy(() -> EntradaBpmn.leer(new ByteArrayInputStream(utf7), LimitesXml.BPMN))
                 .isInstanceOf(XmlRechazadoException.class).hasMessageContaining("UTF-7");
+    }
+
+    @Test
+    @DisplayName("Los temporizadores, el fin de terminacion y la tarea sin tipo entran con lo que dicen")
+    void descriptivos() {
+        PlanBpmn plan = convertir(proceso("<bpmn:startEvent id=\"I\"><bpmn:timerEventDefinition><bpmn:timeCycle>R3/PT1H"
+                + "</bpmn:timeCycle></bpmn:timerEventDefinition></bpmn:startEvent><bpmn:task id=\"T\" name=\"Work\"/>"
+                + "<bpmn:intermediateCatchEvent id=\"E\"><bpmn:timerEventDefinition><bpmn:timeDate>2026-12-24T09:00:00Z"
+                + "</bpmn:timeDate></bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>"
+                + "<bpmn:endEvent id=\"F\"><bpmn:terminateEventDefinition/></bpmn:endEvent>"
+                + "<bpmn:boundaryEvent id=\"B\" attachedToRef=\"T\" cancelActivity=\"false\">"
+                + "<bpmn:timerEventDefinition><bpmn:timeDuration>PT2H</bpmn:timeDuration></bpmn:timerEventDefinition>"
+                + "</bpmn:boundaryEvent>"));
+
+        assertThat(nodo(plan, "I").tipoEvento()).isEqualTo(TipoEvento.TEMPORIZADOR_INICIO);
+        assertThat(nodo(plan, "I").tipoTemporizador()).isEqualTo(TipoTemporizador.CICLO);
+        assertThat(nodo(plan, "I").temporizador()).isEqualTo("R3/PT1H");
+        assertThat(nodo(plan, "T").tipoActividad()).isEqualTo(TipoActividad.SIN_TIPO);
+        assertThat(nodo(plan, "E").tipoEvento()).isEqualTo(TipoEvento.TEMPORIZADOR_INTERMEDIO);
+        assertThat(nodo(plan, "E").tipoTemporizador()).isEqualTo(TipoTemporizador.FECHA);
+        assertThat(nodo(plan, "F").tipoEvento()).isEqualTo(TipoEvento.FIN_TERMINACION);
+        PlanBpmn.Nodo borde = nodo(plan, "B");
+        assertThat(borde.tipoEvento()).isEqualTo(TipoEvento.TEMPORIZADOR_BORDE);
+        assertThat(borde.adjuntoA()).isEqualTo("T");
+        assertThat(borde.interrumpe()).isFalse();
+        assertThat(borde.lane()).isEqualTo(nodo(plan, "T").lane());
+        assertThat(borde.tipoTemporizador()).isEqualTo(TipoTemporizador.DURACION);
+    }
+
+    @Test
+    @DisplayName("Un evento de borde que no es de temporizador, o sin actividad, se deja fuera con sus flujos")
+    void bordesQueNoEntran() {
+        PlanBpmn plan = convertir(proceso("<bpmn:userTask id=\"T\"/><bpmn:endEvent id=\"F\"/>"
+                + "<bpmn:boundaryEvent id=\"B1\" attachedToRef=\"T\"><bpmn:errorEventDefinition/></bpmn:boundaryEvent>"
+                + "<bpmn:boundaryEvent id=\"B2\" attachedToRef=\"Nada\"><bpmn:timerEventDefinition/></bpmn:boundaryEvent>"
+                + "<bpmn:sequenceFlow id=\"a\" sourceRef=\"B2\" targetRef=\"F\"/>"));
+
+        assertThat(plan.nodos()).extracting(PlanBpmn.Nodo::bpmnId).containsExactlyInAnyOrder("T", "F");
+        assertThat(plan.arcos()).isEmpty();
+        assertThat(plan.informe().noSoportados()).extracting(Hallazgo::elemento).contains("B1", "B2", "a");
+    }
+
+    @Test
+    @DisplayName("Un flujo que llega a un evento de borde es un error del archivo")
+    void flujoAUnBorde() {
+        String xml = proceso("<bpmn:userTask id=\"T\"/><bpmn:boundaryEvent id=\"B\" attachedToRef=\"T\">"
+                + "<bpmn:timerEventDefinition/></bpmn:boundaryEvent>"
+                + "<bpmn:sequenceFlow id=\"a\" sourceRef=\"T\" targetRef=\"B\"/>");
+
+        assertThatThrownBy(() -> convertir(xml)).isInstanceOf(ReglaNegocioException.class)
+                .satisfies(error -> assertThat(((ReglaNegocioException) error).getErrores())
+                        .anySatisfy(texto -> assertThat(texto).contains("evento de borde")));
+    }
+
+    @Test
+    @DisplayName("isExecutable dice el modo; si el archivo no lo dice, tampoco lo dice el plan")
+    void modo() {
+        String sinDecir = CABECERA + "<bpmn:process id=\"P\"><bpmn:startEvent id=\"I\"/></bpmn:process>"
+                + "</bpmn:definitions>";
+
+        assertThat(convertir(proceso("<bpmn:startEvent id=\"I\"/>")).modo()).isEqualTo(ModoProceso.EJECUTABLE);
+        assertThat(convertir(sinDecir).modo()).isNull();
+        PlanBpmn documental = convertir(sinDecir.replace("<bpmn:process id=\"P\">",
+                "<bpmn:process id=\"P\" isExecutable=\"false\">"));
+        assertThat(documental.modo()).isEqualTo(ModoProceso.DOCUMENTAL);
+        assertThat(documental.informe().convertidos()).extracting(Hallazgo::detalle)
+                .anySatisfy(detalle -> assertThat(detalle).contains("documental"));
+    }
+
+    @Test
+    @DisplayName("Las anotaciones, los grupos y los datos entran, con lo que los une")
+    void artefactos() {
+        PlanBpmn plan = convertir(CABECERA + "<bpmn:category id=\"C\"><bpmn:categoryValue id=\"V\" value=\"Checks\"/>"
+                + "</bpmn:category><bpmn:process id=\"P\" isExecutable=\"false\"><bpmn:task id=\"T\">"
+                + "<bpmn:dataInputAssociation id=\"in\"><bpmn:sourceRef>R</bpmn:sourceRef><bpmn:targetRef>X</bpmn:targetRef>"
+                + "</bpmn:dataInputAssociation><bpmn:dataOutputAssociation id=\"out\"><bpmn:targetRef>S</bpmn:targetRef>"
+                + "</bpmn:dataOutputAssociation></bpmn:task><bpmn:dataObject id=\"O\"/>"
+                + "<bpmn:dataObjectReference id=\"R\" name=\"Order\" dataObjectRef=\"O\"/>"
+                + "<bpmn:dataStoreReference id=\"S\" name=\"Stock\"/>"
+                + "<bpmn:textAnnotation id=\"A\"><bpmn:text>Check by hand</bpmn:text></bpmn:textAnnotation>"
+                + "<bpmn:group id=\"G\" categoryValueRef=\"V\"/>"
+                + "<bpmn:association id=\"as\" sourceRef=\"A\" targetRef=\"T\" associationDirection=\"One\"/>"
+                + "</bpmn:process></bpmn:definitions>");
+
+        assertThat(plan.artefactos()).extracting(PlanBpmn.Artefacto::bpmnId, PlanBpmn.Artefacto::tipo,
+                PlanBpmn.Artefacto::texto).containsExactlyInAnyOrder(
+                        tuple("R", TipoArtefacto.OBJETO_DATOS, "Order"),
+                        tuple("S", TipoArtefacto.ALMACEN_DATOS, "Stock"),
+                        tuple("A", TipoArtefacto.ANOTACION, "Check by hand"),
+                        tuple("G", TipoArtefacto.GRUPO, "Checks"));
+        assertThat(plan.asociaciones()).extracting(PlanBpmn.Asociacion::bpmnId, PlanBpmn.Asociacion::tipo,
+                PlanBpmn.Asociacion::origen, PlanBpmn.Asociacion::destino, PlanBpmn.Asociacion::direccion)
+                .containsExactlyInAnyOrder(
+                        tuple("in", TipoAsociacion.ENTRADA_DATOS, "R", "T", DireccionAsociacion.NINGUNA),
+                        tuple("out", TipoAsociacion.SALIDA_DATOS, "T", "S", DireccionAsociacion.NINGUNA),
+                        tuple("as", TipoAsociacion.ASOCIACION, "A", "T", DireccionAsociacion.UNA));
+        assertThat(plan.informe().soportados()).containsEntry("artefactos", 4).containsEntry("asociaciones", 3);
+    }
+
+    @Test
+    @DisplayName("Una asociacion sin artefacto, o con un extremo que no entra, se deja fuera")
+    void asociacionesQueNoEntran() {
+        PlanBpmn plan = convertir(proceso("<bpmn:userTask id=\"T\"/><bpmn:endEvent id=\"F\"/>"
+                + "<bpmn:textAnnotation id=\"A\"/>"
+                + "<bpmn:association id=\"sinArtefacto\" sourceRef=\"T\" targetRef=\"F\"/>"
+                + "<bpmn:association id=\"colgando\" sourceRef=\"A\" targetRef=\"Nada\"/>"));
+
+        assertThat(plan.asociaciones()).isEmpty();
+        assertThat(plan.informe().noSoportados()).extracting(Hallazgo::elemento).contains("sinArtefacto", "colgando");
+    }
+
+    @Test
+    @DisplayName("Un artefacto dibujado dentro de una lane queda en ella; fuera de todo, queda suelto")
+    void artefactosPorSuDibujo() {
+        PlanBpmn plan = convertir(CABECERA + "<bpmn:collaboration id=\"K\"><bpmn:participant id=\"Pa\" processRef=\"P\"/>"
+                + "<bpmn:textAnnotation id=\"Fuera\"/></bpmn:collaboration>"
+                + "<bpmn:process id=\"P\" isExecutable=\"true\"><bpmn:laneSet id=\"LS\"><bpmn:lane id=\"L\" name=\"Sales\">"
+                + "<bpmn:flowNodeRef>T</bpmn:flowNodeRef></bpmn:lane></bpmn:laneSet><bpmn:userTask id=\"T\"/>"
+                + "<bpmn:textAnnotation id=\"Dentro\"/></bpmn:process>"
+                + "<bpmndi:BPMNDiagram xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\" "
+                + "xmlns:dc=\"http://www.omg.org/spec/DD/20100524/DC\"><bpmndi:BPMNPlane bpmnElement=\"K\">"
+                + forma("Pa", 0, 0, 800, 200) + forma("L", 30, 0, 770, 200) + forma("T", 100, 50, 100, 80)
+                + forma("Dentro", 300, 60, 100, 30) + forma("Fuera", 900, 500, 100, 30)
+                + "</bpmndi:BPMNPlane></bpmndi:BPMNDiagram></bpmn:definitions>");
+
+        PlanBpmn.Artefacto dentro = artefacto(plan, "Dentro");
+        assertThat(dentro.lane()).isEqualTo("L");
+        assertThat(dentro.pool()).isEqualTo("Pa");
+        // El centro de la tarea es (150, 90): la esquina de la anotacion, en el marco de los nodos
+        assertThat(dentro.x()).isEqualTo(300 + 64 - 150);
+        assertThat(dentro.y()).isEqualTo(60 + 28 - 90);
+        assertThat(dentro.ancho()).isEqualTo(100);
+        PlanBpmn.Artefacto fuera = artefacto(plan, "Fuera");
+        assertThat(fuera.lane()).isNull();
+        assertThat(fuera.pool()).isNull();
+        assertThat(fuera.x()).isZero();
+        assertThat(fuera.y()).isZero();
+    }
+
+    private static String forma(String elemento, int x, int y, int ancho, int alto) {
+        return "<bpmndi:BPMNShape bpmnElement=\"" + elemento + "\"><dc:Bounds x=\"" + x + "\" y=\"" + y
+                + "\" width=\"" + ancho + "\" height=\"" + alto + "\"/></bpmndi:BPMNShape>";
+    }
+
+    private static PlanBpmn.Artefacto artefacto(PlanBpmn plan, String id) {
+        return plan.artefactos().stream().filter(uno -> uno.bpmnId().equals(id)).findFirst().orElseThrow();
     }
 
     private static String proceso(String contenido) {

@@ -38,6 +38,7 @@ import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
+import com.facimus.procesos.modelado.service.impl.ElementosPegados;
 import com.facimus.procesos.modelado.service.impl.EventoServiceImpl;
 
 /** HU-04 y HU-27: donde empieza y termina el proceso, y los arcos que cada tipo de evento admite. */
@@ -46,6 +47,9 @@ class EventoServiceTest {
 
     private static final Long EMPRESA = 1L;
     private static final Long AUTOR = 10L;
+
+    @Mock
+    private ElementosPegados pegados;
 
     @Mock
     private HistorialCambioService historialCambioService;

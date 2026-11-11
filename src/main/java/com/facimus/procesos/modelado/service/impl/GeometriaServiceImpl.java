@@ -14,6 +14,8 @@ import com.facimus.procesos.modelado.model.AristaBpmn;
 import com.facimus.procesos.modelado.model.DisposicionBpmn;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.ArcoPlano;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Arista;
+import com.facimus.procesos.modelado.model.DisposicionBpmn.ArtefactoPlano;
+import com.facimus.procesos.modelado.model.DisposicionBpmn.AsociacionPlana;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Forma;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Geometria;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.LanePlana;
@@ -21,12 +23,15 @@ import com.facimus.procesos.modelado.model.DisposicionBpmn.Limites;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.MensajePlano;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.NodoPlano;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.PoolPlano;
+import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.FormaBpmn;
 import com.facimus.procesos.modelado.model.NodoFlujo;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.AristaBpmnRepository;
+import com.facimus.procesos.modelado.repository.ArtefactoRepository;
+import com.facimus.procesos.modelado.repository.AsociacionRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.FormaBpmnRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
@@ -55,6 +60,8 @@ public class GeometriaServiceImpl implements GeometriaService {
     private final MensajeRepository mensajeRepository;
     private final FormaBpmnRepository formaRepository;
     private final AristaBpmnRepository aristaRepository;
+    private final ArtefactoRepository artefactoRepository;
+    private final AsociacionRepository asociacionRepository;
 
     /** Cada cambio de un proceso pasa por su historial, y el historial lo avisa. */
     @EventListener
@@ -92,7 +99,8 @@ public class GeometriaServiceImpl implements GeometriaService {
                                 lane.getOrden()))
                         .toList(),
                 nodos.stream().map(nodo -> new NodoPlano(nodo.getId(), nodo.getBpmnId(), nodo.getLane().getId(),
-                        claseDe(nodo), nodo.getPosicionX(), nodo.getPosicionY(), nodo.getNombre())).toList(),
+                        claseDe(nodo), nodo.getPosicionX(), nodo.getPosicionY(), nodo.getNombre(), adjuntoA(nodo)))
+                        .toList(),
                 arcoRepository.findAllByPool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId).stream()
                         .map(arco -> new ArcoPlano(arco.getBpmnId(), arco.getOrigen().getId(),
                                 arco.getDestino().getId(), arco.getEtiqueta()))
@@ -102,6 +110,16 @@ public class GeometriaServiceImpl implements GeometriaService {
                                 mensaje.getPoolOrigen().getId(), mensaje.getPoolDestino().getId(),
                                 mensaje.getNodoOrigen() == null ? null : mensaje.getNodoOrigen().getId(),
                                 mensaje.getNodoDestino() == null ? null : mensaje.getNodoDestino().getId()))
+                        .toList(),
+                artefactoRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId).stream()
+                        .map(artefacto -> new ArtefactoPlano(artefacto.getBpmnId(), artefacto.getTipo().name(),
+                                artefacto.getLane() == null ? null : artefacto.getLane().getId(),
+                                artefacto.getPosicionX(), artefacto.getPosicionY(), artefacto.getAncho(),
+                                artefacto.getAlto(), artefacto.getTexto()))
+                        .toList(),
+                asociacionRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId).stream()
+                        .map(asociacion -> new AsociacionPlana(asociacion.getBpmnId(), asociacion.getTipo().name(),
+                                asociacion.getOrigen(), asociacion.getDestino()))
                         .toList());
         formaRepository.saveAll(geometria.formas().stream().map(forma -> forma(empresa, procesoId, forma)).toList());
         aristaRepository.saveAll(geometria.aristas().stream().map(arista -> arista(empresa, procesoId, arista))
@@ -124,6 +142,11 @@ public class GeometriaServiceImpl implements GeometriaService {
                             arista.getEtiquetaAlto())));
         }
         return new Geometria(formas, aristas);
+    }
+
+    /** PR 55: a que actividad va pegado un evento de borde. */
+    private static Long adjuntoA(NodoFlujo nodo) {
+        return nodo instanceof Evento evento && evento.getAdjuntoA() != null ? evento.getAdjuntoA().getId() : null;
     }
 
     static String claseDe(NodoFlujo nodo) {

@@ -42,6 +42,11 @@ record NodoDeLaVersion(Long id, String nombre, TipoNodoCaso tipo, String subtipo
         return esEvento() && TipoEvento.valueOf(subtipo).empiezaElProceso();
     }
 
+    /** PR 55: el fin de terminacion, que se lleva todos los caminos del caso y no solo el suyo. */
+    boolean terminaElCaso() {
+        return esEventoDe(TipoEvento.FIN_TERMINACION);
+    }
+
     /** Por donde muere un token: de un evento de fin no sale nada. */
     boolean terminaElProceso() {
         return esEvento() && TipoEvento.valueOf(subtipo).terminaElProceso();

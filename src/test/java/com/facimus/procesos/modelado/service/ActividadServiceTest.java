@@ -41,6 +41,7 @@ import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.service.impl.ActividadServiceImpl;
+import com.facimus.procesos.modelado.service.impl.ElementosPegados;
 
 /** HU-08 a HU-10: las tareas del proceso. */
 @ExtendWith(MockitoExtension.class)
@@ -48,6 +49,9 @@ class ActividadServiceTest {
 
     private static final Long EMPRESA = 1L;
     private static final Long AUTOR = 10L;
+
+    @Mock
+    private ElementosPegados pegados;
 
     @Mock
     private HistorialCambioService historialCambioService;

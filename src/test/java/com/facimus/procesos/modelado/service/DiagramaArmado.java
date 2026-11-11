@@ -6,8 +6,11 @@ import java.util.function.UnaryOperator;
 
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.response.ArtefactoResponse;
+import com.facimus.procesos.modelado.dto.response.AsociacionResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
@@ -16,14 +19,19 @@ import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
+import com.facimus.procesos.modelado.model.Artefacto;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
+import com.facimus.procesos.modelado.model.DireccionAsociacion;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoDestino;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 
 /**
  * Arma diagramas para el diagnostico con la misma forma que devuelve la API: listas planas que se enlazan por id.
@@ -49,6 +57,9 @@ public class DiagramaArmado {
     private final List<String> nombres = new ArrayList<>();
     private Integer versionPublicada;
     private Boolean borradorPendiente = false;
+    private ModoProceso modo = ModoProceso.EJECUTABLE;
+    private final List<ArtefactoResponse> artefactos = new ArrayList<>();
+    private final List<AsociacionResponse> asociaciones = new ArrayList<>();
 
     /**
      * El proceso de la tienda de ejemplo: un pedido entra por mensaje, se cobra, y segun la respuesta de la pasarela
@@ -153,6 +164,38 @@ public class DiagramaArmado {
         Long id = registrar(nombre);
         eventos.add(new EventoResponse(id, "Event_" + id, nombre, tipo, 0, 0, id(lane), 0L, null, null, null, null));
         return id;
+    }
+
+    /** PR 55: un evento de temporizador; {@code adjuntoA} es la actividad si es de borde. */
+    public Long temporizador(String lane, String nombre, TipoEvento tipo, TipoTemporizador tipoTemporizador,
+            String expresion, String adjuntoA) {
+        Long id = registrar(nombre);
+        eventos.add(new EventoResponse(id, "Event_" + id, nombre, tipo, 0, 0, id(lane), 0L, null, null, null, null,
+                tipoTemporizador, expresion, adjuntoA == null ? null : id(adjuntoA),
+                tipo.esDeBorde() ? Boolean.TRUE : null));
+        return id;
+    }
+
+    public void modo(ModoProceso nuevo) {
+        modo = nuevo;
+    }
+
+    /** PR 55: un artefacto en una lane, o suelto con {@code lane} nula. */
+    public String artefacto(String pool, String lane, String nombre, TipoArtefacto tipo, String texto) {
+        Long id = registrar(nombre);
+        int[] tamano = Artefacto.tamanoPorDefecto(tipo);
+        String bpmnId = Artefacto.prefijoBpmn(tipo) + "_" + id;
+        artefactos.add(new ArtefactoResponse(id, bpmnId, tipo, texto, pool == null ? null : id(pool),
+                lane == null ? null : id(lane), 0, 0, tamano[0], tamano[1], 0L, null, null, null, null));
+        return bpmnId;
+    }
+
+    public String asociacion(TipoAsociacion tipo, String origen, String destino, DireccionAsociacion direccion) {
+        Long id = siguienteId();
+        String bpmnId = (tipo == TipoAsociacion.ASOCIACION ? "Association_" : "DataAssociation_") + id;
+        asociaciones.add(new AsociacionResponse(id, bpmnId, tipo, origen, destino, direccion, 0L, null, null, null,
+                null));
+        return bpmnId;
     }
 
     public void arco(String origen, String destino) {
@@ -341,10 +384,10 @@ public class DiagramaArmado {
     public DiagramaResponse diagrama() {
         ProcesoResponse proceso = new ProcesoResponse(1L, "Order fulfillment", "De la compra a la entrega.",
                 "Fulfillment", versionPublicada == null ? EstadoProceso.BORRADOR : EstadoProceso.PUBLICADO, true,
-                null, null, 0L, null, null, versionPublicada, borradorPendiente);
+                null, null, 0L, null, null, versionPublicada, borradorPendiente, modo);
         return new DiagramaResponse(proceso, false, List.copyOf(pools), List.copyOf(lanes), List.copyOf(actividades),
                 List.copyOf(gateways), List.copyOf(eventos), List.copyOf(arcos), List.copyOf(mensajes),
-                List.copyOf(correlaciones));
+                List.copyOf(correlaciones), List.copyOf(artefactos), List.copyOf(asociaciones));
     }
 
     private void nuevoArco(String origen, String destino, String condicion, boolean porDefecto) {

@@ -21,6 +21,7 @@ import com.facimus.procesos.gestion.event.ProcesoCreado;
 import com.facimus.procesos.gestion.event.ProcesoEliminado;
 import com.facimus.procesos.gestion.mapper.ProcesoMapper;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
@@ -153,6 +154,23 @@ public class ProcesoServiceImpl implements ProcesoService {
             return procesoMapper.toResponse(proceso).conBorradorPendiente(false);
         }
         return publicar(proceso, autor(empresaId, usuarioId));
+    }
+
+    @Override
+    @Transactional
+    public ProcesoResponse cambiarModo(Long empresaId, Long procesoId, Long usuarioId, ModoProceso modo,
+            Long version) {
+        Proceso proceso = buscarActivo(empresaId, procesoId);
+        proceso.verificarVersion(version);
+        Usuario autor = autor(empresaId, usuarioId);
+        if (proceso.getModo() == modo) {
+            return conBorrador(proceso);
+        }
+        proceso.setModo(modo);
+        proceso = procesoRepository.saveAndFlush(proceso);
+        historialCambioService.registrar(proceso, autor, modo.ejecuta() ? "Proceso pasa a ejecutable."
+                : "Proceso pasa a documental: se publica y se documenta, pero no abre casos.");
+        return conBorrador(proceso);
     }
 
     /** R-44 y R-45: no se publica lo que no se puede ejecutar, ni se publica dos veces lo mismo. */

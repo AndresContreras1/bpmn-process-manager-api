@@ -15,9 +15,11 @@ import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.mapper.PoolMapper;
+import com.facimus.procesos.modelado.model.Artefacto;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.repository.ArtefactoRepository;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
@@ -32,6 +34,8 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class PoolServiceImpl implements PoolService {
 
+    private final ArtefactoRepository artefactoRepository;
+    private final ElementosPegados pegados;
     private final HistorialCambioService historialCambioService;
     private final ConfiguracionTiendaService configuracionTiendaService;
     private final PoolRepository poolRepository;
@@ -117,6 +121,11 @@ public class PoolServiceImpl implements PoolService {
                             .ifPresent(correlacionRepository::delete);
                     mensajeRepository.delete(mensaje);
                 });
+        // PR 55: los artefactos del pool, como sus datos o sus anotaciones, se van con el
+        for (Artefacto artefacto : artefactoRepository.findAllByPool_IdAndEmpresaId(poolId, empresaId)) {
+            pegados.soltarAsociaciones(empresaId, pool.getProceso().getId(), artefacto.getBpmnId());
+            artefactoRepository.delete(artefacto);
+        }
         laneRepository.deleteAll(laneRepository.findAllByPoolIdAndEmpresaIdOrderByOrdenAsc(poolId, empresaId));
         poolRepository.delete(pool);
         historialCambioService.registrar(empresaId, usuarioId, pool.getProceso(),

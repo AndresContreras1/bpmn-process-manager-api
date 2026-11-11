@@ -13,6 +13,7 @@ import com.facimus.procesos.modelado.model.Evento;
 public interface EventoMapper {
 
     @Mapping(target = "laneId", source = "lane.id")
+    @Mapping(target = "adjuntoAId", source = "adjuntoA.id")
     EventoResponse toResponse(Evento evento);
 
     List<EventoResponse> toResponses(List<Evento> eventos);

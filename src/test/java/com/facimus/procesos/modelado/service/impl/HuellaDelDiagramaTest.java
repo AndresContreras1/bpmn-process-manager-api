@@ -12,9 +12,15 @@ import org.junit.jupiter.api.Test;
 
 import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.model.DireccionAsociacion;
+import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsociacion;
+import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 import com.facimus.procesos.modelado.service.DiagramaArmado;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -32,6 +38,41 @@ class HuellaDelDiagramaTest {
     void mismoDiagrama_mismaHuella() {
         assertThat(huella(DiagramaArmado.demo().diagrama()))
                 .isEqualTo(huella(DiagramaArmado.demo().diagrama()));
+    }
+
+    @Test
+    @DisplayName("Un diagrama sin nada descriptivo da la misma forma canonica de antes del PR 55")
+    void sinLoDescriptivo_laFormaDeAntes() {
+        String canonico = DiagramaCanonico.de(DiagramaArmado.demo().diagrama(), JsonMapper.builder().build());
+
+        assertThat(canonico).doesNotContain("modo", "artefactos", "asociaciones", "tipoTemporizador", "temporizador",
+                "adjuntoAId", "interrumpe");
+    }
+
+    @Test
+    @DisplayName("El modo, un temporizador, un artefacto o una asociacion cambian la huella")
+    void loDescriptivo_otraHuella() {
+        String demo = huella(DiagramaArmado.demo().diagrama());
+
+        DiagramaArmado documental = DiagramaArmado.demo();
+        documental.modo(ModoProceso.DOCUMENTAL);
+        assertThat(huella(documental.diagrama())).isNotEqualTo(demo);
+
+        DiagramaArmado conNota = DiagramaArmado.demo();
+        String nota = conNota.artefacto(null, null, "Nota", TipoArtefacto.ANOTACION, "Hello");
+        String conArtefacto = huella(conNota.diagrama());
+        assertThat(conArtefacto).isNotEqualTo(demo);
+
+        conNota.asociacion(TipoAsociacion.ASOCIACION, nota, "Activity_1", DireccionAsociacion.NINGUNA);
+        assertThat(huella(conNota.diagrama())).isNotEqualTo(conArtefacto);
+
+        DiagramaArmado conEvento = DiagramaArmado.demo();
+        conEvento.temporizador(DiagramaArmado.VENTAS, "Wait", TipoEvento.TEMPORIZADOR_INTERMEDIO, null, null, null);
+        String sinCuando = huella(conEvento.diagrama());
+        DiagramaArmado conCuando = DiagramaArmado.demo();
+        conCuando.temporizador(DiagramaArmado.VENTAS, "Wait", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION, "PT2H", null);
+        assertThat(huella(conCuando.diagrama())).isNotEqualTo(sinCuando);
     }
 
     @Test

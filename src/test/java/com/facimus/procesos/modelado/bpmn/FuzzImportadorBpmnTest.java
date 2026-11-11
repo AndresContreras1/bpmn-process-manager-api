@@ -40,7 +40,7 @@ import com.facimus.procesos.common.xml.XmlRechazadoException;
 class FuzzImportadorBpmnTest {
 
     private static final String[] CORPUS = {"miwg/A.1.0.bpmn", "miwg/A.2.0.bpmn", "miwg/A.2.1.bpmn",
-        "miwg/A.3.0.bpmn", "miwg/A.4.0.bpmn", "miwg/A.4.1.bpmn", "herramientas/bpmn-io.bpmn",
+        "miwg/A.3.0.bpmn", "miwg/A.4.0.bpmn", "miwg/A.4.1.bpmn", "herramientas/bpmn-io.bpmn", "herramientas/bpmn-io-descriptivo.bpmn",
         "herramientas/camunda-modeler.bpmn"};
 
     private static final String[] PIEZAS = {"<", ">", "/>", "</bpmn:task>", "<bpmn:task id=\"x\">",

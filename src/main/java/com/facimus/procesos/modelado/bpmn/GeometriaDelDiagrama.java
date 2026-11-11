@@ -6,6 +6,8 @@ import java.util.stream.Stream;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.model.DisposicionBpmn;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.ArcoPlano;
+import com.facimus.procesos.modelado.model.DisposicionBpmn.ArtefactoPlano;
+import com.facimus.procesos.modelado.model.DisposicionBpmn.AsociacionPlana;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Geometria;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.LanePlana;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.MensajePlano;
@@ -32,7 +34,7 @@ public final class GeometriaDelDiagrama {
                                 gateway.posicionX(), gateway.posicionY(), gateway.nombre())),
                         diagrama.eventos().stream().map(evento -> new NodoPlano(evento.id(),
                                 IdsBpmn.de(evento.bpmnId(), "Event", evento.id()), evento.laneId(), "EVENTO",
-                                evento.posicionX(), evento.posicionY(), evento.nombre())))
+                                evento.posicionX(), evento.posicionY(), evento.nombre(), evento.adjuntoAId())))
                 .flatMap(nodo -> nodo)
                 .toList();
         return DisposicionBpmn.calcular(
@@ -46,6 +48,11 @@ public final class GeometriaDelDiagrama {
                         arco.origenId(), arco.destinoId(), arco.etiqueta())).toList(),
                 diagrama.mensajes().stream().map(mensaje -> new MensajePlano(mensaje.id(),
                         IdsBpmn.de(mensaje.bpmnId(), "MessageFlow", mensaje.id()), mensaje.poolOrigenId(),
-                        mensaje.poolDestinoId(), mensaje.nodoOrigenId(), mensaje.nodoDestinoId())).toList());
+                        mensaje.poolDestinoId(), mensaje.nodoOrigenId(), mensaje.nodoDestinoId())).toList(),
+                diagrama.artefactos().stream().map(artefacto -> new ArtefactoPlano(artefacto.bpmnId(),
+                        artefacto.tipo().name(), artefacto.laneId(), artefacto.posicionX(), artefacto.posicionY(),
+                        artefacto.ancho(), artefacto.alto(), artefacto.texto())).toList(),
+                diagrama.asociaciones().stream().map(asociacion -> new AsociacionPlana(asociacion.bpmnId(),
+                        asociacion.tipo().name(), asociacion.origen(), asociacion.destino())).toList());
     }
 }

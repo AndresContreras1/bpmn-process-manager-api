@@ -6,26 +6,38 @@ import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 
 /**
  * Un nodo del diagrama visto igual sea actividad, gateway o evento: lo que el diagnostico necesita saber de el sin
  * preguntar de que tipo es. Exactamente uno de los tres tipos viene lleno, el mismo que lo distingue en la base.
  */
-record NodoDelDiagrama(Long id, String nombre, Long laneId, TipoActividad tipoActividad, TipoGateway tipoGateway,
-        TipoEvento tipoEvento) {
+record NodoDelDiagrama(Long id, String bpmnId, String nombre, Long laneId, TipoActividad tipoActividad,
+        TipoGateway tipoGateway, TipoEvento tipoEvento, Long adjuntoAId, TipoTemporizador tipoTemporizador,
+        String temporizador) {
 
     static NodoDelDiagrama de(ActividadResponse actividad) {
-        return new NodoDelDiagrama(actividad.id(), actividad.nombre(), actividad.laneId(), actividad.tipoActividad(),
-                null, null);
+        return new NodoDelDiagrama(actividad.id(), actividad.bpmnId(), actividad.nombre(), actividad.laneId(),
+                actividad.tipoActividad(), null, null, null, null, null);
     }
 
     static NodoDelDiagrama de(GatewayResponse gateway) {
-        return new NodoDelDiagrama(gateway.id(), gateway.nombre(), gateway.laneId(), null, gateway.tipoGateway(),
-                null);
+        return new NodoDelDiagrama(gateway.id(), gateway.bpmnId(), gateway.nombre(), gateway.laneId(), null,
+                gateway.tipoGateway(), null, null, null, null);
     }
 
     static NodoDelDiagrama de(EventoResponse evento) {
-        return new NodoDelDiagrama(evento.id(), evento.nombre(), evento.laneId(), null, null, evento.tipoEvento());
+        return new NodoDelDiagrama(evento.id(), evento.bpmnId(), evento.nombre(), evento.laneId(), null, null,
+                evento.tipoEvento(), evento.adjuntoAId(), evento.tipoTemporizador(), evento.temporizador());
+    }
+
+    /** PR 55: un evento de borde: no esta en el flujo, sale de la actividad a la que va pegado. */
+    boolean esDeBorde() {
+        return esEvento() && tipoEvento.esDeBorde();
+    }
+
+    boolean esTemporizador() {
+        return esEvento() && tipoEvento.esTemporizador();
     }
 
     boolean esActividad() {

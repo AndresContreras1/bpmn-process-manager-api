@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ArcoServiceImpl implements ArcoService {
 
+    private final ElementosPegados pegados;
     private final HistorialCambioService historialCambioService;
     private final ArcoRepository arcoRepository;
     private final NodoFlujoRepository nodoFlujoRepository;
@@ -97,6 +98,7 @@ public class ArcoServiceImpl implements ArcoService {
     @Transactional
     public void eliminar(Long empresaId, Long usuarioId, Long arcoId) {
         Arco arco = buscar(empresaId, arcoId);
+        pegados.soltarAsociaciones(empresaId, arco.getPool().getProceso().getId(), arco.getBpmnId());
         arcoRepository.delete(arco);
         historialCambioService.registrar(empresaId, usuarioId, arco.getPool().getProceso(),
                 "Flujo " + tramo(arco) + " eliminado.");

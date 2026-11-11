@@ -2,7 +2,9 @@ package com.facimus.procesos.modelado.dto.response;
 
 import java.time.LocalDateTime;
 
+import com.facimus.procesos.common.Default;
 import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -22,5 +24,24 @@ public record EventoResponse(
                 example = "2") Long creadoPor,
         @Schema(example = "2026-09-21T15:00:00") LocalDateTime fechaCreacion,
         @Schema(description = "Id of the user who saved the last change", example = "5") Long modificadoPor,
-        @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion) {
+        @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,
+        @Schema(description = "How a timer event says when it fires; empty for any other event", example = "DURACION")
+        TipoTemporizador tipoTemporizador,
+        @Schema(description = "ISO 8601 duration, date or cycle of a timer event", example = "PT2H") String temporizador,
+        @Schema(description = "Activity a boundary event is attached to", example = "10") Long adjuntoAId,
+        @Schema(description = "Whether a boundary event interrupts the activity when it fires", example = "true")
+        Boolean interrumpe) {
+
+    /** El de antes del PR 55, sin temporizador. */
+    public EventoResponse(Long id, String bpmnId, String nombre, TipoEvento tipoEvento, int posicionX, int posicionY,
+            Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion, Long modificadoPor,
+            LocalDateTime fechaModificacion) {
+        this(id, bpmnId, nombre, tipoEvento, posicionX, posicionY, laneId, version, creadoPor, fechaCreacion,
+                modificadoPor, fechaModificacion, null, null, null, null);
+    }
+
+    @Default
+    public EventoResponse {
+        // El constructor completo es el que usan MapStruct y Jackson
+    }
 }

@@ -27,6 +27,8 @@ import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Arco;
+import com.facimus.procesos.modelado.model.Artefacto;
+import com.facimus.procesos.modelado.model.Asociacion;
 import com.facimus.procesos.modelado.model.Correlacion;
 import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.ExtensionXml;
@@ -38,6 +40,8 @@ import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
+import com.facimus.procesos.modelado.repository.ArtefactoRepository;
+import com.facimus.procesos.modelado.repository.AsociacionRepository;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.ExtensionXmlRepository;
@@ -71,9 +75,14 @@ class AplicacionDelModelo {
     private final MensajeRepository mensajeRepository;
     private final CorrelacionRepository correlacionRepository;
     private final ExtensionXmlRepository extensionXmlRepository;
+    private final ArtefactoRepository artefactoRepository;
+    private final AsociacionRepository asociacionRepository;
     private final RolProcesoRepository rolProcesoRepository;
     private final RolProcesoService rolProcesoService;
     private final ConfiguracionTiendaService configuracionTiendaService;
+
+    /** La clave del marco de los artefactos sueltos, que no estan en ninguna lane. */
+    private static final String SUELTOS = "#sueltos";
 
     /** Cuanto cambio el borrador. */
     record Cambios(int creados, int editados, int dadosDeBaja) {
@@ -102,6 +111,10 @@ class AplicacionDelModelo {
         private final Map<String, NodoFlujo> nodos;
         private final Map<String, Arco> arcos;
         private final Map<String, Mensaje> mensajes;
+        private final Map<String, Artefacto> artefactos;
+        private final Map<String, Asociacion> asociaciones;
+        /** Los nodos que esta importacion crea: pegarlos a su actividad no cuenta como una edicion. */
+        private final Set<String> nodosNuevos = new HashSet<>();
         /** El bpmn_id del pool de la organizacion en el plan, y el que tiene en el borrador. */
         private final String organizacionEnElPlan;
         private final String organizacion;
@@ -131,6 +144,10 @@ class AplicacionDelModelo {
                     Arco::getBpmnId);
             this.mensajes = porBpmnId(mensajeRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId),
                     Mensaje::getBpmnId);
+            this.artefactos = porBpmnId(artefactoRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId,
+                    empresaId), Artefacto::getBpmnId);
+            this.asociaciones = porBpmnId(asociacionRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId,
+                    empresaId), Asociacion::getBpmnId);
             this.organizacionEnElPlan = plan.pools().getFirst().bpmnId();
             this.organizacion = pools.values().stream()
                     .filter(pool -> pool.getTipoParticipante() == TipoParticipante.EMPRESA)
@@ -142,6 +159,7 @@ class AplicacionDelModelo {
             Set<String> mensajesDelPlan = ids(plan.mensajes().stream().map(PlanBpmn.Mensaje::bpmnId));
             Set<String> arcosDelPlan = ids(plan.arcos().stream().map(PlanBpmn.Arco::bpmnId));
             // Primero lo que cuelga de los nodos, para que nada apunte a un nodo que se va
+            darDeBajaLoDescriptivoQueSobra();
             for (Mensaje mensaje : List.copyOf(mensajes.values())) {
                 if (!mensajesDelPlan.contains(mensaje.getBpmnId()) || cambiaDePools(mensaje)) {
                     darDeBaja(mensaje);
@@ -158,9 +176,13 @@ class AplicacionDelModelo {
             plan.lanes().forEach(lane -> lane(lane, roles));
             Map<String, int[]> desplazamientos = desplazamientos();
             plan.nodos().forEach(nodo -> nodo(nodo, desplazamientos));
+            plan.nodos().forEach(this::pegar);
             plan.arcos().forEach(this::arco);
             plan.mensajes().forEach(this::mensaje);
             plan.mensajes().forEach(this::respuestaYCorrelacion);
+            plan.artefactos().forEach(artefacto -> artefacto(artefacto, desplazamientos));
+            plan.asociaciones().forEach(this::asociacion);
+            modo();
             darDeBajaLoQueSobra();
             extensiones();
             return new Cambios(creados, editados, dadosDeBaja);
@@ -184,7 +206,10 @@ class AplicacionDelModelo {
                     + sobran(lanes.keySet().stream(), plan.lanes().stream().map(PlanBpmn.Lane::bpmnId))
                     + sobran(nodos.keySet().stream(), plan.nodos().stream().map(PlanBpmn.Nodo::bpmnId))
                     + sobran(arcos.keySet().stream(), plan.arcos().stream().map(PlanBpmn.Arco::bpmnId))
-                    + sobran(mensajes.keySet().stream(), plan.mensajes().stream().map(PlanBpmn.Mensaje::bpmnId));
+                    + sobran(mensajes.keySet().stream(), plan.mensajes().stream().map(PlanBpmn.Mensaje::bpmnId))
+                    + sobran(artefactos.keySet().stream(), plan.artefactos().stream().map(PlanBpmn.Artefacto::bpmnId))
+                    + sobran(asociaciones.keySet().stream(),
+                            plan.asociaciones().stream().map(PlanBpmn.Asociacion::bpmnId));
             if (bajas > 0 && rol != RolAcceso.ADMINISTRADOR) {
                 throw new SinPermisoException("El archivo deja fuera " + bajas + (bajas == 1 ? " elemento" : " elementos")
                         + " del borrador, y dar de baja es de un administrador. Importa un archivo que los tenga, o "
@@ -284,13 +309,33 @@ class AplicacionDelModelo {
          */
         private Map<String, int[]> desplazamientos() {
             Map<String, int[]> desplazamientos = new HashMap<>();
-            int menorX = nodos.values().stream().mapToInt(NodoFlujo::getPosicionX).min().orElse(0);
-            for (NodoFlujo nodo : nodos.values()) {
+            // Un evento de borde se dibuja sobre su actividad: su posicion no marca el dibujo
+            List<NodoFlujo> enElFlujo = nodos.values().stream().filter(nodo -> !esDeBorde(nodo)).toList();
+            List<Artefacto> enLanes = artefactos.values().stream().filter(uno -> uno.getLane() != null).toList();
+            int menorX = enElFlujo.stream().mapToInt(NodoFlujo::getPosicionX).min()
+                    .orElse(enLanes.stream().mapToInt(Artefacto::getPosicionX).min().orElse(0));
+            for (NodoFlujo nodo : enElFlujo) {
                 desplazamientos.merge(nodo.getLane().getBpmnId(), new int[] {menorX, nodo.getPosicionY()},
                         (uno, otro) -> new int[] {menorX, Math.min(uno[1], otro[1])});
             }
+            // Una lane con artefactos y sin nodos toma el marco de sus artefactos
+            Set<String> conNodos = Set.copyOf(desplazamientos.keySet());
+            for (Artefacto artefacto : enLanes) {
+                String lane = artefacto.getLane().getBpmnId();
+                if (!conNodos.contains(lane)) {
+                    desplazamientos.merge(lane, new int[] {menorX, artefacto.getPosicionY()},
+                            (uno, otro) -> new int[] {menorX, Math.min(uno[1], otro[1])});
+                }
+            }
             desplazamientos.put("", new int[] {menorX, 0});
+            List<Artefacto> sueltos = artefactos.values().stream().filter(uno -> uno.getLane() == null).toList();
+            desplazamientos.put(SUELTOS, new int[] {sueltos.stream().mapToInt(Artefacto::getPosicionX).min().orElse(0),
+                    sueltos.stream().mapToInt(Artefacto::getPosicionY).min().orElse(0)});
             return desplazamientos;
+        }
+
+        private static boolean esDeBorde(NodoFlujo nodo) {
+            return nodo instanceof Evento evento && evento.getTipoEvento().esDeBorde();
         }
 
         private void nodo(PlanBpmn.Nodo deseado, Map<String, int[]> desplazamientos) {
@@ -314,11 +359,19 @@ class AplicacionDelModelo {
                             .lane(lane).build());
                     case EVENTO -> eventoRepository.save(Evento.builder().empresa(empresa).bpmnId(deseado.bpmnId())
                             .nombre(deseado.nombre()).tipoEvento(deseado.tipoEvento()).posicionX(x).posicionY(y)
-                            .lane(lane).build());
+                            .lane(lane).tipoTemporizador(deseado.tipoTemporizador())
+                            .temporizador(deseado.temporizador()).interrumpe(deseado.interrumpe()).build());
                 };
                 nodos.put(deseado.bpmnId(), nuevo);
+                nodosNuevos.add(deseado.bpmnId());
                 creados++;
                 return;
+            }
+            // La posicion de un evento de borde no dice nada: se dibuja sobre su actividad
+            boolean sinPosicion = deseado.adjuntoA() != null;
+            if (sinPosicion) {
+                x = actual.getPosicionX();
+                y = actual.getPosicionY();
             }
             boolean cambia = !Objects.equals(actual.getNombre(), deseado.nombre()) || actual.getPosicionX() != x
                     || actual.getPosicionY() != y || !actual.getLane().getBpmnId().equals(deseado.lane());
@@ -336,8 +389,14 @@ class AplicacionDelModelo {
                     gateway.setTipoGateway(deseado.tipoGateway());
                 }
                 case Evento evento -> {
-                    cambia |= evento.getTipoEvento() != deseado.tipoEvento();
+                    cambia |= evento.getTipoEvento() != deseado.tipoEvento()
+                            || evento.getTipoTemporizador() != deseado.tipoTemporizador()
+                            || !Objects.equals(evento.getTemporizador(), deseado.temporizador())
+                            || !Objects.equals(evento.getInterrumpe(), deseado.interrumpe());
                     evento.setTipoEvento(deseado.tipoEvento());
+                    evento.setTipoTemporizador(deseado.tipoTemporizador());
+                    evento.setTemporizador(deseado.temporizador());
+                    evento.setInterrumpe(deseado.interrumpe());
                 }
                 default -> throw new IllegalStateException("Un nodo de un tipo que no existe: " + actual.getBpmnId());
             }
@@ -346,6 +405,102 @@ class AplicacionDelModelo {
                 actual.setPosicionX(x);
                 actual.setPosicionY(y);
                 actual.setLane(lane);
+                editados++;
+            }
+        }
+
+        /** PR 55: un evento de borde con su actividad, cuando ya estan todos los nodos. */
+        private void pegar(PlanBpmn.Nodo deseado) {
+            if (nodos.get(deseado.bpmnId()) instanceof Evento evento) {
+                NodoFlujo actividad = deseado.adjuntoA() == null ? null : nodos.get(deseado.adjuntoA());
+                if (evento.getAdjuntoA() != actividad) {
+                    evento.setAdjuntoA(actividad);
+                    if (!nodosNuevos.contains(deseado.bpmnId())) {
+                        editados++;
+                    }
+                }
+            }
+        }
+
+        // ---------- Lo descriptivo ----------
+
+        /** Lo que sobra se va antes que los nodos: una asociacion nombra a sus extremos. */
+        private void darDeBajaLoDescriptivoQueSobra() {
+            Set<String> asociacionesDelPlan = ids(plan.asociaciones().stream().map(PlanBpmn.Asociacion::bpmnId));
+            Set<String> artefactosDelPlan = ids(plan.artefactos().stream().map(PlanBpmn.Artefacto::bpmnId));
+            for (Asociacion asociacion : List.copyOf(asociaciones.values())) {
+                if (!asociacionesDelPlan.contains(asociacion.getBpmnId())) {
+                    asociacionRepository.delete(asociacion);
+                    asociaciones.remove(asociacion.getBpmnId());
+                    dadosDeBaja++;
+                }
+            }
+            for (Artefacto artefacto : List.copyOf(artefactos.values())) {
+                if (!artefactosDelPlan.contains(artefacto.getBpmnId())) {
+                    artefactoRepository.delete(artefacto);
+                    artefactos.remove(artefacto.getBpmnId());
+                    dadosDeBaja++;
+                }
+            }
+        }
+
+        private void artefacto(PlanBpmn.Artefacto deseado, Map<String, int[]> desplazamientos) {
+            Pool pool = deseado.pool() == null ? null : pools.get(idDelPool(deseado.pool()));
+            Lane lane = deseado.lane() == null ? null : lanes.get(deseado.lane());
+            int[] desplazamiento = deseado.lane() == null ? desplazamientos.get(SUELTOS)
+                    : desplazamientos.getOrDefault(deseado.lane(), desplazamientos.get(""));
+            int x = deseado.x() + desplazamiento[0];
+            int y = deseado.y() + desplazamiento[1];
+            Artefacto actual = artefactos.get(deseado.bpmnId());
+            if (actual == null) {
+                artefactos.put(deseado.bpmnId(), artefactoRepository.save(Artefacto.builder().empresa(empresa)
+                        .proceso(proceso).bpmnId(deseado.bpmnId()).tipo(deseado.tipo()).texto(deseado.texto())
+                        .pool(pool).lane(lane).posicionX(x).posicionY(y).ancho(deseado.ancho()).alto(deseado.alto())
+                        .build()));
+                creados++;
+                return;
+            }
+            boolean cambia = actual.getTipo() != deseado.tipo() || !Objects.equals(actual.getTexto(), deseado.texto())
+                    || actual.getPool() != pool || actual.getLane() != lane || actual.getPosicionX() != x
+                    || actual.getPosicionY() != y || actual.getAncho() != deseado.ancho()
+                    || actual.getAlto() != deseado.alto();
+            if (cambia) {
+                actual.setTipo(deseado.tipo());
+                actual.setTexto(deseado.texto());
+                actual.setPool(pool);
+                actual.setLane(lane);
+                actual.setPosicionX(x);
+                actual.setPosicionY(y);
+                actual.setAncho(deseado.ancho());
+                actual.setAlto(deseado.alto());
+                editados++;
+            }
+        }
+
+        private void asociacion(PlanBpmn.Asociacion deseada) {
+            Asociacion actual = asociaciones.get(deseada.bpmnId());
+            if (actual == null) {
+                asociaciones.put(deseada.bpmnId(), asociacionRepository.save(Asociacion.builder().empresa(empresa)
+                        .proceso(proceso).bpmnId(deseada.bpmnId()).tipo(deseada.tipo()).origen(deseada.origen())
+                        .destino(deseada.destino()).direccion(deseada.direccion()).build()));
+                creados++;
+                return;
+            }
+            boolean cambia = actual.getTipo() != deseada.tipo() || !actual.getOrigen().equals(deseada.origen())
+                    || !actual.getDestino().equals(deseada.destino()) || actual.getDireccion() != deseada.direccion();
+            if (cambia) {
+                actual.setTipo(deseada.tipo());
+                actual.setOrigen(deseada.origen());
+                actual.setDestino(deseada.destino());
+                actual.setDireccion(deseada.direccion());
+                editados++;
+            }
+        }
+
+        /** El modo que dice el archivo; si no dice ninguno, el borrador se queda como esta. */
+        private void modo() {
+            if (plan.modo() != null && proceso.getModo() != plan.modo()) {
+                proceso.setModo(plan.modo());
                 editados++;
             }
         }

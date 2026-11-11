@@ -259,9 +259,9 @@ class CargaPerezosaTest {
         assertThat(grande.arcos()).hasSize(2 * pequeno.arcos().size());
         assertThat(grande.correlaciones()).hasSize(2 * pequeno.correlaciones().size());
         // El proceso, y una por pools, lanes con sus roles, actividades, gateways, eventos, arcos,
-        // mensajes y correlaciones.
-        assertThat(sentenciasDelPequeno).isEqualTo(9);
-        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(9);
+        // mensajes, correlaciones, artefactos y asociaciones.
+        assertThat(sentenciasDelPequeno).isEqualTo(11);
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(11);
     }
 
     @Test

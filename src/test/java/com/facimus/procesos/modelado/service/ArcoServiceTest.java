@@ -42,6 +42,7 @@ import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.repository.PoolRepository;
 import com.facimus.procesos.modelado.service.impl.ArcoServiceImpl;
+import com.facimus.procesos.modelado.service.impl.ElementosPegados;
 
 /** HU-11 a HU-13: el flujo entre nodos, con las reglas BPMN que lo acotan. */
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +50,9 @@ class ArcoServiceTest {
 
     private static final Long EMPRESA = 1L;
     private static final Long AUTOR = 10L;
+
+    @Mock
+    private ElementosPegados pegados;
 
     @Mock
     private HistorialCambioService historialCambioService;

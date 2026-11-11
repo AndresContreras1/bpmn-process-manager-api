@@ -29,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class GatewayServiceImpl implements GatewayService {
 
+    private final ElementosPegados pegados;
     private final HistorialCambioService historialCambioService;
     private final GatewayRepository gatewayRepository;
     private final NodoFlujoRepository nodoFlujoRepository;
@@ -92,6 +93,7 @@ public class GatewayServiceImpl implements GatewayService {
     @Transactional
     public void eliminar(Long empresaId, Long usuarioId, Long gatewayId) {
         Gateway gateway = buscar(empresaId, gatewayId);
+        pegados.soltarAsociaciones(empresaId, gateway.getLane().getPool().getProceso().getId(), gateway.getBpmnId());
         arcoRepository.deleteAll(arcoRepository.findAllByOrigenIdAndEmpresaId(gatewayId, empresaId));
         arcoRepository.deleteAll(arcoRepository.findAllByDestinoIdAndEmpresaId(gatewayId, empresaId));
         gatewayRepository.delete(gateway);

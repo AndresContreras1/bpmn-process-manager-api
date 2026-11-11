@@ -1,10 +1,12 @@
 package com.facimus.procesos.modelado.service.impl;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
@@ -36,6 +38,8 @@ final class MapaDelDiagrama {
     private final Map<Long, List<MensajeResponse>> mensajesQueLleganA = new LinkedHashMap<>();
     private final Map<Long, List<MensajeResponse>> mensajesDePool = new LinkedHashMap<>();
     private final Map<Long, CorrelacionResponse> correlaciones = new LinkedHashMap<>();
+    private final Map<Long, List<NodoDelDiagrama>> bordes = new LinkedHashMap<>();
+    private final Set<String> bpmnIds = new HashSet<>();
 
     MapaDelDiagrama(DiagramaResponse diagrama) {
         this.diagrama = diagrama;
@@ -47,7 +51,16 @@ final class MapaDelDiagrama {
         nodosDe(diagrama).forEach(nodo -> {
             nodos.put(nodo.id(), nodo);
             nodosPorLane.computeIfAbsent(nodo.laneId(), sinNodos -> new ArrayList<>()).add(nodo);
+            if (nodo.adjuntoAId() != null) {
+                bordes.computeIfAbsent(nodo.adjuntoAId(), sinBordes -> new ArrayList<>()).add(nodo);
+            }
+            bpmnIds.add(nodo.bpmnId());
         });
+        diagrama.pools().forEach(pool -> bpmnIds.add(pool.bpmnId()));
+        diagrama.lanes().forEach(lane -> bpmnIds.add(lane.bpmnId()));
+        diagrama.arcos().forEach(arco -> bpmnIds.add(arco.bpmnId()));
+        diagrama.mensajes().forEach(mensaje -> bpmnIds.add(mensaje.bpmnId()));
+        diagrama.artefactos().forEach(artefacto -> bpmnIds.add(artefacto.bpmnId()));
         diagrama.arcos().forEach(arco -> {
             salidas.computeIfAbsent(arco.origenId(), sinArcos -> new ArrayList<>()).add(arco);
             entradas.computeIfAbsent(arco.destinoId(), sinArcos -> new ArrayList<>()).add(arco);
@@ -137,6 +150,16 @@ final class MapaDelDiagrama {
 
     List<ArcoResponse> entradasDe(Long nodoId) {
         return entradas.getOrDefault(nodoId, List.of());
+    }
+
+    /** PR 55: los eventos de borde pegados a una actividad. */
+    List<NodoDelDiagrama> bordesDe(Long actividadId) {
+        return bordes.getOrDefault(actividadId, List.of());
+    }
+
+    /** PR 55: si algo del diagrama se llama asi; los extremos de una asociacion se nombran por bpmn_id. */
+    boolean existe(String bpmnId) {
+        return bpmnId != null && bpmnIds.contains(bpmnId);
     }
 
     /** Los mensajes que arrancan en este nodo, es decir los que el nodo manda. */

@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.condiciones.Condicion;
 import com.facimus.procesos.common.condiciones.CondicionMalEscrita;
 import com.facimus.procesos.common.condiciones.EvaluadorDeCondiciones;
@@ -26,8 +27,8 @@ import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
-import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.Integracion;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 
 /**
@@ -50,10 +51,12 @@ final class GrafoDeVersion {
     private final Map<Long, List<ArcoDeLaVersion>> entradas;
     private final List<MensajeDeLaVersion> mensajes;
     private final Map<Long, Set<Long>> alcanzablesDesde;
+    private final boolean ejecutable;
 
     private GrafoDeVersion(Long poolDeLaTienda, Map<Long, NodoDeLaVersion> nodos,
             Map<Long, List<ArcoDeLaVersion>> salidas, Map<Long, List<ArcoDeLaVersion>> entradas,
-            List<MensajeDeLaVersion> mensajes) {
+            List<MensajeDeLaVersion> mensajes, boolean ejecutable) {
+        this.ejecutable = ejecutable;
         this.poolDeLaTienda = poolDeLaTienda;
         this.nodos = Collections.unmodifiableMap(nodos);
         this.salidas = sinPoderTocarlo(salidas);
@@ -93,7 +96,25 @@ final class GrafoDeVersion {
             entradas.computeIfAbsent(arco.destinoId(), sinArcos -> new ArrayList<>()).add(salida);
         }
         salidas.values().forEach(lista -> lista.sort(POR_ORDEN));
-        return new GrafoDeVersion(pool, nodos, salidas, entradas, mensajesDelDiagrama(diagrama));
+        return new GrafoDeVersion(pool, nodos, salidas, entradas, mensajesDelDiagrama(diagrama),
+                diagrama.proceso().modo().ejecuta());
+    }
+
+    /**
+     * PR 55: el modo con el que se publico la version. Una version documental se lee y se documenta, pero no abre
+     * casos ni recibe mensajes; una instantanea de antes no trae modo, y es ejecutable, como eran todas.
+     */
+    boolean ejecutable() {
+        return ejecutable;
+    }
+
+    /** El mismo grafo, si la version se ejecuta; si es documental, la regla que lo dice. */
+    GrafoDeVersion queSeEjecute() {
+        if (!ejecutable) {
+            throw new ReglaNegocioException("La versión vigente del proceso es documental: se publica y se "
+                    + "documenta, pero no abre casos ni recibe mensajes.");
+        }
+        return this;
     }
 
     /**

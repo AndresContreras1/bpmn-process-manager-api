@@ -24,11 +24,29 @@ public record DiagramaResponse(
         @Schema(description = "Message flows; poolOrigenId and poolDestinoId point to pools")
         List<MensajeResponse> mensajes,
         @Schema(description = "Correlation keys; mensajeId points to a message")
-        List<CorrelacionResponse> correlaciones) {
+        List<CorrelacionResponse> correlaciones,
+        @Schema(description = "Text annotations, groups, data objects and data stores") List<ArtefactoResponse> artefactos,
+        @Schema(description = "Associations and data associations; origen and destino are bpmnIds")
+        List<AsociacionResponse> asociaciones) {
+
+    /** PR 55: una instantanea de antes no trae artefactos ni asociaciones: no tenia ninguno. */
+    public DiagramaResponse {
+        artefactos = artefactos == null ? List.of() : artefactos;
+        asociaciones = asociaciones == null ? List.of() : asociaciones;
+    }
+
+    /** El de antes del PR 55, sin artefactos ni asociaciones. */
+    public DiagramaResponse(ProcesoResponse proceso, boolean compartido, List<PoolResponse> pools,
+            List<LaneResponse> lanes, List<ActividadResponse> actividades, List<GatewayResponse> gateways,
+            List<EventoResponse> eventos, List<ArcoResponse> arcos, List<MensajeResponse> mensajes,
+            List<CorrelacionResponse> correlaciones) {
+        this(proceso, compartido, pools, lanes, actividades, gateways, eventos, arcos, mensajes, correlaciones,
+                List.of(), List.of());
+    }
 
     /** El mismo dibujo con otro encabezado: lo usa quien responde una version publicada con el proceso de hoy. */
     public DiagramaResponse conProceso(ProcesoResponse otro, boolean esCompartido) {
         return new DiagramaResponse(otro, esCompartido, pools, lanes, actividades, gateways, eventos, arcos,
-                mensajes, correlaciones);
+                mensajes, correlaciones, artefactos, asociaciones);
     }
 }

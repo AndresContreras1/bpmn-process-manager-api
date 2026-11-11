@@ -16,6 +16,7 @@ import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.mapper.LaneMapper;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.repository.ArtefactoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.repository.PoolRepository;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class LaneServiceImpl implements LaneService {
 
+    private final ArtefactoRepository artefactoRepository;
     private final HistorialCambioService historialCambioService;
     private final ConfiguracionTiendaService configuracionTiendaService;
     private final LaneRepository laneRepository;
@@ -101,6 +103,10 @@ public class LaneServiceImpl implements LaneService {
         Lane lane = buscar(empresaId, laneId);
         if (nodoFlujoRepository.existsByLaneIdAndEmpresaId(laneId, empresaId)) {
             throw new ReglaNegocioException("La lane \"" + lane.getNombre() + "\" contiene actividades; no se puede eliminar.");
+        }
+        if (artefactoRepository.existsByLane_IdAndEmpresaId(laneId, empresaId)) {
+            throw new ReglaNegocioException("La lane \"" + lane.getNombre() + "\" contiene artefactos; muevelos o "
+                    + "borralos antes de eliminarla.");
         }
         laneRepository.delete(lane);
         historialCambioService.registrar(empresaId, usuarioId, lane.getPool().getProceso(),

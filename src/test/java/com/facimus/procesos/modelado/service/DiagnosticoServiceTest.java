@@ -19,16 +19,21 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.DiagnosticoResponse;
 import com.facimus.procesos.modelado.dto.response.HallazgoDiagnosticoResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
+import com.facimus.procesos.modelado.model.DireccionAsociacion;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.Severidad;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 import com.facimus.procesos.modelado.service.impl.DiagnosticoServiceImpl;
 
 import io.micrometer.observation.tck.TestObservationRegistry;
@@ -500,6 +505,128 @@ class DiagnosticoServiceTest {
                 .filter(hallazgo -> hallazgo.codigo().equals(codigo))
                 .map(HallazgoDiagnosticoResponse::elementoId)
                 .toList();
+    }
+
+    @Test
+    @DisplayName("E-16: un temporizador sin expresion, o con una que no es ISO 8601")
+    void e16_temporizadorSinCuando() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        Long sinNada = armado.temporizador(DiagramaArmado.VENTAS, "Sin nada", TipoEvento.TEMPORIZADOR_INTERMEDIO, null,
+                null, null);
+        Long mal = armado.temporizador(DiagramaArmado.VENTAS, "Mal", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION, "two hours", null);
+        Long bien = armado.temporizador(DiagramaArmado.VENTAS, "Bien", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION, "PT2H", null);
+
+        List<Long> marcados = codigos(diagnosticar(armado), "E-16");
+
+        assertThat(marcados).containsExactlyInAnyOrder(sinNada, mal).doesNotContain(bien);
+    }
+
+    @Test
+    @DisplayName("E-17: una tarea sin tipo no puede correr")
+    void e17_tareaSinTipo() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        Long tarea = armado.actividad(DiagramaArmado.VENTAS, "Sin tipo", TipoActividad.SIN_TIPO);
+
+        assertThat(codigos(diagnosticar(armado), "E-17")).containsExactly(tarea);
+    }
+
+    @Test
+    @DisplayName("E-18: un temporizador valido tampoco corre todavia en un proceso ejecutable")
+    void e18_temporizadorNoCorre() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        Long espera = armado.temporizador(DiagramaArmado.VENTAS, "Espera", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION, "PT2H", null);
+
+        assertThat(codigos(diagnosticar(armado), "E-18")).containsExactly(espera);
+    }
+
+    @Test
+    @DisplayName("E-09: un evento de borde sin actividad, o con flujos que le llegan")
+    void e09_eventoDeBorde() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        Long suelto = armado.temporizador(DiagramaArmado.VENTAS, "Suelto", TipoEvento.TEMPORIZADOR_BORDE,
+                TipoTemporizador.DURACION, "PT2H", null);
+
+        assertThat(codigos(diagnosticar(armado), "E-09")).containsExactly(suelto);
+    }
+
+    @Test
+    @DisplayName("A un evento de borde se llega por su actividad: no es un nodo inalcanzable")
+    void borde_seAlcanzaPorSuActividad() {
+        DiagramaArmado armado = DiagramaArmado.reciennacido();
+        armado.lane(DiagramaArmado.TIENDA, "Sales");
+        armado.evento("Sales", "Start", TipoEvento.INICIO);
+        armado.actividad("Sales", "Work", TipoActividad.USUARIO);
+        armado.evento("Sales", "End", TipoEvento.FIN);
+        Long borde = armado.temporizador("Sales", "Late", TipoEvento.TEMPORIZADOR_BORDE, TipoTemporizador.DURACION,
+                "PT2H", "Work");
+        armado.evento("Sales", "Escalated", TipoEvento.FIN);
+        armado.arco("Start", "Work");
+        armado.arco("Work", "End");
+        armado.arco("Late", "Escalated");
+
+        assertThat(codigos(diagnosticar(armado), "E-04")).doesNotContain(borde, armado.id("Escalated"));
+    }
+
+    @Test
+    @DisplayName("A-15: una asociacion con un extremo que ya no esta")
+    void a15_asociacionColgando() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        String nota = armado.artefacto(null, null, "Nota", TipoArtefacto.ANOTACION, "Hello");
+        armado.asociacion(TipoAsociacion.ASOCIACION, nota, "Activity_9999", DireccionAsociacion.NINGUNA);
+
+        List<HallazgoDiagnosticoResponse> hallazgos = hallazgos(armado, "A-15");
+
+        assertThat(hallazgos).singleElement()
+                .satisfies(hallazgo -> assertThat(hallazgo.problema()).contains("Activity_9999"));
+    }
+
+    @Test
+    @DisplayName("Un proceso documental solo cuenta lo estructural: lo que no puede correr no es un error")
+    void documental_soloLoEstructural() {
+        DiagramaArmado armado = DiagramaArmado.reciennacido();
+        armado.lane(DiagramaArmado.TIENDA, "Sales");
+        armado.actividad("Sales", "Sin tipo", TipoActividad.SIN_TIPO);
+        armado.temporizador("Sales", "Espera", TipoEvento.TEMPORIZADOR_INTERMEDIO, null, null, null);
+        armado.modo(ModoProceso.DOCUMENTAL);
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado);
+
+        assertThat(diagnostico.errores()).isZero();
+        assertThat(diagnostico.hallazgos()).extracting(HallazgoDiagnosticoResponse::codigo)
+                .doesNotContain("E-02", "E-03", "E-04", "E-05", "E-16", "E-17", "E-18");
+    }
+
+    @Test
+    @DisplayName("Lo estructural sigue contando en un proceso documental")
+    void documental_loEstructuralCuenta() {
+        DiagramaArmado armado = DiagramaArmado.reciennacido();
+        armado.lane(DiagramaArmado.TIENDA, "Sales");
+        Long inicio = armado.evento("Sales", "Start", TipoEvento.INICIO);
+        armado.actividad("Sales", "Work", TipoActividad.SIN_TIPO);
+        armado.arco("Work", "Start");
+        armado.modo(ModoProceso.DOCUMENTAL);
+
+        assertThat(codigos(diagnosticar(armado), "E-09")).containsExactly(inicio);
+    }
+
+    @Test
+    @DisplayName("Simular el borrado de una actividad se lleva sus eventos de borde y sus asociaciones")
+    void simular_seLlevaLoPegado() {
+        DiagramaArmado armado = DiagramaArmado.reciennacido();
+        armado.lane(DiagramaArmado.TIENDA, "Sales");
+        Long tarea = armado.actividad("Sales", "Work", TipoActividad.USUARIO);
+        Long borde = armado.temporizador("Sales", "Late", TipoEvento.TEMPORIZADOR_BORDE, TipoTemporizador.DURACION,
+                "PT2H", "Work");
+        String nota = armado.artefacto(null, null, "Nota", TipoArtefacto.ANOTACION, "Hello");
+        armado.asociacion(TipoAsociacion.ASOCIACION, nota, "Activity_" + tarea, DireccionAsociacion.NINGUNA);
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado, "ACTIVIDAD:" + tarea);
+
+        assertThat(codigos(diagnostico, "A-06")).contains(borde);
+        assertThat(codigos(diagnostico, "A-15")).isEmpty();
     }
 
     private DiagnosticoResponse diagnosticar(DiagramaArmado armado) {

@@ -263,6 +263,37 @@ class EjecucionIntegracionTest {
     }
 
     /** Los ids que una prueba necesita del proceso publicado: el proceso y los dos roles de sus lanes. */
+    @Test
+    @DisplayName("Un fin de terminacion se lleva los demas caminos del caso, tareas en la bandeja incluidas")
+    void finDeTerminacion_cierraLosDemasCaminos() {
+        int numero = contador.incrementAndGet();
+        Long procesoId = procesoService.crear(empresaId, adminId, "Race " + numero, "Dos caminos a la vez",
+                "Fulfillment").id();
+        Long tienda = poolService.listarPorProceso(empresaId, procesoId).getFirst().id();
+        Long rol = rolProcesoService.crear(empresaId, adminId, "Racers " + numero, null).id();
+        Long lane = laneService.crear(empresaId, adminId, tienda, "Racers", rol).id();
+        Long inicio = eventoService.crear(empresaId, adminId, lane, "Start", TipoEvento.INICIO, 0, 0).id();
+        Long reparte = gatewayService.crear(empresaId, adminId, lane, "Split", TipoGateway.PARALELO, 160, 0).id();
+        Long espera = actividadService.crear(empresaId, adminId, lane, "Slow work", null, TipoActividad.USUARIO, 320,
+                0).id();
+        Long fin = eventoService.crear(empresaId, adminId, lane, "End", TipoEvento.FIN, 480, 0).id();
+        Long rapido = actividadService.crear(empresaId, adminId, lane, "Fast work", null, TipoActividad.SERVICIO, 320,
+                120).id();
+        Long termina = eventoService.crear(empresaId, adminId, lane, "Stop", TipoEvento.FIN_TERMINACION, 480, 120).id();
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(inicio, reparte));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(reparte, espera));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(reparte, rapido));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(espera, fin));
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(rapido, termina));
+        procesoService.cambiarEstado(empresaId, procesoId, adminId, EstadoProceso.PUBLICADO,
+                procesoService.obtener(empresaId, procesoId, false).version());
+
+        CasoResponse caso = casoService.abrir(empresaId, adminId, procesoId, "RACE-" + numero, Map.of());
+
+        assertThat(caso.estado()).isEqualTo(EstadoCaso.TERMINADO);
+        assertThat(bandejaDe(rol)).isEmpty();
+    }
+
     private record Proceso(Long id, Long ventas, Long bodega, Long laneVentas, Long laneBodega) {
     }
 

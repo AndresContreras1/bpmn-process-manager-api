@@ -3,9 +3,12 @@ package com.facimus.procesos.modelado.model;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.IntStream;
 
 /**
  * PR 52: la geometria BPMN DI de un diagrama, con la misma cuenta que dibuja la web ({@code lienzo.ts}): los pools en
@@ -20,8 +23,8 @@ public final class DisposicionBpmn {
 
     static final double MARGEN = 16;
     static final double FRANJA = 30;
-    static final double ANCHO_TAREA = 128;
-    static final double ALTO_TAREA = 56;
+    public static final double ANCHO_TAREA = 128;
+    public static final double ALTO_TAREA = 56;
     static final double LADO_GATEWAY = 50;
     static final double RADIO_EVENTO = 18;
     static final double RELLENO_X = 48;
@@ -49,9 +52,39 @@ public final class DisposicionBpmn {
     public record LanePlana(long id, String bpmnId, long poolId, int orden) {
     }
 
-    /** Una tarea, compuerta o evento: su clase (TAREA, COMPUERTA o EVENTO), su posicion y su nombre. */
+    /** Lo que separa un evento de borde del siguiente sobre el borde de su actividad. */
+    static final double PASO_BORDE = 36;
+    /** Por debajo de esto, dos coordenadas son la misma. */
+    private static final double CASI_CERO = 1e-9;
+
+    /**
+     * Una tarea, compuerta o evento: su clase (TAREA, COMPUERTA o EVENTO), su posicion y su nombre. PR 55: un evento
+     * de borde dice a que nodo va pegado, y se dibuja sobre el borde de abajo de ese nodo, no donde diga su posicion.
+     */
     public record NodoPlano(long id, String bpmnId, long laneId, String clase, int posicionX, int posicionY,
-            String nombre) {
+            String nombre, Long adjuntoA) {
+
+        /** El de antes del PR 55, de un nodo que no va pegado a nada. */
+        public NodoPlano(long id, String bpmnId, long laneId, String clase, int posicionX, int posicionY,
+                String nombre) {
+            this(id, bpmnId, laneId, clase, posicionX, posicionY, nombre, null);
+        }
+
+        boolean deBorde() {
+            return adjuntoA != null;
+        }
+    }
+
+    /**
+     * PR 55: un artefacto. En una lane, su posicion es relativa a ella como la de un nodo; suelto, se dibuja debajo de
+     * los pools, conservando como estan unos respecto de otros.
+     */
+    public record ArtefactoPlano(String bpmnId, String tipo, Long laneId, int posicionX, int posicionY, int ancho,
+            int alto, String texto) {
+    }
+
+    /** PR 55: una asociacion, o una de datos, entre dos elementos que se nombran por su bpmn_id. */
+    public record AsociacionPlana(String bpmnId, String tipo, String origen, String destino) {
     }
 
     public record ArcoPlano(String bpmnId, long origenId, long destinoId, String etiqueta) {
@@ -86,15 +119,32 @@ public final class DisposicionBpmn {
     }
 
     /** Lo que se va armando mientras se ubican los pools: comun a todos, para no pasarlo pieza por pieza. */
-    private record Lienzo(double minX, double anchoPool, List<Forma> formas, Map<Long, Ubicado> ubicados) {
+    private record Lienzo(double minX, double anchoPool, List<Forma> formas, Map<Long, Ubicado> ubicados,
+            List<ArtefactoPlano> artefactos) {
     }
 
     public static Geometria calcular(List<PoolPlano> pools, List<LanePlana> lanes, List<NodoPlano> nodos,
             List<ArcoPlano> arcos, List<MensajePlano> mensajes) {
-        double minX = nodos.stream().mapToInt(NodoPlano::posicionX).min().orElse(0);
-        double maxX = nodos.stream().mapToInt(NodoPlano::posicionX).max().orElse(0);
-        double anchoPool = Math.max(2 * FRANJA + maxX - minX + ANCHO_TAREA + 2 * RELLENO_X, ANCHO_MINIMO);
-        Lienzo lienzo = new Lienzo(minX, anchoPool, new ArrayList<>(), new HashMap<>());
+        return calcular(pools, lanes, nodos, arcos, mensajes, List.of(), List.of());
+    }
+
+    /** PR 55: con los eventos de borde, los artefactos y lo que los une. */
+    public static Geometria calcular(List<PoolPlano> pools, List<LanePlana> lanes, List<NodoPlano> nodos,
+            List<ArcoPlano> arcos, List<MensajePlano> mensajes, List<ArtefactoPlano> artefactos,
+            List<AsociacionPlana> asociaciones) {
+        Set<Long> idsDeLanes = new HashSet<>();
+        lanes.forEach(lane -> idsDeLanes.add(lane.id()));
+        List<NodoPlano> enElFlujo = nodos.stream().filter(nodo -> !nodo.deBorde()).toList();
+        List<ArtefactoPlano> enLanes = artefactos.stream()
+                .filter(artefacto -> artefacto.laneId() != null && idsDeLanes.contains(artefacto.laneId())).toList();
+        double minX = IntStream.concat(enElFlujo.stream().mapToInt(NodoPlano::posicionX),
+                enLanes.stream().mapToInt(ArtefactoPlano::posicionX)).min().orElse(0);
+        double derecha = Math.max(
+                enElFlujo.stream().mapToDouble(nodo -> nodo.posicionX() + ANCHO_TAREA).max().orElse(ANCHO_TAREA),
+                enLanes.stream().mapToDouble(artefacto -> (double) artefacto.posicionX() + artefacto.ancho()).max()
+                        .orElse(ANCHO_TAREA));
+        double anchoPool = Math.max(2 * FRANJA + derecha - minX + 2 * RELLENO_X, ANCHO_MINIMO);
+        Lienzo lienzo = new Lienzo(minX, anchoPool, new ArrayList<>(), new HashMap<>(), enLanes);
         Map<Long, Caja> cajas = new LinkedHashMap<>();
 
         List<PoolPlano> ordenados = pools.stream()
@@ -103,13 +153,15 @@ public final class DisposicionBpmn {
                 .toList();
         double y = MARGEN;
         for (PoolPlano pool : ordenados) {
-            double alto = ubicarPool(pool, y, lanes, nodos, lienzo);
+            double alto = ubicarPool(pool, y, lanes, enElFlujo, lienzo);
             Caja caja = new Caja(MARGEN, y, anchoPool, alto);
             cajas.put(pool.id(), caja);
             lienzo.formas().add(new Forma(pool.bpmnId(), "PARTICIPANTE",
                     new Limites(caja.x(), caja.y(), caja.ancho(), caja.alto()), null));
             y += alto + SEPARACION;
         }
+        ubicarBordes(nodos, lienzo);
+        ubicarSueltos(artefactos.stream().filter(artefacto -> !enLanes.contains(artefacto)).toList(), y, lienzo);
 
         List<Arista> aristas = new ArrayList<>();
         for (ArcoPlano arco : arcos) {
@@ -120,7 +172,100 @@ public final class DisposicionBpmn {
             }
         }
         aristas.addAll(trazarMensajes(mensajes, cajas, lienzo.ubicados(), anchoPool));
+        aristas.addAll(trazarAsociaciones(asociaciones, lienzo.formas(), aristas));
         return new Geometria(List.copyOf(lienzo.formas()), List.copyOf(aristas));
+    }
+
+    /**
+     * PR 55: los eventos de borde, sobre el borde de abajo de su actividad y de izquierda a derecha, en el orden en
+     * que se crearon. Un evento pegado a algo que no esta dibujado no se dibuja.
+     */
+    private static void ubicarBordes(List<NodoPlano> nodos, Lienzo lienzo) {
+        Map<Long, Integer> yaPegados = new HashMap<>();
+        nodos.stream().filter(NodoPlano::deBorde).sorted(Comparator.comparingLong(NodoPlano::id)).forEach(borde -> {
+            Ubicado actividad = lienzo.ubicados().get(borde.adjuntoA());
+            if (actividad == null) {
+                return;
+            }
+            int orden = yaPegados.merge(borde.adjuntoA(), 1, Integer::sum) - 1;
+            double cx = actividad.cx() - actividad.medioAncho() + RADIO_EVENTO + 4 + orden * PASO_BORDE;
+            Ubicado ubicado = new Ubicado(cx, actividad.cy() + actividad.medioAlto(), RADIO_EVENTO, RADIO_EVENTO,
+                    false);
+            lienzo.ubicados().put(borde.id(), ubicado);
+            lienzo.formas().add(forma(borde, ubicado));
+        });
+    }
+
+    /** PR 55: los artefactos sueltos, debajo del ultimo pool, como estan unos respecto de otros. */
+    private static void ubicarSueltos(List<ArtefactoPlano> sueltos, double y, Lienzo lienzo) {
+        double minX = sueltos.stream().mapToInt(ArtefactoPlano::posicionX).min().orElse(0);
+        double minY = sueltos.stream().mapToInt(ArtefactoPlano::posicionY).min().orElse(0);
+        for (ArtefactoPlano artefacto : sueltos) {
+            lienzo.formas().add(formaDelArtefacto(artefacto, MARGEN + artefacto.posicionX() - minX,
+                    y + artefacto.posicionY() - minY));
+        }
+    }
+
+    /** El artefacto en su sitio, con su etiqueta: debajo de un dato, arriba a la izquierda de un grupo. */
+    private static Forma formaDelArtefacto(ArtefactoPlano artefacto, double x, double y) {
+        Limites limites = new Limites(x, y, artefacto.ancho(), artefacto.alto());
+        Limites etiqueta = switch (artefacto.tipo()) {
+            case "OBJETO_DATOS", "ALMACEN_DATOS" -> etiquetaDebajo(artefacto.texto(), 20, 2,
+                    x + artefacto.ancho() / 2.0, y + artefacto.alto() + 14, true);
+            case "GRUPO" -> etiquetaDebajo(artefacto.texto(), 40, 1, x + 8, y + 18, false);
+            default -> null;
+        };
+        return new Forma(artefacto.bpmnId(), "ARTEFACTO", limites, etiqueta);
+    }
+
+    /**
+     * PR 55: cada asociacion en linea recta, del borde de un extremo al borde del otro. Un extremo que es un flujo se
+     * toma por la mitad de su recorrido; una asociacion con un extremo sin dibujar no se dibuja.
+     */
+    private static List<Arista> trazarAsociaciones(List<AsociacionPlana> asociaciones, List<Forma> formas,
+            List<Arista> flujos) {
+        Map<String, Limites> cajas = new HashMap<>();
+        formas.forEach(forma -> cajas.put(forma.elemento(), forma.limites()));
+        for (Arista flujo : flujos) {
+            Punto medio = flujo.puntos().get(flujo.puntos().size() / 2);
+            if (flujo.puntos().size() % 2 == 0) {
+                Punto antes = flujo.puntos().get(flujo.puntos().size() / 2 - 1);
+                medio = new Punto((antes.x() + medio.x()) / 2, (antes.y() + medio.y()) / 2);
+            }
+            cajas.putIfAbsent(flujo.elemento(), new Limites(medio.x(), medio.y(), 0, 0));
+        }
+        List<Arista> aristas = new ArrayList<>();
+        for (AsociacionPlana asociacion : asociaciones) {
+            Limites origen = cajas.get(asociacion.origen());
+            Limites destino = cajas.get(asociacion.destino());
+            if (origen == null || destino == null) {
+                continue;
+            }
+            Punto centroOrigen = centro(origen);
+            Punto centroDestino = centro(destino);
+            aristas.add(new Arista(asociacion.bpmnId(), "ASOCIACION".equals(asociacion.tipo()) ? "ASOCIACION"
+                    : "DATOS", List.of(borde(origen, centroDestino), borde(destino, centroOrigen)), null));
+        }
+        return aristas;
+    }
+
+    private static Punto centro(Limites caja) {
+        return new Punto(caja.x() + caja.ancho() / 2, caja.y() + caja.alto() / 2);
+    }
+
+    /** Donde la recta del centro de la caja hacia {@code hacia} cruza su borde. */
+    private static Punto borde(Limites caja, Punto hacia) {
+        Punto centro = centro(caja);
+        double dx = hacia.x() - centro.x();
+        double dy = hacia.y() - centro.y();
+        double tx = Math.abs(dx) < CASI_CERO ? Double.MAX_VALUE : caja.ancho() / 2 / Math.abs(dx);
+        double ty = Math.abs(dy) < CASI_CERO ? Double.MAX_VALUE : caja.alto() / 2 / Math.abs(dy);
+        double t = Math.min(Math.min(tx, ty), 1);
+        return new Punto(redondeado(centro.x() + dx * t), redondeado(centro.y() + dy * t));
+    }
+
+    private static double redondeado(double valor) {
+        return Math.round(valor * 10) / 10.0;
     }
 
     /**
@@ -144,12 +289,19 @@ public final class DisposicionBpmn {
         return yLane - y;
     }
 
-    /** Una lane y sus nodos: tan alta como ellos, o como una vacia. Devuelve su alto. */
+    /** Una lane con sus nodos y sus artefactos: tan alta como ellos, o como una vacia. Devuelve su alto. */
     private static double ubicarLane(LanePlana lane, double yLane, List<NodoPlano> nodos, Lienzo lienzo) {
         List<NodoPlano> dentro = nodos.stream().filter(nodo -> nodo.laneId() == lane.id()).toList();
-        double minY = dentro.stream().mapToInt(NodoPlano::posicionY).min().orElse(0);
-        double maxY = dentro.stream().mapToInt(NodoPlano::posicionY).max().orElse(0);
-        double alto = dentro.isEmpty() ? ALTO_VACIO : RELLENO_ARRIBA + maxY - minY + ALTO_TAREA + RELLENO_ABAJO;
+        List<ArtefactoPlano> suyos = lienzo.artefactos().stream()
+                .filter(artefacto -> artefacto.laneId() == lane.id()).toList();
+        double minY = IntStream.concat(dentro.stream().mapToInt(NodoPlano::posicionY),
+                suyos.stream().mapToInt(ArtefactoPlano::posicionY)).min().orElse(0);
+        double fondo = Math.max(
+                dentro.stream().mapToDouble(nodo -> nodo.posicionY() + ALTO_TAREA).max().orElse(0),
+                suyos.stream().mapToDouble(artefacto -> (double) artefacto.posicionY() + artefacto.alto()).max()
+                        .orElse(0));
+        double alto = dentro.isEmpty() && suyos.isEmpty() ? ALTO_VACIO
+                : RELLENO_ARRIBA + fondo - minY + RELLENO_ABAJO;
         lienzo.formas().add(new Forma(lane.bpmnId(), "LANE",
                 new Limites(MARGEN + FRANJA, yLane, lienzo.anchoPool() - FRANJA, alto), null));
         for (NodoPlano nodo : dentro) {
@@ -158,6 +310,11 @@ public final class DisposicionBpmn {
             Ubicado ubicado = ubicar(nodo, cx, cy);
             lienzo.ubicados().put(nodo.id(), ubicado);
             lienzo.formas().add(forma(nodo, ubicado));
+        }
+        for (ArtefactoPlano artefacto : suyos) {
+            lienzo.formas().add(formaDelArtefacto(artefacto,
+                    MARGEN + 2 * FRANJA + RELLENO_X + artefacto.posicionX() - lienzo.minX(),
+                    yLane + RELLENO_ARRIBA + artefacto.posicionY() - minY));
         }
         return alto;
     }
