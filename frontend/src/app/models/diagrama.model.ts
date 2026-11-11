@@ -20,14 +20,7 @@ export type AccionSiFalla = 'CONTINUAR' | 'MANEJAR_ERROR' | 'FINALIZAR';
 export type PoliticaSinCaso = 'DESCARTAR' | 'INICIAR_CASO';
 export type TipoDeDato = 'TEXTO' | 'NUMERO' | 'FECHA' | 'BOOLEANO';
 export type TipoActividad =
-  | 'USUARIO'
-  | 'SERVICIO'
-  | 'ENVIO'
-  | 'RECEPCION'
-  | 'SIN_TIPO'
-  | 'SUBPROCESO'
-  | 'SUBPROCESO_COLAPSADO'
-  | 'LLAMADA';
+  'USUARIO' | 'SERVICIO' | 'ENVIO' | 'RECEPCION' | 'SIN_TIPO' | 'SUBPROCESO' | 'SUBPROCESO_COLAPSADO' | 'LLAMADA';
 /** Con que socio simulado habla el participante cuando el proceso corre. */
 export type Integracion = 'NINGUNA' | 'CLIENTE' | 'PAGOS' | 'TRANSPORTE' | 'NOTIFICACIONES';
 
