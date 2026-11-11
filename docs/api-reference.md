@@ -25,6 +25,9 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
 | Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
+| Mode | `PUT /api/v1/procesos/{id}/modo` |
+| Artifacts | `GET, POST /api/v1/procesos/{procesoId}/artefactos` · `GET, PUT, DELETE /api/v1/artefactos/{id}` |
+| Associations | `GET, POST /api/v1/procesos/{procesoId}/asociaciones` · `DELETE /api/v1/asociaciones/{id}` |
 | BPMN 2.0.2 | `GET, PUT /api/v1/procesos/{id}/modelo` · `POST /api/v1/procesos/importar[?nombre=]` · `GET /api/v1/procesos/{procesoId}/versiones/{numero}/modelo` |
 | Published versions | `GET /api/v1/procesos/{procesoId}/versiones` · `GET, PATCH /api/v1/procesos/{procesoId}/versiones/{numero}` · `GET /api/v1/procesos/{procesoId}/versiones/{numero}/diagrama` |
 | Diagnosis | `GET /api/v1/procesos/{id}/diagnostico[?sinElemento=TYPE:id]` |
@@ -69,6 +72,12 @@ content from another tool was kept to export it again, and what the file breaks 
 the model's rules answers `409` with every problem; deleting needs an administrator, pools and lanes follow the
 store's structure policy, and lanes asking for missing roles need an administrator, who creates them while importing
 ([ADR-0054](adr/0054-bpmn-import.md)).
+
+A process is `EJECUTABLE` or `DOCUMENTAL`. `PUT /api/v1/procesos/{id}/modo` takes the mode and the `version` read, and
+answers the process with the diagnosis of the new mode; it takes effect when the process is published again. A
+documental version answers `409` to opening a case or receiving a message. Events take `tipoTemporizador` (`DURACION`,
+`FECHA` or `CICLO`), `temporizador` (ISO 8601), and for a boundary event `adjuntoAId` and `interrumpe`
+([ADR-0055](adr/0055-descriptive-bpmn-elements.md)).
 
 ```bash
 # A Camunda Modeler file as a new process, and the same process back after editing it there

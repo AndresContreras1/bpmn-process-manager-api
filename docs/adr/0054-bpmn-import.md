@@ -58,3 +58,5 @@ model from it, or keep the relational model as the truth (D25) and apply the fil
 - The model's positions are relative to their lane, so an imported drawing is laid out again by the product's own
   calculation: sizes and spacing change, the order and the lanes do not.
 - The editor (F15) and autosave (PR 40) will use `PUT /procesos/{id}/modelo` as their save.
+- [ADR-0055](0055-descriptive-bpmn-elements.md) brought timers, timer boundary events, annotations, groups and data
+  into the model: they are imported now instead of being left out.

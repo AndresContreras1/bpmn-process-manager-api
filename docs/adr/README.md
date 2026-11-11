@@ -45,3 +45,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0052 | [The diagram's geometry in the domain, and one way to read XML](0052-geometry-in-the-domain.md) | Accepted |
 | 0053 | [BPMN 2.0.2 export, and the bpm: namespace](0053-bpmn-export.md) | Accepted |
 | 0054 | [BPMN import by differences, and what is kept from other tools](0054-bpmn-import.md) | Accepted |
+| 0055 | [Descriptive BPMN elements, and a process that only documents](0055-descriptive-bpmn-elements.md) | Accepted |
