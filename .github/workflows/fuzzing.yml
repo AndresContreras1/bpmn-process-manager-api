@@ -1,0 +1,52 @@
+name: Fuzzing
+
+on:
+  schedule:
+    # Every night at 04:53 UTC, on main, after the mutation run.
+    - cron: '53 4 * * *'
+  # Any branch, by hand, from the Actions tab.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzzing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bpmn-import:
+    name: Fuzz the BPMN importer
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup JDK 25
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      # The build runs a few hundred broken files with a fixed seed; here it is a hundred thousand with the seed of
+      # the night, printed in the log so a failure can be run again with -Dfuzz.semilla.
+      - name: Break the corpus on purpose and check the importer only answers 400 or 409
+        run: |
+          SEMILLA=$(date -u +%Y%m%d)
+          echo "Seed: $SEMILLA"
+          ./mvnw -B test -Dtest=FuzzImportadorBpmnTest -Dsurefire.failIfNoSpecifiedTests=false \
+            -Dfuzz.iteraciones=100000 -Dfuzz.semilla="$SEMILLA"
+
+      - name: Upload the inputs that broke it
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-failures
+          path: target/fuzz/
+          if-no-files-found: ignore
+          retention-days: 14
