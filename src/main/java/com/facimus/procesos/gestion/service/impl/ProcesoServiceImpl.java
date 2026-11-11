@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +17,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.auditoria.Auditoria;
+import com.facimus.procesos.common.model.Accion;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
@@ -40,8 +43,11 @@ import com.facimus.procesos.gestion.service.FiltrosDeProceso;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.Instantanea;
 import com.facimus.procesos.gestion.service.InstantaneaDelModelo;
+import com.facimus.procesos.gestion.service.Permisos;
 import com.facimus.procesos.gestion.service.ProcesoService;
+import com.facimus.procesos.gestion.service.Recurso;
 import com.facimus.procesos.gestion.service.VersionService;
+import com.facimus.procesos.gestion.service.Visibilidad;
 
 import lombok.RequiredArgsConstructor;
 
@@ -53,6 +59,7 @@ public class ProcesoServiceImpl implements ProcesoService {
     private final ProcesoRepository procesoRepository;
     private final CarpetaRepository carpetaRepository;
     private final CarpetaService carpetaService;
+    private final Permisos permisos;
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
     private final ApplicationEventPublisher eventos;
@@ -76,13 +83,16 @@ public class ProcesoServiceImpl implements ProcesoService {
     public PageResponse<ProcesoResponse> buscar(Long empresaId, FiltrosDeProceso filtros, Pageable pageable) {
         Set<Long> carpetas = filtros.carpetaId() == null ? null
                 : carpetaService.conSubcarpetas(empresaId, filtros.carpetaId());
-        return PageResponse.from(procesoRepository
-                .findAll(ProcesoSpecifications.conFiltros(empresaId, filtros.nombre(), filtros.estado(),
-                        filtros.categoria(), filtros.incluirInactivos())
-                        .and(ProcesoSpecifications.delRepositorio(carpetas, filtros.etiqueta(), filtros.duenoId(),
-                                filtros.clasificacion(), filtros.revisionAntesDe())),
-                        pageable)
-                .map(procesoMapper::toResponse));
+        Visibilidad visible = filtros.actor() == null ? Visibilidad.TODO : permisos.visibilidad(filtros.actor());
+        Specification<Proceso> consulta = ProcesoSpecifications.conFiltros(empresaId, filtros.nombre(),
+                filtros.estado(), filtros.categoria(), filtros.incluirInactivos())
+                .and(ProcesoSpecifications.delRepositorio(carpetas, filtros.etiqueta(), filtros.duenoId(),
+                        filtros.clasificacion(), filtros.revisionAntesDe()));
+        if (!visible.todo()) {
+            consulta = consulta.and(ProcesoSpecifications.visibles(visible.carpetasOcultas(),
+                    visible.procesosOcultos(), visible.procesosVisibles()));
+        }
+        return PageResponse.from(procesoRepository.findAll(consulta, pageable).map(procesoMapper::toResponse));
     }
 
     @Override
@@ -94,6 +104,7 @@ public class ProcesoServiceImpl implements ProcesoService {
         if (ficha.carpetaId() != null && !carpetaRepository.existsByIdAndEmpresaId(ficha.carpetaId(), empresaId)) {
             throw new RecursoNoEncontradoException("Carpeta no encontrada.");
         }
+        exigirPuedeMoverlo(empresaId, usuarioId, proceso, ficha.carpetaId());
         if (ficha.duenoId() != null && !usuarioRepository.existsByIdAndEmpresaId(ficha.duenoId(), empresaId)) {
             throw new RecursoNoEncontradoException("Usuario no encontrado.");
         }
@@ -106,6 +117,18 @@ public class ProcesoServiceImpl implements ProcesoService {
         proceso = procesoRepository.saveAndFlush(proceso);
         historialCambioService.registrar(proceso, autor, "Ficha del repositorio editada.");
         return conBorrador(proceso);
+    }
+
+    /** PR 60: mover un proceso cambia lo que hereda, asi que entre carpetas con concesiones hay que administrarlo. */
+    private void exigirPuedeMoverlo(Long empresaId, Long usuarioId, Proceso proceso, Long carpetaNueva) {
+        if (Objects.equals(proceso.getCarpetaId(), carpetaNueva)) {
+            return;
+        }
+        boolean cambiaLoQueHereda = permisos.tieneConcesiones(empresaId, Recurso.proceso(proceso.getId()))
+                || carpetaNueva != null && permisos.tieneConcesiones(empresaId, Recurso.carpeta(carpetaNueva));
+        if (cambiaLoQueHereda) {
+            permisos.exigir(empresaId, usuarioId, Accion.ADMINISTRAR, Recurso.proceso(proceso.getId()));
+        }
     }
 
     @Override

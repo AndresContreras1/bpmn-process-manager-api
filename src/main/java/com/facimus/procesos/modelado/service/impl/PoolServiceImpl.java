@@ -50,8 +50,8 @@ public class PoolServiceImpl implements PoolService {
     @Transactional
     public PoolResponse crear(Long empresaId, Long usuarioId, Long procesoId, String nombre,
             TipoParticipante tipoParticipante, boolean cajaNegra, Integracion integracion) {
-        // R-46: la tienda decide si sus editores pueden tocar la estructura.
-        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId);
+        // R-46: la tienda decide si sus editores pueden tocar la estructura; una concesion de modelar lo permite.
+        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId, procesoId);
         Proceso proceso = procesoRepository.findByIdAndEmpresaIdAndActivoTrue(procesoId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proceso no encontrado."));
         int orden = poolRepository.siguienteOrden(procesoId, empresaId);
@@ -73,9 +73,9 @@ public class PoolServiceImpl implements PoolService {
     @Transactional
     public PoolResponse editar(Long empresaId, Long usuarioId, Long poolId, String nombre,
             TipoParticipante tipoParticipante, boolean cajaNegra, Integracion integracion, Long version) {
-        // R-46: la tienda decide si sus editores pueden tocar la estructura.
-        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId);
         Pool pool = buscar(empresaId, poolId);
+        // R-46: la tienda decide si sus editores pueden tocar la estructura; una concesion de modelar lo permite.
+        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId, pool.getProceso().getId());
         pool.verificarVersion(version);
         // R-33: una caja negra no se modela por dentro, asi que las lanes que ya tiene contradicen la marca.
         if (cajaNegra && laneRepository.existsByPoolIdAndEmpresaId(poolId, empresaId)) {

@@ -33,6 +33,7 @@ import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.Clasificacion;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.service.Actor;
 import com.facimus.procesos.gestion.service.DatosDeFicha;
 import com.facimus.procesos.gestion.service.FiltrosDeProceso;
 import com.facimus.procesos.gestion.service.ProcesoService;
@@ -100,7 +101,8 @@ public class ProcesoController {
         return ResponseEntity.ok(procesoService.buscar(empresaId,
                 new FiltrosDeProceso(nombre, estado, categoria,
                         soloElAdministradorMiraLoEliminado(incluirInactivos, principal), carpetaId, etiqueta, duenoId,
-                        clasificacion, revisionAntesDe),
+                        clasificacion, revisionAntesDe,
+                        new Actor(principal.usuarioId(), principal.empresaId(), principal.rol())),
                 Paginacion.de(pagina, tamano, orden)));
     }
 

@@ -207,7 +207,7 @@ class AplicacionDelModelo {
                     || lanes.keySet().stream().anyMatch(lane -> !enElPlan(lane, plan.lanes().stream()
                             .map(PlanBpmn.Lane::bpmnId)));
             if (estructura) {
-                configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId);
+                configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId, proceso.getId());
             }
             int bajas = sobran(pools.keySet().stream().filter(pool -> !pool.equals(organizacion)),
                     plan.pools().stream().map(this::id))

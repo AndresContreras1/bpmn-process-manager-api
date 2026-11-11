@@ -41,10 +41,10 @@ public class LaneServiceImpl implements LaneService {
     @Override
     @Transactional
     public LaneResponse crear(Long empresaId, Long usuarioId, Long poolId, String nombre, Long rolProcesoId) {
-        // R-46: la tienda decide si sus editores pueden tocar la estructura.
-        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId);
         Pool pool = poolRepository.findByIdAndEmpresaId(poolId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pool no encontrado."));
+        // R-46: la tienda decide si sus editores pueden tocar la estructura; una concesion de modelar lo permite.
+        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId, pool.getProceso().getId());
         // R-33: de una caja negra solo se ve lo que entra y lo que sale; por dentro no hay nada que repartir.
         if (pool.isCajaNegra()) {
             throw new ReglaNegocioException(ReglasDePools.CAJA_NEGRA_SIN_LANES);
@@ -68,9 +68,10 @@ public class LaneServiceImpl implements LaneService {
     @Transactional
     public LaneResponse editar(Long empresaId, Long usuarioId, Long laneId, String nombre, Long rolProcesoId,
             Long version) {
-        // R-46: la tienda decide si sus editores pueden tocar la estructura.
-        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId);
         Lane lane = buscar(empresaId, laneId);
+        // R-46: la tienda decide si sus editores pueden tocar la estructura; una concesion de modelar lo permite.
+        configuracionTiendaService.exigirPuedeEditarEstructura(empresaId, usuarioId,
+                lane.getPool().getProceso().getId());
         lane.verificarVersion(version);
         lane.setNombre(nombre);
         lane.setRolProceso(rolProceso(empresaId, rolProcesoId));

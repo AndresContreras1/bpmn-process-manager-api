@@ -15,9 +15,16 @@ export class ModeloService {
 
   /** El XML y su huella, que es el {@code If-Match} del primer guardado. */
   leer(procesoId: number): Observable<ModeloLeido> {
-    return this.http
-      .get(`${this.api}/${procesoId}/modelo`, { observe: 'response', responseType: 'text' })
-      .pipe(map((respuesta) => ({ xml: respuesta.body ?? '', huella: etiqueta(respuesta.headers.get('ETag')) })));
+    return (
+      this.http
+        // para=dibujar: la web lo lee para mostrarlo, y eso solo pide poder verlo; descargarlo es exportar
+        .get(`${this.api}/${procesoId}/modelo`, {
+          observe: 'response',
+          responseType: 'text',
+          params: { para: 'dibujar' },
+        })
+        .pipe(map((respuesta) => ({ xml: respuesta.body ?? '', huella: etiqueta(respuesta.headers.get('ETag')) })))
+    );
   }
 
   guardar(procesoId: number, xml: string, huella: string | null, clave: string): Observable<ModeloGuardado> {

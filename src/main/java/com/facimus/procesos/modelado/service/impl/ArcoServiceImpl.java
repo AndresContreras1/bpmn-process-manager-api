@@ -9,7 +9,10 @@ import org.springframework.util.StringUtils;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.model.Accion;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
+import com.facimus.procesos.gestion.service.Permisos;
+import com.facimus.procesos.gestion.service.Recurso;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
 import com.facimus.procesos.modelado.model.Arco;
@@ -29,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 public class ArcoServiceImpl implements ArcoService {
 
     private final ElementosPegados pegados;
+    private final Permisos permisos;
     private final HistorialCambioService historialCambioService;
     private final ArcoRepository arcoRepository;
     private final NodoFlujoRepository nodoFlujoRepository;
@@ -42,6 +46,8 @@ public class ArcoServiceImpl implements ArcoService {
         NodoFlujo origen = nodo(empresaId, datos.origenId(), "Nodo de origen no encontrado.");
         NodoFlujo destino = nodo(empresaId, datos.destinoId(), "Nodo de destino no encontrado.");
         Pool pool = exigirUnTramoValido(empresaId, origen, destino, datos, null);
+        // PR 60: crear un arco no lleva el proceso en la ruta, asi que se comprueba aqui
+        permisos.exigir(empresaId, usuarioId, Accion.MODELAR, Recurso.proceso(pool.getProceso().getId()));
 
         Arco arco = arcoRepository.save(Arco.builder()
                 .empresa(origen.getEmpresa())
