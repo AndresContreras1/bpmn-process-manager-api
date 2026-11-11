@@ -20,7 +20,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.model.ModoProceso;
+import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.DiagnosticoResponse;
+import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.HallazgoDiagnosticoResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.DireccionAsociacion;
@@ -679,6 +681,28 @@ class DiagnosticoServiceTest {
         DiagnosticoResponse diagnostico = diagnosticar(armado, "ACTIVIDAD:" + fuera);
 
         assertThat(codigos(diagnostico, "A-06")).contains(medio, dentro);
+    }
+
+    @Test
+    @DisplayName("A-06: un flujo que se va se avisa aunque su id sea el de una lane que se queda")
+    void a06_idsDeOtraTabla() {
+        DiagramaArmado armado = DiagramaArmado.reciennacido();
+        Long lane = armado.lane(DiagramaArmado.TIENDA, "Sales");
+        Long uno = armado.actividad("Sales", "One", TipoActividad.USUARIO);
+        armado.actividad("Sales", "Two", TipoActividad.USUARIO);
+        armado.arco("One", "Two");
+        DiagramaResponse diagrama = armado.diagrama();
+        ArcoResponse arco = diagrama.arcos().getFirst();
+        ArcoResponse conElIdDeLaLane = new ArcoResponse(lane, arco.bpmnId(), arco.etiqueta(), arco.condicion(),
+                arco.porDefecto(), arco.orden(), arco.origenId(), arco.destinoId(), arco.poolId(), arco.version(), null,
+                null, null, null);
+        when(diagramaService.obtener(EMPRESA, PROCESO)).thenReturn(new DiagramaResponse(diagrama.proceso(), false,
+                diagrama.pools(), diagrama.lanes(), diagrama.actividades(), diagrama.gateways(), diagrama.eventos(),
+                List.of(conElIdDeLaLane), diagrama.mensajes(), diagrama.correlaciones()));
+
+        DiagnosticoResponse diagnostico = diagnosticoService.diagnosticar(EMPRESA, PROCESO, "ACTIVIDAD:" + uno);
+
+        assertThat(codigos(diagnostico, "A-06")).containsExactly(lane);
     }
 
     private DiagnosticoResponse diagnosticar(DiagramaArmado armado) {

@@ -102,23 +102,30 @@ final class SimulacionDeBorrado {
     /** A-06: lo que el borrado se llevaria por delante ademas del elemento por el que se pregunto. */
     static void avisarDeLoQueSeVa(MapaDelDiagrama antes, MapaDelDiagrama despues, ElementoDelDiagrama elemento,
             Hallazgos hallazgos) {
-        Set<Long> quedan = new HashSet<>();
-        despues.diagrama().lanes().forEach(lane -> quedan.add(lane.id()));
-        despues.nodos().forEach(nodo -> quedan.add(nodo.id()));
-        despues.diagrama().arcos().forEach(arco -> quedan.add(arco.id()));
-        despues.diagrama().mensajes().forEach(mensaje -> quedan.add(mensaje.id()));
+        // Cada clase de elemento numera sus ids en su tabla: un mismo numero puede ser una lane y un flujo
+        Set<Long> lanes = new HashSet<>();
+        Set<Long> nodos = new HashSet<>();
+        Set<Long> arcos = new HashSet<>();
+        Set<Long> mensajes = new HashSet<>();
+        despues.diagrama().lanes().forEach(lane -> lanes.add(lane.id()));
+        despues.nodos().forEach(nodo -> nodos.add(nodo.id()));
+        despues.diagrama().arcos().forEach(arco -> arcos.add(arco.id()));
+        despues.diagrama().mensajes().forEach(mensaje -> mensajes.add(mensaje.id()));
 
         antes.diagrama().lanes().stream()
-                .filter(lane -> seVa(lane.id(), quedan, elemento))
+                .filter(lane -> !lanes.contains(lane.id())
+                        && !(elemento.tipo() == ElementoDelDiagrama.Tipo.LANE && lane.id().equals(elemento.id())))
                 .forEach(lane -> anotar(hallazgos, "Lane \"" + lane.nombre() + "\"", lane.id(), "la lane"));
         antes.nodos().stream()
-                .filter(nodo -> seVa(nodo.id(), quedan, elemento))
+                .filter(nodo -> !nodos.contains(nodo.id()) && !(elemento.esNodo() && nodo.id().equals(elemento.id())))
                 .forEach(nodo -> anotar(hallazgos, nodo.etiqueta(), nodo.id(), "el nodo"));
         antes.diagrama().arcos().stream()
-                .filter(arco -> seVa(arco.id(), quedan, elemento))
+                .filter(arco -> !arcos.contains(arco.id())
+                        && !(elemento.tipo() == ElementoDelDiagrama.Tipo.ARCO && arco.id().equals(elemento.id())))
                 .forEach(arco -> anotar(hallazgos, antes.nombreDelFlujo(arco), arco.id(), "el flujo"));
         antes.diagrama().mensajes().stream()
-                .filter(mensaje -> seVa(mensaje.id(), quedan, elemento))
+                .filter(mensaje -> !mensajes.contains(mensaje.id())
+                        && !(elemento.tipo() == ElementoDelDiagrama.Tipo.MENSAJE && mensaje.id().equals(elemento.id())))
                 .forEach(mensaje -> anotar(hallazgos, "Mensaje \"" + mensaje.nombre() + "\"", mensaje.id(),
                         "el mensaje"));
     }
@@ -127,10 +134,6 @@ final class SimulacionDeBorrado {
         if (elemento.tipo() == tipo) {
             fuera.add(elemento.id());
         }
-    }
-
-    private static boolean seVa(Long id, Set<Long> quedan, ElementoDelDiagrama elemento) {
-        return !quedan.contains(id) && !id.equals(elemento.id());
     }
 
     private static void anotar(Hallazgos hallazgos, String etiqueta, Long id, String queEs) {
