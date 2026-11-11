@@ -8,6 +8,8 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- The process repository: a tree of folders, and for each process its folder, owner, next review date, classification
+  and tags, with new filters and sort orders in the list. `GET /roles/{id}` lists the processes that use the role.
 - Presence and comparison in the web: who is on a process, who is editing it and how to take control; a conflict can be
   compared before reloading; `/procesos/{id}/comparar` shows two states of a process with colors and a text legend.
   The live connection reconnects with a growing wait.

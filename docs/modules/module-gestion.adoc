@@ -6,6 +6,7 @@
 |_Services_
 
 * `c.f.p.g.service.BitacoraService` (via `c.f.p.g.service.impl.BitacoraServiceImpl`)
+* `c.f.p.g.service.CarpetaService` (via `c.f.p.g.service.impl.CarpetaServiceImpl`)
 * `c.f.p.g.service.ConfiguracionTiendaService` (via `c.f.p.g.service.impl.ConfiguracionTiendaServiceImpl`)
 * `c.f.p.g.service.CuentaService` (via `c.f.p.g.service.impl.CuentaServiceImpl`)
 * `c.f.p.g.service.DominioService` (via `c.f.p.g.service.impl.DominioServiceImpl`)
@@ -27,6 +28,7 @@
 
 _Repositories_
 
+* `c.f.p.g.repository.CarpetaRepository`
 * `c.f.p.g.repository.ClaveIdempotenciaRepository`
 * `c.f.p.g.repository.CodigoDeRecuperacionRepository`
 * `c.f.p.g.repository.ConfiguracionTiendaRepository`
@@ -57,7 +59,8 @@ _Others_
 * `c.f.p.c.trabajos.ColaDeTrabajos` (in Common)
 * `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
 |Aggregate roots
-|* `c.f.p.g.model.ClaveIdempotencia`
+|* `c.f.p.g.model.Carpeta`
+* `c.f.p.g.model.ClaveIdempotencia`
 * `c.f.p.g.model.CodigoDeRecuperacion`
 * `c.f.p.g.model.ConfiguracionTienda`
 * `c.f.p.g.model.DominioVerificado`
