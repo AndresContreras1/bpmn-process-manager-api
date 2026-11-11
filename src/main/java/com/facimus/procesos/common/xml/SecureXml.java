@@ -389,7 +389,7 @@ public final class SecureXml {
 
         @Override
         public void setBaseURI(String baseURI) {
-            // Todo se resuelve en la misma carpeta
+            // Cada esquema se resuelve en la misma carpeta
         }
 
         @Override

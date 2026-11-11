@@ -22,12 +22,27 @@ public record ModeloBpmn(String archivo, String xml) {
     }
 
     static String nombre(String proceso) {
-        String sinTildes = Normalizer.normalize(proceso == null ? "" : proceso, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "");
-        String nombre = sinTildes.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("(^-+|-+$)", "");
-        if (nombre.length() > LARGO_MAXIMO) {
-            nombre = nombre.substring(0, LARGO_MAXIMO).replaceAll("-+$", "");
+        String sinTildes = Normalizer.normalize(proceso == null ? "" : proceso, Normalizer.Form.NFD);
+        StringBuilder nombre = new StringBuilder();
+        for (char letra : sinTildes.toLowerCase(Locale.ROOT).toCharArray()) {
+            if (letra >= 'a' && letra <= 'z' || letra >= '0' && letra <= '9') {
+                nombre.append(letra);
+            } else if (Character.getType(letra) != Character.NON_SPACING_MARK && !nombre.isEmpty()
+                    && nombre.charAt(nombre.length() - 1) != '-') {
+                // Cualquier otra cosa separa palabras, salvo las tildes que la normalizacion dejo sueltas
+                nombre.append('-');
+            }
         }
-        return nombre.isEmpty() ? "proceso" : nombre;
+        String limpio = sinGuionAlFinal(nombre.length() > LARGO_MAXIMO ? nombre.substring(0, LARGO_MAXIMO)
+                : nombre.toString());
+        return limpio.isEmpty() ? "proceso" : limpio;
+    }
+
+    private static String sinGuionAlFinal(String nombre) {
+        int fin = nombre.length();
+        while (fin > 0 && nombre.charAt(fin - 1) == '-') {
+            fin--;
+        }
+        return nombre.substring(0, fin);
     }
 }
