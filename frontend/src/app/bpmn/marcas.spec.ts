@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Hallazgo } from '../models/diagnostico.model';
 import { Diagrama } from '../models/diagrama.model';
-import { elementoDe, marcasDe } from './marcas';
+import { elementoDe, marcasDe, marcasDeComparacion } from './marcas';
 
 const diagrama = {
   pools: [{ id: 5, bpmnId: 'Participant_5' }],
@@ -49,5 +49,28 @@ describe('marcas del diagnostico', () => {
     const general = { codigo: 'A-13', severidad: 'BAJA', problema: 'x', sugerencia: 'y' } as unknown as Hallazgo;
     expect(marcasDe([general], diagrama)).toEqual({});
     expect(elementoDe(general, diagrama)).toBeNull();
+  });
+});
+
+describe('marcasDeComparacion', () => {
+  const uno = (bpmnId: string) => ({ bpmnId, tipo: 'ACTIVIDAD', nombre: null });
+
+  it('pinta cada elemento segun lo que le paso', () => {
+    expect(
+      marcasDeComparacion({
+        de: '1',
+        a: 'borrador',
+        agregados: [uno('A')],
+        quitados: [],
+        cambiados: [{ ...uno('B'), campos: [] }],
+        movidos: [uno('C')],
+      }),
+    ).toEqual({ A: ['marca-agregado'], B: ['marca-cambiado'], C: ['marca-movido'] });
+  });
+
+  it('lo quitado no se pinta: ya no esta en el dibujo', () => {
+    expect(
+      marcasDeComparacion({ de: '1', a: '2', agregados: [], quitados: [uno('X')], cambiados: [], movidos: [] }),
+    ).toEqual({});
   });
 });

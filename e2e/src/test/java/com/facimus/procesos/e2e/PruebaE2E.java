@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
 import org.junit.jupiter.api.AfterEach;
@@ -48,6 +49,7 @@ abstract class PruebaE2E {
 
     private static final Duration ESPERA = Duration.ofSeconds(10);
     private static final Path CAPTURAS = Path.of("target", "e2e");
+    private static final AtomicInteger NITS = new AtomicInteger();
 
     protected WebDriver navegador;
     protected WebDriverWait espera;
@@ -211,8 +213,9 @@ abstract class PruebaE2E {
      */
     private static final String CORRIDA = String.format("%08d", System.currentTimeMillis() % 100_000_000L);
 
+    /** El digito final sale de un contador: con 90 valores posibles, dos semillas chocarian por su hash. */
     protected static String nitDe(String semilla) {
-        return "9" + CORRIDA + "-" + (Math.abs(semilla.hashCode()) % 90 + 10);
+        return "9" + CORRIDA + "-" + (NITS.getAndIncrement() % 90 + 10);
     }
 
     protected static String correoDe(String semilla) {

@@ -11,6 +11,19 @@
   grid-template-columns: minmax(0, 1fr) 360px;
 }
 
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--bs-secondary-bg);
+  border: 1px solid var(--bs-border-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 // WCAG 2.5.8 y 2.4.11: nada que se pulse mide menos de 24 px, y lo enfocado no queda bajo la barra de arriba
 .modelador .btn {
   min-width: 24px;
