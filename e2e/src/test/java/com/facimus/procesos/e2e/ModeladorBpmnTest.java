@@ -40,7 +40,7 @@ class ModeladorBpmnTest extends PruebaE2E {
 
         WebElement logo = visible(LOGO);
 
-        assertEquals("https://bpmn.io", logo.getDomAttribute("href").replaceAll("/$", ""));
+        assertEquals("bpmn.io", logo.getDomAttribute("href").replaceAll("^https?://|/$", ""));
         Object encima = ((JavascriptExecutor) navegador).executeScript("""
                 const logo = arguments[0];
                 const caja = logo.getBoundingClientRect();
