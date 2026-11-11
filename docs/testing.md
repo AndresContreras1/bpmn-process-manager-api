@@ -70,10 +70,12 @@ longer returned) and runs the tests that cover it. A mutation no test notices is
 ```
 
 It mutates the services of the three modules, the engine among them, and the condition language, and runs their
-own tests: the unit tests of each service, the engine's over JPA and the conditions'. Measured on 2026-09-30: 1660
-mutations, 1259 of them caught (76 %), and 91 % of the ones those tests reach. The run fails below 75 %, so a new
-rule has to come with its test. It takes about 50 minutes, so it is not part of `verify`: the pipeline runs it every
-night on `main`, and on any branch from *Run workflow* in the Actions tab. The report is in `target/pit-reports`.
+own tests: the unit tests of each service, the engine's over JPA and the conditions'. Only those: a rule that only an
+integration suite checks, through HTTP or the security filters, counts as never reached, so every service has its own
+unit test with Mockito next to the integration one. Measured on 2026-11-11: 3274 mutations, 2984 of them caught
+(91 %), and 95 % of the ones those tests reach. The run fails below 75 %, so a new rule has to come with its test. It
+takes about 50 minutes, so it is not part of `verify`: the pipeline runs it every night on `main`, and on any branch
+from *Run workflow* in the Actions tab. The report is in `target/pit-reports`.
 
 ## Format
 

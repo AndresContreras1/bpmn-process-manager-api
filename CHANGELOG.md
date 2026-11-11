@@ -24,6 +24,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 - The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
   old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
   which can publish.
+- Unit tests for the services that only the integration suites checked (second factor, external sign-in, sessions,
+  accounts, settings, the audit log, permissions, folders, BPMN import, autosave and live editing among them): the
+  nightly mutation run is back above its 75 % floor, with 2984 of 3274 mutations caught (91 %).
 
 ### Added
 
