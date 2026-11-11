@@ -1,0 +1,4 @@
+These files are the class A reference models of the BPMN MIWG test suite, by the BPMN Model Interchange Working
+Group of the Object Management Group: https://github.com/bpmn-miwg/bpmn-miwg-test-suite (folder Reference).
+They are copied unchanged and licensed under the Creative Commons Attribution 3.0 Unported License:
+http://creativecommons.org/licenses/by/3.0/

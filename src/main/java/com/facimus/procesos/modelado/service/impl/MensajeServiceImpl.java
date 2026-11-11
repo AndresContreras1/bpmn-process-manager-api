@@ -40,7 +40,6 @@ public class MensajeServiceImpl implements MensajeService {
 
     /** Un nombre de variable que un evaluador de condiciones pueda leer sin comillas. */
     private static final Pattern VARIABLE = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]*");
-    private static final int LARGO_DE_LA_VARIABLE = 60;
 
     private final HistorialCambioService historialCambioService;
     private final MensajeRepository mensajeRepository;
@@ -226,7 +225,7 @@ public class MensajeServiceImpl implements MensajeService {
      */
     private static String variable(DatosDeMensaje datos) {
         if (!StringUtils.hasText(datos.variable())) {
-            return porDefecto(datos.nombre());
+            return Mensaje.variablePorDefecto(datos.nombre());
         }
         String variable = datos.variable().trim();
         if (!VARIABLE.matcher(variable).matches()) {
@@ -236,24 +235,6 @@ public class MensajeServiceImpl implements MensajeService {
         return variable;
     }
 
-    private static String porDefecto(String nombre) {
-        StringBuilder variable = new StringBuilder();
-        boolean siguienteEnMayuscula = false;
-        for (char letra : nombre.toCharArray()) {
-            if (!Character.isLetterOrDigit(letra)) {
-                siguienteEnMayuscula = !variable.isEmpty();
-            } else if (variable.isEmpty()) {
-                variable.append(Character.isLetter(letra) ? Character.toLowerCase(letra) : 'm');
-            } else {
-                variable.append(siguienteEnMayuscula ? Character.toUpperCase(letra) : letra);
-                siguienteEnMayuscula = false;
-            }
-        }
-        String nombreDeVariable = variable.length() > LARGO_DE_LA_VARIABLE
-                ? variable.substring(0, LARGO_DE_LA_VARIABLE)
-                : variable.toString();
-        return nombreDeVariable.isEmpty() ? "mensaje" : nombreDeVariable;
-    }
 
     private void exigirLosMismosPools(Mensaje mensaje, DatosDeMensaje datos) {
         boolean cambiaOrigen = datos.poolOrigenId() != null
