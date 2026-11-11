@@ -8,6 +8,10 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Sub-processes and call activities: an expanded sub-process contains its own flow (`PUT
+  /api/v1/nodos/{id}/contenedor`), flows do not cross its border, and it is drawn as the box of its content; a call
+  activity points to another process of the store (`PUT /api/v1/actividades/{id}/llamada`). Exported and imported.
+  Circular calls are rejected when publishing; new diagnosis codes `E-19`, `E-20`, `E-21` and `A-16`.
 - Descriptive BPMN: a process can be `DOCUMENTAL` (`PUT /api/v1/procesos/{id}/modo`): it is published and documented,
   opens no cases, and its diagnosis only checks the structure. Text annotations, groups, data objects and data stores
   (`/api/v1/procesos/{id}/artefactos`), associations and data associations (`/api/v1/procesos/{id}/asociaciones`),

@@ -111,7 +111,8 @@ class MigracionesTest {
                         "V41__geometria_bpmn_di.sql", "db.migration.common.V42__geometria_de_los_diagramas",
                         "V43__modelo_bpmn_de_las_versiones.sql", "db.migration.common.V44__bpmn_de_las_versiones",
                         "V45__importacion_bpmn.sql",
-                        "V46__elementos_descriptivos.sql");
+                        "V46__elementos_descriptivos.sql",
+                        "V47__subprocesos_y_llamadas.sql");
     }
 
     @Test

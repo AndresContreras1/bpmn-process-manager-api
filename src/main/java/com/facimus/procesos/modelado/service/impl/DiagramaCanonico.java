@@ -40,7 +40,7 @@ final class DiagramaCanonico {
      * version ya publicada pareceria tener cambios sin publicar.
      */
     private static final List<String> NUEVOS_SI_VACIOS =
-            List.of("tipoTemporizador", "temporizador", "adjuntoAId", "interrumpe");
+            List.of("tipoTemporizador", "temporizador", "adjuntoAId", "interrumpe", "padreId", "procesoLlamadoId");
 
     private DiagramaCanonico() {
     }

@@ -1,6 +1,7 @@
 package com.facimus.procesos.modelado.service.impl;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -118,11 +119,18 @@ public class ArcoServiceImpl implements ArcoService {
     }
 
     /** Las reglas del tramo: si va a alguna parte, si ya existe, y que exige el nodo del que sale. */
+    private static Long idDe(NodoFlujo nodo) {
+        return nodo == null ? null : nodo.getId();
+    }
+
     private Pool exigirUnTramoValido(Long empresaId, NodoFlujo origen, NodoFlujo destino, DatosDeArco datos,
             Long arcoId) {
         Pool poolOrigen = origen.getLane().getPool();
         if (!poolOrigen.getId().equals(destino.getLane().getPool().getId())) {
             throw new ReglaNegocioException("El origen y el destino de un arco deben pertenecer al mismo pool.");
+        }
+        if (!Objects.equals(idDe(origen.getPadre()), idDe(destino.getPadre()))) {
+            throw new ReglaNegocioException("Un flujo no cruza el borde de un subproceso.");
         }
         if (yaExiste(empresaId, origen, destino, arcoId)) {
             throw new ReglaNegocioException("Ya existe un arco entre estos dos nodos.");

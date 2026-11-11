@@ -54,6 +54,8 @@ public final class DisposicionBpmn {
 
     /** Lo que separa un evento de borde del siguiente sobre el borde de su actividad. */
     static final double PASO_BORDE = 36;
+    /** Lo que deja un subproceso alrededor de lo que lleva dentro. */
+    static final double RELLENO_SUBPROCESO = 24;
     /** Por debajo de esto, dos coordenadas son la misma. */
     private static final double CASI_CERO = 1e-9;
 
@@ -62,12 +64,18 @@ public final class DisposicionBpmn {
      * de borde dice a que nodo va pegado, y se dibuja sobre el borde de abajo de ese nodo, no donde diga su posicion.
      */
     public record NodoPlano(long id, String bpmnId, long laneId, String clase, int posicionX, int posicionY,
-            String nombre, Long adjuntoA) {
+            String nombre, Long adjuntoA, Long padre) {
 
         /** El de antes del PR 55, de un nodo que no va pegado a nada. */
         public NodoPlano(long id, String bpmnId, long laneId, String clase, int posicionX, int posicionY,
                 String nombre) {
-            this(id, bpmnId, laneId, clase, posicionX, posicionY, nombre, null);
+            this(id, bpmnId, laneId, clase, posicionX, posicionY, nombre, null, null);
+        }
+
+        /** El de antes del PR 56, en el flujo principal. */
+        public NodoPlano(long id, String bpmnId, long laneId, String clase, int posicionX, int posicionY,
+                String nombre, Long adjuntoA) {
+            this(id, bpmnId, laneId, clase, posicionX, posicionY, nombre, adjuntoA, null);
         }
 
         boolean deBorde() {
@@ -134,7 +142,11 @@ public final class DisposicionBpmn {
             List<AsociacionPlana> asociaciones) {
         Set<Long> idsDeLanes = new HashSet<>();
         lanes.forEach(lane -> idsDeLanes.add(lane.id()));
-        List<NodoPlano> enElFlujo = nodos.stream().filter(nodo -> !nodo.deBorde()).toList();
+        // PR 56: un subproceso con contenido no tiene posicion propia: es la caja de lo que lleva dentro
+        Set<Long> contenedores = new HashSet<>();
+        nodos.stream().filter(nodo -> nodo.padre() != null).forEach(nodo -> contenedores.add(nodo.padre()));
+        List<NodoPlano> enElFlujo = nodos.stream()
+                .filter(nodo -> !nodo.deBorde() && !contenedores.contains(nodo.id())).toList();
         List<ArtefactoPlano> enLanes = artefactos.stream()
                 .filter(artefacto -> artefacto.laneId() != null && idsDeLanes.contains(artefacto.laneId())).toList();
         double minX = IntStream.concat(enElFlujo.stream().mapToInt(NodoPlano::posicionX),
@@ -160,6 +172,7 @@ public final class DisposicionBpmn {
                     new Limites(caja.x(), caja.y(), caja.ancho(), caja.alto()), null));
             y += alto + SEPARACION;
         }
+        ubicarContenedores(nodos, contenedores, lienzo);
         ubicarBordes(nodos, lienzo);
         ubicarSueltos(artefactos.stream().filter(artefacto -> !enLanes.contains(artefacto)).toList(), y, lienzo);
 
@@ -174,6 +187,46 @@ public final class DisposicionBpmn {
         aristas.addAll(trazarMensajes(mensajes, cajas, lienzo.ubicados(), anchoPool));
         aristas.addAll(trazarAsociaciones(asociaciones, lienzo.formas(), aristas));
         return new Geometria(List.copyOf(lienzo.formas()), List.copyOf(aristas));
+    }
+
+    /**
+     * PR 56: cada subproceso con contenido, como la caja de lo que lleva dentro. Se repite para que uno dentro de otro
+     * se ubique primero; lo que nunca queda listo, como un ciclo en datos rotos, no se dibuja.
+     */
+    private static void ubicarContenedores(List<NodoPlano> nodos, Set<Long> contenedores, Lienzo lienzo) {
+        Map<Long, List<NodoPlano>> hijos = new HashMap<>();
+        nodos.stream().filter(nodo -> nodo.padre() != null && !nodo.deBorde())
+                .forEach(nodo -> hijos.computeIfAbsent(nodo.padre(), sinHijos -> new ArrayList<>()).add(nodo));
+        List<NodoPlano> pendientes = new ArrayList<>(
+                nodos.stream().filter(nodo -> contenedores.contains(nodo.id())).toList());
+        boolean avanza = true;
+        while (avanza) {
+            avanza = pendientes.removeIf(contenedor -> ubicarContenedor(contenedor,
+                    hijos.getOrDefault(contenedor.id(), List.of()), lienzo));
+        }
+    }
+
+    /** Devuelve si ya esta: lo esta cuando todo lo que lleva dentro ya tiene sitio. */
+    private static boolean ubicarContenedor(NodoPlano contenedor, List<NodoPlano> hijos, Lienzo lienzo) {
+        if (hijos.isEmpty() || !hijos.stream().allMatch(hijo -> lienzo.ubicados().containsKey(hijo.id()))) {
+            return false;
+        }
+        double izquierda = Double.MAX_VALUE;
+        double arriba = Double.MAX_VALUE;
+        double derecha = -Double.MAX_VALUE;
+        double abajo = -Double.MAX_VALUE;
+        for (NodoPlano hijo : hijos) {
+            Ubicado ubicado = lienzo.ubicados().get(hijo.id());
+            izquierda = Math.min(izquierda, ubicado.cx() - ubicado.medioAncho());
+            derecha = Math.max(derecha, ubicado.cx() + ubicado.medioAncho());
+            arriba = Math.min(arriba, ubicado.cy() - ubicado.medioAlto());
+            abajo = Math.max(abajo, ubicado.cy() + ubicado.medioAlto());
+        }
+        Ubicado ubicado = new Ubicado((izquierda + derecha) / 2, (arriba + abajo) / 2,
+                (derecha - izquierda) / 2 + RELLENO_SUBPROCESO, (abajo - arriba) / 2 + RELLENO_SUBPROCESO, false);
+        lienzo.ubicados().put(contenedor.id(), ubicado);
+        lienzo.formas().add(forma(contenedor, ubicado));
+        return true;
     }
 
     /**

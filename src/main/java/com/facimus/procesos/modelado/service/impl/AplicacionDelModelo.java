@@ -13,6 +13,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,7 @@ import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
+import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
@@ -77,6 +79,7 @@ class AplicacionDelModelo {
     private final ExtensionXmlRepository extensionXmlRepository;
     private final ArtefactoRepository artefactoRepository;
     private final AsociacionRepository asociacionRepository;
+    private final ProcesoRepository procesoRepository;
     private final RolProcesoRepository rolProcesoRepository;
     private final RolProcesoService rolProcesoService;
     private final ConfiguracionTiendaService configuracionTiendaService;
@@ -115,6 +118,8 @@ class AplicacionDelModelo {
         private final Map<String, Asociacion> asociaciones;
         /** Los nodos que esta importacion crea: pegarlos a su actividad no cuenta como una edicion. */
         private final Set<String> nodosNuevos = new HashSet<>();
+        /** Los subprocesos del plan que llevan algo dentro. */
+        private final Set<String> cajasDelPlan = new HashSet<>();
         /** El bpmn_id del pool de la organizacion en el plan, y el que tiene en el borrador. */
         private final String organizacionEnElPlan;
         private final String organizacion;
@@ -139,7 +144,8 @@ class AplicacionDelModelo {
                             actividadRepository.findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId),
                             gatewayRepository.findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId),
                             eventoRepository.findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId))
-                    .flatMap(List::stream).map(NodoFlujo.class::cast).toList(), NodoFlujo::getBpmnId);
+                    .flatMap(List::stream).map(Hibernate::unproxy).map(NodoFlujo.class::cast).toList(),
+                    NodoFlujo::getBpmnId);
             this.arcos = porBpmnId(arcoRepository.findAllByPool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId),
                     Arco::getBpmnId);
             this.mensajes = porBpmnId(mensajeRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId),
@@ -148,6 +154,8 @@ class AplicacionDelModelo {
                     empresaId), Artefacto::getBpmnId);
             this.asociaciones = porBpmnId(asociacionRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId,
                     empresaId), Asociacion::getBpmnId);
+            plan.nodos().stream().filter(nodo -> nodo.padre() != null)
+                    .forEach(nodo -> cajasDelPlan.add(nodo.padre()));
             this.organizacionEnElPlan = plan.pools().getFirst().bpmnId();
             this.organizacion = pools.values().stream()
                     .filter(pool -> pool.getTipoParticipante() == TipoParticipante.EMPRESA)
@@ -310,7 +318,11 @@ class AplicacionDelModelo {
         private Map<String, int[]> desplazamientos() {
             Map<String, int[]> desplazamientos = new HashMap<>();
             // Un evento de borde se dibuja sobre su actividad: su posicion no marca el dibujo
-            List<NodoFlujo> enElFlujo = nodos.values().stream().filter(nodo -> !esDeBorde(nodo)).toList();
+            Set<Long> cajas = new HashSet<>();
+            nodos.values().stream().filter(nodo -> nodo.getPadre() != null)
+                    .forEach(nodo -> cajas.add(nodo.getPadre().getId()));
+            List<NodoFlujo> enElFlujo = nodos.values().stream()
+                    .filter(nodo -> !esDeBorde(nodo) && !cajas.contains(nodo.getId())).toList();
             List<Artefacto> enLanes = artefactos.values().stream().filter(uno -> uno.getLane() != null).toList();
             int menorX = enElFlujo.stream().mapToInt(NodoFlujo::getPosicionX).min()
                     .orElse(enLanes.stream().mapToInt(Artefacto::getPosicionX).min().orElse(0));
@@ -353,7 +365,8 @@ class AplicacionDelModelo {
                 NodoFlujo nuevo = switch (deseado.clase()) {
                     case ACTIVIDAD -> actividadRepository.save(Actividad.builder().empresa(empresa)
                             .bpmnId(deseado.bpmnId()).nombre(deseado.nombre()).descripcion(deseado.descripcion())
-                            .tipoActividad(deseado.tipoActividad()).posicionX(x).posicionY(y).lane(lane).build());
+                            .tipoActividad(deseado.tipoActividad()).posicionX(x).posicionY(y).lane(lane)
+                            .procesoLlamado(procesoLlamado(deseado)).build());
                     case GATEWAY -> gatewayRepository.save(Gateway.builder().empresa(empresa).bpmnId(deseado.bpmnId())
                             .nombre(deseado.nombre()).tipoGateway(deseado.tipoGateway()).posicionX(x).posicionY(y)
                             .lane(lane).build());
@@ -367,8 +380,8 @@ class AplicacionDelModelo {
                 creados++;
                 return;
             }
-            // La posicion de un evento de borde no dice nada: se dibuja sobre su actividad
-            boolean sinPosicion = deseado.adjuntoA() != null;
+            // La posicion de un evento de borde o de un subproceso con contenido no dice nada: no se dibujan ahi
+            boolean sinPosicion = deseado.adjuntoA() != null || cajasDelPlan.contains(deseado.bpmnId());
             if (sinPosicion) {
                 x = actual.getPosicionX();
                 y = actual.getPosicionY();
@@ -377,8 +390,11 @@ class AplicacionDelModelo {
                     || actual.getPosicionY() != y || !actual.getLane().getBpmnId().equals(deseado.lane());
             switch (actual) {
                 case Actividad actividad -> {
+                    Proceso llamado = procesoLlamado(deseado);
                     cambia |= actividad.getTipoActividad() != deseado.tipoActividad()
-                            || !Objects.equals(actividad.getDescripcion(), deseado.descripcion());
+                            || !Objects.equals(actividad.getDescripcion(), deseado.descripcion())
+                            || !Objects.equals(idDe(actividad.getProcesoLlamado()), idDe(llamado));
+                    actividad.setProcesoLlamado(llamado);
                     if (cambia) {
                         actividad.setTipoActividad(deseado.tipoActividad());
                         actividad.setDescripcion(deseado.descripcion());
@@ -409,8 +425,27 @@ class AplicacionDelModelo {
             }
         }
 
-        /** PR 55: un evento de borde con su actividad, cuando ya estan todos los nodos. */
+        /** PR 56: un proceso de esta tienda; lo que nombre otra cosa se queda sin proceso. */
+        private Proceso procesoLlamado(PlanBpmn.Nodo deseado) {
+            return deseado.procesoLlamado() == null ? null : procesoRepository
+                    .findByIdAndEmpresaIdAndActivoTrue(deseado.procesoLlamado(), empresaId).orElse(null);
+        }
+
+        private static Long idDe(Proceso uno) {
+            return uno == null ? null : uno.getId();
+        }
+
+        /** PR 55 y 56: cada nodo con su subproceso y cada evento de borde con su actividad, ya con todos los nodos. */
         private void pegar(PlanBpmn.Nodo deseado) {
+            NodoFlujo nodo = nodos.get(deseado.bpmnId());
+            NodoFlujo padre = deseado.padre() == null ? null : nodos.get(deseado.padre());
+            Long padreDeAntes = nodo.getPadre() == null ? null : nodo.getPadre().getId();
+            if (!Objects.equals(padreDeAntes, padre == null ? null : padre.getId())) {
+                nodo.setPadre(padre);
+                if (!nodosNuevos.contains(deseado.bpmnId())) {
+                    editados++;
+                }
+            }
             if (nodos.get(deseado.bpmnId()) instanceof Evento evento) {
                 NodoFlujo actividad = deseado.adjuntoA() == null ? null : nodos.get(deseado.adjuntoA());
                 if (evento.getAdjuntoA() != actividad) {

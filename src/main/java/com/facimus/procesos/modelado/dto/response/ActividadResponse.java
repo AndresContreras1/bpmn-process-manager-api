@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.dto.response;
 
 import java.time.LocalDateTime;
 
+import com.facimus.procesos.common.Default;
 import com.facimus.procesos.modelado.model.TipoActividad;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -23,5 +24,20 @@ public record ActividadResponse(
                 example = "2") Long creadoPor,
         @Schema(example = "2026-09-21T15:00:00") LocalDateTime fechaCreacion,
         @Schema(description = "Id of the user who saved the last change", example = "5") Long modificadoPor,
-        @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion) {
+        @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,
+        @Schema(description = "Sub-process that contains it; empty in the main flow", example = "12") Long padreId,
+        @Schema(description = "Process a call activity runs", example = "7") Long procesoLlamadoId) {
+
+    /** El de antes del PR 56, en el flujo principal. */
+    public ActividadResponse(Long id, String bpmnId, String nombre, String descripcion, TipoActividad tipoActividad,
+            int posicionX, int posicionY, Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion,
+            Long modificadoPor, LocalDateTime fechaModificacion) {
+        this(id, bpmnId, nombre, descripcion, tipoActividad, posicionX, posicionY, laneId, version, creadoPor,
+                fechaCreacion, modificadoPor, fechaModificacion, null, null);
+    }
+
+    @Default
+    public ActividadResponse {
+        // El constructor completo es el que usan MapStruct y Jackson
+    }
 }

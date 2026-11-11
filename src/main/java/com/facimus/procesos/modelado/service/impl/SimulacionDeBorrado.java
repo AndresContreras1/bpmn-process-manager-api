@@ -38,10 +38,20 @@ final class SimulacionDeBorrado {
         MapaDelDiagrama.nodosDe(diagrama).stream()
                 .filter(nodo -> lanes.contains(nodo.laneId()))
                 .forEach(nodo -> nodos.add(nodo.id()));
-        // PR 55: un evento de borde se va con su actividad
-        MapaDelDiagrama.nodosDe(diagrama).stream()
-                .filter(nodo -> nodo.adjuntoAId() != null && nodos.contains(nodo.adjuntoAId()))
-                .forEach(nodo -> nodos.add(nodo.id()));
+        // PR 55 y 56: un evento de borde se va con su actividad, y el contenido con su subproceso, a cualquier
+        // profundidad: se repite mientras se siga yendo algo
+        List<NodoDelDiagrama> todos = MapaDelDiagrama.nodosDe(diagrama);
+        boolean sigue = true;
+        while (sigue) {
+            sigue = false;
+            for (NodoDelDiagrama nodo : todos) {
+                boolean seVaConOtro = nodo.adjuntoAId() != null && nodos.contains(nodo.adjuntoAId())
+                        || nodo.padreId() != null && nodos.contains(nodo.padreId());
+                if (seVaConOtro && nodos.add(nodo.id())) {
+                    sigue = true;
+                }
+            }
+        }
 
         Set<Long> arcos = new HashSet<>();
         si(elemento, ElementoDelDiagrama.Tipo.ARCO, arcos);

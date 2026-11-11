@@ -44,7 +44,7 @@ public final class LectorBpmn {
 
     /** Los nodos que el modelo tiene, o a los que se convierten. */
     static final Set<String> TAREAS = Set.of("task", "userTask", "serviceTask", "sendTask", "receiveTask",
-            "manualTask", "businessRuleTask", "scriptTask");
+            "manualTask", "businessRuleTask", "scriptTask", "subProcess", "callActivity");
     static final Set<String> GATEWAYS = Set.of("exclusiveGateway", "parallelGateway", "inclusiveGateway");
     static final Set<String> EVENTOS = Set.of("startEvent", "endEvent", "intermediateCatchEvent", "boundaryEvent");
     /** PR 55: los artefactos y los datos. */
@@ -55,6 +55,10 @@ public final class LectorBpmn {
     /** Lo que un proceso trae y no es un elemento del diagrama: se lee aparte o no dice nada del dibujo. */
     private static final Set<String> SIN_DIBUJO = Set.of("documentation", "extensionElements", "laneSet",
             "sequenceFlow", "auditing", "monitoring");
+    /** PR 56: lo que un subproceso trae por ser una actividad, y no por lo que contiene. */
+    private static final Set<String> DE_LA_ACTIVIDAD = Set.of("incoming", "outgoing", "ioSpecification", "property",
+            "dataInputAssociation", "dataOutputAssociation", "standardLoopCharacteristics",
+            "multiInstanceLoopCharacteristics");
 
     private LectorBpmn() {
     }
@@ -96,7 +100,7 @@ public final class LectorBpmn {
         }
         return new ModeloLeido(nombre, descripcion, categoria, lectura.participantes, lectura.procesos,
                 lectura.flujosDeMensaje, lectura.mensajes, lectura.formas, lectura.verticales, lectura.noSoportados,
-                lectura.extensiones, lectura.artefactos, lectura.asociaciones);
+                lectura.extensiones, lectura.artefactos, lectura.asociaciones, lectura.expandidos);
     }
 
     /** Lo que se va juntando mientras se recorre el archivo. */
@@ -112,6 +116,7 @@ public final class LectorBpmn {
         private final Map<String, String> extensiones = new LinkedHashMap<>();
         private final List<Artefacto> artefactos = new ArrayList<>();
         private final List<Asociacion> asociaciones = new ArrayList<>();
+        private final Set<String> expandidos = new HashSet<>();
         /** El valor de cada categoria: de ahi sale el nombre de un grupo. */
         private final Map<String, String> categorias = new HashMap<>();
 
@@ -213,42 +218,66 @@ public final class LectorBpmn {
             }
             List<Nodo> nodos = new ArrayList<>();
             List<Flujo> flujos = new ArrayList<>();
-            for (Element hijo : Dom.hijos(proceso)) {
-                if (!BPMN.equals(hijo.getNamespaceURI())) {
-                    continue;
-                }
-                String elemento = hijo.getLocalName();
-                String suId = Dom.atributo(hijo, "id");
-                if (TAREAS.contains(elemento) || GATEWAYS.contains(elemento) || EVENTOS.contains(elemento)) {
-                    Element tiempo = tiempo(hijo);
-                    nodos.add(new Nodo(suId, elemento, Dom.nombre(Dom.atributo(hijo, "name")),
-                            Dom.texto(Dom.hijo(hijo, BPMN, "documentation")),
-                            Dom.referencia(Dom.atributo(hijo, "default")), definiciones(hijo),
-                            Dom.referencia(Dom.atributo(hijo, "attachedToRef")),
-                            !"false".equals(Dom.atributo(hijo, "cancelActivity")),
-                            tiempo == null ? null : tiempo.getLocalName(), Dom.texto(tiempo)));
-                    extension(suId, hijo);
-                    asociacionesDeDatos(hijo, suId, TAREAS.contains(elemento));
-                } else if (ARTEFACTOS.contains(elemento)) {
-                    artefacto(hijo, id);
-                } else if ("association".equals(elemento)) {
-                    asociacion(hijo);
-                } else if ("sequenceFlow".equals(elemento)) {
-                    Element condicion = Dom.hijo(hijo, BPMN, "conditionExpression");
-                    flujos.add(new Flujo(suId, Dom.nombre(Dom.atributo(hijo, "name")),
-                            Dom.referencia(Dom.atributo(hijo, "sourceRef")),
-                            Dom.referencia(Dom.atributo(hijo, "targetRef")), Dom.texto(condicion),
-                            condicion == null ? null : Dom.atributo(condicion, "language"),
-                            entero(Dom.atributo(hijo, BPM, "orden"))));
-                    extension(suId, hijo);
-                } else if (!SIN_DIBUJO.contains(elemento)) {
-                    noSoportados.add(new Ajeno(suId, elemento, Dom.nombre(Dom.atributo(hijo, "name")),
-                            nombre != null ? nombre : id));
-                }
-            }
+            contenido(proceso, id, nombre != null ? nombre : id, null, nodos, flujos);
             procesos.add(new Proceso(id, nombre, ejecutable == null ? null : Boolean.valueOf(ejecutable), lanes,
                     nodos, flujos, anidadas[0]));
             extension(claveDelProceso(id), proceso);
+        }
+
+        /** Lo que hay en un proceso o en un subproceso suyo; {@code padre} es el subproceso, y nulo en el proceso. */
+        private void contenido(Element contenedor, String proceso, String donde, String padre, List<Nodo> nodos,
+                List<Flujo> flujos) {
+            for (Element hijo : Dom.hijos(contenedor)) {
+                if (BPMN.equals(hijo.getNamespaceURI())) {
+                    elemento(hijo, proceso, donde, padre, nodos, flujos);
+                }
+            }
+        }
+
+        private void elemento(Element hijo, String proceso, String donde, String padre, List<Nodo> nodos,
+                List<Flujo> flujos) {
+            String elemento = hijo.getLocalName();
+            String suId = Dom.atributo(hijo, "id");
+            boolean deEvento = "subProcess".equals(elemento) && "true".equals(Dom.atributo(hijo, "triggeredByEvent"));
+            if (!deEvento && (TAREAS.contains(elemento) || GATEWAYS.contains(elemento) || EVENTOS.contains(elemento))) {
+                nodo(hijo, proceso, donde, padre, nodos, flujos);
+            } else if (ARTEFACTOS.contains(elemento)) {
+                artefacto(hijo, proceso);
+            } else if ("association".equals(elemento)) {
+                asociacion(hijo);
+            } else if ("sequenceFlow".equals(elemento)) {
+                Element condicion = Dom.hijo(hijo, BPMN, "conditionExpression");
+                flujos.add(new Flujo(suId, Dom.nombre(Dom.atributo(hijo, "name")),
+                        Dom.referencia(Dom.atributo(hijo, "sourceRef")),
+                        Dom.referencia(Dom.atributo(hijo, "targetRef")), Dom.texto(condicion),
+                        condicion == null ? null : Dom.atributo(condicion, "language"),
+                        entero(Dom.atributo(hijo, BPM, "orden"))));
+                extension(suId, hijo);
+            } else if (!SIN_DIBUJO.contains(elemento) && (padre == null || !DE_LA_ACTIVIDAD.contains(elemento))) {
+                noSoportados.add(new Ajeno(suId, elemento, Dom.nombre(Dom.atributo(hijo, "name")), donde));
+            }
+        }
+
+        private void nodo(Element hijo, String proceso, String donde, String padre, List<Nodo> nodos,
+                List<Flujo> flujos) {
+            String elemento = hijo.getLocalName();
+            String suId = Dom.atributo(hijo, "id");
+            Element tiempo = tiempo(hijo);
+            nodos.add(new Nodo(suId, elemento, Dom.nombre(Dom.atributo(hijo, "name")),
+                    Dom.texto(Dom.hijo(hijo, BPMN, "documentation")),
+                    Dom.referencia(Dom.atributo(hijo, "default")), definiciones(hijo),
+                    Dom.referencia(Dom.atributo(hijo, "attachedToRef")),
+                    !"false".equals(Dom.atributo(hijo, "cancelActivity")),
+                    tiempo == null ? null : tiempo.getLocalName(), Dom.texto(tiempo), padre,
+                    Dom.atributo(hijo, "calledElement")));
+            extension(suId, hijo);
+            asociacionesDeDatos(hijo, suId, TAREAS.contains(elemento));
+            if ("subProcess".equals(elemento)) {
+                // Sin id no se puede decir de quien es lo de dentro: se lee como un subproceso vacio
+                if (suId != null) {
+                    contenido(hijo, proceso, donde, suId, nodos, flujos);
+                }
+            }
         }
 
         /** Las lanes hoja: una lane con lanes dentro se reparte entre ellas. */
@@ -278,6 +307,9 @@ public final class LectorBpmn {
                             numero(limites, "width"), numero(limites, "height")));
                     if ("false".equals(Dom.atributo(forma, "isHorizontal"))) {
                         verticales.add(elemento);
+                    }
+                    if ("true".equals(Dom.atributo(forma, "isExpanded"))) {
+                        expandidos.add(elemento);
                     }
                     extension(ExtensionXml.delDibujo(elemento), forma);
                 }

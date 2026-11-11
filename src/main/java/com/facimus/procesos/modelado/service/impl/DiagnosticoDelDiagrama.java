@@ -1,6 +1,13 @@
 package com.facimus.procesos.modelado.service.impl;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.service.DiagnosticoDelModelo;
 import com.facimus.procesos.modelado.dto.response.HallazgoDiagnosticoResponse;
+import com.facimus.procesos.modelado.model.CodigoDeDiagnostico;
 import com.facimus.procesos.modelado.model.Severidad;
+import com.facimus.procesos.modelado.repository.ActividadRepository;
 
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
@@ -28,6 +37,7 @@ public class DiagnosticoDelDiagrama implements DiagnosticoDelModelo {
 
     private final ArmadoDelDiagrama armado;
     private final ObservationRegistry observaciones;
+    private final ActividadRepository actividadRepository;
 
     /** El mismo span que el diagnostico que pide quien edita, marcado como el que decide si se publica. */
     @Override
@@ -36,11 +46,53 @@ public class DiagnosticoDelDiagrama implements DiagnosticoDelModelo {
                 .contextualName("diagnosticar antes de publicar")
                 .lowCardinalityKeyValue("uso", "publicacion")
                 .highCardinalityKeyValue("proceso.id", String.valueOf(proceso.id()))
-                .observe(() -> DiagnosticoServiceImpl.revisar(armado.armar(proceso, false, empresaId)).hallazgos()
-                        .stream()
-                        .filter(hallazgo -> hallazgo.severidad() == Severidad.ALTA)
-                        .map(DiagnosticoDelDiagrama::redactar)
-                        .toList());
+                .observe(() -> {
+                    List<String> errores = new ArrayList<>(DiagnosticoServiceImpl.revisar(
+                            armado.armar(proceso, false, empresaId)).hallazgos().stream()
+                            .filter(hallazgo -> hallazgo.severidad() == Severidad.ALTA)
+                            .map(DiagnosticoDelDiagrama::redactar)
+                            .toList());
+                    errores.addAll(erroresDeLasLlamadas(empresaId, proceso.id()));
+                    return errores;
+                });
+    }
+
+    /**
+     * PR 56: lo de las llamadas mira mas alla del diagrama: si el proceso llamado sigue vivo, y si siguiendo las
+     * llamadas se vuelve a este proceso. Se revisa al publicar, que es cuando empieza a importar.
+     */
+    private List<String> erroresDeLasLlamadas(Long empresaId, Long procesoId) {
+        List<ActividadRepository.Llamada> llamadas = actividadRepository.llamadasDeLaTienda(empresaId);
+        List<String> errores = new ArrayList<>();
+        Map<Long, List<Long>> grafo = new HashMap<>();
+        for (ActividadRepository.Llamada llamada : llamadas) {
+            grafo.computeIfAbsent(llamada.procesoId(), sinLlamadas -> new ArrayList<>()).add(llamada.llamadoId());
+            if (llamada.procesoId().equals(procesoId) && !llamada.llamadoActivo()) {
+                errores.add(CodigoDeDiagnostico.E20.codigo() + " Actividad \"" + llamada.actividad() + "\": llama a \""
+                        + llamada.llamadoNombre() + "\", que esta dado de baja.");
+            }
+        }
+        if (alcanza(grafo, procesoId)) {
+            errores.add(CodigoDeDiagnostico.E21.codigo() + " Las actividades de llamada vuelven a este proceso: las "
+                    + "llamadas no pueden ser circulares.");
+        }
+        return errores;
+    }
+
+    /** Si siguiendo las llamadas desde este proceso se vuelve a el. */
+    private static boolean alcanza(Map<Long, List<Long>> grafo, Long procesoId) {
+        Set<Long> vistos = new HashSet<>();
+        Deque<Long> porVer = new ArrayDeque<>(grafo.getOrDefault(procesoId, List.of()));
+        while (!porVer.isEmpty()) {
+            Long actual = porVer.poll();
+            if (actual.equals(procesoId)) {
+                return true;
+            }
+            if (vistos.add(actual)) {
+                porVer.addAll(grafo.getOrDefault(actual, List.of()));
+            }
+        }
+        return false;
     }
 
     /** El codigo y el elemento van en el texto: quien recibe el 409 no tiene el diagnostico delante. */

@@ -5,10 +5,10 @@
 |Bean references
 |* `c.f.p.g.service.ProcesoService` (in Gestion)
 * `c.f.p.g.service.HistorialCambioService` (in Gestion)
+* `c.f.p.g.repository.ProcesoRepository` (in Gestion)
 * `c.f.p.g.repository.RolProcesoRepository` (in Gestion)
 * `c.f.p.g.service.RolProcesoService` (in Gestion)
 * `c.f.p.g.service.ConfiguracionTiendaService` (in Gestion)
-* `c.f.p.g.repository.ProcesoRepository` (in Gestion)
 * `c.f.p.g.service.VersionService` (in Gestion)
 * `c.f.p.c.auditoria.Auditoria` (in Common)
 |Aggregate roots

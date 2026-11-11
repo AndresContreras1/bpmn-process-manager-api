@@ -137,6 +137,8 @@ public final class ConversionBpmn {
         private final Set<String> idsDeAsociaciones = new HashSet<>();
         /** El marco de las posiciones: la menor x de los nodos y la menor y de los nodos de cada lane. */
         private Double menorX;
+        /** PR 56: los subprocesos del archivo que llevan algo dentro. */
+        private final Set<String> contenedores = new HashSet<>();
         private final Map<String, Double> menorYDeLaLane = new HashMap<>();
 
         Conversion(ModeloLeido leido) {
@@ -378,7 +380,14 @@ public final class ConversionBpmn {
             }
             String primera = lanes.stream().filter(lane -> lane.pool().equals(pool)).findFirst()
                     .map(Lane::bpmnId).orElse(null);
+            Set<String> conContenido = new HashSet<>();
+            proceso.nodos().forEach(nodo -> conContenido.add(nodo.padre()));
+            contenedores.addAll(conContenido);
             for (ModeloLeido.Nodo nodo : proceso.nodos()) {
+                if (nodo.padre() != null) {
+                    delContenido(nodo, pool);
+                    continue;
+                }
                 String lane = laneDelNodo.get(nodo.id());
                 if (lane == null) {
                     lane = primera;
@@ -386,6 +395,19 @@ public final class ConversionBpmn {
                 }
                 nodo(nodo, pool, lane);
             }
+        }
+
+        /** PR 56: lo de dentro de un subproceso esta en su lane; si el subproceso se dejo fuera, tambien lo de dentro. */
+        private void delContenido(ModeloLeido.Nodo nodo, String pool) {
+            String padre = ids.get(nodo.padre());
+            Nodo contenedor = padre == null ? null : nodoPorId.get(padre);
+            if (contenedor == null) {
+                descartados.add(nodo.id());
+                notas.noSoportado(Objects.requireNonNullElse(nodo.id(), nodo.elemento()),
+                        "Esta dentro de algo que se dejo fuera, asi que tambien se deja fuera.");
+                return;
+            }
+            nodo(nodo, pool, contenedor.lane());
         }
 
         private void nodo(ModeloLeido.Nodo leidoNodo, String pool, String lane) {
@@ -430,7 +452,9 @@ public final class ConversionBpmn {
                     nombre(leidoNodo.nombre(), null, porDefecto, original, "el nodo"),
                     recortar(leidoNodo.descripcion(), DESCRIPCION), 0, 0, deBorde ? leidoNodo.adjuntoA() : null,
                     deBorde ? Boolean.valueOf(leidoNodo.interrumpe()) : null,
-                    conTiempo ? tipoDeTiempo(leidoNodo) : null, conTiempo ? expresion(leidoNodo) : null);
+                    conTiempo ? tipoDeTiempo(leidoNodo) : null, conTiempo ? expresion(leidoNodo) : null,
+                    leidoNodo.padre() == null ? null : ids.get(leidoNodo.padre()),
+                    actividad == TipoActividad.LLAMADA ? procesoLlamado(leidoNodo) : null);
             nodos.add(nodo);
             nodoPorId.put(id, nodo);
             poolDelNodo.put(id, pool);
@@ -448,6 +472,8 @@ public final class ConversionBpmn {
                 case "sendTask" -> TipoActividad.ENVIO;
                 case "receiveTask" -> TipoActividad.RECEPCION;
                 case "task" -> TipoActividad.SIN_TIPO;
+                case "callActivity" -> TipoActividad.LLAMADA;
+                case "subProcess" -> tipoDeSubproceso(id);
                 case "businessRuleTask", "scriptTask" -> {
                     notas.convertido(id, "Una " + elemento + " corre sola: queda como tarea de servicio.");
                     yield TipoActividad.SERVICIO;
@@ -457,6 +483,37 @@ public final class ConversionBpmn {
                     yield TipoActividad.USUARIO;
                 }
             };
+        }
+
+        /**
+         * PR 56: el modelo dibuja un solo plano, asi que un subproceso colapsado con contenido se despliega; sin
+         * contenido se queda como esta.
+         */
+        private TipoActividad tipoDeSubproceso(String id) {
+            boolean expandido = leido.expandidos().contains(id);
+            if (contenedores.contains(id)) {
+                if (!expandido) {
+                    notas.convertido(id, "Un subproceso colapsado con contenido: se despliega.");
+                }
+                return TipoActividad.SUBPROCESO;
+            }
+            return expandido ? TipoActividad.SUBPROCESO : TipoActividad.SUBPROCESO_COLAPSADO;
+        }
+
+        /** El proceso que llama, si el archivo lo nombra como lo escribe este producto. */
+        private Long procesoLlamado(ModeloLeido.Nodo nodo) {
+            String llamado = nodo.llamado();
+            String numero = llamado != null && llamado.startsWith(EspaciosBpmn.PREFIJO_PROCESO_LLAMADO)
+                    ? llamado.substring(EspaciosBpmn.PREFIJO_PROCESO_LLAMADO.length()) : null;
+            try {
+                if (numero != null) {
+                    return Long.valueOf(numero);
+                }
+            } catch (NumberFormatException noEsUnId) {
+                // Lo nombra otra herramienta: se avisa igual que si no dijera ninguno
+            }
+            notas.convertido(nodo.id(), "Una callActivity que no nombra un proceso de esta tienda: elige cual llama.");
+            return null;
         }
 
         /** El tipo de evento, o nulo si el modelo no tiene uno parecido y se deja fuera. */
@@ -570,7 +627,7 @@ public final class ConversionBpmn {
                 }
                 Nodo pegado = new Nodo(borde.bpmnId(), actividad.lane(), borde.clase(), null, null, borde.tipoEvento(),
                         borde.nombre(), borde.descripcion(), 0, 0, actividad.bpmnId(), borde.interrumpe(),
-                        borde.tipoTemporizador(), borde.temporizador());
+                        borde.tipoTemporizador(), borde.temporizador(), actividad.padre(), null);
                 pegados.add(pegado);
                 nodoPorId.put(pegado.bpmnId(), pegado);
             }
@@ -621,14 +678,17 @@ public final class ConversionBpmn {
                 }
             }
             // Un evento de borde no cuenta para el marco: se dibuja sobre su actividad, no donde este
-            List<Nodo> enElFlujo = nodos.stream().filter(nodo -> nodo.adjuntoA() == null).toList();
+            Set<String> cajas = new HashSet<>();
+            nodos.forEach(nodo -> cajas.add(nodo.padre()));
+            List<Nodo> enElFlujo = nodos.stream()
+                    .filter(nodo -> nodo.adjuntoA() == null && !cajas.contains(nodo.bpmnId())).toList();
             menorX = enElFlujo.isEmpty() ? null
                     : enElFlujo.stream().mapToDouble(nodo -> centros.get(nodo.bpmnId())[0]).min().orElse(0);
             for (Nodo nodo : enElFlujo) {
                 menorYDeLaLane.merge(nodo.lane(), centros.get(nodo.bpmnId())[1], Math::min);
             }
             nodos.replaceAll(nodo -> {
-                if (nodo.adjuntoA() != null) {
+                if (nodo.adjuntoA() != null || cajas.contains(nodo.bpmnId())) {
                     return nodo;
                 }
                 double[] centro = centros.get(nodo.bpmnId());
@@ -924,6 +984,10 @@ public final class ConversionBpmn {
                 }
                 if (a.tipoEvento() != null && a.tipoEvento().empiezaElProceso()) {
                     notas.error("El flujo " + flujo.id() + " llega a un evento de inicio (" + a.nombre() + ").");
+                    continue;
+                }
+                if (!Objects.equals(de.padre(), a.padre())) {
+                    notas.error("El flujo " + flujo.id() + " cruza el borde de un subproceso.");
                     continue;
                 }
                 if (a.tipoEvento() != null && a.tipoEvento().esDeBorde()) {

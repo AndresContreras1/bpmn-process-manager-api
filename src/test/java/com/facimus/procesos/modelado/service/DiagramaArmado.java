@@ -176,6 +176,22 @@ public class DiagramaArmado {
         return id;
     }
 
+    /** PR 56: una actividad dentro de un subproceso, o de llamada con {@code llamado}. */
+    public Long actividadEn(String lane, String nombre, TipoActividad tipo, String padre, Long llamado) {
+        Long id = registrar(nombre);
+        actividades.add(new ActividadResponse(id, "Activity_" + id, nombre, null, tipo, 0, 0, id(lane), 0L, null, null,
+                null, null, padre == null ? null : id(padre), llamado));
+        return id;
+    }
+
+    /** PR 56: un evento dentro de un subproceso. */
+    public Long eventoEn(String lane, String nombre, TipoEvento tipo, String padre) {
+        Long id = registrar(nombre);
+        eventos.add(new EventoResponse(id, "Event_" + id, nombre, tipo, 0, 0, id(lane), 0L, null, null, null, null, null,
+                null, null, null, id(padre)));
+        return id;
+    }
+
     public void modo(ModoProceso nuevo) {
         modo = nuevo;
     }

@@ -2,11 +2,16 @@ package com.facimus.procesos.modelado.model;
 
 import org.hibernate.annotations.SQLDelete;
 
+import com.facimus.procesos.gestion.model.Proceso;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -32,6 +37,11 @@ public class Actividad extends NodoFlujo {
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_actividad", length = 20)
     private TipoActividad tipoActividad;
+
+    /** PR 56: el proceso que corre una actividad de llamada. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proceso_llamado_id")
+    private Proceso procesoLlamado;
 
     @Override
     public boolean puedeEnviarMensajes() {

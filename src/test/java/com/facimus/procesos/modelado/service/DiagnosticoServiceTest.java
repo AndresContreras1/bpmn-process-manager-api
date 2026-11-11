@@ -629,6 +629,58 @@ class DiagnosticoServiceTest {
         assertThat(codigos(diagnostico, "A-15")).isEmpty();
     }
 
+    @Test
+    @DisplayName("E-19: un subproceso no corre en un proceso ejecutable, y en uno documental si vale")
+    void e19_subproceso() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        Long subproceso = armado.actividadEn(DiagramaArmado.VENTAS, "Inside", TipoActividad.SUBPROCESO, null, null);
+
+        assertThat(codigos(diagnosticar(armado), "E-19")).containsExactly(subproceso);
+
+        armado.modo(ModoProceso.DOCUMENTAL);
+        assertThat(codigos(diagnosticar(armado), "E-19")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("E-20 y A-16: una llamada sin proceso es un error; con proceso avisa de que todavia no lo corre")
+    void llamadas() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        Long sinProceso = armado.actividadEn(DiagramaArmado.VENTAS, "Nothing", TipoActividad.LLAMADA, null, null);
+        Long conProceso = armado.actividadEn(DiagramaArmado.VENTAS, "Something", TipoActividad.LLAMADA, null, 7L);
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado);
+
+        assertThat(codigos(diagnostico, "E-20")).containsExactly(sinProceso);
+        assertThat(codigos(diagnostico, "A-16")).containsExactly(conProceso);
+    }
+
+    @Test
+    @DisplayName("Lo de dentro de un subproceso no cuenta para los caminos del flujo principal")
+    void contenido_noCuentaEnElFlujoPrincipal() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.actividadEn(DiagramaArmado.VENTAS, "Inside", TipoActividad.SUBPROCESO, null, null);
+        Long hijo = armado.actividadEn(DiagramaArmado.VENTAS, "Child", TipoActividad.USUARIO, "Inside", null);
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado);
+
+        assertThat(codigos(diagnostico, "E-04")).doesNotContain(hijo);
+        assertThat(codigos(diagnostico, "E-05")).doesNotContain(hijo);
+    }
+
+    @Test
+    @DisplayName("Simular el borrado de un subproceso se lleva lo que tiene dentro, a cualquier profundidad")
+    void simular_seLlevaElContenido() {
+        DiagramaArmado armado = DiagramaArmado.reciennacido();
+        armado.lane(DiagramaArmado.TIENDA, "Sales");
+        Long fuera = armado.actividadEn("Sales", "Outer", TipoActividad.SUBPROCESO, null, null);
+        Long medio = armado.actividadEn("Sales", "Middle", TipoActividad.SUBPROCESO, "Outer", null);
+        Long dentro = armado.eventoEn("Sales", "Deep", TipoEvento.FIN, "Middle");
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado, "ACTIVIDAD:" + fuera);
+
+        assertThat(codigos(diagnostico, "A-06")).contains(medio, dentro);
+    }
+
     private DiagnosticoResponse diagnosticar(DiagramaArmado armado) {
         return diagnosticar(armado, null);
     }

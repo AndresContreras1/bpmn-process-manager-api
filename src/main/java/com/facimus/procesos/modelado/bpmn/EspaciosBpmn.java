@@ -20,6 +20,9 @@ public final class EspaciosBpmn {
     /** Donde se dejan los procesos exportados; un archivo BPMN necesita uno. */
     public static final String PROCESOS = "urn:bpmn-process-manager:procesos";
 
+    /** PR 56: como nombra un archivo al proceso de la tienda que corre una actividad de llamada. */
+    public static final String PREFIJO_PROCESO_LLAMADO = "Proceso_";
+
     private EspaciosBpmn() {
     }
 }

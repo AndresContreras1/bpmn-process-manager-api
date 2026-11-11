@@ -1,5 +1,7 @@
 package com.facimus.procesos.modelado.repository;
 
+import java.util.List;
+
 import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.modelado.model.NodoFlujo;
 
@@ -15,4 +17,7 @@ public interface NodoFlujoRepository extends RepositorioTenant<NodoFlujo> {
     boolean existsByLaneIdAndEmpresaId(Long laneId, Long empresaId);
 
     boolean existsByLane_Pool_IdAndEmpresaId(Long poolId, Long empresaId);
+
+    /** PR 56: lo que un subproceso contiene directamente. */
+    List<NodoFlujo> findAllByPadre_IdAndEmpresaIdOrderByIdAsc(Long padreId, Long empresaId);
 }

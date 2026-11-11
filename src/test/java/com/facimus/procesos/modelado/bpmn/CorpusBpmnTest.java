@@ -56,15 +56,15 @@ class CorpusBpmnTest {
     }
 
     @Test
-    @DisplayName("A.3.0: el subproceso y los eventos de borde quedan fuera, con los flujos que los tocaban")
+    @DisplayName("A.3.0: el subproceso entra; los eventos de borde de mensaje y escalamiento quedan fuera con sus flujos")
     void a30() {
         InformeBpmn informe = plan("miwg/A.3.0.bpmn").informe();
 
-        assertThat(informe.soportados()).containsEntry("tareas", 4).containsEntry("flujos", 4);
+        assertThat(informe.soportados()).containsEntry("tareas", 5).containsEntry("flujos", 6);
         assertThat(informe.noSoportados()).extracting(Hallazgo::detalle)
-                .filteredOn(detalle -> detalle.contains("subProcess") || detalle.contains("boundaryEvent")).hasSize(3);
+                .filteredOn(detalle -> detalle.contains("boundaryEvent")).hasSize(2);
         assertThat(informe.noSoportados()).extracting(Hallazgo::detalle)
-                .filteredOn(detalle -> detalle.contains("Toca un elemento que se dejo fuera")).hasSize(4);
+                .filteredOn(detalle -> detalle.contains("Toca un elemento que se dejo fuera")).hasSize(2);
     }
 
     @Test

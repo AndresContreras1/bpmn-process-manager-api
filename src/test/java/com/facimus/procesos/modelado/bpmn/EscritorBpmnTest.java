@@ -226,6 +226,38 @@ class EscritorBpmnTest {
                 .satisfies(una -> assertThat(una.getAttribute("associationDirection")).isEqualTo("One"));
     }
 
+    @Test
+    @DisplayName("Un subproceso lleva dentro su flujo y sale expandido; la llamada nombra su proceso")
+    void subprocesos() {
+        DiagramaArmado armado = DiagramaArmado.reciennacido();
+        armado.lane(DiagramaArmado.TIENDA, "Sales");
+        armado.evento("Sales", "Start", TipoEvento.INICIO);
+        Long subproceso = armado.actividadEn("Sales", "Inside", TipoActividad.SUBPROCESO, null, null);
+        armado.eventoEn("Sales", "Inner start", TipoEvento.INICIO, "Inside");
+        armado.actividadEn("Sales", "Inner work", TipoActividad.USUARIO, "Inside", null);
+        armado.arco("Inner start", "Inner work");
+        armado.actividadEn("Sales", "Black box", TipoActividad.SUBPROCESO_COLAPSADO, null, null);
+        armado.actividadEn("Sales", "Call", TipoActividad.LLAMADA, null, 7L);
+        armado.arco("Start", "Inside");
+        armado.modo(ModoProceso.DOCUMENTAL);
+
+        byte[] xml = exportar(armado.diagrama());
+        Document documento = leer(xml);
+
+        assertThat(EsquemaBpmn.problemas(xml)).isEmpty();
+        Element contenedor = elementos(documento, BPMN, "subProcess").stream()
+                .filter(uno -> uno.getAttribute("id").equals("Activity_" + subproceso)).findFirst().orElseThrow();
+        assertThat(elementos(contenedor, BPMN, "userTask")).hasSize(1);
+        assertThat(elementos(contenedor, BPMN, "sequenceFlow")).hasSize(1);
+        assertThat(elementos(documento, BPMN, "callActivity").getFirst().getAttribute("calledElement"))
+                .isEqualTo("Proceso_7");
+        assertThat(elementos(documento, EspaciosBpmn.BPMNDI, "BPMNShape"))
+                .filteredOn(forma -> "true".equals(forma.getAttribute("isExpanded")))
+                .extracting(forma -> forma.getAttribute("bpmnElement")).containsExactly("Activity_" + subproceso);
+        assertThat(elementos(documento, BPMN, "flowNodeRef")).extracting(Element::getTextContent)
+                .doesNotContain("Activity_" + armado.id("Inner work"));
+    }
+
     /** Un proceso documental con un caso de cada elemento descriptivo. */
     private static DiagramaArmado descriptivo() {
         DiagramaArmado armado = DiagramaArmado.reciennacido();

@@ -14,21 +14,23 @@ import com.facimus.procesos.modelado.model.TipoTemporizador;
  */
 record NodoDelDiagrama(Long id, String bpmnId, String nombre, Long laneId, TipoActividad tipoActividad,
         TipoGateway tipoGateway, TipoEvento tipoEvento, Long adjuntoAId, TipoTemporizador tipoTemporizador,
-        String temporizador) {
+        String temporizador, Long padreId, Long procesoLlamadoId) {
 
     static NodoDelDiagrama de(ActividadResponse actividad) {
         return new NodoDelDiagrama(actividad.id(), actividad.bpmnId(), actividad.nombre(), actividad.laneId(),
-                actividad.tipoActividad(), null, null, null, null, null);
+                actividad.tipoActividad(), null, null, null, null, null, actividad.padreId(),
+                actividad.procesoLlamadoId());
     }
 
     static NodoDelDiagrama de(GatewayResponse gateway) {
         return new NodoDelDiagrama(gateway.id(), gateway.bpmnId(), gateway.nombre(), gateway.laneId(), null,
-                gateway.tipoGateway(), null, null, null, null);
+                gateway.tipoGateway(), null, null, null, null, gateway.padreId(), null);
     }
 
     static NodoDelDiagrama de(EventoResponse evento) {
         return new NodoDelDiagrama(evento.id(), evento.bpmnId(), evento.nombre(), evento.laneId(), null, null,
-                evento.tipoEvento(), evento.adjuntoAId(), evento.tipoTemporizador(), evento.temporizador());
+                evento.tipoEvento(), evento.adjuntoAId(), evento.tipoTemporizador(), evento.temporizador(),
+                evento.padreId(), null);
     }
 
     /** PR 55: un evento de borde: no esta en el flujo, sale de la actividad a la que va pegado. */

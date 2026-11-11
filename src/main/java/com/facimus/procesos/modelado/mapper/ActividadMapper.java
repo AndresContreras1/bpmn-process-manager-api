@@ -13,6 +13,8 @@ import com.facimus.procesos.modelado.model.Actividad;
 public interface ActividadMapper {
 
     @Mapping(target = "laneId", source = "lane.id")
+    @Mapping(target = "padreId", source = "padre.id")
+    @Mapping(target = "procesoLlamadoId", source = "procesoLlamado.id")
     ActividadResponse toResponse(Actividad actividad);
 
     List<ActividadResponse> toResponses(List<Actividad> actividades);

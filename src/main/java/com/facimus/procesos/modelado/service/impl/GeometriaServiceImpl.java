@@ -99,7 +99,8 @@ public class GeometriaServiceImpl implements GeometriaService {
                                 lane.getOrden()))
                         .toList(),
                 nodos.stream().map(nodo -> new NodoPlano(nodo.getId(), nodo.getBpmnId(), nodo.getLane().getId(),
-                        claseDe(nodo), nodo.getPosicionX(), nodo.getPosicionY(), nodo.getNombre(), adjuntoA(nodo)))
+                        claseDe(nodo), nodo.getPosicionX(), nodo.getPosicionY(), nodo.getNombre(), adjuntoA(nodo),
+                        nodo.getPadre() == null ? null : nodo.getPadre().getId()))
                         .toList(),
                 arcoRepository.findAllByPool_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId).stream()
                         .map(arco -> new ArcoPlano(arco.getBpmnId(), arco.getOrigen().getId(),

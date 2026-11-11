@@ -186,6 +186,39 @@ class DisposicionBpmnTest {
     }
 
     @Test
+    @DisplayName("Un subproceso con contenido es la caja de lo que lleva dentro, y uno dentro de otro tambien")
+    void subprocesos() {
+        NodoPlano fuera = new NodoPlano(200, "Activity_200", 10, "TAREA", 999, 999, "Outer", null, null);
+        NodoPlano medio = new NodoPlano(201, "Activity_201", 10, "TAREA", 999, 999, "Middle", null, 200L);
+        NodoPlano hijo = new NodoPlano(202, "Activity_202", 10, "TAREA", 0, 0, "Child", null, 201L);
+        NodoPlano otro = new NodoPlano(203, "Activity_203", 10, "TAREA", 300, 40, "Other", null, 201L);
+
+        Map<String, Forma> con = formas(DisposicionBpmn.calcular(List.of(POOL), List.of(LANE),
+                List.of(fuera, medio, hijo, otro), List.of(), List.of()));
+
+        Limites a = con.get("Activity_202").limites();
+        Limites b = con.get("Activity_203").limites();
+        Limites caja = con.get("Activity_201").limites();
+        assertThat(caja.x()).isEqualTo(a.x() - 24);
+        assertThat(caja.y()).isEqualTo(a.y() - 24);
+        assertThat(caja.x() + caja.ancho()).isEqualTo(b.x() + b.ancho() + 24);
+        assertThat(caja.y() + caja.alto()).isEqualTo(b.y() + b.alto() + 24);
+        Limites exterior = con.get("Activity_200").limites();
+        assertThat(exterior.x()).isEqualTo(caja.x() - 24);
+        assertThat(exterior.ancho()).isEqualTo(caja.ancho() + 48);
+    }
+
+    @Test
+    @DisplayName("Un contenedor en un ciclo de datos rotos no cuelga la cuenta: no se dibuja")
+    void subprocesos_ciclo() {
+        NodoPlano uno = new NodoPlano(200, "Activity_200", 10, "TAREA", 0, 0, "One", null, 201L);
+        NodoPlano dos = new NodoPlano(201, "Activity_201", 10, "TAREA", 0, 0, "Two", null, 200L);
+
+        assertThat(formas(DisposicionBpmn.calcular(List.of(POOL), List.of(LANE), List.of(uno, dos), List.of(),
+                List.of()))).doesNotContainKeys("Activity_200", "Activity_201");
+    }
+
+    @Test
     @DisplayName("Los puntos se guardan como [[x,y],...] y se leen igual")
     void puntosEnLaBase() {
         String guardado = AristaBpmn.escribir(ARISTAS.get("Flow_2").puntos());

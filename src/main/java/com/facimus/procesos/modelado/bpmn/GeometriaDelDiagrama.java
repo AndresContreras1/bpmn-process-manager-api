@@ -28,13 +28,16 @@ public final class GeometriaDelDiagrama {
         List<NodoPlano> nodos = Stream.of(
                         diagrama.actividades().stream().map(actividad -> new NodoPlano(actividad.id(),
                                 IdsBpmn.de(actividad.bpmnId(), "Activity", actividad.id()), actividad.laneId(),
-                                "TAREA", actividad.posicionX(), actividad.posicionY(), actividad.nombre())),
+                                "TAREA", actividad.posicionX(), actividad.posicionY(), actividad.nombre(), null,
+                                actividad.padreId())),
                         diagrama.gateways().stream().map(gateway -> new NodoPlano(gateway.id(),
                                 IdsBpmn.de(gateway.bpmnId(), "Gateway", gateway.id()), gateway.laneId(), "COMPUERTA",
-                                gateway.posicionX(), gateway.posicionY(), gateway.nombre())),
+                                gateway.posicionX(), gateway.posicionY(), gateway.nombre(), null,
+                                gateway.padreId())),
                         diagrama.eventos().stream().map(evento -> new NodoPlano(evento.id(),
                                 IdsBpmn.de(evento.bpmnId(), "Event", evento.id()), evento.laneId(), "EVENTO",
-                                evento.posicionX(), evento.posicionY(), evento.nombre(), evento.adjuntoAId())))
+                                evento.posicionX(), evento.posicionY(), evento.nombre(), evento.adjuntoAId(),
+                                evento.padreId())))
                 .flatMap(nodo -> nodo)
                 .toList();
         return DisposicionBpmn.calcular(

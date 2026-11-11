@@ -19,7 +19,8 @@ export type TipoDestino = 'CORREO' | 'SERVICIO_WEB' | 'COLA';
 export type AccionSiFalla = 'CONTINUAR' | 'MANEJAR_ERROR' | 'FINALIZAR';
 export type PoliticaSinCaso = 'DESCARTAR' | 'INICIAR_CASO';
 export type TipoDeDato = 'TEXTO' | 'NUMERO' | 'FECHA' | 'BOOLEANO';
-export type TipoActividad = 'USUARIO' | 'SERVICIO' | 'ENVIO' | 'RECEPCION' | 'SIN_TIPO';
+export type TipoActividad =
+  'USUARIO' | 'SERVICIO' | 'ENVIO' | 'RECEPCION' | 'SIN_TIPO' | 'SUBPROCESO' | 'SUBPROCESO_COLAPSADO' | 'LLAMADA';
 /** Con que socio simulado habla el participante cuando el proceso corre. */
 export type Integracion = 'NINGUNA' | 'CLIENTE' | 'PAGOS' | 'TRANSPORTE' | 'NOTIFICACIONES';
 
@@ -286,6 +287,9 @@ export const NOMBRE_ACTIVIDAD: Record<TipoActividad, string> = {
   ENVIO: $localize`Send task`,
   RECEPCION: $localize`Receive task`,
   SIN_TIPO: $localize`Task without a kind`,
+  SUBPROCESO: $localize`Sub-process`,
+  SUBPROCESO_COLAPSADO: $localize`Collapsed sub-process`,
+  LLAMADA: $localize`Call activity`,
 };
 
 /** Las que se crean desde el editor; una tarea sin tipo solo llega en un archivo importado. */

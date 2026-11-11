@@ -15,7 +15,18 @@ public enum TipoActividad {
      * PR 55: una tarea sin decir quien la hace, como la escribe BPMN cuando solo se describe. Se publica en un proceso
      * documental; en uno ejecutable el diagnostico pide decidir su tipo.
      */
-    SIN_TIPO;
+    SIN_TIPO,
+    /** PR 56: un subproceso expandido: contiene su propio flujo, y los flujos no cruzan su borde. */
+    SUBPROCESO,
+    /** PR 56: un subproceso del que no se dibuja el contenido. */
+    SUBPROCESO_COLAPSADO,
+    /** PR 56: una actividad de llamada: corre otro proceso de la tienda. */
+    LLAMADA;
+
+    /** Si es un subproceso, expandido o no: en un proceso ejecutable el motor no los corre. */
+    public boolean esSubproceso() {
+        return this == SUBPROCESO || this == SUBPROCESO_COLAPSADO;
+    }
 
     /** Envio y recepcion existen para intercambiar un mensaje: sin mensaje no tienen sentido. */
     public boolean intercambiaMensajes() {
