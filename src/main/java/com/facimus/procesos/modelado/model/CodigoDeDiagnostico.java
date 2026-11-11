@@ -49,6 +49,12 @@ public enum CodigoDeDiagnostico {
     E17(Severidad.ALTA),
     /** PR 55: un evento de temporizador en un proceso que corre: los temporizadores todavia no saltan. */
     E18(Severidad.ALTA),
+    /** PR 56: un subproceso en un proceso que corre: el motor no los corre. */
+    E19(Severidad.ALTA),
+    /** PR 56: una actividad de llamada sin proceso, o con uno dado de baja. */
+    E20(Severidad.ALTA),
+    /** PR 56: procesos que se llaman en circulo. */
+    E21(Severidad.ALTA, true),
 
     /** Un mensaje sin anclar hacia un pool modelado por dentro, sin ningun nodo con ese nombre que lo espere. */
     A01(Severidad.MEDIA),
@@ -80,7 +86,9 @@ public enum CodigoDeDiagnostico {
     /** Un gateway inclusivo sin salida por defecto. */
     A14(Severidad.BAJA),
     /** PR 55: una asociacion con un extremo que ya no esta en el diagrama. */
-    A15(Severidad.BAJA, true);
+    A15(Severidad.BAJA, true),
+    /** PR 56: una actividad de llamada todavia no corre el proceso que llama: el caso sigue de largo. */
+    A16(Severidad.MEDIA);
 
     private final Severidad severidad;
     private final boolean estructural;

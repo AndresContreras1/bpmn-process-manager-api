@@ -59,6 +59,11 @@ public abstract class NodoFlujo extends EntidadEditable {
     @JoinColumn(name = "lane_id", nullable = false)
     private Lane lane;
 
+    /** PR 56: el subproceso que lo contiene; vacio si esta en el flujo principal. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "padre_id")
+    private NodoFlujo padre;
+
     /**
      * Si cada arco que sale de este nodo necesita condicion. Es un metodo y no un instanceof porque el origen de un
      * arco llega como proxy perezoso de NodoFlujo, y el proxy delega el metodo en el nodo real.

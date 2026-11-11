@@ -13,6 +13,7 @@ import com.facimus.procesos.modelado.model.Gateway;
 public interface GatewayMapper {
 
     @Mapping(target = "laneId", source = "lane.id")
+    @Mapping(target = "padreId", source = "padre.id")
     GatewayResponse toResponse(Gateway gateway);
 
     List<GatewayResponse> toResponses(List<Gateway> gateways);

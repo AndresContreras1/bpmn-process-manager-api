@@ -26,10 +26,32 @@ final class RevisionDeLoDescriptivo {
             if (nodo.esTemporizador()) {
                 temporizador(nodo, hallazgos);
             }
+            if (nodo.esActividad() && nodo.tipoActividad().esSubproceso()) {
+                hallazgos.anotar(CodigoDeDiagnostico.E19, nodo.etiqueta(), nodo.id(),
+                        "Un subproceso no corre en un proceso ejecutable.",
+                        "Conviertelo: lleva su contenido a otro proceso y usa una actividad de llamada, o pasa este a "
+                                + "documental.");
+            }
+            if (nodo.esActividad() && nodo.tipoActividad() == TipoActividad.LLAMADA) {
+                llamada(nodo, hallazgos);
+            }
         }
         for (AsociacionResponse asociacion : mapa.diagrama().asociaciones()) {
             asociacion(mapa, asociacion, hallazgos);
         }
+    }
+
+    /** E-20 y A-16: a que proceso llama, y que todavia no lo corre. */
+    private static void llamada(NodoDelDiagrama nodo, Hallazgos hallazgos) {
+        if (nodo.procesoLlamadoId() == null) {
+            hallazgos.anotar(CodigoDeDiagnostico.E20, nodo.etiqueta(), nodo.id(),
+                    "Esta actividad de llamada no dice que proceso corre.",
+                    "Elige el proceso de la tienda que llama.");
+            return;
+        }
+        hallazgos.anotar(CodigoDeDiagnostico.A16, nodo.etiqueta(), nodo.id(),
+                "Las actividades de llamada todavia no corren el proceso que llaman: el caso sigue de largo.",
+                "Dejala asi si el proceso llamado solo documenta ese paso.");
     }
 
     /** E-16 y E-18: cuando salta, y que todavia no salta. */

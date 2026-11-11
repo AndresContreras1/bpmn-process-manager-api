@@ -30,14 +30,24 @@ public record EventoResponse(
         @Schema(description = "ISO 8601 duration, date or cycle of a timer event", example = "PT2H") String temporizador,
         @Schema(description = "Activity a boundary event is attached to", example = "10") Long adjuntoAId,
         @Schema(description = "Whether a boundary event interrupts the activity when it fires", example = "true")
-        Boolean interrumpe) {
+        Boolean interrumpe,
+        @Schema(description = "Sub-process that contains it; empty in the main flow", example = "12") Long padreId) {
+
+    /** El de antes del PR 56, en el flujo principal. */
+    public EventoResponse(Long id, String bpmnId, String nombre, TipoEvento tipoEvento, int posicionX, int posicionY,
+            Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion, Long modificadoPor,
+            LocalDateTime fechaModificacion, TipoTemporizador tipoTemporizador, String temporizador, Long adjuntoAId,
+            Boolean interrumpe) {
+        this(id, bpmnId, nombre, tipoEvento, posicionX, posicionY, laneId, version, creadoPor, fechaCreacion,
+                modificadoPor, fechaModificacion, tipoTemporizador, temporizador, adjuntoAId, interrumpe, null);
+    }
 
     /** El de antes del PR 55, sin temporizador. */
     public EventoResponse(Long id, String bpmnId, String nombre, TipoEvento tipoEvento, int posicionX, int posicionY,
             Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion, Long modificadoPor,
             LocalDateTime fechaModificacion) {
         this(id, bpmnId, nombre, tipoEvento, posicionX, posicionY, laneId, version, creadoPor, fechaCreacion,
-                modificadoPor, fechaModificacion, null, null, null, null);
+                modificadoPor, fechaModificacion, null, null, null, null, null);
     }
 
     @Default

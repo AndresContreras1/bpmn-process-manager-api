@@ -12,7 +12,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.LongPredicate;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
@@ -173,6 +172,8 @@ public final class EscritorBpmn {
         private final Set<String> elementos = new HashSet<>();
         private final Set<String> datos = new HashSet<>();
         private final Set<Long> cajasNegras = new HashSet<>();
+        /** PR 56: el subproceso de cada nodo que esta dentro de uno. */
+        private final Map<Long, Long> padreDe = new HashMap<>();
 
         Escritura(DiagramaResponse diagrama, Geometria geometria, Salida salida, Ajenos ajenos) {
             this.diagrama = diagrama;
@@ -189,6 +190,9 @@ public final class EscritorBpmn {
             diagrama.mensajes().forEach(mensaje -> mensajes.put(mensaje.id(),
                     IdsBpmn.de(mensaje.bpmnId(), "MessageFlow", mensaje.id())));
             diagrama.pools().stream().filter(PoolResponse::cajaNegra).forEach(pool -> cajasNegras.add(pool.id()));
+            diagrama.actividades().forEach(nodo -> anotarPadre(nodo.id(), nodo.padreId()));
+            diagrama.gateways().forEach(nodo -> anotarPadre(nodo.id(), nodo.padreId()));
+            diagrama.eventos().forEach(nodo -> anotarPadre(nodo.id(), nodo.padreId()));
             diagrama.actividades().forEach(nodo -> anotarElemento(nodos.get(nodo.id()), nodo.laneId()));
             diagrama.gateways().forEach(nodo -> anotarElemento(nodos.get(nodo.id()), nodo.laneId()));
             diagrama.eventos().forEach(nodo -> anotarElemento(nodos.get(nodo.id()), nodo.laneId()));
@@ -204,6 +208,12 @@ public final class EscritorBpmn {
                 if (esDato(artefacto)) {
                     datos.add(artefacto.bpmnId());
                 }
+            }
+        }
+
+        private void anotarPadre(Long nodo, Long padre) {
+            if (padre != null) {
+                padreDe.put(nodo, padre);
             }
         }
 
@@ -514,30 +524,34 @@ public final class EscritorBpmn {
                 }
                 salida.cerrar();
             }
-            LongPredicate enElPool = laneId -> pool.id().equals(poolDeLaLane.get(laneId));
+            nodosYFlujos(pool.id(), null);
+            datosDelProceso(pool.id());
+            artefactosDe(pool.id());
+            salida.cerrar();
+        }
+
+        /** Lo que hay en un proceso o, con {@code padre}, dentro de un subproceso suyo. */
+        private void nodosYFlujos(Long pool, Long padre) throws XMLStreamException {
             for (EventoResponse evento : ordenados(diagrama.eventos(), EventoResponse::id)) {
-                if (enElPool.test(evento.laneId())) {
+                if (pool.equals(poolDeLaLane.get(evento.laneId())) && Objects.equals(padre, evento.padreId())) {
                     evento(evento);
                 }
             }
             for (ActividadResponse actividad : ordenados(diagrama.actividades(), ActividadResponse::id)) {
-                if (enElPool.test(actividad.laneId())) {
+                if (pool.equals(poolDeLaLane.get(actividad.laneId())) && Objects.equals(padre, actividad.padreId())) {
                     actividad(actividad);
                 }
             }
             for (GatewayResponse gateway : ordenados(diagrama.gateways(), GatewayResponse::id)) {
-                if (enElPool.test(gateway.laneId())) {
+                if (pool.equals(poolDeLaLane.get(gateway.laneId())) && Objects.equals(padre, gateway.padreId())) {
                     gateway(gateway);
                 }
             }
             for (ArcoResponse arco : ordenados(diagrama.arcos(), ArcoResponse::id)) {
-                if (pool.id().equals(arco.poolId())) {
+                if (pool.equals(arco.poolId()) && Objects.equals(padre, padreDe.get(arco.origenId()))) {
                     flujo(arco);
                 }
             }
-            datosDelProceso(pool.id());
-            artefactosDe(pool.id());
-            salida.cerrar();
         }
 
         private void lane(LaneResponse lane) throws XMLStreamException {
@@ -566,12 +580,16 @@ public final class EscritorBpmn {
                 case ENVIO -> "sendTask";
                 case RECEPCION -> "receiveTask";
                 case SIN_TIPO -> "task";
+                case SUBPROCESO, SUBPROCESO_COLAPSADO -> "subProcess";
+                case LLAMADA -> "callActivity";
             };
             String id = nodos.get(actividad.id());
             salida.abrir("bpmn", elemento);
             salida.atributo("id", id);
             salida.atributo("name", actividad.nombre());
             salida.atributo("default", porDefecto(actividad.id()));
+            salida.atributo("calledElement", actividad.procesoLlamadoId() == null ? null
+                    : EspaciosBpmn.PREFIJO_PROCESO_LLAMADO + actividad.procesoLlamadoId());
             if (tipo == TipoActividad.ENVIO) {
                 salida.atributo(MESSAGE_REF, mensajeQueSaleDe(actividad.id()));
             } else if (tipo == TipoActividad.RECEPCION) {
@@ -582,6 +600,9 @@ public final class EscritorBpmn {
             extensiones(id, false, null);
             entradasYSalidas(actividad.id());
             datosDeLaActividad(id);
+            if (tipo != null && tipo.esSubproceso()) {
+                nodosYFlujos(poolDeLaLane.get(actividad.laneId()), actividad.id());
+            }
             salida.cerrar();
         }
 
@@ -695,6 +716,9 @@ public final class EscritorBpmn {
             List<String> exclusivos = diagrama.gateways().stream()
                     .filter(gateway -> gateway.tipoGateway() == TipoGateway.EXCLUSIVO)
                     .map(gateway -> nodos.get(gateway.id())).toList();
+            List<String> expandidos = diagrama.actividades().stream()
+                    .filter(actividad -> actividad.tipoActividad() == TipoActividad.SUBPROCESO)
+                    .map(actividad -> nodos.get(actividad.id())).toList();
             List<Forma> formas = geometria.formas().stream()
                     .sorted(Comparator.comparingInt(Escritura::capa)).toList();
             for (Forma forma : formas) {
@@ -704,6 +728,7 @@ public final class EscritorBpmn {
                 boolean horizontal = "PARTICIPANTE".equals(forma.tipo()) || "LANE".equals(forma.tipo());
                 salida.atributo("isHorizontal", horizontal ? true : null);
                 salida.atributo("isMarkerVisible", exclusivos.contains(forma.elemento()) ? true : null);
+                salida.atributo("isExpanded", expandidos.contains(forma.elemento()) ? true : null);
                 ajenos.atributos(ExtensionXml.delDibujo(forma.elemento()), salida);
                 limites("dc", forma.limites());
                 etiqueta(forma.etiqueta());
@@ -782,11 +807,15 @@ public final class EscritorBpmn {
 
         private List<Long> nodosDeLaLane(Long laneId) {
             List<Long> deLaLane = new ArrayList<>();
-            ordenados(diagrama.eventos(), EventoResponse::id).stream().filter(nodo -> laneId.equals(nodo.laneId()))
+            // PR 56: lo de dentro de un subproceso va en el subproceso, que es el que esta en la lane
+            ordenados(diagrama.eventos(), EventoResponse::id).stream()
+                    .filter(nodo -> laneId.equals(nodo.laneId()) && nodo.padreId() == null)
                     .forEach(nodo -> deLaLane.add(nodo.id()));
             ordenados(diagrama.actividades(), ActividadResponse::id).stream()
-                    .filter(nodo -> laneId.equals(nodo.laneId())).forEach(nodo -> deLaLane.add(nodo.id()));
-            ordenados(diagrama.gateways(), GatewayResponse::id).stream().filter(nodo -> laneId.equals(nodo.laneId()))
+                    .filter(nodo -> laneId.equals(nodo.laneId()) && nodo.padreId() == null)
+                    .forEach(nodo -> deLaLane.add(nodo.id()));
+            ordenados(diagrama.gateways(), GatewayResponse::id).stream()
+                    .filter(nodo -> laneId.equals(nodo.laneId()) && nodo.padreId() == null)
                     .forEach(nodo -> deLaLane.add(nodo.id()));
             return deLaLane;
         }

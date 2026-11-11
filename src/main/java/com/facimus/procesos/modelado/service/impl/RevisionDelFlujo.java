@@ -39,7 +39,9 @@ final class RevisionDelFlujo {
     }
 
     private static void revisarElPoolDeLaTienda(MapaDelDiagrama mapa, PoolResponse propio, Hallazgos hallazgos) {
-        List<NodoDelDiagrama> nodos = mapa.nodosDe(propio.id());
+        // PR 56: lo de dentro de un subproceso tiene su propio flujo; aqui cuenta el principal
+        List<NodoDelDiagrama> nodos = mapa.nodosDe(propio.id()).stream().filter(nodo -> nodo.padreId() == null)
+                .toList();
         if (!mapa.seModelaPorDentro(propio.id())) {
             hallazgos.anotar(CodigoDeDiagnostico.E01, "Pool \"" + propio.nombre() + "\"", propio.id(),
                     "El pool de la tienda no tiene ninguna lane, asi que no hay donde poner el trabajo.",

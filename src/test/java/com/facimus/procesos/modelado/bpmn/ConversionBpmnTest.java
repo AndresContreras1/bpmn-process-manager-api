@@ -333,6 +333,59 @@ class ConversionBpmnTest {
         assertThat(fuera.y()).isZero();
     }
 
+    @Test
+    @DisplayName("Un subproceso entra con su contenido, en su lane, y uno vacio se queda como esta")
+    void subprocesos() {
+        PlanBpmn plan = convertir(proceso("<bpmn:subProcess id=\"S\"><bpmn:incoming>x</bpmn:incoming>"
+                + "<bpmn:startEvent id=\"I\"/><bpmn:userTask id=\"T\"/>"
+                + "<bpmn:sequenceFlow id=\"a\" sourceRef=\"I\" targetRef=\"T\"/></bpmn:subProcess>"
+                + "<bpmn:subProcess id=\"V\"/>"));
+
+        assertThat(nodo(plan, "S").tipoActividad()).isEqualTo(TipoActividad.SUBPROCESO);
+        assertThat(nodo(plan, "V").tipoActividad()).isEqualTo(TipoActividad.SUBPROCESO_COLAPSADO);
+        assertThat(nodo(plan, "T").padre()).isEqualTo("S");
+        assertThat(nodo(plan, "T").lane()).isEqualTo(nodo(plan, "S").lane());
+        assertThat(plan.arcos()).extracting(PlanBpmn.Arco::bpmnId).containsExactly("a");
+        assertThat(plan.informe().noSoportados()).isEmpty();
+        assertThat(plan.informe().convertidos()).extracting(Hallazgo::detalle)
+                .anySatisfy(detalle -> assertThat(detalle).contains("se despliega"));
+    }
+
+    @Test
+    @DisplayName("Un flujo que cruza el borde de un subproceso es un error del archivo")
+    void flujoCruzaElBorde() {
+        String xml = proceso("<bpmn:startEvent id=\"I\"/><bpmn:subProcess id=\"S\"><bpmn:userTask id=\"T\"/>"
+                + "</bpmn:subProcess><bpmn:sequenceFlow id=\"a\" sourceRef=\"I\" targetRef=\"T\"/>");
+
+        assertThatThrownBy(() -> convertir(xml)).isInstanceOf(ReglaNegocioException.class)
+                .satisfies(error -> assertThat(((ReglaNegocioException) error).getErrores())
+                        .anySatisfy(texto -> assertThat(texto).contains("cruza el borde")));
+    }
+
+    @Test
+    @DisplayName("Una llamada entra con su proceso si lo nombra como este producto, y si no se avisa")
+    void llamadas() {
+        PlanBpmn plan = convertir(proceso("<bpmn:callActivity id=\"C\" calledElement=\"Proceso_7\"/>"
+                + "<bpmn:callActivity id=\"D\" calledElement=\"other-key\"/>"
+                + "<bpmn:callActivity id=\"E\" calledElement=\"Proceso_abc\"/>"));
+
+        assertThat(nodo(plan, "C").tipoActividad()).isEqualTo(TipoActividad.LLAMADA);
+        assertThat(nodo(plan, "C").procesoLlamado()).isEqualTo(7L);
+        assertThat(nodo(plan, "D").procesoLlamado()).isNull();
+        assertThat(nodo(plan, "E").procesoLlamado()).isNull();
+        assertThat(plan.informe().convertidos()).extracting(Hallazgo::elemento).contains("D", "E");
+    }
+
+    @Test
+    @DisplayName("Un subproceso de eventos se deja fuera con lo que lleva dentro")
+    void subprocesoDeEventos() {
+        PlanBpmn plan = convertir(proceso("<bpmn:userTask id=\"T\"/><bpmn:subProcess id=\"S\" triggeredByEvent=\"true\">"
+                + "<bpmn:userTask id=\"Dentro\"/></bpmn:subProcess>"));
+
+        assertThat(plan.nodos()).extracting(PlanBpmn.Nodo::bpmnId).containsExactly("T");
+        assertThat(plan.informe().noSoportados()).extracting(Hallazgo::elemento).contains("S");
+    }
+
     private static String forma(String elemento, int x, int y, int ancho, int alto) {
         return "<bpmndi:BPMNShape bpmnElement=\"" + elemento + "\"><dc:Bounds x=\"" + x + "\" y=\"" + y
                 + "\" width=\"" + ancho + "\" height=\"" + alto + "\"/></bpmndi:BPMNShape>";

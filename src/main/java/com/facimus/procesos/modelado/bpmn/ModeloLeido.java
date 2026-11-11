@@ -21,7 +21,8 @@ import com.facimus.procesos.modelado.model.DisposicionBpmn.Limites;
 public record ModeloLeido(String nombre, String descripcion, String categoria, List<Participante> participantes,
         List<Proceso> procesos, List<FlujoDeMensaje> flujosDeMensaje, Map<String, String> mensajes,
         Map<String, Limites> formas, Set<String> verticales, List<Ajeno> noSoportados,
-        Map<String, String> extensiones, List<Artefacto> artefactos, List<Asociacion> asociaciones) {
+        Map<String, String> extensiones, List<Artefacto> artefactos, List<Asociacion> asociaciones,
+        Set<String> expandidos) {
 
     public record Participante(String id, String nombre, String proceso, String tipo, String integracion,
             Integer orden) {
@@ -42,10 +43,12 @@ public record ModeloLeido(String nombre, String descripcion, String categoria, L
      * @param interrumpe de un {@code boundaryEvent}, si interrumpe la actividad
      * @param tipoTemporizador {@code timeDuration}, {@code timeDate} o {@code timeCycle}, si dice cuando salta
      * @param temporizador la expresion de cuando salta
+     * @param padre el {@code subProcess} donde esta, o nulo si esta en el proceso
+     * @param llamado el {@code calledElement} de una {@code callActivity}
      */
     public record Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
             List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
-            String temporizador) {
+            String temporizador, String padre, String llamado) {
     }
 
     /**

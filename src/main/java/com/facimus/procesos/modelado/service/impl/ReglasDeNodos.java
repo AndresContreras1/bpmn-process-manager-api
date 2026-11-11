@@ -20,6 +20,8 @@ final class ReglasDeNodos {
     static final String CON_MENSAJES = "El nodo tiene mensajes anclados y solo puede moverse a una lane del mismo "
             + "pool.";
 
+    static final String DENTRO_DE_UN_SUBPROCESO = "Un nodo dentro de un subproceso esta en la lane de su subproceso.";
+
     private ReglasDeNodos() {
     }
 
@@ -29,6 +31,9 @@ final class ReglasDeNodos {
         Lane actual = nodo.getLane();
         if (laneId == null || laneId.equals(actual.getId())) {
             return actual;
+        }
+        if (nodo.getPadre() != null) {
+            throw new ReglaNegocioException(DENTRO_DE_UN_SUBPROCESO);
         }
         Lane destino = laneRepository.findByIdAndEmpresaId(laneId, empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Lane no encontrada."));

@@ -47,12 +47,13 @@ public record PlanBpmn(String nombre, String descripcion, String categoria, List
      */
     public record Nodo(String bpmnId, String lane, Clase clase, TipoActividad tipoActividad, TipoGateway tipoGateway,
             TipoEvento tipoEvento, String nombre, String descripcion, int x, int y, String adjuntoA,
-            Boolean interrumpe, TipoTemporizador tipoTemporizador, String temporizador) {
+            Boolean interrumpe, TipoTemporizador tipoTemporizador, String temporizador, String padre,
+            Long procesoLlamado) {
 
         /** El mismo nodo en otro sitio. */
         Nodo en(String otraLane, int otraX, int otraY) {
             return new Nodo(bpmnId, otraLane, clase, tipoActividad, tipoGateway, tipoEvento, nombre, descripcion, otraX,
-                    otraY, adjuntoA, interrumpe, tipoTemporizador, temporizador);
+                    otraY, adjuntoA, interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado);
         }
     }
 
