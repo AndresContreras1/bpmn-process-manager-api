@@ -27,6 +27,7 @@ export type Integracion = 'NINGUNA' | 'CLIENTE' | 'PAGOS' | 'TRANSPORTE' | 'NOTI
 /** Participante del proceso (PoolResponse). Una caja negra no muestra su interior. */
 export interface Pool {
   id: number;
+  bpmnId?: string;
   nombre: string;
   tipoParticipante: TipoParticipante;
   cajaNegra: boolean;
@@ -50,6 +51,7 @@ export interface EditarPoolRequest extends PoolRequest {
 /** Carril de un pool, ligado a un rol de proceso (LaneResponse). */
 export interface Lane {
   id: number;
+  bpmnId?: string;
   nombre: string;
   orden: number;
   poolId: number;
@@ -70,6 +72,7 @@ export interface EditarLaneRequest extends LaneRequest {
 /** Tarea del diagrama (ActividadResponse); la posicion es el centro de la tarea en el lienzo. */
 export interface Actividad {
   id: number;
+  bpmnId?: string;
   nombre: string;
   descripcion: string | null;
   tipoActividad: TipoActividad;
@@ -96,6 +99,7 @@ export interface EditarActividadRequest extends ActividadRequest {
 /** Punto de decision (GatewayResponse). Comparte los ids con las actividades: los dos son nodos del flujo. */
 export interface Gateway {
   id: number;
+  bpmnId?: string;
   nombre: string;
   tipoGateway: TipoGateway;
   posicionX: number;
@@ -122,6 +126,7 @@ export interface EditarGatewayRequest extends GatewayRequest {
  */
 export interface Evento {
   id: number;
+  bpmnId?: string;
   nombre: string;
   tipoEvento: TipoEvento;
   posicionX: number;
@@ -153,6 +158,7 @@ export interface EditarEventoRequest extends EventoRequest {
 /** Flujo de secuencia entre dos nodos, dentro de un pool (ArcoResponse). */
 export interface Arco {
   id: number;
+  bpmnId?: string;
   etiqueta: string | null;
   condicion: string | null;
   /** La salida que se toma cuando ninguna condicion se cumple; solo una por gateway. */
@@ -189,6 +195,7 @@ export interface CampoDeMensaje {
  */
 export interface Mensaje {
   id: number;
+  bpmnId?: string;
   nombre: string;
   contenido: string;
   poolOrigenId: number;

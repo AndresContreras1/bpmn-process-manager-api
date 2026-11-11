@@ -2,6 +2,7 @@ export type EstadoProceso = 'BORRADOR' | 'PUBLICADO';
 
 /** Proceso de una tienda, con los mismos campos que ProcesoResponse de la API. */
 export interface Proceso {
+  modo?: 'DOCUMENTAL' | 'EJECUTABLE';
   id: number;
   nombre: string;
   descripcion: string;

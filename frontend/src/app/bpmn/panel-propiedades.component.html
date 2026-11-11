@@ -1,0 +1,152 @@
+<fieldset [disabled]="soloLectura()" id="panel-propiedades">
+  <legend i18n class="h6">Properties</legend>
+
+  <div class="mb-2">
+    <label i18n class="form-label small" for="propiedad-nombre">Name</label>
+    <input
+      class="form-control form-control-sm"
+      id="propiedad-nombre"
+      [(ngModel)]="nombre"
+      (change)="guardarNombre()"
+      maxlength="120"
+    />
+  </div>
+
+  @if (esFlujo) {
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-condicion">Condition</label>
+      <input
+        class="form-control form-control-sm font-monospace"
+        id="propiedad-condicion"
+        [(ngModel)]="condicion"
+        (change)="guardarCondicion()"
+      />
+      <div i18n class="form-text small">
+        For example payment.status == APPROVED. The diagnosis checks it as you save.
+      </div>
+    </div>
+    <div class="form-check mb-2">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="propiedad-por-defecto"
+        [(ngModel)]="porDefecto"
+        (change)="guardarPorDefecto()"
+      />
+      <label i18n class="form-check-label small" for="propiedad-por-defecto">Default flow</label>
+    </div>
+  }
+
+  @if (esLane) {
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-rol">Role</label>
+      <input class="form-control form-control-sm" id="propiedad-rol" [(ngModel)]="rol" (change)="guardarRol()" />
+      <div i18n class="form-text small">The process role that works this lane.</div>
+    </div>
+  }
+
+  @if (esMensaje) {
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-contenido">Content</label>
+      <textarea
+        class="form-control form-control-sm"
+        id="propiedad-contenido"
+        rows="2"
+        [(ngModel)]="contenido"
+        (change)="guardarMensaje()"
+      ></textarea>
+    </div>
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-destino">Channel</label>
+      <select
+        class="form-select form-select-sm"
+        id="propiedad-destino"
+        [(ngModel)]="destino"
+        (change)="guardarMensaje()"
+      >
+        <option value=""></option>
+        <option i18n value="CORREO">Email</option>
+        <option i18n value="SERVICIO_WEB">Web service</option>
+        <option i18n value="COLA">Queue</option>
+      </select>
+    </div>
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-si-falla">If it fails</label>
+      <select
+        class="form-select form-select-sm"
+        id="propiedad-si-falla"
+        [(ngModel)]="siFalla"
+        (change)="guardarMensaje()"
+      >
+        <option i18n value="CONTINUAR">Continue</option>
+        <option i18n value="MANEJAR_ERROR">Handle the error</option>
+        <option i18n value="FINALIZAR">End the case</option>
+      </select>
+    </div>
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-variable">Variable</label>
+      <input
+        class="form-control form-control-sm"
+        id="propiedad-variable"
+        [(ngModel)]="variable"
+        (change)="guardarMensaje()"
+      />
+    </div>
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-criterio">Correlation key</label>
+      <input
+        class="form-control form-control-sm"
+        id="propiedad-criterio"
+        [(ngModel)]="criterio"
+        (change)="guardarMensaje()"
+      />
+    </div>
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-campo">Field that carries the key</label>
+      <input
+        class="form-control form-control-sm"
+        id="propiedad-campo"
+        [(ngModel)]="campo"
+        (change)="guardarMensaje()"
+      />
+    </div>
+  }
+
+  @if (esTemporizador) {
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-tipo-tiempo">Timer</label>
+      <select
+        class="form-select form-select-sm"
+        id="propiedad-tipo-tiempo"
+        [(ngModel)]="tipoTiempo"
+        (change)="guardarTiempo()"
+      >
+        <option i18n value="timeDuration">Duration</option>
+        <option i18n value="timeDate">Date</option>
+        <option i18n value="timeCycle">Cycle</option>
+      </select>
+    </div>
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-expresion">When (ISO 8601)</label>
+      <input
+        class="form-control form-control-sm font-monospace"
+        id="propiedad-expresion"
+        [(ngModel)]="expresion"
+        (change)="guardarTiempo()"
+      />
+    </div>
+  }
+
+  @if (esLlamada) {
+    <div class="mb-2">
+      <label i18n class="form-label small" for="propiedad-llamado">Called process</label>
+      <input
+        class="form-control form-control-sm"
+        id="propiedad-llamado"
+        placeholder="Proceso_12"
+        [(ngModel)]="llamado"
+        (change)="guardarLlamado()"
+      />
+    </div>
+  }
+</fieldset>

@@ -75,6 +75,14 @@
           >
             <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Model
           </a>
+          <a
+            i18n
+            class="btn btn-outline-primary"
+            [routerLink]="['/procesos', detalle.proceso.id, 'modelar']"
+            id="proceso-detalle-modelador"
+          >
+            <i class="fa-solid fa-pen-ruler" aria-hidden="true"></i> BPMN modeler
+          </a>
           @if (detalle.proceso.estado === 'BORRADOR') {
             <button
               i18n

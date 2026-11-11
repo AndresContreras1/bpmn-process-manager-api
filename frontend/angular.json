@@ -4,9 +4,7 @@
   "cli": {
     "packageManager": "npm",
     "analytics": false,
-    "schematicCollections": [
-      "angular-eslint"
-    ]
+    "schematicCollections": ["angular-eslint"]
   },
   "newProjectRoot": "projects",
   "projects": {
@@ -49,10 +47,7 @@
             "outputPath": "dist/bpmn-process-manager-web",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": [
-              "zone.js",
-              "@angular/localize/init"
-            ],
+            "polyfills": ["zone.js", "@angular/localize/init"],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
@@ -63,23 +58,29 @@
             ],
             "styles": [
               "node_modules/@fortawesome/fontawesome-free/css/all.min.css",
-              "src/styles.scss"
+              "src/styles.scss",
+              { "input": "node_modules/bpmn-js/dist/assets/diagram-js.css", "bundleName": "bpmn", "inject": false },
+              { "input": "node_modules/bpmn-js/dist/assets/bpmn-js.css", "bundleName": "bpmn", "inject": false },
+              {
+                "input": "node_modules/bpmn-js/dist/assets/bpmn-font/css/bpmn.css",
+                "bundleName": "bpmn",
+                "inject": false
+              },
+              {
+                "input": "node_modules/diagram-js-minimap/assets/diagram-js-minimap.css",
+                "bundleName": "bpmn",
+                "inject": false
+              },
+              { "input": "src/app/bpmn/lienzo-bpmn.scss", "bundleName": "bpmn", "inject": false }
             ],
             "scripts": [],
             "stylePreprocessorOptions": {
               "sass": {
-                "silenceDeprecations": [
-                  "import",
-                  "global-builtin",
-                  "color-functions",
-                  "if-function"
-                ]
+                "silenceDeprecations": ["import", "global-builtin", "color-functions", "if-function"]
               }
             },
             "i18nMissingTranslation": "error",
-            "allowedCommonJsDependencies": [
-              "qrcode"
-            ]
+            "allowedCommonJsDependencies": ["qrcode"]
           },
           "configurations": {
             "production": {
@@ -141,10 +142,7 @@
         "lint": {
           "builder": "@angular-eslint/builder:lint",
           "options": {
-            "lintFilePatterns": [
-              "src/**/*.ts",
-              "src/**/*.html"
-            ]
+            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
           }
         },
         "test": {
