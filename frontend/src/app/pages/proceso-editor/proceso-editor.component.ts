@@ -24,6 +24,8 @@ import {
   Lane,
   NOMBRE_ACTIVIDAD,
   NOMBRE_EVENTO,
+  TIPOS_ACTIVIDAD_EDITABLES,
+  TIPOS_EVENTO_EDITABLES,
   NOMBRE_GATEWAY,
   Pool,
   TipoActividad,
@@ -130,9 +132,9 @@ export class ProcesoEditorComponent implements OnInit {
   readonly nombreActividad = NOMBRE_ACTIVIDAD;
   readonly nombreGateway = NOMBRE_GATEWAY;
   readonly nombreEvento = NOMBRE_EVENTO;
-  readonly tiposActividad = Object.keys(NOMBRE_ACTIVIDAD) as TipoActividad[];
+  readonly tiposActividad = TIPOS_ACTIVIDAD_EDITABLES;
   readonly tiposGateway = Object.keys(NOMBRE_GATEWAY) as TipoGateway[];
-  readonly tiposEvento = Object.keys(NOMBRE_EVENTO) as TipoEvento[];
+  readonly tiposEvento = TIPOS_EVENTO_EDITABLES;
   nuevaActividad: TipoActividad = 'USUARIO';
   nuevoGateway: TipoGateway = 'EXCLUSIVO';
   nuevoEvento: TipoEvento = 'INICIO';
@@ -318,6 +320,11 @@ export class ProcesoEditorComponent implements OnInit {
         nombre: evento.nombre,
         tipoEvento: evento.tipoEvento,
         version: evento.version,
+        // Moverlo no cambia cuando salta ni a que actividad va pegado
+        tipoTemporizador: evento.tipoTemporizador,
+        temporizador: evento.temporizador,
+        adjuntoAId: evento.adjuntoAId,
+        interrumpe: evento.interrumpe,
       });
     }
     peticion$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({

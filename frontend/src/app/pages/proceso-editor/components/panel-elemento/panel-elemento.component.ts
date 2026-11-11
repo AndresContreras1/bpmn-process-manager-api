@@ -19,6 +19,8 @@ import {
   Mensaje,
   NOMBRE_ACTIVIDAD,
   NOMBRE_EVENTO,
+  TIPOS_ACTIVIDAD_EDITABLES,
+  TIPOS_EVENTO_EDITABLES,
   NOMBRE_GATEWAY,
   NOMBRE_INTEGRACION,
   NOMBRE_PARTICIPANTE,
@@ -83,9 +85,9 @@ export class PanelElementoComponent {
   // Las listas salen de los mismos mapas de nombres, tipadas: asi la plantilla indexa sin castings
   readonly tiposParticipante = Object.keys(NOMBRE_PARTICIPANTE) as TipoParticipante[];
   readonly integraciones = Object.keys(NOMBRE_INTEGRACION) as Integracion[];
-  readonly tiposActividad = Object.keys(NOMBRE_ACTIVIDAD) as TipoActividad[];
+  tiposActividad: TipoActividad[] = TIPOS_ACTIVIDAD_EDITABLES;
   readonly tiposGateway = Object.keys(NOMBRE_GATEWAY) as TipoGateway[];
-  readonly tiposEvento = Object.keys(NOMBRE_EVENTO) as TipoEvento[];
+  tiposEvento: TipoEvento[] = TIPOS_EVENTO_EDITABLES;
   readonly tiposDato: TipoDeDato[] = ['TEXTO', 'NUMERO', 'FECHA', 'BOOLEANO'];
 
   formulario: FormGroup = new FormGroup({});
@@ -267,6 +269,11 @@ export class PanelElementoComponent {
       }
       case 'ACTIVIDAD': {
         const actividad: Actividad | undefined = diagrama.actividades.find((candidata) => candidata.id === id);
+        // Una tarea sin tipo viene de un archivo: se muestra como esta, y se le puede dar uno
+        this.tiposActividad =
+          actividad && !TIPOS_ACTIVIDAD_EDITABLES.includes(actividad.tipoActividad)
+            ? [actividad.tipoActividad, ...TIPOS_ACTIVIDAD_EDITABLES]
+            : TIPOS_ACTIVIDAD_EDITABLES;
         this.formulario = new FormGroup({
           nombre: new FormControl(actividad?.nombre ?? '', [Validators.required, Validators.maxLength(120)]),
           descripcion: new FormControl(actividad?.descripcion ?? '', Validators.maxLength(1000)),
@@ -292,13 +299,24 @@ export class PanelElementoComponent {
       }
       case 'EVENTO': {
         const evento: Evento | undefined = diagrama.eventos.find((candidato) => candidato.id === id);
+        // Un temporizador viene de un archivo: este panel no sabe editarlo, asi que su tipo no se toca y lo que
+        // dice viaja tal cual al guardar
+        const soloLectura = !!evento && !TIPOS_EVENTO_EDITABLES.includes(evento.tipoEvento);
+        this.tiposEvento = soloLectura ? [evento.tipoEvento, ...TIPOS_EVENTO_EDITABLES] : TIPOS_EVENTO_EDITABLES;
         this.formulario = new FormGroup({
           nombre: new FormControl(evento?.nombre ?? '', [Validators.required, Validators.maxLength(120)]),
-          tipoEvento: new FormControl<TipoEvento>(evento?.tipoEvento ?? 'INICIO', Validators.required),
+          tipoEvento: new FormControl<TipoEvento>(
+            { value: evento?.tipoEvento ?? 'INICIO', disabled: soloLectura },
+            Validators.required,
+          ),
           laneId: new FormControl(evento?.laneId ?? null, Validators.required),
           posicionX: new FormControl(evento?.posicionX ?? 0),
           posicionY: new FormControl(evento?.posicionY ?? 0),
           version: new FormControl(evento?.version ?? 0),
+          tipoTemporizador: new FormControl(evento?.tipoTemporizador ?? null),
+          temporizador: new FormControl(evento?.temporizador ?? null),
+          adjuntoAId: new FormControl(evento?.adjuntoAId ?? null),
+          interrumpe: new FormControl(evento?.interrumpe ?? null),
         });
         return;
       }
