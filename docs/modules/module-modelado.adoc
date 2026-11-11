@@ -27,6 +27,7 @@
 * `c.f.p.m.model.Lane`
 * `c.f.p.m.model.Mensaje`
 * `c.f.p.m.model.Pool`
+* `c.f.p.m.model.RevisionBorrador`
 * `c.f.p.m.model.RevisionIa`
 |Events listened to
 |* `c.f.p.g.event.ProcesoModificado` 

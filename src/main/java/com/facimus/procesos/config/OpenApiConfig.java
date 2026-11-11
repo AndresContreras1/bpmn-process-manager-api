@@ -68,6 +68,8 @@ public class OpenApiConfig {
                                 + "token."))
                         .addResponses("NotFound", respuestaDeError("The resource does not exist, or it belongs to "
                                 + "another store."))
+                        .addResponses("PreconditionFailed", respuestaDeError("If-Match no longer matches: the resource "
+                                + "changed since it was read"))
                         .addResponses("Conflict", respuestaDeError("A business rule rejects the operation, for "
                                 + "example a duplicated name, or someone saved a change after the version that was "
                                 + "read."))

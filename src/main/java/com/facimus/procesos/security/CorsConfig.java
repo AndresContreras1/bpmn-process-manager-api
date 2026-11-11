@@ -24,13 +24,15 @@ public class CorsConfig {
         config.setAllowCredentials(true);
         config.setAllowedOrigins(Arrays.asList(allowedOrigins));
         config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, HttpHeaders.ACCEPT,
+                HttpHeaders.IF_MATCH, HttpHeaders.IF_NONE_MATCH,
                 IdempotencyFilter.CABECERA, IdDePeticionFilter.CABECERA));
         config.setAllowedMethods(List.of(HttpMethod.GET.name(), HttpMethod.POST.name(), HttpMethod.PUT.name(),
                 HttpMethod.PATCH.name(), HttpMethod.DELETE.name()));
         // Un 201 dice en Location donde quedo el recurso, un 429 en Retry-After cuanto esperar, Idempotent-Replayed
         // si la respuesta es la guardada de un reintento y X-Request-Id con que id buscarla en el log: sin
         // exponerlas, el navegador no deja que el frontend las lea.
-        config.setExposedHeaders(List.of(HttpHeaders.LOCATION, HttpHeaders.RETRY_AFTER, IdempotencyFilter.REPETIDA,
+        config.setExposedHeaders(List.of(HttpHeaders.LOCATION, HttpHeaders.RETRY_AFTER, HttpHeaders.ETAG,
+                IdempotencyFilter.REPETIDA,
                 IdDePeticionFilter.CABECERA));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

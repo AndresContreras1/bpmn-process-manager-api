@@ -39,6 +39,7 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0023 | [Optional shared state](0023-optional-shared-state.md) | Not implemented; superseded by 0034 |
 | 0029 | [The browser's session in HttpOnly cookies](0029-browser-session-in-cookies.md) | Accepted |
 | 0034 | [PostgreSQL for all shared state](0034-postgresql-for-shared-state.md) | Accepted |
+| 0040 | [ETags, autosave of the whole file, and draft revisions](0040-etag-autosave-and-revisions.md) | Accepted |
 | 0041 | [PostgreSQL in development and in the tests](0041-postgresql-everywhere.md) | Accepted |
 | 0049 | [Passkeys without an HTTP session, on tables of the store](0049-passkeys-without-http-session.md) | Accepted |
 | 0050 | [One build of the web per language, chosen by NGINX](0050-one-build-per-language.md) | Accepted |

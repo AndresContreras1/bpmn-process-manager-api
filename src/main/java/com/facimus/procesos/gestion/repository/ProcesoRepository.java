@@ -6,11 +6,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.gestion.model.Proceso;
+
+import jakarta.persistence.LockModeType;
 
 public interface ProcesoRepository extends RepositorioTenant<Proceso>, JpaSpecificationExecutor<Proceso> {
 
@@ -19,6 +22,11 @@ public interface ProcesoRepository extends RepositorioTenant<Proceso>, JpaSpecif
     Optional<Proceso> findByIdAndEmpresaIdAndActivoTrue(Long id, Long empresaId);
 
     boolean existsByIdAndEmpresaIdAndActivoTrue(Long id, Long empresaId);
+
+    /** PR 40: dos guardados del mismo borrador se hacen de a uno: si no, los dos pasarian el If-Match. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Proceso p where p.id = :id and p.empresa.id = :empresaId and p.activo = true")
+    Optional<Proceso> bloquear(@Param("id") Long id, @Param("empresaId") Long empresaId);
 
     /**
      * La puerta de lectura (HU-23): el proceso activo si es de la empresa o si su duena se lo compartio. Ningun cambio

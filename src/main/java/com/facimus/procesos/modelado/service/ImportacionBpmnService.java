@@ -18,4 +18,11 @@ public interface ImportacionBpmnService {
     /** El borrador de un proceso de la tienda pasa a ser lo que trae el archivo, por diferencias. */
     ImportacionResponse reemplazar(Long empresaId, Long usuarioId, RolAcceso rol, Long procesoId,
             InputStream archivo);
+
+    /**
+     * PR 40: como {@link #reemplazar}, para el autoguardado: si el archivo no cambia nada, no deja rastro. Un editor
+     * guarda cada dos segundos, y la bitacora y las importaciones no pueden llenarse de nada.
+     */
+    ImportacionResponse autoguardar(Long empresaId, Long usuarioId, RolAcceso rol, Long procesoId,
+            InputStream archivo);
 }

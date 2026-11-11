@@ -68,7 +68,7 @@ public class ImportacionBpmnServiceImpl implements ImportacionBpmnService {
         Long procesoId = procesoService.crear(empresaId, usuarioId, elNombre,
                 plan.descripcion() != null ? plan.descripcion() : DESCRIPCION,
                 plan.categoria() != null ? plan.categoria() : CATEGORIA).id();
-        return aplicar(empresaId, usuarioId, rol, buscar(empresaId, procesoId), plan, leida.recibidos());
+        return aplicar(empresaId, usuarioId, rol, buscar(empresaId, procesoId), plan, leida.recibidos(), true);
     }
 
     @Override
@@ -77,7 +77,16 @@ public class ImportacionBpmnServiceImpl implements ImportacionBpmnService {
             InputStream archivo) {
         Proceso proceso = buscar(empresaId, procesoId);
         EntradaBpmn.Leida leida = EntradaBpmn.leer(archivo, LimitesXml.BPMN);
-        return aplicar(empresaId, usuarioId, rol, proceso, convertir(leida), leida.recibidos());
+        return aplicar(empresaId, usuarioId, rol, proceso, convertir(leida), leida.recibidos(), true);
+    }
+
+    @Override
+    @Transactional
+    public ImportacionResponse autoguardar(Long empresaId, Long usuarioId, RolAcceso rol, Long procesoId,
+            InputStream archivo) {
+        Proceso proceso = buscar(empresaId, procesoId);
+        EntradaBpmn.Leida leida = EntradaBpmn.leer(archivo, LimitesXml.BPMN);
+        return aplicar(empresaId, usuarioId, rol, proceso, convertir(leida), leida.recibidos(), false);
     }
 
     private static PlanBpmn convertir(EntradaBpmn.Leida leida) {
@@ -87,7 +96,7 @@ public class ImportacionBpmnServiceImpl implements ImportacionBpmnService {
     }
 
     private ImportacionResponse aplicar(Long empresaId, Long usuarioId, RolAcceso rol, Proceso proceso,
-            PlanBpmn plan, byte[] bytes) {
+            PlanBpmn plan, byte[] bytes, boolean registrarSiempre) {
         AplicacionDelModelo.Cambios cambios = aplicacion.aplicar(empresaId, usuarioId, rol, proceso, plan);
         if (cambios.total() > 0) {
             historialCambioService.registrar(empresaId, usuarioId, proceso, "Modelo importado de un archivo BPMN: "
@@ -96,6 +105,9 @@ public class ImportacionBpmnServiceImpl implements ImportacionBpmnService {
         }
         ImportacionResponse respuesta = new ImportacionResponse(proceso.getId(), proceso.getNombre(),
                 cambios.creados(), cambios.editados(), cambios.dadosDeBaja(), informe(plan.informe()));
+        if (cambios.total() == 0 && !registrarSiempre) {
+            return respuesta;
+        }
         importacionRepository.save(Importacion.builder()
                 .empresa(proceso.getEmpresa())
                 .procesoId(proceso.getId())

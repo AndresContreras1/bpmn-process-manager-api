@@ -21,7 +21,13 @@ public final class Descargas {
     }
 
     public static ResponseEntity<byte[]> xml(String archivo, String contenido) {
+        return xml(archivo, contenido, null);
+    }
+
+    /** PR 40: con su {@code ETag}: un {@code If-None-Match} que coincide responde 304. */
+    public static ResponseEntity<byte[]> xml(String archivo, String contenido, String etiqueta) {
         return ResponseEntity.ok()
+                .eTag(etiqueta)
                 .contentType(XML_UTF8)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(archivo).build().toString())

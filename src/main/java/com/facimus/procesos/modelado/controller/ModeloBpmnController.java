@@ -1,5 +1,7 @@
 package com.facimus.procesos.modelado.controller;
 
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -7,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.common.Huella;
 import com.facimus.procesos.common.api.Descargas;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.service.ModeloBpmn;
@@ -40,6 +43,6 @@ public class ModeloBpmnController {
     public ResponseEntity<byte[]> exportar(@PathVariable Long procesoId,
             @AuthenticationPrincipal ApiPrincipal principal) {
         ModeloBpmn modelo = modeloBpmnService.exportar(principal.empresaId(), procesoId);
-        return Descargas.xml(modelo.archivo(), modelo.xml());
+        return Descargas.xml(modelo.archivo(), modelo.xml(), Huella.de(modelo.xml().getBytes(StandardCharsets.UTF_8)));
     }
 }
