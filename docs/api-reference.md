@@ -25,6 +25,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
 | Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
+| BPMN 2.0.2 | `GET /api/v1/procesos/{id}/modelo` · `GET /api/v1/procesos/{procesoId}/versiones/{numero}/modelo` |
 | Published versions | `GET /api/v1/procesos/{procesoId}/versiones` · `GET, PATCH /api/v1/procesos/{procesoId}/versiones/{numero}` · `GET /api/v1/procesos/{procesoId}/versiones/{numero}/diagrama` |
 | Diagnosis | `GET /api/v1/procesos/{id}/diagnostico[?sinElemento=TYPE:id]` |
 | AI review | `POST /api/v1/procesos/{id}/revision` |
@@ -45,7 +46,19 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 
 `GET /api/v1/procesos/{id}/diagrama` returns everything a client needs to draw a process: the process and flat lists
 of pools, lanes, activities, gateways, events, sequence flows, message flows and correlation keys, linked by id.
-It runs one query per element type, however large the diagram grows.
+It runs one query per element type, however large the diagram grows. Every pool, lane, node and flow carries its
+`bpmnId`, the id it has in a BPMN file, which never changes.
+
+`GET /api/v1/procesos/{id}/modelo` returns the same process as a BPMN 2.0.2 file (`application/xml`, as an attachment
+named after the process): a `collaboration` with a `participant` per pool and a `messageFlow` per message, a `process`
+per modeled pool with its lanes, tasks, gateways, events and sequence flows, and a `BPMNDiagram` with the geometry the
+model keeps. It validates against the OMG schemas and opens in bpmn.io and Camunda Modeler. Conditions are formal
+expressions in the language `urn:bpmn-process-manager:condiciones:1`, and what BPMN has no element for (participant
+kind and integration, lane role, flow order, and each message's content, fields, destination, failure handling,
+answer and correlation) goes in `extensionElements` under `urn:bpmn-process-manager:bpm:1`, described by
+[`bpm.xsd`](../src/main/resources/bpmn/xsd/bpm.xsd). The owning store gets its draft; a store the process is shared
+with gets the version in force. `GET .../versiones/{numero}/modelo` answers the file written when that version was
+published ([ADR-0053](adr/0053-bpmn-export.md)).
 
 State transitions use `PATCH`, for example `PATCH /api/v1/procesos/42` with `{ "estado": "PUBLICADO", "version": 3 }`,
 which is what publishes a process and saves its version.

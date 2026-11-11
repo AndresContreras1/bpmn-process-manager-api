@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "A gateway of the process")
 public record GatewayResponse(
         @Schema(example = "12") Long id,
+        @Schema(description = "BPMN id of the gateway, stable for its whole life: the id in an exported .bpmn file",
+                example = "Gateway_0b9e44a1c7d2") String bpmnId,
         @Schema(example = "Payment approved?") String nombre,
         @Schema(example = "EXCLUSIVO") TipoGateway tipoGateway,
         @Schema(example = "420") int posicionX,

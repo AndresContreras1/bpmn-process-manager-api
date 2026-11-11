@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PR 53: importa otro esquema con una URL. Se resuelve por el nombre del archivo, en esta carpeta, y no se sale. -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:otro="urn:otro" targetNamespace="urn:principal"
+            elementFormDefault="qualified">
+  <xsd:import namespace="urn:otro" schemaLocation="http://127.0.0.1:9/remoto/otro.xsd"/>
+  <xsd:element name="r">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element ref="otro:hijo"/>
+      </xsd:sequence>
+    </xsd:complexType>
+  </xsd:element>
+</xsd:schema>

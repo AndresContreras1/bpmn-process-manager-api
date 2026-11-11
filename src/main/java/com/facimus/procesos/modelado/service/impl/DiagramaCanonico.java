@@ -26,6 +26,13 @@ final class DiagramaCanonico {
     private static final List<String> VOLATILES =
             List.of("version", "creadoPor", "fechaCreacion", "modificadoPor", "fechaModificacion");
 
+    /**
+     * PR 53: el bpmn_id nombra al elemento igual que su id, y no cambia nunca, asi que no dice nada del dibujo. Las
+     * versiones publicadas antes de que el diagrama lo trajera tienen su huella sin el: meterlo las dejaria a todas
+     * con cambios sin publicar.
+     */
+    private static final List<String> SIN_DIBUJO = List.of("bpmnId");
+
     private DiagramaCanonico() {
     }
 
@@ -52,6 +59,7 @@ final class DiagramaCanonico {
         for (Object elemento : lista) {
             ObjectNode nodo = (ObjectNode) json.valueToTree(elemento);
             VOLATILES.forEach(nodo::remove);
+            SIN_DIBUJO.forEach(nodo::remove);
             nodos.add(nodo);
         }
         nodos.sort(Comparator.comparing(nodo -> nodo.get("id").longValue()));

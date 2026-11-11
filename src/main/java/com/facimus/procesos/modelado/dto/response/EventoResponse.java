@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "An event of the process")
 public record EventoResponse(
         @Schema(example = "14") Long id,
+        @Schema(description = "BPMN id of the event, stable for its whole life: the id in an exported .bpmn file",
+                example = "Event_5d0a2f9e81c4") String bpmnId,
         @Schema(example = "Order received") String nombre,
         @Schema(example = "MENSAJE_INICIO") TipoEvento tipoEvento,
         @Schema(example = "20") int posicionX,

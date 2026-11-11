@@ -63,7 +63,7 @@ class ProcesoServiceTest {
     private ProcesoServiceImpl procesoService;
 
     private static final String HUELLA = "9f2c4a6b8d0e1f23456789abcdef0123456789abcdef0123456789abcdef0123";
-    private static final Instantanea INSTANTANEA = new Instantanea("{\"pools\":[]}", HUELLA);
+    private static final Instantanea INSTANTANEA = new Instantanea("{\"pools\":[]}", HUELLA, "<bpmn:definitions/>");
 
     private Empresa empresa;
     private Usuario usuario;

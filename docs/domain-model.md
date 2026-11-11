@@ -31,7 +31,8 @@ Pools, lanes, nodes, sequence flows and message flows carry a `bpmn_id` that nev
 BPMN file. Where each of them is drawn (BPMN DI) lives in `formas_bpmn` and `aristas_bpmn`: absolute bounds for each
 pool, lane and node, the points of each flow and the bounds of each label. The server works them out from the
 positions relative to the lane with the same calculation the web draws with, every time the process changes
-([ADR-0052](adr/0052-geometry-in-the-domain.md)).
+([ADR-0052](adr/0052-geometry-in-the-domain.md)). With both, a process is exported as BPMN 2.0.2, and each published
+version keeps its file in `versiones_proceso.modelo_bpmn` ([ADR-0053](adr/0053-bpmn-export.md)).
 
 ## Modeling rules
 

@@ -1,10 +1,12 @@
 package com.facimus.procesos.security;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -147,7 +149,18 @@ class ProcesosCompartidosIntegracionTest {
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
                         .with(SesionEnCookies.conSesion(tokenInvitada)))
                 .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/procesos/{id}/modelo", procesoId)
+                        .with(SesionEnCookies.conSesion(tokenInvitada)))
+                .andExpect(status().isNotFound());
         publicar(procesoId);
+
+        // PR 53: el .bpmn que se lleva es el de la version publicada, no el borrador de la duena.
+        mockMvc.perform(get("/api/v1/procesos/{id}/modelo", procesoId)
+                        .with(SesionEnCookies.conSesion(tokenInvitada)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        containsString("order-fulfillment-v1.bpmn")))
+                .andExpect(content().string(containsString("<bpmn:definitions")));
 
         mockMvc.perform(get("/api/v1/procesos/{id}/diagrama", procesoId)
                         .with(SesionEnCookies.conSesion(tokenInvitada)))

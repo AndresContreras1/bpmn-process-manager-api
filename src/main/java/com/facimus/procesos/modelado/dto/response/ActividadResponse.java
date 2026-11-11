@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "An activity (task) of the process")
 public record ActividadResponse(
         @Schema(example = "10") Long id,
+        @Schema(description = "BPMN id of the task, stable for its whole life: the id in an exported .bpmn file",
+                example = "Activity_1f3a9c0b7e42") String bpmnId,
         @Schema(example = "Pick and pack items") String nombre,
         @Schema(example = "Collect the items and prepare the package.") String descripcion,
         @Schema(example = "USUARIO") TipoActividad tipoActividad,

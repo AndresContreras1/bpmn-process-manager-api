@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "A sequence flow of a pool")
 public record ArcoResponse(
         @Schema(example = "20") Long id,
+        @Schema(description = "BPMN id of the sequence flow, stable for its whole life: the id in an exported .bpmn file",
+                example = "Flow_2e7b19c0d4f6") String bpmnId,
         @Schema(example = "Approved") String etiqueta,
         @Schema(example = "payment.status == APPROVED") String condicion,
         @Schema(description = "The flow the gateway takes when no condition holds", example = "false")

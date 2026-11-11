@@ -25,7 +25,8 @@ class XmlSeguroTest {
             "javax.xml.parsers.SAXParserFactory",
             "javax.xml.transform.TransformerFactory",
             "javax.xml.validation.SchemaFactory",
-            "javax.xml.xpath.XPathFactory");
+            "javax.xml.xpath.XPathFactory",
+            "javax.xml.stream.XMLOutputFactory");
 
     static final DescribedPredicate<JavaCall<?>> CREAR_UNA_FACTORIA_XML = new DescribedPredicate<>(
             "crear una factoria de XML") {

@@ -8,6 +8,11 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- BPMN 2.0.2 export: `GET /api/v1/procesos/{id}/modelo` downloads a process as a `.bpmn` file that validates against
+  the OMG schemas and opens in bpmn.io and Camunda Modeler, with its geometry; what BPMN has no element for goes in
+  `extensionElements` under its own namespace, with its own schema. Each published version stores its file, and
+  `GET .../versiones/{numero}/modelo` answers it; a Java migration writes it for the versions that already existed.
+  The diagram's elements now carry their `bpmnId`.
 - The diagram's geometry in the domain, ready for BPMN DI: a stable `bpmn_id` for every pool, lane, node and flow,
   and the absolute bounds, waypoints and label bounds of each one, recalculated with every change to a process with
   the same calculation as the web. A Java migration converts the diagrams that already existed.

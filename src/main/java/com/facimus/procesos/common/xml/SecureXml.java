@@ -4,7 +4,10 @@ import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Set;
@@ -15,19 +18,24 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
+import javax.xml.stream.XMLStreamWriter;
 import javax.xml.stream.util.StreamReaderDelegate;
+import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 
 import org.w3c.dom.Document;
+import org.w3c.dom.ls.LSInput;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXNotRecognizedException;
 import org.xml.sax.SAXNotSupportedException;
@@ -223,6 +231,60 @@ public final class SecureXml {
         return validador;
     }
 
+    /**
+     * PR 53: StAX para escribir. Escribir no lee nada de fuera, pero la factoria sale de aqui como todas, y asi la
+     * regla de ArchUnit no tiene excepciones.
+     */
+    public static XMLStreamWriter escritor(OutputStream salida) {
+        try {
+            return XMLOutputFactory.newFactory().createXMLStreamWriter(salida, StandardCharsets.UTF_8.name());
+        } catch (XMLStreamException e) {
+            throw new IllegalStateException("El escritor XML no se pudo crear", e);
+        }
+    }
+
+    /**
+     * PR 53: un esquema del classpath con sus {@code import} e {@code include}, que se resuelven solo dentro de la
+     * misma carpeta. De cada {@code schemaLocation} se mira solo el nombre del archivo; uno que no este en la carpeta
+     * no se carga. Aunque un esquema pida algo de la red o del disco, no sale a buscarlo: {@code ACCESS_EXTERNAL_SCHEMA}
+     * sigue vacio y lo que se lee llega ya abierto.
+     *
+     * @param carpeta la carpeta del classpath, sin barra al principio ni al final
+     * @param principales los esquemas de los que se parte; los que estos importen se encuentran solos
+     */
+    public static Schema esquemaDelClasspath(String carpeta, String... principales) {
+        SchemaFactory factoria = esquemas();
+        factoria.setResourceResolver((tipo, espacio, publico, sistema, base) -> deLaCarpeta(carpeta, sistema));
+        Source[] fuentes = new Source[principales.length];
+        for (int i = 0; i < principales.length; i++) {
+            fuentes[i] = new StreamSource(abrir(carpeta, principales[i]), carpeta + "/" + principales[i]);
+        }
+        try {
+            return factoria.newSchema(fuentes);
+        } catch (SAXException e) {
+            throw new IllegalStateException("Los esquemas de " + carpeta + " no se pudieron cargar", e);
+        }
+    }
+
+    private static LSInput deLaCarpeta(String carpeta, String sistema) {
+        if (sistema == null) {
+            return null;
+        }
+        String nombre = sistema.substring(Math.max(sistema.lastIndexOf('/'), sistema.lastIndexOf('\\')) + 1);
+        return new EntradaDeEsquema(carpeta + "/" + nombre, abrir(carpeta, nombre));
+    }
+
+    private static InputStream abrir(String carpeta, String nombre) {
+        if (!nombre.matches("[A-Za-z0-9_.-]+\\.xsd")) {
+            throw new IllegalStateException("El esquema " + nombre + " no es un archivo de " + carpeta);
+        }
+        InputStream recurso = SecureXml.class.getClassLoader().getResourceAsStream(carpeta + "/" + nombre);
+        if (recurso == null) {
+            throw new IllegalStateException("El esquema " + nombre + " no esta en " + carpeta);
+        }
+        return recurso;
+    }
+
     private static void comprobarCodificacion(String codificacion) {
         if (codificacion != null && !CODIFICACIONES.contains(codificacion.toUpperCase(Locale.ROOT))) {
             throw new XmlRechazadoException("El XML viene en " + codificacion + ": solo se acepta UTF-8 o UTF-16.");
@@ -238,6 +300,98 @@ public final class SecureXml {
         }
         String detalle = e.getMessage() != null && e.getMessage().contains("DOCTYPE") ? SIN_DTD : e.getMessage();
         return new XmlRechazadoException("El XML no se pudo leer: " + detalle, e);
+    }
+
+    /** Un esquema importado, ya abierto: el parser no tiene que ir a buscarlo a ninguna parte. */
+    private static final class EntradaDeEsquema implements LSInput {
+
+        private String sistema;
+        private InputStream bytes;
+
+        EntradaDeEsquema(String sistema, InputStream bytes) {
+            this.sistema = sistema;
+            this.bytes = bytes;
+        }
+
+        @Override
+        public Reader getCharacterStream() {
+            return null;
+        }
+
+        @Override
+        public void setCharacterStream(Reader characterStream) {
+            // Solo se entrega en bytes
+        }
+
+        @Override
+        public InputStream getByteStream() {
+            return bytes;
+        }
+
+        @Override
+        public void setByteStream(InputStream byteStream) {
+            this.bytes = byteStream;
+        }
+
+        @Override
+        public String getStringData() {
+            return null;
+        }
+
+        @Override
+        public void setStringData(String stringData) {
+            // Solo se entrega en bytes
+        }
+
+        @Override
+        public String getSystemId() {
+            return sistema;
+        }
+
+        @Override
+        public void setSystemId(String systemId) {
+            this.sistema = systemId;
+        }
+
+        @Override
+        public String getPublicId() {
+            return null;
+        }
+
+        @Override
+        public void setPublicId(String publicId) {
+            // Los esquemas se nombran por su archivo
+        }
+
+        @Override
+        public String getBaseURI() {
+            return null;
+        }
+
+        @Override
+        public void setBaseURI(String baseURI) {
+            // Cada esquema se resuelve en la misma carpeta
+        }
+
+        @Override
+        public String getEncoding() {
+            return null;
+        }
+
+        @Override
+        public void setEncoding(String encoding) {
+            // La declara cada esquema
+        }
+
+        @Override
+        public boolean getCertifiedText() {
+            return false;
+        }
+
+        @Override
+        public void setCertifiedText(boolean certifiedText) {
+            // No aplica a un esquema
+        }
     }
 
     /** Cuenta los bytes que entran y corta al pasar el limite. */

@@ -124,6 +124,7 @@ class MotorDeProcesosTest {
         version = em.persistFlushFind(VersionProceso.builder().empresa(tienda).proceso(proceso).numero(1)
                 .estado(EstadoVersion.VIGENTE).fechaPublicacion(LocalDateTime.now())
                 .huella("9f2c4a6b8d0e1f23456789abcdef0123456789abcdef0123456789abcdef0123").definicion("{}")
+                .modeloBpmn("<bpmn:definitions/>")
                 .build());
     }
 

@@ -19,7 +19,9 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
+import javax.xml.validation.Validator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -164,6 +166,26 @@ class SecureXmlTest {
 
         assertThatThrownBy(() -> transformadores.newTransformer(hoja))
                 .isInstanceOf(TransformerConfigurationException.class);
+    }
+
+    @Test
+    @DisplayName("Un esquema del classpath encuentra sus import en su carpeta, aunque el esquema los pida por URL")
+    void esquemaDelClasspath_resuelveEnLaCarpeta() throws Exception {
+        Schema esquema = SecureXml.esquemaDelClasspath("xml/esquemas", "principal.xsd");
+        Validator validador = SecureXml.validador(esquema);
+        StreamSource bueno = new StreamSource(new StringReader(
+                "<r xmlns=\"urn:principal\"><hijo xmlns=\"urn:otro\">hola</hijo></r>"));
+        StreamSource malo = new StreamSource(new StringReader("<r xmlns=\"urn:principal\"><otra/></r>"));
+
+        validador.validate(bueno);
+        assertThatThrownBy(() -> validador.validate(malo)).isInstanceOf(SAXException.class);
+    }
+
+    @Test
+    @DisplayName("Un import que no esta en la carpeta no se carga de ninguna otra parte")
+    void esquemaDelClasspath_noSaleDeLaCarpeta() {
+        assertThatThrownBy(() -> SecureXml.esquemaDelClasspath("xml/esquemas", "ajeno.xsd"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

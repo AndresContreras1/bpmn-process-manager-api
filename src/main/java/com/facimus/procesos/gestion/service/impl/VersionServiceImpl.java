@@ -21,6 +21,7 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.repository.VersionProcesoRepository;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.Instantanea;
+import com.facimus.procesos.gestion.service.ModeloBpmn;
 import com.facimus.procesos.gestion.service.VersionService;
 
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class VersionServiceImpl implements VersionService {
+
+    private static final String VERSION_NO_ENCONTRADA = "Versión no encontrada.";
+
 
     private final VersionProcesoRepository versionProcesoRepository;
     private final DefinicionesDeVersion definiciones;
@@ -64,6 +68,7 @@ public class VersionServiceImpl implements VersionService {
                 .publicadoPor(usuarioId)
                 .huella(instantanea.huella())
                 .definicion(instantanea.definicion())
+                .modeloBpmn(instantanea.bpmn())
                 .build());
         metricas.versionPublicada();
     }
@@ -84,7 +89,7 @@ public class VersionServiceImpl implements VersionService {
     public String definicion(Long empresaId, Long procesoId, int numero) {
         exigirProceso(empresaId, procesoId);
         return definiciones.de(empresaId, versionProcesoRepository.idDeLaVersion(procesoId, numero, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada.")));
+                .orElseThrow(() -> new RecursoNoEncontradoException(VERSION_NO_ENCONTRADA)));
     }
 
     @Override
@@ -137,7 +142,24 @@ public class VersionServiceImpl implements VersionService {
     private VersionProceso buscar(Long empresaId, Long procesoId, int numero) {
         exigirProceso(empresaId, procesoId);
         return versionProcesoRepository.findByProcesoIdAndNumeroAndEmpresaId(procesoId, numero, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada."));
+                .orElseThrow(() -> new RecursoNoEncontradoException(VERSION_NO_ENCONTRADA));
+    }
+
+    @Override
+    public ModeloBpmn modelo(Long empresaId, Long procesoId, int numero) {
+        Proceso proceso = exigirProceso(empresaId, procesoId);
+        String xml = versionProcesoRepository.idDeLaVersion(procesoId, numero, empresaId)
+                .flatMap(versionId -> versionProcesoRepository.modeloBpmnDe(versionId, empresaId))
+                .orElseThrow(() -> new RecursoNoEncontradoException(VERSION_NO_ENCONTRADA));
+        return ModeloBpmn.deLaVersion(proceso.getNombre(), numero, xml);
+    }
+
+    @Override
+    public Optional<ModeloBpmn> modeloVigente(Long empresaPropietariaId, Long procesoId) {
+        return versionProcesoRepository.findFirstByProcesoIdAndEmpresaIdAndEstadoOrderByNumeroDesc(procesoId,
+                        empresaPropietariaId, EstadoVersion.VIGENTE)
+                .map(version -> ModeloBpmn.deLaVersion(version.getProceso().getNombre(), version.getNumero(),
+                        version.getModeloBpmn()));
     }
 
     /** Las versiones son del proceso: un proceso de otra tienda, o eliminado, no tiene ninguna que mostrar. */

@@ -50,6 +50,10 @@ public interface VersionProcesoRepository extends RepositorioTenant<VersionProce
     @Query("select v.definicion from VersionProceso v where v.id = :id and v.empresa.id = :empresaId")
     Optional<String> definicionDe(@Param("id") Long id, @Param("empresaId") Long empresaId);
 
+    /** PR 53: el BPMN de una version, sin cargar la entidad entera ni su JSON. */
+    @Query("select v.modeloBpmn from VersionProceso v where v.id = :id and v.empresa.id = :empresaId")
+    Optional<String> modeloBpmnDe(@Param("id") Long id, @Param("empresaId") Long empresaId);
+
     /** El numero de la ultima publicada, retirada o no: los numeros no se reusan. */
     @Query("select max(v.numero) from VersionProceso v where v.proceso.id = :procesoId and v.empresa.id = :empresaId")
     Optional<Integer> ultimoNumero(@Param("procesoId") Long procesoId, @Param("empresaId") Long empresaId);

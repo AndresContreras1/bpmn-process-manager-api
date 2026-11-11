@@ -172,20 +172,20 @@ class RevisionServiceTest {
     private static DiagramaResponse diagrama() {
         ProcesoResponse proceso = new ProcesoResponse(PROCESO, "Order fulfillment", "De la compra a la entrega",
                 "Fulfillment", EstadoProceso.PUBLICADO, true, AHORA, AHORA, 0L, null, null, 1, false);
-        PoolResponse tienda = new PoolResponse(5L, "Demo Store", TipoParticipante.EMPRESA, false,
+        PoolResponse tienda = new PoolResponse(5L, "Participant_5", "Demo Store", TipoParticipante.EMPRESA, false,
                 Integracion.NINGUNA, 0, PROCESO, 0L, null, AHORA, null, AHORA);
-        PoolResponse transportadora = new PoolResponse(6L, "Carrier", TipoParticipante.PROVEEDOR, true,
+        PoolResponse transportadora = new PoolResponse(6L, "Participant_6", "Carrier", TipoParticipante.PROVEEDOR, true,
                 Integracion.TRANSPORTE, 1, PROCESO, 0L, null, AHORA, null, AHORA);
-        LaneResponse lane = new LaneResponse(7L, "Picking", 0, 5L, 20L, "Warehouse", 0L, null, AHORA, null, AHORA);
-        ActividadResponse actividad = new ActividadResponse(30L, "Pick items", "Recoger del estante",
+        LaneResponse lane = new LaneResponse(7L, "Lane_7", "Picking", 0, 5L, 20L, "Warehouse", 0L, null, AHORA, null, AHORA);
+        ActividadResponse actividad = new ActividadResponse(30L, "Activity_30", "Pick items", "Recoger del estante",
                 TipoActividad.USUARIO, 10, 20, 7L, 0L, null, AHORA, null, AHORA);
-        EventoResponse evento = new EventoResponse(32L, "Order received", TipoEvento.MENSAJE_INICIO, 0, 20, 7L,
+        EventoResponse evento = new EventoResponse(32L, "Event_32", "Order received", TipoEvento.MENSAJE_INICIO, 0, 20, 7L,
                 0L, null, AHORA, null, AHORA);
-        GatewayResponse gateway = new GatewayResponse(31L, "Stock available?", TipoGateway.EXCLUSIVO, 30, 40, 7L,
+        GatewayResponse gateway = new GatewayResponse(31L, "Gateway_31", "Stock available?", TipoGateway.EXCLUSIVO, 30, 40, 7L,
                 0L, null, AHORA, null, AHORA);
-        ArcoResponse arco = new ArcoResponse(50L, "listo", "stock > 0", false, 0, 30L, 31L, 5L, 0L, null, AHORA,
+        ArcoResponse arco = new ArcoResponse(50L, "Flow_50", "listo", "stock > 0", false, 0, 30L, 31L, 5L, 0L, null, AHORA,
                 null, AHORA);
-        MensajeResponse mensaje = new MensajeResponse(40L, "Shipment requested", "Pedido listo", 5L, 6L,
+        MensajeResponse mensaje = new MensajeResponse(40L, "MessageFlow_40", "Shipment requested", "Pedido listo", 5L, 6L,
                 30L, null, TipoDestino.COLA, AccionSiFalla.CONTINUAR, null, false, List.of(), null,
                 "shipment", null, PROCESO, 0L, null, AHORA, null, AHORA);
         CorrelacionResponse correlacion = new CorrelacionResponse(60L, "orderId", "orderId",

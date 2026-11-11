@@ -161,6 +161,6 @@ class EventoControllerTest {
     }
 
     private EventoResponse crearEvento(Long id, String nombre, TipoEvento tipo) {
-        return new EventoResponse(id, nombre, tipo, 20, 80, 3L, 0L, null, null, null, null);
+        return new EventoResponse(id, "Event_" + id, nombre, tipo, 20, 80, 3L, 0L, null, null, null, null);
     }
 }

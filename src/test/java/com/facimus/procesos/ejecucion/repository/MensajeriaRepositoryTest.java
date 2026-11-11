@@ -339,7 +339,8 @@ class MensajeriaRepositoryTest {
     private Caso caso(Proceso suProceso, String referencia) {
         VersionProceso version = em.persistFlushFind(VersionProceso.builder()
                 .empresa(suProceso.getEmpresa()).proceso(suProceso).numero(1).estado(EstadoVersion.VIGENTE)
-                .fechaPublicacion(LocalDateTime.now()).huella(HUELLA).definicion("{}").build());
+                .fechaPublicacion(LocalDateTime.now()).huella(HUELLA).definicion("{}")
+                .modeloBpmn("<bpmn:definitions/>").build());
         return em.persistFlushFind(Caso.builder()
                 .empresa(suProceso.getEmpresa()).proceso(suProceso).versionProceso(version)
                 .referencia(referencia).estado(EstadoCaso.ABIERTO).variables("{}").build());
