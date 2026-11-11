@@ -46,3 +46,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0053 | [BPMN 2.0.2 export, and the bpm: namespace](0053-bpmn-export.md) | Accepted |
 | 0054 | [BPMN import by differences, and what is kept from other tools](0054-bpmn-import.md) | Accepted |
 | 0055 | [Descriptive BPMN elements, and a process that only documents](0055-descriptive-bpmn-elements.md) | Accepted |
+| 0056 | [Sub-processes as containers, and call activities between processes](0056-subprocesses-and-call-activity.md) | Accepted |
