@@ -14,13 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.model.Accion;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.CarpetaResponse;
 import com.facimus.procesos.gestion.model.Carpeta;
 import com.facimus.procesos.gestion.repository.CarpetaRepository;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
+import com.facimus.procesos.gestion.service.Actor;
 import com.facimus.procesos.gestion.service.CarpetaService;
+import com.facimus.procesos.gestion.service.Permisos;
+import com.facimus.procesos.gestion.service.Recurso;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,6 +39,7 @@ public class CarpetaServiceImpl implements CarpetaService {
     private final CarpetaRepository carpetaRepository;
     private final EmpresaRepository empresaRepository;
     private final ProcesoRepository procesoRepository;
+    private final Permisos permisos;
 
     @Override
     public List<CarpetaResponse> listar(Long empresaId) {
@@ -71,6 +76,29 @@ public class CarpetaServiceImpl implements CarpetaService {
         carpeta.setPadreId(padreId);
         carpeta = carpetaRepository.saveAndFlush(carpeta);
         return respuesta(carpeta, procesoRepository.countByCarpetaIdAndEmpresaIdAndActivoTrue(carpetaId, empresaId));
+    }
+
+    @Override
+    @Transactional
+    public CarpetaResponse crear(Actor actor, String nombre, Long padreId) {
+        if (padreId != null) {
+            permisos.exigir(actor, Accion.MODELAR, Recurso.carpeta(padreId));
+        }
+        return crear(actor.empresaId(), nombre, padreId);
+    }
+
+    @Override
+    @Transactional
+    public CarpetaResponse editar(Actor actor, Long carpetaId, String nombre, Long padreId, Long version) {
+        Long empresaId = actor.empresaId();
+        Carpeta carpeta = buscar(empresaId, carpetaId);
+        boolean cambiaLoQueHereda = !Objects.equals(carpeta.getPadreId(), padreId)
+                && (permisos.tieneConcesiones(empresaId, Recurso.carpeta(carpetaId))
+                        || padreId != null && permisos.tieneConcesiones(empresaId, Recurso.carpeta(padreId)));
+        if (cambiaLoQueHereda) {
+            permisos.exigir(actor, Accion.ADMINISTRAR, Recurso.carpeta(carpetaId));
+        }
+        return editar(empresaId, carpetaId, nombre, padreId, version);
     }
 
     @Override

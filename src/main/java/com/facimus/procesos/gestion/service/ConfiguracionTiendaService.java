@@ -57,4 +57,7 @@ public interface ConfiguracionTiendaService {
      * conoce ni la configuracion ni los roles de acceso.
      */
     void exigirPuedeEditarEstructura(Long empresaId, Long usuarioId);
+
+    /** PR 60: la politica de la tienda es lo que hay por defecto; una concesion de modelar ese proceso la supera. */
+    void exigirPuedeEditarEstructura(Long empresaId, Long usuarioId, Long procesoId);
 }

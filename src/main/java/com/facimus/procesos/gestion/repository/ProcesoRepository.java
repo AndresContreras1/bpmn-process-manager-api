@@ -65,6 +65,9 @@ public interface ProcesoRepository extends RepositorioTenant<Proceso>, JpaSpecif
 
     long countByCarpetaIdAndEmpresaIdAndActivoTrue(Long carpetaId, Long empresaId);
 
+    /** PR 60: los procesos con una concesion propia, para resolver lo visible de una vez. */
+    List<Proceso> findAllByIdInAndEmpresaId(java.util.Collection<Long> ids, Long empresaId);
+
     /** PR 59: las etiquetas en uso, para sugerirlas. */
     @Query(value = """
             select distinct etiqueta from procesos, unnest(etiquetas) as etiqueta

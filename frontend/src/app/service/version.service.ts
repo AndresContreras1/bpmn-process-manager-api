@@ -24,7 +24,10 @@ export class VersionService {
 
   /** El archivo BPMN de esa version, tal como se escribio al publicarla. */
   modelo(procesoId: number, numero: number): Observable<string> {
-    return this.http.get(`${this.url}/${procesoId}/versiones/${numero}/modelo`, { responseType: 'text' });
+    return this.http.get(`${this.url}/${procesoId}/versiones/${numero}/modelo`, {
+      responseType: 'text',
+      params: { para: 'dibujar' },
+    });
   }
 
   /**

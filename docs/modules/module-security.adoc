@@ -12,6 +12,8 @@ _Others_
 
 * `c.f.p.s.AperturaDeSesion`
 * `c.f.p.s.CeremoniasWebAuthn`
+* `c.f.p.s.ControlDeRecursos`
+* `c.f.p.s.ControlDeRecursosConfig`
 * `c.f.p.s.CookiesDeSesion`
 * `c.f.p.s.CorsConfig`
 * `c.f.p.s.CredencialesWebAuthn`
@@ -35,6 +37,8 @@ _Others_
 |Bean references
 |* `c.f.p.g.service.SegundoFactorService` (in Gestion)
 * `c.f.p.g.service.PasskeyService` (in Gestion)
+* `c.f.p.g.service.Permisos` (in Gestion)
+* `c.f.p.g.service.ProcesoDeElemento` (in Gestion)
 * `c.f.p.g.service.IdentidadExternaService` (in Gestion)
 * `c.f.p.g.service.SesionService` (in Gestion)
 * `c.f.p.c.metricas.MetricasDeNegocio` (in Common)

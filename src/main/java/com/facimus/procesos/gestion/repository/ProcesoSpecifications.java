@@ -3,6 +3,7 @@ package com.facimus.procesos.gestion.repository;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Set;
 
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -33,6 +34,24 @@ public final class ProcesoSpecifications {
             }
             if (StringUtils.hasText(categoria)) {
                 predicado = cb.and(predicado, cb.equal(root.get("categoria"), categoria));
+            }
+            return predicado;
+        };
+    }
+
+    /** PR 60: lo que el actor puede ver, en la misma consulta de la lista. */
+    public static Specification<Proceso> visibles(Set<Long> carpetasOcultas, Set<Long> procesosOcultos,
+            Set<Long> procesosVisibles) {
+        return (root, query, cb) -> {
+            var predicado = cb.conjunction();
+            if (!carpetasOcultas.isEmpty()) {
+                var enCarpetaVisible = cb.or(cb.isNull(root.get("carpetaId")),
+                        cb.not(root.get("carpetaId").in(carpetasOcultas)));
+                predicado = procesosVisibles.isEmpty() ? enCarpetaVisible
+                        : cb.or(enCarpetaVisible, root.get("id").in(procesosVisibles));
+            }
+            if (!procesosOcultos.isEmpty()) {
+                predicado = cb.and(predicado, cb.not(root.get("id").in(procesosOcultos)));
             }
             return predicado;
         };

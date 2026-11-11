@@ -27,6 +27,7 @@ import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
+import com.facimus.procesos.gestion.service.Permisos;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
 import com.facimus.procesos.modelado.model.Actividad;
@@ -65,6 +66,9 @@ class ArcoServiceTest {
 
     @Spy
     private ArcoMapper arcoMapper = Mappers.getMapper(ArcoMapper.class);
+
+    @Mock
+    private Permisos permisos;
 
     @InjectMocks
     private ArcoServiceImpl arcoService;

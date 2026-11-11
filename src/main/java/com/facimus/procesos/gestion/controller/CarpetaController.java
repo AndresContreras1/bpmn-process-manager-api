@@ -19,6 +19,7 @@ import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.CarpetaRequest;
 import com.facimus.procesos.gestion.dto.request.EditarCarpetaRequest;
 import com.facimus.procesos.gestion.dto.response.CarpetaResponse;
+import com.facimus.procesos.gestion.service.Actor;
 import com.facimus.procesos.gestion.service.CarpetaService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,7 +54,7 @@ public class CarpetaController {
     @PostMapping
     public ResponseEntity<CarpetaResponse> crear(@Validated @RequestBody CarpetaRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        CarpetaResponse carpeta = carpetaService.crear(principal.empresaId(), request.nombre(), request.padreId());
+        CarpetaResponse carpeta = carpetaService.crear(actor(principal), request.nombre(), request.padreId());
         return ResponseEntity.created(URI.create("/api/v1/carpetas/" + carpeta.id())).body(carpeta);
     }
 
@@ -67,7 +68,7 @@ public class CarpetaController {
     @PutMapping("/{id}")
     public ResponseEntity<CarpetaResponse> editar(@PathVariable Long id,
             @Validated @RequestBody EditarCarpetaRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
-        return ResponseEntity.ok(carpetaService.editar(principal.empresaId(), id, request.nombre(), request.padreId(),
+        return ResponseEntity.ok(carpetaService.editar(actor(principal), id, request.nombre(), request.padreId(),
                 request.version()));
     }
 
@@ -81,5 +82,9 @@ public class CarpetaController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal) {
         carpetaService.eliminar(principal.empresaId(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    private static Actor actor(ApiPrincipal principal) {
+        return new Actor(principal.usuarioId(), principal.empresaId(), principal.rol());
     }
 }

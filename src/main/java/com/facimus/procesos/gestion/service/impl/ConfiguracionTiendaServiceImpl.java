@@ -12,6 +12,7 @@ import com.facimus.procesos.common.SinPermisoException;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.condiciones.CondicionMalEscrita;
 import com.facimus.procesos.common.condiciones.EvaluadorDeCondiciones;
+import com.facimus.procesos.common.model.Accion;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.mapper.ConfiguracionTiendaMapper;
@@ -28,6 +29,8 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.LimitesDeSesion;
+import com.facimus.procesos.gestion.service.Permisos;
+import com.facimus.procesos.gestion.service.Recurso;
 
 import lombok.RequiredArgsConstructor;
 
@@ -50,6 +53,7 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
     private final HistorialCambioService historialCambioService;
     private final ConfiguracionTiendaMapper configuracionTiendaMapper;
     private final Auditoria auditoria;
+    private final Permisos permisos;
 
     @Override
     @Transactional
@@ -196,6 +200,13 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
         if (!buscar(empresaId).getPoliticaEstructura().permiteA(usuario.getRolAcceso())) {
             throw new SinPermisoException(SOLO_ADMINISTRADORES);
+        }
+    }
+
+    @Override
+    public void exigirPuedeEditarEstructura(Long empresaId, Long usuarioId, Long procesoId) {
+        if (!permisos.concedido(empresaId, usuarioId, Accion.MODELAR, Recurso.proceso(procesoId))) {
+            exigirPuedeEditarEstructura(empresaId, usuarioId);
         }
     }
 
