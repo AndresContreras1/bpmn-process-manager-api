@@ -8,6 +8,10 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Autosave and draft revisions: editable resources carry `ETag` and accept `If-Match` (`412` when stale). `PUT
+  /api/v1/procesos/{id}/modelo` saves one at a time, compares `If-Match`, accepts an `Idempotency-Key`, and writes
+  nothing if the file changes nothing. `GET, POST /api/v1/procesos/{id}/revisiones` and `POST .../{revisionId}/restaurar`
+  keep and restore save points of the draft.
 - Sub-processes and call activities: an expanded sub-process contains its own flow (`PUT
   /api/v1/nodos/{id}/contenedor`), flows do not cross its border, and it is drawn as the box of its content; a call
   activity points to another process of the store (`PUT /api/v1/actividades/{id}/llamada`). Exported and imported.

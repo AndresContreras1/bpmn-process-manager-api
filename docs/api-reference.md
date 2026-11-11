@@ -26,6 +26,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
 | Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
 | Mode | `PUT /api/v1/procesos/{id}/modo` |
+| Draft revisions | `GET, POST /api/v1/procesos/{id}/revisiones` · `GET .../{revisionId}/modelo` · `POST .../{revisionId}/restaurar` |
 | Sub-processes | `PUT /api/v1/nodos/{id}/contenedor` · `PUT /api/v1/actividades/{id}/llamada` |
 | Artifacts | `GET, POST /api/v1/procesos/{procesoId}/artefactos` · `GET, PUT, DELETE /api/v1/artefactos/{id}` |
 | Associations | `GET, POST /api/v1/procesos/{procesoId}/asociaciones` · `DELETE /api/v1/asociaciones/{id}` |
@@ -193,6 +194,9 @@ database rejects the second one through JPA's `@Version`. The correlation key of
 first one is created without a version.
 
 ## Idempotent requests
+
+Every `GET` of an editable resource carries an `ETag`, and an edit may send `If-Match` next to its `version`: a stale
+one answers `412`. On a whole model, the tag is the SHA-256 of its BPMN file ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
 
 An authenticated `POST` accepts an `Idempotency-Key` header with any unique value, such as a UUID. A retry with the
 same key gets the first response back, marked with `Idempotent-Replayed: true`, instead of creating the resource

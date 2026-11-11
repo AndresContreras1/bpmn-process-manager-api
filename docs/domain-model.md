@@ -38,7 +38,8 @@ each import leaves its report in `importaciones` ([ADR-0054](adr/0054-bpmn-impor
 documental (`procesos.modo`), and what only describes it lives in `artefactos` (annotations, groups, data objects and
 stores) and `asociaciones`, whose ends are `bpmn_id`s ([ADR-0055](adr/0055-descriptive-bpmn-elements.md)). A node may
 sit inside a sub-process (`padre_id`), and a call activity points to another process
-([ADR-0056](adr/0056-subprocesses-and-call-activity.md)).
+([ADR-0056](adr/0056-subprocesses-and-call-activity.md)). `revisiones_borrador` keeps compressed save points of a
+draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
 
 ## Modeling rules
 
