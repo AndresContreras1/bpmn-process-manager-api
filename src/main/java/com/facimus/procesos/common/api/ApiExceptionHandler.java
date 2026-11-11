@@ -33,6 +33,7 @@ import com.facimus.procesos.common.DemasiadosIntentosException;
 import com.facimus.procesos.common.EnlaceNoValidoException;
 import com.facimus.procesos.common.IntegracionFallidaException;
 import com.facimus.procesos.common.IntegracionNoConfiguradaException;
+import com.facimus.procesos.common.PrecondicionFallidaException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SesionInvalidaException;
@@ -81,7 +82,18 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     /** Edicion sobre una version vieja: el cliente recarga el recurso y decide de nuevo. */
     @ExceptionHandler(ConflictoDeVersionException.class)
     public ProblemDetail manejarConflictoDeVersion(ConflictoDeVersionException ex, WebRequest req) {
-        return construir(HttpStatus.CONFLICT, "Conflicto de versión", ex.getMessage(), req);
+        // PR 40: quien pregunto con If-Match recibe la respuesta de HTTP para eso
+        HttpStatus estado = req.getHeader(HttpHeaders.IF_MATCH) == null ? HttpStatus.CONFLICT
+                : HttpStatus.PRECONDITION_FAILED;
+        return construir(estado, "Conflicto de versión", ex.getMessage(), req);
+    }
+
+    /** PR 40: el borrador cambio desde que se leyo: el cliente compara o recarga. */
+    @ExceptionHandler(PrecondicionFallidaException.class)
+    public ProblemDetail manejarPrecondicion(PrecondicionFallidaException ex, WebRequest req) {
+        ProblemDetail problema = construir(HttpStatus.PRECONDITION_FAILED, "El recurso cambió", ex.getMessage(), req);
+        ex.getDetalle().forEach(problema::setProperty);
+        return problema;
     }
 
     /** Dos ediciones de la misma version a la vez: las dos pasan la comprobacion y la base rechaza la segunda. */

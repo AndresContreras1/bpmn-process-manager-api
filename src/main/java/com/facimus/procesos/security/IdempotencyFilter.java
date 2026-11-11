@@ -46,6 +46,8 @@ public class IdempotencyFilter extends OncePerRequestFilter {
 
     private static final String SIN_IDEMPOTENCIA = "/api/v1/auth/";
 
+    private static final String MODELO = "/modelo";
+
     private static final int CLAVE_MAXIMA = 100;
 
     private final IdempotenciaService idempotenciaService;
@@ -60,8 +62,14 @@ public class IdempotencyFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         // PR 49: lo de /api/v1/auth no se guarda: la respuesta repetida llevaria en claro un secreto del TOTP, los
         // codigos de recuperacion o las cookies de una sesion, y nada de eso puede quedar en la base.
-        return !HttpMethod.POST.matches(request.getMethod()) || request.getHeader(CABECERA) == null
-                || principal() == null || request.getRequestURI().startsWith(SIN_IDEMPOTENCIA);
+        return !(HttpMethod.POST.matches(request.getMethod()) || esAutoguardado(request))
+                || request.getHeader(CABECERA) == null || principal() == null
+                || request.getRequestURI().startsWith(SIN_IDEMPOTENCIA);
+    }
+
+    /** PR 40: el autoguardado es un PUT que se reintenta solo cuando se corta la red. */
+    private static boolean esAutoguardado(HttpServletRequest request) {
+        return HttpMethod.PUT.matches(request.getMethod()) && request.getRequestURI().endsWith(MODELO);
     }
 
     @Override

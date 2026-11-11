@@ -30,6 +30,7 @@ import com.facimus.procesos.common.xml.XmlRechazadoException;
 import com.facimus.procesos.modelado.dto.response.HallazgoImportacionResponse;
 import com.facimus.procesos.modelado.dto.response.ImportacionResponse;
 import com.facimus.procesos.modelado.dto.response.InformeImportacionResponse;
+import com.facimus.procesos.modelado.service.GuardadoDelModeloService;
 import com.facimus.procesos.modelado.service.ImportacionBpmnService;
 
 @WebMvcTest(ImportacionBpmnController.class)
@@ -42,6 +43,9 @@ class ImportacionBpmnControllerTest {
 
     @MockitoBean
     private ImportacionBpmnService importacionBpmnService;
+
+    @MockitoBean
+    private GuardadoDelModeloService guardadoDelModeloService;
 
     @Test
     @DisplayName("POST /api/v1/procesos/importar - el proceso nuevo, con su Location y el informe (201)")
@@ -61,8 +65,8 @@ class ImportacionBpmnControllerTest {
     @Test
     @DisplayName("PUT /api/v1/procesos/{id}/modelo - lo que cambio en el borrador (200)")
     void reemplazar() throws Exception {
-        given(importacionBpmnService.reemplazar(eq(1L), any(), eq(RolAcceso.ADMINISTRADOR), eq(7L),
-                any(InputStream.class))).willReturn(importacion());
+        given(guardadoDelModeloService.guardar(eq(1L), any(), eq(RolAcceso.ADMINISTRADOR), eq(7L),
+                any(InputStream.class), any())).willReturn(importacion());
 
         mockMvc.perform(put("/api/v1/procesos/7/modelo").with(principal(RolAcceso.ADMINISTRADOR))
                         .contentType("application/bpmn+xml").content(XML))

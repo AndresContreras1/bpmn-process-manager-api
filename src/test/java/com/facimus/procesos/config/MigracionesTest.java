@@ -112,7 +112,8 @@ class MigracionesTest {
                         "V43__modelo_bpmn_de_las_versiones.sql", "db.migration.common.V44__bpmn_de_las_versiones",
                         "V45__importacion_bpmn.sql",
                         "V46__elementos_descriptivos.sql",
-                        "V47__subprocesos_y_llamadas.sql");
+                        "V47__subprocesos_y_llamadas.sql",
+                        "V48__revisiones_del_borrador.sql");
     }
 
     @Test

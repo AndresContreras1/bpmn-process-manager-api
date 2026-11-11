@@ -6,4 +6,7 @@ import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 public interface DiagramaService {
 
     DiagramaResponse obtener(Long empresaId, Long procesoId);
+
+    /** PR 40: la huella del diagrama, su {@code ETag}. */
+    String huella(DiagramaResponse diagrama);
 }

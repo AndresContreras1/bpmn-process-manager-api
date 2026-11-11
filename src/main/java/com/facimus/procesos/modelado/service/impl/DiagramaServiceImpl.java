@@ -39,6 +39,11 @@ public class DiagramaServiceImpl implements DiagramaService {
         return diagrama.conProceso(lectura.proceso().conBorradorPendiente(tieneCambios(diagrama, lectura)), false);
     }
 
+    @Override
+    public String huella(DiagramaResponse diagrama) {
+        return Huella.de(DiagramaCanonico.de(diagrama, json));
+    }
+
     /** Sin ninguna version vigente no hay nada que ensenarle a la invitada: para ella el proceso todavia no existe. */
     private DiagramaResponse loPublicado(ProcesoLectura lectura, Long procesoId) {
         String definicion = versionService.definicionVigente(lectura.empresaPropietariaId(), procesoId)

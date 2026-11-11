@@ -35,6 +35,7 @@ public class DiagramaController {
     public ResponseEntity<DiagramaResponse> obtener(@PathVariable Long procesoId,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(diagramaService.obtener(empresaId, procesoId));
+        DiagramaResponse diagrama = diagramaService.obtener(empresaId, procesoId);
+        return ResponseEntity.ok().eTag(diagramaService.huella(diagrama)).body(diagrama);
     }
 }

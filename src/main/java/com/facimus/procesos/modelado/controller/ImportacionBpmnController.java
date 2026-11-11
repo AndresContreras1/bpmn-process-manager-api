@@ -3,18 +3,21 @@ package com.facimus.procesos.modelado.controller;
 import java.io.InputStream;
 import java.net.URI;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.modelado.dto.response.ImportacionResponse;
+import com.facimus.procesos.modelado.service.GuardadoDelModeloService;
 import com.facimus.procesos.modelado.service.ImportacionBpmnService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +40,7 @@ public class ImportacionBpmnController {
     private static final String BPMN = "application/bpmn+xml";
 
     private final ImportacionBpmnService importacionBpmnService;
+    private final GuardadoDelModeloService guardadoDelModeloService;
 
     @Operation(summary = "Import a BPMN file as a new process",
             description = "The body is a BPMN 2.0 file (up to 5 MB) from this product, Camunda Modeler, bpmn.io, "
@@ -71,7 +75,10 @@ public class ImportacionBpmnController {
                     + "created, what changed is edited and what the file no longer has is deleted, in one "
                     + "transaction with one history line. Importing the file the process exports changes nothing. "
                     + "Deleting needs an administrator, and pools and lanes follow the store's structure policy. "
-                    + "The process name, description and category stay as they are.",
+                    + "The process name, description and category stay as they are. This is also the editor's "
+                    + "autosave: with If-Match it answers 412 if the draft is no longer what was read, saying "
+                    + "what changed; an Idempotency-Key makes a retry safe; and if the file changes nothing, nothing "
+                    + "is written. The response carries the new ETag.",
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true,
                     content = @Content(mediaType = MediaType.APPLICATION_XML_VALUE,
                             schema = @Schema(type = "string", description = "A BPMN 2.0 document"))))
@@ -81,11 +88,14 @@ public class ImportacionBpmnController {
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
     @ApiResponse(responseCode = "409", ref = "Conflict")
+    @ApiResponse(responseCode = "412", description = "The draft changed since it was read")
     @PutMapping(value = "/procesos/{procesoId}/modelo", consumes = {MediaType.APPLICATION_XML_VALUE,
         MediaType.TEXT_XML_VALUE, BPMN, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     public ResponseEntity<ImportacionResponse> reemplazar(@PathVariable Long procesoId, InputStream archivo,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        return ResponseEntity.ok(importacionBpmnService.reemplazar(principal.empresaId(), principal.usuarioId(),
-                principal.rol(), procesoId, archivo));
+        ImportacionResponse guardado = guardadoDelModeloService.guardar(principal.empresaId(), principal.usuarioId(),
+                principal.rol(), procesoId, archivo, ifMatch);
+        return ResponseEntity.ok().eTag(guardado.huella()).body(guardado);
     }
 }
