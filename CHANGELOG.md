@@ -6,6 +6,12 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ## [Unreleased]
 
+### Changed
+
+- The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
+  old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
+  which can publish.
+
 ### Added
 
 - The BPMN modeler in the web, on bpmn-js: `/procesos/{id}/modelar` draws and edits the process, limited to what the
