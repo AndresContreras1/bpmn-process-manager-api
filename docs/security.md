@@ -445,6 +445,14 @@ ArchUnit rule fails the build if anything else creates a factory, so no parser c
 A rejected document is a 400 with the reason. The tests send each attack while a local HTTP server listens, and
 require that it receives no request.
 
+Importing a BPMN file adds three things ([ADR-0054](adr/0054-bpmn-import.md)). The two routes that take one have a
+body limit of 5 MB, in the API and in NGINX, and read the body as a stream through `SecureXml`, so a request without
+`Content-Length` does not reach memory whole either. A file declared in ISO-8859-1, ISO-8859-15, windows-1252 or
+US-ASCII is passed to UTF-8 before it reaches `SecureXml`: in those encodings every byte under 0x80 is ASCII, so
+nothing can hide a `DOCTYPE`; UTF-7, EBCDIC and the rest are still rejected. And what another tool wrote in an
+element is kept only as elements, attributes and text, at most 16 KB per element and 512 KB per file. A fuzzer
+breaks the test corpus on purpose every night and requires the importer to answer only 400 or 409.
+
 ## Reporting a vulnerability
 
 [SECURITY.md](../SECURITY.md) says how to report one privately, what is in scope and how soon the answer comes.

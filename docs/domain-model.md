@@ -32,7 +32,9 @@ BPMN file. Where each of them is drawn (BPMN DI) lives in `formas_bpmn` and `ari
 pool, lane and node, the points of each flow and the bounds of each label. The server works them out from the
 positions relative to the lane with the same calculation the web draws with, every time the process changes
 ([ADR-0052](adr/0052-geometry-in-the-domain.md)). With both, a process is exported as BPMN 2.0.2, and each published
-version keeps its file in `versiones_proceso.modelo_bpmn` ([ADR-0053](adr/0053-bpmn-export.md)).
+version keeps its file in `versiones_proceso.modelo_bpmn` ([ADR-0053](adr/0053-bpmn-export.md)). A file imported from
+another tool leaves what the model has no place for in `extension_xml`, per element, to write it back on export, and
+each import leaves its report in `importaciones` ([ADR-0054](adr/0054-bpmn-import.md)).
 
 ## Modeling rules
 

@@ -44,3 +44,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0050 | [One build of the web per language, chosen by NGINX](0050-one-build-per-language.md) | Accepted |
 | 0052 | [The diagram's geometry in the domain, and one way to read XML](0052-geometry-in-the-domain.md) | Accepted |
 | 0053 | [BPMN 2.0.2 export, and the bpm: namespace](0053-bpmn-export.md) | Accepted |
+| 0054 | [BPMN import by differences, and what is kept from other tools](0054-bpmn-import.md) | Accepted |
