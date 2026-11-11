@@ -8,6 +8,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Presence and soft lock: `GET /api/v1/procesos/{id}/en-vivo` streams who is looking, who is editing, saves, publications
+  and control being taken, across replicas with PostgreSQL `LISTEN/NOTIFY`. `/bloqueo` starts, keeps, releases and takes
+  over editing, which expires without a heartbeat; taking over is audited.
 - Semantic diff: `GET /api/v1/procesos/{id}/comparar?de=&a=` says what was added, removed, changed and only moved
   between two versions or the draft, by `bpmnId`; `POST` the same path with a file says what saving it would do.
 - Autosave and draft revisions: editable resources carry `ETag` and accept `If-Match` (`412` when stale). `PUT
