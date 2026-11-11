@@ -99,9 +99,16 @@ final class RevisionDelFlujo {
             porVisitar.add(inicio.id());
         });
         while (!porVisitar.isEmpty()) {
-            for (ArcoResponse salida : mapa.salidasDe(porVisitar.poll())) {
+            Long actual = porVisitar.poll();
+            for (ArcoResponse salida : mapa.salidasDe(actual)) {
                 if (vistos.add(salida.destinoId())) {
                     porVisitar.add(salida.destinoId());
+                }
+            }
+            // PR 55: a un evento de borde se llega por la actividad a la que va pegado
+            for (NodoDelDiagrama borde : mapa.bordesDe(actual)) {
+                if (vistos.add(borde.id())) {
+                    porVisitar.add(borde.id());
                 }
             }
         }
@@ -134,6 +141,24 @@ final class RevisionDelFlujo {
                                 + mapa.salidasDe(nodo.id()).size() + ".",
                         "Quita esos flujos, o cambia el tipo del evento por uno intermedio.");
             }
+            if (nodo.esDeBorde()) {
+                eventoDeBorde(mapa, nodo, hallazgos);
+            }
+        }
+    }
+
+    /** E-09, PR 55: un evento de borde va pegado a una actividad, y no le llega nada: lo activa ella. */
+    private static void eventoDeBorde(MapaDelDiagrama mapa, NodoDelDiagrama nodo, Hallazgos hallazgos) {
+        NodoDelDiagrama actividad = nodo.adjuntoAId() == null ? null : mapa.nodo(nodo.adjuntoAId());
+        if (actividad == null || !actividad.esActividad()) {
+            hallazgos.anotar(CodigoDeDiagnostico.E09, nodo.etiqueta(), nodo.id(),
+                    "Este evento de borde no va pegado a ninguna actividad del diagrama.",
+                    "Pegalo a la actividad que vigila, o cambia el tipo del evento por uno intermedio.");
+        }
+        if (!mapa.entradasDe(nodo.id()).isEmpty()) {
+            hallazgos.anotar(CodigoDeDiagnostico.E09, nodo.etiqueta(), nodo.id(),
+                    "A un evento de borde no puede llegarle ningun flujo: lo activa la actividad a la que va pegado.",
+                    "Quita esos flujos, o cambia el tipo del evento por uno intermedio.");
         }
     }
 

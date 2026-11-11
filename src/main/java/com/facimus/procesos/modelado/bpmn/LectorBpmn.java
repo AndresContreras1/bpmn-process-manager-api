@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.bpmn;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,6 +16,8 @@ import com.facimus.procesos.common.xml.LimitesXml;
 import com.facimus.procesos.common.xml.SecureXml;
 import com.facimus.procesos.common.xml.XmlRechazadoException;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.Ajeno;
+import com.facimus.procesos.modelado.bpmn.ModeloLeido.Artefacto;
+import com.facimus.procesos.modelado.bpmn.ModeloLeido.Asociacion;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.Correlacion;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.DatosDelMensaje;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.Flujo;
@@ -43,7 +46,11 @@ public final class LectorBpmn {
     static final Set<String> TAREAS = Set.of("task", "userTask", "serviceTask", "sendTask", "receiveTask",
             "manualTask", "businessRuleTask", "scriptTask");
     static final Set<String> GATEWAYS = Set.of("exclusiveGateway", "parallelGateway", "inclusiveGateway");
-    static final Set<String> EVENTOS = Set.of("startEvent", "endEvent", "intermediateCatchEvent");
+    static final Set<String> EVENTOS = Set.of("startEvent", "endEvent", "intermediateCatchEvent", "boundaryEvent");
+    /** PR 55: los artefactos y los datos. */
+    private static final Set<String> ARTEFACTOS = Set.of("textAnnotation", "group", "dataObjectReference",
+            "dataStoreReference", "dataObject");
+    private static final Set<String> TIEMPOS = Set.of("timeDuration", "timeDate", "timeCycle");
 
     /** Lo que un proceso trae y no es un elemento del diagrama: se lee aparte o no dice nada del dibujo. */
     private static final Set<String> SIN_DIBUJO = Set.of("documentation", "extensionElements", "laneSet",
@@ -61,6 +68,7 @@ public final class LectorBpmn {
         }
         Lectura lectura = new Lectura();
         lectura.extension(ExtensionXml.DEFINICIONES, raiz);
+        lectura.categorias(raiz);
         Element colaboracion = Dom.hijo(raiz, BPMN, "collaboration");
         String nombre = Dom.nombre(Dom.atributo(raiz, "name"));
         String descripcion = null;
@@ -88,7 +96,7 @@ public final class LectorBpmn {
         }
         return new ModeloLeido(nombre, descripcion, categoria, lectura.participantes, lectura.procesos,
                 lectura.flujosDeMensaje, lectura.mensajes, lectura.formas, lectura.verticales, lectura.noSoportados,
-                lectura.extensiones);
+                lectura.extensiones, lectura.artefactos, lectura.asociaciones);
     }
 
     /** Lo que se va juntando mientras se recorre el archivo. */
@@ -102,6 +110,66 @@ public final class LectorBpmn {
         private final Set<String> verticales = new HashSet<>();
         private final List<Ajeno> noSoportados = new ArrayList<>();
         private final Map<String, String> extensiones = new LinkedHashMap<>();
+        private final List<Artefacto> artefactos = new ArrayList<>();
+        private final List<Asociacion> asociaciones = new ArrayList<>();
+        /** El valor de cada categoria: de ahi sale el nombre de un grupo. */
+        private final Map<String, String> categorias = new HashMap<>();
+
+        void categorias(Element raiz) {
+            for (Element categoria : Dom.hijos(raiz, BPMN, "category")) {
+                for (Element valor : Dom.hijos(categoria, BPMN, "categoryValue")) {
+                    String id = Dom.atributo(valor, "id");
+                    if (id != null) {
+                        categorias.put(id, Dom.atributo(valor, "value"));
+                    }
+                }
+            }
+        }
+
+        /** PR 55: una anotacion, un grupo o un dato, del proceso que se diga o de la colaboracion. */
+        private void artefacto(Element elemento, String proceso) {
+            String id = Dom.atributo(elemento, "id");
+            String texto = switch (elemento.getLocalName()) {
+                case "textAnnotation" -> Dom.texto(Dom.hijo(elemento, BPMN, "text"));
+                case "group" -> categorias.get(Dom.referencia(Dom.atributo(elemento, "categoryValueRef")));
+                default -> Dom.nombre(Dom.atributo(elemento, "name"));
+            };
+            artefactos.add(new Artefacto(id, elemento.getLocalName(), texto, proceso,
+                    Dom.referencia(Dom.atributo(elemento, "dataObjectRef"))));
+            extension(id, elemento);
+        }
+
+        private void asociacion(Element elemento) {
+            String id = Dom.atributo(elemento, "id");
+            asociaciones.add(new Asociacion(id, "association", Dom.referencia(Dom.atributo(elemento, "sourceRef")),
+                    Dom.referencia(Dom.atributo(elemento, "targetRef")),
+                    Dom.atributo(elemento, "associationDirection")));
+            extension(id, elemento);
+        }
+
+        /** PR 55: los datos que entran a una tarea y los que salen; en un evento, el modelo no los tiene. */
+        private void asociacionesDeDatos(Element nodo, String id, boolean esTarea) {
+            for (Element entrada : Dom.hijos(nodo, BPMN, "dataInputAssociation")) {
+                String suId = Dom.atributo(entrada, "id");
+                Element origen = Dom.hijo(entrada, BPMN, "sourceRef");
+                if (esTarea && origen != null) {
+                    asociaciones.add(new Asociacion(suId, "dataInputAssociation",
+                            Dom.referencia(Dom.texto(origen)), id, null));
+                } else {
+                    noSoportados.add(new Ajeno(suId, "dataInputAssociation", null, id));
+                }
+            }
+            for (Element saliente : Dom.hijos(nodo, BPMN, "dataOutputAssociation")) {
+                String suId = Dom.atributo(saliente, "id");
+                Element destino = Dom.hijo(saliente, BPMN, "targetRef");
+                if (esTarea && destino != null) {
+                    asociaciones.add(new Asociacion(suId, "dataOutputAssociation", id,
+                            Dom.referencia(Dom.texto(destino)), null));
+                } else {
+                    noSoportados.add(new Ajeno(suId, "dataOutputAssociation", null, id));
+                }
+            }
+        }
 
         void colaboracion(Element colaboracion) {
             for (Element hijo : Dom.hijos(colaboracion)) {
@@ -126,6 +194,8 @@ public final class LectorBpmn {
                     case "documentation", "extensionElements" -> {
                         // Ya se leyeron con la colaboracion
                     }
+                    case "textAnnotation", "group" -> artefacto(hijo, null);
+                    case "association" -> asociacion(hijo);
                     default -> noSoportados.add(new Ajeno(id, hijo.getLocalName(),
                             Dom.nombre(Dom.atributo(hijo, "name")), "la colaboracion"));
                 }
@@ -150,10 +220,19 @@ public final class LectorBpmn {
                 String elemento = hijo.getLocalName();
                 String suId = Dom.atributo(hijo, "id");
                 if (TAREAS.contains(elemento) || GATEWAYS.contains(elemento) || EVENTOS.contains(elemento)) {
+                    Element tiempo = tiempo(hijo);
                     nodos.add(new Nodo(suId, elemento, Dom.nombre(Dom.atributo(hijo, "name")),
                             Dom.texto(Dom.hijo(hijo, BPMN, "documentation")),
-                            Dom.referencia(Dom.atributo(hijo, "default")), definiciones(hijo)));
+                            Dom.referencia(Dom.atributo(hijo, "default")), definiciones(hijo),
+                            Dom.referencia(Dom.atributo(hijo, "attachedToRef")),
+                            !"false".equals(Dom.atributo(hijo, "cancelActivity")),
+                            tiempo == null ? null : tiempo.getLocalName(), Dom.texto(tiempo)));
                     extension(suId, hijo);
+                    asociacionesDeDatos(hijo, suId, TAREAS.contains(elemento));
+                } else if (ARTEFACTOS.contains(elemento)) {
+                    artefacto(hijo, id);
+                } else if ("association".equals(elemento)) {
+                    asociacion(hijo);
                 } else if ("sequenceFlow".equals(elemento)) {
                     Element condicion = Dom.hijo(hijo, BPMN, "conditionExpression");
                     flujos.add(new Flujo(suId, Dom.nombre(Dom.atributo(hijo, "name")),
@@ -226,6 +305,17 @@ public final class LectorBpmn {
     /** Lo ajeno de un proceso del archivo, hasta que la conversion sepa de que pool es. */
     static String claveDelProceso(String proceso) {
         return "process:" + proceso;
+    }
+
+    /** PR 55: el elemento que dice cuando salta un temporizador, si lo dice. */
+    private static Element tiempo(Element evento) {
+        Element definicion = Dom.hijo(evento, BPMN, "timerEventDefinition");
+        if (definicion == null) {
+            return null;
+        }
+        return Dom.hijos(definicion).stream()
+                .filter(hijo -> BPMN.equals(hijo.getNamespaceURI()) && TIEMPOS.contains(hijo.getLocalName()))
+                .findFirst().orElse(null);
     }
 
     private static List<String> definiciones(Element evento) {

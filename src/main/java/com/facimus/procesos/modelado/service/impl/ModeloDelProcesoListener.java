@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component;
 import com.facimus.procesos.gestion.event.ProcesoEliminado;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
+import com.facimus.procesos.modelado.repository.ArtefactoRepository;
+import com.facimus.procesos.modelado.repository.AsociacionRepository;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
@@ -32,12 +34,18 @@ public class ModeloDelProcesoListener {
     private final EventoRepository eventoRepository;
     private final LaneRepository laneRepository;
     private final PoolRepository poolRepository;
+    private final ArtefactoRepository artefactoRepository;
+    private final AsociacionRepository asociacionRepository;
 
     /** De hijos a padres, como cualquier borrado: ningun elemento activo queda apuntando a uno dado de baja. */
     @EventListener
     public void darDeBajaElModelo(ProcesoEliminado evento) {
         Long procesoId = evento.procesoId();
         Long empresaId = evento.empresaId();
+        asociacionRepository.deleteAll(
+                asociacionRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));
+        artefactoRepository.deleteAll(
+                artefactoRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));
         correlacionRepository.deleteAll(
                 correlacionRepository.findAllByMensaje_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));
         mensajeRepository.deleteAll(mensajeRepository.findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaId));

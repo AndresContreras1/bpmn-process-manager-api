@@ -11,4 +11,7 @@ public interface EventoRepository extends RepositorioTenant<Evento> {
     List<Evento> findAllByLaneIdAndEmpresaId(Long laneId, Long empresaId);
 
     List<Evento> findAllByLane_Pool_ProcesoIdAndEmpresaIdOrderByIdAsc(Long procesoId, Long empresaId);
+
+    /** PR 55: los eventos de borde pegados a una actividad. */
+    List<Evento> findAllByAdjuntoA_IdAndEmpresaIdOrderByIdAsc(Long actividadId, Long empresaId);
 }

@@ -10,7 +10,12 @@ public enum TipoActividad {
     /** Manda un mensaje a otro participante. */
     ENVIO,
     /** Espera un mensaje de otro participante. */
-    RECEPCION;
+    RECEPCION,
+    /**
+     * PR 55: una tarea sin decir quien la hace, como la escribe BPMN cuando solo se describe. Se publica en un proceso
+     * documental; en uno ejecutable el diagnostico pide decidir su tipo.
+     */
+    SIN_TIPO;
 
     /** Envio y recepcion existen para intercambiar un mensaje: sin mensaje no tienen sentido. */
     public boolean intercambiaMensajes() {

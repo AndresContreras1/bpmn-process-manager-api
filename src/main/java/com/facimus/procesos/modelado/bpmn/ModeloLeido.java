@@ -21,7 +21,7 @@ import com.facimus.procesos.modelado.model.DisposicionBpmn.Limites;
 public record ModeloLeido(String nombre, String descripcion, String categoria, List<Participante> participantes,
         List<Proceso> procesos, List<FlujoDeMensaje> flujosDeMensaje, Map<String, String> mensajes,
         Map<String, Limites> formas, Set<String> verticales, List<Ajeno> noSoportados,
-        Map<String, String> extensiones) {
+        Map<String, String> extensiones, List<Artefacto> artefactos, List<Asociacion> asociaciones) {
 
     public record Participante(String id, String nombre, String proceso, String tipo, String integracion,
             Integer orden) {
@@ -38,9 +38,33 @@ public record ModeloLeido(String nombre, String descripcion, String categoria, L
     /**
      * @param elemento el nombre local del elemento BPMN: {@code userTask}, {@code exclusiveGateway}...
      * @param definiciones las definiciones de evento que trae: {@code messageEventDefinition}...
+     * @param adjuntoA de un {@code boundaryEvent}, la actividad a la que va pegado
+     * @param interrumpe de un {@code boundaryEvent}, si interrumpe la actividad
+     * @param tipoTemporizador {@code timeDuration}, {@code timeDate} o {@code timeCycle}, si dice cuando salta
+     * @param temporizador la expresion de cuando salta
      */
     public record Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
-            List<String> definiciones) {
+            List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
+            String temporizador) {
+    }
+
+    /**
+     * PR 55: una anotacion, un grupo o un dato.
+     *
+     * @param elemento el nombre local del elemento BPMN: {@code textAnnotation}, {@code dataObjectReference}...
+     * @param proceso el id del proceso donde esta, o nulo si esta en la colaboracion
+     * @param objeto de un {@code dataObjectReference}, el {@code dataObject} al que apunta
+     */
+    public record Artefacto(String id, String elemento, String texto, String proceso, String objeto) {
+    }
+
+    /**
+     * PR 55: una asociacion o una asociacion de datos.
+     *
+     * @param elemento {@code association}, {@code dataInputAssociation} o {@code dataOutputAssociation}
+     * @param direccion el {@code associationDirection} que traia
+     */
+    public record Asociacion(String id, String elemento, String origen, String destino, String direccion) {
     }
 
     public record Flujo(String id, String nombre, String origen, String destino, String condicion, String lenguaje,

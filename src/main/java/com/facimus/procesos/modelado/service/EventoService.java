@@ -11,8 +11,15 @@ public interface EventoService {
     EventoResponse crear(Long empresaId, Long usuarioId, Long laneId, String nombre, TipoEvento tipoEvento, int posX,
             int posY);
 
+    /** PR 55: con lo que dice un evento de temporizador; un evento de borde va pegado a una actividad. */
+    EventoResponse crear(Long empresaId, Long usuarioId, Long laneId, String nombre, TipoEvento tipoEvento, int posX,
+            int posY, DatosDeTemporizador temporizador);
+
     EventoResponse editar(Long empresaId, Long usuarioId, Long eventoId, String nombre, TipoEvento tipoEvento,
             Long laneId, int posX, int posY, Long version);
+
+    EventoResponse editar(Long empresaId, Long usuarioId, Long eventoId, String nombre, TipoEvento tipoEvento,
+            Long laneId, int posX, int posY, Long version, DatosDeTemporizador temporizador);
 
     void eliminar(Long empresaId, Long usuarioId, Long eventoId);
 

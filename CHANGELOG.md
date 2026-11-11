@@ -8,6 +8,11 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Descriptive BPMN: a process can be `DOCUMENTAL` (`PUT /api/v1/procesos/{id}/modo`): it is published and documented,
+  opens no cases, and its diagnosis only checks the structure. Text annotations, groups, data objects and data stores
+  (`/api/v1/procesos/{id}/artefactos`), associations and data associations (`/api/v1/procesos/{id}/asociaciones`),
+  tasks without a kind, timer start, catch and boundary events and the terminate end, which closes every path of the
+  case. All of them are exported and imported. New diagnosis codes: `E-16`, `E-17`, `E-18` and `A-15`.
 - BPMN import: `POST /api/v1/procesos/importar` turns a file from this product, Camunda Modeler, bpmn.io or any other
   tool into a draft process, and `PUT /api/v1/procesos/{id}/modelo` applies one to a draft by differences, by
   `bpmnId`. Each element is imported, converted to the closest thing or left out, and the report says which and why;

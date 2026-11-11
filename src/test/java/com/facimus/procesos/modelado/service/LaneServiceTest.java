@@ -33,6 +33,7 @@ import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.mapper.LaneMapper;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.repository.ArtefactoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.repository.PoolRepository;
@@ -44,6 +45,9 @@ class LaneServiceTest {
 
     private static final Long EMPRESA = 1L;
     private static final Long AUTOR = 10L;
+
+    @Mock
+    private ArtefactoRepository artefactoRepository;
 
     @Mock
     private HistorialCambioService historialCambioService;

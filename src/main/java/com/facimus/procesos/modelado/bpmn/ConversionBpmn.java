@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.DatosDelMensaje;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.Flujo;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.FlujoDeMensaje;
@@ -30,17 +31,23 @@ import com.facimus.procesos.modelado.bpmn.PlanBpmn.Mensaje;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Nodo;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Pool;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
+import com.facimus.procesos.modelado.model.Artefacto;
 import com.facimus.procesos.modelado.model.BpmnId;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
+import com.facimus.procesos.modelado.model.DireccionAsociacion;
+import com.facimus.procesos.modelado.model.DisposicionBpmn;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Limites;
 import com.facimus.procesos.modelado.model.ExtensionXml;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoDestino;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 
 /**
  * PR 54: de lo que trae un archivo a lo que el modelo puede guardar. Decide tres cosas por cada elemento:
@@ -73,6 +80,13 @@ public final class ConversionBpmn {
     static final int CAMPO_DEL_MENSAJE = 60;
 
     /** Un bpmn_id que se conserva: un xsd:ID de hasta 64 caracteres. */
+    private static final String MENSAJE = "messageEventDefinition";
+    private static final String TIEMPO = "timerEventDefinition";
+    private static final String TERMINACION = "terminateEventDefinition";
+    private static final int TEMPORIZADOR = 120;
+    private static final int TEXTO_ARTEFACTO = 1000;
+    /** Lo que separa los artefactos que vienen sin dibujo. */
+    private static final double SEPARACION_SIN_DIBUJO = 140;
     private static final Pattern ID = Pattern.compile("[A-Za-z_][A-Za-z0-9_.-]{0,63}");
     private static final Pattern VARIABLE = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{0,59}");
 
@@ -115,6 +129,15 @@ public final class ConversionBpmn {
         private final Map<String, String> poolDelProceso = new HashMap<>();
         /** Lo que se dejo fuera, para decir por que se cae lo que dependia de ello. */
         private final Set<String> descartados = new HashSet<>();
+        private final List<PlanBpmn.Artefacto> artefactos = new ArrayList<>();
+        private final List<PlanBpmn.Asociacion> asociaciones = new ArrayList<>();
+        private final Set<String> idsDeArtefactos = new HashSet<>();
+        private final Set<String> idsDeDatos = new HashSet<>();
+        private final Set<String> idsDeArcos = new HashSet<>();
+        private final Set<String> idsDeAsociaciones = new HashSet<>();
+        /** El marco de las posiciones: la menor x de los nodos y la menor y de los nodos de cada lane. */
+        private Double menorX;
+        private final Map<String, Double> menorYDeLaLane = new HashMap<>();
 
         Conversion(ModeloLeido leido) {
             this.leido = leido;
@@ -145,6 +168,7 @@ public final class ConversionBpmn {
                     contenidoDe(proceso, pool);
                 }
             }
+            pegarBordes();
             posiciones();
             for (Participante participante : participantes) {
                 Proceso proceso = procesoDe(participante);
@@ -154,14 +178,33 @@ public final class ConversionBpmn {
                 }
             }
             mensajes();
+            artefactos();
+            asociaciones();
             if (!notas.errores().isEmpty()) {
                 throw rechazo();
             }
             Map<String, String> extensiones = extensiones();
+            ModoProceso modo = modo(organizacion);
             InformeBpmn informe = notas.informe(new ArrayList<>(extensiones.keySet()), avisosDelEsquema);
             return new PlanBpmn(nombreDelProceso(organizacion), recortar(leido.descripcion(), DESCRIPCION_DEL_PROCESO),
                     recortar(leido.categoria(), CATEGORIA), pools, lanes, nodos, arcos, mensajes, extensiones,
-                    informe);
+                    informe, modo, artefactos, asociaciones);
+        }
+
+        /**
+         * PR 55: lo que el archivo dice de su proceso principal. {@code isExecutable="false"} es uno documental; sin
+         * decirlo, el borrador se queda como este.
+         */
+        private ModoProceso modo(Participante organizacion) {
+            Proceso proceso = procesoDe(organizacion);
+            if (proceso == null || proceso.ejecutable() == null) {
+                return null;
+            }
+            // Un archivo propio ya era documental; uno de otra herramienta puede sorprender, y se avisa
+            if (!proceso.ejecutable() && organizacion.tipo() == null) {
+                notas.convertido(proceso.id(), "Viene con isExecutable en false: el proceso queda documental.");
+            }
+            return proceso.ejecutable() ? ModoProceso.EJECUTABLE : ModoProceso.DOCUMENTAL;
         }
 
         private ReglaNegocioException rechazo() {
@@ -381,9 +424,13 @@ public final class ConversionBpmn {
                 case GATEWAY -> "Gateway";
                 case EVENTO -> evento.empiezaElProceso() ? "Start" : evento.terminaElProceso() ? "End" : "Event";
             };
+            boolean deBorde = evento != null && evento.esDeBorde();
+            boolean conTiempo = evento != null && evento.esTemporizador();
             Nodo nodo = new Nodo(id, lane, clase, actividad, gateway, evento,
                     nombre(leidoNodo.nombre(), null, porDefecto, original, "el nodo"),
-                    recortar(leidoNodo.descripcion(), DESCRIPCION), 0, 0);
+                    recortar(leidoNodo.descripcion(), DESCRIPCION), 0, 0, deBorde ? leidoNodo.adjuntoA() : null,
+                    deBorde ? Boolean.valueOf(leidoNodo.interrumpe()) : null,
+                    conTiempo ? tipoDeTiempo(leidoNodo) : null, conTiempo ? expresion(leidoNodo) : null);
             nodos.add(nodo);
             nodoPorId.put(id, nodo);
             poolDelNodo.put(id, pool);
@@ -400,6 +447,7 @@ public final class ConversionBpmn {
                 case "serviceTask" -> TipoActividad.SERVICIO;
                 case "sendTask" -> TipoActividad.ENVIO;
                 case "receiveTask" -> TipoActividad.RECEPCION;
+                case "task" -> TipoActividad.SIN_TIPO;
                 case "businessRuleTask", "scriptTask" -> {
                     notas.convertido(id, "Una " + elemento + " corre sola: queda como tarea de servicio.");
                     yield TipoActividad.SERVICIO;
@@ -414,36 +462,127 @@ public final class ConversionBpmn {
         /** El tipo de evento, o nulo si el modelo no tiene uno parecido y se deja fuera. */
         private TipoEvento tipoDeEvento(ModeloLeido.Nodo nodo) {
             List<String> definiciones = nodo.definiciones();
-            boolean deMensaje = definiciones.contains("messageEventDefinition");
-            String otras = definiciones.stream().filter(definicion -> !"messageEventDefinition".equals(definicion))
-                    .reduce((una, otra) -> una + ", " + otra).orElse(null);
+            boolean deMensaje = definiciones.contains(MENSAJE);
+            boolean deTiempo = definiciones.contains(TIEMPO);
+            boolean deTerminacion = definiciones.contains(TERMINACION);
             switch (nodo.elemento()) {
                 case "startEvent" -> {
+                    String otras = otras(definiciones, deMensaje ? MENSAJE : TIEMPO);
                     if (otras != null) {
                         notas.convertido(nodo.id(), "Un inicio con " + otras + ": queda como "
-                                + (deMensaje ? "inicio de mensaje." : "inicio simple."));
+                                + (deMensaje ? "inicio de mensaje." : deTiempo ? "inicio de temporizador."
+                                        : "inicio simple."));
                     }
-                    return deMensaje ? TipoEvento.MENSAJE_INICIO : TipoEvento.INICIO;
+                    if (deMensaje) {
+                        return TipoEvento.MENSAJE_INICIO;
+                    }
+                    return deTiempo ? TipoEvento.TEMPORIZADOR_INICIO : TipoEvento.INICIO;
                 }
                 case "endEvent" -> {
+                    String otras = otras(definiciones, deMensaje ? MENSAJE : TERMINACION);
                     if (otras != null) {
                         notas.convertido(nodo.id(), "Un fin con " + otras + ": queda como "
-                                + (deMensaje ? "fin de mensaje." : "fin simple."));
+                                + (deMensaje ? "fin de mensaje." : deTerminacion ? "fin de terminacion."
+                                        : "fin simple."));
                     }
-                    return deMensaje ? TipoEvento.MENSAJE_FIN : TipoEvento.FIN;
+                    if (deMensaje) {
+                        return TipoEvento.MENSAJE_FIN;
+                    }
+                    return deTerminacion ? TipoEvento.FIN_TERMINACION : TipoEvento.FIN;
+                }
+                case "boundaryEvent" -> {
+                    if (deTiempo) {
+                        return TipoEvento.TEMPORIZADOR_BORDE;
+                    }
+                    String otras = otras(definiciones, null);
+                    notas.noSoportado(nodo.id(), "Un boundaryEvent" + (otras == null ? " sin definicion"
+                            : " de " + otras) + ": el modelo solo tiene los de temporizador, asi que se deja fuera.");
+                    return null;
                 }
                 default -> {
-                    if (deMensaje) {
+                    String otras = otras(definiciones, deMensaje ? MENSAJE : TIEMPO);
+                    if (deMensaje || deTiempo) {
                         if (otras != null) {
-                            notas.convertido(nodo.id(), "Una espera con " + otras + ": queda como espera de mensaje.");
+                            notas.convertido(nodo.id(), "Una espera con " + otras + ": queda como espera de "
+                                    + (deMensaje ? "mensaje." : "temporizador."));
                         }
-                        return TipoEvento.MENSAJE_INTERMEDIO;
+                        return deMensaje ? TipoEvento.MENSAJE_INTERMEDIO : TipoEvento.TEMPORIZADOR_INTERMEDIO;
                     }
                     notas.noSoportado(nodo.id(), "Un evento intermedio" + (otras == null ? " sin definicion"
-                            : " de " + otras) + ": el modelo solo espera mensajes, asi que se deja fuera.");
+                            : " de " + otras) + ": el modelo solo espera mensajes y temporizadores, asi que se deja "
+                            + "fuera.");
                     return null;
                 }
             }
+        }
+
+        private static String otras(List<String> definiciones, String elegida) {
+            return definiciones.stream().filter(definicion -> !definicion.equals(elegida))
+                    .reduce((una, otra) -> una + ", " + otra).orElse(null);
+        }
+
+        private static TipoTemporizador tipoDeTiempo(ModeloLeido.Nodo nodo) {
+            if (nodo.tipoTemporizador() == null) {
+                return null;
+            }
+            return switch (nodo.tipoTemporizador()) {
+                case "timeDate" -> TipoTemporizador.FECHA;
+                case "timeCycle" -> TipoTemporizador.CICLO;
+                default -> TipoTemporizador.DURACION;
+            };
+        }
+
+        /** Una expresion recortada ya no diria lo mismo: si no cabe, se deja sin ella y el diagnostico lo dira. */
+        private String expresion(ModeloLeido.Nodo nodo) {
+            String expresion = nodo.temporizador();
+            if (expresion != null && expresion.length() > TEMPORIZADOR) {
+                notas.convertido(nodo.id(), "La expresion del temporizador pasa de " + TEMPORIZADOR
+                        + " caracteres: queda sin ella.");
+                return null;
+            }
+            return expresion;
+        }
+
+        /**
+         * PR 55: cada evento de borde con su actividad, ya con todos los nodos leidos: el archivo puede traerlo antes
+         * que a ella. Queda en la lane de la actividad, y si ella se dejo fuera, el tambien.
+         */
+        private void pegarBordes() {
+            Map<String, String> originales = originales();
+            List<Nodo> pegados = new ArrayList<>(nodos.size());
+            for (Nodo borde : nodos) {
+                if (borde.tipoEvento() == null || !borde.tipoEvento().esDeBorde()) {
+                    pegados.add(borde);
+                    continue;
+                }
+                String original = borde.adjuntoA();
+                Nodo actividad = original == null || ids.get(original) == null ? null
+                        : nodoPorId.get(ids.get(original));
+                if (actividad == null || actividad.clase() != Clase.ACTIVIDAD
+                        || !poolDelNodo.get(actividad.bpmnId()).equals(poolDelNodo.get(borde.bpmnId()))) {
+                    nodoPorId.remove(borde.bpmnId());
+                    poolDelNodo.remove(borde.bpmnId());
+                    String enElArchivo = originales.getOrDefault(borde.bpmnId(), borde.bpmnId());
+                    descartados.add(enElArchivo);
+                    notas.noSoportado(enElArchivo, "Un boundaryEvent pegado a algo que no es una actividad del "
+                            + "modelo: se deja fuera.");
+                    continue;
+                }
+                Nodo pegado = new Nodo(borde.bpmnId(), actividad.lane(), borde.clase(), null, null, borde.tipoEvento(),
+                        borde.nombre(), borde.descripcion(), 0, 0, actividad.bpmnId(), borde.interrumpe(),
+                        borde.tipoTemporizador(), borde.temporizador());
+                pegados.add(pegado);
+                nodoPorId.put(pegado.bpmnId(), pegado);
+            }
+            nodos.clear();
+            nodos.addAll(pegados);
+        }
+
+        /** El id en el archivo de cada elemento que se quedo. */
+        private Map<String, String> originales() {
+            Map<String, String> originales = new HashMap<>();
+            ids.forEach((original, suyo) -> originales.put(suyo, original));
+            return originales;
         }
 
         /**
@@ -481,20 +620,243 @@ public final class ConversionBpmn {
                     centros.put(nodo.bpmnId(), new double[] {nivel * 180.0, antes * 100.0});
                 }
             }
-            double menorX = centros.values().stream().mapToDouble(centro -> centro[0]).min().orElse(0);
-            Map<String, Double> menorYDeLaLane = new HashMap<>();
-            for (Nodo nodo : nodos) {
+            // Un evento de borde no cuenta para el marco: se dibuja sobre su actividad, no donde este
+            List<Nodo> enElFlujo = nodos.stream().filter(nodo -> nodo.adjuntoA() == null).toList();
+            menorX = enElFlujo.isEmpty() ? null
+                    : enElFlujo.stream().mapToDouble(nodo -> centros.get(nodo.bpmnId())[0]).min().orElse(0);
+            for (Nodo nodo : enElFlujo) {
                 menorYDeLaLane.merge(nodo.lane(), centros.get(nodo.bpmnId())[1], Math::min);
             }
             nodos.replaceAll(nodo -> {
+                if (nodo.adjuntoA() != null) {
+                    return nodo;
+                }
                 double[] centro = centros.get(nodo.bpmnId());
-                Nodo ubicado = new Nodo(nodo.bpmnId(), nodo.lane(), nodo.clase(), nodo.tipoActividad(),
-                        nodo.tipoGateway(), nodo.tipoEvento(), nodo.nombre(), nodo.descripcion(),
-                        (int) Math.round(centro[0] - menorX),
+                Nodo ubicado = nodo.en(nodo.lane(), (int) Math.round(centro[0] - menorX),
                         (int) Math.round(centro[1] - menorYDeLaLane.get(nodo.lane())));
                 nodoPorId.put(ubicado.bpmnId(), ubicado);
                 return ubicado;
             });
+            nodos.replaceAll(nodo -> {
+                if (nodo.adjuntoA() == null) {
+                    return nodo;
+                }
+                Nodo actividad = nodoPorId.get(nodo.adjuntoA());
+                Nodo ubicado = nodo.en(actividad.lane(), actividad.x(), actividad.y());
+                nodoPorId.put(ubicado.bpmnId(), ubicado);
+                return ubicado;
+            });
+        }
+
+        // ---------- Artefactos y asociaciones ----------
+
+        /** Un artefacto mientras se decide donde va: su esquina en el dibujo, ya girada si el dibujo es vertical. */
+        private record Colocado(String id, TipoArtefacto tipo, String texto, String pool, String lane, double x,
+                double y, int ancho, int alto) {
+        }
+
+        /**
+         * PR 55: los artefactos que el modelo puede guardar. Un {@code dataObject} solo cuenta si nadie lo referencia
+         * y esta dibujado: lo normal es dibujar su referencia. Los que caen dentro de una lane quedan en ella, con el
+         * marco de sus nodos; los demas quedan sueltos.
+         */
+        private void artefactos() {
+            Set<String> referenciados = new HashSet<>();
+            leido.artefactos().forEach(artefacto -> referenciados.add(artefacto.objeto()));
+            Map<String, String> originales = originales();
+            Map<String, String> poolDeLaLane = new HashMap<>();
+            lanes.forEach(lane -> poolDeLaLane.put(lane.bpmnId(), lane.pool()));
+            List<Colocado> colocados = new ArrayList<>();
+            int sinDibujo = 0;
+            for (ModeloLeido.Artefacto artefacto : leido.artefactos()) {
+                if ("dataObject".equals(artefacto.elemento()) && (referenciados.contains(artefacto.id())
+                        || !leido.formas().containsKey(artefacto.id()))) {
+                    continue;
+                }
+                TipoArtefacto tipo = switch (artefacto.elemento()) {
+                    case "textAnnotation" -> TipoArtefacto.ANOTACION;
+                    case "group" -> TipoArtefacto.GRUPO;
+                    case "dataStoreReference" -> TipoArtefacto.ALMACEN_DATOS;
+                    default -> TipoArtefacto.OBJETO_DATOS;
+                };
+                String pool = artefacto.proceso() == null ? null : poolDelProceso.get(artefacto.proceso());
+                if (pool != null && esCajaNegra(pool)) {
+                    pool = null;
+                }
+                boolean esDato = tipo == TipoArtefacto.OBJETO_DATOS || tipo == TipoArtefacto.ALMACEN_DATOS;
+                if (esDato && pool == null) {
+                    descartados.add(artefacto.id());
+                    notas.noSoportado(Objects.requireNonNullElse(artefacto.id(), artefacto.elemento()), "Un "
+                            + artefacto.elemento() + " de un proceso que no se importa: se deja fuera.");
+                    continue;
+                }
+                Limites forma = leido.formas().get(artefacto.id());
+                int[] porDefecto = Artefacto.tamanoPorDefecto(tipo);
+                int ancho = forma == null || forma.ancho() < 1 ? porDefecto[0] : (int) Math.round(forma.ancho());
+                int alto = forma == null || forma.alto() < 1 ? porDefecto[1] : (int) Math.round(forma.alto());
+                String lane = laneDe(forma, pool, artefacto.proceso(), originales);
+                if (lane != null) {
+                    pool = poolDeLaLane.get(lane);
+                }
+                double x = forma == null ? (sinDibujo++) * SEPARACION_SIN_DIBUJO : forma.x();
+                double y = forma == null ? 0 : forma.y();
+                if (forma != null && lane != null && (leido.verticales().contains(originales.get(lane))
+                        || leido.verticales().contains(participanteDelPool.get(pool)))) {
+                    x = forma.y() + forma.alto() / 2 - ancho / 2.0;
+                    y = forma.x() + forma.ancho() / 2 - alto / 2.0;
+                }
+                String id = id(artefacto.id(), Artefacto.prefijoBpmn(tipo), null);
+                colocados.add(new Colocado(id, tipo, recortar(artefacto.texto(), TEXTO_ARTEFACTO), pool, lane, x, y,
+                        ancho, alto));
+                notas.soportado("artefactos");
+            }
+            enSuMarco(colocados);
+        }
+
+        /**
+         * Cada artefacto en el marco que guarda el modelo. Un nodo guarda su centro y un artefacto su esquina, y se
+         * dibujan alineados; una lane sin nodos toma el marco de sus artefactos, y los sueltos el de los sueltos.
+         */
+        private void enSuMarco(List<Colocado> colocados) {
+            double menorXSuelta = Double.MAX_VALUE;
+            double menorYSuelta = Double.MAX_VALUE;
+            double menorXEnLanes = Double.MAX_VALUE;
+            Map<String, Double> menorYDeArtefactos = new HashMap<>();
+            for (Colocado uno : colocados) {
+                if (uno.lane() == null) {
+                    menorXSuelta = Math.min(menorXSuelta, uno.x());
+                    menorYSuelta = Math.min(menorYSuelta, uno.y());
+                } else {
+                    menorXEnLanes = Math.min(menorXEnLanes, uno.x());
+                    menorYDeArtefactos.merge(uno.lane(), uno.y(), Math::min);
+                }
+            }
+            for (Colocado uno : colocados) {
+                double x;
+                double y;
+                if (uno.lane() == null) {
+                    x = uno.x() - menorXSuelta;
+                    y = uno.y() - menorYSuelta;
+                } else {
+                    x = menorX != null ? uno.x() + DisposicionBpmn.ANCHO_TAREA / 2 - menorX : uno.x() - menorXEnLanes;
+                    Double menorY = menorYDeLaLane.get(uno.lane());
+                    y = menorY != null ? uno.y() + DisposicionBpmn.ALTO_TAREA / 2 - menorY
+                            : uno.y() - menorYDeArtefactos.get(uno.lane());
+                }
+                artefactos.add(new PlanBpmn.Artefacto(uno.id(), uno.tipo(), uno.texto(), uno.pool(), uno.lane(),
+                        (int) Math.round(x), (int) Math.round(y), uno.ancho(), uno.alto()));
+                idsDeArtefactos.add(uno.id());
+                if (uno.tipo() == TipoArtefacto.OBJETO_DATOS || uno.tipo() == TipoArtefacto.ALMACEN_DATOS) {
+                    idsDeDatos.add(uno.id());
+                }
+            }
+        }
+
+        /**
+         * La lane donde cae un artefacto: la que contiene su centro; si esta en un pool sin lanes dibujadas, la unica
+         * que tenga. Si dice de que pool es, solo cuenta una lane de ese pool.
+         */
+        private String laneDe(Limites forma, String pool, String proceso, Map<String, String> originales) {
+            if (forma != null) {
+                double cx = forma.x() + forma.ancho() / 2;
+                double cy = forma.y() + forma.alto() / 2;
+                for (Lane lane : lanes) {
+                    Limites suya = leido.formas().get(originales.get(lane.bpmnId()));
+                    if (suya != null && contiene(suya, cx, cy) && (pool == null || pool.equals(lane.pool()))) {
+                        return lane.bpmnId();
+                    }
+                }
+                for (Pool candidato : pools) {
+                    Limites suya = leido.formas().get(participanteDelPool.get(candidato.bpmnId()));
+                    if (suya != null && contiene(suya, cx, cy) && (pool == null || pool.equals(candidato.bpmnId()))) {
+                        return unicaLane(candidato.bpmnId());
+                    }
+                }
+            }
+            boolean poolDibujado = pool != null && leido.formas().containsKey(participanteDelPool.get(pool));
+            return proceso != null && pool != null && !poolDibujado ? unicaLane(pool) : null;
+        }
+
+        private String unicaLane(String pool) {
+            List<Lane> suyas = lanes.stream().filter(lane -> lane.pool().equals(pool)).toList();
+            return suyas.size() == 1 ? suyas.getFirst().bpmnId() : null;
+        }
+
+        private static boolean contiene(Limites caja, double x, double y) {
+            return x >= caja.x() && x <= caja.x() + caja.ancho() && y >= caja.y() && y <= caja.y() + caja.alto();
+        }
+
+        /**
+         * PR 55: las asociaciones cuyos dos extremos se quedaron. Una asociacion lleva un artefacto en algun lado, y
+         * una de datos une un dato con una actividad.
+         */
+        private void asociaciones() {
+            Set<String> repetidas = new HashSet<>();
+            arcos.forEach(arco -> idsDeArcos.add(arco.bpmnId()));
+            for (ModeloLeido.Asociacion asociacion : leido.asociaciones()) {
+                String donde = Objects.requireNonNullElse(asociacion.id(), asociacion.elemento());
+                TipoAsociacion tipo = switch (asociacion.elemento()) {
+                    case "dataInputAssociation" -> TipoAsociacion.ENTRADA_DATOS;
+                    case "dataOutputAssociation" -> TipoAsociacion.SALIDA_DATOS;
+                    default -> TipoAsociacion.ASOCIACION;
+                };
+                String origen = extremoDeAsociacion(asociacion.origen());
+                String destino = extremoDeAsociacion(asociacion.destino());
+                if (origen == null || destino == null || origen.equals(destino)) {
+                    descartados.add(asociacion.id());
+                    notas.noSoportado(donde, "Una " + asociacion.elemento() + " con un extremo que no se importa: se "
+                            + "deja fuera.");
+                    continue;
+                }
+                if (!tieneSentido(tipo, origen, destino)) {
+                    descartados.add(asociacion.id());
+                    notas.noSoportado(donde, "Una " + asociacion.elemento() + " entre elementos que el modelo no une "
+                            + "asi: se deja fuera.");
+                    continue;
+                }
+                if (!repetidas.add(tipo + "|" + origen + "|" + destino)) {
+                    descartados.add(asociacion.id());
+                    notas.convertido(donde, "Ya hay una igual entre esos dos elementos: se deja solo la primera.");
+                    continue;
+                }
+                String prefijo = tipo == TipoAsociacion.ASOCIACION ? "Association" : "DataAssociation";
+                String id = id(asociacion.id(), prefijo, null);
+                asociaciones.add(new PlanBpmn.Asociacion(id, tipo, origen, destino,
+                        direccion(tipo, asociacion.direccion())));
+                idsDeAsociaciones.add(id);
+                notas.soportado("asociaciones");
+            }
+        }
+
+        private String extremoDeAsociacion(String original) {
+            String id = original == null ? null : ids.get(original);
+            boolean queda = id != null && (nodoPorId.containsKey(id) || idsDeArtefactos.contains(id)
+                    || idsDeArcos.contains(id));
+            return queda ? id : null;
+        }
+
+        private boolean esActividad(String id) {
+            Nodo nodo = nodoPorId.get(id);
+            return nodo != null && nodo.clase() == Clase.ACTIVIDAD;
+        }
+
+        private boolean tieneSentido(TipoAsociacion tipo, String origen, String destino) {
+            return switch (tipo) {
+                case ASOCIACION -> idsDeArtefactos.contains(origen) || idsDeArtefactos.contains(destino);
+                case ENTRADA_DATOS -> idsDeDatos.contains(origen) && esActividad(destino);
+                case SALIDA_DATOS -> esActividad(origen) && idsDeDatos.contains(destino);
+            };
+        }
+
+        private static DireccionAsociacion direccion(TipoAsociacion tipo, String dicha) {
+            if (tipo != TipoAsociacion.ASOCIACION || dicha == null) {
+                return DireccionAsociacion.NINGUNA;
+            }
+            return switch (dicha.strip()) {
+                case "One" -> DireccionAsociacion.UNA;
+                case "Both" -> DireccionAsociacion.AMBAS;
+                default -> DireccionAsociacion.NINGUNA;
+            };
         }
 
         /** Que tan lejos del inicio esta cada nodo siguiendo los flujos: lo que ordena un archivo sin dibujo. */
@@ -509,6 +871,9 @@ public final class ConversionBpmn {
                     }
                 }
             }
+            // A un evento de borde se llega por su actividad, y lo que sale de el va despues de ella
+            nodos.stream().filter(nodo -> nodo.adjuntoA() != null).forEach(borde -> salidas
+                    .computeIfAbsent(borde.adjuntoA(), clave -> new ArrayList<>()).add(borde.bpmnId()));
             Map<String, Integer> niveles = new HashMap<>();
             Deque<String> pendientes = new ArrayDeque<>();
             for (Nodo nodo : nodos) {
@@ -559,6 +924,10 @@ public final class ConversionBpmn {
                 }
                 if (a.tipoEvento() != null && a.tipoEvento().empiezaElProceso()) {
                     notas.error("El flujo " + flujo.id() + " llega a un evento de inicio (" + a.nombre() + ").");
+                    continue;
+                }
+                if (a.tipoEvento() != null && a.tipoEvento().esDeBorde()) {
+                    notas.error("El flujo " + flujo.id() + " llega a un evento de borde (" + a.nombre() + ").");
                     continue;
                 }
                 if (origen.equals(destino)) {
@@ -849,7 +1218,8 @@ public final class ConversionBpmn {
             }
             boolean queda = nodoPorId.containsKey(id) || lanes.stream().anyMatch(lane -> lane.bpmnId().equals(id))
                     || arcos.stream().anyMatch(arco -> arco.bpmnId().equals(id))
-                    || mensajes.stream().anyMatch(mensaje -> mensaje.bpmnId().equals(id));
+                    || mensajes.stream().anyMatch(mensaje -> mensaje.bpmnId().equals(id))
+                    || idsDeArtefactos.contains(id) || idsDeAsociaciones.contains(id);
             return queda ? id : null;
         }
 

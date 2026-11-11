@@ -37,11 +37,13 @@ import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.Mensaje;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.repository.ArtefactoRepository;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
 import com.facimus.procesos.modelado.repository.PoolRepository;
+import com.facimus.procesos.modelado.service.impl.ElementosPegados;
 import com.facimus.procesos.modelado.service.impl.PoolServiceImpl;
 
 /** HU-21: los participantes del proceso. */
@@ -50,6 +52,12 @@ class PoolServiceTest {
 
     private static final Long EMPRESA = 1L;
     private static final Long AUTOR = 10L;
+
+    @Mock
+    private ElementosPegados pegados;
+
+    @Mock
+    private ArtefactoRepository artefactoRepository;
 
     @Mock
     private HistorialCambioService historialCambioService;

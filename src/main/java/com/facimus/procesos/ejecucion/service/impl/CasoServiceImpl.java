@@ -60,7 +60,7 @@ public class CasoServiceImpl implements CasoService {
             Map<String, Object> variables) {
         VersionProceso version = versionService.vigente(empresaId, procesoId)
                 .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada vigente."));
-        GrafoDeVersion grafo = grafos.del(empresaId, version);
+        GrafoDeVersion grafo = grafos.del(empresaId, version).queSeEjecute();
         NodoDeLaVersion inicio = grafo.inicioAMano().orElseThrow(() -> new ReglaNegocioException(porDondeEmpieza(
                 grafo)));
 

@@ -37,6 +37,12 @@ public class Proceso extends EntidadEditable {
     @Column(nullable = false, length = 80)
     private String categoria;
 
+    /** PR 55: si se ejecuta o solo se documenta. Los que ya existian, y los nuevos, son ejecutables. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private ModoProceso modo = ModoProceso.EJECUTABLE;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

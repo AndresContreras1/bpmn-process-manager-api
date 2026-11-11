@@ -34,7 +34,9 @@ positions relative to the lane with the same calculation the web draws with, eve
 ([ADR-0052](adr/0052-geometry-in-the-domain.md)). With both, a process is exported as BPMN 2.0.2, and each published
 version keeps its file in `versiones_proceso.modelo_bpmn` ([ADR-0053](adr/0053-bpmn-export.md)). A file imported from
 another tool leaves what the model has no place for in `extension_xml`, per element, to write it back on export, and
-each import leaves its report in `importaciones` ([ADR-0054](adr/0054-bpmn-import.md)).
+each import leaves its report in `importaciones` ([ADR-0054](adr/0054-bpmn-import.md)). A process is executable or
+documental (`procesos.modo`), and what only describes it lives in `artefactos` (annotations, groups, data objects and
+stores) and `asociaciones`, whose ends are `bpmn_id`s ([ADR-0055](adr/0055-descriptive-bpmn-elements.md)).
 
 ## Modeling rules
 

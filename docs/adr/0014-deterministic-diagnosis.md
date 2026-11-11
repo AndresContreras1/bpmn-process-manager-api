@@ -14,7 +14,8 @@ promise the same answer twice.
 ## Decision
 
 `GET /api/v1/procesos/{procesoId}/diagnostico` checks the diagram against a fixed catalogue, `CodigoDeDiagnostico`:
-15 errors (`E-01` to `E-15`, severity `ALTA`) and 14 warnings (`A-01` to `A-14`, severity `MEDIA` or `BAJA`).
+18 errors (`E-01` to `E-18`, severity `ALTA`) and 15 warnings (`A-01` to `A-15`, severity `MEDIA` or `BAJA`); a
+documental process counts only the structural ones ([ADR-0055](0055-descriptive-bpmn-elements.md)).
 
 - The answer carries the counts `errores` and `advertencias` and one list, `hallazgos`, errors first. A finding has
   the shape of a finding of the AI review (`severidad`, `elemento`, `problema`, `sugerencia`) plus `codigo` and

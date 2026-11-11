@@ -2,7 +2,9 @@ package com.facimus.procesos.gestion.dto.response;
 
 import java.time.LocalDateTime;
 
+import com.facimus.procesos.common.Default;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.model.ModoProceso;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -27,7 +29,23 @@ public record ProcesoResponse(
         @Schema(description = "True when the live model differs from the version in force. Empty in listings, "
                 + "where working it out would mean reading one whole diagram per row, and for a guest store, "
                 + "which only sees what is published", example = "true")
-        Boolean borradorPendiente) {
+        Boolean borradorPendiente,
+        @Schema(description = "EJECUTABLE runs cases; DOCUMENTAL is published and documented but opens none, and its "
+                + "diagnosis only checks the structure", example = "EJECUTABLE") ModoProceso modo) {
+
+    /** PR 55: un proceso viene con su modo; uno que llega sin el, como el de una instantanea vieja, es ejecutable. */
+    @Default
+    public ProcesoResponse {
+        modo = modo == null ? ModoProceso.EJECUTABLE : modo;
+    }
+
+    /** El de antes del PR 55, sin modo: ejecutable, como eran todos. */
+    public ProcesoResponse(Long id, String nombre, String descripcion, String categoria, EstadoProceso estado,
+            boolean activo, LocalDateTime fechaCreacion, LocalDateTime fechaModificacion, Long version, Long creadoPor,
+            Long modificadoPor, Integer versionPublicada, Boolean borradorPendiente) {
+        this(id, nombre, descripcion, categoria, estado, activo, fechaCreacion, fechaModificacion, version, creadoPor,
+                modificadoPor, versionPublicada, borradorPendiente, ModoProceso.EJECUTABLE);
+    }
 
     /**
      * El mismo proceso visto como quedara publicado con ese numero. La instantanea se toma antes de guardar nada,
@@ -35,12 +53,12 @@ public record ProcesoResponse(
      */
     public ProcesoResponse publicadoComo(int numero) {
         return new ProcesoResponse(id, nombre, descripcion, categoria, EstadoProceso.PUBLICADO, activo, fechaCreacion,
-                fechaModificacion, version, creadoPor, modificadoPor, numero, false);
+                fechaModificacion, version, creadoPor, modificadoPor, numero, false, modo);
     }
 
     /** El mismo proceso diciendo si su borrador tiene cambios sin publicar; lo calcula quien ya tiene el diagrama. */
     public ProcesoResponse conBorradorPendiente(Boolean pendiente) {
         return new ProcesoResponse(id, nombre, descripcion, categoria, estado, activo, fechaCreacion,
-                fechaModificacion, version, creadoPor, modificadoPor, versionPublicada, pendiente);
+                fechaModificacion, version, creadoPor, modificadoPor, versionPublicada, pendiente, modo);
     }
 }

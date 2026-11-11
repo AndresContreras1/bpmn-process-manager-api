@@ -10,6 +10,7 @@ import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoLectura;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.model.ModoProceso;
 
 /** HU-04 a HU-07: creacion, edicion, eliminacion logica y consulta de procesos. */
 public interface ProcesoService {
@@ -33,6 +34,12 @@ public interface ProcesoService {
 
     ProcesoResponse cambiarEstado(Long empresaId, Long procesoId, Long usuarioId, EstadoProceso nuevoEstado,
             Long version);
+
+    /**
+     * PR 55: si el proceso se ejecuta o solo se documenta. Es parte del modelo, asi que cuenta al publicar: una
+     * version documental no abre casos aunque el borrador haya vuelto a ser ejecutable.
+     */
+    ProcesoResponse cambiarModo(Long empresaId, Long procesoId, Long usuarioId, ModoProceso modo, Long version);
 
     void eliminarLogico(Long empresaId, Long procesoId, Long usuarioId);
 }

@@ -38,6 +38,7 @@ import com.facimus.procesos.modelado.repository.GatewayRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
 import com.facimus.procesos.modelado.repository.MensajeRepository;
 import com.facimus.procesos.modelado.repository.NodoFlujoRepository;
+import com.facimus.procesos.modelado.service.impl.ElementosPegados;
 import com.facimus.procesos.modelado.service.impl.GatewayServiceImpl;
 
 /** HU-14 a HU-16: los puntos de decision, y la condicion que exigen los arcos que salen de ellos. */
@@ -46,6 +47,9 @@ class GatewayServiceTest {
 
     private static final Long EMPRESA = 1L;
     private static final Long AUTOR = 10L;
+
+    @Mock
+    private ElementosPegados pegados;
 
     @Mock
     private HistorialCambioService historialCambioService;

@@ -52,7 +52,7 @@ public class DiagnosticoServiceImpl implements DiagnosticoService {
 
     /** Puro sobre el diagrama: ni consulta, ni reloj, ni azar, asi que dos diagnosticos iguales se comparan. */
     static DiagnosticoResponse revisar(DiagramaResponse diagrama) {
-        Hallazgos hallazgos = new Hallazgos();
+        Hallazgos hallazgos = hallazgosDe(diagrama);
         avisarDelBorrador(diagrama, hallazgos);
         revisar(new MapaDelDiagrama(diagrama), hallazgos);
         return armar(diagrama, null, hallazgos);
@@ -63,7 +63,7 @@ public class DiagnosticoServiceImpl implements DiagnosticoService {
         MapaDelDiagrama antes = new MapaDelDiagrama(diagrama);
         MapaDelDiagrama despues = new MapaDelDiagrama(SimulacionDeBorrado.sinElElemento(diagrama, elemento));
 
-        Hallazgos hallazgos = new Hallazgos();
+        Hallazgos hallazgos = hallazgosDe(diagrama);
         avisarDelBorrador(diagrama, hallazgos);
         SimulacionDeBorrado.avisarDeLoQueSeVa(antes, despues, elemento, hallazgos);
         revisar(despues, hallazgos);
@@ -86,6 +86,12 @@ public class DiagnosticoServiceImpl implements DiagnosticoService {
     private static void revisar(MapaDelDiagrama mapa, Hallazgos hallazgos) {
         RevisionDelFlujo.revisar(mapa, hallazgos);
         RevisionDeLosMensajes.revisar(mapa, hallazgos);
+        RevisionDeLoDescriptivo.revisar(mapa, hallazgos);
+    }
+
+    /** PR 55: un proceso documental no va a correr, y su diagnostico solo cuenta lo estructural. */
+    private static Hallazgos hallazgosDe(DiagramaResponse diagrama) {
+        return new Hallazgos(!diagrama.proceso().modo().ejecuta());
     }
 
     private static DiagnosticoResponse armar(DiagramaResponse diagrama, String sinElemento, Hallazgos hallazgos) {

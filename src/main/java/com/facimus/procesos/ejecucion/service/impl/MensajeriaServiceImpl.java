@@ -71,7 +71,7 @@ public class MensajeriaServiceImpl implements MensajeriaService {
         }
         VersionProceso version = versionService.vigente(empresaId, procesoId)
                 .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada vigente."));
-        GrafoDeVersion vigente = grafos.del(empresaId, version);
+        GrafoDeVersion vigente = grafos.del(empresaId, version).queSeEjecute();
         MensajeDeLaVersion mensaje = vigente.mensajePorNombre(datos.nombre())
                 .filter(candidato -> loRecibeLaTienda(vigente, candidato))
                 .orElseThrow(() -> new ReglaNegocioException("La versión publicada del proceso no recibe ningún "
@@ -113,7 +113,7 @@ public class MensajeriaServiceImpl implements MensajeriaService {
                 .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada vigente."));
         GrafoDeVersion vigente = grafos.del(empresaId, version);
         Optional<MensajeDeLaVersion> mensaje = vigente.mensajePorNombre(entrante.getNombre())
-                .filter(candidato -> loRecibeLaTienda(vigente, candidato));
+                .filter(candidato -> vigente.ejecutable() && loRecibeLaTienda(vigente, candidato));
         if (mensaje.isEmpty()) {
             // La version de ahora ya no recibe ese mensaje: dejarlo esperando para siempre seria mentir.
             entrante.setResultado(ResultadoCorrelacion.DESCARTADO);

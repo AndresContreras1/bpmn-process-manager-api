@@ -20,9 +20,22 @@ final class Hallazgos {
                     Comparator.nullsFirst(Comparator.naturalOrder()));
 
     private final List<HallazgoDiagnosticoResponse> lista = new ArrayList<>();
+    private final boolean soloEstructural;
+
+    Hallazgos() {
+        this(false);
+    }
+
+    /** PR 55: los de un proceso documental, que solo cuentan lo estructural. */
+    Hallazgos(boolean soloEstructural) {
+        this.soloEstructural = soloEstructural;
+    }
 
     /** Un hallazgo sobre un elemento concreto del diagrama. */
     void anotar(CodigoDeDiagnostico codigo, String elemento, Long elementoId, String problema, String sugerencia) {
+        if (soloEstructural && !codigo.esEstructural()) {
+            return;
+        }
         lista.add(new HallazgoDiagnosticoResponse(codigo.codigo(), codigo.severidad(), elemento, elementoId, problema,
                 sugerencia));
     }

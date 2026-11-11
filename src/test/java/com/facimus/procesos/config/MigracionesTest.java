@@ -110,7 +110,8 @@ class MigracionesTest {
                         "V38__estadisticas_de_las_consultas.sql", "V39__passkeys.sql", "V40__idioma_y_zona_horaria.sql",
                         "V41__geometria_bpmn_di.sql", "db.migration.common.V42__geometria_de_los_diagramas",
                         "V43__modelo_bpmn_de_las_versiones.sql", "db.migration.common.V44__bpmn_de_las_versiones",
-                        "V45__importacion_bpmn.sql");
+                        "V45__importacion_bpmn.sql",
+                        "V46__elementos_descriptivos.sql");
     }
 
     @Test

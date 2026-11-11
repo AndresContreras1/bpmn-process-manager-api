@@ -11,6 +11,7 @@ import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
 import com.facimus.procesos.modelado.model.Actividad;
+import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
@@ -34,6 +35,7 @@ public class ActividadServiceImpl implements ActividadService {
     private final ArcoRepository arcoRepository;
     private final MensajeRepository mensajeRepository;
     private final ActividadMapper actividadMapper;
+    private final ElementosPegados pegados;
 
     @Override
     @Transactional
@@ -72,8 +74,17 @@ public class ActividadServiceImpl implements ActividadService {
                 empresaId, actividadId)) {
             throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
         }
-        actividad.setLane(ReglasDeNodos.mudanza(empresaId, actividad, laneId, laneRepository, arcoRepository,
-                mensajeRepository));
+        // Se consulta antes de tocar la entidad: una consulta despues la escribiria y gastaria una version de mas
+        List<Evento> bordes = pegados.bordesDe(empresaId, actividadId);
+        Lane destino = ReglasDeNodos.mudanza(empresaId, actividad, laneId, laneRepository, arcoRepository,
+                mensajeRepository);
+        if (!bordes.isEmpty() && !destino.getPool().getId().equals(actividad.getLane().getPool().getId())) {
+            throw new ReglaNegocioException("La actividad lleva eventos de borde y solo puede moverse a una lane del "
+                    + "mismo pool.");
+        }
+        actividad.setLane(destino);
+        // Un evento de borde esta en la lane de su actividad: si ella se muda, el va detras
+        bordes.forEach(borde -> borde.setLane(destino));
         actividad.setNombre(nombre);
         actividad.setDescripcion(descripcion);
         actividad.setTipoActividad(deUsuarioSiFalta(tipoActividad));
@@ -88,6 +99,7 @@ public class ActividadServiceImpl implements ActividadService {
     @Transactional
     public void eliminar(Long empresaId, Long usuarioId, Long actividadId) {
         Actividad actividad = buscar(empresaId, actividadId);
+        pegados.borrarConLaActividad(empresaId, actividad.getLane().getPool().getProceso().getId(), actividad);
         arcoRepository.deleteAll(arcoRepository.findAllByOrigenIdAndEmpresaId(actividadId, empresaId));
         arcoRepository.deleteAll(arcoRepository.findAllByDestinoIdAndEmpresaId(actividadId, empresaId));
         actividadRepository.delete(actividad);

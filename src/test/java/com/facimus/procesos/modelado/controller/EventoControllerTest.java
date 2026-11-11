@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.service.DatosDeTemporizador;
 import com.facimus.procesos.modelado.service.EventoService;
 
 @WebMvcTest(EventoController.class)
@@ -43,7 +44,8 @@ class EventoControllerTest {
     @DisplayName("POST /api/v1/lanes/{laneId}/eventos - crear evento (201)")
     void crear_evento() throws Exception {
         given(eventoService.crear(eq(1L), eq(1L), eq(3L), anyString(), eq(TipoEvento.MENSAJE_INICIO), anyInt(),
-                anyInt())).willReturn(crearEvento(1L, "Order received", TipoEvento.MENSAJE_INICIO));
+                anyInt(), any(DatosDeTemporizador.class)))
+                .willReturn(crearEvento(1L, "Order received", TipoEvento.MENSAJE_INICIO));
 
         mockMvc.perform(post("/api/v1/lanes/3/eventos")
                         .with(principal(RolAcceso.EDITOR))
@@ -125,7 +127,8 @@ class EventoControllerTest {
     @Test
     @DisplayName("PUT /api/v1/eventos/{id} - editar evento (200)")
     void editar_evento() throws Exception {
-        given(eventoService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), any(), anyInt(), anyInt(), eq(3L)))
+        given(eventoService.editar(eq(1L), eq(1L), eq(1L), anyString(), any(), any(), anyInt(), anyInt(), eq(3L),
+                any(DatosDeTemporizador.class)))
                 .willReturn(crearEvento(1L, "Order cancelled", TipoEvento.FIN));
 
         mockMvc.perform(put("/api/v1/eventos/1")

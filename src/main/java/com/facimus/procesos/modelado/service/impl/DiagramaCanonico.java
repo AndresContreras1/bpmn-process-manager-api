@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -33,6 +34,14 @@ final class DiagramaCanonico {
      */
     private static final List<String> SIN_DIBUJO = List.of("bpmnId");
 
+    /**
+     * PR 55: lo que el diagrama trae desde entonces entra solo cuando dice algo. Un evento sin temporizador, un
+     * proceso sin artefactos o ejecutable, como eran todos antes, dan la misma forma canonica que antes: si no, cada
+     * version ya publicada pareceria tener cambios sin publicar.
+     */
+    private static final List<String> NUEVOS_SI_VACIOS =
+            List.of("tipoTemporizador", "temporizador", "adjuntoAId", "interrumpe");
+
     private DiagramaCanonico() {
     }
 
@@ -50,6 +59,15 @@ final class DiagramaCanonico {
         raiz.set("arcos", elementos(diagrama.arcos(), json));
         raiz.set("mensajes", elementos(diagrama.mensajes(), json));
         raiz.set("correlaciones", elementos(diagrama.correlaciones(), json));
+        if (proceso.modo() != ModoProceso.EJECUTABLE) {
+            raiz.put("modo", proceso.modo().name());
+        }
+        if (!diagrama.artefactos().isEmpty()) {
+            raiz.set("artefactos", elementos(diagrama.artefactos(), json));
+        }
+        if (!diagrama.asociaciones().isEmpty()) {
+            raiz.set("asociaciones", elementos(diagrama.asociaciones(), json));
+        }
         return json.writeValueAsString(raiz);
     }
 
@@ -60,6 +78,7 @@ final class DiagramaCanonico {
             ObjectNode nodo = (ObjectNode) json.valueToTree(elemento);
             VOLATILES.forEach(nodo::remove);
             SIN_DIBUJO.forEach(nodo::remove);
+            NUEVOS_SI_VACIOS.stream().filter(campo -> nodo.path(campo).isNull()).forEach(nodo::remove);
             nodos.add(nodo);
         }
         nodos.sort(Comparator.comparing(nodo -> nodo.get("id").longValue()));

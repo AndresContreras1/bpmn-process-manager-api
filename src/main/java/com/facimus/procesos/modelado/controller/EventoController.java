@@ -20,6 +20,7 @@ import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.modelado.dto.request.EditarEventoRequest;
 import com.facimus.procesos.modelado.dto.request.EventoRequest;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
+import com.facimus.procesos.modelado.service.DatosDeTemporizador;
 import com.facimus.procesos.modelado.service.EventoService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,7 +51,9 @@ public class EventoController {
             @Validated @RequestBody EventoRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
         EventoResponse evento = eventoService.crear(empresaId, principal.usuarioId(), laneId, request.nombre(),
-                request.tipoEvento(), request.posicionX(), request.posicionY());
+                request.tipoEvento(), request.posicionX(), request.posicionY(),
+                new DatosDeTemporizador(request.tipoTemporizador(), request.temporizador(), request.adjuntoAId(),
+                        request.interrumpe()));
         return ResponseEntity.created(URI.create("/api/v1/eventos/" + evento.id())).body(evento);
     }
 
@@ -89,7 +92,8 @@ public class EventoController {
         Long empresaId = principal.empresaId();
         return ResponseEntity.ok(eventoService.editar(empresaId, principal.usuarioId(), id, request.nombre(),
                 request.tipoEvento(), request.laneId(), request.posicionX(), request.posicionY(),
-                request.version()));
+                request.version(), new DatosDeTemporizador(request.tipoTemporizador(), request.temporizador(),
+                        request.adjuntoAId(), request.interrumpe())));
     }
 
     @Operation(summary = "Delete an event",

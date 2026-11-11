@@ -43,6 +43,8 @@ public class BorradoDeTiendas {
             "delete from importaciones where empresa_id = ?",
             "delete from formas_bpmn where empresa_id = ?",
             "delete from aristas_bpmn where empresa_id = ?",
+            "delete from asociaciones where empresa_id = ?",
+            "delete from artefactos where empresa_id = ?",
             "delete from correlaciones where empresa_id = ?",
             "delete from mensajes where empresa_id = ?",
             "delete from arcos where empresa_id = ?",

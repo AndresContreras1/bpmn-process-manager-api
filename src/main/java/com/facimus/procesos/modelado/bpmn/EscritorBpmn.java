@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -22,6 +23,8 @@ import com.facimus.procesos.common.xml.SecureXml;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.response.ArtefactoResponse;
+import com.facimus.procesos.modelado.dto.response.AsociacionResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
@@ -39,6 +42,8 @@ import com.facimus.procesos.modelado.model.DisposicionBpmn.Punto;
 import com.facimus.procesos.modelado.model.ExtensionXml;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
@@ -61,6 +66,12 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
  * la correlacion de cada mensaje.</li>
  * </ul>
  *
+ * <p>PR 55: lo descriptivo. Los eventos de temporizador (de inicio, de espera y de borde) con su
+ * {@code timerEventDefinition}, el fin de terminacion, la tarea sin tipo, las anotaciones y los grupos (en el proceso
+ * de su pool, o en la colaboracion si van sueltos), los objetos de datos con su {@code dataObject} y los almacenes,
+ * las asociaciones y las asociaciones de datos dentro de su actividad. Un proceso documental sale con
+ * {@code isExecutable="false"}. Una asociacion con un extremo que ya no esta no se escribe: no tendria a donde ir.
+ *
  * <p>PR 54: lo que un archivo importado traia de otra herramienta ({@link ExtensionesAjenas}) vuelve a su elemento:
  * sus atributos junto a los propios y sus hijos dentro del {@code extensionElements}, con los espacios de nombres
  * declarados una vez en la raiz.
@@ -73,6 +84,9 @@ public final class EscritorBpmn {
     private static final String MESSAGE_REF = "messageRef";
     private static final String BPMNDI = "bpmndi";
     private static final String BPMN_ELEMENT = "bpmnElement";
+    private static final String GROUP = "Group";
+    private static final String CATEGORY_VALUE = "CategoryValue";
+    private static final String DATA_ASSOCIATION = "DataAssociation";
 
 
     private static final Set<String> PREFIJOS_PROPIOS = Set.of("bpmn", BPMNDI, "dc", "di", "xsi", "bpm");
@@ -154,6 +168,11 @@ public final class EscritorBpmn {
         private final Map<Long, String> arcos = new HashMap<>();
         private final Map<Long, String> mensajes = new HashMap<>();
         private final Map<Long, Long> poolDeLaLane = new HashMap<>();
+        /** PR 55: el pool de cada cosa que una asociacion puede nombrar, y que cosas son datos. */
+        private final Map<String, Long> poolDelElemento = new HashMap<>();
+        private final Set<String> elementos = new HashSet<>();
+        private final Set<String> datos = new HashSet<>();
+        private final Set<Long> cajasNegras = new HashSet<>();
 
         Escritura(DiagramaResponse diagrama, Geometria geometria, Salida salida, Ajenos ajenos) {
             this.diagrama = diagrama;
@@ -169,6 +188,28 @@ public final class EscritorBpmn {
             diagrama.arcos().forEach(arco -> arcos.put(arco.id(), IdsBpmn.de(arco.bpmnId(), "Flow", arco.id())));
             diagrama.mensajes().forEach(mensaje -> mensajes.put(mensaje.id(),
                     IdsBpmn.de(mensaje.bpmnId(), "MessageFlow", mensaje.id())));
+            diagrama.pools().stream().filter(PoolResponse::cajaNegra).forEach(pool -> cajasNegras.add(pool.id()));
+            diagrama.actividades().forEach(nodo -> anotarElemento(nodos.get(nodo.id()), nodo.laneId()));
+            diagrama.gateways().forEach(nodo -> anotarElemento(nodos.get(nodo.id()), nodo.laneId()));
+            diagrama.eventos().forEach(nodo -> anotarElemento(nodos.get(nodo.id()), nodo.laneId()));
+            diagrama.arcos().forEach(arco -> {
+                elementos.add(arcos.get(arco.id()));
+                poolDelElemento.put(arcos.get(arco.id()), arco.poolId());
+            });
+            for (ArtefactoResponse artefacto : diagrama.artefactos()) {
+                elementos.add(artefacto.bpmnId());
+                if (artefacto.poolId() != null && !cajasNegras.contains(artefacto.poolId())) {
+                    poolDelElemento.put(artefacto.bpmnId(), artefacto.poolId());
+                }
+                if (esDato(artefacto)) {
+                    datos.add(artefacto.bpmnId());
+                }
+            }
+        }
+
+        private void anotarElemento(String id, Long laneId) {
+            elementos.add(id);
+            poolDelElemento.put(id, poolDeLaLane.get(laneId));
         }
 
         void escribir() throws XMLStreamException {
@@ -187,6 +228,7 @@ public final class EscritorBpmn {
                 salida.atributo("id", idDelMensaje(mensaje.id()));
                 salida.atributo("name", mensaje.nombre());
             }
+            categorias();
             colaboracion(proceso);
             for (PoolResponse pool : diagrama.pools()) {
                 if (!pool.cajaNegra()) {
@@ -227,7 +269,186 @@ public final class EscritorBpmn {
             for (MensajeResponse mensaje : ordenados(diagrama.mensajes(), MensajeResponse::id)) {
                 flujoDeMensaje(mensaje);
             }
+            artefactosDe(null);
             salida.cerrar();
+        }
+
+        /** PR 55: el nombre de un grupo es un valor de una categoria, que BPMN declara en la raiz. */
+        private void categorias() throws XMLStreamException {
+            for (ArtefactoResponse grupo : ordenados(diagrama.artefactos(), ArtefactoResponse::id)) {
+                if (grupo.tipo() == TipoArtefacto.GRUPO && grupo.texto() != null) {
+                    salida.abrir("bpmn", "category");
+                    salida.atributo("id", IdsBpmn.derivado(grupo.bpmnId(), GROUP, "Category"));
+                    salida.vacio("bpmn", "categoryValue");
+                    salida.atributo("id", IdsBpmn.derivado(grupo.bpmnId(), GROUP, CATEGORY_VALUE));
+                    salida.atributo("value", grupo.texto());
+                    salida.cerrar();
+                }
+            }
+        }
+
+        /**
+         * PR 55: las anotaciones, los grupos y las asociaciones de un proceso, o los sueltos de la colaboracion con
+         * {@code pool} vacio. Van despues de los elementos del flujo, como pide BPMN.
+         */
+        private void artefactosDe(Long pool) throws XMLStreamException {
+            for (ArtefactoResponse artefacto : ordenados(diagrama.artefactos(), ArtefactoResponse::id)) {
+                boolean suyo = pool == null ? !poolDelElemento.containsKey(artefacto.bpmnId())
+                        : pool.equals(poolDelElemento.get(artefacto.bpmnId()));
+                if (!suyo) {
+                    continue;
+                }
+                if (artefacto.tipo() == TipoArtefacto.ANOTACION) {
+                    anotacion(artefacto);
+                } else if (artefacto.tipo() == TipoArtefacto.GRUPO) {
+                    grupo(artefacto);
+                }
+            }
+            for (AsociacionResponse asociacion : ordenados(diagrama.asociaciones(), AsociacionResponse::id)) {
+                if (asociacion.tipo() == TipoAsociacion.ASOCIACION && seEscribe(asociacion)
+                        && Objects.equals(pool, poolDeLaAsociacion(asociacion))) {
+                    asociacion(asociacion);
+                }
+            }
+        }
+
+        private void anotacion(ArtefactoResponse anotacion) throws XMLStreamException {
+            String id = anotacion.bpmnId();
+            salida.abrir("bpmn", "textAnnotation");
+            salida.atributo("id", id);
+            ajenos.atributos(id, salida);
+            extensiones(id, false, null);
+            if (anotacion.texto() != null) {
+                salida.conTexto("bpmn", "text", anotacion.texto());
+            }
+            salida.cerrar();
+        }
+
+        private void grupo(ArtefactoResponse grupo) throws XMLStreamException {
+            String id = grupo.bpmnId();
+            boolean conAjenos = !ajenos.hijos(id).isEmpty();
+            if (conAjenos) {
+                salida.abrir("bpmn", "group");
+            } else {
+                salida.vacio("bpmn", "group");
+            }
+            salida.atributo("id", id);
+            salida.atributo("categoryValueRef", grupo.texto() == null ? null
+                    : IdsBpmn.derivado(id, GROUP, CATEGORY_VALUE));
+            ajenos.atributos(id, salida);
+            if (conAjenos) {
+                extensiones(id, false, null);
+                salida.cerrar();
+            }
+        }
+
+        private void asociacion(AsociacionResponse asociacion) throws XMLStreamException {
+            String id = asociacion.bpmnId();
+            boolean conAjenos = !ajenos.hijos(id).isEmpty();
+            if (conAjenos) {
+                salida.abrir("bpmn", "association");
+            } else {
+                salida.vacio("bpmn", "association");
+            }
+            salida.atributo("id", id);
+            salida.atributo("sourceRef", asociacion.origen());
+            salida.atributo("targetRef", asociacion.destino());
+            salida.atributo("associationDirection", switch (asociacion.direccion()) {
+                case NINGUNA -> null;
+                case UNA -> "One";
+                case AMBAS -> "Both";
+            });
+            ajenos.atributos(id, salida);
+            if (conAjenos) {
+                extensiones(id, false, null);
+                salida.cerrar();
+            }
+        }
+
+        /** Los datos de un proceso: el objeto con su {@code dataObject}, y el almacen. */
+        private void datosDelProceso(Long pool) throws XMLStreamException {
+            for (ArtefactoResponse dato : ordenados(diagrama.artefactos(), ArtefactoResponse::id)) {
+                if (!esDato(dato) || !pool.equals(poolDelElemento.get(dato.bpmnId()))) {
+                    continue;
+                }
+                String id = dato.bpmnId();
+                if (dato.tipo() == TipoArtefacto.OBJETO_DATOS) {
+                    salida.vacio("bpmn", "dataObject");
+                    salida.atributo("id", IdsBpmn.derivado(id, "DataObjectReference", "DataObject"));
+                }
+                boolean conAjenos = !ajenos.hijos(id).isEmpty();
+                String elemento = dato.tipo() == TipoArtefacto.OBJETO_DATOS ? "dataObjectReference"
+                        : "dataStoreReference";
+                if (conAjenos) {
+                    salida.abrir("bpmn", elemento);
+                } else {
+                    salida.vacio("bpmn", elemento);
+                }
+                salida.atributo("id", id);
+                salida.atributo("name", dato.texto());
+                salida.atributo("dataObjectRef", dato.tipo() == TipoArtefacto.OBJETO_DATOS
+                        ? IdsBpmn.derivado(id, "DataObjectReference", "DataObject") : null);
+                ajenos.atributos(id, salida);
+                if (conAjenos) {
+                    extensiones(id, false, null);
+                    salida.cerrar();
+                }
+            }
+        }
+
+        /**
+         * Los datos que entran a una actividad y los que salen de ella. BPMN pide que lo que entra llegue a algo de la
+         * actividad: como bpmn.io, una propiedad que solo esta para eso.
+         */
+        private void datosDeLaActividad(String actividad) throws XMLStreamException {
+            List<AsociacionResponse> entran = new ArrayList<>();
+            List<AsociacionResponse> salen = new ArrayList<>();
+            for (AsociacionResponse asociacion : ordenados(diagrama.asociaciones(), AsociacionResponse::id)) {
+                if (asociacion.tipo() == TipoAsociacion.ENTRADA_DATOS && actividad.equals(asociacion.destino())
+                        && datos.contains(asociacion.origen())) {
+                    entran.add(asociacion);
+                } else if (asociacion.tipo() == TipoAsociacion.SALIDA_DATOS && actividad.equals(asociacion.origen())
+                        && datos.contains(asociacion.destino())) {
+                    salen.add(asociacion);
+                }
+            }
+            for (AsociacionResponse entrada : entran) {
+                salida.vacio("bpmn", "property");
+                salida.atributo("id", IdsBpmn.derivado(entrada.bpmnId(), DATA_ASSOCIATION, "Property"));
+                salida.atributo("name", "__targetRef_placeholder");
+            }
+            for (AsociacionResponse entrada : entran) {
+                salida.abrir("bpmn", "dataInputAssociation");
+                salida.atributo("id", entrada.bpmnId());
+                salida.conTexto("bpmn", "sourceRef", entrada.origen());
+                salida.conTexto("bpmn", "targetRef", IdsBpmn.derivado(entrada.bpmnId(), DATA_ASSOCIATION,
+                        "Property"));
+                salida.cerrar();
+            }
+            for (AsociacionResponse saliente : salen) {
+                salida.abrir("bpmn", "dataOutputAssociation");
+                salida.atributo("id", saliente.bpmnId());
+                salida.conTexto("bpmn", "targetRef", saliente.destino());
+                salida.cerrar();
+            }
+        }
+
+        /** Se escribe si sus dos extremos estan en el diagrama. */
+        private boolean seEscribe(AsociacionResponse asociacion) {
+            return elementos.contains(asociacion.origen()) && elementos.contains(asociacion.destino());
+        }
+
+        /**
+         * El proceso donde va una asociacion: el de su origen, o el de su destino si el origen va suelto. Si los dos
+         * estan en procesos distintos, o ninguno en uno, va en la colaboracion.
+         */
+        private Long poolDeLaAsociacion(AsociacionResponse asociacion) {
+            Long desde = poolDelElemento.get(asociacion.origen());
+            Long hasta = poolDelElemento.get(asociacion.destino());
+            if (desde != null && hasta != null && !desde.equals(hasta)) {
+                return null;
+            }
+            return desde != null ? desde : hasta;
         }
 
         private void flujoDeMensaje(MensajeResponse mensaje) throws XMLStreamException {
@@ -278,7 +499,9 @@ public final class EscritorBpmn {
             salida.abrir("bpmn", "process");
             salida.atributo("id", idDelProceso(pool.id()));
             salida.atributo("name", pool.nombre());
-            salida.atributo("isExecutable", pool.tipoParticipante() == TipoParticipante.EMPRESA);
+            // PR 55: un proceso documental no se ejecuta, aunque sea el de la organizacion
+            salida.atributo("isExecutable", pool.tipoParticipante() == TipoParticipante.EMPRESA
+                    && diagrama.proceso().modo().ejecuta());
             ajenos.atributos(clave, salida);
             extensiones(clave, false, null);
             List<LaneResponse> lanes = diagrama.lanes().stream().filter(lane -> lane.poolId().equals(pool.id()))
@@ -312,6 +535,8 @@ public final class EscritorBpmn {
                     flujo(arco);
                 }
             }
+            datosDelProceso(pool.id());
+            artefactosDe(pool.id());
             salida.cerrar();
         }
 
@@ -340,6 +565,7 @@ public final class EscritorBpmn {
                 case SERVICIO -> "serviceTask";
                 case ENVIO -> "sendTask";
                 case RECEPCION -> "receiveTask";
+                case SIN_TIPO -> "task";
             };
             String id = nodos.get(actividad.id());
             salida.abrir("bpmn", elemento);
@@ -355,6 +581,7 @@ public final class EscritorBpmn {
             documentacion(actividad.descripcion());
             extensiones(id, false, null);
             entradasYSalidas(actividad.id());
+            datosDeLaActividad(id);
             salida.cerrar();
         }
 
@@ -378,11 +605,18 @@ public final class EscritorBpmn {
 
         private void evento(EventoResponse evento) throws XMLStreamException {
             TipoEvento tipo = evento.tipoEvento();
-            String elemento = elementoDelEvento(tipo);
+            String actividad = evento.adjuntoAId() == null ? null : nodos.get(evento.adjuntoAId());
+            // Un evento de borde sin su actividad no tiene donde ir: queda como una espera
+            String elemento = tipo.esDeBorde() && actividad == null ? "intermediateCatchEvent"
+                    : elementoDelEvento(tipo);
             String id = nodos.get(evento.id());
             salida.abrir("bpmn", elemento);
             salida.atributo("id", id);
             salida.atributo("name", evento.nombre());
+            if (tipo.esDeBorde() && actividad != null) {
+                salida.atributo("cancelActivity", Boolean.FALSE.equals(evento.interrumpe()) ? false : null);
+                salida.atributo("attachedToRef", actividad);
+            }
             ajenos.atributos(id, salida);
             extensiones(id, false, null);
             entradasYSalidas(evento.id());
@@ -392,7 +626,33 @@ public final class EscritorBpmn {
                 salida.atributo("id", IdsBpmn.derivado(id, "Event", "MessageEventDefinition"));
                 salida.atributo(MESSAGE_REF, tipo.puedeEnviar() ? mensajeQueSaleDe(evento.id())
                         : mensajeQueLlegaA(evento.id()));
+            } else if (tipo.esTemporizador()) {
+                temporizador(id, evento);
+            } else if (tipo == TipoEvento.FIN_TERMINACION) {
+                salida.vacio("bpmn", "terminateEventDefinition");
+                salida.atributo("id", IdsBpmn.derivado(id, "Event", "TerminateEventDefinition"));
             }
+            salida.cerrar();
+        }
+
+        /** PR 55: cuando salta, como una expresion formal de BPMN: una duracion, una fecha o un ciclo. */
+        private void temporizador(String id, EventoResponse evento) throws XMLStreamException {
+            String definicion = IdsBpmn.derivado(id, "Event", "TimerEventDefinition");
+            if (evento.temporizador() == null || evento.tipoTemporizador() == null) {
+                salida.vacio("bpmn", "timerEventDefinition");
+                salida.atributo("id", definicion);
+                return;
+            }
+            salida.abrir("bpmn", "timerEventDefinition");
+            salida.atributo("id", definicion);
+            salida.abrir("bpmn", switch (evento.tipoTemporizador()) {
+                case DURACION -> "timeDuration";
+                case FECHA -> "timeDate";
+                case CICLO -> "timeCycle";
+            });
+            salida.atributo("xsi", "type", "bpmn:tFormalExpression");
+            salida.texto(evento.temporizador());
+            salida.cerrar();
             salida.cerrar();
         }
 
@@ -570,12 +830,19 @@ public final class EscritorBpmn {
             };
         }
 
-        /** El elemento BPMN de un evento: de inicio, de fin o una espera. */
+        /** El elemento BPMN de un evento: de inicio, de fin, de borde o una espera. */
         private static String elementoDelEvento(TipoEvento tipo) {
             if (tipo.empiezaElProceso()) {
                 return "startEvent";
             }
+            if (tipo.esDeBorde()) {
+                return "boundaryEvent";
+            }
             return tipo.terminaElProceso() ? "endEvent" : "intermediateCatchEvent";
+        }
+
+        private static boolean esDato(ArtefactoResponse artefacto) {
+            return artefacto.tipo() == TipoArtefacto.OBJETO_DATOS || artefacto.tipo() == TipoArtefacto.ALMACEN_DATOS;
         }
     }
 

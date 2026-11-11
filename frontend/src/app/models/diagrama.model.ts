@@ -4,12 +4,22 @@ export type TipoParticipante = 'EMPRESA' | 'CLIENTE' | 'PROVEEDOR' | 'SISTEMA_EX
 export type TipoGateway = 'EXCLUSIVO' | 'PARALELO' | 'INCLUSIVO';
 
 /** Los eventos que el modelo acepta. No hay temporizadores ni eventos de error: no estan en la API. */
-export type TipoEvento = 'INICIO' | 'FIN' | 'MENSAJE_INICIO' | 'MENSAJE_INTERMEDIO' | 'MENSAJE_FIN';
+export type TipoEvento =
+  | 'INICIO'
+  | 'FIN'
+  | 'MENSAJE_INICIO'
+  | 'MENSAJE_INTERMEDIO'
+  | 'MENSAJE_FIN'
+  | 'TEMPORIZADOR_INICIO'
+  | 'TEMPORIZADOR_INTERMEDIO'
+  | 'TEMPORIZADOR_BORDE'
+  | 'FIN_TERMINACION';
+export type TipoTemporizador = 'DURACION' | 'FECHA' | 'CICLO';
 export type TipoDestino = 'CORREO' | 'SERVICIO_WEB' | 'COLA';
 export type AccionSiFalla = 'CONTINUAR' | 'MANEJAR_ERROR' | 'FINALIZAR';
 export type PoliticaSinCaso = 'DESCARTAR' | 'INICIAR_CASO';
 export type TipoDeDato = 'TEXTO' | 'NUMERO' | 'FECHA' | 'BOOLEANO';
-export type TipoActividad = 'USUARIO' | 'SERVICIO' | 'ENVIO' | 'RECEPCION';
+export type TipoActividad = 'USUARIO' | 'SERVICIO' | 'ENVIO' | 'RECEPCION' | 'SIN_TIPO';
 /** Con que socio simulado habla el participante cuando el proceso corre. */
 export type Integracion = 'NINGUNA' | 'CLIENTE' | 'PAGOS' | 'TRANSPORTE' | 'NOTIFICACIONES';
 
@@ -117,6 +127,10 @@ export interface Evento {
   posicionY: number;
   laneId: number;
   version: number;
+  tipoTemporizador?: TipoTemporizador | null;
+  temporizador?: string | null;
+  adjuntoAId?: number | null;
+  interrumpe?: boolean | null;
 }
 
 export interface EventoRequest {
@@ -124,6 +138,10 @@ export interface EventoRequest {
   tipoEvento: TipoEvento;
   posicionX: number;
   posicionY: number;
+  tipoTemporizador?: TipoTemporizador | null;
+  temporizador?: string | null;
+  adjuntoAId?: number | null;
+  interrumpe?: boolean | null;
 }
 
 export interface EditarEventoRequest extends EventoRequest {
@@ -267,7 +285,11 @@ export const NOMBRE_ACTIVIDAD: Record<TipoActividad, string> = {
   SERVICIO: $localize`Service task`,
   ENVIO: $localize`Send task`,
   RECEPCION: $localize`Receive task`,
+  SIN_TIPO: $localize`Task without a kind`,
 };
+
+/** Las que se crean desde el editor; una tarea sin tipo solo llega en un archivo importado. */
+export const TIPOS_ACTIVIDAD_EDITABLES: TipoActividad[] = ['USUARIO', 'SERVICIO', 'ENVIO', 'RECEPCION'];
 
 /** Que socio simulado atiende a ese participante cuando el proceso corre. */
 export const NOMBRE_INTEGRACION: Record<Integracion, string> = {
@@ -294,7 +316,20 @@ export const NOMBRE_EVENTO: Record<TipoEvento, string> = {
   MENSAJE_INICIO: $localize`Message start event`,
   MENSAJE_INTERMEDIO: $localize`Message catch event`,
   MENSAJE_FIN: $localize`Message end event`,
+  TEMPORIZADOR_INICIO: $localize`Timer start event`,
+  TEMPORIZADOR_INTERMEDIO: $localize`Timer catch event`,
+  TEMPORIZADOR_BORDE: $localize`Timer boundary event`,
+  FIN_TERMINACION: $localize`Terminate end event`,
 };
+
+/** Los que se crean desde el editor; los de temporizador y el de terminacion llegan en un archivo importado. */
+export const TIPOS_EVENTO_EDITABLES: TipoEvento[] = [
+  'INICIO',
+  'FIN',
+  'MENSAJE_INICIO',
+  'MENSAJE_INTERMEDIO',
+  'MENSAJE_FIN',
+];
 
 /** Como sale el mensaje hacia el otro participante. */
 export const NOMBRE_DESTINO: Record<TipoDestino, string> = {
@@ -326,9 +361,9 @@ export const NOMBRE_SIN_CASO: Record<PoliticaSinCaso, string> = {
 
 /** Un evento de inicio no recibe flujo de secuencia y uno de fin no lo emite. */
 export function empiezaElProceso(tipo: TipoEvento): boolean {
-  return tipo === 'INICIO' || tipo === 'MENSAJE_INICIO';
+  return tipo === 'INICIO' || tipo === 'MENSAJE_INICIO' || tipo === 'TEMPORIZADOR_INICIO';
 }
 
 export function terminaElProceso(tipo: TipoEvento): boolean {
-  return tipo === 'FIN' || tipo === 'MENSAJE_FIN';
+  return tipo === 'FIN' || tipo === 'MENSAJE_FIN' || tipo === 'FIN_TERMINACION';
 }

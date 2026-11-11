@@ -7,6 +7,8 @@ import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
 import com.facimus.procesos.modelado.mapper.ArcoMapper;
+import com.facimus.procesos.modelado.mapper.ArtefactoMapper;
+import com.facimus.procesos.modelado.mapper.AsociacionMapper;
 import com.facimus.procesos.modelado.mapper.CorrelacionMapper;
 import com.facimus.procesos.modelado.mapper.EventoMapper;
 import com.facimus.procesos.modelado.mapper.GatewayMapper;
@@ -15,6 +17,8 @@ import com.facimus.procesos.modelado.mapper.MensajeMapper;
 import com.facimus.procesos.modelado.mapper.PoolMapper;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
+import com.facimus.procesos.modelado.repository.ArtefactoRepository;
+import com.facimus.procesos.modelado.repository.AsociacionRepository;
 import com.facimus.procesos.modelado.repository.CorrelacionRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.GatewayRepository;
@@ -51,6 +55,10 @@ class ArmadoDelDiagrama {
     private final ArcoMapper arcoMapper;
     private final MensajeMapper mensajeMapper;
     private final CorrelacionMapper correlacionMapper;
+    private final ArtefactoRepository artefactoRepository;
+    private final AsociacionRepository asociacionRepository;
+    private final ArtefactoMapper artefactoMapper;
+    private final AsociacionMapper asociacionMapper;
 
     DiagramaResponse armar(ProcesoResponse proceso, boolean compartido, Long empresaDuenaId) {
         Long procesoId = proceso.id();
@@ -69,6 +77,10 @@ class ArmadoDelDiagrama {
                 mensajeMapper.toResponses(mensajeRepository
                         .findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaDuenaId)),
                 correlacionMapper.toResponses(correlacionRepository
-                        .findAllByMensaje_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaDuenaId)));
+                        .findAllByMensaje_ProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaDuenaId)),
+                artefactoMapper.toResponses(artefactoRepository
+                        .findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaDuenaId)),
+                asociacionMapper.toResponses(asociacionRepository
+                        .findAllByProcesoIdAndEmpresaIdOrderByIdAsc(procesoId, empresaDuenaId)));
     }
 }
