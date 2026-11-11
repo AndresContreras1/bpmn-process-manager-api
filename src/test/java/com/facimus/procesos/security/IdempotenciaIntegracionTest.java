@@ -178,7 +178,7 @@ class IdempotenciaIntegracionTest {
                         .header(HttpHeaders.ORIGIN, "http://localhost:4200")
                         .with(SesionEnCookies.conSesion(tokenAdmin)))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
-                        "Location, Retry-After, Idempotent-Replayed, X-Request-Id"));
+                        "Location, Retry-After, ETag, Idempotent-Replayed, X-Request-Id"));
     }
 
     private ResultActions crearProceso(String token, String clave, String nombre) throws Exception {

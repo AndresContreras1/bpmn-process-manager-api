@@ -397,7 +397,7 @@ class SeguridadIntegracionTest {
                         .with(SesionEnCookies.conSesion(login(ADMIN, CLAVE))))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
-                        "Location, Retry-After, Idempotent-Replayed, X-Request-Id"));
+                        "Location, Retry-After, ETag, Idempotent-Replayed, X-Request-Id"));
     }
 
     @Test

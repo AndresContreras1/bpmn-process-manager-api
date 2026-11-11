@@ -88,7 +88,7 @@ public class ImportacionBpmnController {
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @ApiResponse(responseCode = "404", ref = "NotFound")
     @ApiResponse(responseCode = "409", ref = "Conflict")
-    @ApiResponse(responseCode = "412", description = "The draft changed since it was read")
+    @ApiResponse(responseCode = "412", ref = "PreconditionFailed")
     @PutMapping(value = "/procesos/{procesoId}/modelo", consumes = {MediaType.APPLICATION_XML_VALUE,
         MediaType.TEXT_XML_VALUE, BPMN, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     public ResponseEntity<ImportacionResponse> reemplazar(@PathVariable Long procesoId, InputStream archivo,
