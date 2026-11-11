@@ -5,5 +5,5 @@ package com.facimus.procesos.gestion.event;
  * modulo de modelado para recalcular la geometria BPMN DI del diagrama: cada cambio del modelo deja su linea en el
  * historial, asi que ninguno se escapa.
  */
-public record ProcesoModificado(Long empresaId, Long procesoId) {
+public record ProcesoModificado(Long empresaId, Long procesoId, String autor) {
 }

@@ -51,7 +51,8 @@ public class HistorialCambioServiceImpl implements HistorialCambioService {
                 .descripcionCambio(descripcion)
                 .build());
         // PR 52: el diagrama pudo cambiar; modelado recalcula su geometria en esta misma transaccion
-        eventos.publishEvent(new ProcesoModificado(proceso.getEmpresa().getId(), proceso.getId()));
+        eventos.publishEvent(new ProcesoModificado(proceso.getEmpresa().getId(), proceso.getId(),
+                autor == null ? null : autor.getNombre()));
     }
 
     /** La empresa sale del autor: quien anota un cambio de la tienda siempre es alguien de esa tienda. */

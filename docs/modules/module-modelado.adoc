@@ -10,6 +10,7 @@
 * `c.f.p.g.service.RolProcesoService` (in Gestion)
 * `c.f.p.g.service.ConfiguracionTiendaService` (in Gestion)
 * `c.f.p.g.service.VersionService` (in Gestion)
+* `c.f.p.g.repository.UsuarioRepository` (in Gestion)
 * `c.f.p.c.auditoria.Auditoria` (in Common)
 |Aggregate roots
 |* `c.f.p.m.model.NodoFlujo`
@@ -18,6 +19,7 @@
 * `c.f.p.m.model.AristaBpmn`
 * `c.f.p.m.model.Artefacto`
 * `c.f.p.m.model.Asociacion`
+* `c.f.p.m.model.BloqueoEdicion`
 * `c.f.p.m.model.Correlacion`
 * `c.f.p.m.model.Evento`
 * `c.f.p.m.model.ExtensionXml`
@@ -27,10 +29,13 @@
 * `c.f.p.m.model.Lane`
 * `c.f.p.m.model.Mensaje`
 * `c.f.p.m.model.Pool`
+* `c.f.p.m.model.Presencia`
 * `c.f.p.m.model.RevisionBorrador`
 * `c.f.p.m.model.RevisionIa`
 |Events listened to
 |* `c.f.p.g.event.ProcesoModificado` 
+* `c.f.p.g.event.ProcesoPublicado` 
+* `c.f.p.g.event.ProcesoModificado` 
 * `c.f.p.g.event.ProcesoEliminado` 
 * `c.f.p.g.event.ProcesoCreado` 
 |===
