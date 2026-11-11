@@ -8,6 +8,8 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Semantic diff: `GET /api/v1/procesos/{id}/comparar?de=&a=` says what was added, removed, changed and only moved
+  between two versions or the draft, by `bpmnId`; `POST` the same path with a file says what saving it would do.
 - Autosave and draft revisions: editable resources carry `ETag` and accept `If-Match` (`412` when stale). `PUT
   /api/v1/procesos/{id}/modelo` saves one at a time, compares `If-Match`, accepts an `Idempotency-Key`, and writes
   nothing if the file changes nothing. `GET, POST /api/v1/procesos/{id}/revisiones` and `POST .../{revisionId}/restaurar`
