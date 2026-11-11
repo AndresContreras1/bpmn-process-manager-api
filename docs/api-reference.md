@@ -26,6 +26,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
 | Whole diagram | `GET /api/v1/procesos/{id}/diagrama` |
 | Mode | `PUT /api/v1/procesos/{id}/modo` |
+| Compare | `GET /api/v1/procesos/{id}/comparar?de=&a=` · `POST /api/v1/procesos/{id}/comparar` |
 | Draft revisions | `GET, POST /api/v1/procesos/{id}/revisiones` · `GET .../{revisionId}/modelo` · `POST .../{revisionId}/restaurar` |
 | Sub-processes | `PUT /api/v1/nodos/{id}/contenedor` · `PUT /api/v1/actividades/{id}/llamada` |
 | Artifacts | `GET, POST /api/v1/procesos/{procesoId}/artefactos` · `GET, PUT, DELETE /api/v1/artefactos/{id}` |
