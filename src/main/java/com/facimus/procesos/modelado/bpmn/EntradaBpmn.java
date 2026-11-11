@@ -6,8 +6,10 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 import com.facimus.procesos.common.xml.LimitesXml;
 import com.facimus.procesos.common.xml.SecureXml;
@@ -41,6 +43,23 @@ public final class EntradaBpmn {
      * @param codificacion la de un byte en la que venia, o nula si ya venia en UTF
      */
     public record Leida(byte[] bytes, byte[] recibidos, String codificacion) {
+
+        @Override
+        public boolean equals(Object otro) {
+            return otro instanceof Leida leida && Arrays.equals(bytes, leida.bytes)
+                    && Arrays.equals(recibidos, leida.recibidos) && Objects.equals(codificacion, leida.codificacion);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(Arrays.hashCode(bytes), Arrays.hashCode(recibidos), codificacion);
+        }
+
+        /** Sin el contenido: un archivo entero no cabe en un log. */
+        @Override
+        public String toString() {
+            return "Leida[" + bytes.length + " bytes, codificacion=" + codificacion + "]";
+        }
     }
 
     public static Leida leer(InputStream entrada, LimitesXml limites) {
