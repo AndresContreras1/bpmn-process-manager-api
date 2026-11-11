@@ -15,14 +15,14 @@ import org.springframework.http.ResponseEntity;
  */
 public final class Descargas {
 
-    public static final MediaType XML = new MediaType(MediaType.APPLICATION_XML, StandardCharsets.UTF_8);
+    public static final MediaType XML_UTF8 = new MediaType(MediaType.APPLICATION_XML, StandardCharsets.UTF_8);
 
     private Descargas() {
     }
 
     public static ResponseEntity<byte[]> xml(String archivo, String contenido) {
         return ResponseEntity.ok()
-                .contentType(XML)
+                .contentType(XML_UTF8)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(archivo).build().toString())
                 .body(contenido.getBytes(StandardCharsets.UTF_8));

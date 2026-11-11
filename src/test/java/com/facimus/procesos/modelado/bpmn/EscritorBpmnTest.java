@@ -153,7 +153,7 @@ class EscritorBpmnTest {
                 .anySatisfy(problema -> assertThat(problema).startsWith("Linea ").contains("MARCIANO"));
     }
 
-    /** La demo con lo que le falta para tener de todo: recepcion, paralelo, inclusivo, fin de mensaje y un socio. */
+    /** La demo con lo que le falta para tener un caso de cada tipo: recepcion, paralelo, inclusivo, fin de mensaje y un socio. */
     private static DiagramaArmado conTodo() {
         DiagramaArmado armado = DiagramaArmado.demo();
         armado.datosDelMensaje("Order placed", "order", new CampoDeMensaje("orderId", TipoDeDato.TEXTO),

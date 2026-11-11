@@ -92,7 +92,7 @@ final class Salida {
     }
 
     private void antesDeUnHijo() throws XMLStreamException {
-        if (!abiertos.isEmpty() && !abiertos.peek()) {
+        if (Boolean.FALSE.equals(abiertos.peek())) {
             abiertos.pop();
             abiertos.push(true);
         }

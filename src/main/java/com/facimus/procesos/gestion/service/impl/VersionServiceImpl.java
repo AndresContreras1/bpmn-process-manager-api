@@ -39,6 +39,9 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class VersionServiceImpl implements VersionService {
 
+    private static final String VERSION_NO_ENCONTRADA = "Versión no encontrada.";
+
+
     private final VersionProcesoRepository versionProcesoRepository;
     private final DefinicionesDeVersion definiciones;
     private final ProcesoRepository procesoRepository;
@@ -86,7 +89,7 @@ public class VersionServiceImpl implements VersionService {
     public String definicion(Long empresaId, Long procesoId, int numero) {
         exigirProceso(empresaId, procesoId);
         return definiciones.de(empresaId, versionProcesoRepository.idDeLaVersion(procesoId, numero, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada.")));
+                .orElseThrow(() -> new RecursoNoEncontradoException(VERSION_NO_ENCONTRADA)));
     }
 
     @Override
@@ -139,7 +142,7 @@ public class VersionServiceImpl implements VersionService {
     private VersionProceso buscar(Long empresaId, Long procesoId, int numero) {
         exigirProceso(empresaId, procesoId);
         return versionProcesoRepository.findByProcesoIdAndNumeroAndEmpresaId(procesoId, numero, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada."));
+                .orElseThrow(() -> new RecursoNoEncontradoException(VERSION_NO_ENCONTRADA));
     }
 
     @Override
@@ -147,7 +150,7 @@ public class VersionServiceImpl implements VersionService {
         Proceso proceso = exigirProceso(empresaId, procesoId);
         String xml = versionProcesoRepository.idDeLaVersion(procesoId, numero, empresaId)
                 .flatMap(versionId -> versionProcesoRepository.modeloBpmnDe(versionId, empresaId))
-                .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada."));
+                .orElseThrow(() -> new RecursoNoEncontradoException(VERSION_NO_ENCONTRADA));
         return ModeloBpmn.deLaVersion(proceso.getNombre(), numero, xml);
     }
 

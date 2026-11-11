@@ -12,7 +12,7 @@ final class IdsBpmn {
 
     /**
      * El bpmn_id del elemento. Una instantanea anterior al PR 53 no lo traia: entonces es el que le dio la migracion
-     * V41 a todo lo que ya existia, su tipo y su id.
+     * V41 a cada elemento que ya existia, su tipo y su id.
      */
     static String de(String bpmnId, String tipo, Long id) {
         return bpmnId != null ? bpmnId : tipo + "_" + id;

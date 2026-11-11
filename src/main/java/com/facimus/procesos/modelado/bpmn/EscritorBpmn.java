@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.function.LongPredicate;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
@@ -56,6 +56,14 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
  */
 public final class EscritorBpmn {
 
+    private static final String PARTICIPANT = "Participant";
+    private static final String EXTENSION_ELEMENTS = "extensionElements";
+    private static final String ORDEN = "orden";
+    private static final String MESSAGE_REF = "messageRef";
+    private static final String BPMNDI = "bpmndi";
+    private static final String BPMN_ELEMENT = "bpmnElement";
+
+
     private EscritorBpmn() {
     }
 
@@ -90,7 +98,7 @@ public final class EscritorBpmn {
             this.geometria = geometria;
             this.salida = salida;
             this.procesoId = String.valueOf(diagrama.proceso().id());
-            diagrama.pools().forEach(pool -> pools.put(pool.id(), IdsBpmn.de(pool.bpmnId(), "Participant", pool.id())));
+            diagrama.pools().forEach(pool -> pools.put(pool.id(), IdsBpmn.de(pool.bpmnId(), PARTICIPANT, pool.id())));
             diagrama.lanes().forEach(lane -> poolDeLaLane.put(lane.id(), lane.poolId()));
             diagrama.actividades().forEach(nodo -> nodos.put(nodo.id(), IdsBpmn.de(nodo.bpmnId(), "Activity", nodo.id())));
             diagrama.gateways().forEach(nodo -> nodos.put(nodo.id(), IdsBpmn.de(nodo.bpmnId(), "Gateway", nodo.id())));
@@ -132,7 +140,7 @@ public final class EscritorBpmn {
             salida.atributo("name", proceso.nombre());
             documentacion(proceso.descripcion());
             if (proceso.categoria() != null) {
-                salida.abrir("bpmn", "extensionElements");
+                salida.abrir("bpmn", EXTENSION_ELEMENTS);
                 salida.vacio("bpm", "proceso");
                 salida.atributo("categoria", proceso.categoria());
                 salida.cerrar();
@@ -142,11 +150,11 @@ public final class EscritorBpmn {
                 salida.atributo("id", pools.get(pool.id()));
                 salida.atributo("name", pool.nombre());
                 salida.atributo("processRef", pool.cajaNegra() ? null : idDelProceso(pool.id()));
-                salida.abrir("bpmn", "extensionElements");
+                salida.abrir("bpmn", EXTENSION_ELEMENTS);
                 salida.vacio("bpm", "participante");
                 salida.atributo("tipo", pool.tipoParticipante());
                 salida.atributo("integracion", pool.integracion() == Integracion.NINGUNA ? null : pool.integracion());
-                salida.atributo("orden", pool.orden());
+                salida.atributo(ORDEN, pool.orden());
                 salida.cerrar();
                 salida.cerrar();
             }
@@ -162,8 +170,8 @@ public final class EscritorBpmn {
             salida.atributo("name", mensaje.nombre());
             salida.atributo("sourceRef", extremo(mensaje.nodoOrigenId(), mensaje.poolOrigenId()));
             salida.atributo("targetRef", extremo(mensaje.nodoDestinoId(), mensaje.poolDestinoId()));
-            salida.atributo("messageRef", idDelMensaje(mensaje.id()));
-            salida.abrir("bpmn", "extensionElements");
+            salida.atributo(MESSAGE_REF, idDelMensaje(mensaje.id()));
+            salida.abrir("bpmn", EXTENSION_ELEMENTS);
             salida.abrir("bpm", "mensaje");
             salida.atributo("destino", mensaje.tipoDestino());
             salida.atributo("siFalla", mensaje.siFalla() == AccionSiFalla.CONTINUAR ? null : mensaje.siFalla());
@@ -204,13 +212,13 @@ public final class EscritorBpmn {
                     .sorted(Comparator.comparingInt(LaneResponse::orden).thenComparing(LaneResponse::id)).toList();
             if (!lanes.isEmpty()) {
                 salida.abrir("bpmn", "laneSet");
-                salida.atributo("id", IdsBpmn.derivado(pools.get(pool.id()), "Participant", "LaneSet"));
+                salida.atributo("id", IdsBpmn.derivado(pools.get(pool.id()), PARTICIPANT, "LaneSet"));
                 for (LaneResponse lane : lanes) {
                     lane(lane);
                 }
                 salida.cerrar();
             }
-            Predicate<Long> enElPool = laneId -> pool.id().equals(poolDeLaLane.get(laneId));
+            LongPredicate enElPool = laneId -> pool.id().equals(poolDeLaLane.get(laneId));
             for (EventoResponse evento : ordenados(diagrama.eventos(), EventoResponse::id)) {
                 if (enElPool.test(evento.laneId())) {
                     evento(evento);
@@ -238,11 +246,11 @@ public final class EscritorBpmn {
             salida.abrir("bpmn", "lane");
             salida.atributo("id", IdsBpmn.de(lane.bpmnId(), "Lane", lane.id()));
             salida.atributo("name", lane.nombre());
-            salida.abrir("bpmn", "extensionElements");
+            salida.abrir("bpmn", EXTENSION_ELEMENTS);
             salida.vacio("bpm", "lane");
             // Toda lane tiene rol; si una instantanea vieja no lo trajera, el nombre de la lane es lo mas cercano
             salida.atributo("rol", lane.rolProcesoNombre() != null ? lane.rolProcesoNombre() : lane.nombre());
-            salida.atributo("orden", lane.orden());
+            salida.atributo(ORDEN, lane.orden());
             salida.cerrar();
             for (Long nodo : nodosDeLaLane(lane.id())) {
                 salida.conTexto("bpmn", "flowNodeRef", nodos.get(nodo));
@@ -263,9 +271,9 @@ public final class EscritorBpmn {
             salida.atributo("name", actividad.nombre());
             salida.atributo("default", porDefecto(actividad.id()));
             if (tipo == TipoActividad.ENVIO) {
-                salida.atributo("messageRef", mensajeQueSaleDe(actividad.id()));
+                salida.atributo(MESSAGE_REF, mensajeQueSaleDe(actividad.id()));
             } else if (tipo == TipoActividad.RECEPCION) {
-                salida.atributo("messageRef", mensajeQueLlegaA(actividad.id()));
+                salida.atributo(MESSAGE_REF, mensajeQueLlegaA(actividad.id()));
             }
             documentacion(actividad.descripcion());
             entradasYSalidas(actividad.id());
@@ -289,8 +297,7 @@ public final class EscritorBpmn {
 
         private void evento(EventoResponse evento) throws XMLStreamException {
             TipoEvento tipo = evento.tipoEvento();
-            String elemento = tipo.empiezaElProceso() ? "startEvent"
-                    : tipo.terminaElProceso() ? "endEvent" : "intermediateCatchEvent";
+            String elemento = elementoDelEvento(tipo);
             salida.abrir("bpmn", elemento);
             String id = nodos.get(evento.id());
             salida.atributo("id", id);
@@ -300,7 +307,7 @@ public final class EscritorBpmn {
                     || tipo == TipoEvento.MENSAJE_FIN) {
                 salida.vacio("bpmn", "messageEventDefinition");
                 salida.atributo("id", IdsBpmn.derivado(id, "Event", "MessageEventDefinition"));
-                salida.atributo("messageRef", tipo.puedeEnviar() ? mensajeQueSaleDe(evento.id())
+                salida.atributo(MESSAGE_REF, tipo.puedeEnviar() ? mensajeQueSaleDe(evento.id())
                         : mensajeQueLlegaA(evento.id()));
             }
             salida.cerrar();
@@ -317,7 +324,7 @@ public final class EscritorBpmn {
             salida.atributo("name", arco.etiqueta());
             salida.atributo("sourceRef", nodos.get(arco.origenId()));
             salida.atributo("targetRef", nodos.get(arco.destinoId()));
-            salida.atributo("bpm", "orden", arco.orden() == 0 ? null : arco.orden());
+            salida.atributo("bpm", ORDEN, arco.orden() == 0 ? null : arco.orden());
             if (conCondicion) {
                 salida.abrir("bpmn", "conditionExpression");
                 salida.atributo("xsi", "type", "bpmn:tFormalExpression");
@@ -330,20 +337,20 @@ public final class EscritorBpmn {
         }
 
         private void dibujo() throws XMLStreamException {
-            salida.abrir("bpmndi", "BPMNDiagram");
+            salida.abrir(BPMNDI, "BPMNDiagram");
             salida.atributo("id", "BPMNDiagram_" + procesoId);
-            salida.abrir("bpmndi", "BPMNPlane");
+            salida.abrir(BPMNDI, "BPMNPlane");
             salida.atributo("id", "BPMNPlane_" + procesoId);
-            salida.atributo("bpmnElement", "Collaboration_" + procesoId);
+            salida.atributo(BPMN_ELEMENT, "Collaboration_" + procesoId);
             List<String> exclusivos = diagrama.gateways().stream()
                     .filter(gateway -> gateway.tipoGateway() == TipoGateway.EXCLUSIVO)
                     .map(gateway -> nodos.get(gateway.id())).toList();
             List<Forma> formas = geometria.formas().stream()
-                    .sorted(Comparator.comparingInt(EscritorBpmn::capa)).toList();
+                    .sorted(Comparator.comparingInt(Escritura::capa)).toList();
             for (Forma forma : formas) {
-                salida.abrir("bpmndi", "BPMNShape");
+                salida.abrir(BPMNDI, "BPMNShape");
                 salida.atributo("id", forma.elemento() + "_di");
-                salida.atributo("bpmnElement", forma.elemento());
+                salida.atributo(BPMN_ELEMENT, forma.elemento());
                 boolean horizontal = "PARTICIPANTE".equals(forma.tipo()) || "LANE".equals(forma.tipo());
                 salida.atributo("isHorizontal", horizontal ? true : null);
                 salida.atributo("isMarkerVisible", exclusivos.contains(forma.elemento()) ? true : null);
@@ -352,9 +359,9 @@ public final class EscritorBpmn {
                 salida.cerrar();
             }
             for (Arista arista : geometria.aristas()) {
-                salida.abrir("bpmndi", "BPMNEdge");
+                salida.abrir(BPMNDI, "BPMNEdge");
                 salida.atributo("id", arista.elemento() + "_di");
-                salida.atributo("bpmnElement", arista.elemento());
+                salida.atributo(BPMN_ELEMENT, arista.elemento());
                 for (Punto punto : arista.puntos()) {
                     salida.vacio("di", "waypoint");
                     salida.atributo("x", punto.x());
@@ -369,7 +376,7 @@ public final class EscritorBpmn {
 
         private void etiqueta(Limites etiqueta) throws XMLStreamException {
             if (etiqueta != null) {
-                salida.abrir("bpmndi", "BPMNLabel");
+                salida.abrir(BPMNDI, "BPMNLabel");
                 limites("dc", etiqueta);
                 salida.cerrar();
             }
@@ -436,22 +443,31 @@ public final class EscritorBpmn {
         }
 
         private String idDelProceso(Long pool) {
-            return IdsBpmn.derivado(pools.get(pool), "Participant", "Process");
+            return IdsBpmn.derivado(pools.get(pool), PARTICIPANT, "Process");
         }
 
         private String idDelMensaje(Long mensaje) {
             return IdsBpmn.derivado(mensajes.get(mensaje), "MessageFlow", "Message");
         }
+
+        /** Primero los pools, despues las lanes y al final lo de dentro: asi lo dibuja quien lea el archivo. */
+        private static int capa(Forma forma) {
+            return switch (forma.tipo()) {
+                case "PARTICIPANTE" -> 0;
+                case "LANE" -> 1;
+                default -> 2;
+            };
+        }
+
+        /** El elemento BPMN de un evento: de inicio, de fin o una espera. */
+        private static String elementoDelEvento(TipoEvento tipo) {
+            if (tipo.empiezaElProceso()) {
+                return "startEvent";
+            }
+            return tipo.terminaElProceso() ? "endEvent" : "intermediateCatchEvent";
+        }
     }
 
-    /** Primero los pools, despues las lanes y al final lo de dentro: asi lo dibuja quien lea el archivo. */
-    private static int capa(Forma forma) {
-        return switch (forma.tipo()) {
-            case "PARTICIPANTE" -> 0;
-            case "LANE" -> 1;
-            default -> 2;
-        };
-    }
 
     private static <T> List<T> ordenados(List<T> elementos, Function<T, Long> id) {
         return elementos.stream().sorted(Comparator.comparing(id)).toList();
