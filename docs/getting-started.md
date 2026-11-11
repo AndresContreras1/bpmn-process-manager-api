@@ -104,8 +104,10 @@ docker compose up -d --build --wait
 
 A separate Maven module that does not hang from this pom, so `./mvnw verify` never runs it and the normal build
 stays as fast as it was. It drives a headless Chrome against the stack above: signing in, creating a process,
-fixing a diagram in the editor until the diagnosis lets it be published, sharing it and reading it as the other
-store, and administering roles and users. [e2e/README.md](../e2e/README.md) says what each scenario covers.
+fixing a diagram in the modeler until the diagnosis lets it be published, editing it without a mouse, two people on
+one process, filing it in a folder, sharing it and reading it as the other store, running an order, and
+administering roles and users, with axe-core over every screen. [e2e/README.md](../e2e/README.md) says what each
+scenario covers.
 
 ## Postman collection
 
