@@ -5,6 +5,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -39,6 +40,9 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
 
     private static final String REGISTRO = "/api/v1/empresas";
 
+    /** PR 54: las rutas que reciben un archivo BPMN, que tienen su propio tope, el mismo que lee SecureXml. */
+    private static final Pattern RUTAS_BPMN = Pattern.compile("/api/v1/procesos/(importar|[0-9]+/modelo)");
+
     private static final Set<String> CORREO = Set.of("/api/v1/auth/recuperacion", "/api/v1/auth/verificacion",
             "/api/v1/usuarios/invitaciones");
 
@@ -46,13 +50,15 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
     private final VerificacionHumana verificacionHumana;
     private final JsonMapper jsonMapper;
     private final long cuerpoMaximo;
+    private final long cuerpoMaximoBpmn;
 
     public LimiteDePeticionesFilter(LimitesDePeticiones limites, VerificacionHumana verificacionHumana,
-            JsonMapper jsonMapper, long cuerpoMaximo) {
+            JsonMapper jsonMapper, long cuerpoMaximo, long cuerpoMaximoBpmn) {
         this.limites = limites;
         this.verificacionHumana = verificacionHumana;
         this.jsonMapper = jsonMapper;
         this.cuerpoMaximo = cuerpoMaximo;
+        this.cuerpoMaximoBpmn = cuerpoMaximoBpmn;
     }
 
     @Override
@@ -63,9 +69,10 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        if (request.getContentLengthLong() > cuerpoMaximo) {
+        long tope = RUTAS_BPMN.matcher(request.getRequestURI()).matches() ? cuerpoMaximoBpmn : cuerpoMaximo;
+        if (request.getContentLengthLong() > tope) {
             responder(request, response, HttpStatus.CONTENT_TOO_LARGE, "Cuerpo demasiado grande",
-                    "La petición no puede superar " + (cuerpoMaximo / 1024) + " KB.", null);
+                    "La petición no puede superar " + (tope / 1024) + " KB.", null);
             return;
         }
         String ruta = request.getRequestURI();

@@ -17,6 +17,9 @@ public interface RolProcesoRepository extends RepositorioTenant<RolProceso> {
 
     Optional<RolProceso> findByIdAndEmpresaIdAndActivoTrue(Long id, Long empresaId);
 
+    /** PR 54: el rol de una lane importada, por su nombre. */
+    Optional<RolProceso> findFirstByEmpresaIdAndNombreIgnoreCaseAndActivoTrueOrderByIdAsc(Long empresaId, String nombre);
+
     boolean existsByEmpresaIdAndNombreIgnoreCaseAndActivoTrue(Long empresaId, String nombre);
 
     /** Al renombrar: otro rol activo de la empresa ya usa ese nombre. */

@@ -4,13 +4,19 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
+
+import org.w3c.dom.Attr;
+import org.w3c.dom.Element;
 
 import com.facimus.procesos.common.xml.SecureXml;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
@@ -30,6 +36,7 @@ import com.facimus.procesos.modelado.model.DisposicionBpmn.Forma;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Geometria;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Limites;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Punto;
+import com.facimus.procesos.modelado.model.ExtensionXml;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
@@ -53,17 +60,28 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
  * participante, rol de la lane, orden de los flujos, y el contenido, los campos, el destino, el fallo, la respuesta y
  * la correlacion de cada mensaje.</li>
  * </ul>
+ *
+ * <p>PR 54: lo que un archivo importado traia de otra herramienta ({@link ExtensionesAjenas}) vuelve a su elemento:
+ * sus atributos junto a los propios y sus hijos dentro del {@code extensionElements}, con los espacios de nombres
+ * declarados una vez en la raiz.
  */
 public final class EscritorBpmn {
+
+    private static final Set<String> PREFIJOS_PROPIOS = Set.of("bpmn", "bpmndi", "dc", "di", "xsi", "bpm");
 
     private EscritorBpmn() {
     }
 
     public static byte[] escribir(DiagramaResponse diagrama, Geometria geometria) {
+        return escribir(diagrama, geometria, Map.of());
+    }
+
+    /** @param extensiones lo ajeno de cada elemento, por su clave de {@link ExtensionXml} */
+    public static byte[] escribir(DiagramaResponse diagrama, Geometria geometria, Map<String, String> extensiones) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         XMLStreamWriter xml = SecureXml.escritor(bytes);
         try {
-            new Escritura(diagrama, geometria, new Salida(xml)).escribir();
+            new Escritura(diagrama, geometria, new Salida(xml), new Ajenos(extensiones)).escribir();
             xml.close();
         } catch (XMLStreamException e) {
             throw new IllegalStateException("El BPMN del proceso " + diagrama.proceso().id() + " no se pudo escribir",
@@ -72,12 +90,56 @@ public final class EscritorBpmn {
         return bytes.toByteArray();
     }
 
+    /** Lo que se escribe dentro de un elemento abierto; puede fallar como todo lo de StAX. */
+    @FunctionalInterface
+    private interface Contenido {
+        void escribir() throws XMLStreamException;
+    }
+
+    /** Lo ajeno guardado, ya leido, con el prefijo que toma cada espacio de nombres en este archivo. */
+    private static final class Ajenos {
+
+        private final Map<String, Element> envoltorios = new HashMap<>();
+        private final Map<String, String> prefijos = new LinkedHashMap<>();
+
+        Ajenos(Map<String, String> extensiones) {
+            extensiones.forEach((clave, envoltorio) -> envoltorios.put(clave, ExtensionesAjenas.leer(envoltorio)));
+            Set<String> tomados = new HashSet<>(PREFIJOS_PROPIOS);
+            ExtensionesAjenas.espacios(envoltorios.values()).forEach((espacio, preferido) -> {
+                String prefijo = preferido;
+                int numero = 1;
+                while (!prefijo.matches("[A-Za-z_][A-Za-z0-9_.-]*") || tomados.contains(prefijo)) {
+                    prefijo = "ns" + numero++;
+                }
+                tomados.add(prefijo);
+                prefijos.put(espacio, prefijo);
+            });
+        }
+
+        void atributos(String clave, Salida salida) throws XMLStreamException {
+            Element envoltorio = envoltorios.get(clave);
+            if (envoltorio == null) {
+                return;
+            }
+            for (Attr atributo : ExtensionesAjenas.atributos(envoltorio)) {
+                salida.atributoAjeno(prefijos.get(atributo.getNamespaceURI()), atributo.getNamespaceURI(),
+                        atributo.getLocalName(), atributo.getValue());
+            }
+        }
+
+        List<Element> hijos(String clave) {
+            Element envoltorio = envoltorios.get(clave);
+            return envoltorio == null ? List.of() : Dom.hijos(envoltorio);
+        }
+    }
+
     /** Una exportacion: el diagrama, lo que se deriva de el y adonde se escribe. */
     private static final class Escritura {
 
         private final DiagramaResponse diagrama;
         private final Geometria geometria;
         private final Salida salida;
+        private final Ajenos ajenos;
         private final String procesoId;
         private final Map<Long, String> pools = new HashMap<>();
         private final Map<Long, String> nodos = new HashMap<>();
@@ -85,10 +147,11 @@ public final class EscritorBpmn {
         private final Map<Long, String> mensajes = new HashMap<>();
         private final Map<Long, Long> poolDeLaLane = new HashMap<>();
 
-        Escritura(DiagramaResponse diagrama, Geometria geometria, Salida salida) {
+        Escritura(DiagramaResponse diagrama, Geometria geometria, Salida salida, Ajenos ajenos) {
             this.diagrama = diagrama;
             this.geometria = geometria;
             this.salida = salida;
+            this.ajenos = ajenos;
             this.procesoId = String.valueOf(diagrama.proceso().id());
             diagrama.pools().forEach(pool -> pools.put(pool.id(), IdsBpmn.de(pool.bpmnId(), "Participant", pool.id())));
             diagrama.lanes().forEach(lane -> poolDeLaLane.put(lane.id(), lane.poolId()));
@@ -104,12 +167,13 @@ public final class EscritorBpmn {
             ProcesoResponse proceso = diagrama.proceso();
             salida.empezar();
             salida.abrir("bpmn", "definitions");
-            salida.declararEspacios();
+            salida.declararEspacios(ajenos.prefijos);
             salida.atributo("id", "Definitions_" + procesoId);
             salida.atributo("name", proceso.nombre());
             salida.atributo("targetNamespace", EspaciosBpmn.PROCESOS);
             salida.atributo("expressionLanguage", EspaciosBpmn.CONDICIONES);
             salida.atributo("exporter", "BPMN Process Manager");
+            ajenos.atributos(ExtensionXml.DEFINICIONES, salida);
             for (MensajeResponse mensaje : ordenados(diagrama.mensajes(), MensajeResponse::id)) {
                 salida.vacio("bpmn", "message");
                 salida.atributo("id", idDelMensaje(mensaje.id()));
@@ -130,24 +194,26 @@ public final class EscritorBpmn {
             salida.abrir("bpmn", "collaboration");
             salida.atributo("id", "Collaboration_" + procesoId);
             salida.atributo("name", proceso.nombre());
+            ajenos.atributos(ExtensionXml.COLABORACION, salida);
             documentacion(proceso.descripcion());
-            if (proceso.categoria() != null) {
-                salida.abrir("bpmn", "extensionElements");
+            extensiones(ExtensionXml.COLABORACION, proceso.categoria() != null, () -> {
                 salida.vacio("bpm", "proceso");
                 salida.atributo("categoria", proceso.categoria());
-                salida.cerrar();
-            }
+            });
             for (PoolResponse pool : diagrama.pools()) {
+                String id = pools.get(pool.id());
                 salida.abrir("bpmn", "participant");
-                salida.atributo("id", pools.get(pool.id()));
+                salida.atributo("id", id);
                 salida.atributo("name", pool.nombre());
                 salida.atributo("processRef", pool.cajaNegra() ? null : idDelProceso(pool.id()));
-                salida.abrir("bpmn", "extensionElements");
-                salida.vacio("bpm", "participante");
-                salida.atributo("tipo", pool.tipoParticipante());
-                salida.atributo("integracion", pool.integracion() == Integracion.NINGUNA ? null : pool.integracion());
-                salida.atributo("orden", pool.orden());
-                salida.cerrar();
+                ajenos.atributos(id, salida);
+                extensiones(id, true, () -> {
+                    salida.vacio("bpm", "participante");
+                    salida.atributo("tipo", pool.tipoParticipante());
+                    salida.atributo("integracion", pool.integracion() == Integracion.NINGUNA ? null
+                            : pool.integracion());
+                    salida.atributo("orden", pool.orden());
+                });
                 salida.cerrar();
             }
             for (MensajeResponse mensaje : ordenados(diagrama.mensajes(), MensajeResponse::id)) {
@@ -157,13 +223,19 @@ public final class EscritorBpmn {
         }
 
         private void flujoDeMensaje(MensajeResponse mensaje) throws XMLStreamException {
+            String id = mensajes.get(mensaje.id());
             salida.abrir("bpmn", "messageFlow");
-            salida.atributo("id", mensajes.get(mensaje.id()));
+            salida.atributo("id", id);
             salida.atributo("name", mensaje.nombre());
             salida.atributo("sourceRef", extremo(mensaje.nodoOrigenId(), mensaje.poolOrigenId()));
             salida.atributo("targetRef", extremo(mensaje.nodoDestinoId(), mensaje.poolDestinoId()));
             salida.atributo("messageRef", idDelMensaje(mensaje.id()));
-            salida.abrir("bpmn", "extensionElements");
+            ajenos.atributos(id, salida);
+            extensiones(id, true, () -> datosDelMensaje(mensaje));
+            salida.cerrar();
+        }
+
+        private void datosDelMensaje(MensajeResponse mensaje) throws XMLStreamException {
             salida.abrir("bpm", "mensaje");
             salida.atributo("destino", mensaje.tipoDestino());
             salida.atributo("siFalla", mensaje.siFalla() == AccionSiFalla.CONTINUAR ? null : mensaje.siFalla());
@@ -191,15 +263,16 @@ public final class EscritorBpmn {
                 salida.atributo("sinCaso", correlacion.get().sinCaso());
             }
             salida.cerrar();
-            salida.cerrar();
-            salida.cerrar();
         }
 
         private void proceso(PoolResponse pool) throws XMLStreamException {
+            String clave = ExtensionXml.delProceso(pools.get(pool.id()));
             salida.abrir("bpmn", "process");
             salida.atributo("id", idDelProceso(pool.id()));
             salida.atributo("name", pool.nombre());
             salida.atributo("isExecutable", pool.tipoParticipante() == TipoParticipante.EMPRESA);
+            ajenos.atributos(clave, salida);
+            extensiones(clave, false, null);
             List<LaneResponse> lanes = diagrama.lanes().stream().filter(lane -> lane.poolId().equals(pool.id()))
                     .sorted(Comparator.comparingInt(LaneResponse::orden).thenComparing(LaneResponse::id)).toList();
             if (!lanes.isEmpty()) {
@@ -235,15 +308,17 @@ public final class EscritorBpmn {
         }
 
         private void lane(LaneResponse lane) throws XMLStreamException {
+            String id = IdsBpmn.de(lane.bpmnId(), "Lane", lane.id());
             salida.abrir("bpmn", "lane");
-            salida.atributo("id", IdsBpmn.de(lane.bpmnId(), "Lane", lane.id()));
+            salida.atributo("id", id);
             salida.atributo("name", lane.nombre());
-            salida.abrir("bpmn", "extensionElements");
-            salida.vacio("bpm", "lane");
-            // Toda lane tiene rol; si una instantanea vieja no lo trajera, el nombre de la lane es lo mas cercano
-            salida.atributo("rol", lane.rolProcesoNombre() != null ? lane.rolProcesoNombre() : lane.nombre());
-            salida.atributo("orden", lane.orden());
-            salida.cerrar();
+            ajenos.atributos(id, salida);
+            extensiones(id, true, () -> {
+                salida.vacio("bpm", "lane");
+                // Toda lane tiene rol; si una instantanea vieja no lo trajera, el nombre de la lane es lo mas cercano
+                salida.atributo("rol", lane.rolProcesoNombre() != null ? lane.rolProcesoNombre() : lane.nombre());
+                salida.atributo("orden", lane.orden());
+            });
             for (Long nodo : nodosDeLaLane(lane.id())) {
                 salida.conTexto("bpmn", "flowNodeRef", nodos.get(nodo));
             }
@@ -258,8 +333,9 @@ public final class EscritorBpmn {
                 case ENVIO -> "sendTask";
                 case RECEPCION -> "receiveTask";
             };
+            String id = nodos.get(actividad.id());
             salida.abrir("bpmn", elemento);
-            salida.atributo("id", nodos.get(actividad.id()));
+            salida.atributo("id", id);
             salida.atributo("name", actividad.nombre());
             salida.atributo("default", porDefecto(actividad.id()));
             if (tipo == TipoActividad.ENVIO) {
@@ -267,7 +343,9 @@ public final class EscritorBpmn {
             } else if (tipo == TipoActividad.RECEPCION) {
                 salida.atributo("messageRef", mensajeQueLlegaA(actividad.id()));
             }
+            ajenos.atributos(id, salida);
             documentacion(actividad.descripcion());
+            extensiones(id, false, null);
             entradasYSalidas(actividad.id());
             salida.cerrar();
         }
@@ -278,11 +356,14 @@ public final class EscritorBpmn {
                 case PARALELO -> "parallelGateway";
                 case INCLUSIVO -> "inclusiveGateway";
             };
+            String id = nodos.get(gateway.id());
             salida.abrir("bpmn", elemento);
-            salida.atributo("id", nodos.get(gateway.id()));
+            salida.atributo("id", id);
             salida.atributo("name", gateway.nombre());
             // El paralelo no elige: BPMN no le permite una salida por defecto
             salida.atributo("default", gateway.tipoGateway() == TipoGateway.PARALELO ? null : porDefecto(gateway.id()));
+            ajenos.atributos(id, salida);
+            extensiones(id, false, null);
             entradasYSalidas(gateway.id());
             salida.cerrar();
         }
@@ -291,10 +372,12 @@ public final class EscritorBpmn {
             TipoEvento tipo = evento.tipoEvento();
             String elemento = tipo.empiezaElProceso() ? "startEvent"
                     : tipo.terminaElProceso() ? "endEvent" : "intermediateCatchEvent";
-            salida.abrir("bpmn", elemento);
             String id = nodos.get(evento.id());
+            salida.abrir("bpmn", elemento);
             salida.atributo("id", id);
             salida.atributo("name", evento.nombre());
+            ajenos.atributos(id, salida);
+            extensiones(id, false, null);
             entradasYSalidas(evento.id());
             if (tipo == TipoEvento.MENSAJE_INICIO || tipo == TipoEvento.MENSAJE_INTERMEDIO
                     || tipo == TipoEvento.MENSAJE_FIN) {
@@ -307,17 +390,24 @@ public final class EscritorBpmn {
         }
 
         private void flujo(ArcoResponse arco) throws XMLStreamException {
+            String id = arcos.get(arco.id());
             boolean conCondicion = arco.condicion() != null && !arco.condicion().isBlank();
-            if (conCondicion) {
+            boolean conAjenos = !ajenos.hijos(id).isEmpty();
+            if (conCondicion || conAjenos) {
                 salida.abrir("bpmn", "sequenceFlow");
             } else {
                 salida.vacio("bpmn", "sequenceFlow");
             }
-            salida.atributo("id", arcos.get(arco.id()));
+            salida.atributo("id", id);
             salida.atributo("name", arco.etiqueta());
             salida.atributo("sourceRef", nodos.get(arco.origenId()));
             salida.atributo("targetRef", nodos.get(arco.destinoId()));
             salida.atributo("bpm", "orden", arco.orden() == 0 ? null : arco.orden());
+            ajenos.atributos(id, salida);
+            if (!conCondicion && !conAjenos) {
+                return;
+            }
+            extensiones(id, false, null);
             if (conCondicion) {
                 salida.abrir("bpmn", "conditionExpression");
                 salida.atributo("xsi", "type", "bpmn:tFormalExpression");
@@ -325,8 +415,8 @@ public final class EscritorBpmn {
                 // Texto pegado a la etiqueta: con sangria, la condicion llevaria espacios que no son suyos
                 salida.texto(arco.condicion());
                 salida.cerrar();
-                salida.cerrar();
             }
+            salida.cerrar();
         }
 
         private void dibujo() throws XMLStreamException {
@@ -347,6 +437,7 @@ public final class EscritorBpmn {
                 boolean horizontal = "PARTICIPANTE".equals(forma.tipo()) || "LANE".equals(forma.tipo());
                 salida.atributo("isHorizontal", horizontal ? true : null);
                 salida.atributo("isMarkerVisible", exclusivos.contains(forma.elemento()) ? true : null);
+                ajenos.atributos(ExtensionXml.delDibujo(forma.elemento()), salida);
                 limites("dc", forma.limites());
                 etiqueta(forma.etiqueta());
                 salida.cerrar();
@@ -355,6 +446,7 @@ public final class EscritorBpmn {
                 salida.abrir("bpmndi", "BPMNEdge");
                 salida.atributo("id", arista.elemento() + "_di");
                 salida.atributo("bpmnElement", arista.elemento());
+                ajenos.atributos(ExtensionXml.delDibujo(arista.elemento()), salida);
                 for (Punto punto : arista.puntos()) {
                     salida.vacio("di", "waypoint");
                     salida.atributo("x", punto.x());
@@ -364,6 +456,25 @@ public final class EscritorBpmn {
                 salida.cerrar();
             }
             salida.cerrar();
+            salida.cerrar();
+        }
+
+        /**
+         * El {@code extensionElements} del elemento: lo propio, si hay, y despues lo ajeno que trajo un archivo
+         * importado. Sin ninguna de las dos cosas no se escribe.
+         */
+        private void extensiones(String clave, boolean conPropio, Contenido propio) throws XMLStreamException {
+            List<Element> hijos = ajenos.hijos(clave);
+            if (!conPropio && hijos.isEmpty()) {
+                return;
+            }
+            salida.abrir("bpmn", "extensionElements");
+            if (conPropio) {
+                propio.escribir();
+            }
+            for (Element hijo : hijos) {
+                salida.ajeno(hijo, ajenos.prefijos);
+            }
             salida.cerrar();
         }
 

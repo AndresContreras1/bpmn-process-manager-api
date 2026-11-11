@@ -7,6 +7,8 @@ import java.util.Map;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
+import org.w3c.dom.Element;
+
 /**
  * PR 53: StAX con sangria. Un elemento con hijos cierra en su propia linea; uno con solo texto queda en una. Asi el
  * archivo se lee en un editor y un cambio del diagrama es un cambio de pocas lineas en un diff.
@@ -33,10 +35,25 @@ final class Salida {
         xml.writeStartDocument("UTF-8", "1.0");
     }
 
-    void declararEspacios() throws XMLStreamException {
+    /** Los espacios propios y, despues, los de lo ajeno que trae el archivo (espacio → prefijo). */
+    void declararEspacios(Map<String, String> ajenos) throws XMLStreamException {
         for (String prefijo : new String[] {"bpmn", "bpmndi", "dc", "di", "xsi", "bpm"}) {
             xml.writeNamespace(prefijo, ESPACIOS.get(prefijo));
         }
+        for (Map.Entry<String, String> ajeno : ajenos.entrySet()) {
+            xml.writeNamespace(ajeno.getValue(), ajeno.getKey());
+        }
+    }
+
+    /** Un atributo de otro espacio, con el prefijo que se le dio en la raiz. */
+    void atributoAjeno(String prefijo, String espacio, String nombre, String valor) throws XMLStreamException {
+        xml.writeAttribute(prefijo, espacio, nombre, valor);
+    }
+
+    /** Un elemento ajeno entero, en su propia linea; por dentro va como vino. */
+    void ajeno(Element elemento, Map<String, String> prefijos) throws XMLStreamException {
+        antesDeUnHijo();
+        ExtensionesAjenas.escribir(elemento, xml, prefijos);
     }
 
     void abrir(String prefijo, String nombre) throws XMLStreamException {

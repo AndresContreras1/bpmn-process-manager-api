@@ -11,6 +11,7 @@ import com.facimus.procesos.gestion.service.Instantanea;
 import com.facimus.procesos.gestion.service.InstantaneaDelModelo;
 import com.facimus.procesos.modelado.bpmn.EscritorBpmn;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.repository.ExtensionXmlRepository;
 import com.facimus.procesos.modelado.service.GeometriaService;
 
 import lombok.RequiredArgsConstructor;
@@ -28,12 +29,14 @@ public class InstantaneaDelDiagrama implements InstantaneaDelModelo {
 
     private final ArmadoDelDiagrama armado;
     private final GeometriaService geometriaService;
+    private final ExtensionXmlRepository extensionXmlRepository;
     private final JsonMapper json;
 
     @Override
     public Instantanea tomar(Long empresaId, ProcesoResponse proceso) {
         DiagramaResponse diagrama = armado.armar(proceso, false, empresaId);
-        byte[] bpmn = EscritorBpmn.escribir(diagrama, geometriaService.obtener(empresaId, proceso.id()));
+        byte[] bpmn = EscritorBpmn.escribir(diagrama, geometriaService.obtener(empresaId, proceso.id()),
+                ExtensionesGuardadas.de(extensionXmlRepository, proceso.id(), empresaId));
         return new Instantanea(json.writeValueAsString(diagrama), Huella.de(DiagramaCanonico.de(diagrama, json)),
                 new String(bpmn, StandardCharsets.UTF_8));
     }

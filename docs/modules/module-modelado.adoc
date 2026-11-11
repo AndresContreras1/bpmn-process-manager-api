@@ -4,11 +4,13 @@
 |`com.facimus.procesos.modelado`
 |Bean references
 |* `c.f.p.g.service.HistorialCambioService` (in Gestion)
+* `c.f.p.g.repository.RolProcesoRepository` (in Gestion)
+* `c.f.p.g.service.RolProcesoService` (in Gestion)
+* `c.f.p.g.service.ConfiguracionTiendaService` (in Gestion)
 * `c.f.p.g.service.ProcesoService` (in Gestion)
 * `c.f.p.g.service.VersionService` (in Gestion)
-* `c.f.p.g.service.ConfiguracionTiendaService` (in Gestion)
-* `c.f.p.g.repository.RolProcesoRepository` (in Gestion)
 * `c.f.p.g.repository.ProcesoRepository` (in Gestion)
+* `c.f.p.c.auditoria.Auditoria` (in Common)
 |Aggregate roots
 |* `c.f.p.m.model.NodoFlujo`
 * `c.f.p.m.model.Actividad`
@@ -16,8 +18,10 @@
 * `c.f.p.m.model.AristaBpmn`
 * `c.f.p.m.model.Correlacion`
 * `c.f.p.m.model.Evento`
+* `c.f.p.m.model.ExtensionXml`
 * `c.f.p.m.model.FormaBpmn`
 * `c.f.p.m.model.Gateway`
+* `c.f.p.m.model.Importacion`
 * `c.f.p.m.model.Lane`
 * `c.f.p.m.model.Mensaje`
 * `c.f.p.m.model.Pool`
