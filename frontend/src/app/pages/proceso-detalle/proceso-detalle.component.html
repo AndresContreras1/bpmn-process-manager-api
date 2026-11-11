@@ -70,18 +70,10 @@
           <a
             i18n
             class="btn btn-outline-primary"
-            [routerLink]="['/procesos', detalle.proceso.id, 'editar-diagrama']"
+            [routerLink]="['/procesos', detalle.proceso.id, 'modelar']"
             id="proceso-detalle-modelar"
           >
             <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Model
-          </a>
-          <a
-            i18n
-            class="btn btn-outline-primary"
-            [routerLink]="['/procesos', detalle.proceso.id, 'modelar']"
-            id="proceso-detalle-modelador"
-          >
-            <i class="fa-solid fa-pen-ruler" aria-hidden="true"></i> BPMN modeler
           </a>
           @if (detalle.proceso.estado === 'BORRADOR') {
             <button
@@ -243,14 +235,16 @@
               </div>
             }
 
-            @if (diagrama && lienzo) {
-              <app-diagrama-bpmn
-                [lienzo]="lienzo"
-                titulo="BPMN diagram of {{ detalle.proceso.nombre }}"
-                i18n-titulo
-                [seleccionadoId]="nodoElegido?.id ?? null"
-                (seleccionar)="elegirNodo($event)"
-              />
+            @if (diagrama && xml) {
+              <div class="visor-bpmn border rounded-3" id="diagrama-bpmn">
+                <app-lienzo-bpmn
+                  modo="ver"
+                  [xml]="xml"
+                  titulo="BPMN diagram of {{ detalle.proceso.nombre }}"
+                  i18n-titulo
+                  (elegir)="elegirNodo($event)"
+                />
+              </div>
 
               @if (nodoElegido) {
                 <div class="border rounded-3 p-3 mt-3" id="diagrama-detalle-nodo" aria-live="polite">
@@ -268,7 +262,7 @@
                       class="btn-close"
                       aria-label="Close the details"
                       id="diagrama-detalle-cerrar"
-                      (click)="elegirNodo(nodoElegido.id)"
+                      (click)="cerrarNodo()"
                     ></button>
                   </div>
                   @if (nodoElegido.descripcion) {
@@ -376,10 +370,10 @@
                 </p>
               }
 
-              @if (lienzo.mensajes.length) {
+              @if (mensajes.length) {
                 <h3 i18n class="h6 fw-semibold mt-4 mb-2">Message flows</h3>
                 <ol class="mensajes list-unstyled mb-0" id="diagrama-mensajes">
-                  @for (mensaje of lienzo.mensajes; track mensaje.id) {
+                  @for (mensaje of mensajes; track mensaje.id) {
                     <li class="d-flex gap-2 mb-2" data-testid="mensaje-item">
                       <span class="numero rounded-circle flex-shrink-0" aria-hidden="true">{{ mensaje.numero }}</span>
                       <div class="small">

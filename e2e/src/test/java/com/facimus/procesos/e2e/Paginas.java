@@ -72,18 +72,12 @@ final class Paginas {
     }
 
     /** El editor del diagrama. */
-    static final class Editor {
-        static final By TITULO = By.id("proceso-editor-titulo");
-        static final By CUENTA = By.id("proceso-editor-cuenta");
-        static final By LIMPIO = By.id("proceso-editor-limpio");
-        static final By HALLAZGO = By.cssSelector("[data-testid='hallazgo']");
-        static final By PUBLICAR = By.id("proceso-editor-publicar");
-        static final By PUBLICADO = By.id("proceso-editor-publicado");
-        static final By NODO = By.cssSelector("[data-testid='esquema-nodo']");
-        static final By LANE = By.cssSelector("[data-testid='esquema-lane']");
-        static final By ELEGIDO = By.id("proceso-editor-elegido");
-        static final By GUARDAR = By.id("panel-elemento-guardar");
-        static final By NOMBRE_ACTIVIDAD = By.id("panel-actividad-nombre");
+    static final class Modelador {
+        static final By ESTADO = By.id("modelador-estado");
+        static final By RESUMEN = By.id("modelador-resumen");
+        static final By PUBLICAR = By.id("modelador-publicar");
+        static final By PUBLICADO = By.id("modelador-publicado");
+        static final By EDICION_DIRECTA = By.cssSelector(".djs-direct-editing-content");
     }
 
     /** Usuarios. */
@@ -131,8 +125,8 @@ final class Paginas {
         static final By ESTADO = By.id("caso-detalle-estado");
         static final By EVENTO = By.cssSelector("[data-testid='caso-evento']");
         static final By PASO = By.cssSelector("[data-testid='caso-paso']");
-        static final By ACTIVO = By.cssSelector("#diagrama-bpmn .nodo.activo");
-        static final By RECORRIDO = By.cssSelector("#diagrama-bpmn .nodo.recorrido");
+        static final By ACTIVO = By.cssSelector("#diagrama-bpmn .djs-element.marca-activo");
+        static final By RECORRIDO = By.cssSelector("#diagrama-bpmn .djs-element.marca-recorrido");
         static final By VARIABLE = By.cssSelector("[data-testid='caso-variable-valor']");
     }
 

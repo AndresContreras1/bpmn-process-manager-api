@@ -14,6 +14,16 @@
     <span class="ms-auto small" role="status" aria-live="polite" id="modelador-estado" [attr.data-estado]="estado">
       {{ textoDeEstado[estado] }}
     </span>
+    <button
+      i18n
+      type="button"
+      class="btn btn-primary btn-sm"
+      id="modelador-publicar"
+      [disabled]="publicando || !diagnostico || diagnostico.errores > 0 || estado !== 'guardado'"
+      (click)="publicar()"
+    >
+      Publish
+    </button>
     <a i18n class="btn btn-outline-secondary btn-sm" [routerLink]="['/procesos', procesoId]" id="modelador-volver"
       >Back</a
     >
@@ -21,6 +31,9 @@
 
   @if (error) {
     <div class="alert alert-danger" role="alert" id="modelador-error">{{ error }}</div>
+  }
+  @if (publicado) {
+    <div class="alert alert-success" role="status" id="modelador-publicado">{{ publicado }}</div>
   }
   @if (estado === 'rechazado' && autoguardado?.ultimoError) {
     <div class="alert alert-danger" role="alert" id="modelador-rechazo">{{ autoguardado?.ultimoError }}</div>

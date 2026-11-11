@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { finalize, forkJoin, switchMap } from 'rxjs';
 
 import { Autoguardado, EstadoGuardado } from '../../bpmn/autoguardado';
 import { CopiaLocal, CopiaLocalService } from '../../bpmn/copia-local.service';
@@ -24,6 +24,7 @@ import { Diagnostico, Hallazgo } from '../../models/diagnostico.model';
 import { Diagrama } from '../../models/diagrama.model';
 import { DiagnosticoService } from '../../service/diagnostico.service';
 import { DiagramaService } from '../../service/diagrama.service';
+import { ProcesoService } from '../../service/proceso.service';
 import { ModeloService } from '../../service/modelo.service';
 
 /** El modelador: dibuja con bpmn-js, guarda solo y dice en vivo lo que el diagnostico encuentra. */
@@ -39,6 +40,7 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   private readonly modelos = inject(ModeloService);
   private readonly diagramas = inject(DiagramaService);
   private readonly diagnosticos = inject(DiagnosticoService);
+  private readonly procesos = inject(ProcesoService);
   private readonly copias = inject(CopiaLocalService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cambios = inject(ChangeDetectorRef);
@@ -51,6 +53,8 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   modoProceso: ModoProceso = 'EJECUTABLE';
   versionDelProceso = 0;
   error: string | null = null;
+  publicado: string | null = null;
+  publicando = false;
   elegido: ElementoElegido | null = null;
   diagnostico: Diagnostico | null = null;
   marcas: Record<string, string[]> = {};
@@ -187,6 +191,31 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
           this.modoProceso = nuevo;
           // El modo va en el archivo: lo que hay en el servidor cambio
           this.leer();
+        },
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+      });
+  }
+
+  /** Lo que se publica es lo guardado: primero se guarda lo que quede, y la version del proceso se lee despues. */
+  async publicar(): Promise<void> {
+    this.publicando = true;
+    this.publicado = null;
+    this.error = null;
+    await this.autoguardado?.guardarAhora();
+    this.diagramas
+      .obtener(this.procesoId)
+      .pipe(
+        switchMap((diagrama) => this.procesos.publicar(this.procesoId, diagrama.proceso.version)),
+        finalize(() => (this.publicando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (publicado) => {
+          this.publicado =
+            publicado.versionPublicada === null
+              ? $localize`The process is published.`
+              : $localize`Published as version ${publicado.versionPublicada}.`;
+          this.refrescarDiagnostico();
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });

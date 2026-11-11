@@ -14,14 +14,28 @@ import {
   NOMBRE_SI_FALLA,
   NOMBRE_TIPO_DATO,
   Pool,
-} from '../../../../models/diagrama.model';
-import { MensajeDibujo } from './lienzo';
+} from '../models/diagrama.model';
 
 /** Un flujo que entra a un nodo o sale de el, con el nombre del nodo del otro extremo. */
 export interface FlujoDelNodo {
   nodo: string;
   etiqueta: string | null;
   condicion: string | null;
+}
+
+/** Un mensaje del diagrama con su numero, el de la lista debajo del dibujo. */
+export interface MensajeDibujo {
+  id: number;
+  numero: number;
+  nombre: string;
+  contenido: string;
+  origen: string;
+  destino: string;
+  nodoOrigenId: number | null;
+  nodoDestinoId: number | null;
+  desde: string | null;
+  hasta: string | null;
+  claves: string[];
 }
 
 /** Un mensaje visto desde el nodo que lo manda o lo espera. El numero es el mismo del dibujo. */
@@ -119,4 +133,36 @@ function nombreDeNodo(diagrama: Diagrama, id: number): string {
     (candidato) => candidato.id === id,
   );
   return nodo?.nombre ?? $localize`Unknown`;
+}
+
+/** Los mensajes del diagrama, numerados por su id: el panel y la lista tienen que decir lo mismo. */
+export function numerarMensajes(diagrama: Diagrama): MensajeDibujo[] {
+  const pool = (id: number): string => diagrama.pools.find((uno) => uno.id === id)?.nombre ?? '';
+  const nodo = (id: number | null): string | null => (id === null ? null : nombreDeNodo(diagrama, id));
+  return [...diagrama.mensajes]
+    .sort((uno, otro) => uno.id - otro.id)
+    .map((mensaje, indice) => ({
+      id: mensaje.id,
+      numero: indice + 1,
+      nombre: mensaje.nombre,
+      contenido: mensaje.contenido,
+      origen: pool(mensaje.poolOrigenId),
+      destino: pool(mensaje.poolDestinoId),
+      nodoOrigenId: mensaje.nodoOrigenId,
+      nodoDestinoId: mensaje.nodoDestinoId,
+      desde: nodo(mensaje.nodoOrigenId),
+      hasta: nodo(mensaje.nodoDestinoId),
+      claves: diagrama.correlaciones
+        .filter((clave) => clave.mensajeId === mensaje.id)
+        .map((clave) => clave.campo ?? clave.criterio),
+    }));
+}
+
+/** El id en el dibujo de cada tarea, gateway y evento. Una version anterior a los bpmnId se escribio con su tipo y su id. */
+export function bpmnIdsDeNodos(diagrama: Diagrama): Map<number, string> {
+  const ids = new Map<number, string>();
+  diagrama.actividades.forEach((uno) => ids.set(uno.id, uno.bpmnId ?? `Activity_${uno.id}`));
+  diagrama.gateways.forEach((uno) => ids.set(uno.id, uno.bpmnId ?? `Gateway_${uno.id}`));
+  diagrama.eventos.forEach((uno) => ids.set(uno.id, uno.bpmnId ?? `Event_${uno.id}`));
+  return ids;
 }

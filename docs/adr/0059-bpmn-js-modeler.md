@@ -29,3 +29,6 @@ ADR-0054) and a whole-file autosave (ADR-0040), a real BPMN editor can sit on to
 - The Content Security Policy did not have to change: bpmn-js needs inline styles, which it already allowed, and no
   `unsafe-eval`.
 - The model's layout is the product's: a position is relative to its lane, so a reloaded drawing is laid out again.
+- The viewers use the same component, so the hand-drawn SVG canvas and the editor built on it were removed: there is
+  one drawing of a process. A version is shown from the file written when it was published, and a case paints its
+  progress over that file as markers and counters.

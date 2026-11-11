@@ -36,8 +36,8 @@ import { AuthService } from '../../service/auth.service';
 import { CasoService } from '../../service/caso.service';
 import { MensajeriaService } from '../../service/mensajeria.service';
 import { VersionService } from '../../service/version.service';
-import { DiagramaBpmnComponent } from '../proceso-detalle/components/diagrama-bpmn/diagrama-bpmn.component';
-import { Lienzo, dibujarDiagrama } from '../proceso-detalle/components/diagrama-bpmn/lienzo';
+import { bpmnIdsDeNodos } from '../../bpmn/detalle-nodo';
+import { LienzoBpmnComponent } from '../../bpmn/lienzo-bpmn.component';
 
 /** Lo que la pagina pide al abrir un caso: el caso con sus pasos, su linea de tiempo y sus mensajes. */
 interface Carga {
@@ -46,6 +46,7 @@ interface Carga {
   mensajes: MensajesDelCaso;
   /** El diagrama de la version sobre la que corre, que es el que hay que dibujar y no el borrador de hoy. */
   diagrama: Diagrama | null;
+  xml: string | null;
 }
 
 /**
@@ -54,7 +55,7 @@ interface Carga {
  */
 @Component({
   selector: 'app-caso-detalle',
-  imports: [FormsModule, RouterLink, ModalConfirmarComponent, DiagramaBpmnComponent, InsigniaComponent],
+  imports: [FormsModule, RouterLink, ModalConfirmarComponent, LienzoBpmnComponent, InsigniaComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './caso-detalle.component.html',
 })
@@ -91,7 +92,9 @@ export class CasoDetalleComponent implements OnInit {
   detalle: CasoDetalle | null = null;
   eventos: EventoCaso[] = [];
   mensajes: MensajesDelCaso = { salientes: [], entrantes: [] };
-  lienzo: Lienzo | null = null;
+  xml: string | null = null;
+  marcas: Record<string, string[]> = {};
+  contadores: Record<string, number> = {};
   sinDiagrama: boolean = false;
   cargando: boolean = true;
   noEncontrado: boolean = false;
@@ -253,8 +256,31 @@ export class CasoDetalleComponent implements OnInit {
     this.detalle = carga.detalle;
     this.eventos = carga.eventos;
     this.mensajes = carga.mensajes;
-    this.sinDiagrama = carga.diagrama === null;
-    this.lienzo = carga.diagrama ? dibujarDiagrama(carga.diagrama) : null;
+    this.sinDiagrama = carga.diagrama === null || carga.xml === null;
+    this.xml = carga.xml;
+    this.pintarElCaso(carga.diagrama);
+  }
+
+  /** Por donde va el caso, sobre el dibujo: una marca por nodo, y cuantos tokens hay si son mas de uno. */
+  private pintarElCaso(diagrama: Diagrama | null): void {
+    const ids = diagrama ? bpmnIdsDeNodos(diagrama) : new Map<number, string>();
+    const marcas: Record<string, string[]> = {};
+    const contadores: Record<string, number> = {};
+    this.nodosRecorridos.forEach((nodo) => {
+      const id = ids.get(nodo);
+      if (id) {
+        marcas[id] = ['marca-recorrido'];
+      }
+    });
+    this.nodosActivos.forEach((nodo) => {
+      const id = ids.get(nodo);
+      if (id) {
+        marcas[id] = ['marca-activo'];
+        contadores[id] = (contadores[id] ?? 0) + 1;
+      }
+    });
+    this.marcas = marcas;
+    this.contadores = contadores;
   }
 
   /**
@@ -270,11 +296,15 @@ export class CasoDetalleComponent implements OnInit {
         .delCaso(id)
         .pipe(catchError(() => of({ salientes: [], entrantes: [] } as MensajesDelCaso))),
     }).pipe(
-      switchMap((parcial: Omit<Carga, 'diagrama'>) =>
-        this.versionService.diagrama(parcial.detalle.caso.procesoId, parcial.detalle.caso.versionNumero).pipe(
-          catchError(() => of(null)),
-          map((diagrama: Diagrama | null) => ({ ...parcial, diagrama })),
-        ),
+      switchMap((parcial: Omit<Carga, 'diagrama' | 'xml'>) =>
+        forkJoin({
+          diagrama: this.versionService
+            .diagrama(parcial.detalle.caso.procesoId, parcial.detalle.caso.versionNumero)
+            .pipe(catchError(() => of(null))),
+          xml: this.versionService
+            .modelo(parcial.detalle.caso.procesoId, parcial.detalle.caso.versionNumero)
+            .pipe(catchError(() => of(null))),
+        }).pipe(map((dibujo) => ({ ...parcial, ...dibujo }))),
       ),
     );
   }

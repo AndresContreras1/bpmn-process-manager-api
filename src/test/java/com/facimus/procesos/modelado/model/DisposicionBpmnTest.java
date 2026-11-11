@@ -24,8 +24,7 @@ import com.facimus.procesos.modelado.model.DisposicionBpmn.PoolPlano;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Punto;
 
 /**
- * PR 52: la cuenta de la geometria BPMN DI es la del dibujo de la web. El diagrama de referencia es el mismo de
- * {@code lienzo.spec.ts}, con los mismos numeros: si uno de los dos lados cambia la cuenta, falla su prueba.
+ * PR 52: la cuenta de la geometria BPMN DI, con un diagrama de referencia y sus numeros: si la cuenta cambia, falla.
  */
 class DisposicionBpmnTest {
 

@@ -95,14 +95,17 @@
             <span class="badge text-bg-success-subtle border text-body">green</span> what it already went through.
           </span>
         </div>
-        @if (lienzo) {
-          <app-diagrama-bpmn
-            [lienzo]="lienzo"
-            titulo="Case {{ detalle.caso.referencia }}"
-            i18n-titulo
-            [nodosActivos]="nodosActivos"
-            [nodosRecorridos]="nodosRecorridos"
-          />
+        @if (xml) {
+          <div class="visor-bpmn border rounded-3" id="diagrama-bpmn">
+            <app-lienzo-bpmn
+              modo="caso"
+              [xml]="xml"
+              titulo="Case {{ detalle.caso.referencia }}"
+              i18n-titulo
+              [marcas]="marcas"
+              [contadores]="contadores"
+            />
+          </div>
         } @else if (sinDiagrama) {
           <p i18n class="text-body-secondary mb-0" id="caso-detalle-sin-diagrama">
             The diagram of that version could not be read, so the steps below are the whole story.
