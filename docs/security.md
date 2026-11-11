@@ -30,6 +30,50 @@ A store always keeps at least one active administrator, and nobody can deactivat
 user's access level or deactivating them takes effect at once: their open sessions are closed. Changing a password,
 or having it reset, closes them too.
 
+## Permissions on folders and processes
+
+The table above is what an access role allows in general. A store can also say that a folder is only for finance, or
+that only one person publishes a given process, with **grants**: an action on a folder or a process for a person, the
+people of a process role or the whole store ([API](api-reference.md#permissions)). One evaluator,
+`Permisos.puede(actor, accion, recurso)`, decides every case in three layers
+([ADR-0063](adr/0063-granular-permissions.md)):
+
+1. **The access role is the ceiling.** A read-only user views, comments and exports, whatever is granted to them.
+   An administrator can do everything, except what the third layer refuses.
+2. **Grants decide.** A process inherits the grants of its folder and of every folder above it. An action that no
+   grant in that chain names keeps its default, below. Once one names it, it is only for whoever has it, and for
+   administrators. Any grant brings `VER` with it, and `ADMINISTRAR` brings every action.
+3. **Separation of duties goes last.** Whoever made the last change to a process cannot approve it, not even an
+   administrator.
+
+| Action | Default, while no grant names it |
+|---|---|
+| `VER`, `COMENTAR`, `EXPORTAR` | Everyone in the store |
+| `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR` | Administrators and editors |
+| `ADMINISTRAR` | Administrators |
+
+- **One place checks it.** A Spring MVC interceptor turns the method and route of each request into an action on a
+  resource, from a table that is a pure function and is tested whole: reading is `VER`, saving the model or any of
+  its elements is `MODELAR`, publishing and retiring versions is `PUBLICAR`, the AI review is `REVISAR`, deleting the
+  process, sharing it and granting on it is `ADMINISTRAR`, and downloading its BPMN file is `EXPORTAR`. Opening a
+  case or sending a message only needs `VER`: running a process is not modeling it. The routes with no resource in
+  the path, such as creating a process, check in their service.
+- **A process someone cannot see does not exist for them.** Refusing `VER` answers `404`, the same as a process of
+  another store, so it does not reveal that it is there.
+- **Lists filter in their own query.** What a person cannot see is worked out once from the grants, the folders and
+  their process roles, and added to the query, so the number of statements does not grow with the number of
+  processes. A test counts them.
+- **Moving something between folders that carry grants needs `ADMINISTRAR`,** because it changes what it inherits.
+- **The structure policy of the store is a default too:** a grant to model a process lets that person change its
+  participants and lanes even when the store keeps them for administrators.
+- **Exporting is a speed bump, not a wall.** The web reads the same file to draw it with `?para=dibujar`, which only
+  needs `VER`: whoever can see a drawing has its content.
+- Running cases and tasks stays under the access role. Grants govern the repository and the model.
+
+`PermisosIntegracionTest` walks the whole matrix — six people, eight actions and five resources — and then the
+`404` of what is hidden, the lists without N+1, the default of the structure policy, moving between folders and
+the same checks through every route of the API.
+
 ## Authentication
 
 1. `POST /api/v1/empresas` registers a store together with its first administrator.

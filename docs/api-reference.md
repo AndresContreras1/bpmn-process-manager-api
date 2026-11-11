@@ -15,6 +15,9 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Language and time zone | `GET, PUT /api/v1/auth/preferencias` (each person: empty follows the organization) · `PUT /api/v1/empresas/actual/preferencias` (administrators) |
 | Users | `GET, POST /api/v1/usuarios` · `GET, PATCH, DELETE /api/v1/usuarios/{id}` · `GET, PUT /api/v1/usuarios/{id}/roles-proceso` · `POST /api/v1/usuarios/invitaciones` · `POST /api/v1/usuarios/{id}/anonimizar` |
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |
+| Folders | `GET, POST /api/v1/carpetas` · `PUT, DELETE /api/v1/carpetas/{id}` |
+| Filing | `PUT /api/v1/procesos/{id}/ficha` · `GET /api/v1/procesos/etiquetas` |
+| Permissions | `GET /api/v1/procesos/{id}/permisos` · `GET, POST /api/v1/procesos/{id}/concesiones` · `GET, POST /api/v1/carpetas/{id}/concesiones` · `DELETE /api/v1/concesiones/{id}` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
 | Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` · `PUT /api/v1/procesos/{procesoId}/pools/orden` |
 | Lanes | `GET, POST /api/v1/pools/{poolId}/lanes` · `GET, PUT, DELETE /api/v1/lanes/{id}` · `PUT /api/v1/pools/{poolId}/lanes/orden` |
@@ -99,8 +102,40 @@ should be drawn. `GET /api/v1/procesos` and `GET /api/v1/procesos/{id}` take `in
 administrator can ask for.
 
 The behaviour behind the endpoints lives with its topic: [diagnosis and versions](diagnosis-and-versions.md),
-[cases, tasks, messages, simulation and dashboard](execution.md), and [authentication and
-passwords](security.md).
+[cases, tasks, messages, simulation and dashboard](execution.md), and [authentication, passwords and
+permissions](security.md).
+
+## The process repository
+
+Folders are a tree: `GET /api/v1/carpetas` answers all of them, each with its parent and how many processes sit
+directly in it, and the client draws the tree. A folder is created with a name and an optional `padreId`, and `PUT` renames or moves
+it with the `version` it was read with. Sister folders do not share a name, a folder cannot end up inside itself,
+the tree has at most eight levels, and only an empty folder is deleted: `409` says what is still inside.
+
+`PUT /api/v1/procesos/{id}/ficha` files a process: its `carpetaId`, its owner (`duenoId`, a user of the store), the
+date of its `proximaRevision`, its `clasificacion` (`INTERNA`, `CONFIDENCIAL` or `RESTRINGIDA`) and up to ten
+`etiquetas`, kept in lowercase, with the `version` read. It does not touch the model, so it neither changes the
+fingerprint of the draft nor counts as a change waiting to be published ([ADR-0062](adr/0062-process-repository.md)).
+`GET /api/v1/procesos/etiquetas` lists the tags in use, to suggest them.
+
+`GET /api/v1/procesos` filters by all of it: `carpetaId` (that folder and everything inside it), `etiqueta`,
+`duenoId`, `clasificacion` and `revisionAntesDe`, and sorts by `proximaRevision` and `clasificacion` too.
+`GET /api/v1/roles/{id}` lists the processes whose lanes use the role.
+
+```bash
+curl -s -X PUT http://localhost:8080/api/v1/procesos/1/ficha -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" \
+  -d '{"carpetaId":1,"duenoId":2,"proximaRevision":"2027-03-01","clasificacion":"CONFIDENCIAL","etiquetas":["logistics"],"version":0}'
+```
+
+## Permissions
+
+A grant is an action on a folder or a process for a subject: `{ "accion": "MODELAR", "sujeto": "PERSONA",
+"usuarioId": 2 }`, with `ROL` and `rolProcesoId` for the people of a process role, or `ORGANIZACION` for everyone in
+the store. The actions are `VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` and
+`ADMINISTRAR`. Listing, granting and revoking need `ADMINISTRAR` on the resource. `GET /api/v1/procesos/{id}/permisos`
+answers what the person asking can do with a process, so a client shows only the buttons that will work. How the
+grants are decided is in [Security](security.md#permissions-on-folders-and-processes).
 
 ## The store's own history and settings
 
@@ -164,9 +199,8 @@ curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/se
 
 Verifying an e-mail, recovering a password and accepting an invitation start with an e-mail that carries a link
 to the web app, with the token after `#token=`. The web app sends that token to the API, to
-`/verificacion/confirmar`, `/recuperacion/confirmar` or `/invitacion/aceptar`, which need no session. The
-screens of the web app that receive those links arrive with the account screens; until then the token can be
-sent to the API directly. Each link works once and expires, and a link that does not work answers `400` with
+`/verificacion/confirmar`, `/recuperacion/confirmar` or `/invitacion/aceptar`, which need no session. The web app
+receives them at `/verificar-correo`, `/restablecer-clave` and `/aceptar-invitacion`. Each link works once and expires, and a link that does not work answers `400` with
 the title "Enlace no válido", whatever the reason.
 
 ## Pagination
@@ -195,10 +229,28 @@ reload and decide again. When two edits of the same version arrive at the same t
 database rejects the second one through JPA's `@Version`. The correlation key of a message is the only upsert: the
 first one is created without a version.
 
-## Idempotent requests
-
 Every `GET` of an editable resource carries an `ETag`, and an edit may send `If-Match` next to its `version`: a stale
-one answers `412`. On a whole model, the tag is the SHA-256 of its BPMN file ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
+one answers `412` instead of `409`. On a whole model, the tag is the SHA-256 of its BPMN file
+([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
+
+**Autosave.** `PUT /procesos/{id}/modelo` with `If-Match` and an `Idempotency-Key` is how the modeler saves: one save
+at a time per process, nothing written when the file changes nothing, and a `412` with the current fingerprint and the
+latest changes when someone saved first. Every few minutes of editing, on closing the editor and just before a
+restore, the draft leaves a revision: `GET /procesos/{id}/revisiones` lists them, `.../{revisionId}/modelo` downloads
+one and `.../restaurar` brings it back. A revision is never published and opens no cases.
+
+**Who is editing.** `GET /procesos/{id}/en-vivo` is a stream of server-sent events — `presencia`, `bloqueo`,
+`guardado`, `publicado` and `control-tomado` — that every replica forwards, since they travel through PostgreSQL's
+`LISTEN/NOTIFY`. The first person who edits takes a soft lock and keeps it with heartbeats; 60 seconds without one
+and it is gone. Anyone else may take control, which is audited and told to the previous editor. The lock does not
+stop a save: `If-Match` does ([ADR-0058](adr/0058-presence-and-soft-lock.md)).
+
+**Comparing.** `GET /procesos/{id}/comparar?de=&a=` takes a version number, `vigente` or `borrador` on each side,
+and the `POST` takes a file, which is what a client compares after a `412`. The answer has four lists matched by
+`bpmnId`: added, removed, changed, with each field before and after, and moved
+([ADR-0057](adr/0057-semantic-diff.md)).
+
+## Idempotent requests
 
 An authenticated `POST` accepts an `Idempotency-Key` header with any unique value, such as a UUID. A retry with the
 same key gets the first response back, marked with `Idempotent-Replayed: true`, instead of creating the resource
