@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.controller;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.http.HttpHeaders;
@@ -25,11 +26,15 @@ import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.EditarProcesoRequest;
+import com.facimus.procesos.gestion.dto.request.FichaRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
+import com.facimus.procesos.gestion.model.Clasificacion;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.service.DatosDeFicha;
+import com.facimus.procesos.gestion.service.FiltrosDeProceso;
 import com.facimus.procesos.gestion.service.ProcesoService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -49,7 +54,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProcesoController {
 
-    private static final String ORDEN = "(nombre|categoria|estado|fechaCreacion|fechaModificacion)(,(asc|desc))?";
+    private static final String ORDEN =
+            "(nombre|categoria|estado|fechaCreacion|fechaModificacion|proximaRevision|clasificacion)(,(asc|desc))?";
 
     private final ProcesoService procesoService;
 
@@ -67,6 +73,16 @@ public class ProcesoController {
             @RequestParam(required = false) EstadoProceso estado,
             @Parameter(description = "Exact category", example = "Fulfillment")
             @RequestParam(required = false) String categoria,
+            @Parameter(description = "Only processes in this folder or inside it", example = "1")
+            @RequestParam(required = false) Long carpetaId,
+            @Parameter(description = "Only processes with this tag", example = "logistics")
+            @RequestParam(required = false) String etiqueta,
+            @Parameter(description = "Only processes of this owner", example = "2")
+            @RequestParam(required = false) Long duenoId,
+            @Parameter(description = "Only processes with this classification")
+            @RequestParam(required = false) Clasificacion clasificacion,
+            @Parameter(description = "Only processes to review on or before this date", example = "2027-03-01")
+            @RequestParam(required = false) LocalDate revisionAntesDe,
             @Parameter(description = "Also list the deleted processes; administrators only")
             @RequestParam(defaultValue = "false") boolean incluirInactivos,
             @Parameter(description = "Page number, starting at 0")
@@ -74,16 +90,42 @@ public class ProcesoController {
             @Parameter(description = "Items per page, from 1 to 50")
             @RequestParam(defaultValue = "10") @Min(value = 1, message = Paginacion.TAMANO_INVALIDO)
             @Max(value = Paginacion.TAMANO_MAXIMO, message = Paginacion.TAMANO_INVALIDO) int tamano,
-            @Parameter(description = "Field and direction: nombre, categoria, estado, fechaCreacion or "
-                    + "fechaModificacion, then asc or desc", example = "nombre,asc")
+            @Parameter(description = "Field and direction: nombre, categoria, estado, fechaCreacion, "
+                    + "fechaModificacion, proximaRevision or clasificacion, then asc or desc", example = "nombre,asc")
             @RequestParam(defaultValue = "fechaModificacion,desc") @Pattern(regexp = ORDEN,
-                    message = "Orden no permitido. Use nombre, categoria, estado, fechaCreacion o fechaModificacion, "
-                            + "con ,asc o ,desc.") String orden,
+                    message = "Orden no permitido. Use nombre, categoria, estado, fechaCreacion, fechaModificacion, "
+                            + "proximaRevision o clasificacion, con ,asc o ,desc.") String orden,
             @AuthenticationPrincipal ApiPrincipal principal) {
         Long empresaId = principal.empresaId();
-        return ResponseEntity.ok(procesoService.buscar(empresaId, nombre, estado, categoria,
-                soloElAdministradorMiraLoEliminado(incluirInactivos, principal),
+        return ResponseEntity.ok(procesoService.buscar(empresaId,
+                new FiltrosDeProceso(nombre, estado, categoria,
+                        soloElAdministradorMiraLoEliminado(incluirInactivos, principal), carpetaId, etiqueta, duenoId,
+                        clasificacion, revisionAntesDe),
                 Paginacion.de(pagina, tamano, orden)));
+    }
+
+    @Operation(summary = "List the tags in use", description = "To suggest them when filing a process.")
+    @ApiResponse(responseCode = "200", description = "The tags, in order")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @GetMapping("/etiquetas")
+    public ResponseEntity<List<String>> etiquetas(@AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(procesoService.etiquetasEnUso(principal.empresaId()));
+    }
+
+    @Operation(summary = "File a process",
+            description = "Its folder, owner, next review date, classification and tags.")
+    @ApiResponse(responseCode = "200", description = "The process")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PutMapping("/{id}/ficha")
+    public ResponseEntity<ProcesoResponse> editarFicha(@PathVariable Long id,
+            @Validated @RequestBody FichaRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(procesoService.editarFicha(principal.empresaId(), id, principal.usuarioId(),
+                new DatosDeFicha(request.carpetaId(), request.duenoId(), request.proximaRevision(),
+                        request.clasificacion(), request.etiquetas(), request.version())));
     }
 
     @Operation(summary = "Create a process",

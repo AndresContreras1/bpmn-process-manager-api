@@ -4,7 +4,14 @@ import { Observable, map } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { PageResponse } from '../models/page-response.model';
-import { EditarProcesoRequest, FiltrosProceso, Proceso, ProcesoDetalle, ProcesoRequest } from '../models/proceso.model';
+import {
+  EditarProcesoRequest,
+  FichaRequest,
+  FiltrosProceso,
+  Proceso,
+  ProcesoDetalle,
+  ProcesoRequest,
+} from '../models/proceso.model';
 
 /** Procesos de la tienda del usuario: la API solo devuelve los de su empresa. */
 @Injectable({ providedIn: 'root' })
@@ -27,6 +34,18 @@ export class ProcesoService {
     if (filtros.categoria) {
       params['categoria'] = filtros.categoria;
     }
+    if (filtros.carpetaId) {
+      params['carpetaId'] = filtros.carpetaId;
+    }
+    if (filtros.etiqueta?.trim()) {
+      params['etiqueta'] = filtros.etiqueta.trim();
+    }
+    if (filtros.clasificacion) {
+      params['clasificacion'] = filtros.clasificacion;
+    }
+    if (filtros.revisionAntesDe) {
+      params['revisionAntesDe'] = filtros.revisionAntesDe;
+    }
     return this.http.get<PageResponse<Proceso>>(this.url, { params });
   }
 
@@ -38,6 +57,15 @@ export class ProcesoService {
     return this.http
       .get<PageResponse<Proceso>>(this.url, { params: { pagina: 0, tamano: 50, orden: 'nombre,asc' } })
       .pipe(map((pagina: PageResponse<Proceso>) => pagina.content));
+  }
+
+  /** Las etiquetas en uso, para sugerirlas. */
+  etiquetas(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.url}/etiquetas`);
+  }
+
+  editarFicha(id: number, ficha: FichaRequest): Observable<Proceso> {
+    return this.http.put<Proceso>(`${this.url}/${id}/ficha`, ficha);
   }
 
   obtener(id: number): Observable<ProcesoDetalle> {

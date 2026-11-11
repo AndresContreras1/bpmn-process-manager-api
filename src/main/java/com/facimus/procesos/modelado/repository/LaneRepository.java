@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.facimus.procesos.common.RepositorioTenant;
+import com.facimus.procesos.gestion.dto.response.ProcesoDelRolResponse;
 import com.facimus.procesos.modelado.model.Lane;
 
 public interface LaneRepository extends RepositorioTenant<Lane> {
@@ -47,6 +48,14 @@ public interface LaneRepository extends RepositorioTenant<Lane> {
             order by p.nombre
             """)
     List<String> nombresDeProcesosActivosDelRol(@Param("empresaId") Long empresaId, @Param("rolId") Long rolId);
+
+    @Query("""
+            select distinct new com.facimus.procesos.gestion.dto.response.ProcesoDelRolResponse(p.id, p.nombre)
+            from Lane l join l.pool po join po.proceso p
+            where l.rolProceso.id = :rolId and l.empresa.id = :empresaId and p.activo = true
+            order by p.nombre
+            """)
+    List<ProcesoDelRolResponse> procesosActivosDelRol(@Param("empresaId") Long empresaId, @Param("rolId") Long rolId);
 
     /** El mismo conteo para varios roles a la vez; un rol sin procesos activos no aparece. */
     @Query("""

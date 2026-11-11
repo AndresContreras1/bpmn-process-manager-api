@@ -1,13 +1,26 @@
 package com.facimus.procesos.gestion.controller;
 
+import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.mockito.ArgumentCaptor;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -20,22 +33,8 @@ import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.service.FiltrosDeProceso;
 import com.facimus.procesos.gestion.service.ProcesoService;
-import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
-
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 @WebMvcTest(ProcesoController.class)
 class ProcesoControllerTest {
@@ -49,7 +48,7 @@ class ProcesoControllerTest {
     @Test
     @DisplayName("GET /api/v1/procesos - listar procesos (200)")
     void listar_procesos() throws Exception {
-        given(procesoService.buscar(eq(1L), any(), any(), any(), anyBoolean(), any()))
+        given(procesoService.buscar(eq(1L), any(FiltrosDeProceso.class), any()))
                 .willReturn(new PageResponse<>(List.of(crearProceso(1L, "Ventas")), 0, 10, 1, 1));
 
         mockMvc.perform(get("/api/v1/procesos").with(principal(RolAcceso.EDITOR)))
@@ -60,7 +59,7 @@ class ProcesoControllerTest {
     @Test
     @DisplayName("GET /api/v1/procesos?incluirInactivos - el administrador ve los eliminados y el editor no")
     void listar_incluirInactivos_soloParaElAdministrador() throws Exception {
-        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), eq(true), any()))
+        given(procesoService.buscar(eq(1L), argThat((FiltrosDeProceso filtros) -> filtros.incluirInactivos()), any()))
                 .willReturn(PageResponse.from(new PageImpl<>(List.of(crearProceso(9L, "Retirado")))));
 
         mockMvc.perform(get("/api/v1/procesos").param("incluirInactivos", "true")
@@ -80,7 +79,7 @@ class ProcesoControllerTest {
     @DisplayName("GET /api/v1/procesos - por defecto 10 por pagina, los modificados mas recientes primero y el id desempata")
     void listar_procesos_ordenPorDefecto() throws Exception {
         ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
-        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), anyBoolean(), pagina.capture()))
+        given(procesoService.buscar(eq(1L), any(FiltrosDeProceso.class), pagina.capture()))
                 .willReturn(new PageResponse<>(List.of(), 0, 10, 0, 0));
 
         mockMvc.perform(get("/api/v1/procesos").with(principal(RolAcceso.SOLO_LECTURA)))
@@ -96,7 +95,7 @@ class ProcesoControllerTest {
     @DisplayName("GET /api/v1/procesos?pagina=2&tamano=25&orden=nombre,asc - el cliente elige tamano y orden")
     void listar_procesos_tamanoYOrdenElegidos() throws Exception {
         ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
-        given(procesoService.buscar(eq(1L), isNull(), isNull(), isNull(), anyBoolean(), pagina.capture()))
+        given(procesoService.buscar(eq(1L), any(FiltrosDeProceso.class), pagina.capture()))
                 .willReturn(new PageResponse<>(List.of(), 2, 25, 0, 0));
 
         mockMvc.perform(get("/api/v1/procesos").param("pagina", "2").param("tamano", "25")

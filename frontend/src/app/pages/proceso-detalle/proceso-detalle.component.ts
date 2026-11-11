@@ -6,6 +6,7 @@ import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { EMPTY, Observable, catchError, finalize, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
+import { FichaRepositorioComponent } from './components/ficha-repositorio/ficha-repositorio.component';
 import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
 import { Diagrama } from '../../models/diagrama.model';
 import { EstadoProceso, NOMBRE_ESTADO, Proceso, ProcesoDetalle, cambioEnIngles } from '../../models/proceso.model';
@@ -38,7 +39,14 @@ interface Respuesta {
 /** Un proceso con sus datos, su diagrama y su historial de cambios, y las acciones que permite el rol del usuario. */
 @Component({
   selector: 'app-proceso-detalle',
-  imports: [FechaPipe, FormsModule, RouterLink, ModalConfirmarComponent, LienzoBpmnComponent],
+  imports: [
+    FechaPipe,
+    FormsModule,
+    RouterLink,
+    ModalConfirmarComponent,
+    LienzoBpmnComponent,
+    FichaRepositorioComponent,
+  ],
   templateUrl: './proceso-detalle.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './proceso-detalle.component.scss',
@@ -159,6 +167,12 @@ export class ProcesoDetalleComponent implements OnInit {
     }
     const nodo = [...bpmnIdsDeNodos(diagrama)].find(([, bpmnId]) => bpmnId === elegido.id);
     this.nodoElegido = nodo ? detallarNodo(diagrama, nodo[0], this.mensajes) : null;
+  }
+
+  alGuardarFicha(proceso: Proceso): void {
+    if (this.detalle) {
+      this.detalle = { ...this.detalle, proceso };
+    }
   }
 
   cerrarNodo(): void {

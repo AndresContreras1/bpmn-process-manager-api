@@ -53,3 +53,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0059 | [bpmn-js as the one canvas](0059-bpmn-js-modeler.md) | Accepted |
 | 0060 | [A structure view as the alternative to dragging](0060-structure-view.md) | Accepted |
 | 0061 | [Presence and comparison in the web](0061-presence-and-compare-ui.md) | Accepted |
+| 0062 | [The process repository](0062-process-repository.md) | Accepted |

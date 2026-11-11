@@ -1,8 +1,13 @@
 package com.facimus.procesos.gestion.repository;
 
+import java.time.LocalDate;
+import java.util.Collection;
+import java.util.Locale;
+
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 
+import com.facimus.procesos.gestion.model.Clasificacion;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.Proceso;
 
@@ -28,6 +33,32 @@ public final class ProcesoSpecifications {
             }
             if (StringUtils.hasText(categoria)) {
                 predicado = cb.and(predicado, cb.equal(root.get("categoria"), categoria));
+            }
+            return predicado;
+        };
+    }
+
+    /** PR 59: los filtros del repositorio. Los ids son los de una carpeta y las de adentro; vacio no filtra. */
+    public static Specification<Proceso> delRepositorio(Collection<Long> carpetas, String etiqueta, Long duenoId,
+            Clasificacion clasificacion, LocalDate revisionAntesDe) {
+        return (root, query, cb) -> {
+            var predicado = cb.conjunction();
+            if (carpetas != null) {
+                predicado = cb.and(predicado, root.get("carpetaId").in(carpetas));
+            }
+            if (StringUtils.hasText(etiqueta)) {
+                predicado = cb.and(predicado, cb.isTrue(cb.function("array_contains", Boolean.class,
+                        root.get("etiquetas"), cb.literal(etiqueta.trim().toLowerCase(Locale.ROOT)))));
+            }
+            if (duenoId != null) {
+                predicado = cb.and(predicado, cb.equal(root.get("duenoId"), duenoId));
+            }
+            if (clasificacion != null) {
+                predicado = cb.and(predicado, cb.equal(root.get("clasificacion"), clasificacion));
+            }
+            if (revisionAntesDe != null) {
+                predicado = cb.and(predicado,
+                        cb.lessThanOrEqualTo(root.<LocalDate>get("proximaRevision"), revisionAntesDe));
             }
             return predicado;
         };

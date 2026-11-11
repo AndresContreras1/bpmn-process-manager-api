@@ -1,5 +1,12 @@
 package com.facimus.procesos.gestion.model;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.facimus.procesos.common.EntidadEditable;
 
 import jakarta.persistence.Column;
@@ -59,4 +66,26 @@ public class Proceso extends EntidadEditable {
     /** Huella de esa version. Comparada con la del modelo vivo dice si el borrador tiene cambios sin publicar. */
     @Column(name = "huella_publicada", length = 64)
     private String huellaPublicada;
+
+    /** PR 59: la carpeta donde esta archivado; vacia si no se archivo. */
+    @Column(name = "carpeta_id")
+    private Long carpetaId;
+
+    /** PR 59: el usuario que responde por el proceso. */
+    @Column(name = "dueno_id")
+    private Long duenoId;
+
+    @Column(name = "proxima_revision")
+    private LocalDate proximaRevision;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private Clasificacion clasificacion = Clasificacion.INTERNA;
+
+    /** En un arreglo de la misma fila: se leen con el proceso, sin una consulta mas por cada uno de la lista. */
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(nullable = false, columnDefinition = "varchar(40)[]")
+    @Builder.Default
+    private List<String> etiquetas = new ArrayList<>();
 }

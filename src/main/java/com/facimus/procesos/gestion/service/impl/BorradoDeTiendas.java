@@ -59,6 +59,7 @@ public class BorradoDeTiendas {
             "delete from versiones_proceso where empresa_id = ?",
             "delete from procesos_compartidos where empresa_id = ?",
             "delete from procesos where empresa_id = ?",
+            "delete from carpetas where empresa_id = ?",
             "delete from roles_proceso where empresa_id = ?",
             "delete from configuracion_tienda where empresa_id = ?",
             "delete from usuarios where empresa_id = ?");

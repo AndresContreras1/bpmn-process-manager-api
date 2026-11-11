@@ -1,7 +1,10 @@
 package com.facimus.procesos.gestion.service.impl;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
@@ -25,11 +28,15 @@ import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.repository.CarpetaRepository;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.repository.ProcesoSpecifications;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.CarpetaService;
+import com.facimus.procesos.gestion.service.DatosDeFicha;
 import com.facimus.procesos.gestion.service.DiagnosticoDelModelo;
+import com.facimus.procesos.gestion.service.FiltrosDeProceso;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.Instantanea;
 import com.facimus.procesos.gestion.service.InstantaneaDelModelo;
@@ -44,6 +51,8 @@ import lombok.RequiredArgsConstructor;
 public class ProcesoServiceImpl implements ProcesoService {
 
     private final ProcesoRepository procesoRepository;
+    private final CarpetaRepository carpetaRepository;
+    private final CarpetaService carpetaService;
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
     private final ApplicationEventPublisher eventos;
@@ -61,6 +70,47 @@ public class ProcesoServiceImpl implements ProcesoService {
                 .findAll(ProcesoSpecifications.conFiltros(empresaId, nombre, estado, categoria, incluirInactivos),
                         pageable)
                 .map(procesoMapper::toResponse));
+    }
+
+    @Override
+    public PageResponse<ProcesoResponse> buscar(Long empresaId, FiltrosDeProceso filtros, Pageable pageable) {
+        Set<Long> carpetas = filtros.carpetaId() == null ? null
+                : carpetaService.conSubcarpetas(empresaId, filtros.carpetaId());
+        return PageResponse.from(procesoRepository
+                .findAll(ProcesoSpecifications.conFiltros(empresaId, filtros.nombre(), filtros.estado(),
+                        filtros.categoria(), filtros.incluirInactivos())
+                        .and(ProcesoSpecifications.delRepositorio(carpetas, filtros.etiqueta(), filtros.duenoId(),
+                                filtros.clasificacion(), filtros.revisionAntesDe())),
+                        pageable)
+                .map(procesoMapper::toResponse));
+    }
+
+    @Override
+    @Transactional
+    public ProcesoResponse editarFicha(Long empresaId, Long procesoId, Long usuarioId, DatosDeFicha ficha) {
+        Proceso proceso = buscarActivo(empresaId, procesoId);
+        proceso.verificarVersion(ficha.version());
+        Usuario autor = autor(empresaId, usuarioId);
+        if (ficha.carpetaId() != null && !carpetaRepository.existsByIdAndEmpresaId(ficha.carpetaId(), empresaId)) {
+            throw new RecursoNoEncontradoException("Carpeta no encontrada.");
+        }
+        if (ficha.duenoId() != null && !usuarioRepository.existsByIdAndEmpresaId(ficha.duenoId(), empresaId)) {
+            throw new RecursoNoEncontradoException("Usuario no encontrado.");
+        }
+        proceso.setCarpetaId(ficha.carpetaId());
+        proceso.setDuenoId(ficha.duenoId());
+        proceso.setProximaRevision(ficha.proximaRevision());
+        proceso.setClasificacion(ficha.clasificacion());
+        proceso.setEtiquetas(new ArrayList<>(ficha.etiquetas().stream()
+                .map(etiqueta -> etiqueta.trim().toLowerCase(Locale.ROOT)).distinct().sorted().toList()));
+        proceso = procesoRepository.saveAndFlush(proceso);
+        historialCambioService.registrar(proceso, autor, "Ficha del repositorio editada.");
+        return conBorrador(proceso);
+    }
+
+    @Override
+    public List<String> etiquetasEnUso(Long empresaId) {
+        return procesoRepository.etiquetasEnUso(empresaId);
     }
 
     @Override

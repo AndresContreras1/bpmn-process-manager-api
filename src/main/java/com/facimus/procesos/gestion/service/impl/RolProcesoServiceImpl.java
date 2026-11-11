@@ -68,7 +68,8 @@ public class RolProcesoServiceImpl implements RolProcesoService {
 
     @Override
     public RolProcesoVistaResponse obtener(Long empresaId, Long rolId) {
-        return conUso(empresaId, buscarActivo(empresaId, rolId));
+        return conUso(empresaId, buscarActivo(empresaId, rolId))
+                .conProcesos(usoDeRoles.procesosDelRol(empresaId, rolId));
     }
 
     @Override
