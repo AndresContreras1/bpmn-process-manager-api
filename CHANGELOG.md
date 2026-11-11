@@ -8,6 +8,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- The BPMN modeler in the web, on bpmn-js: `/procesos/{id}/modelar` draws and edits the process, limited to what the
+  model has and to its mode, with undo, search, minimap, import and export to `.bpmn`, SVG and PNG, a properties panel,
+  autosave with a visible status and a local copy, and the diagnosis as markers.
 - Presence and soft lock: `GET /api/v1/procesos/{id}/en-vivo` streams who is looking, who is editing, saves, publications
   and control being taken, across replicas with PostgreSQL `LISTEN/NOTIFY`. `/bloqueo` starts, keeps, releases and takes
   over editing, which expires without a heartbeat; taking over is audited.

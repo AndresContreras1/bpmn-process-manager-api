@@ -194,6 +194,22 @@ export const routes: Routes = [
     },
   },
   {
+    path: 'procesos/:id/modelar',
+    loadComponent: () =>
+      import('./pages/proceso-modelador/proceso-modelador.component').then(
+        (modulo) => modulo.ProcesoModeladorComponent,
+      ),
+    canActivate: [authGuard],
+    title: $localize`Model the process · BPMN Process Manager`,
+    data: {
+      migas: [
+        { etiqueta: $localize`Processes`, ruta: '/procesos' },
+        { etiqueta: $localize`Process`, ruta: '/procesos/:id' },
+        { etiqueta: $localize`Modeler` },
+      ],
+    },
+  },
+  {
     path: 'procesos/:id/editar-diagrama',
     loadComponent: () =>
       import('./pages/proceso-editor/proceso-editor.component').then((modulo) => modulo.ProcesoEditorComponent),

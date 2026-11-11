@@ -1,0 +1,30 @@
+// El panel va al lado del lienzo y no encima: el logo de bpmn.io, abajo a la derecha del lienzo, queda sin tapar.
+.modelador-cuerpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 0.75rem;
+  height: calc(100vh - 240px);
+  min-height: 480px;
+}
+
+.modelador-lienzo {
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.modelador-panel {
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+@media (max-width: 767.98px) {
+  .modelador-cuerpo {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  .modelador-lienzo {
+    height: 70vh;
+  }
+}

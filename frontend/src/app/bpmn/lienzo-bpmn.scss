@@ -1,0 +1,56 @@
+// Lo propio sobre los estilos de bpmn-js: el verde del producto y las marcas que pone la pagina.
+@use '../../styles/tokens' as *;
+
+.lienzo-bpmn {
+  background: #ffffff;
+
+  .djs-palette {
+    border-color: $bpm-color-gris-300;
+  }
+
+  .djs-context-pad .entry:hover,
+  .djs-palette .entry:hover {
+    color: $bpm-color-verde-600;
+  }
+
+  // Los hallazgos del diagnostico: el color acompana al texto de la lista, nunca lo reemplaza
+  .djs-element.marca-error .djs-visual > :nth-child(1) {
+    stroke: $bpm-color-estado-peligro !important;
+    stroke-width: 3px !important;
+  }
+
+  .djs-element.marca-aviso .djs-visual > :nth-child(1) {
+    stroke: $bpm-color-estado-aviso !important;
+    stroke-width: 3px !important;
+  }
+
+  // El recorrido de un caso
+  .djs-element.marca-activo .djs-visual > :nth-child(1) {
+    stroke: $bpm-color-verde-600 !important;
+    stroke-width: 4px !important;
+    fill: $bpm-color-verde-100 !important;
+  }
+
+  .djs-element.marca-recorrido .djs-visual > :nth-child(1) {
+    stroke: $bpm-color-verde-400 !important;
+    stroke-width: 2px !important;
+  }
+
+  // La comparacion
+  .djs-element.marca-agregado .djs-visual > :nth-child(1) {
+    stroke: $bpm-color-estado-exito !important;
+    stroke-width: 3px !important;
+  }
+
+  .djs-element.marca-cambiado .djs-visual > :nth-child(1) {
+    stroke: $bpm-color-estado-aviso !important;
+    stroke-width: 3px !important;
+    stroke-dasharray: 6 3;
+  }
+
+  .djs-element.marca-movido .djs-visual > :nth-child(1) {
+    stroke: $bpm-color-estado-info !important;
+    stroke-width: 3px !important;
+    stroke-dasharray: 2 3;
+  }
+}
