@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -185,18 +186,22 @@ class ComentarioServiceImplTest {
 
         verifyNoInteractions(elementos, eventos);
         ArgumentCaptor<Comentario> guardado = ArgumentCaptor.forClass(Comentario.class);
-        verify(comentarioRepository, org.mockito.Mockito.times(3)).saveAndFlush(guardado.capture());
+        verify(comentarioRepository, times(3)).saveAndFlush(guardado.capture());
         assertThat(guardado.getAllValues()).extracting(Comentario::getBpmnId).containsOnlyNulls();
     }
 
     @Test
     @DisplayName("el ancla tiene que existir: la version del proceso, o el elemento en el borrador")
     void ancla() {
-        assertThatThrownBy(() -> servicio.comentar(EMPRESA, ANA, PROCESO, new Nuevo("x", null, 4, null)))
+        Nuevo enOtraVersion = new Nuevo("x", null, 4, null);
+        Nuevo enOtroElemento = new Nuevo("x", "Activity_9", null, null);
+        Nuevo sinAncla = new Nuevo("x", null, null, null);
+
+        assertThatThrownBy(() -> servicio.comentar(EMPRESA, ANA, PROCESO, enOtraVersion))
                 .isInstanceOf(RecursoNoEncontradoException.class).hasMessageContaining("versión 4");
-        assertThatThrownBy(() -> servicio.comentar(EMPRESA, ANA, PROCESO, new Nuevo("x", "Activity_9", null, null)))
+        assertThatThrownBy(() -> servicio.comentar(EMPRESA, ANA, PROCESO, enOtroElemento))
                 .isInstanceOf(RecursoNoEncontradoException.class).hasMessageContaining("Activity_9");
-        assertThatThrownBy(() -> servicio.comentar(EMPRESA, ANA, 99L, new Nuevo("x", null, null, null)))
+        assertThatThrownBy(() -> servicio.comentar(EMPRESA, ANA, 99L, sinAncla))
                 .isInstanceOf(RecursoNoEncontradoException.class).hasMessage("Proceso no encontrado.");
         verify(comentarioRepository, never()).saveAndFlush(any());
 
@@ -381,7 +386,8 @@ class ComentarioServiceImplTest {
         doThrow(new RecursoNoEncontradoException("Proceso no encontrado.")).when(permisos).exigir(EMPRESA, DORA,
                 Accion.VER, Recurso.proceso(PROCESO));
 
-        assertThatThrownBy(() -> servicio.comentar(EMPRESA, DORA, PROCESO, new Nuevo("x", null, null, null)))
+        Nuevo nuevo = new Nuevo("x", null, null, null);
+        assertThatThrownBy(() -> servicio.comentar(EMPRESA, DORA, PROCESO, nuevo))
                 .isInstanceOf(RecursoNoEncontradoException.class);
         assertThatThrownBy(() -> servicio.responder(EMPRESA, DORA, 11L, "x", null))
                 .isInstanceOf(RecursoNoEncontradoException.class);
@@ -465,7 +471,9 @@ class ComentarioServiceImplTest {
         assertThat(servicio.listar(EMPRESA, PROCESO, new Filtro(null, null, null), PageRequest.of(0, 20)).content())
                 .isEmpty();
         verify(comentarioRepository, never()).respuestasDe(anyLong(), anyCollection());
-        assertThatThrownBy(() -> servicio.listar(EMPRESA, 99L, new Filtro(null, null, null), PageRequest.of(0, 20)))
+        Filtro todos = new Filtro(null, null, null);
+        PageRequest primera = PageRequest.of(0, 20);
+        assertThatThrownBy(() -> servicio.listar(EMPRESA, 99L, todos, primera))
                 .isInstanceOf(RecursoNoEncontradoException.class);
     }
 
