@@ -19,7 +19,9 @@ record ReglaDeRecurso(Accion accion, Clase clase, String tipo) {
 
     private static final String RAIZ = "/api/v1/";
     private static final Set<String> ELEMENTOS = Set.of("pools", "lanes", "actividades", "gateways", "eventos", "nodos",
-            "arcos", "mensajes", "artefactos", "asociaciones", "documentos", "manuales");
+            "arcos", "mensajes", "artefactos", "asociaciones", "documentos", "manuales", "comentarios");
+    /** PR 63: escribir en los comentarios no es modelar: lo puede hacer quien solo lee. */
+    private static final String COMENTARIOS = "comentarios";
     /** Operar un proceso no es modelarlo: abrir un caso o recibir un mensaje solo necesita verlo. */
     private static final Set<String> DE_OPERACION = Set.of("casos", "mensajes-entrantes", "comparar");
     private static final String DIBUJAR = "dibujar";
@@ -40,7 +42,8 @@ record ReglaDeRecurso(Accion accion, Clase clase, String tipo) {
                     null));
         }
         if (ELEMENTOS.contains(tramos[0]) && tramos.length > 1 && tramos[1].startsWith("{")) {
-            return Optional.of(new ReglaDeRecurso(lee ? Accion.VER : Accion.MODELAR, Clase.ELEMENTO, tramos[0]));
+            Accion escribir = COMENTARIOS.equals(tramos[0]) ? Accion.COMENTAR : Accion.MODELAR;
+            return Optional.of(new ReglaDeRecurso(lee ? Accion.VER : escribir, Clase.ELEMENTO, tramos[0]));
         }
         return Optional.empty();
     }
@@ -66,6 +69,9 @@ record ReglaDeRecurso(Accion accion, Clase clase, String tipo) {
         }
         if (lee || DE_OPERACION.contains(tramo)) {
             return Accion.VER;
+        }
+        if (COMENTARIOS.equals(tramo)) {
+            return Accion.COMENTAR;
         }
         if ("versiones".equals(tramo)) {
             return Accion.PUBLICAR;
