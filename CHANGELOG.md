@@ -173,6 +173,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   and NGINX 1.30 for the ones in the web image.
 - The error handler writes the request path, the database's message and an external service's answer to the log
   on one line: a line break inside them turns into an underscore and can no longer fake a log line of its own.
+- The CSRF token lasts the session: signing in, by any way, and signing out set a new one, and no other request
+  changes it. Before, every request with the session cookies answered a new token, and a change sent alongside other
+  requests could get a `403`; the web now stays in its language, with a notice, when saving it fails.
 
 ## Before this file
 

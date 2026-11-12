@@ -180,19 +180,25 @@ curl -s -c sesion.txt http://localhost:8080/api/v1/auth/csrf
 XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
 curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/login -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"every-order-on-time"}'
+XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
 curl -s -b sesion.txt http://localhost:8080/api/v1/procesos
 ```
+
+The CSRF token lasts the session. Every way in (the login, the code of the second factor, a passkey, a provider)
+and logging out set a new one, so the snippet reads it again after the login; nothing else changes it, renewing the
+session included.
 
 The cookies are `Secure`: like a browser, curl sends them over plain HTTP only to `localhost`. The refresh cookie
 lives the store's idle timeout, and `expiresIn` in the body says when the access cookie expires: fifteen minutes,
 or less near the end of the session.
 
 With a second factor the login answers `segundoFactorPendiente: true` and only the access cookie, for five minutes.
-The code finishes it, with the same cookie jar:
+The code finishes it, with the same cookie jar, and sets the token of the session:
 
 ```bash
 curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/segundo-factor/verificacion \
   -H "X-XSRF-TOKEN: $XSRF" -H "Content-Type: application/json" -d '{"codigo":"492039"}'
+XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
 ```
 
 ## Links sent by e-mail

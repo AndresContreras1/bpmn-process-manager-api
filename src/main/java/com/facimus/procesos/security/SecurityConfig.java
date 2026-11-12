@@ -29,7 +29,7 @@ import org.springframework.security.oauth2.client.web.DefaultOAuth2Authorization
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.header.writers.CrossOriginOpenerPolicyHeaderWriter.CrossOriginOpenerPolicy;
 import org.springframework.security.web.header.writers.CrossOriginResourcePolicyHeaderWriter.CrossOriginResourcePolicy;
 import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
@@ -281,15 +281,17 @@ public class SecurityConfig {
     /**
      * D29: el token CSRF de una SPA. La web lo lee de la cookie {@code XSRF-TOKEN}, la unica que su JavaScript puede
      * leer, y lo devuelve en {@code X-XSRF-TOKEN}; otro sitio no puede leer esa cookie, asi que no puede mandarlo.
+     * <p>
+     * ADR-0064: el token lo cambia {@link CookiesDeSesion} al abrir y al cerrar la sesion, no Spring. Spring lo cambia
+     * cada vez que su SessionManagementFilter ve a alguien autenticado que el repositorio del contexto no tenia, y con
+     * STATELESS ese repositorio no guarda nada: cada peticion con la cookie de acceso le parecia un login nuevo.
      */
-    // S3330: XSRF-TOKEN no es HttpOnly porque la web tiene que leerla; las cookies de la sesion si lo son.
     // S4502: CSRF no se apaga; solo se salta lo que no trae cookies de sesion (ver pideCsrf).
-    @SuppressWarnings({ "java:S3330", "java:S4502" })
+    @SuppressWarnings("java:S4502")
     static void csrf(CsrfConfigurer<HttpSecurity> csrf) {
-        CookieCsrfTokenRepository repositorio = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        repositorio.setCookieCustomizer(cookie -> cookie.secure(true).sameSite("Lax"));
         csrf.spa()
-                .csrfTokenRepository(repositorio)
+                .csrfTokenRepository(CookiesDeSesion.repositorioCsrf())
+                .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
                 .requireCsrfProtectionMatcher(SecurityConfig::pideCsrf);
     }
 

@@ -42,6 +42,8 @@ curl -s -c sesion.txt http://localhost:8080/api/v1/auth/csrf
 XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
 curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/login -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"every-order-on-time"}'
+# Signing in changes the CSRF token: the session's is the one the jar has now
+XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
 
 # List the store's processes
 curl -s http://localhost:8080/api/v1/procesos -b sesion.txt
