@@ -22,6 +22,8 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class EnlacesFirmados {
 
+    private static final SecureRandom AZAR = new SecureRandom();
+
     private static final String HMAC = "HmacSHA256";
     private static final Base64.Encoder BASE64 = Base64.getUrlEncoder().withoutPadding();
 
@@ -69,7 +71,7 @@ public class EnlacesFirmados {
 
     private static byte[] aleatoria() {
         byte[] bytes = new byte[32];
-        new SecureRandom().nextBytes(bytes);
+        AZAR.nextBytes(bytes);
         return bytes;
     }
 }

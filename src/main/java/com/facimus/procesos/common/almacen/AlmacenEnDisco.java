@@ -44,7 +44,7 @@ public class AlmacenEnDisco implements Almacen {
     public InputStream abrir(String clave) {
         try {
             return Files.newInputStream(ruta(clave));
-        } catch (NoSuchFileException e) {
+        } catch (NoSuchFileException _) {
             throw new ArchivoNoEncontradoException(clave);
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo abrir " + clave, e);
@@ -72,7 +72,9 @@ public class AlmacenEnDisco implements Almacen {
         try {
             Files.createDirectories(destino.getParent());
             Files.write(destino, contenido);
-            destino.toFile().setReadOnly();
+            if (!destino.toFile().setReadOnly()) {
+                throw new IOException("No se pudo dejar de solo lectura");
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo guardar " + clave, e);
         }

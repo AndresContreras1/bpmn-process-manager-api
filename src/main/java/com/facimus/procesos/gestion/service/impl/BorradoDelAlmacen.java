@@ -10,7 +10,7 @@ import com.facimus.procesos.common.trabajos.Trabajo;
 import lombok.RequiredArgsConstructor;
 
 /**
- * PR 61: borra del almacen todo lo de una tienda borrada: sus documentos, con todas sus versiones. El ancla de la
+ * PR 61: borra del almacen lo que guardaba una tienda borrada: sus documentos, con todas sus versiones. El ancla de la
  * bitacora no: va con la bitacora, que sobrevive a su tienda, y el almacen no la dejaria borrar. Borrar dos veces el
  * mismo prefijo no hace nada, asi que la cola lo puede reintentar sin cuidado.
  */

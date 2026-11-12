@@ -12,8 +12,12 @@ import java.util.zip.ZipOutputStream;
 /** PR 61: archivos de prueba armados byte a byte: lo justo para que cada tipo se reconozca por su contenido. */
 public final class Archivos {
 
-    public static final byte[] PDF = ascii("%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n"
-            + "%%EOF\n");
+    public static final byte[] PDF = ascii("""
+            %PDF-1.4
+            1 0 obj << /Type /Catalog >> endobj
+            trailer << /Root 1 0 R >>
+            %%EOF
+            """);
     public static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 13, 'I', 'H', 'D',
         'R', 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0, (byte) 0x90, 'w', 'S', (byte) 0xde};
     public static final byte[] JPEG = {(byte) 0xff, (byte) 0xd8, (byte) 0xff, (byte) 0xe0, 0, 16, 'J', 'F', 'I', 'F',
@@ -27,8 +31,10 @@ public final class Archivos {
             </svg>
             """);
     public static final byte[] TEXTO = utf8("Envolver con papel de regalo y cinta verde.\n");
-    public static final byte[] HTML = utf8("<!DOCTYPE html>\n<html><head><title>x</title></head>"
-            + "<body><script>alert(1)</script></body></html>\n");
+    public static final byte[] HTML = utf8("""
+            <!DOCTYPE html>
+            <html><head><title>x</title></head><body><script>alert(1)</script></body></html>
+            """);
     /** El comienzo de un ejecutable de Windows: MZ, y en 0x3c donde empieza su cabecera PE. */
     public static final byte[] EXE = ejecutable();
     public static final byte[] BPMN = utf8("""

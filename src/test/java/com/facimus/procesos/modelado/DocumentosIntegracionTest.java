@@ -52,7 +52,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * PR 61: los documentos de punta a punta, por HTTP y con la seguridad de verdad: subir, revisar en la cola con un
- * clamd que habla el protocolo, bajar con el enlace firmado y sin sesion, y todo lo que no tiene que pasar.
+ * clamd que habla el protocolo, bajar con el enlace firmado y sin sesion, y cada cosa que no tiene que pasar.
  */
 @SpringBootTest
 @AutoConfigureMockMvc

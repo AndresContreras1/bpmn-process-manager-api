@@ -17,7 +17,7 @@ public interface Almacen {
     /** El contenido de una clave. Quien lo abre lo cierra. */
     InputStream abrir(String clave);
 
-    /** Borra todo lo que empieza por ese prefijo; no falla si no habia nada. */
+    /** Borra cada objeto que empieza por ese prefijo; no falla si no habia ninguno. */
     void borrarPrefijo(String prefijo);
 
     /**

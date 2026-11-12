@@ -13,7 +13,7 @@ public final class ClaveDeAlmacen {
     private ClaveDeAlmacen() {
     }
 
-    /** El prefijo de todo lo de una tienda. */
+    /** El prefijo bajo el que va cada archivo de una tienda. */
     public static String deEmpresa(long empresaId) {
         return "empresas/" + empresaId + "/";
     }

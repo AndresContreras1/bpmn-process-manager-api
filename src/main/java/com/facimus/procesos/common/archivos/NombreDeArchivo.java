@@ -28,7 +28,7 @@ public final class NombreDeArchivo {
         base = base.substring(barra + 1);
         StringBuilder limpio = new StringBuilder();
         base.codePoints().filter(NombreDeArchivo::seQueda).forEach(limpio::appendCodePoint);
-        String sinPuntos = limpio.toString().strip().replaceAll("^[.\\s]+", "").replaceAll("[.\\s]+$", "");
+        String sinPuntos = sinBordes(limpio.toString());
         String sinExtension = quitarExtension(sinPuntos);
         if (sinExtension.isBlank() || RESERVADOS_EN_WINDOWS.contains(sinExtension.toLowerCase(Locale.ROOT))) {
             sinExtension = POR_DEFECTO;
@@ -39,6 +39,23 @@ public final class NombreDeArchivo {
             sinExtension = sinExtension.substring(0, sinExtension.offsetByCodePoints(0, espacio)).strip();
         }
         return sinExtension + extension;
+    }
+
+    /** Sin puntos ni espacios al principio ni al final: ni un archivo oculto ni uno que Windows no deja crear. */
+    private static String sinBordes(String texto) {
+        int inicio = 0;
+        int fin = texto.length();
+        while (inicio < fin && esBorde(texto.charAt(inicio))) {
+            inicio++;
+        }
+        while (fin > inicio && esBorde(texto.charAt(fin - 1))) {
+            fin--;
+        }
+        return texto.substring(inicio, fin);
+    }
+
+    private static boolean esBorde(char caracter) {
+        return caracter == '.' || Character.isWhitespace(caracter);
     }
 
     private static boolean seQueda(int caracter) {

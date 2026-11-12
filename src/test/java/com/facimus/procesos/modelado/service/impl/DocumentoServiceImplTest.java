@@ -3,7 +3,6 @@ package com.facimus.procesos.modelado.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -48,10 +47,13 @@ import com.facimus.procesos.common.almacen.EnlacesFirmados;
 import com.facimus.procesos.common.antivirus.Antivirus;
 import com.facimus.procesos.common.antivirus.ResultadoDelAntivirus;
 import com.facimus.procesos.common.archivos.Archivos;
+import com.facimus.procesos.common.archivos.ArchivosTemporales;
 import com.facimus.procesos.common.archivos.DetectorDeTipo;
 import com.facimus.procesos.common.archivos.InspeccionDeZip;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.security.ContextoDeTienda;
+import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
@@ -96,6 +98,8 @@ class DocumentoServiceImplTest {
 
     @TempDir
     Path raiz;
+    @TempDir
+    Path paso;
 
     private final Clock reloj = Clock.fixed(AHORA, ZoneOffset.UTC);
     private final EnlacesFirmados enlaces = new EnlacesFirmados("secreto-de-las-pruebas-de-documentos", reloj);
@@ -123,7 +127,8 @@ class DocumentoServiceImplTest {
     private DocumentoServiceImpl servicio(long tamanoMaximo, long cuota, boolean exigirAntivirus) {
         return new DocumentoServiceImpl(documentoRepository, versionRepository, procesoRepository, elementos,
                 historial, auditoria, cola, almacen, antivirus, new DetectorDeTipo(),
-                new InspeccionDeZip(10 * MEGA, 100, 1000), enlaces, reloj,
+                new InspeccionDeZip(10 * MEGA, 100, 1000), enlaces,
+                new ArchivosTemporales(paso), reloj,
                 new DocumentoServiceImpl.Limites(tamanoMaximo, cuota, exigirAntivirus, Duration.ofMinutes(5)));
     }
 
@@ -172,7 +177,7 @@ class DocumentoServiceImplTest {
         try (InputStream guardadoEnElAlmacen = almacen.abrir(guardada.getClave())) {
             assertThat(guardadoEnElAlmacen.readAllBytes()).isEqualTo(Archivos.PDF);
         }
-        verify(cola).encolar(EMPRESA, DocumentoServiceImpl.REVISAR, "41");
+        verify(cola).encolar(EMPRESA, DocumentoServiceImpl.TRABAJO_DE_REVISION, "41");
         verify(historial).registrar(EMPRESA, AUTOR, proceso, "Documento \"Empaque final.pdf\" agregado.");
         verify(auditoria).registrar(EMPRESA, AUTOR, "DOCUMENTO_SUBIDO", "DOCUMENTO", 12L,
                 Map.of("version", 1, "tamano", (long) Archivos.PDF.length, "tipo", "application/pdf"));
@@ -300,10 +305,10 @@ class DocumentoServiceImplTest {
         assertThat(respuesta.versionActual()).isEqualTo(2);
         assertThat(respuesta.nombre()).isEqualTo("empaque v2.pdf");
         assertThat(documento.getVersionActual()).isEqualTo(2);
-        verify(cola).encolar(EMPRESA, DocumentoServiceImpl.REVISAR, "42");
+        verify(cola).encolar(EMPRESA, DocumentoServiceImpl.TRABAJO_DE_REVISION, "42");
         verify(historial).registrar(EMPRESA, AUTOR, proceso, "Documento \"empaque v2.pdf\": versión 2.");
-        verify(auditoria).registrar(eq(EMPRESA), eq(AUTOR), eq("DOCUMENTO_SUBIDO"), eq("DOCUMENTO"), eq(12L),
-                eq(Map.of("version", 2, "tamano", (long) Archivos.PDF.length, "tipo", "application/pdf")));
+        verify(auditoria).registrar(EMPRESA, AUTOR, "DOCUMENTO_SUBIDO", "DOCUMENTO", 12L,
+                Map.of("version", 2, "tamano", (long) Archivos.PDF.length, "tipo", "application/pdf"));
     }
 
     @Test
@@ -339,11 +344,13 @@ class DocumentoServiceImplTest {
                 version(documento, 2, "application/pdf", EstadoDocumento.PENDIENTE, "b"),
                 version(documento, 1, "application/pdf", EstadoDocumento.DISPONIBLE, "a")));
 
-        DocumentoDetalleResponse detalle = servicio().obtener(EMPRESA, 12L);
+        DocumentoServiceImpl servicio = servicio();
+
+        DocumentoDetalleResponse detalle = servicio.obtener(EMPRESA, 12L);
 
         assertThat(detalle.documento().estado()).isEqualTo(EstadoDocumento.PENDIENTE);
         assertThat(detalle.versiones()).extracting(v -> v.numero()).containsExactly(2, 1);
-        assertThatThrownBy(() -> servicio().obtener(EMPRESA, 13L)).isInstanceOf(RecursoNoEncontradoException.class)
+        assertThatThrownBy(() -> servicio.obtener(EMPRESA, 13L)).isInstanceOf(RecursoNoEncontradoException.class)
                 .hasMessage("Documento no encontrado.");
     }
 
@@ -402,6 +409,7 @@ class DocumentoServiceImplTest {
         }
         assertThat(svg.tipo()).isEqualTo("application/octet-stream");
         svg.contenido().close();
+        assertThat(ContextoDeTienda.actual()).as("bajar no deja la tienda puesta en el hilo").isEmpty();
     }
 
     @Test
@@ -433,8 +441,15 @@ class DocumentoServiceImplTest {
         String firma = enlaces.firmar("documento:1:12:1", Instant.ofEpochSecond(vence));
         DocumentoServiceImpl servicio = servicio();
 
-        assertThatThrownBy(() -> servicio.descargar(EMPRESA, 12L, 1, vence, firma))
-                .isInstanceOf(RecursoNoEncontradoException.class).hasMessage("Versión no encontrada.");
+        Alcance antes = ContextoDeTienda.fijar(Alcance.SISTEMA);
+        try {
+            assertThatThrownBy(() -> servicio.descargar(EMPRESA, 12L, 1, vence, firma))
+                    .isInstanceOf(RecursoNoEncontradoException.class).hasMessage("Versión no encontrada.");
+            assertThat(ContextoDeTienda.actual()).as("aun fallando, vuelve el alcance de antes")
+                    .contains(Alcance.SISTEMA);
+        } finally {
+            ContextoDeTienda.restaurar(antes);
+        }
     }
 
     @Test
@@ -478,6 +493,7 @@ class DocumentoServiceImplTest {
         assertThat(bomba.getMotivo()).isEqualTo("El archivo crece demasiado al abrirlo.");
         assertThat(bomba.isRevisado()).isFalse();
         verifyNoInteractions(antivirus);
+        assertThat(archivosDePaso()).as("la copia del ZIP se borra").isZero();
     }
 
     @Test
@@ -563,21 +579,20 @@ class DocumentoServiceImplTest {
     @Test
     @DisplayName("ningun archivo temporal queda atras, salga bien o mal la subida")
     void sinTemporales() throws IOException {
-        Path temporales = Path.of(System.getProperty("java.io.tmpdir"));
-        long antes = contarSubidas(temporales);
         DocumentoServiceImpl chico = servicio(16, MEGA, false);
         InputStream grande = cuerpo(Archivos.PDF);
 
         servicio().subir(EMPRESA, AUTOR, PROCESO, null, "a.pdf", cuerpo(Archivos.PDF));
+        assertThat(archivosDePaso()).isZero();
         assertThatThrownBy(() -> chico.subir(EMPRESA, AUTOR, PROCESO, null, "a.pdf", grande))
                 .isInstanceOf(ArchivoDemasiadoGrandeException.class);
 
-        assertThat(contarSubidas(temporales)).isEqualTo(antes);
+        assertThat(archivosDePaso()).isZero();
     }
 
-    private static long contarSubidas(Path carpeta) throws IOException {
-        try (Stream<Path> archivos = Files.list(carpeta)) {
-            return archivos.filter(archivo -> archivo.getFileName().toString().startsWith("documento-")).count();
+    private long archivosDePaso() throws IOException {
+        try (Stream<Path> archivos = Files.list(paso)) {
+            return archivos.count();
         }
     }
 }
