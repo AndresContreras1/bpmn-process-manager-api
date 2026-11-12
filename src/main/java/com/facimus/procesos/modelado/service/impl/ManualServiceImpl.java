@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -203,16 +204,21 @@ public class ManualServiceImpl implements ManualService {
             String nombre = archivo(manual.getProceso().getNombre(), manual.getVersionNumero(), cual);
             String clave = PDF.equals(cual) ? manual.getClavePdf() : manual.getClaveHtml();
             String tipo = PDF.equals(cual) ? MIME_PDF : "text/html;charset=UTF-8";
-            byte[] contenido;
-            try (InputStream entrada = almacen.abrir(clave)) {
-                contenido = entrada.readAllBytes();
-            } catch (IOException e) {
-                throw new UncheckedIOException("No se pudo leer " + clave, e);
-            }
-            return new Descarga(nombre, tipo, contenido.length, new ByteArrayInputStream(contenido));
+            return descarga(nombre, tipo, clave);
         } finally {
             ContextoDeTienda.restaurar(anterior);
         }
+    }
+
+    /** El archivo entero, leido del almacen: el manual no guarda su tamano y la descarga lo dice. */
+    private Descarga descarga(String nombre, String tipo, String clave) {
+        byte[] contenido;
+        try (InputStream entrada = almacen.abrir(clave)) {
+            contenido = entrada.readAllBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo leer " + clave, e);
+        }
+        return new Descarga(nombre, tipo, contenido.length, new ByteArrayInputStream(contenido));
     }
 
     /**
@@ -221,15 +227,13 @@ public class ManualServiceImpl implements ManualService {
      */
     @Override
     public void generar(Long empresaId, Long manualId) {
-        Pedido pedido = lectura.execute(estado -> manualRepository.findByIdAndEmpresaId(manualId, empresaId)
-                .filter(manual -> manual.getEstado() == EstadoManual.PENDIENTE)
-                .map(manual -> new Pedido(manual.getProceso().getId(), manual.getVersionNumero(), manual.getIdioma()))
-                .orElse(null));
-        if (pedido == null) {
-            return;
-        }
-        Resultado resultado = imprimir(empresaId, manualId, pedido);
-        escritura.executeWithoutResult(estado -> anotar(empresaId, manualId, resultado));
+        Optional<Pedido> pendiente = lectura.execute(estado -> manualRepository.findByIdAndEmpresaId(manualId,
+                empresaId).filter(manual -> manual.getEstado() == EstadoManual.PENDIENTE)
+                .map(manual -> new Pedido(manual.getProceso().getId(), manual.getVersionNumero(), manual.getIdioma())));
+        pendiente.ifPresent(pedido -> {
+            Resultado resultado = imprimir(empresaId, manualId, pedido);
+            escritura.executeWithoutResult(estado -> anotar(empresaId, manualId, resultado));
+        });
     }
 
     /** El manual en sus dos archivos, ya en el almacen; si algo no se puede armar, el motivo. */
