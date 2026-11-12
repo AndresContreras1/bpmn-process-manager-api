@@ -57,65 +57,76 @@
         }
       </div>
 
-      @if (puedeEditar && !soloLectura) {
+      <!-- F20: la documentacion la leen todos los roles de la tienda; una invitada solo ve el diagrama -->
+      @if (!soloLectura) {
         <div class="d-flex flex-wrap gap-2">
           <a
             i18n
             class="btn btn-outline-secondary"
-            [routerLink]="['/procesos', detalle.proceso.id, 'editar']"
-            id="proceso-detalle-editar"
+            [routerLink]="['/procesos', detalle.proceso.id, 'documentacion']"
+            id="proceso-detalle-documentacion"
           >
-            <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+            <i class="fa-solid fa-book-open" aria-hidden="true"></i> Documentation
           </a>
-          <a
-            i18n
-            class="btn btn-outline-primary"
-            [routerLink]="['/procesos', detalle.proceso.id, 'modelar']"
-            id="proceso-detalle-modelar"
-          >
-            <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Model
-          </a>
-          @if (detalle.proceso.estado === 'BORRADOR') {
-            <button
-              i18n
-              type="button"
-              class="btn btn-success"
-              id="proceso-detalle-publicar"
-              [disabled]="enviando"
-              data-bs-toggle="modal"
-              data-bs-target="#modal-publicar"
-            >
-              <i class="fa-solid fa-rocket" aria-hidden="true"></i> Publish
-            </button>
-          }
-          @if (esAdministrador) {
+          @if (puedeEditar) {
             <a
               i18n
               class="btn btn-outline-secondary"
-              [routerLink]="['/procesos', detalle.proceso.id, 'comparar']"
-              id="proceso-detalle-comparar"
+              [routerLink]="['/procesos', detalle.proceso.id, 'editar']"
+              id="proceso-detalle-editar"
             >
-              <i class="fa-solid fa-code-compare" aria-hidden="true"></i> Compare
+              <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
             </a>
             <a
               i18n
-              class="btn btn-outline-secondary"
-              [routerLink]="['/procesos', detalle.proceso.id, 'compartir']"
-              id="proceso-detalle-compartir"
+              class="btn btn-outline-primary"
+              [routerLink]="['/procesos', detalle.proceso.id, 'modelar']"
+              id="proceso-detalle-modelar"
             >
-              <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Share
+              <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Model
             </a>
-            <button
-              i18n
-              type="button"
-              class="btn btn-outline-danger"
-              id="proceso-detalle-eliminar"
-              [disabled]="enviando"
-              data-bs-toggle="modal"
-              data-bs-target="#modal-eliminar"
-            >
-              <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete
-            </button>
+            @if (detalle.proceso.estado === 'BORRADOR') {
+              <button
+                i18n
+                type="button"
+                class="btn btn-success"
+                id="proceso-detalle-publicar"
+                [disabled]="enviando"
+                data-bs-toggle="modal"
+                data-bs-target="#modal-publicar"
+              >
+                <i class="fa-solid fa-rocket" aria-hidden="true"></i> Publish
+              </button>
+            }
+            @if (esAdministrador) {
+              <a
+                i18n
+                class="btn btn-outline-secondary"
+                [routerLink]="['/procesos', detalle.proceso.id, 'comparar']"
+                id="proceso-detalle-comparar"
+              >
+                <i class="fa-solid fa-code-compare" aria-hidden="true"></i> Compare
+              </a>
+              <a
+                i18n
+                class="btn btn-outline-secondary"
+                [routerLink]="['/procesos', detalle.proceso.id, 'compartir']"
+                id="proceso-detalle-compartir"
+              >
+                <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Share
+              </a>
+              <button
+                i18n
+                type="button"
+                class="btn btn-outline-danger"
+                id="proceso-detalle-eliminar"
+                [disabled]="enviando"
+                data-bs-toggle="modal"
+                data-bs-target="#modal-eliminar"
+              >
+                <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete
+              </button>
+            }
           }
         </div>
       }

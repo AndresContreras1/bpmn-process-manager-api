@@ -223,6 +223,23 @@ export const routes: Routes = [
       ],
     },
   },
+  // F20: la documentacion, la ficha de caracterizacion, los documentos y el manual de un proceso
+  {
+    path: 'procesos/:id/documentacion',
+    loadComponent: () =>
+      import('./pages/proceso-documentacion/proceso-documentacion.component').then(
+        (modulo) => modulo.ProcesoDocumentacionComponent,
+      ),
+    canActivate: [authGuard],
+    title: $localize`Process documentation · BPMN Process Manager`,
+    data: {
+      migas: [
+        { etiqueta: $localize`Processes`, ruta: '/procesos' },
+        { etiqueta: $localize`Process`, ruta: '/procesos/:id' },
+        { etiqueta: $localize`Documentation` },
+      ],
+    },
+  },
   // Los enlaces viejos al editor anterior siguen llevando al lugar donde se modela ahora
   { path: 'procesos/:id/editar-diagrama', redirectTo: 'procesos/:id/modelar' },
   {
