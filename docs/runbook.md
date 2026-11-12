@@ -9,13 +9,16 @@ this repository (`compose.yaml`); the remote environments add their own steps to
 
 | Service | What it is | Ports | Health check |
 |---|---|---|---|
-| `db` | PostgreSQL 16, data in the `postgres-data` volume | `5432`, not published | `pg_isready` |
+| `db` | PostgreSQL 16 with pgBackRest, data in the `postgres-data` volume; archives every WAL segment | `5432`, not published | `pg_isready` |
 | `api` | The API in the `prod` profile | `8080` for the API (`API_PORT` on the host, only on `127.0.0.1`); `8081` for Actuator, never published | `/actuator/health/readiness` on `8081` |
 | `web` | NGINX with the compiled app, and the door to the API under `/api` | `8080` (`WEB_PORT` on the host) | `/healthz` |
-| `almacen` | SeaweedFS, the S3 storage of the documents and of the audit-trail anchors, data in the `almacen-data` volume | `8333`, not published | `/healthz` on `8333` |
+| `almacen` | SeaweedFS, the S3 storage of the documents, of the audit-trail anchors and of the backups, data in the `almacen-data` volume | `8333` (HTTP) and `8334` (HTTPS, for pgBackRest), not published | `/healthz` on `8333` |
+| `respaldo` | pgBackRest's scheduler: the [backups](#backup-and-recovery) | none | the last backup is less than 26 hours old |
+| `certificados` | Creates the storage's TLS certificate once and exits | none | exits with `0` |
+| `restauracion`, `verificacion` | The restore drill, only with `--profile simulacro` | none | out of recovery; exits with `0` |
 
-The API and the web containers run read-only, without Linux capabilities, and write only to `/tmp`, which lives in
-memory. `docker compose ps` shows whether each one is healthy.
+Every container but the storage runs as a user without privileges, read-only, without Linux capabilities, and writes
+only to its volumes and to `/tmp`, which lives in memory. `docker compose ps` shows whether each one is healthy.
 
 ```bash
 docker compose ps
@@ -159,9 +162,20 @@ as a PDF or another type, or the operator updates the signatures (`freshclam`).
 
 **The audit trail does not match its anchor.** The chain closes by itself but not with the hash the anchor kept that
 day: the table was rewritten after that day. Treat it as an incident: keep the database as it is, compare the
-anchored hash (`anclas/<store>/<day>` in the anchors' bucket) with the entry of that sequence, and restore from the
-backup of before that day to see what changed. An anchor that "is no longer in the storage" means the bucket was not
-created with Object Lock, or its retention passed.
+anchored hash (`anclas/<store>/<day>` in the anchors' bucket) with the entry of that sequence, and restore the
+database as it was before that day into the drill's container (`ops/respaldo/simulacro.sh --hasta '<day> 00:00+00'`,
+[below](#restoring-to-a-point-in-time)) to see what changed. An anchor that "is no longer in the storage" means the
+bucket was not created with Object Lock, or its retention passed.
+
+**The `respaldo` service is unhealthy.** No backup finished in the last 26 hours. `docker compose logs respaldo` says
+why: the storage is down, the bucket is missing, or `RESPALDO_CLAVE` is not the one the repository was created with
+(pgBackRest cannot open `archive.info`). The service tries again every five minutes and takes the backup as soon as
+it can; `docker compose exec respaldo respaldo ahora full` takes one at once.
+
+**WAL is not reaching the repository.** `select failed_count, last_failed_wal, last_failed_time from
+pg_stat_archiver` grows and `docker compose logs db` shows the error of `archive-push`. PostgreSQL keeps every segment
+that did not leave in `pg_wal`, so nothing is lost, but the disk fills: fix the storage or the key before it does.
+Until then, what was written since the last segment that arrived is only on this disk.
 
 **Someone gets `429` while working.** The rate limits count changes per person and signing in per address
 ([Rate limiting](security.md#rate-limiting)). An office behind one address shares the bucket of signing in: raise
@@ -209,26 +223,160 @@ select pg_stat_statements_reset();
 A statement with a high `mean_ms` is slow by itself: its `EXPLAIN (ANALYZE, BUFFERS)` says why. One with a low
 `mean_ms` and a huge `calls` runs once per row of something: look for a loop in the code.
 
-## Backups
+## Backup and recovery
 
-Until the remote environments bring daily encrypted copies, a copy is taken by hand, from the host:
+The database is backed up with pgBackRest into a bucket of its own with Object Lock, every file encrypted with
+AES-256 and `RESPALDO_CLAVE` before it leaves ([ADR-0068](adr/0068-backup-and-restore.md)). PostgreSQL archives
+every WAL segment as it fills, and at least once a minute when something was written, so any moment of the retention
+window can be restored. The documents keep every version in their own bucket.
+
+| What | When | Kept |
+|---|---|---|
+| WAL | Every segment; at most 60 seconds after a write (`archive_timeout`) | As long as the oldest full backup it follows |
+| Full backup | Sundays from 01:00 UTC, and the first one when the stack starts | Two (`RESPALDO_COMPLETOS`): seven to fourteen days back |
+| Differential backup | The other days from 01:00 UTC; at once if the last backup is older than 26 hours | Until its full backup goes |
+| Every file of the backups' bucket | — | 21 days at least, whatever anyone asks (Object Lock in compliance mode, `RESPALDO_BLOQUEO_DIAS`) |
+| A replaced or deleted document | — | 35 days as an earlier version (`ALMACEN_S3_DIAS_DE_VERSIONES`) |
+
+After each backup the service counts the rows of every table with writes paused for that instant, and leaves a
+restore point there: the drill restores up to that point and expects exactly those rows. The pause is one counting
+statement, and the count never waits for a lock, so it cannot deadlock with a migration: if a write is holding a
+table, it lets go and tries again, and after ten tries in half a minute that backup stays without its count.
 
 ```bash
-docker compose exec -T db pg_dump -U procesos -Fc procesos > procesos-$(date +%F).dump
+docker compose ps respaldo                          # healthy while the last backup is less than 26 hours old
+docker compose exec respaldo pgbackrest info        # every backup, its size and the WAL it covers
+docker compose exec respaldo respaldo ahora full    # one more, now: before an upgrade or a risky change
+docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -c "select * from pg_stat_archiver"'
 ```
 
-Restoring replaces what the database has, so stop the API first:
+`RESPALDO_CLAVE` opens the whole repository and is not kept anywhere in it: store it apart from the machine, with the
+other secrets. Without it no backup can be restored; another key means another repository. `docker compose down -v`
+deletes the local stack's backups too, since they live in its storage volume: the real protection is the bucket of
+another account, below.
+
+### The drill
+
+A backup that was never restored is a hope. The drill restores one into a container of its own and checks it, and
+the [Restore Drill](../.github/workflows/restore-drill.yml) workflow runs it on the 3rd of every month on a stack
+filled through the API.
 
 ```bash
-docker compose stop api
-docker compose exec -T db pg_restore -U procesos -d procesos --clean --if-exists < procesos-2026-10-05.dump
-docker compose start api
+ops/respaldo/simulacro.sh            # the last backup, up to its restore point
+ops/respaldo/simulacro.sh --ultimo   # up to the last WAL segment in the repository
+ops/respaldo/simulacro.sh --hasta '2026-11-12 10:00:00+00'
+ops/respaldo/simulacro.sh -p <project>        # for a stack started with docker compose -p
 ```
 
-A copy that was never restored is a hope, not a backup: restore one into a scratch stack now and then.
+It runs against the stack, without touching it:
 
-The documents live in the `almacen-data` volume (SeaweedFS), apart from the database: a copy of one without the other
-leaves rows without files or files without rows. Copy both at the same time, or stop the API while copying.
+1. **RPO.** It takes the WAL position of the database and waits until that segment is in the repository: that is
+   how long a change committed now could be lost.
+2. **Restore.** It starts `restauracion` with an empty data directory, restores the last backup into it, replays the
+   WAL up to the target and opens the database, which archives nothing.
+3. **Rows.** Every table against the count of the backup, when restoring to its restore point.
+4. **Audit trail and versions.** It starts the API image against the restored database with `RESPALDO_VERIFICAR=true`
+   and no web server: the same code that answers `GET /api/v1/auditoria/verificacion` verifies the chain of every
+   store against its latest anchor, and the fingerprint of every published version is computed again from its
+   stored diagram. The API writes one line per finding and ends.
+5. **RTO.** From the start of the restore until everything is verified. It ends with `0` when every check passed.
+
+The same verification can be pointed at the live database, to tell a bad backup from a bad source:
+`docker compose --profile simulacro run --rm --no-deps -e DB_HOST=db verificacion`.
+
+**Measured in the first drill** (2026-11-12, the local stack after the order peak, with Docker Desktop limited to
+4 GB on a laptop that was running other stacks at the same time):
+
+| | Proposed in the plan | Measured | Over four drills |
+|---|---|---|---|
+| RPO | 15 minutes | 47 s | 24 to 48 s |
+| RTO | 4 hours | 98 s: 46 to restore, 6 for the rows, 46 for the API to start and verify | 98 to 117 s |
+
+The database had 36 MB: 57 tables, 392 orders of the order peak and one published version. The full backup took
+3.6 MB in the repository and the differential 1.2 MB, compressed and encrypted. The RPO does not depend on the
+size: it is `archive_timeout` plus the push of one segment, about a minute however busy the database is, and a busy
+one fills its segments sooner. The RTO grows with the size, mostly in the restore and in replaying the WAL since the
+last backup, which a daily differential keeps short; the verification reads every published diagram once. The same
+drill, restored to the end of the WAL (`--ultimo`), brought back the store registered after the backup, and one
+restored to a moment during the load (`--hasta`) had the 41 orders of that moment.
+
+### When a check fails
+
+The drill keeps nothing: run it again with the same arguments to look at the restored database while it is up
+(`docker compose --profile simulacro exec restauracion psql`), and remove it after with
+`docker compose --profile simulacro rm -sfv restauracion`.
+
+- **The restore fails.** `recovery ended before configured recovery target was reached` means a WAL segment is
+  missing from the repository: look at `pg_stat_archiver` and the `db` logs, and take a full backup at once. The
+  backups before the gap stay usable up to the gap.
+- **Rows differ.** The restored database is not the one that was counted. Do not trust that backup: take a full one,
+  run the drill again, and keep the failing set for analysis (Object Lock keeps it 21 days anyway).
+- **An audit trail breaks** or does not match its anchor. Run the verification against the live database (above). If
+  the source verifies and the restore does not, the backup is damaged: take a full backup and drill again. If the
+  source does not verify either, it is the incident [above](#common-incidents), in the source.
+- **A version's fingerprint differs.** The diagram stored for that version is not the one that was published: the
+  same two cases, source or backup. Nothing in the API writes a published diagram twice.
+- **The WAL does not arrive in 15 minutes.** Archiving is broken: see [the incidents](#common-incidents).
+
+### Restoring to a point in time
+
+The real thing replaces the database. First find the moment in the drill's container, which does not touch it:
+`ops/respaldo/simulacro.sh --hasta '<moment>'` and look while it runs. Then:
+
+```bash
+docker compose stop web api respaldo db
+# Into the same volume: --delta rewrites only what differs from the backup
+docker compose run --rm --no-deps db pgbackrest restore --delta --type=time \
+  --target='2026-11-12 10:00:00+00' --target-action=promote
+docker compose up -d --wait
+```
+
+PostgreSQL replays the WAL up to that moment, opens a new timeline and goes on archiving into the same repository;
+the next scheduled backup starts from it. Every change after the target is gone from the database, and still in the
+repository until the retention passes. Restoring the last WAL instead (`--type=default`, without a target) is what
+recovers from losing the disk.
+
+### Restoring a document from a version
+
+Deleting or replacing a document leaves its earlier version in the bucket for 35 days. In the local stack the
+storage is only reachable inside its network:
+
+```bash
+s3() { docker run --rm --network bpmn-process-manager-api_default -e AWS_ACCESS_KEY_ID=procesos \
+  -e AWS_SECRET_ACCESS_KEY="$ALMACEN_S3_CLAVE" -e AWS_DEFAULT_REGION=us-east-1 amazon/aws-cli \
+  --endpoint-url http://almacen:8333 s3api "$@"; }
+s3 list-object-versions --bucket documentos --prefix empresas/7/documentos/12/
+# A deleted file: remove its delete marker. A replaced one: copy the old version over the current one.
+s3 delete-object --bucket documentos --key <key> --version-id <id of the delete marker>
+s3 copy-object --bucket documentos --key <key> --copy-source "documentos/<key>?versionId=<id>"
+```
+
+The row of the document has to exist for the API to serve it: after closing a store, restore the database to before
+the purge first.
+
+### Backups and documents in another account (AWS)
+
+In production the copies live in an AWS account apart from the one that runs the product, so that losing or
+compromising the production account does not take them along. This is configuration, not code:
+
+1. **The backups' bucket** in the backup account: versioning and Object Lock in compliance mode with a default
+   retention of 21 days, and a lifecycle rule that expires noncurrent versions after 22 days. An IAM user or role there
+   with `s3:ListBucket`, `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on that bucket only, and no
+   `s3:PutBucketObjectLockConfiguration` or `s3:BypassGovernanceRetention`. Point `RESPALDO_S3_ENDPOINT` (for example
+   `s3.us-east-1.amazonaws.com`), `RESPALDO_S3_PUERTO=443`, `RESPALDO_S3_REGION`, `RESPALDO_S3_BUCKET`,
+   `RESPALDO_S3_USUARIO`, `RESPALDO_S3_CLAVE` at it, `RESPALDO_S3_CA=/etc/ssl/certs/ca-certificates.crt`, and
+   `RESPALDO_CREAR_BUCKET=false`. pgBackRest writes there directly.
+2. **The documents** stay in the production account, versioned, and are replicated: a destination bucket in the
+   backup account with versioning and a lifecycle rule that expires noncurrent versions after 35 days; on the source
+   bucket a replication rule to that bucket with *change object ownership to destination bucket owner*, delete marker
+   replication off (a deletion in production does not hide the copy), and an IAM role that S3 assumes with
+   `s3:GetObjectVersionForReplication`, `s3:GetObjectVersionAcl` and `s3:GetObjectVersionTagging` on the source and
+   `s3:ReplicateObject` and `s3:ObjectOwnerOverrideToBucketOwner` on the destination, which the destination's bucket
+   policy allows. Objects from before the rule need one S3 Batch Replication job. The anchors' bucket can be
+   replicated the same way.
+3. The drill only reads the repository: in production run it with keys that can do nothing else (`s3:GetObject` and
+   `s3:ListBucket`), given for that one command, `RESPALDO_S3_USUARIO=... RESPALDO_S3_CLAVE=...
+   ops/respaldo/simulacro.sh`; the variables of the shell win over `.env`.
 
 ## Stopping and starting
 

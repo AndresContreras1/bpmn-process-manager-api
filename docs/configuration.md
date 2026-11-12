@@ -34,7 +34,8 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `ALMACEN_S3_BUCKET_ANCLAS` | A bucket created with Object Lock, for the daily anchor of the audit trail. Without it the anchor goes to the documents' bucket, unlocked | Empty |
 | `ALMACEN_S3_ENDPOINT` | The address of an S3-compatible service, such as the SeaweedFS of `compose.yaml`; empty for AWS | Empty |
 | `ALMACEN_S3_REGION` · `ALMACEN_S3_USUARIO` · `ALMACEN_S3_CLAVE` | Region and credentials; without a user, the AWS default chain (environment, profile, role) | `us-east-1` · empty |
-| `ALMACEN_S3_CREAR_BUCKETS` | Create the missing buckets when starting, the anchors' one with Object Lock. For `compose.yaml`; in AWS they are created beforehand | `false` |
+| `ALMACEN_S3_CREAR_BUCKETS` | Create the missing buckets when starting, the anchors' one with Object Lock, and keep every version of the documents' one. For `compose.yaml`; in AWS they are created beforehand | `false` |
+| `ALMACEN_S3_DIAS_DE_VERSIONES` | Days a replaced or deleted document is kept as an earlier version of the documents' bucket, when the API prepares it | `35` |
 | `ALMACEN_S3_CIFRAR` | Ask the service to encrypt every document (SSE-S3) | `false` |
 | `ALMACEN_DIRECTORIO` | The folder of the disk storage | `<tmp>/bpmn-process-manager/almacen` |
 | `ARCHIVOS_TEMPORALES` | The folder only the API enters, where an upload waits before the storage and a ZIP is opened for review; each file is deleted when it is done | `<tmp>/bpmn-process-manager/temporales` |
@@ -42,6 +43,7 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `DOCUMENTOS_EXIGIR_ANTIVIRUS` | Without an antivirus, keep documents pending instead of making them available unreviewed | `false` |
 | `DOCUMENTOS_TAMANO_MAXIMO` · `DOCUMENTOS_CUOTA_POR_TIENDA` | Largest document, and space per store counting every version | `25MB` · `1GB` |
 | `BITACORA_ANCLA_RETENCION` | How long nobody can delete an anchor of the audit trail | `400d` |
+| `RESPALDO_VERIFICAR` | `true` only in the restore drill: the API does not serve, it verifies the restored database it points at (every audit trail and every version fingerprint), writes what it found and ends, failing if anything does not match | `false` |
 | `JWT_PREVIOUS_SECRET` | The signing key before the last rotation: its tokens are still accepted, and nobody signs with it. Empty outside a rotation | Empty |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime. Keep it under 30 minutes, the shortest idle timeout a store can choose: the refresh token and the session last what each store decides in its settings | `900` |
 | `CLAVES_COSTO_BCRYPT` | Cost of BCrypt, from 4 to 31: each step doubles the time of a hash. Raising it invalidates no password, because each login rehashes with the new one | `10` |
@@ -81,3 +83,21 @@ wrote it; in `dev` they stay in plain text, which is easier to read in a termina
 
 On startup, Flyway creates the schema or brings it up to date. The database must exist, and its user needs permission
 to create tables.
+
+## Backups
+
+The database's services in `compose.yaml` (`db`, `respaldo`, `restauracion`) read these from `.env`; the API does not
+use them. [Backup and recovery](runbook.md#backup-and-recovery) explains what they move.
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `RESPALDO_CLAVE` | The passphrase every file of the backups is encrypted with (AES-256-CBC), at least 32 characters. `docker compose up` does not start without it, and it opens the whole repository: keep it apart from the machine | None |
+| `RESPALDO_S3_ENDPOINT` · `RESPALDO_S3_PUERTO` | Host and HTTPS port of the backups' S3 service; pgBackRest only speaks S3 over TLS | `almacen` · `8334` |
+| `RESPALDO_S3_CA` | The certificate authorities pgBackRest trusts for that service: the storage's own certificate in the stack, `/etc/ssl/certs/ca-certificates.crt` for AWS | `/etc/almacen-ca/almacen.crt` |
+| `RESPALDO_S3_BUCKET` · `RESPALDO_S3_REGION` | The bucket of the backups, apart from the documents', and its region | `respaldos` · `us-east-1` |
+| `RESPALDO_S3_USUARIO` · `RESPALDO_S3_CLAVE` | Keys for that bucket; in AWS, of another account | `ALMACEN_S3_USUARIO` · `ALMACEN_S3_CLAVE` |
+| `RESPALDO_CREAR_BUCKET` | Create the bucket with Object Lock if it is missing, and set its default retention. For the stack's storage; in AWS it is created beforehand | `true` |
+| `RESPALDO_BLOQUEO_DIAS` | Days nobody can delete or overwrite a file of the backups' bucket (Object Lock, compliance mode) | `21` |
+| `RESPALDO_COMPLETOS` | Full backups kept, one a week, with the differentials and the WAL that follow them | `2` |
+| `RESPALDO_HORA` · `RESPALDO_DIA_COMPLETO` | The hour (UTC) from which each day's backup is taken, and the day of the full one, from `1` (Monday) to `7` (Sunday) | `1` · `7` |
+| `RESPALDO_RESTAURAR_HASTA` | What the drill's container restores: empty for the restore point of the last backup, a moment such as `2026-11-12 10:00:00+00`, or `ultimo` for the last archived WAL. `ops/respaldo/simulacro.sh` sets it | Empty |

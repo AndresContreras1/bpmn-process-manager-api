@@ -139,11 +139,18 @@
 - [x] Tracing with OpenTelemetry: a `traceId` in the logs and the errors, spans of the engine and the diagnosis, and
       OTLP export with a configurable sampling rate
 
+**Backup and recovery**
+- [x] Continuous WAL archiving, a full backup every week and a differential every day with pgBackRest, encrypted, into
+      a bucket with Object Lock, and the backups' bucket in another account in production (PR 67)
+- [x] Documents kept with every version for 35 days, and their replication to another account described for AWS
+- [x] A restore drill every month, in a workflow: an empty container recovers the last backup, and the rows of every
+      table, every audit trail and every version fingerprint are checked, with the RPO and the RTO measured
+
 **Supply chain**
 - [x] Every GitHub Action pinned to a commit SHA, with a CI step that fails otherwise, and a read-only token per job
 - [x] Dependabot for Maven, npm, Actions, Docker and Compose, with a seven-day cooldown, and base images pinned by digest
 - [x] CodeQL over Java, TypeScript and the workflows, and gitleaks over every commit
-- [x] Trivy over both images: a fixable critical vulnerability fails the pipeline
+- [x] Trivy over the three images: a fixable critical vulnerability fails the pipeline
 - [x] CycloneDX SBOM of the API, inside the jar, and of the web app
 
 **Repository governance**

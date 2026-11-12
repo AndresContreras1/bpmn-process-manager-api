@@ -72,6 +72,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Messaging and simulation** | Outbox and inbox per process, correlation by key, a clock in ticks per store, and four simulated partners — payments, carrier, notifications, customer — deterministic by seed. | [Simulation](docs/execution.md#messages-and-the-clock) |
 | **Dashboard** | Cases by state, cycle time with average and p95, work waiting per role and what did not go as expected, in six queries however many orders there are. | [Dashboard](docs/execution.md#the-dashboard) |
 | **Operations** | Health probes, Prometheus metrics on a management port of their own with business counters, JSON logs, OpenTelemetry traces, and a request id in every response, log line and error. | [Operations endpoints](docs/getting-started.md#operations-endpoints) |
+| **Backup and recovery** | Every WAL segment archived within a minute and a full backup every week with daily differentials, by pgBackRest, encrypted, into a bucket with Object Lock that the database's own keys cannot empty; documents with versions. A drill every month restores into an empty container and checks the rows of every table, every audit trail and every version fingerprint, and measures the RPO and the RTO. | [Backup and recovery](docs/runbook.md#backup-and-recovery) |
 | **Sign-in** | The session in `HttpOnly` cookies with a CSRF token, a short-lived JWT with rotating refresh tokens, and idle and maximum limits each store chooses. Passwords as NIST SP 800-63B-4 asks, a second factor with an authenticator app or a passkey and recovery codes that each store can require, signing in without a password with a passkey, and signing in with Google or Microsoft, where an account is linked only after its owner confirms it. | [Authentication](docs/security.md#authentication) |
 | **Security** | Store isolation enforced twice: by the build and by row-level security in PostgreSQL, under a role that cannot bypass it. Rate limits in token buckets every instance shares, an audit trail per store chained with SHA-256 that nobody can change and anchored every day where nobody can delete it, every permission decided by one evaluator, read-only sharing between stores, BPMN files read with hardened XML parsers, and closing a store or anonymizing a person that really deletes. | [Security](docs/security.md) |
 | **E-mail** | Verifying the e-mail, recovering the password and inviting by e-mail, in Spanish, English and French, with links that work once. Sent over any SMTP server from a queue of jobs that retries. | [Links sent by e-mail](docs/api-reference.md#links-sent-by-e-mail) |
@@ -86,17 +87,19 @@ flowchart LR
     B(["Browser"]) --> W["<b>web</b><br/>NGINX · Angular 22 · bpmn-js"]
     W -- "/api · live events" --> A["<b>api</b><br/>Spring Boot 4.1 · Java 25"]
     A --> D[("<b>db</b><br/>PostgreSQL 16<br/>row-level security")]
-    A --> S[("<b>almacen</b><br/>S3 · SeaweedFS<br/>documents · anchors")]
+    A --> S[("<b>almacen</b><br/>S3 · SeaweedFS<br/>documents · anchors · backups")]
+    D -- "WAL · backups<br/>pgBackRest, AES-256" --> S
     A -. "optional" .-> V["ClamAV<br/>antivirus"]
     A -. "optional" .-> G["Gemini<br/>AI review"]
     A -. "optional" .-> O["Google · Microsoft<br/>OpenID Connect"]
-    A -. "queue of jobs" .-> S["SMTP<br/>e-mail"]
+    A -. "queue of jobs" .-> M["SMTP<br/>e-mail"]
 ```
 
 The browser only talks to the web container: NGINX serves the app and forwards `/api` inside the network, so there
 is no API URL baked into the build and no CORS to configure. Who is on a process reaches the browser as
 server-sent events, and the replicas tell each other through PostgreSQL's `LISTEN/NOTIFY`, so several instances
-need nothing besides the database. Every outside service is optional: without its
+need nothing besides the database. The database sends every change, encrypted, to a bucket of its own that its keys
+cannot empty, and a drill restores it every month. Every outside service is optional: without its
 configuration the API starts and the feature is simply not offered. Inside the API, the code is split into modules
 that only depend downwards:
 
@@ -123,7 +126,7 @@ store's id, or if a request DTO carries one, and Spring Modulith if a module use
 | Layer | Technology |
 |---|---|
 | Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 (JWT, OAuth2 client) · Spring Data JPA · Hibernate 7.4 · MapStruct · Spring Modulith · Bucket4j · AWS SDK v2 (S3) · Apache Tika |
-| Data | PostgreSQL 16 in `prod`, in `dev` and in the tests, with row-level security, timeouts per role, an index behind every foreign key and `pg_stat_statements` · Flyway migrations, validated by Hibernate · HikariCP with leak detection |
+| Data | PostgreSQL 16 in `prod`, in `dev` and in the tests, with row-level security, timeouts per role, an index behind every foreign key and `pg_stat_statements` · Flyway migrations, validated by Hibernate · HikariCP with leak detection · pgBackRest |
 | Frontend | Angular 22 standalone · bpmn-js 18 · Bootstrap 5 · RxJS · NGINX · ESLint · Prettier · Vitest |
 | Quality | JUnit 5 · Mockito · ArchUnit · Spring Modulith · Testcontainers · Selenium · axe-core · k6 · JaCoCo · PIT · SonarCloud |
 | Delivery | Docker multi-stage images · Docker Compose · GitHub Actions |
@@ -157,10 +160,10 @@ It opens on `http://localhost:4200` and forwards `/api` to the API.
 |---|---|---|
 | Demo Store administrator | `admin@demo.com` | `every-order-on-time` |
 
-**The whole stack**, database, API and web, closer to production:
+**The whole stack**, database with its backups, storage, API and web, closer to production:
 
 ```bash
-cp .env.example .env     # DB_PASSWORD, JWT_SECRET, MFA_CLAVE_DE_CIFRADO and ALMACEN_S3_CLAVE have no default
+cp .env.example .env     # DB_PASSWORD, JWT_SECRET, MFA_CLAVE_DE_CIFRADO, ALMACEN_S3_CLAVE and RESPALDO_CLAVE have no default
 docker compose up -d --build --wait
 ```
 
@@ -197,9 +200,11 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
   autosave, the live connection — and 27 Selenium scenarios, with axe-core over every screen.
 - **Every pull request** runs nine jobs: build and test on Ubuntu and Windows, architecture rules, Docker image
   with k6 load tests, SonarCloud quality gate, frontend build, web image with the whole stack, Selenium end-to-end
-  tests against it, the format check and the supply chain checks; CodeQL runs beside them.
+  tests against it, the format check and the supply chain checks; CodeQL runs beside them. Every month a **restore
+  drill** backs up a stack the order peak filled, restores it into an empty container and verifies it.
 - **Supply chain**: every action pinned to a commit SHA, Dependabot, CodeQL, gitleaks over every commit, Trivy over
-  both images, and a CycloneDX SBOM of each. [Supply chain](docs/security.md#supply-chain) has the detail.
+  the API, web and database images, and a CycloneDX SBOM of the API and the web. [Supply chain](docs/security.md#supply-chain)
+  has the detail.
 
 [Quality and testing](docs/testing.md) breaks every suite down.
 
@@ -212,9 +217,10 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ├── frontend/                  Angular web app on bpmn-js and its NGINX image
 ├── e2e/                       Selenium end-to-end suite, a separate Maven module
 ├── k6/                        load tests: a sales peak and an order peak
+├── ops/respaldo/              PostgreSQL with pgBackRest: backups, restore and the monthly drill
 ├── postman/                   collection that tours the API end to end
 ├── docs/                      the detailed documentation
-├── compose.yaml               db, api and web
+├── compose.yaml               db, api, web, storage and backups
 └── Dockerfile                 multi-stage image of the API: JRE 25 on Alpine, AOT cache, non-root user
 ```
 

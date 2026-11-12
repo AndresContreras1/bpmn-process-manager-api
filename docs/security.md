@@ -501,6 +501,25 @@ process roles and no links; the store's history names them by the pseudonym too,
 again. Nobody can anonymize their own account, and an anonymized user can no longer be edited, reactivated or
 given a password.
 
+## Backups
+
+A copy of the database is as sensitive as the database, and a copy that someone can delete protects from nothing
+but a broken disk ([Backup and recovery](runbook.md#backup-and-recovery), [ADR-0068](adr/0068-backup-and-restore.md)):
+
+| Control | What it prevents |
+|---|---|
+| Every file of the backups encrypted with AES-256-CBC by pgBackRest before it leaves the database's container, with `RESPALDO_CLAVE`, a required secret that is not kept in the repository | Reading a store's data from a copy of the bucket, a leaked storage key or a lost disk of the storage |
+| The backups' bucket created with Object Lock in compliance mode and a default retention of 21 days | Deleting or overwriting the backups with the keys that write them, from a compromised database or by ransomware: a deletion only adds a marker, and the versions underneath stay until their date |
+| In production the bucket lives in another AWS account, with keys that can write and read it and nothing else | A compromise of the production account, or its closing, taking the backups along |
+| pgBackRest reaches the storage only over TLS, and trusts only the storage's own certificate | Someone on the network reading or changing what goes to the bucket |
+| The documents' bucket keeps every version for 35 days, and is replicated to the other account without replicating deletions | A replaced or deleted document, also by mistake or by a compromised API, is still there to restore |
+| A monthly drill restores into an empty container and checks the rows, every audit trail against its anchor and every version against its fingerprint, with the API's own code | A backup that does not restore, or restores something else, found the day it is needed |
+| The database and the backup services run as `postgres`, without capabilities, read-only; the backup service mounts the data read-only | A compromised backup process changing the data it copies |
+
+Closing a store deletes its files, which stay 35 days as earlier versions and then go; its rows stay in the backups
+for three weeks at most, until the retention and the lock pass. A restore made after a closing has to be followed by
+the purge again.
+
 ## Supply chain
 
 What the product is built from is checked as carefully as what it does. Each control answers a way a dependency,
@@ -514,7 +533,7 @@ a build step or a leaked key has compromised other projects:
 | Base images pinned by digest as well as by tag | The same tag is rebuilt over time; a digest changes only through a pull request |
 | CodeQL over the Java, the TypeScript and the workflows | Injection, unsafe deserialization and similar bugs in the code, and script injection in the workflows |
 | gitleaks over every commit | A key that reaches a commit stays in the history even after the file is fixed |
-| Trivy over the API and the web images | Known vulnerabilities in the operating system of each image and in every library inside the jar. A critical one that already has a fix fails the pipeline; every high and critical finding goes to the Security tab |
+| Trivy over the API, the web and the database images | Known vulnerabilities in the operating system of each image and in every library inside the jar. A critical one that already has a fix fails the pipeline; every high and critical finding goes to the Security tab |
 | A CycloneDX SBOM of the API and of the web app | Answering "are we affected?" the day a new vulnerability is published. The API's travels inside the jar (`META-INF/sbom/application.cdx.json`); both are kept as artifacts of each run |
 
 Values that look like secrets and are not, such as the signing key of the unit tests, are allowed by value in

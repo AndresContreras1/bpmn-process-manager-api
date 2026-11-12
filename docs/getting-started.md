@@ -75,11 +75,12 @@ The app opens on `http://localhost:4200`, and the Angular dev server forwards th
 Database, API and web app together, each in its own container:
 
 ```bash
-cp .env.example .env   # fill in DB_PASSWORD, JWT_SECRET and MFA_CLAVE_DE_CIFRADO
+cp .env.example .env   # fill in DB_PASSWORD, JWT_SECRET, MFA_CLAVE_DE_CIFRADO, ALMACEN_S3_CLAVE and RESPALDO_CLAVE
 docker compose up -d --build --wait
 ```
 
-`--wait` comes back when all three report healthy, and the app is then on `http://localhost` (or on `WEB_PORT`).
+`--wait` comes back when every service reports healthy, the first backup of the database included, and the app is
+then on `http://localhost` (or on `WEB_PORT`).
 
 **The stack starts empty.** It runs the `prod` profile, and the demo store belongs to `dev`, so there is nothing to
 sign in with yet: create your store from the app, or with `POST /api/v1/empresas`, and the account you give it is
@@ -94,8 +95,10 @@ collection and for curl, but nothing in the browser uses it.
 
 The database keeps its data in a named volume, so `docker compose down` does not lose it; `docker compose down -v`
 does. The API waits for the database to answer and reports itself as up only once Flyway has migrated the schema,
-which `--wait` and the container health checks rely on. `.env` is not committed, and the three values without a
-default, `DB_PASSWORD`, `JWT_SECRET` and `MFA_CLAVE_DE_CIFRADO`, stop the stack until they are set.
+which `--wait` and the container health checks rely on. `.env` is not committed, and the five values without a
+default, `DB_PASSWORD`, `JWT_SECRET`, `MFA_CLAVE_DE_CIFRADO`, `ALMACEN_S3_CLAVE` and `RESPALDO_CLAVE`, stop the stack
+until they are set. Every change of the database also goes, encrypted, to the backups' bucket in the storage
+([Backup and recovery](runbook.md#backup-and-recovery)).
 
 ## End-to-end tests
 
