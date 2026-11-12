@@ -18,7 +18,8 @@ trail was chained since PR 31, but whoever could rewrite the whole table could a
 - **SeaweedFS in compose, not MinIO.** The plan said MinIO, but MinIO stopped publishing its images; SeaweedFS speaks
   the same S3 API, Object Lock included, and its image is pinned by digest. In AWS the same code points at S3.
 - **Uploads are the raw body, streamed** to a temporary file under the 25 MB cap while hashing it. No multipart: the
-  API and NGINX cut at the cap without reading the rest, and NGINX does not buffer it on disk.
+  API and NGINX cut at the cap without reading the rest, and NGINX does not buffer it on disk. Temporary files live
+  in a folder of the API's own (`ARCHIVOS_TEMPORALES`), not the shared one, and each is deleted when it is done.
 - **The type comes from the content,** with Tika's byte signatures against a whitelist; an Office or OpenOffice
   document is told apart by its index. The name is cleaned and takes the extension of the real type.
 - **A document is reviewed in the queue,** `PENDIENTE` until ClamAV (by clamd's `INSTREAM`) and, for a container, a
