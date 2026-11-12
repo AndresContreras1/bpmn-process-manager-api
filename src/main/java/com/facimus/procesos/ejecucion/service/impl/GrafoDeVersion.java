@@ -52,11 +52,13 @@ final class GrafoDeVersion {
     private final List<MensajeDeLaVersion> mensajes;
     private final Map<Long, Set<Long>> alcanzablesDesde;
     private final boolean ejecutable;
+    private final Map<Long, TemporizadorDeLaVersion> temporizadores;
 
     private GrafoDeVersion(Long poolDeLaTienda, Map<Long, NodoDeLaVersion> nodos,
             Map<Long, List<ArcoDeLaVersion>> salidas, Map<Long, List<ArcoDeLaVersion>> entradas,
-            List<MensajeDeLaVersion> mensajes, boolean ejecutable) {
+            List<MensajeDeLaVersion> mensajes, boolean ejecutable, Map<Long, TemporizadorDeLaVersion> temporizadores) {
         this.ejecutable = ejecutable;
+        this.temporizadores = Collections.unmodifiableMap(temporizadores);
         this.poolDeLaTienda = poolDeLaTienda;
         this.nodos = Collections.unmodifiableMap(nodos);
         this.salidas = sinPoderTocarlo(salidas);
@@ -97,7 +99,21 @@ final class GrafoDeVersion {
         }
         salidas.values().forEach(lista -> lista.sort(POR_ORDEN));
         return new GrafoDeVersion(pool, nodos, salidas, entradas, mensajesDelDiagrama(diagrama),
-                diagrama.proceso().modo().ejecuta());
+                diagrama.proceso().modo().ejecuta(), temporizadoresDelPool(diagrama, nodos));
+    }
+
+    /** PR 68: los eventos de temporizador del pool de la tienda, con lo que dicen de cuando saltan. */
+    private static Map<Long, TemporizadorDeLaVersion> temporizadoresDelPool(DiagramaResponse diagrama,
+            Map<Long, NodoDeLaVersion> nodos) {
+        Map<Long, TemporizadorDeLaVersion> temporizadores = new LinkedHashMap<>();
+        for (EventoResponse evento : diagrama.eventos()) {
+            if (evento.tipoEvento().esTemporizador() && nodos.containsKey(evento.id())) {
+                temporizadores.put(evento.id(), new TemporizadorDeLaVersion(evento.id(), evento.nombre(),
+                        evento.tipoEvento(), evento.tipoTemporizador(), evento.temporizador(), evento.adjuntoAId(),
+                        !Boolean.FALSE.equals(evento.interrumpe())));
+            }
+        }
+        return temporizadores;
     }
 
     /**
@@ -250,6 +266,39 @@ final class GrafoDeVersion {
         return nodos.values().stream()
                 .filter(nodo -> nodo.esEventoDe(TipoEvento.INICIO))
                 .findFirst();
+    }
+
+    /**
+     * PR 68: por donde empieza una prueba del borrador: el inicio a mano, el temporizado (la prueba no espera a su
+     * hora) o el de mensaje (las variables de la prueba hacen de cuerpo del mensaje), en ese orden.
+     */
+    Optional<NodoDeLaVersion> inicioDeUnaPrueba() {
+        return inicioAMano()
+                .or(() -> nodos.values().stream().filter(nodo -> nodo.esEventoDe(TipoEvento.TEMPORIZADOR_INICIO))
+                        .findFirst())
+                .or(this::inicioPorMensaje);
+    }
+
+    /** PR 68: el temporizador de un evento, si lo es y dice cuando salta. */
+    Optional<TemporizadorDeLaVersion> temporizador(Long nodoId) {
+        return Optional.ofNullable(temporizadores.get(nodoId)).filter(TemporizadorDeLaVersion::diceCuando);
+    }
+
+    /** PR 68: los temporizadores de borde que cuelgan de una actividad y dicen cuando saltan. */
+    List<TemporizadorDeLaVersion> bordesDe(Long actividadId) {
+        return temporizadores.values().stream()
+                .filter(temporizador -> temporizador.evento() == TipoEvento.TEMPORIZADOR_BORDE)
+                .filter(temporizador -> actividadId.equals(temporizador.adjuntoAId()))
+                .filter(TemporizadorDeLaVersion::diceCuando)
+                .toList();
+    }
+
+    /** PR 68: los inicios temporizados que dicen cuando saltan: los que abren casos solos. */
+    List<TemporizadorDeLaVersion> iniciosTemporizados() {
+        return temporizadores.values().stream()
+                .filter(temporizador -> temporizador.evento() == TipoEvento.TEMPORIZADOR_INICIO)
+                .filter(TemporizadorDeLaVersion::diceCuando)
+                .toList();
     }
 
     /** El evento por el que un mensaje abre un caso. Lo usara la mensajeria. */

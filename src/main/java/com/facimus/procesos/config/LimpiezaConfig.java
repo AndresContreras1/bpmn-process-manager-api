@@ -1,5 +1,9 @@
 package com.facimus.procesos.config;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -7,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
+import com.facimus.procesos.ejecucion.service.CasoService;
 import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.Limpieza;
@@ -16,7 +21,6 @@ import com.facimus.procesos.security.DesafiosWebAuthn;
 import com.facimus.procesos.security.IntentosDeLogin;
 import com.facimus.procesos.security.LimitesDePeticiones;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 
@@ -33,7 +37,6 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 @Configuration
 @EnableScheduling
 @Profile("!test")
-@RequiredArgsConstructor
 public class LimpiezaConfig {
 
     private final LimpiezaService limpiezaService;
@@ -44,6 +47,26 @@ public class LimpiezaConfig {
     private final EmpresaService empresaService;
     private final LimitesDePeticiones limitesDePeticiones;
     private final DesafiosWebAuthn desafiosWebAuthn;
+    private final CasoService casoService;
+    /** PR 68: cuanto se guarda una prueba del borrador antes de que la purga se la lleve con su caso. */
+    private final Duration retencionDePruebas;
+
+    @SuppressWarnings("java:S107") // Cada pieza que se purga es una dependencia: la purga es la lista entera
+    public LimpiezaConfig(LimpiezaService limpiezaService, RevisionService revisionService,
+            IntentosDeLogin intentosDeLogin, ColaDeTrabajos colaDeTrabajos, CuentaService cuentaService,
+            EmpresaService empresaService, LimitesDePeticiones limitesDePeticiones, DesafiosWebAuthn desafiosWebAuthn,
+            CasoService casoService, @Value("${pruebas.retencion}") Duration retencionDePruebas) {
+        this.limpiezaService = limpiezaService;
+        this.revisionService = revisionService;
+        this.intentosDeLogin = intentosDeLogin;
+        this.colaDeTrabajos = colaDeTrabajos;
+        this.cuentaService = cuentaService;
+        this.empresaService = empresaService;
+        this.limitesDePeticiones = limitesDePeticiones;
+        this.desafiosWebAuthn = desafiosWebAuthn;
+        this.casoService = casoService;
+        this.retencionDePruebas = retencionDePruebas;
+    }
 
     @Scheduled(cron = "${limpieza.cron}")
     @SchedulerLock(name = "limpieza", lockAtLeastFor = "PT5M", lockAtMostFor = "PT30M")
@@ -81,6 +104,10 @@ public class LimpiezaConfig {
         int desafios = desafiosWebAuthn.olvidarVencidos();
         if (desafios > 0) {
             log.info("Limpieza: {} desafios de passkeys que vencieron sin usarse.", desafios);
+        }
+        int pruebas = casoService.olvidarPruebasAntesDe(LocalDateTime.now().minus(retencionDePruebas));
+        if (pruebas > 0) {
+            log.info("Limpieza: {} versiones de prueba del borrador, con sus casos.", pruebas);
         }
         int tiendas = empresaService.borrarLasDadasDeBaja();
         if (tiendas > 0) {

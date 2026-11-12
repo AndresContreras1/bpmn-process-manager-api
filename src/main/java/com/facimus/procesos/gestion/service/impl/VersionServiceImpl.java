@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,9 +13,11 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.common.xml.SaneadorDeSvg;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
+import com.facimus.procesos.gestion.event.VersionRetirada;
 import com.facimus.procesos.gestion.mapper.VersionProcesoMapper;
 import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.model.TipoVersion;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.model.VersionProceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
@@ -50,6 +53,7 @@ public class VersionServiceImpl implements VersionService {
     private final HistorialCambioService historialCambioService;
     private final VersionProcesoMapper versionProcesoMapper;
     private final MetricasDeNegocio metricas;
+    private final ApplicationEventPublisher eventos;
 
     /** Los numeros no se reusan: si la ultima version se retiro, la siguiente sigue contando desde ella. */
     @Override
@@ -72,6 +76,28 @@ public class VersionServiceImpl implements VersionService {
                 .modeloBpmn(instantanea.bpmn())
                 .build());
         metricas.versionPublicada();
+    }
+
+    @Override
+    @Transactional
+    public VersionProceso guardarPrueba(Proceso proceso, Long usuarioId, Instantanea instantanea) {
+        return versionProcesoRepository.save(VersionProceso.builder()
+                .empresa(proceso.getEmpresa())
+                .proceso(proceso)
+                .numero(0)
+                .estado(EstadoVersion.RETIRADA)
+                .tipo(TipoVersion.PRUEBA)
+                .fechaPublicacion(LocalDateTime.now())
+                .publicadoPor(usuarioId)
+                .huella(instantanea.huella())
+                .definicion(instantanea.definicion())
+                .modeloBpmn(instantanea.bpmn())
+                .build());
+    }
+
+    @Override
+    public List<Long> pruebasAntesDe(LocalDateTime limite) {
+        return versionProcesoRepository.pruebasAntesDe(limite);
     }
 
     @Override
@@ -124,6 +150,7 @@ public class VersionServiceImpl implements VersionService {
         Proceso proceso = exigirProceso(empresaId, procesoId);
         anotarLaVigente(proceso, empresaId);
         historialCambioService.registrar(proceso, autor(empresaId, usuarioId), "Versión " + numero + " retirada.");
+        eventos.publishEvent(new VersionRetirada(empresaId, procesoId, numero));
         return versionProcesoMapper.toResponse(version);
     }
 

@@ -18,6 +18,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -52,6 +53,12 @@ public class VersionProceso extends EntidadEmpresa {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoVersion estado;
+
+    /** PR 68: publicada, o armada para probar el borrador sin publicarlo. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, updatable = false)
+    @Builder.Default
+    private TipoVersion tipo = TipoVersion.PUBLICADA;
 
     @Column(name = "fecha_publicacion", nullable = false, updatable = false)
     private LocalDateTime fechaPublicacion;

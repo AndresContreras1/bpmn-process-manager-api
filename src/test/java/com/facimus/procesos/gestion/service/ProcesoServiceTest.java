@@ -43,6 +43,7 @@ import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.model.VersionProceso;
 import com.facimus.procesos.gestion.repository.CarpetaRepository;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
@@ -522,6 +523,45 @@ class ProcesoServiceTest {
     private void conProcesoYAutor() {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 1L)).thenReturn(Optional.of(proceso));
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+    }
+
+    @Test
+    @DisplayName("PR 68: probar el borrador lo congela como version 0, sin pedir cambios, y pasa el diagnostico")
+    void versionDePrueba_congelaElBorrador() {
+        VersionProceso deprueba = new VersionProceso();
+        proceso.setHuellaPublicada(HUELLA);
+        when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 1L)).thenReturn(Optional.of(proceso));
+        when(diagnosticoDelModelo.errores(eq(1L), any(ProcesoResponse.class))).thenReturn(List.of());
+        when(instantaneaDelModelo.tomar(eq(1L), argThat(congelado -> Integer.valueOf(0)
+                .equals(congelado.versionPublicada())))).thenReturn(INSTANTANEA);
+        when(versionService.guardarPrueba(proceso, 10L, INSTANTANEA)).thenReturn(deprueba);
+
+        assertSame(deprueba, procesoService.versionDePrueba(1L, 100L, 10L));
+        verify(versionService, never()).publicar(any(), anyInt(), any(), any());
+        verify(eventos, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("PR 68: un borrador con errores de diagnostico no se prueba, y el error dice cuantos")
+    void versionDePrueba_conErrores() {
+        when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 1L)).thenReturn(Optional.of(proceso));
+        when(diagnosticoDelModelo.errores(eq(1L), any(ProcesoResponse.class))).thenReturn(
+                List.of("E-02 Compras: El proceso no tiene ningún evento de inicio."));
+
+        ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
+                () -> procesoService.versionDePrueba(1L, 100L, 10L));
+
+        assertEquals("El borrador no se puede probar: 1 error de diagnóstico.", error.getMessage());
+        assertEquals(1, error.getErrores().size());
+        verify(versionService, never()).guardarPrueba(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("PR 68: un proceso de otra tienda o eliminado no se prueba")
+    void versionDePrueba_procesoAjeno() {
+        when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 2L)).thenReturn(Optional.empty());
+
+        assertThrows(RecursoNoEncontradoException.class, () -> procesoService.versionDePrueba(2L, 100L, 10L));
     }
 
     private DatosDeFicha ficha(Long carpetaId, Long duenoId) {

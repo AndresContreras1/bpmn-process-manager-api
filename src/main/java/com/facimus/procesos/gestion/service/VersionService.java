@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +25,15 @@ public interface VersionService {
      * ProcesoService, que valida el diagnostico y que haya cambios.
      */
     void publicar(Proceso proceso, int numero, Long usuarioId, Instantanea instantanea);
+
+    /**
+     * PR 68: guarda la instantanea del borrador como una version de prueba: numero 0, retirada desde que nace y de tipo
+     * PRUEBA, asi que ninguna consulta de versiones la ve. Es la que corre un caso de prueba; la purga se la lleva.
+     */
+    VersionProceso guardarPrueba(Proceso proceso, Long usuarioId, Instantanea instantanea);
+
+    /** PR 68: las versiones de prueba armadas antes de ese momento, de todas las tiendas: las que la purga se lleva. */
+    List<Long> pruebasAntesDe(LocalDateTime limite);
 
     List<VersionResponse> listar(Long empresaId, Long procesoId);
 

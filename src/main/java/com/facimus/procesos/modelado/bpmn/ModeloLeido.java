@@ -41,7 +41,8 @@ public record ModeloLeido(String nombre, String descripcion, String categoria, L
      * @param definiciones las definiciones de evento que trae: {@code messageEventDefinition}...
      * @param adjuntoA de un {@code boundaryEvent}, la actividad a la que va pegado
      * @param interrumpe de un {@code boundaryEvent}, si interrumpe la actividad
-     * @param tipoTemporizador {@code timeDuration}, {@code timeDate} o {@code timeCycle}, si dice cuando salta
+     * @param tipoTemporizador {@code timeDuration}, {@code timeDate} o {@code timeCycle}, si dice cuando salta; PR 68:
+     *            {@link #DURACION_HABIL} si es un {@code timeDuration} con {@code bpm:habil="true"}
      * @param temporizador la expresion de cuando salta
      * @param padre el {@code subProcess} donde esta, o nulo si esta en el proceso
      * @param llamado el {@code calledElement} de una {@code callActivity}
@@ -49,6 +50,9 @@ public record ModeloLeido(String nombre, String descripcion, String categoria, L
     public record Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
             List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
             String temporizador, String padre, String llamado) {
+
+        /** PR 68: un {@code timeDuration} que se cuenta en tiempo habil, con el calendario de la tienda. */
+        public static final String DURACION_HABIL = "timeDuration+habil";
     }
 
     /**

@@ -3,6 +3,7 @@ package com.facimus.procesos.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
@@ -20,12 +21,15 @@ import com.facimus.procesos.common.auditoria.SucesoAuditable;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
+import com.facimus.procesos.ejecucion.service.CasoService;
 import com.facimus.procesos.ejecucion.service.SimulacionService;
+import com.facimus.procesos.ejecucion.service.TemporizadorService;
 import com.facimus.procesos.gestion.service.BitacoraService;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.LimpiezaService;
+import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.modelado.service.RevisionService;
 import com.facimus.procesos.security.DesafiosWebAuthn;
@@ -58,6 +62,9 @@ class FueraDeLaPeticionIntegracionTest {
     @Autowired private LimitesDePeticiones limitesDePeticiones;
     @Autowired private ConfiguracionTiendaService configuracionTiendaService;
     @Autowired private SimulacionService simulacionService;
+    @Autowired private CasoService casoService;
+    @Autowired private TemporizadorService temporizadorService;
+    @Autowired private ProcesoService procesoService;
 
     private Long empresaId;
     private Long adminId;
@@ -107,8 +114,11 @@ class FueraDeLaPeticionIntegracionTest {
         // PR 49b: un desafio de passkey que nadie uso.
         jdbc.update("insert into desafios_webauthn (id_hash, proposito, opciones, creado_en) values (?, 'ENTRADA', "
                 + "'{}', ?)", "vencido-" + empresaId, LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
+        // PR 68: una prueba del borrador de hace dos dias, con su caso.
+        Long version = versionDePrueba(LocalDateTime.now().minusDays(2));
         LimpiezaConfig limpieza = new LimpiezaConfig(limpiezaService, revisionService, intentosDeLogin,
-                colaDeTrabajos, cuentaService, empresaService, limitesDePeticiones, desafiosWebAuthn);
+                colaDeTrabajos, cuentaService, empresaService, limitesDePeticiones, desafiosWebAuthn, casoService,
+                Duration.ofDays(1));
 
         comoEnProduccion(() -> {
             limpieza.limpiar();
@@ -118,6 +128,55 @@ class FueraDeLaPeticionIntegracionTest {
                 "vencido-" + empresaId)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from desafios_webauthn where id_hash = ?", Integer.class,
                 "vencido-" + empresaId)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from casos where version_proceso_id = ?", Integer.class,
+                version)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from versiones_proceso where id = ?", Integer.class,
+                version)).isZero();
+    }
+
+    @Test
+    @DisplayName("El planificador de los temporizadores los encuentra en todas las tiendas y salta cada uno en la suya")
+    void planificadorDeTemporizadores() {
+        Long proceso = procesoService.crear(empresaId, adminId, "Con inicio temporizado", "Lo que hace", "Ops").id();
+        Long version = jdbc.queryForObject("""
+                insert into versiones_proceso (empresa_id, proceso_id, numero, estado, tipo, fecha_publicacion,
+                                               huella, definicion, modelo_bpmn)
+                values (?, ?, 1, 'RETIRADA', 'PUBLICADA', ?, ?, '{}', '<bpmn:definitions/>')
+                returning id
+                """, Long.class, empresaId, proceso, LocalDateTime.now(), "a".repeat(64));
+        Long temporizador = jdbc.queryForObject("""
+                insert into temporizadores (empresa_id, proceso_id, version_proceso_id, nodo_id, nodo_nombre, clase,
+                                            modo, tipo_temporizador, expresion, vence_en, estado, creado_en)
+                values (?, ?, ?, 1, 'Every Monday', 'INICIO', 'PRODUCCION', 'FECHA', '2026-01-05T09:00:00Z', ?,
+                        'PROGRAMADO', ?)
+                returning id
+                """, Long.class, empresaId, proceso, version, LocalDateTime.now(ZoneOffset.UTC).minusHours(1),
+                LocalDateTime.now(ZoneOffset.UTC).minusDays(1));
+
+        comoEnProduccion(() -> {
+            new TemporizadoresConfig(temporizadorService).disparar();
+            return null;
+        });
+        // Su version ya no es la vigente: la pasada lo encontro, lo tomo con la tienda puesta y lo cancelo
+        assertThat(jdbc.queryForObject("select estado from temporizadores where id = ?", String.class, temporizador))
+                .isEqualTo("CANCELADO");
+    }
+
+    /** Una version de prueba armada en ese momento, con un caso abierto sobre ella. */
+    private Long versionDePrueba(LocalDateTime cuando) {
+        Long proceso = procesoService.crear(empresaId, adminId, "Borrador " + cuando, "Lo que hace", "Ops").id();
+        Long version = jdbc.queryForObject("""
+                insert into versiones_proceso (empresa_id, proceso_id, numero, estado, tipo, fecha_publicacion,
+                                               huella, definicion, modelo_bpmn)
+                values (?, ?, 0, 'RETIRADA', 'PRUEBA', ?, ?, '{}', '<bpmn:definitions/>')
+                returning id
+                """, Long.class, empresaId, proceso, cuando, "b".repeat(64));
+        jdbc.update("""
+                insert into casos (empresa_id, proceso_id, version_proceso_id, estado, modo, variables, tick_inicio,
+                                   version, fecha_creacion, fecha_modificacion)
+                values (?, ?, ?, 'ABIERTO', 'PRUEBA', '{}', 0, 0, now(), now())
+                """, empresaId, proceso, version);
+        return version;
     }
 
     @Test
