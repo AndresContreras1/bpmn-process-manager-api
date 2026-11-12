@@ -3,6 +3,8 @@ package com.facimus.procesos.common.avisos;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -190,8 +192,11 @@ class EscuchaDeAvisosTest {
         orden.verify(canal, timeout(2000)).recibir("aviso-2");
         verify(notificaciones, timeout(2000)).recibir("aviso-3");
         verify(notificaciones, never()).recibir("aviso-1");
-        verify(sentencia).execute("LISTEN en_vivo");
-        verify(sentencia).execute("LISTEN notificaciones");
+        InOrder lote = inOrder(sentencia);
+        lote.verify(sentencia).addBatch("LISTEN en_vivo");
+        lote.verify(sentencia).addBatch("LISTEN notificaciones");
+        lote.verify(sentencia).executeBatch();
+        verify(sentencia, never()).execute(anyString());
         verify(sentencia).close();
         assertThat(driver.datos.getProperty("user")).isEqualTo("api");
         assertThat(driver.datos.getProperty("password")).isEqualTo("secreta");
@@ -222,7 +227,7 @@ class EscuchaDeAvisosTest {
         await().atMost(Duration.ofSeconds(2)).until(() -> !escucha.isRunning());
         // No reintento en seguida: esperaba los cinco segundos cuando la interrumpieron
         assertThat(driver.intentos.get()).isEqualTo(1);
-        verify(canal, never()).recibir(org.mockito.ArgumentMatchers.anyString());
+        verify(canal, never()).recibir(anyString());
     }
 
     @Test
@@ -246,7 +251,9 @@ class EscuchaDeAvisosTest {
         ReceptorDeAvisos raro = mock(ReceptorDeAvisos.class);
         when(raro.canal()).thenReturn("x; drop table usuarios");
 
-        assertThatThrownBy(() -> new EscuchaDeAvisos(base, List.of(raro)))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("drop table");
+        List<ReceptorDeAvisos> receptores = List.of(raro);
+
+        assertThatThrownBy(() -> new EscuchaDeAvisos(base, receptores)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("drop table");
     }
 }

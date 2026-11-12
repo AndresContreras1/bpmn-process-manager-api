@@ -41,6 +41,8 @@ public class EscuchaDeAvisos implements SmartLifecycle {
 
     private final JdbcConnectionDetails base;
     private final Map<String, ReceptorDeAvisos> receptores;
+    /** Un LISTEN por canal, armados una vez al crearla y con cada nombre ya revisado. */
+    private final List<String> escuchas;
     private volatile boolean corriendo;
     private Thread hilo;
 
@@ -52,6 +54,7 @@ public class EscuchaDeAvisos implements SmartLifecycle {
             }
         }
         this.receptores = receptores.stream().collect(Collectors.toMap(ReceptorDeAvisos::canal, Function.identity()));
+        this.escuchas = this.receptores.keySet().stream().sorted().map(canal -> "LISTEN " + canal).toList();
     }
 
     @Override
@@ -79,10 +82,12 @@ public class EscuchaDeAvisos implements SmartLifecycle {
         while (corriendo) {
             try (Connection conexion = DriverManager.getConnection(base.getJdbcUrl(), base.getUsername(),
                     base.getPassword())) {
+                // Todos los canales en un solo viaje a la base
                 try (Statement sentencia = conexion.createStatement()) {
-                    for (String canal : receptores.keySet()) {
-                        sentencia.execute("LISTEN " + canal);
+                    for (String escucha : escuchas) {
+                        sentencia.addBatch(escucha);
                     }
+                    sentencia.executeBatch();
                 }
                 recibirAvisos(conexion.unwrap(PGConnection.class));
             } catch (SQLException | RuntimeException corte) {
