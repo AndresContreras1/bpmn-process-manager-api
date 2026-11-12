@@ -38,6 +38,7 @@ public class BorradoDeTiendas {
             "delete from notificaciones where empresa_id = ?",
             "delete from preferencias_notificacion where empresa_id = ?",
             "delete from comentarios where empresa_id = ?",
+            "delete from elementos_buscables where empresa_id = ?",
             "delete from membresias_rol where empresa_id = ?",
             "delete from eventos_caso where empresa_id = ?",
             "delete from actividades_caso where empresa_id = ?",

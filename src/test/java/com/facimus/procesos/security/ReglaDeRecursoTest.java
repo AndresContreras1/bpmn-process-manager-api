@@ -134,5 +134,7 @@ class ReglaDeRecursoTest {
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/notificaciones", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("POST", "/api/v1/notificaciones/{id}/leida", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/notificaciones/preferencias", null)).isEmpty();
+        // PR 65: la busqueda no tiene recurso: su servicio filtra lo que cada quien puede ver, en la misma consulta
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/busqueda", null)).isEmpty();
     }
 }

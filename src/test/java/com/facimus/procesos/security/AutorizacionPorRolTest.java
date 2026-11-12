@@ -251,6 +251,11 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/notificaciones/preferencias   | 200
             EDITOR        | PUT    | /api/v1/notificaciones/preferencias   | 200
 
+            # PR 65: cualquier rol busca; encuentra solo lo que puede ver
+            ADMINISTRADOR | GET    | /api/v1/busqueda?q=pedido             | 200
+            EDITOR        | GET    | /api/v1/busqueda?q=pedido             | 200
+            SOLO_LECTURA  | GET    | /api/v1/busqueda?q=pedido             | 200
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)
