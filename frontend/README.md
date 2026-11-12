@@ -232,6 +232,8 @@ leads here. It is bpmn-js limited to what the model can hold.
   when the page opens again.
 - **The diagnosis** comes back after each save, as markers on the elements and as a list beside the canvas, never as
   color alone; clicking a finding selects its element. Errors keep the Publish button of the modeler disabled.
+  Right after publishing, the modeler sends the SVG of the new version (`PUT .../versiones/{n}/dibujo`), which the
+  server cleans and keeps for the process manual; if it does not arrive, the manual says so.
 - Undo and redo, a minimap, and a file in and out: a BPMN file from another tool replaces the drawing and the autosave
   sends it, and the drawing downloads as BPMN, SVG or PNG. A switch turns the process executable or documental.
 - **The structure view** ([ADR-0060](../docs/adr/0060-structure-view.md)) is the same model as a tree beside the

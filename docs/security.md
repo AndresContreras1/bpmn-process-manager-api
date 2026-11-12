@@ -319,6 +319,16 @@ A file from outside is treated as hostile until it has been checked ([ADR-0065](
   store's document does not exist (`404`).
 - Closing a store deletes its files too, through the job queue, which retries until the storage confirms it.
 
+What people write and draw is cleaned the same way ([ADR-0066](adr/0066-documentation-and-process-manual.md)):
+
+- **Documentation in Markdown** becomes HTML on the server and goes through a whitelist before it is saved: HTML
+  inside the Markdown is escaped, links are only http, https or mailto with `rel="nofollow noopener noreferrer"`, and
+  there are no images (a tracking pixel is an image), styles or scripts. Only that HTML is ever shown.
+- **The drawing of a version** that the web app sends is read with `SecureXml` and its limits and rebuilt with a
+  whitelist of SVG elements and attributes: no scripts, event handlers, `foreignObject`, images, `use`, links, or
+  styles that load something from outside.
+- **The manual** is printed from a template that loads nothing; the PDF renderer is told not to fetch any resource.
+
 ## Rate limiting
 
 Every request that changes something spends a token of a bucket (Bucket4j) before it reaches anything. Each bucket

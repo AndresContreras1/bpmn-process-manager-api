@@ -13,6 +13,9 @@ entries in Spanish.
 | `Carpeta` | Folder | Store | Name and parent folder; sisters do not share a name, and the tree has at most eight levels |
 | `Documento` | Document | Process | The element it is attached to (`bpmnId`, or none for the whole process), the name of its latest version and which one it is |
 | `VersionDocumento` | Document version | Document | Number, cleaned name, type detected from the content, size, SHA-256, storage key, state (`PENDIENTE`, `DISPONIBLE` or `BLOQUEADO`) with its reason, and whether an antivirus reviewed it |
+| `Documentacion` | Documentation | Process | The element it documents (`bpmnId`, or none for the whole process), its Markdown and the cleaned HTML |
+| `Caracterizacion` | Characterization sheet | Process | Objective, scope, inputs, outputs, suppliers, customers, indicators, risks and regulation |
+| `Manual` | Process manual | Process | The published version it describes, its language, state (`PENDIENTE`, `DISPONIBLE` or `FALLIDO`) with its reason, and where its HTML and PDF are |
 | `Concesion` | Grant | Store | An action (`VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` or `ADMINISTRAR`) on a folder or a process, for a person, a process role or the whole store (`PERSONA`, `ROL` or `ORGANIZACION`) |
 | `RolProceso` | Process role | Store | Name and description |
 | `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag, order and the kind of partner behind it (`integracion`) |
