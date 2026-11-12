@@ -54,6 +54,14 @@ public enum TipoDeArchivo {
         return this == DOCX || this == XLSX || this == PPTX || this == ODT || this == ODS;
     }
 
+    /**
+     * PR 65: si tiene texto que buscar: los documentos de PDF, de Office y de OpenOffice, y el texto plano. Una imagen,
+     * un SVG o un BPMN se buscan solo por su nombre.
+     */
+    public boolean tieneTexto() {
+        return this == PDF || this == TEXTO || this == CSV || this == MARKDOWN || esContenedor();
+    }
+
     public static Optional<TipoDeArchivo> deMime(String mime) {
         return Arrays.stream(values()).filter(tipo -> tipo.mime.equals(mime)).findFirst();
     }

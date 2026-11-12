@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -31,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import com.facimus.procesos.common.archivos.ArchivosConTexto;
 import com.facimus.procesos.common.correo.Correo;
 import com.facimus.procesos.common.model.Accion;
 import com.facimus.procesos.common.model.RolAcceso;
@@ -68,8 +70,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * PR 65: la busqueda de punta a punta, por HTTP y contra PostgreSQL: tildes, raices en los tres idiomas, el orden, el
- * fragmento sin HTML, comentarios, documentacion de elementos, la version publicada, los permisos de cada persona, la
- * seguridad por filas y la sintaxis de un buscador web.
+ * fragmento sin HTML, el texto de un PDF y de un Word leido en la cola, comentarios, documentacion de elementos, la
+ * version publicada, los permisos de cada persona, la seguridad por filas y la sintaxis de un buscador web.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -326,6 +328,44 @@ class BusquedaIntegracionTest {
         // ts_headline quita las etiquetas que reconoce y deja lo demas tal cual: por eso no se devuelve como HTML
         assertThat(fragmento(encontrado)).contains("alert(1)").contains("<img src=x onerror=alert(1)> &")
                 .contains("falso").doesNotContain("&amp;").doesNotContain("").doesNotContain("");
+    }
+
+    @Test
+    @DisplayName("el texto de un PDF y de un Word se encuentra cuando la cola lo lee, despues del antivirus")
+    void documentos() throws Exception {
+        Long despacho = proceso("Despacho", "Del pago a la entrega");
+        Long pdf = subir(despacho, "Instrucciones de empaque.pdf",
+                ArchivosConTexto.pdf("Usar cinta reforzada", "en cada caja frágil"));
+        Long docx = subir(despacho, "Contrato.docx", ArchivosConTexto.docx("Cláusula de penalización por demora"));
+
+        assertThat(resultados(beto, "reforzada")).isEmpty();
+        assertThat(resultados(beto, "empaque").get(0).get("documentoId").asLong()).isEqualTo(pdf);
+
+        vaciarLaCola();
+
+        JsonNode enElPdf = resultados(beto, "cinta fragil").get(0);
+        assertThat(enElPdf.get("tipo").asString()).isEqualTo("DOCUMENTO");
+        assertThat(enElPdf.get("documentoId").asLong()).isEqualTo(pdf);
+        assertThat(enElPdf.get("titulo").asString()).isEqualTo("Instrucciones de empaque.pdf");
+        assertThat(resaltados(enElPdf)).contains("cinta", "frágil");
+        assertThat(resultados(beto, "penalizacion demora").get(0).get("documentoId").asLong()).isEqualTo(docx);
+        assertThat(jdbc.queryForObject("select count(*) from versiones_documento where documento_id in (?, ?) "
+                + "and texto_extraido_en is not null", Integer.class, pdf, docx)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("un documento borrado ya no se encuentra")
+    void documentoBorrado() throws Exception {
+        Long despacho = proceso("Despacho", "Del pago a la entrega");
+        Long documento = subir(despacho, "Garantia.txt",
+                "Cubre defectos de fabrica".getBytes(StandardCharsets.UTF_8));
+        vaciarLaCola();
+        assertThat(resultados(beto, "defectos")).hasSize(1);
+
+        mvc.perform(delete("/api/v1/documentos/{id}", documento).with(principal(ana)))
+                .andExpect(status().isNoContent());
+
+        assertThat(resultados(beto, "defectos")).isEmpty();
     }
 
     @Test

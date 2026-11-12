@@ -76,4 +76,11 @@ public class VersionDocumento extends EntidadEmpresa {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime fecha;
+
+    /**
+     * PR 65: cuando la cola intento leer su texto, lo tuviera o no; vacio mientras no lo haga. El texto no se mapea:
+     * puede pesar un megabyte y solo lo lee la busqueda. Lo escribe {@code VersionDocumentoRepository.guardarTexto}.
+     */
+    @Column(name = "texto_extraido_en", insertable = false, updatable = false)
+    private LocalDateTime textoExtraidoEn;
 }

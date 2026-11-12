@@ -139,6 +139,49 @@
 			<artifactId>tika-core</artifactId>
 			<version>${tika.version}</version>
 		</dependency>
+		<!-- PR 65: el texto de un documento, para buscarlo. Solo los parsers de los tipos de la lista blanca que tienen
+		     texto (PDF, Office, OpenOffice y texto plano), no el paquete estandar entero; y sin lo que traen para
+		     correo, Outlook y Access, que esa lista no acepta, ni las herramientas de linea de comandos de PDFBox. -->
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-parser-pdf-module</artifactId>
+			<version>${tika.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.pdfbox</groupId>
+					<artifactId>pdfbox-tools</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-parser-microsoft-module</artifactId>
+			<version>${tika.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.healthmarketscience.jackcess</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.pff</groupId>
+					<artifactId>java-libpst</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.james</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-parser-miscoffice-module</artifactId>
+			<version>${tika.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-parser-text-module</artifactId>
+			<version>${tika.version}</version>
+		</dependency>
 		<!-- PR 62: Markdown a HTML (con tablas), y ese HTML por una lista blanca antes de guardarlo: nunca HTML crudo -->
 		<dependency>
 			<groupId>org.commonmark</groupId>

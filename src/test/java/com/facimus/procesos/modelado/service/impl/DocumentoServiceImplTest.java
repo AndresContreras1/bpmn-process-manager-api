@@ -476,6 +476,9 @@ class DocumentoServiceImplTest {
         assertThat(infectada.isRevisado()).isTrue();
         assertThat(infectada.getMotivo()).isEqualTo("El antivirus encontró Eicar-Test-Signature.");
         verify(auditoria).registrar(EMPRESA, null, "DOCUMENTO_BLOQUEADO", "DOCUMENTO", 12L, Map.of("version", 2));
+        // PR 65: solo lo que el antivirus da por bueno pasa a leerse para la busqueda
+        verify(cola).encolar(EMPRESA, TextoDeDocumentosServiceImpl.TRABAJO_DE_LECTURA, "41");
+        verify(cola, never()).encolar(EMPRESA, TextoDeDocumentosServiceImpl.TRABAJO_DE_LECTURA, "42");
     }
 
     @Test
@@ -492,7 +495,7 @@ class DocumentoServiceImplTest {
         assertThat(bomba.getEstado()).isEqualTo(EstadoDocumento.BLOQUEADO);
         assertThat(bomba.getMotivo()).isEqualTo("El archivo crece demasiado al abrirlo.");
         assertThat(bomba.isRevisado()).isFalse();
-        verifyNoInteractions(antivirus);
+        verifyNoInteractions(antivirus, cola);
         assertThat(archivosDePaso()).as("la copia del ZIP se borra").isZero();
     }
 
@@ -532,6 +535,23 @@ class DocumentoServiceImplTest {
         assertThat(esperando.getEstado()).isEqualTo(EstadoDocumento.PENDIENTE);
         assertThat(esperando.getMotivo()).isEqualTo("Sin antivirus configurado: el documento espera su revisión.");
         verify(antivirus, never()).revisar(any());
+        verify(cola).encolar(EMPRESA, TextoDeDocumentosServiceImpl.TRABAJO_DE_LECTURA, "41");
+        verify(cola, never()).encolar(EMPRESA, TextoDeDocumentosServiceImpl.TRABAJO_DE_LECTURA, "42");
+    }
+
+    @Test
+    @DisplayName("revisar: una imagen queda disponible sin pasar a leerse, que no tiene texto que buscar")
+    void revisarImagen() throws IOException {
+        Documento documento = documento(1);
+        VersionDocumento imagen = version(documento, 1, "image/png", EstadoDocumento.PENDIENTE,
+                guardado("empresas/1/x/imagen", Archivos.PNG));
+        when(versionRepository.findByIdAndEmpresaId(41L, EMPRESA)).thenReturn(Optional.of(imagen));
+        when(antivirus.disponible()).thenReturn(false);
+
+        servicio().revisar(EMPRESA, 41L);
+
+        assertThat(imagen.getEstado()).isEqualTo(EstadoDocumento.DISPONIBLE);
+        verifyNoInteractions(cola);
     }
 
     @Test
@@ -545,7 +565,7 @@ class DocumentoServiceImplTest {
         servicio().revisar(EMPRESA, 99L);
 
         assertThat(lista.getEstado()).isEqualTo(EstadoDocumento.DISPONIBLE);
-        verifyNoInteractions(antivirus, auditoria);
+        verifyNoInteractions(antivirus, auditoria, cola);
     }
 
     @Test
