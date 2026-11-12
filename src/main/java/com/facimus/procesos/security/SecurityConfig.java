@@ -170,7 +170,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
                         // PR 61: bajar un documento con su enlace firmado: la firma es el permiso, y vence en minutos
-                        .requestMatchers(HttpMethod.GET, "/api/v1/descargas/documentos/*/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/descargas/documentos/*/*",
+                                "/api/v1/descargas/manuales/*/*").permitAll()
                         // PR 50: la ida al proveedor, su vuelta, los proveedores que hay y confirmar un vinculo:
                         // quien los usa todavia no tiene sesion.
                         .requestMatchers(HttpMethod.GET, OIDC + "/**", "/api/v1/auth/proveedores").permitAll()

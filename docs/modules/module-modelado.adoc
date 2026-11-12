@@ -11,6 +11,7 @@
 * `c.f.p.g.service.ConfiguracionTiendaService` (in Gestion)
 * `c.f.p.g.service.Permisos` (in Gestion)
 * `c.f.p.g.service.VersionService` (in Gestion)
+* `c.f.p.c.markdown.Markdown` (in Common)
 * `c.f.p.c.auditoria.Auditoria` (in Common)
 * `c.f.p.c.trabajos.ColaDeTrabajos` (in Common)
 * `c.f.p.c.almacen.Almacen` (in Common)
@@ -19,6 +20,7 @@
 * `c.f.p.c.archivos.InspeccionDeZip` (in Common)
 * `c.f.p.c.almacen.EnlacesFirmados` (in Common)
 * `c.f.p.g.repository.UsuarioRepository` (in Gestion)
+* `c.f.p.g.service.PreferenciasService` (in Gestion)
 |Aggregate roots
 |* `c.f.p.m.model.NodoFlujo`
 * `c.f.p.m.model.Actividad`
@@ -27,7 +29,9 @@
 * `c.f.p.m.model.Artefacto`
 * `c.f.p.m.model.Asociacion`
 * `c.f.p.m.model.BloqueoEdicion`
+* `c.f.p.m.model.Caracterizacion`
 * `c.f.p.m.model.Correlacion`
+* `c.f.p.m.model.Documentacion`
 * `c.f.p.m.model.Documento`
 * `c.f.p.m.model.Evento`
 * `c.f.p.m.model.ExtensionXml`
@@ -35,6 +39,7 @@
 * `c.f.p.m.model.Gateway`
 * `c.f.p.m.model.Importacion`
 * `c.f.p.m.model.Lane`
+* `c.f.p.m.model.Manual`
 * `c.f.p.m.model.Mensaje`
 * `c.f.p.m.model.Pool`
 * `c.f.p.m.model.Presencia`

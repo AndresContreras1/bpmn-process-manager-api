@@ -41,7 +41,8 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
     private static final String REGISTRO = "/api/v1/empresas";
 
     /** PR 54: las rutas que reciben un archivo BPMN, que tienen su propio tope, el mismo que lee SecureXml. */
-    private static final Pattern RUTAS_BPMN = Pattern.compile("/api/v1/procesos/(importar|[0-9]+/(modelo|comparar))");
+    private static final Pattern RUTAS_BPMN = Pattern
+            .compile("/api/v1/procesos/(importar|[0-9]+/(modelo|comparar|versiones/[0-9]+/dibujo))");
 
     /** PR 61: las rutas que reciben un documento, con el tope de un documento. */
     private static final Pattern RUTAS_DOCUMENTOS = Pattern

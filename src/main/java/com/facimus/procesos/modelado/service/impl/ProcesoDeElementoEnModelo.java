@@ -33,7 +33,9 @@ public class ProcesoDeElementoEnModelo implements ProcesoDeElemento {
             Map.entry("artefactos", "select proceso_id from artefactos where id = ? and empresa_id = ?"),
             Map.entry("asociaciones", "select proceso_id from asociaciones where id = ? and empresa_id = ?"),
             // PR 61: un documento borrado ya no lleva a ningun proceso
-            Map.entry("documentos", "select proceso_id from documentos where id = ? and empresa_id = ? and activo"));
+            Map.entry("documentos", "select proceso_id from documentos where id = ? and empresa_id = ? and activo"),
+            // PR 62: un manual lleva al proceso que describe
+            Map.entry("manuales", "select proceso_id from manuales where id = ? and empresa_id = ?"));
 
     private final JdbcTemplate jdbc;
 

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.modelado.service.Descarga;
 import com.facimus.procesos.modelado.service.DocumentoService;
+import com.facimus.procesos.modelado.service.ManualService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 public class DescargaController {
 
     private final DocumentoService documentoService;
+    private final ManualService manualService;
 
     @Operation(summary = "Download a document version with a signed link",
             description = "The link comes from GET /api/v1/documentos/{id}/enlace and works for five minutes. A "
@@ -47,7 +49,26 @@ public class DescargaController {
             @Parameter(description = "The organization of the document") @RequestParam Long empresa,
             @Parameter(description = "Expiry, in seconds since 1970") @RequestParam long vence,
             @Parameter(description = "The signature") @RequestParam String firma) {
-        Descarga descarga = documentoService.descargar(empresa, documentoId, numero, vence, firma);
+        return adjunto(documentoService.descargar(empresa, documentoId, numero, vence, firma));
+    }
+
+    @Operation(summary = "Download a process manual with a signed link",
+            description = "The link comes from GET /api/v1/manuales/{id}/enlace and works for five minutes. A "
+                    + "changed or expired link answers 404.")
+    @ApiResponse(responseCode = "200", description = "The manual, as an attachment")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @SecurityRequirements()
+    @GetMapping("/manuales/{manualId}/{formato}")
+    public ResponseEntity<InputStreamResource> manual(@PathVariable Long manualId, @PathVariable String formato,
+            @Parameter(description = "The organization of the manual") @RequestParam Long empresa,
+            @Parameter(description = "Expiry, in seconds since 1970") @RequestParam long vence,
+            @Parameter(description = "The signature") @RequestParam String firma) {
+        return adjunto(manualService.descargar(empresa, manualId, formato, vence, firma));
+    }
+
+    /** Siempre como adjunto, sin que el navegador adivine el tipo ni corra nada si alguien lo abre igual. */
+    private static ResponseEntity<InputStreamResource> adjunto(Descarga descarga) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(descarga.tipo()))
                 .contentLength(descarga.tamano())
