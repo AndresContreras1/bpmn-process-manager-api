@@ -105,7 +105,8 @@ public class SecurityConfig {
             ProveedoresOidc.Clientes clientesOidc, PeticionesOidc peticionesOidc, EntradaExterna entradaExterna,
             LimitesDePeticiones limites, VerificacionHumana verificacionHumana,
             @Value("${limites.cuerpo-maximo}") DataSize cuerpoMaximo,
-            @Value("${limites.cuerpo-maximo-bpmn}") DataSize cuerpoMaximoBpmn) throws Exception {
+            @Value("${limites.cuerpo-maximo-bpmn}") DataSize cuerpoMaximoBpmn,
+            @Value("${documentos.tamano-maximo:25MB}") DataSize cuerpoMaximoDocumento) throws Exception {
         reglasComunes(http)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthEntryPoint)
@@ -123,7 +124,8 @@ public class SecurityConfig {
                 .addFilterAfter(new InscripcionObligatoriaFilter(jsonMapper), SegundoFactorPendienteFilter.class)
                 // PR 32: el cubo de cada peticion, ya sabiendo quien es: lo que cambia algo cuenta por persona.
                 .addFilterAfter(new LimiteDePeticionesFilter(limites, verificacionHumana, jsonMapper,
-                        cuerpoMaximo.toBytes(), cuerpoMaximoBpmn.toBytes()), InscripcionObligatoriaFilter.class)
+                        cuerpoMaximo.toBytes(), cuerpoMaximoBpmn.toBytes(), cuerpoMaximoDocumento.toBytes()),
+                        InscripcionObligatoriaFilter.class)
                 // Detras de la autorizacion: una peticion que el rol rechaza no le pregunta nada a la base.
                 .addFilterAfter(new TiendaEnBajaFilter(empresaService, jsonMapper), AuthorizationFilter.class)
                 .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), TiendaEnBajaFilter.class);
@@ -167,6 +169,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, LOGIN, "/api/v1/auth/refresh", "/api/v1/auth/logout")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
+                        // PR 61: bajar un documento con su enlace firmado: la firma es el permiso, y vence en minutos
+                        .requestMatchers(HttpMethod.GET, "/api/v1/descargas/documentos/*/*").permitAll()
                         // PR 50: la ida al proveedor, su vuelta, los proveedores que hay y confirmar un vinculo:
                         // quien los usa todavia no tiene sesion.
                         .requestMatchers(HttpMethod.GET, OIDC + "/**", "/api/v1/auth/proveedores").permitAll()
