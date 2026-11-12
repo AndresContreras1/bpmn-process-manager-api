@@ -27,6 +27,7 @@
 * `c.f.p.g.service.SegundoFactorService` (via `c.f.p.g.service.impl.SegundoFactorServiceImpl`)
 * `c.f.p.g.service.SesionService` (via `c.f.p.g.service.impl.SesionServiceImpl`)
 * `c.f.p.g.service.UsuarioService` (via `c.f.p.g.service.impl.UsuarioServiceImpl`)
+* `c.f.p.g.service.VerificacionDeRespaldoService` (via `c.f.p.g.service.impl.VerificacionDeRespaldoServiceImpl`)
 * `c.f.p.g.service.VersionService` (via `c.f.p.g.service.impl.VersionServiceImpl`)
 
 _Repositories_
