@@ -83,6 +83,9 @@ public class SecurityConfig {
     /** PR 50: confirmar un vinculo abre una sesion, como el login: pide CSRF aunque no traiga cookies. */
     private static final String VINCULO = "/api/v1/auth/identidades/vinculo";
 
+    /** PR 68: el calendario laboral de la organizacion. */
+    private static final String CALENDARIO = "/api/v1/organizacion/calendario";
+
     /** PR 49b: la entrada sin clave, con una passkey. */
     static final String ENTRADA_CON_PASSKEY = "/api/v1/auth/passkeys";
 
@@ -239,6 +242,10 @@ public class SecurityConfig {
                         // asi que la simulacion entera es del administrador, tambien para mirarla.
                         .requestMatchers("/api/v1/simulacion", "/api/v1/simulacion/**")
                         .hasAuthority(ADMINISTRADOR)
+                        // PR 68: el calendario lo lee cualquiera, porque con el se cuentan los plazos de todos;
+                        // cambiarlo, como el resto del gobierno de la tienda, es del administrador.
+                        .requestMatchers(HttpMethod.PUT, CALENDARIO, CALENDARIO + "/**").hasAuthority(ADMINISTRADOR)
+                        .requestMatchers(HttpMethod.DELETE, CALENDARIO + "/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").authenticated()
                         .requestMatchers("/api/v1/roles/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/compartidos").hasAuthority(ADMINISTRADOR)

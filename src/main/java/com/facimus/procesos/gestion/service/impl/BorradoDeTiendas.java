@@ -36,6 +36,7 @@ public class BorradoDeTiendas {
             "delete from claves_idempotencia where empresa_id = ?",
             "delete from trabajos where empresa_id = ?",
             "delete from membresias_rol where empresa_id = ?",
+            "delete from temporizadores where empresa_id = ?",
             "delete from eventos_caso where empresa_id = ?",
             "delete from actividades_caso where empresa_id = ?",
             "delete from mensajes_salientes where empresa_id = ?",
@@ -69,6 +70,8 @@ public class BorradoDeTiendas {
             "delete from procesos where empresa_id = ?",
             "delete from carpetas where empresa_id = ?",
             "delete from roles_proceso where empresa_id = ?",
+            "delete from festivos where empresa_id = ?",
+            "delete from calendarios where empresa_id = ?",
             "delete from configuracion_tienda where empresa_id = ?",
             "delete from usuarios where empresa_id = ?");
 

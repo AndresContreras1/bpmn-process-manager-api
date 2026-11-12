@@ -112,5 +112,8 @@ class ReglaDeRecursoTest {
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/documentos/{documentoId}/{numero}", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/manuales/{manualId}/{formato}", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("POST", "/api/v1/documentacion/vista-previa", null)).isEmpty();
+        // PR 68: el calendario es de la tienda entera
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/organizacion/calendario", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("DELETE", "/api/v1/organizacion/calendario/festivos/{fecha}", null)).isEmpty();
     }
 }
