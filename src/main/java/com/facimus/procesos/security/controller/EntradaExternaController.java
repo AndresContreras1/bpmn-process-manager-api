@@ -112,7 +112,7 @@ public class EntradaExternaController {
         }
         identidades.vincular(request.token());
         return ResponseEntity.ok(apertura.abrir(sesiones.iniciar(empresaId, usuarioId,
-                EnumSet.of(factor, Factor.PROVEEDOR_EXTERNO)), respuesta));
+                EnumSet.of(factor, Factor.PROVEEDOR_EXTERNO)), peticion, respuesta));
     }
 
     @Operation(summary = "List your linked providers", description = "The Google and Microsoft accounts you can sign "
