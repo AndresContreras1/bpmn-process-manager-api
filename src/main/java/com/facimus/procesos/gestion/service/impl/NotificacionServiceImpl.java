@@ -124,7 +124,7 @@ public class NotificacionServiceImpl implements NotificacionService {
                     .autorId(pedido.autorId()).procesoId(pedido.procesoId()).referenciaId(pedido.referenciaId())
                     .envio(envio).creadaEn(ahora).build());
             if (envio == EnvioPorCorreo.INMEDIATO) {
-                cola.encolar(empresaId, CorreosDeNotificaciones.TIPO, json.writeValueAsString(
+                cola.encolar(empresaId, CorreosDeNotificaciones.TRABAJO_DE_CORREO, json.writeValueAsString(
                         new PedidoDeAviso(persona.getId(), List.of(notificacion.getId()), false)));
             }
             canal.publicar(empresaId, persona.getId(), CanalDeNotificaciones.NOTIFICACION,
@@ -265,7 +265,7 @@ public class NotificacionServiceImpl implements NotificacionService {
             porPersona.computeIfAbsent(List.of((Long) fila[0], (Long) fila[1]), clave -> new ArrayList<>())
                     .add((Long) fila[2]);
         }
-        porPersona.forEach((persona, notificaciones) -> cola.encolar(persona.get(0), CorreosDeNotificaciones.TIPO,
+        porPersona.forEach((persona, notificaciones) -> cola.encolar(persona.get(0), CorreosDeNotificaciones.TRABAJO_DE_CORREO,
                 json.writeValueAsString(new PedidoDeAviso(persona.get(1), notificaciones, true))));
         return porPersona.size();
     }

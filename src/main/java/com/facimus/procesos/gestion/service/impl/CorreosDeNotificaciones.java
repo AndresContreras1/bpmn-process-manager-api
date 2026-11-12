@@ -45,7 +45,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
 
     /** El tipo de trabajo de la cola. */
-    public static final String TIPO = "notificaciones.correo";
+    public static final String TRABAJO_DE_CORREO = "notificaciones.correo";
 
     private static final String NOTIFICACION = "notificacion";
     private static final String RESUMEN = "resumen-de-notificaciones";
@@ -78,7 +78,7 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
 
     @Override
     public String tipo() {
-        return TIPO;
+        return TRABAJO_DE_CORREO;
     }
 
     @Override

@@ -110,7 +110,7 @@ class CorreosDeNotificacionesTest {
     }
 
     private static Trabajo trabajo(String datos) {
-        return new Trabajo(1L, EMPRESA, CorreosDeNotificaciones.TIPO, datos, 1, 5);
+        return new Trabajo(1L, EMPRESA, CorreosDeNotificaciones.TRABAJO_DE_CORREO, datos, 1, 5);
     }
 
     private CorreoSaliente enviado() {
@@ -181,9 +181,8 @@ class CorreosDeNotificacionesTest {
 
         pendientes(List.of(40L), notificacion(40L, TipoDeNotificacion.MENCION, null));
         doThrow(new IllegalStateException("el servidor no contesta")).when(correo).enviar(any());
-        Assertions.assertThatThrownBy(() -> correos.ejecutar(
-                trabajo("{\"usuarioId\":5,\"notificaciones\":[40],\"resumen\":false}")))
-                .isInstanceOf(IllegalStateException.class);
+        Trabajo otraVez = trabajo("{\"usuarioId\":5,\"notificaciones\":[40],\"resumen\":false}");
+        Assertions.assertThatThrownBy(() -> correos.ejecutar(otraVez)).isInstanceOf(IllegalStateException.class);
         verify(notificacionRepository, never()).resolverCorreo(any(), any(), anyCollection(), any());
     }
 }

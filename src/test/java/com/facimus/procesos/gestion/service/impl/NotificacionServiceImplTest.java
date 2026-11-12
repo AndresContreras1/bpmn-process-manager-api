@@ -268,7 +268,8 @@ class NotificacionServiceImplTest {
 
         assertThat(uno.recibido).singleElement().asString().contains("event:conteo", "noLeidas=4");
         assertThat(canal.abiertas(EMPRESA, BETO)).isEqualTo(2);
-        assertThatThrownBy(() -> servicio.conectar(EMPRESA, BETO, new Oyente()))
+        Oyente tercero = new Oyente();
+        assertThatThrownBy(() -> servicio.conectar(EMPRESA, BETO, tercero))
                 .isInstanceOf(DemasiadosIntentosException.class);
         // Cada persona tiene su tope
         servicio.conectar(EMPRESA, CARLA, new Oyente());
