@@ -16,6 +16,9 @@ entries in Spanish.
 | `Documentacion` | Documentation | Process | The element it documents (`bpmnId`, or none for the whole process), its Markdown and the cleaned HTML |
 | `Caracterizacion` | Characterization sheet | Process | Objective, scope, inputs, outputs, suppliers, customers, indicators, risks and regulation |
 | `Manual` | Process manual | Process | The published version it describes, its language, state (`PENDIENTE`, `DISPONIBLE` or `FALLIDO`) with its reason, and where its HTML and PDF are |
+| `Comentario` | Comment | Process | Its author, Markdown and cleaned HTML, the people it mentions, and its thread: none for the first comment, which carries the anchor (an element's `bpmnId`, a published version) and the state (open, or resolved with who and when); a deleted one keeps its place with no text |
+| `Notificacion` | Notification | User | Its type (`MENCION`, `RESPUESTA` or `HILO_RESUELTO`), who caused it, the process and what it points to there, when it was read, and how its e-mail went (`INMEDIATO`, `RESUMEN_DIARIO` or `NUNCA`) and when |
+| `PreferenciaNotificacion` | Notification preference | User | For one type, how it arrives by e-mail; without one, the type's default |
 | `Concesion` | Grant | Store | An action (`VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` or `ADMINISTRAR`) on a folder or a process, for a person, a process role or the whole store (`PERSONA`, `ROL` or `ORGANIZACION`) |
 | `RolProceso` | Process role | Store | Name and description |
 | `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag, order and the kind of partner behind it (`integracion`) |
@@ -50,7 +53,9 @@ draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)). Who has a process o
 it, live in `presencias` and `bloqueos_edicion` ([ADR-0058](adr/0058-presence-and-soft-lock.md)). Tags are an array
 column of the process with a GIN index, so a page of the list reads them without another query
 ([ADR-0062](adr/0062-process-repository.md)), and grants live in `concesiones`, each one naming either a folder or a
-process ([ADR-0063](adr/0063-granular-permissions.md)).
+process ([ADR-0063](adr/0063-granular-permissions.md)). Comments live in `comentarios`, their mentions in an array
+column of ids, and notifications and their preferences in `notificaciones` and `preferencias_notificacion`; none
+stores a name, so they show whatever name the person has now ([ADR-0067](adr/0067-comments-mentions-and-notifications.md)).
 
 ## Modeling rules
 
