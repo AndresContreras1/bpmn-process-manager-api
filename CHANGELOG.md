@@ -8,6 +8,21 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- A business calendar per organization: country (Colombia, United States, France or Australia), time zone, working
+  hours and working days, with each country's public holidays computed (Ley 51 de 1983 and Easter for Colombia, the
+  federal ones with their observed day, the French jours feries, the Australian national ones with their additional
+  day) and editable day by day by an administrator, audited. Business time is counted with it, across weekends,
+  holidays and clock changes.
+- Timers that run: a wait, a boundary timer that interrupts its activity or only warns (a cycle warns every time), and
+  a timer start that opens cases on its own, with ISO 8601 durations, dates and cycles, cron cycles, and a new business
+  duration (`DURACION_HABIL`, `bpm:habil` in BPMN). Production timers fire from a scheduler, once, also with two
+  instances or after the API was down; test timers fire with the store's tick. A timer whose case ends, or whose
+  activity stops waiting, is cancelled. `GET /casos/{id}/temporizadores` and `GET /procesos/{id}/temporizadores` list
+  them.
+- Two modes for a case: `PRODUCCION` on the wall clock and the business calendar, and `PRUEBA`, the default, on the
+  ticks and simulated partners as before. The simulated partners only answer test cases.
+- Trying a draft without publishing it: `POST /procesos/{id}/pruebas` runs it as a test case on a throwaway test
+  version that no list shows and the nightly purge deletes after `PRUEBAS_RETENCION`.
 - Backups with pgBackRest: PostgreSQL archives every WAL segment within a minute, and a `respaldo` service takes a
   full backup every Sunday and a differential every other day, into a bucket with Object Lock in compliance mode, every
   file encrypted with `RESPALDO_CLAVE`. After each backup the rows of every table are counted and a restore point is
@@ -149,6 +164,8 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- `E-18` no longer stops an executable process from publishing a timer: it now flags a cycle on a timer that fires only
+  once. A case step keeps a subtype of up to 30 characters, so `TEMPORIZADOR_INTERMEDIO` fits.
 - The README and the guides cover BPMN files, the bpmn-js modeler, editing together, the process repository and
   permissions, with the numbers of today's build.
 - The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The

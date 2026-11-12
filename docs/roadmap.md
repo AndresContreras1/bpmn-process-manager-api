@@ -78,6 +78,9 @@
       local copy until the server confirms
 - [x] One drawing everywhere: the viewers of processes, versions and cases on the same component, the case as
       markers and counters
+- [x] Timers that run (waits, boundary timers and timer starts) on the wall clock and a business calendar per
+      organization with the public holidays of Colombia, the United States, France and Australia; test cases keep the
+      ticks, and a draft can be tried without publishing it (PR 68)
 - [x] A structure view that does everything the canvas does from the keyboard, and targets of at least 24 × 24 px
 
 **Editing with others**

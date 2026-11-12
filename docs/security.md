@@ -263,6 +263,7 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `PROCESO_PUBLICADO` | A version is published |
 | `TIENDA_DADA_DE_BAJA` · `BAJA_CANCELADA` | The store is closed or the closing is cancelled |
 | `DOCUMENTO_SUBIDO` · `DOCUMENTO_ELIMINADO` · `DOCUMENTO_BLOQUEADO` | A document or a new version is uploaded, a document is deleted, or the review retains a version |
+| `CALENDARIO_EDITADO` · `FESTIVO_NOMBRADO` · `FESTIVO_QUITADO` · `FESTIVO_RESTAURADO` | The business calendar changes, or a holiday is added or renamed, removed, or put back as the law says |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
 the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
@@ -328,6 +329,24 @@ What people write and draw is cleaned the same way ([ADR-0066](adr/0066-document
   whitelist of SVG elements and attributes: no scripts, event handlers, `foreignObject`, images, `use`, links, or
   styles that load something from outside.
 - **The manual** is printed from a template that loads nothing; the PDF renderer is told not to fetch any resource.
+
+## Business calendar and timers
+
+What PR 68 adds, against the checklist every resource goes through ([ADR-0072](adr/0072-business-calendar-and-timers.md)):
+
+- **Row-level security** on `calendarios`, `festivos` and `temporizadores`, with the same policy as every table of a
+  store; a test reads and updates them as another store and sees nothing.
+- **IDOR.** The calendar is the store's own, with no id in the path: each store reads and changes only its own. The
+  timers of another store's case, the timer starts of its process and a test run of its draft answer `404`.
+- **Who.** Anyone reads the calendar, because every deadline is counted with it; changing it, or its holidays, is the
+  administrator's (the route matrix). Reading timers needs `VER` on the process or the case; trying a draft needs
+  `MODELAR`, like editing it.
+- **Audit trail.** Every change to the calendar and to its holidays (see above).
+- **Rate limit.** The general limit on changes; there is no upload.
+- **Quota.** One calendar per store, and holiday changes only from 1900 to 2199, one per day. A test version and its
+  case are deleted by the nightly purge after a day.
+- **Background work.** The timer scheduler finds due timers in every store, and the purge deletes old test versions
+  in every store; each timer then fires with its own store's scope.
 
 ## Rate limiting
 
@@ -423,7 +442,8 @@ reach another store:
 - What has no store yet looks a person up by e-mail or by token, and is named one by one as system scope: login,
   renewal, logout, registration, the e-mail links, confirming a provider link and the way back from a provider. What
   crosses stores on purpose says so where it starts: the purge, the job queue, the simulation clock (which then ticks
-  each store in its own scope), the sessions closed in another instance and the demo data.
+  each store in its own scope), the timer scheduler (which fires each timer in its store's scope), the sessions
+  closed in another instance and the demo data.
 - A thread that does not say what store it is sees no row at all.
 - A store invited to a process (HU-23) reads its published version and its diagram through policies of their own,
   over a `SECURITY DEFINER` function that returns only what was shared with it.

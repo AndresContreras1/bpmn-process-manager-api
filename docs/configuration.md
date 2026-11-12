@@ -57,6 +57,8 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `LIMPIEZA_RETENCION_SESIONES` | How long a dead session and its expired refresh tokens are kept. Never shorter than the access token lifetime. | `7d` |
 | `LIMPIEZA_RETENCION_IDEMPOTENCIA` | How long a spent idempotency key is kept | `24h` |
 | `SIMULACION_TICK` | How often the clock of the stores that asked for it advances one tick. A store in `MANUAL`, which is the default, never moves by itself. | `30s` |
+| `TEMPORIZADORES_REPASO` | How often one instance looks for the production timers that are due and fires them. A timer due while the API was down fires on the first pass. | `5s` |
+| `PRUEBAS_RETENCION` | How long a test run of a draft (its test version and its case) is kept before the nightly purge deletes it | `1d` |
 | `CACHE_VERSIONES` | Keeps what a published version says in memory. `false` turns it off and the API answers the same, only slower. | `true` |
 | `CACHE_VERSIONES_MAXIMO` · `CACHE_VERSIONES_INACTIVIDAD` | Versions each cache remembers at a time, and how long an unused entry is kept | `200` · `2h` |
 | `DB_POOL_SIZE` | Connections to PostgreSQL. Requests run on virtual threads, so this is the real ceiling of concurrent work (`prod`) | `10` |

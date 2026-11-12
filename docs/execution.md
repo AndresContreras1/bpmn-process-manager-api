@@ -114,6 +114,43 @@ activity that handles the problem, or the order is given up and the case ends `F
 so twenty orders move one after another rather than all at once. A store can also ask for its clock to run on its
 own, with `modoSimulacion` on `AUTOMATICO`; by default it is `MANUAL`, which is what makes a demo repeatable.
 
+## Time: production and test cases
+
+A case runs in one of two modes ([ADR-0072](adr/0072-business-calendar-and-timers.md)). `PRUEBA`, the one a case
+gets when it does not ask for another, is everything above: the store's ticks and the simulated partners. `PRODUCCION`
+(`{"modo": "PRODUCCION"}` when opening it) counts its timers with the wall clock and the store's business calendar,
+and the simulated partners do not answer it: what it sends waits in the outbox for an integration, and answers come
+in through `mensajes-entrantes`.
+
+```bash
+# The store's calendar: country, zone, working hours and days, and the holidays of a year
+curl -s http://localhost:8080/api/v1/organizacion/calendario -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+curl -s "http://localhost:8080/api/v1/organizacion/calendario/festivos?anio=2026" -b sesion.txt \
+  -H "X-XSRF-TOKEN: $XSRF"
+
+# A production case, and the timers it armed
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/casos -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"referencia":"ORD-1001","modo":"PRODUCCION"}'
+curl -s http://localhost:8080/api/v1/casos/42/temporizadores -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+
+# Try the draft without publishing it: a test case on a version nobody else sees
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/pruebas -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"variables":{"order":{"total":150}}}'
+```
+
+**Timers.** A wait (`TEMPORIZADOR_INTERMEDIO`) keeps its token until its timer fires. A boundary timer is armed when
+its activity starts waiting, a task in a tray or a receive waiting for its message: one that interrupts takes the
+activity out and the case follows the boundary; one that does not opens another path, every time if it is a cycle,
+while the activity keeps waiting. A timer start (`TEMPORIZADOR_INICIO`) opens production cases on its own while its
+version is in force. A timer says when with an ISO 8601 duration (`PT2H`), a business duration (`DURACION_HABIL`,
+`P2D` is two working days), a date, or a cycle (`R3/PT1H`, or a cron like `0 0 9 * * MON-FRI`). The timeline says when
+each one was armed, when it is due and when it fired.
+
+**When they fire.** Production timers fire from a scheduler that one instance runs every few seconds; each one fires
+in its own transaction, with its case locked, and once, even with two instances or after the API was down. Test timers
+fire with the store's clock: `POST /simulacion/tick` fires those due after delivering its messages, and a tick is one
+hour of a timer (`PT2H` is two ticks). A timer whose case ends, or whose activity stops waiting, is cancelled.
+
 ## The simulated partners
 
 Nothing on the other side of a message is real. There is no payment gateway, no carrier and no email provider:

@@ -25,9 +25,12 @@ entries in Spanish.
 | `Mensaje` | Message flow | Process | Sending and receiving pool, content, the nodes it is anchored to, how it travels (`CORREO`, `SERVICIO_WEB`, `COLA`), what the process does if it fails (`CONTINUAR`, `MANEJAR_ERROR`, `FINALIZAR`), the fields it carries, the name its body takes among the case variables, and the message that answers it |
 | `Correlacion` | Correlation key | Message | The criterion that correlates the message, the field of the body that carries it, and what to do with a message that matches no open case |
 | `HistorialCambio` | History entry | Process | Description, author and date |
-| `Caso` | Case | Store | The process and the published version it runs on, the reference its messages are matched by, state (`ABIERTO`, `TERMINADO`, `CANCELADO`, `FALLIDO` or `ERROR`) and the case variables as JSON |
+| `Caso` | Case | Store | The process and the published version it runs on, the reference its messages are matched by, state (`ABIERTO`, `TERMINADO`, `CANCELADO`, `FALLIDO` or `ERROR`), mode (`PRODUCCION` on the wall clock and the business calendar, or `PRUEBA` on the store's ticks) and the case variables as JSON |
 | `ActividadCaso` | Step of a case | Case | The node of the version it went through, copied by id and by name, its kind, the process role of its lane, state (`PENDIENTE`, `EN_ESPERA`, `COMPLETADA`, `FALLIDA` or `OMITIDA`), how many tokens have reached it, who took it and what they handed over |
 | `EventoCaso` | Timeline entry | Case | What happened, when, and who caused it. Only inserted |
+| `Temporizador` | Armed timer | Store | The process, version and timer event it comes from, the case and step that armed it (none for a timer start), class (`INICIO`, `INTERMEDIO` or `BORDE`), mode, expression, whether it interrupts, when it is due (an instant in `PRODUCCION`, a tick in `PRUEBA`), how many times it fired and state (`PROGRAMADO`, `DISPARADO`, `CANCELADO` or `FALLIDO`) |
+| `Calendario` | Business calendar | Store | Country (`CO`, `US`, `FR` or `AU`), IANA time zone, working hours and working days. One per store, saved the first time an administrator changes it |
+| `FestivoEditado` | Holiday change | Store | A day the store made a holiday or renamed (with its name), or a computed holiday it removed. The computed ones are not stored |
 | `MembresiaRol` | Membership | Store | Which process roles a user belongs to; the pair is unique |
 
 Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory `empresa_id` that cannot be updated.
@@ -51,6 +54,12 @@ it, live in `presencias` and `bloqueos_edicion` ([ADR-0058](adr/0058-presence-an
 column of the process with a GIN index, so a page of the list reads them without another query
 ([ADR-0062](adr/0062-process-repository.md)), and grants live in `concesiones`, each one naming either a folder or a
 process ([ADR-0063](adr/0063-granular-permissions.md)).
+
+A version is `PUBLICADA` or `PRUEBA` (`versiones_proceso.tipo`): a test version freezes a draft to run it without
+publishing, has number 0, is never listed nor in force, and the nightly purge deletes it with its cases. Timer events
+say whether they wait a calendar duration, a business duration (`DURACION_HABIL`), a date or a cycle, and the store's
+business calendar (`calendarios`, with its changes to the holidays in `festivos`) is what business time is counted with
+([ADR-0072](adr/0072-business-calendar-and-timers.md)).
 
 ## Modeling rules
 
