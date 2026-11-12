@@ -8,6 +8,14 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Review and approval: each store publishes directly, as before, or with approval by N people of a list or a process
+  role. Asking for review (needs PUBLICAR) freezes the draft in a revision and in the snapshot to publish, answers
+  the semantic difference against the version in force, and notifies the approvers; each one approves, asks for
+  changes or rejects with a reason, never the requester, and the last approval publishes the frozen snapshot through
+  the usual path, or says why it no longer can (the version in force changed, or the diagnosis is not clean). With
+  approval on, publishing directly answers 409 for everyone. Recertification: a daily job tells each process owner
+  when its review date arrives and once more when it passes, "still valid" moves the date by the process's months
+  between reviews, and process answers say when a review is overdue. Everything is audited.
 - Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
   like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
   can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads
