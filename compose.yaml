@@ -3,19 +3,64 @@
 #   docker compose up -d --build
 # La web queda en http://localhost (o en WEB_PORT) y la API detras de ella, en /api.
 # The database keeps its data in a named volume, so `docker compose down` does not lose it; `down -v` does.
+# PR 67: every change of the database also goes, encrypted, to a pgBackRest repository in the storage
+# (docs/runbook.md#backup-and-recovery); `down -v` deletes that copy too, because it lives in the almacen-data volume.
 name: bpmn-process-manager-api
+
+# PR 67: el repositorio de pgBackRest, igual para quien archiva el WAL (db), quien respalda (respaldo) y quien
+# restaura (restauracion). Un bucket del almacen con Object Lock, por TLS, y cada archivo cifrado con RESPALDO_CLAVE
+# antes de salir. En AWS, el bucket de otra cuenta: se cambian RESPALDO_S3_* y RESPALDO_CREAR_BUCKET va en false.
+x-repositorio-de-respaldos: &repositorio
+  PGBACKREST_STANZA: procesos
+  PGBACKREST_PG1_PATH: /var/lib/postgresql/data
+  PGBACKREST_PG1_SOCKET_PATH: /var/run/postgresql
+  PGBACKREST_PG1_USER: ${DB_USER:-procesos}
+  PGBACKREST_REPO1_TYPE: s3
+  PGBACKREST_REPO1_PATH: /pgbackrest
+  PGBACKREST_REPO1_S3_ENDPOINT: ${RESPALDO_S3_ENDPOINT:-almacen}
+  PGBACKREST_REPO1_STORAGE_PORT: ${RESPALDO_S3_PUERTO:-8334}
+  PGBACKREST_REPO1_STORAGE_CA_FILE: ${RESPALDO_S3_CA:-/etc/almacen-ca/almacen.crt}
+  PGBACKREST_REPO1_S3_URI_STYLE: path
+  PGBACKREST_REPO1_S3_BUCKET: ${RESPALDO_S3_BUCKET:-respaldos}
+  PGBACKREST_REPO1_S3_REGION: ${RESPALDO_S3_REGION:-us-east-1}
+  PGBACKREST_REPO1_S3_KEY: ${RESPALDO_S3_USUARIO:-${ALMACEN_S3_USUARIO:-procesos}}
+  PGBACKREST_REPO1_S3_KEY_SECRET: ${RESPALDO_S3_CLAVE:-${ALMACEN_S3_CLAVE:?set ALMACEN_S3_CLAVE in .env, at least 32 characters}}
+  PGBACKREST_REPO1_CIPHER_TYPE: aes-256-cbc
+  PGBACKREST_REPO1_CIPHER_PASS: ${RESPALDO_CLAVE:?set RESPALDO_CLAVE in .env, at least 32 characters}
+  # Dos completos semanales: entre siete y catorce dias hacia atras se puede volver a cualquier momento
+  PGBACKREST_REPO1_RETENTION_FULL: ${RESPALDO_COMPLETOS:-2}
+  PGBACKREST_COMPRESS_TYPE: zst
+  PGBACKREST_START_FAST: "y"
+  PGBACKREST_LOG_LEVEL_CONSOLE: info
+  PGBACKREST_LOG_LEVEL_FILE: "off"
+  PGBACKREST_LOCK_PATH: /tmp/pgbackrest
 
 services:
   db:
-    image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
+    # PR 67: la misma PostgreSQL 16, con pgBackRest en la imagen (ops/respaldo/Dockerfile).
+    build: ./ops/respaldo
+    image: bpmn-process-manager-db:latest
+    # Con el almacen arriba, un segmento que todavia no puede archivarse (antes de que exista el repositorio) falla
+    # al momento y PostgreSQL lo guarda para despues; con el almacen abajo, cada intento esperaria su tiempo maximo y
+    # el arranque de una base nueva no terminaria.
+    depends_on:
+      almacen:
+        condition: service_healthy
     environment:
       POSTGRES_DB: ${DB_NAME:-procesos}
       POSTGRES_USER: ${DB_USER:-procesos}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      <<: *repositorio
     # pg_stat_statements counts what each query costs; the server has to load it when it starts (docs/runbook.md).
-    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+    # PR 67: cada segmento de WAL va al repositorio en cuanto se llena, y a lo sumo cada 60 s si hubo escrituras: lo
+    # que se puede perder es menos de un minuto (el RPO).
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "archive_mode=on",
+              "-c", "archive_command=pgbackrest --stanza=procesos archive-push %p", "-c", "archive_timeout=60s"]
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # El socket, para que el servicio respaldo hable con esta base sin abrirle otra puerta
+      - postgres-socket:/var/run/postgresql
+      - almacen-ca:/etc/almacen-ca:ro
     # The API waits for this check, not for the container to exist: by TCP only the final server answers, not the
     # temporary one PostgreSQL runs while it initialises.
     healthcheck:
@@ -23,18 +68,97 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+    # PR 67: como la API y la web: sin root, sin capacidades del kernel y sin poder escribir fuera de sus volumenes y
+    # de /tmp, que vive en memoria. La imagen ya corre como postgres, el dueno de los datos.
+    user: postgres
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
+
+  # PR 67: un completo cada domingo y un diferencial los demas dias, desde la 01:00 UTC; el primero, en cuanto arranca.
+  # Despues de cada uno cuenta las filas de cada tabla y deja un punto de restauracion, que el simulacro usa.
+  respaldo:
+    build: ./ops/respaldo
+    image: bpmn-process-manager-db:latest
+    user: postgres
+    command: ["respaldo", "programar"]
+    depends_on:
+      db:
+        condition: service_healthy
+      almacen:
+        condition: service_healthy
+    environment:
+      <<: *repositorio
+      PGHOST: /var/run/postgresql
+      PGUSER: ${DB_USER:-procesos}
+      PGDATABASE: ${DB_NAME:-procesos}
+      RESPALDO_CREAR_BUCKET: ${RESPALDO_CREAR_BUCKET:-true}
+      RESPALDO_BLOQUEO_DIAS: ${RESPALDO_BLOQUEO_DIAS:-21}
+      RESPALDO_HORA: ${RESPALDO_HORA:-1}
+      RESPALDO_DIA_COMPLETO: ${RESPALDO_DIA_COMPLETO:-7}
+    volumes:
+      # pgBackRest lee los archivos de la base mientras corre; no escribe en ellos
+      - postgres-data:/var/lib/postgresql/data:ro
+      - postgres-socket:/var/run/postgresql
+      - almacen-ca:/etc/almacen-ca:ro
+    # Sano mientras el ultimo respaldo tenga menos de 26 horas: si dejan de salir, docker compose ps lo dice. El
+    # primero se hace al arrancar, asi que up --wait espera a que la base quede respaldada.
+    healthcheck:
+      test: ["CMD", "respaldo", "salud"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 30m
+      start_interval: 5s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  # PR 67: el certificado TLS del almacen, una vez. pgBackRest solo habla S3 por TLS, y la API sigue por HTTP en 8333.
+  certificados:
+    build: ./ops/respaldo
+    image: bpmn-process-manager-db:latest
+    user: postgres
+    command: ["respaldo", "certificado"]
+    volumes:
+      - almacen-tls:/etc/almacen-tls
+      - almacen-ca:/etc/almacen-ca
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
 
   # PR 61: los documentos y el ancla diaria de la bitacora, en un almacen compatible con S3 que no sale de la red del
   # compose. El bucket de anclas se crea con Object Lock: lo que se guarda ahi no se puede borrar antes de su fecha.
+  # PR 67: tambien el repositorio de los respaldos, por HTTPS en 8334; el de documentos guarda cada version.
   almacen:
     image: chrislusf/seaweedfs:4.50@sha256:c2658820e763294a9e9de7b36c81e59b879e3459148351aee4e31a126ca64860
-    command: ["server", "-s3", "-dir=/data", "-master.volumeSizeLimitMB=1024", "-volume.max=100"]
+    command: ["server", "-s3", "-dir=/data", "-master.volumeSizeLimitMB=1024", "-volume.max=100",
+              "-s3.port.https=8334", "-s3.cert.file=/etc/almacen-tls/almacen.crt",
+              "-s3.key.file=/etc/almacen-tls/almacen.key"]
+    depends_on:
+      certificados:
+        condition: service_completed_successfully
     environment:
       AWS_ACCESS_KEY_ID: ${ALMACEN_S3_USUARIO:-procesos}
       AWS_SECRET_ACCESS_KEY: ${ALMACEN_S3_CLAVE:?set ALMACEN_S3_CLAVE in .env, at least 32 characters}
     volumes:
       - almacen-data:/data
+      - almacen-tls:/etc/almacen-tls:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/healthz"]
       interval: 5s
@@ -51,7 +175,8 @@ services:
         condition: service_healthy
       almacen:
         condition: service_healthy
-    environment:
+    # PR 67: el mismo entorno sirve a la verificacion del simulacro, abajo
+    environment: &entorno-de-la-api
       SPRING_PROFILES_ACTIVE: prod
       DB_HOST: db
       DB_NAME: ${DB_NAME:-procesos}
@@ -159,6 +284,77 @@ services:
       - ALL
     restart: unless-stopped
 
+  # PR 67: el simulacro de restauracion (ops/respaldo/simulacro.sh), solo con el perfil simulacro. Restaura el ultimo
+  # respaldo en un contenedor con la base vacia (un volumen anonimo, que se borra con el contenedor) y arranca
+  # PostgreSQL sobre lo restaurado sin archivar nada: lo restaurado no escribe en el repositorio.
+  restauracion:
+    profiles: [simulacro]
+    build: ./ops/respaldo
+    image: bpmn-process-manager-db:latest
+    user: postgres
+    command: ["respaldo", "restaurar"]
+    depends_on:
+      almacen:
+        condition: service_healthy
+    environment:
+      <<: *repositorio
+      PGHOST: /var/run/postgresql
+      PGUSER: ${DB_USER:-procesos}
+      PGDATABASE: ${DB_NAME:-procesos}
+      # Vacio, hasta el punto del ultimo respaldo; un momento ('2026-11-12 10:00:00+00'), o "ultimo", el final del WAL
+      RESPALDO_RESTAURAR_HASTA: ${RESPALDO_RESTAURAR_HASTA:-}
+    volumes:
+      - almacen-ca:/etc/almacen-ca:ro
+    # Lista cuando termino de recuperar y ya acepta escrituras: hasta entonces, lo restaurado no esta completo.
+    healthcheck:
+      test: ["CMD-SHELL", "test \"$$(psql -XAtc 'select not pg_is_in_recovery()' 2>/dev/null)\" = t"]
+      interval: 5s
+      timeout: 5s
+      retries: 720
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
+
+  # PR 67: la API contra la base restaurada, solo para verificarla: rehace la cadena de la bitacora de cada tienda,
+  # contra su ancla, y la huella de cada version publicada, escribe lo que encontro y termina, con 1 si algo no
+  # cuadra. No atiende peticiones, no corre la cola ni las tareas programadas y no crea buckets.
+  verificacion:
+    profiles: [simulacro]
+    image: bpmn-process-manager-api:latest
+    depends_on:
+      restauracion:
+        condition: service_healthy
+    environment:
+      <<: *entorno-de-la-api
+      DB_HOST: restauracion
+      RESPALDO_VERIFICAR: "true"
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      ALMACEN_S3_CREAR_BUCKETS: "false"
+      TRABAJOS_TRABAJAR: "false"
+      LIMPIEZA_CRON: "-"
+      BITACORA_ANCLA_CRON: "-"
+      SMTP_HOST: ""
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
+
 volumes:
   postgres-data:
+  # PR 67: el socket de la base, que comparten db y respaldo
+  postgres-socket:
   almacen-data:
+  # PR 67: el certificado del almacen para HTTPS, que crea el servicio certificados: con su clave, solo para el
+  # almacen, y solo el certificado, para quien habla con el
+  almacen-tls:
+  almacen-ca:
