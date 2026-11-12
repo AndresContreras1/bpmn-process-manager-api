@@ -18,10 +18,10 @@ record ReglaDeRecurso(Accion accion, Clase clase, String tipo) {
     }
 
     private static final String RAIZ = "/api/v1/";
-    private static final Set<String> ELEMENTOS = Set.of("pools", "lanes", "actividades", "gateways", "eventos", "nodos",
-            "arcos", "mensajes", "artefactos", "asociaciones", "documentos", "manuales", "comentarios");
     /** PR 63: escribir en los comentarios no es modelar: lo puede hacer quien solo lee. */
     private static final String COMENTARIOS = "comentarios";
+    private static final Set<String> ELEMENTOS = Set.of("pools", "lanes", "actividades", "gateways", "eventos", "nodos",
+            "arcos", "mensajes", "artefactos", "asociaciones", "documentos", "manuales", COMENTARIOS);
     /** Operar un proceso no es modelarlo: abrir un caso o recibir un mensaje solo necesita verlo. */
     private static final Set<String> DE_OPERACION = Set.of("casos", "mensajes-entrantes", "comparar");
     private static final String DIBUJAR = "dibujar";
