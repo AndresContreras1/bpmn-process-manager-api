@@ -9,7 +9,7 @@ import com.facimus.procesos.modelado.dto.response.VistaPreviaResponse;
 /** PR 62: la documentacion en Markdown de un proceso y de sus elementos, y su ficha de caracterizacion. */
 public interface DocumentacionService {
 
-    /** Todo lo escrito del proceso: la del proceso entero y la de cada elemento. */
+    /** Lo escrito del proceso: la del proceso entero y la de cada elemento. */
     List<DocumentacionResponse> listar(Long empresaId, Long procesoId);
 
     /** Escribe la del proceso o la de un elemento; un texto vacio la borra. */

@@ -21,7 +21,7 @@ public class GeneracionDeManuales implements ManejadorDeTrabajo {
 
     @Override
     public String tipo() {
-        return ManualServiceImpl.GENERAR;
+        return ManualServiceImpl.TRABAJO_DE_GENERACION;
     }
 
     @Override

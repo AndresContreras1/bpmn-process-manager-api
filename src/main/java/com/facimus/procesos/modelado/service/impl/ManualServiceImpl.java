@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -19,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import org.slf4j.Logger;
@@ -33,7 +33,10 @@ import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.almacen.Almacen;
 import com.facimus.procesos.common.almacen.ClaveDeAlmacen;
 import com.facimus.procesos.common.almacen.EnlacesFirmados;
+import com.facimus.procesos.common.archivos.ArchivosTemporales;
+import com.facimus.procesos.common.archivos.ArchivosTemporales.Temporal;
 import com.facimus.procesos.common.security.ContextoDeTienda;
+import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
 import com.facimus.procesos.gestion.model.Proceso;
@@ -77,11 +80,13 @@ import tools.jackson.databind.json.JsonMapper;
 public class ManualServiceImpl implements ManualService {
 
     /** El tipo de trabajo de la cola que arma un manual. */
-    public static final String GENERAR = "manuales.generar";
+    public static final String TRABAJO_DE_GENERACION = "manuales.generar";
 
     private static final Logger log = LoggerFactory.getLogger(ManualServiceImpl.class);
     private static final String PDF = "pdf";
     private static final String HTML = "html";
+    private static final String MIME_PDF = "application/pdf";
+    private static final String NO_ENCONTRADO = "Manual no encontrado.";
 
     private final ManualRepository manualRepository;
     private final ProcesoRepository procesoRepository;
@@ -94,6 +99,7 @@ public class ManualServiceImpl implements ManualService {
     private final ColaDeTrabajos cola;
     private final Almacen almacen;
     private final EnlacesFirmados enlaces;
+    private final ArchivosTemporales temporales;
     private final JsonMapper json;
     private final Clock reloj;
     private final Duration vidaDelEnlace;
@@ -103,7 +109,7 @@ public class ManualServiceImpl implements ManualService {
             DocumentacionRepository documentacionRepository, VersionService versionService,
             DocumentacionService documentacionService, DocumentoService documentoService,
             PreferenciasService preferenciasService, RedaccionDelManual redaccion, ColaDeTrabajos cola,
-            Almacen almacen, EnlacesFirmados enlaces, JsonMapper json, Clock reloj,
+            Almacen almacen, EnlacesFirmados enlaces, ArchivosTemporales temporales, JsonMapper json, Clock reloj,
             @Value("${documentos.enlace.vida:5m}") Duration vidaDelEnlace) {
         this.manualRepository = manualRepository;
         this.procesoRepository = procesoRepository;
@@ -116,6 +122,7 @@ public class ManualServiceImpl implements ManualService {
         this.cola = cola;
         this.almacen = almacen;
         this.enlaces = enlaces;
+        this.temporales = temporales;
         this.json = json;
         this.reloj = reloj;
         this.vidaDelEnlace = vidaDelEnlace;
@@ -138,7 +145,7 @@ public class ManualServiceImpl implements ManualService {
         Manual manual = manualRepository.save(Manual.builder().empresa(proceso.getEmpresa()).proceso(proceso)
                 .versionNumero(numero).idioma(preferenciasService.obtener(empresaId, usuarioId).idioma())
                 .estado(EstadoManual.PENDIENTE).pedidoPor(usuarioId).pedidoEn(ahora()).build());
-        cola.encolar(empresaId, GENERAR, String.valueOf(manual.getId()));
+        cola.encolar(empresaId, TRABAJO_DE_GENERACION, String.valueOf(manual.getId()));
         return respuesta(manual);
     }
 
@@ -180,14 +187,16 @@ public class ManualServiceImpl implements ManualService {
         if (!enlaces.vale(recurso(empresaId, manualId, cual), Instant.ofEpochSecond(vence), firma)) {
             throw new RecursoNoEncontradoException("El enlace no existe o ya venció: pide otro.");
         }
-        return ContextoDeTienda.deLaTienda(empresaId, () -> {
+        // Sin sesion, la tienda la dice el enlace, y solo despues de comprobar su firma
+        Alcance anterior = ContextoDeTienda.fijar(Alcance.deLaTienda(empresaId));
+        try {
             Manual manual = buscar(empresaId, manualId);
             if (manual.getEstado() != EstadoManual.DISPONIBLE) {
-                throw new RecursoNoEncontradoException("Manual no encontrado.");
+                throw new RecursoNoEncontradoException(NO_ENCONTRADO);
             }
             String nombre = archivo(manual.getProceso().getNombre(), manual.getVersionNumero(), cual);
             String clave = PDF.equals(cual) ? manual.getClavePdf() : manual.getClaveHtml();
-            String tipo = PDF.equals(cual) ? "application/pdf" : "text/html;charset=UTF-8";
+            String tipo = PDF.equals(cual) ? MIME_PDF : "text/html;charset=UTF-8";
             byte[] contenido;
             try (InputStream entrada = almacen.abrir(clave)) {
                 contenido = entrada.readAllBytes();
@@ -195,7 +204,9 @@ public class ManualServiceImpl implements ManualService {
                 throw new UncheckedIOException("No se pudo leer " + clave, e);
             }
             return new Descarga(nombre, tipo, contenido.length, new ByteArrayInputStream(contenido));
-        });
+        } finally {
+            ContextoDeTienda.restaurar(anterior);
+        }
     }
 
     @Override
@@ -213,7 +224,7 @@ public class ManualServiceImpl implements ManualService {
             byte[] pdf = redaccion.pdf(html);
             manual.setClaveHtml(guardar(ClaveDeAlmacen.deManual(empresaId, manualId, HTML),
                     html.getBytes(StandardCharsets.UTF_8), "text/html"));
-            manual.setClavePdf(guardar(ClaveDeAlmacen.deManual(empresaId, manualId, PDF), pdf, "application/pdf"));
+            manual.setClavePdf(guardar(ClaveDeAlmacen.deManual(empresaId, manualId, PDF), pdf, MIME_PDF));
             manual.setEstado(EstadoManual.DISPONIBLE);
             manual.setMotivo(null);
         } catch (RuntimeException e) {
@@ -287,7 +298,7 @@ public class ManualServiceImpl implements ManualService {
                             .map(g -> new Ordenado(g.posicionX(), paso(g, documentacion))),
                     diagrama.eventos().stream().filter(e -> Objects.equals(e.laneId(), lane.id()))
                             .map(e -> new Ordenado(e.posicionX(), paso(e, documentacion))))
-                    .flatMap(s -> s).sorted(Comparator.comparingInt(Ordenado::x)).map(Ordenado::paso).toList();
+                    .flatMap(Function.identity()).sorted(Comparator.comparingInt(Ordenado::x)).map(Ordenado::paso).toList();
             if (!pasos.isEmpty()) {
                 secciones.add(new Seccion(participantes.getOrDefault(lane.poolId(), ""), lane.nombre(),
                         lane.rolProcesoNombre(), pasos));
@@ -321,32 +332,18 @@ public class ManualServiceImpl implements ManualService {
     }
 
     private String guardar(String clave, byte[] contenido, String tipo) {
-        Path temporal = null;
-        try {
-            temporal = Files.createTempFile("manual-", ".tmp");
-            Files.write(temporal, contenido);
-            almacen.guardar(clave, temporal, tipo);
+        try (Temporal temporal = temporales.nuevo("manual-")) {
+            Files.write(temporal.ruta(), contenido);
+            almacen.guardar(clave, temporal.ruta(), tipo);
             return clave;
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo guardar el manual", e);
-        } finally {
-            borrar(temporal);
-        }
-    }
-
-    private static void borrar(Path archivo) {
-        if (archivo != null) {
-            try {
-                Files.deleteIfExists(archivo);
-            } catch (IOException e) {
-                archivo.toFile().deleteOnExit();
-            }
         }
     }
 
     private Manual buscar(Long empresaId, Long manualId) {
         return manualRepository.findByIdAndEmpresaId(manualId, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Manual no encontrado."));
+                .orElseThrow(() -> new RecursoNoEncontradoException(NO_ENCONTRADO));
     }
 
     private static String formato(String formato) {

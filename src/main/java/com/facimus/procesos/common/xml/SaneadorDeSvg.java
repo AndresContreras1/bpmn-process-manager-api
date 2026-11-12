@@ -24,7 +24,7 @@ import org.w3c.dom.Node;
  * PR 62: el dibujo de una version, que la web hace con bpmn-js y entrega al publicar. El servidor no dibuja BPMN, pero
  * tampoco guarda lo que un navegador le mande: un SVG puede llevar scripts, manejadores de eventos, objetos HTML o
  * referencias a otros sitios. Se lee con {@link SecureXml}, con sus limites, y se rehace con una lista blanca de lo que
- * un diagrama usa (formas, texto, marcadores y estilos sin URL de afuera). Todo lo demas se quita.
+ * un diagrama usa (formas, texto, marcadores y estilos sin URL de afuera). Lo demas se quita.
  */
 public final class SaneadorDeSvg {
 
@@ -47,7 +47,7 @@ public final class SaneadorDeSvg {
 
     /** Una URL solo puede apuntar a algo del mismo dibujo: {@code url(#marcador)}. */
     private static final Pattern URL = Pattern.compile("url\\s*\\(", Pattern.CASE_INSENSITIVE);
-    private static final Pattern URL_INTERNA = Pattern.compile("url\\(\\s*['\"]?#[A-Za-z0-9_.:-]+['\"]?\\s*\\)",
+    private static final Pattern URL_INTERNA = Pattern.compile("url\\(\\s*['\"]?#[\\w.:-]+['\"]?\\s*\\)",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PELIGROSO = Pattern.compile("javascript:|expression|@import|behavior|-moz-binding",
             Pattern.CASE_INSENSITIVE);

@@ -31,7 +31,7 @@ public class Markdown {
             .allowAttributes("href").matching(ENLACE).onElements("a")
             .requireRelsOnLinks("nofollow", "noopener", "noreferrer")
             .allowAttributes("align").matching(Pattern.compile("left|center|right")).onElements("th", "td")
-            .allowAttributes("start").matching(Pattern.compile("[0-9]{1,6}")).onElements("ol")
+            .allowAttributes("start").matching(Pattern.compile("\\d{1,6}")).onElements("ol")
             .toFactory();
 
     private final Parser parser = Parser.builder().extensions(EXTENSIONES).build();

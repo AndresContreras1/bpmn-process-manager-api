@@ -34,7 +34,10 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.almacen.AlmacenEnDisco;
 import com.facimus.procesos.common.almacen.EnlacesFirmados;
+import com.facimus.procesos.common.archivos.ArchivosTemporales;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.security.ContextoDeTienda;
+import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.gestion.dto.response.PreferenciasResponse;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
@@ -107,6 +110,8 @@ class ManualServiceImplTest {
 
     @TempDir
     Path raiz;
+    @TempDir
+    Path paso;
 
     private final Clock reloj = Clock.fixed(AHORA, ZoneOffset.UTC);
     private final EnlacesFirmados enlaces = new EnlacesFirmados("secreto-de-las-pruebas-de-manuales", reloj);
@@ -119,7 +124,7 @@ class ManualServiceImplTest {
         almacen = new AlmacenEnDisco(raiz);
         servicio = new ManualServiceImpl(manualRepository, procesoRepository, documentacionRepository, versionService,
                 documentacionService, documentoService, preferenciasService, new RedaccionDelManual(), cola, almacen,
-                enlaces, PARCIAL, reloj, Duration.ofMinutes(5));
+                enlaces, new ArchivosTemporales(paso), PARCIAL, reloj, Duration.ofMinutes(5));
         proceso = Proceso.builder().id(PROCESO).empresa(Empresa.builder().id(EMPRESA).build()).nombre("Despacho")
                 .build();
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(PROCESO, EMPRESA)).thenReturn(Optional.of(proceso));
@@ -156,7 +161,7 @@ class ManualServiceImplTest {
         assertThat(respuesta.idioma()).isEqualTo("es-CO");
         assertThat(respuesta.estado()).isEqualTo(EstadoManual.PENDIENTE);
         assertThat(respuesta.pedidoEn()).isEqualTo(LocalDateTime.of(2026, 11, 12, 10, 0));
-        verify(cola).encolar(EMPRESA, ManualServiceImpl.GENERAR, "5");
+        verify(cola).encolar(EMPRESA, ManualServiceImpl.TRABAJO_DE_GENERACION, "5");
     }
 
     @Test
@@ -206,6 +211,7 @@ class ManualServiceImplTest {
         }
         assertThat(manual.getClaveHtml()).isEqualTo("empresas/1/manuales/5/html");
         assertThat(manual.getClavePdf()).isEqualTo("empresas/1/manuales/5/pdf");
+        assertThat(paso).as("los archivos de paso se borran al guardarse").isEmptyDirectory();
     }
 
     @Test
@@ -291,6 +297,24 @@ class ManualServiceImplTest {
         assertThatThrownBy(() -> servicio.descargar(EMPRESA, 5L, "pdf", vence + 1, firma))
                 .isInstanceOf(RecursoNoEncontradoException.class);
         assertThat(ManualServiceImpl.archivo("   ", 1, "html")).isEqualTo("manual v1.html");
+        assertThat(ContextoDeTienda.actual()).as("bajar no deja la tienda puesta en el hilo").isEmpty();
+    }
+
+    @Test
+    @DisplayName("un manual fallido no se baja aunque la firma sea buena, y el hilo vuelve al alcance de antes")
+    void descargarFallido() {
+        Manual fallido = manual(EstadoManual.FALLIDO);
+        when(manualRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(fallido));
+        long vence = AHORA.plusSeconds(60).getEpochSecond();
+        String firma = enlaces.firmar("manual:1:5:html", Instant.ofEpochSecond(vence));
+        Alcance antes = ContextoDeTienda.fijar(Alcance.SISTEMA);
+        try {
+            assertThatThrownBy(() -> servicio.descargar(EMPRESA, 5L, "html", vence, firma))
+                    .isInstanceOf(RecursoNoEncontradoException.class).hasMessage("Manual no encontrado.");
+            assertThat(ContextoDeTienda.actual()).contains(Alcance.SISTEMA);
+        } finally {
+            ContextoDeTienda.restaurar(antes);
+        }
     }
 
     @Test
