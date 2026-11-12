@@ -87,10 +87,13 @@ nothing of the engine beyond the port.
    role and session) from its claims, without a database query. A token whose session was closed is rejected. What
    changes something with the session cookies has passed the CSRF check before.
 2. The role rules decide `401` or `403` before any controller runs.
-3. Controllers receive the principal with `@AuthenticationPrincipal` and pass `empresaId` explicitly to the services.
-4. Every lookup by id goes through `findByIdAndEmpresaId`, so a resource from another store does not exist for the
+3. When the route names a process, a folder or an element of a model, an interceptor turns the method and route into
+   an action on that resource and asks `Permisos.puede`, which answers `404` to what the person cannot see and `403`
+   to what they can see but not do ([ADR-0063](adr/0063-granular-permissions.md)).
+4. Controllers receive the principal with `@AuthenticationPrincipal` and pass `empresaId` explicitly to the services.
+5. Every lookup by id goes through `findByIdAndEmpresaId`, so a resource from another store does not exist for the
    caller.
-5. The service maps the result to a DTO inside its transaction. Entities never reach the controller.
+6. The service maps the result to a DTO inside its transaction. Entities never reach the controller.
 
 ```mermaid
 sequenceDiagram
@@ -98,6 +101,7 @@ sequenceDiagram
     participant C as Client
     participant F as JWT filter
     participant A as Role rules
+    participant P as Permissions
     participant K as Controller
     participant S as Service
     participant R as Repository
@@ -107,7 +111,9 @@ sequenceDiagram
     F--xC: 401 with a Problem Details body
     F->>A: ApiPrincipal(usuarioId, empresaId, rol)
     A--xC: 403 when the role cannot do this
-    A->>K: @AuthenticationPrincipal
+    A->>P: action on the process, folder or element
+    P--xC: 404 when it is hidden, 403 when it is not allowed
+    P->>K: @AuthenticationPrincipal
     K->>S: empresaId passed explicitly
     S->>R: findByIdAndEmpresaId(id, empresaId)
     R-->>S: the row, or nothing
@@ -220,6 +226,7 @@ PostgreSQL, not in its memory (D34).
 |---|---|---|
 | Closed sessions | Each instance keeps them in memory, so the JWT filter runs no SQL | The transaction that closes a session sends its code with `NOTIFY`, which PostgreSQL delivers only if that transaction commits. Every instance `LISTEN`s on a connection of its own and revokes the session at once; it rereads the recent closures when it reconnects and every five minutes, in case a notice was missed |
 | Failed logins | Table `intentos_login`, one row per failure | They count the same rows |
+| Who is on a process | Tables `presencias` and `bloqueos_edicion`, marked by a heartbeat thread of each instance | Every change sends `NOTIFY` when it commits, and each instance forwards it to the server-sent events of its own connections, reading the list of people from the table, since a notice carries at most 8000 bytes. Rows nobody marks for 60 seconds are swept, like those of an instance that died |
 | AI reviews | Table `revisiones_ia`, one row per answer of the model | They reuse the last one of a process and count the same ones for the store's limit |
 | Scheduled jobs | Table `shedlock`, the lock of each job, with the database's clock | The purge and the simulation clock run in one instance at a time; the lock of the clock lasts as long as the pause between ticks, so two instances do not move it twice as fast |
 | Events for another module | Table `event_publication`, the outbox of Spring Modulith | An event for an `@ApplicationModuleListener` is written in the transaction that publishes it and deleted when its listener finishes; what a listener did not finish is delivered again when an instance starts. The listeners that have to act inside the transaction, such as the one that creates the pool of a new process or the notice of a closed session, do not go through it |
