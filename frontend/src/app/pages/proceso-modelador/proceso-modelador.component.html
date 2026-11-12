@@ -212,6 +212,29 @@
       }
       @if (elegido && lienzo) {
         <app-panel-propiedades [elemento]="elegido" [lienzo]="lienzo" [soloLectura]="soloLectura" />
+        <!-- F20: lo que se escribe y se adjunta a este elemento. No es el dibujo: lo decide el rol, no el bloqueo -->
+        @if (elegido.tipo !== 'label') {
+          <hr />
+          <section id="modelador-documentacion" aria-labelledby="modelador-documentacion-titulo">
+            <h2 i18n class="h6" id="modelador-documentacion-titulo">Documentation of this element</h2>
+            <app-editor-documentacion
+              [procesoId]="procesoId"
+              [elemento]="elegido.id"
+              [soloLectura]="!puedeDocumentar"
+              [compacto]="true"
+            />
+          </section>
+          <hr />
+          <section id="modelador-adjuntos" aria-labelledby="modelador-adjuntos-titulo">
+            <h2 i18n class="h6" id="modelador-adjuntos-titulo">Documents of this element</h2>
+            <app-adjuntos
+              [procesoId]="procesoId"
+              [elemento]="elegido.id"
+              [soloLectura]="!puedeDocumentar"
+              [compacto]="true"
+            />
+          </section>
+        }
       } @else {
         <p i18n class="small text-body-secondary">Select an element to see its properties.</p>
       }

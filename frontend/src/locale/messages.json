@@ -696,6 +696,8 @@
     "3090359663125712953": " Structure view ",
     "262173459577955370": "Import .bpmn",
     "8413190398178909287": "Diagram of {$INTERPOLATION}",
+    "8994634231105502631": "Documentation of this element",
+    "1582300614735248156": "Documents of this element",
     "8055800350295269487": "Select an element to see its properties.",
     "6501956460733998596": "Diagnosis",
     "1524756473741874238": "{$INTERPOLATION} errors, {$INTERPOLATION_1} warnings",
