@@ -1,6 +1,7 @@
-package com.facimus.procesos.modelado.service.impl;
+package com.facimus.procesos.common.avisos;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -17,6 +18,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -45,13 +47,13 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 
 /**
- * PR 58: la escucha en vivo de cada replica. Abre su propia conexion con los datos de la base, hace {@code LISTEN} en
- * el canal y le pasa cada aviso al canal, sin dar el latido antes de tiempo; si la conexion se corta lo avisa en el
+ * PR 58: la escucha de avisos de cada replica. Abre su propia conexion con los datos de la base, hace {@code LISTEN} en
+ * cada canal y le pasa cada aviso al receptor de su canal (PR 63), sin dar el latido antes de tiempo; si la conexion se corta lo avisa en el
  * log y espera antes de reabrirla, y una interrupcion durante esa espera la detiene. Detenerla no se traga la
  * interrupcion de quien la detiene.
  */
 @ExtendWith(MockitoExtension.class)
-class EscuchaDelEnVivoTest {
+class EscuchaDeAvisosTest {
 
     /** Un driver de JDBC de prueba: da la conexion simulada, o falla, y anota quien lo llamo y con que. */
     private static final class DriverDePrueba implements Driver {
@@ -114,26 +116,31 @@ class EscuchaDelEnVivoTest {
     @Mock
     private JdbcConnectionDetails base;
     @Mock
-    private CanalEnVivo canal;
+    private ReceptorDeAvisos canal;
+    @Mock
+    private ReceptorDeAvisos notificaciones;
     @Mock
     private Connection conexion;
     @Mock
     private Statement sentencia;
 
     private final DriverDePrueba driver = new DriverDePrueba();
-    private final Logger logger = (Logger) LoggerFactory.getLogger(EscuchaDelEnVivo.class);
+    private final Logger logger = (Logger) LoggerFactory.getLogger(EscuchaDeAvisos.class);
     private final ListAppender<ILoggingEvent> log = new ListAppender<>();
-    private EscuchaDelEnVivo escucha;
+    private EscuchaDeAvisos escucha;
 
     @BeforeEach
     void setUp() throws SQLException {
         DriverManager.registerDriver(driver);
         log.start();
         logger.addAppender(log);
-        when(base.getJdbcUrl()).thenReturn(DriverDePrueba.URL);
-        when(base.getUsername()).thenReturn("api");
-        when(base.getPassword()).thenReturn("secreta");
-        escucha = new EscuchaDelEnVivo(base, canal);
+        // La prueba del canal invalido no llega a conectarse
+        Mockito.lenient().when(base.getJdbcUrl()).thenReturn(DriverDePrueba.URL);
+        Mockito.lenient().when(base.getUsername()).thenReturn("api");
+        Mockito.lenient().when(base.getPassword()).thenReturn("secreta");
+        when(canal.canal()).thenReturn("en_vivo");
+        when(notificaciones.canal()).thenReturn("notificaciones");
+        escucha = new EscuchaDeAvisos(base, List.of(canal, notificaciones));
     }
 
     @AfterEach
@@ -149,13 +156,20 @@ class EscuchaDelEnVivoTest {
     private void conexionConDosAvisos() throws SQLException {
         PGNotification uno = mock(PGNotification.class);
         PGNotification dos = mock(PGNotification.class);
+        PGNotification otro = mock(PGNotification.class);
+        PGNotification ajeno = mock(PGNotification.class);
+        when(uno.getName()).thenReturn("en_vivo");
+        when(dos.getName()).thenReturn("en_vivo");
+        when(otro.getName()).thenReturn("notificaciones");
+        when(ajeno.getName()).thenReturn("de_nadie");
         when(uno.getParameter()).thenReturn("aviso-1");
         when(dos.getParameter()).thenReturn("aviso-2");
+        when(otro.getParameter()).thenReturn("aviso-3");
         // Sin registro de llamadas: el bucle pide avisos muchas veces
         PGConnection postgres = mock(PGConnection.class, withSettings().stubOnly().strictness(Strictness.LENIENT));
         // Como el driver, cada pedido espera un poco a que llegue un aviso y vuelve sin nada si no llega ninguno
         BlockingQueue<PGNotification[]> pendientes = new LinkedBlockingQueue<>();
-        pendientes.add(new PGNotification[] {uno, dos});
+        pendientes.add(new PGNotification[] {uno, ajeno, otro, dos});
         when(postgres.getNotifications(500)).thenAnswer(inv -> pendientes.poll(5, TimeUnit.MILLISECONDS));
         when(conexion.createStatement()).thenReturn(sentencia);
         when(conexion.unwrap(PGConnection.class)).thenReturn(postgres);
@@ -163,7 +177,7 @@ class EscuchaDelEnVivoTest {
     }
 
     @Test
-    @DisplayName("Escucha el canal en vivo con su propia conexion y le pasa cada aviso, sin latir antes de tiempo")
+    @DisplayName("Escucha cada canal con su propia conexion y le pasa cada aviso a su receptor, sin latir antes de tiempo")
     void escucha_pasaCadaAvisoAlCanal() throws SQLException {
         conexionConDosAvisos();
         assertThat(escucha.isRunning()).isFalse();
@@ -174,12 +188,16 @@ class EscuchaDelEnVivoTest {
         InOrder orden = Mockito.inOrder(canal);
         orden.verify(canal, timeout(2000)).recibir("aviso-1");
         orden.verify(canal, timeout(2000)).recibir("aviso-2");
+        verify(notificaciones, timeout(2000)).recibir("aviso-3");
+        verify(notificaciones, never()).recibir("aviso-1");
         verify(sentencia).execute("LISTEN en_vivo");
+        verify(sentencia).execute("LISTEN notificaciones");
         verify(sentencia).close();
         assertThat(driver.datos.getProperty("user")).isEqualTo("api");
         assertThat(driver.datos.getProperty("password")).isEqualTo("secreta");
         // El latido es cada 25 segundos, no al arrancar
         verify(canal, never()).latir();
+        verify(notificaciones, never()).latir();
 
         escucha.stop();
 
@@ -199,7 +217,7 @@ class EscuchaDelEnVivoTest {
         await().atMost(Duration.ofSeconds(2)).until(() -> !log.list.isEmpty());
         ILoggingEvent aviso = log.list.getFirst();
         assertThat(aviso.getLevel()).isEqualTo(Level.WARN);
-        assertThat(aviso.getFormattedMessage()).isEqualTo("Se corto la escucha en vivo; se reabre en PT5S");
+        assertThat(aviso.getFormattedMessage()).isEqualTo("Se corto la escucha de avisos; se reabre en PT5S");
         driver.hilo.interrupt();
         await().atMost(Duration.ofSeconds(2)).until(() -> !escucha.isRunning());
         // No reintento en seguida: esperaba los cinco segundos cuando la interrumpieron
@@ -220,5 +238,15 @@ class EscuchaDelEnVivoTest {
         assertThat(Thread.interrupted()).isTrue();
         assertThat(escucha.isRunning()).isFalse();
         verify(conexion, timeout(2000)).close();
+    }
+
+    @Test
+    @DisplayName("Un canal que no es solo letras minusculas y guiones bajos no se acepta: va dentro de la sentencia")
+    void canalInvalido_seRechazaAlCrearla() {
+        ReceptorDeAvisos raro = mock(ReceptorDeAvisos.class);
+        when(raro.canal()).thenReturn("x; drop table usuarios");
+
+        assertThatThrownBy(() -> new EscuchaDeAvisos(base, List.of(raro)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("drop table");
     }
 }

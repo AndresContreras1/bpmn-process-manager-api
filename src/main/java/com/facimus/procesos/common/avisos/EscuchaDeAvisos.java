@@ -1,4 +1,4 @@
-package com.facimus.procesos.modelado.service.impl;
+package com.facimus.procesos.common.avisos;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -6,6 +6,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
@@ -17,32 +22,42 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
 /**
- * PR 58: escucha los avisos en vivo con una conexion propia, fuera del pool, y da el latido de esta replica. No es un
- * {@code @Scheduled}: esos corren en una sola replica, y el latido es de cada una.
+ * PR 58: escucha los avisos de PostgreSQL con una conexion propia, fuera del pool, y da el latido de esta replica. No
+ * es un {@code @Scheduled}: esos corren en una sola replica, y el latido es de cada una.
+ *
+ * <p>PR 63: una sola escucha por replica para todos los canales: el en vivo de un proceso y las notificaciones de cada
+ * persona. Cada aviso va al receptor de su canal.
  */
 @Component
-@ConditionalOnProperty(name = "modelado.en-vivo.escuchar", havingValue = "true", matchIfMissing = true)
-public class EscuchaDelEnVivo implements SmartLifecycle {
+@ConditionalOnProperty(name = "avisos.escuchar", havingValue = "true", matchIfMissing = true)
+public class EscuchaDeAvisos implements SmartLifecycle {
 
-    private static final Logger log = LoggerFactory.getLogger(EscuchaDelEnVivo.class);
+    private static final Logger log = LoggerFactory.getLogger(EscuchaDeAvisos.class);
     private static final int ESPERA_POR_AVISOS_MS = 500;
     private static final Duration LATIDO = Duration.ofSeconds(25);
     private static final Duration PAUSA_TRAS_UN_CORTE = Duration.ofSeconds(5);
+    /** El nombre del canal va dentro de la sentencia: solo letras minusculas y guiones bajos. */
+    private static final Pattern CANAL = Pattern.compile("[a-z_]{1,63}");
 
     private final JdbcConnectionDetails base;
-    private final CanalEnVivo canal;
+    private final Map<String, ReceptorDeAvisos> receptores;
     private volatile boolean corriendo;
     private Thread hilo;
 
-    public EscuchaDelEnVivo(JdbcConnectionDetails base, CanalEnVivo canal) {
+    public EscuchaDeAvisos(JdbcConnectionDetails base, List<ReceptorDeAvisos> receptores) {
         this.base = base;
-        this.canal = canal;
+        for (ReceptorDeAvisos receptor : receptores) {
+            if (!CANAL.matcher(receptor.canal()).matches()) {
+                throw new IllegalArgumentException("El canal " + receptor.canal() + " no es un nombre valido.");
+            }
+        }
+        this.receptores = receptores.stream().collect(Collectors.toMap(ReceptorDeAvisos::canal, Function.identity()));
     }
 
     @Override
     public void start() {
         corriendo = true;
-        hilo = Thread.ofVirtual().name("escucha-del-en-vivo").start(this::escuchar);
+        hilo = Thread.ofVirtual().name("escucha-de-avisos").start(this::escuchar);
     }
 
     @Override
@@ -50,7 +65,7 @@ public class EscuchaDelEnVivo implements SmartLifecycle {
         corriendo = false;
         try {
             hilo.join(Duration.ofSeconds(2));
-        } catch (InterruptedException interrumpido) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }
     }
@@ -65,12 +80,14 @@ public class EscuchaDelEnVivo implements SmartLifecycle {
             try (Connection conexion = DriverManager.getConnection(base.getJdbcUrl(), base.getUsername(),
                     base.getPassword())) {
                 try (Statement sentencia = conexion.createStatement()) {
-                    sentencia.execute("LISTEN " + CanalEnVivo.CANAL);
+                    for (String canal : receptores.keySet()) {
+                        sentencia.execute("LISTEN " + canal);
+                    }
                 }
                 recibirAvisos(conexion.unwrap(PGConnection.class));
             } catch (SQLException | RuntimeException corte) {
                 if (corriendo) {
-                    log.warn("Se corto la escucha en vivo; se reabre en {}", PAUSA_TRAS_UN_CORTE, corte);
+                    log.warn("Se corto la escucha de avisos; se reabre en {}", PAUSA_TRAS_UN_CORTE, corte);
                     pausar();
                 }
             }
@@ -81,13 +98,16 @@ public class EscuchaDelEnVivo implements SmartLifecycle {
         Instant proximoLatido = Instant.now().plus(LATIDO);
         while (corriendo) {
             if (!Instant.now().isBefore(proximoLatido)) {
-                canal.latir();
+                receptores.values().forEach(ReceptorDeAvisos::latir);
                 proximoLatido = Instant.now().plus(LATIDO);
             }
             PGNotification[] avisos = postgres.getNotifications(ESPERA_POR_AVISOS_MS);
             if (avisos != null) {
                 for (PGNotification aviso : avisos) {
-                    canal.recibir(aviso.getParameter());
+                    ReceptorDeAvisos receptor = receptores.get(aviso.getName());
+                    if (receptor != null) {
+                        receptor.recibir(aviso.getParameter());
+                    }
                 }
             }
         }
@@ -96,7 +116,7 @@ public class EscuchaDelEnVivo implements SmartLifecycle {
     private void pausar() {
         try {
             Thread.sleep(PAUSA_TRAS_UN_CORTE);
-        } catch (InterruptedException interrumpido) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             corriendo = false;
         }

@@ -11,6 +11,7 @@ import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.Limpieza;
 import com.facimus.procesos.gestion.service.LimpiezaService;
+import com.facimus.procesos.gestion.service.NotificacionService;
 import com.facimus.procesos.modelado.service.RevisionService;
 import com.facimus.procesos.security.DesafiosWebAuthn;
 import com.facimus.procesos.security.IntentosDeLogin;
@@ -44,6 +45,7 @@ public class LimpiezaConfig {
     private final EmpresaService empresaService;
     private final LimitesDePeticiones limitesDePeticiones;
     private final DesafiosWebAuthn desafiosWebAuthn;
+    private final NotificacionService notificacionService;
 
     @Scheduled(cron = "${limpieza.cron}")
     @SchedulerLock(name = "limpieza", lockAtLeastFor = "PT5M", lockAtMostFor = "PT30M")
@@ -81,6 +83,10 @@ public class LimpiezaConfig {
         int desafios = desafiosWebAuthn.olvidarVencidos();
         if (desafios > 0) {
             log.info("Limpieza: {} desafios de passkeys que vencieron sin usarse.", desafios);
+        }
+        int notificaciones = notificacionService.olvidarLeidas();
+        if (notificaciones > 0) {
+            log.info("Limpieza: {} notificaciones leidas que pasaron su retencion.", notificaciones);
         }
         int tiendas = empresaService.borrarLasDadasDeBaja();
         if (tiendas > 0) {
