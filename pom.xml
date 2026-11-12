@@ -30,6 +30,11 @@
 		<!-- PR 61: el almacen de documentos (S3 o compatible, como SeaweedFS) y el tipo de un archivo por su contenido -->
 		<aws-sdk.version>2.57.5</aws-sdk.version>
 		<tika.version>4.2.0</tika.version>
+		<!-- PR 62: la documentacion en Markdown, saneada, y el manual en PDF -->
+		<commonmark.version>0.31.0</commonmark.version>
+		<owasp-html-sanitizer.version>20261011.1</owasp-html-sanitizer.version>
+		<openhtmltopdf.version>1.1.103</openhtmltopdf.version>
+		<jsoup.version>1.23.2</jsoup.version>
 		<!-- SonarCloud: organizacion y proyecto que crea la importacion automatica del repositorio -->
 		<sonar.organization>andrescontreras1</sonar.organization>
 		<sonar.projectKey>AndresContreras1_bpmn-process-manager-api</sonar.projectKey>
@@ -133,6 +138,38 @@
 			<groupId>org.apache.tika</groupId>
 			<artifactId>tika-core</artifactId>
 			<version>${tika.version}</version>
+		</dependency>
+		<!-- PR 62: Markdown a HTML (con tablas), y ese HTML por una lista blanca antes de guardarlo: nunca HTML crudo -->
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark</artifactId>
+			<version>${commonmark.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark-ext-gfm-tables</artifactId>
+			<version>${commonmark.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+			<artifactId>owasp-java-html-sanitizer</artifactId>
+			<version>${owasp-html-sanitizer.version}</version>
+		</dependency>
+		<!-- PR 62: el manual en PDF, de una plantilla Thymeleaf hecha HTML; el diagrama va en el SVG de la web -->
+		<dependency>
+			<groupId>io.github.openhtmltopdf</groupId>
+			<artifactId>openhtmltopdf-pdfbox</artifactId>
+			<version>${openhtmltopdf.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.github.openhtmltopdf</groupId>
+			<artifactId>openhtmltopdf-svg-support</artifactId>
+			<version>${openhtmltopdf.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>${jsoup.version}</version>
 		</dependency>
 		<!-- Actuator: estado, datos de la version y metricas para quien opera la API -->
 		<dependency>

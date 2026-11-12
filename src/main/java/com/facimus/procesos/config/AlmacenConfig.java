@@ -22,6 +22,7 @@ import com.facimus.procesos.common.antivirus.ClamAv;
 import com.facimus.procesos.common.antivirus.SinAntivirus;
 import com.facimus.procesos.common.archivos.DetectorDeTipo;
 import com.facimus.procesos.common.archivos.InspeccionDeZip;
+import com.facimus.procesos.common.markdown.Markdown;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -86,6 +87,12 @@ public class AlmacenConfig {
     @Bean
     public EnlacesFirmados enlacesFirmados(@Value("${jwt.secret:}") String secreto, Clock reloj) {
         return new EnlacesFirmados(secreto, reloj);
+    }
+
+    /** PR 62: Markdown a HTML saneado, para la documentacion. */
+    @Bean
+    public Markdown markdown() {
+        return new Markdown();
     }
 
     @Bean
