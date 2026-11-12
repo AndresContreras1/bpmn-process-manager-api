@@ -94,7 +94,9 @@
       app sends when publishing
 - [x] Comment threads on a process, an element or a version, with mentions of who can view it, resolve and reopen,
       and a notification center in the app, over server-sent events and by e-mail, immediate or in a daily digest
-- [ ] Review and approval, and full-text search
+- [x] Full-text search over processes, elements of the draft and of the published version, documents with the text
+      read from the file, and comments, in the store's language and filtered by what each person can view
+- [ ] Review and approval
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline

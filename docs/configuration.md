@@ -41,6 +41,7 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `ANTIVIRUS_HOST` · `ANTIVIRUS_PUERTO` | Where clamd listens. Without a host, documents are not reviewed and say so | Empty · `3310` |
 | `DOCUMENTOS_EXIGIR_ANTIVIRUS` | Without an antivirus, keep documents pending instead of making them available unreviewed | `false` |
 | `DOCUMENTOS_TAMANO_MAXIMO` · `DOCUMENTOS_CUOTA_POR_TIENDA` | Largest document, and space per store counting every version | `25MB` · `1GB` |
+| `DOCUMENTOS_TEXTO_MAXIMO` · `DOCUMENTOS_TEXTO_ESPERA` · `DOCUMENTOS_TEXTO_HILOS` | For the search: how much text is kept from a file (in characters), how long reading one may take before it is searched by its name only, and how many files are read at once | `1MB` · `30s` · `2` |
 | `BITACORA_ANCLA_RETENCION` | How long nobody can delete an anchor of the audit trail | `400d` |
 | `NOTIFICACIONES_RESUMEN_CRON` | When the daily digest of notifications is put in the queue, in UTC, the same hour for everyone. `-` turns it off | `0 0 7 * * *` |
 | `NOTIFICACIONES_RETENCION` | How long a read notification is kept before the nightly purge deletes it; unread ones stay | `90d` |

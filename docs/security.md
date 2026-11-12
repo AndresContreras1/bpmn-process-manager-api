@@ -25,6 +25,7 @@
 | Edit one's own comments and delete them | ✓ | ✓ | ✓ |
 | Delete anybody's comment | ✓ | — | — |
 | Read one's own notifications and choose how they arrive | ✓ | ✓ | ✓ |
+| Search the store, finding only what one can view | ✓ | ✓ | ✓ |
 
 Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
 `SOLO_ADMINISTRADOR`, only administrators create and edit them, and editors keep modeling everything inside a lane.
@@ -360,6 +361,33 @@ What people write to each other is cleaned and kept to the store, and what they 
   are escaped. The outbox keeps ids, not text.
 - **Anonymizing** a person deletes their notifications and preferences, shows the pseudonym wherever they wrote or
   were mentioned, and rewrites `@Name` in the comments that mentioned them.
+
+## Search
+
+The search finds only what the person could open anyway, and never returns markup
+([ADR-0070](adr/0070-full-text-search.md)):
+
+- **Isolation.** Every table it reads has row-level security, `elementos_buscables` included (V56); the query also
+  filters by the store of the session, so another store's process, element, document or comment is never a hit, and
+  there is no id in the route to try another store's.
+- **Permissions in the same query.** `GET /api/v1/busqueda` is open to every role in the route matrix and has no rule
+  in the resource filter, since it names no resource. The service asks `Permisos.visibilidad` once, as the process
+  list does, and the query keeps only active processes the person can `VER` and what hangs from them: a person
+  without `VER` on a folder finds none of its processes, elements, documents or comments.
+- **Read-only.** Both queries only read; the vectors are written by triggers in the transaction of each change.
+- **The query is data.** It goes through `websearch_to_tsquery`, which has no syntax errors to provoke, never through
+  `to_tsquery`; it is a bound parameter, at most 200 characters (`400`), and the page is at most 50.
+- **The fragment is plain text.** `ts_headline` marks the matches with two private-use characters removed from the text
+  beforehand, and the answer splits the fragment by them into `{texto, resaltado}` segments. Its own output keeps
+  things like `<img src=x onerror=...>` as written, which is why it is never treated as HTML.
+- **Text of uploaded files** is read in the job queue only after the antivirus clears the version, with the parser of
+  the type detected on upload, without OCR or embedded documents, up to 1 MB of text and 30 seconds per file, on two
+  fixed threads. Tika and POI read the XML inside Office and OpenOffice files with their own hardened readers (no
+  DTDs, no external entities): those parsers are the one place XML is not read through `SecureXml`. A file that cannot
+  be read is found by its name only.
+- **Audit, rate limit and quota.** A search changes nothing, so it is not in the audit trail; reads spend from no
+  bucket, so it has no rate limit of its own beyond the 30-second statement timeout of the API's role; the extracted
+  text counts in no quota, since the file it comes from already did.
 
 ## Rate limiting
 

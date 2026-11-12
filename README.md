@@ -67,6 +67,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Documents** | Files attached to a process or one of its elements, with versions. The type comes from the content against a whitelist, an antivirus and a ZIP bomb check review each one in the job queue, each store has a quota, and a download is a five-minute signed link that always arrives as an attachment. Stored in S3 or any compatible service. | [Documents](docs/security.md#documents) |
 | **Documentation** | Markdown for the process and each of its elements, converted and cleaned on the server, a characterization sheet, and a manual of each published version in HTML and PDF, in the reader's language, with the drawing the modeler sent when publishing. | [Documentation](docs/api-reference.md#documentation-and-the-manual) |
 | **Comments and notifications** | Threads on a process, one of its elements or a version, with replies and mentions of who can view it, resolved and reopened. A notification center only its recipient sees, live over server-sent events shared by every replica, and e-mail in each person's language, at once or in a daily digest, as each one chooses. | [Comments and notifications](docs/api-reference.md#comments-and-notifications) |
+| **Search** | One box for the whole store: processes, elements of the draft and of the published version, the text inside PDF, Office, OpenOffice and plain-text files, and comments, in the store's language and without minding accents, with quotes, `-` and `or`. Only what each person can view, names ranked first, with the matching words highlighted. | [Search](docs/api-reference.md#search) |
 | **Repository** | A tree of folders, and for each process its owner, the date of its next review, how reserved it is and its tags, all of them filters of the list. | [The process repository](docs/api-reference.md#the-process-repository) |
 | **Permissions** | Actions granted on a folder or a process — view, comment, model, review, approve, publish, export and administer — to a person, a process role or the whole store, inherited down the folders. The access role sets the ceiling, separation of duties goes last, and a list only shows what each person can see, in the same query. | [Permissions](docs/security.md#permissions-on-folders-and-processes) |
 | **Execution** | Cases that walk a published version, tasks waiting in the tray of each process role, and gateway conditions in a small language of its own that cannot run code. | [Execution](docs/execution.md#running-a-process) |
@@ -222,11 +223,11 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ## Roadmap
 
 Modeling, execution, simulation, observability and the security of accounts and data are done, and so are BPMN
-files in both directions, editing with others, the repository of processes and its permissions. What is still
-open:
+files in both directions, editing with others, the repository of processes and its permissions, comments and
+full-text search. What is still open:
 
 - A screen to grant permissions on folders and processes; today they are granted through the API.
-- Comments with mentions, review and approval, and full-text search.
+- Review and approval.
 - Exporting a store's data during the 30 days of its closing.
 - An AI review of a change instead of the whole diagram, so the model only reads what moved.
 - HSTS preload, a month after production runs on HTTPS.

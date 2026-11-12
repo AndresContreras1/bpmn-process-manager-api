@@ -21,6 +21,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Documentation | `GET, PUT /api/v1/procesos/{id}/documentacion` · `POST /api/v1/documentacion/vista-previa` · `GET, PUT /api/v1/procesos/{id}/caracterizacion` |
 | Manuals | `GET, POST /api/v1/procesos/{id}/manuales[?version=]` · `GET /api/v1/manuales/{id}` · `GET /api/v1/manuales/{id}/enlace?formato=pdf\|html` · `GET /api/v1/descargas/manuales/{id}/{formato}` · `PUT /api/v1/procesos/{id}/versiones/{numero}/dibujo` |
 | Comments | `GET, POST /api/v1/procesos/{id}/comentarios[?bpmnId=&version=&estado=]` · `POST /api/v1/comentarios/{id}/respuestas` · `PUT, DELETE /api/v1/comentarios/{id}` · `POST /api/v1/comentarios/{id}/resolver` · `POST /api/v1/comentarios/{id}/reabrir` |
+| Search | `GET /api/v1/busqueda?q=&tipo=&pagina=&tamano=` |
 | Notifications | `GET /api/v1/notificaciones[?noLeidas=true]` · `GET /api/v1/notificaciones/conteo` · `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` · `GET /api/v1/notificaciones/flujo` · `GET, PUT /api/v1/notificaciones/preferencias` |
 | Permissions | `GET /api/v1/procesos/{id}/permisos` · `GET, POST /api/v1/procesos/{id}/concesiones` · `GET, POST /api/v1/carpetas/{id}/concesiones` · `DELETE /api/v1/concesiones/{id}` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
@@ -210,6 +211,44 @@ comment's text; one that is already read when its e-mail would leave is not sent
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/procesos/1/comentarios -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"   -H "Content-Type: application/json" -d '{"markdown":"Who checks the address?","menciones":[2]}'
 curl -N http://localhost:8080/api/v1/notificaciones/flujo -b sesion.txt
+```
+
+## Search
+
+`GET /api/v1/busqueda?q=credit%20approval` finds the text in what the person can view of the store: processes (name,
+description, category, tags and documentation), elements of the draft and of the published version (name, description,
+condition or message content, and documentation), documents (file name and the text read from the file) and comments
+that were not deleted. Every role searches, and finds only what it can `VER`, in the same query; another store's
+content is never there.
+
+| Parameter | |
+|---|---|
+| `q` | Up to 200 characters (`400` beyond), web search syntax: `"credit approval"` is a phrase, `-card` excludes, `card or cash` is either. Accents and case do not matter, and words match by their stem in the store's language (Spanish, English or French). Empty, or only common words like "the", answers an empty page |
+| `tipo` | Only `PROCESO`, `ELEMENTO`, `DOCUMENTO` or `COMENTARIO` (`400` for anything else) |
+| `pagina`, `tamano` | From `0`; from 1 to 50, 20 by default |
+
+The answer is a page, most relevant first: a name beats a description, a description beats a body.
+
+```json
+{ "content": [
+    { "tipo": "ELEMENTO", "procesoId": 12, "proceso": "Order fulfillment", "titulo": "Pack the order",
+      "bpmnId": "Activity_0b3k9xq", "tipoDeElemento": "ACTIVIDAD", "version": null, "documentoId": null,
+      "comentarioId": null, "hiloId": null,
+      "fragmento": [ { "texto": "Use ", "resaltado": false }, { "texto": "reinforced", "resaltado": true },
+                     { "texto": " tape on large boxes", "resaltado": false } ] } ],
+  "page": 0, "size": 20, "totalElements": 1, "totalPages": 1 }
+```
+
+`titulo` is the process, element or file name, or the author of a comment. `version` is set for an element of the
+published version, or for a thread on one; an element that is the same in the draft and in the published version is
+one hit, the draft's. A document carries its `documentoId` and the `bpmnId` of the element it is attached to; a
+comment its `comentarioId`, its thread (`hiloId`) and the thread's `bpmnId` and `version`. The text of a file is
+searchable once the antivirus clears it and the job queue reads it, a few seconds after the upload; until then, and
+for a file that cannot be read, only its name is. `fragmento` is plain text in segments: show each one as text and
+mark the highlighted ones, never as HTML ([ADR-0070](adr/0070-full-text-search.md)).
+
+```bash
+curl -s "http://localhost:8080/api/v1/busqueda?q=%22reinforced%20tape%22%20-pallet&tipo=ELEMENTO" -b sesion.txt
 ```
 
 ## Permissions
