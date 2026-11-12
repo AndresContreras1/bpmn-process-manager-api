@@ -409,7 +409,7 @@ class SesionServiceTest {
         assertThat(service.cerradasEnLosUltimos(Duration.ofMinutes(15))).containsExactly("c1");
 
         LocalDateTime esperado = LocalDateTime.now().minusMinutes(15);
-        assertThat(Duration.between(desde.getValue(), esperado)).isBetween(Duration.ZERO, Duration.ofSeconds(5));
+        assertThat(desde.getValue()).isBetween(esperado.minusSeconds(5), esperado);
     }
 
     private static Instant instante(LocalDateTime fecha) {

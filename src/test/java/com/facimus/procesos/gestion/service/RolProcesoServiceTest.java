@@ -199,9 +199,9 @@ class RolProcesoServiceTest {
         when(rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, 1L)).thenReturn(Optional.of(rol));
         when(rolProcesoRepository.existsByEmpresaIdAndNombreIgnoreCaseAndActivoTrueAndIdNot(1L, "Bodega", 5L))
                 .thenReturn(true);
+        Long version = rol.getVersion();
 
-        assertThrows(ReglaNegocioException.class,
-                () -> rolProcesoService.editar(1L, 10L, 5L, "Bodega", null, rol.getVersion()));
+        assertThrows(ReglaNegocioException.class, () -> rolProcesoService.editar(1L, 10L, 5L, "Bodega", null, version));
         ReflectionTestUtils.setField(rol, "version", 3L);
         assertThrows(ConflictoDeVersionException.class,
                 () -> rolProcesoService.editar(1L, 10L, 5L, "Otro", null, 2L));

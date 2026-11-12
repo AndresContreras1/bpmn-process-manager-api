@@ -53,7 +53,7 @@ class BitacoraServiceTest {
     private BitacoraServiceImpl bitacora;
 
     @BeforeEach
-    void laTablaEnMemoria() throws SQLException {
+    void laTablaEnMemoria() {
         bitacora = new BitacoraServiceImpl(jdbc, JsonMapper.builder().build());
         doAnswer(invocacion -> {
             Object[] fila = valores(invocacion.getArguments());
@@ -108,15 +108,15 @@ class BitacoraServiceTest {
         assertThat(tabla).hasSize(2);
         Map<String, Object> primero = tabla.get(0);
         Map<String, Object> segundo = tabla.get(1);
-        assertThat(primero.get("secuencia")).isEqualTo(1L);
-        assertThat(primero.get("hash_anterior")).isEqualTo(GENESIS);
-        assertThat(primero.get("detalle")).isEqualTo("{\"a\":1,\"b\":2}");
-        assertThat(primero.get("actor_tipo")).isEqualTo("USUARIO");
-        assertThat(primero.get("empresa_id")).isEqualTo(EMPRESA);
+        assertThat(primero).containsEntry("secuencia", 1L)
+                .containsEntry("hash_anterior", GENESIS)
+                .containsEntry("detalle", "{\"a\":1,\"b\":2}")
+                .containsEntry("actor_tipo", "USUARIO")
+                .containsEntry("empresa_id", EMPRESA);
         assertThat((String) primero.get("hash")).hasSize(64).isNotEqualTo(GENESIS);
-        assertThat(segundo.get("secuencia")).isEqualTo(2L);
-        assertThat(segundo.get("hash_anterior")).isEqualTo(primero.get("hash"));
-        assertThat(segundo.get("hash")).isNotEqualTo(primero.get("hash"));
+        assertThat(segundo).containsEntry("secuencia", 2L)
+                .containsEntry("hash_anterior", primero.get("hash"))
+                .doesNotContainEntry("hash", primero.get("hash"));
         assertThat(candados.get(0)).isEqualTo(List.of(31, 7));
         assertThat(candados.get(1)).isEqualTo(ContextoDeTienda.Alcance.deLaTienda(EMPRESA));
     }

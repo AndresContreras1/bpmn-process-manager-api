@@ -11,7 +11,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -147,7 +146,7 @@ class IdentidadExternaServiceTest {
         assertThat(vinculo.getProveedor()).isEqualTo("microsoft");
         assertThat(vinculo.getSujeto()).isEqualTo("sub-2");
         assertThat(vinculo.getEmail()).isEqualTo("ana@acme.com");
-        assertThat(Duration.between(vinculo.getCreadoEn(), vinculo.getVenceEn())).isEqualTo(Duration.ofMinutes(10));
+        assertThat(vinculo.getVenceEn()).isEqualTo(vinculo.getCreadoEn().plusMinutes(10));
         verify(identidadRepository, never()).save(any());
     }
 

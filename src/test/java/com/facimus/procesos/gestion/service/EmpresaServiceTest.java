@@ -221,7 +221,7 @@ class EmpresaServiceTest {
 
         ArgumentCaptor<LocalDateTime> ahora = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(borradoDeTiendas).borrar(eq(3L), ahora.capture());
-        verify(borradoDeTiendas).borrar(eq(4L), eq(ahora.getValue()));
+        verify(borradoDeTiendas).borrar(4L, ahora.getValue());
         assertEquals(ahora.getValue().minusDays(30), limite.getValue());
     }
 

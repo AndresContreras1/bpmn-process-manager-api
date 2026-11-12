@@ -217,13 +217,13 @@ class SimulacionDeBorradoTest {
                 new MapaDelDiagrama(SimulacionDeBorrado.sinElElemento(antes, lane)), lane, hallazgos);
 
         List<HallazgoDiagnosticoResponse> avisos = hallazgos.ordenados();
-        assertThat(avisos).allMatch(aviso -> "A-06".equals(aviso.codigo()));
-        assertThat(avisos).extracting(HallazgoDiagnosticoResponse::elementoId)
+        assertThat(avisos).hasSize(8)
+                .allMatch(aviso -> "A-06".equals(aviso.codigo()))
+                .anyMatch(aviso -> aviso.problema().endsWith("tambien se va el nodo."))
+                .anyMatch(aviso -> aviso.problema().endsWith("tambien se va el flujo."))
+                .extracting(HallazgoDiagnosticoResponse::elementoId)
                 .doesNotContain(armado.id(ALMACEN))
                 .contains(armado.id("Pick and pack items"), armado.id("Order shipped"));
-        assertThat(avisos).hasSize(8);
-        assertThat(avisos).anyMatch(aviso -> aviso.problema().endsWith("tambien se va el nodo."));
-        assertThat(avisos).anyMatch(aviso -> aviso.problema().endsWith("tambien se va el flujo."));
     }
 
     @Test

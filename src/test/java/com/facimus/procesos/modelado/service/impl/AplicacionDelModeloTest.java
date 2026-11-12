@@ -253,7 +253,7 @@ class AplicacionDelModeloTest {
         cobrar = actividad(22L, COBRAR, "Charge order", TipoActividad.SERVICIO, laneVentas, 200, 40);
         cobrar.setDescripcion("Charges the card");
         aprobado = gateway(23L, APROBADO, "Approved?", TipoGateway.EXCLUSIVO, laneVentas, 350, 45);
-        // Mas arriba que todo Ventas: si contara para el marco, todo Ventas se moveria
+        // Mas arriba que el resto de Ventas: si contara para el marco, la lane Ventas entera se moveria
         plazo = evento(24L, PLAZO, "One hour", TipoEvento.TEMPORIZADOR_BORDE, laneVentas, 230, 30);
         plazo.setAdjuntoA(cobrar);
         plazo.setTipoTemporizador(TipoTemporizador.DURACION);
@@ -650,20 +650,9 @@ class AplicacionDelModeloTest {
     // ---------- Nodos ----------
 
     @Test
-    @DisplayName("Los nodos nuevos se crean con lo del archivo, en la x del dibujo y la y de su lane")
-    void nodosNuevos_seCreanEnElMarcoDeSuLane() {
-        preparar();
-        guardaConId(actividadRepository, Actividad.class, Actividad::setId);
-        guardaConId(gatewayRepository, Gateway.class, Gateway::setId);
-        guardaConId(eventoRepository, Evento.class, Evento::setId);
-        nodoPlan(NodoPlan.actividad("Activity_Avisar", VENTAS, TipoActividad.ENVIO, "Notify customer", 150, 60))
-                .descripcion = "Sends an email";
-        nodoPlan(NodoPlan.gateway("Gateway_Juntar", ALMACEN, TipoGateway.PARALELO, "Join", 10, 5));
-        NodoPlan espera = nodoPlan(NodoPlan.evento("Event_Espera", ALMACEN, TipoEvento.TEMPORIZADOR_INTERMEDIO,
-                "Wait a day", 20, 7));
-        espera.tipoTemporizador = TipoTemporizador.DURACION;
-        espera.temporizador = "P1D";
-        espera.interrumpe = false;
+    @DisplayName("Una actividad nueva se crea con lo del archivo, en la x del dibujo y la y de su lane")
+    void nodosNuevos_laActividadSeCreaEnElMarcoDeSuLane() {
+        tresNodosNuevos();
 
         assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(3, 0, 0));
         ArgumentCaptor<Actividad> actividad = ArgumentCaptor.forClass(Actividad.class);
@@ -678,6 +667,15 @@ class AplicacionDelModeloTest {
         assertThat(avisar.getPosicionX()).isEqualTo(250);
         assertThat(avisar.getPosicionY()).isEqualTo(100);
         assertThat(avisar.getProcesoLlamado()).isNull();
+        verifyNoInteractions(procesoRepository);
+    }
+
+    @Test
+    @DisplayName("Un gateway nuevo se crea con lo del archivo, en la x del dibujo y la y de su lane")
+    void nodosNuevos_elGatewaySeCreaEnElMarcoDeSuLane() {
+        tresNodosNuevos();
+
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(3, 0, 0));
         ArgumentCaptor<Gateway> gateway = ArgumentCaptor.forClass(Gateway.class);
         verify(gatewayRepository).save(gateway.capture());
         Gateway juntar = gateway.getValue();
@@ -688,6 +686,14 @@ class AplicacionDelModeloTest {
         assertThat(juntar.getLane()).isSameAs(laneAlmacen);
         assertThat(juntar.getPosicionX()).isEqualTo(110);
         assertThat(juntar.getPosicionY()).isEqualTo(305);
+    }
+
+    @Test
+    @DisplayName("Un evento nuevo se crea con lo del archivo y su temporizador, en la x del dibujo y la y de su lane")
+    void nodosNuevos_elEventoSeCreaEnElMarcoDeSuLane() {
+        tresNodosNuevos();
+
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(3, 0, 0));
         ArgumentCaptor<Evento> evento = ArgumentCaptor.forClass(Evento.class);
         verify(eventoRepository).save(evento.capture());
         Evento laEspera = evento.getValue();
@@ -1230,12 +1236,28 @@ class AplicacionDelModeloTest {
 
     // ---------- Ayudas ----------
 
-    /** Todo lo que lee la aplicacion, mas los roles de la tienda y las correlaciones de sus mensajes. */
+    /** Cada cosa que lee la aplicacion, mas los roles de la tienda y las correlaciones de sus mensajes. */
     private void preparar() {
         borrador();
         rolesDeLaTienda();
         given(correlacionRepository.findByMensajeIdAndEmpresaId(anyLong(), eq(EMPRESA_ID)))
                 .willAnswer(llamada -> Optional.ofNullable(correlaciones.get(llamada.<Long>getArgument(0))));
+    }
+
+    /** Tres nodos nuevos en el archivo: una actividad en Ventas, y un gateway y un evento en Almacen. */
+    private void tresNodosNuevos() {
+        preparar();
+        guardaConId(actividadRepository, Actividad.class, Actividad::setId);
+        guardaConId(gatewayRepository, Gateway.class, Gateway::setId);
+        guardaConId(eventoRepository, Evento.class, Evento::setId);
+        nodoPlan(NodoPlan.actividad("Activity_Avisar", VENTAS, TipoActividad.ENVIO, "Notify customer", 150, 60))
+                .descripcion = "Sends an email";
+        nodoPlan(NodoPlan.gateway("Gateway_Juntar", ALMACEN, TipoGateway.PARALELO, "Join", 10, 5));
+        NodoPlan espera = nodoPlan(NodoPlan.evento("Event_Espera", ALMACEN, TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                "Wait a day", 20, 7));
+        espera.tipoTemporizador = TipoTemporizador.DURACION;
+        espera.temporizador = "P1D";
+        espera.interrumpe = false;
     }
 
     /** El borrador tal como lo devuelven los repositorios. */

@@ -236,16 +236,19 @@ class SegundoFactorServiceTest {
     @Test
     @DisplayName("No se confirma sin factor pendiente, ni uno ya confirmado, ni con un codigo que no es el de ahora")
     void confirmarRechazos() {
+        String codigoDeAhora = codigoDe(Totp.paso(AHORA));
+        String codigoDeOtroPaso = codigoDe(Totp.paso(AHORA) + 5);
+
         assertThatThrownBy(() -> service.confirmar(EMPRESA, USUARIO, "123456"))
                 .isInstanceOf(ReglaNegocioException.class);
         when(segundoFactorRepository.findByUsuarioIdAndEmpresaId(USUARIO, EMPRESA))
                 .thenReturn(Optional.of(factor(LocalDateTime.now(), 0)));
-        assertThatThrownBy(() -> service.confirmar(EMPRESA, USUARIO, codigoDe(Totp.paso(AHORA))))
+        assertThatThrownBy(() -> service.confirmar(EMPRESA, USUARIO, codigoDeAhora))
                 .isInstanceOf(ReglaNegocioException.class);
 
         SegundoFactor pendiente = factor(null, 0);
         when(segundoFactorRepository.findByUsuarioIdAndEmpresaId(USUARIO, EMPRESA)).thenReturn(Optional.of(pendiente));
-        assertThatThrownBy(() -> service.confirmar(EMPRESA, USUARIO, codigoDe(Totp.paso(AHORA) + 5)))
+        assertThatThrownBy(() -> service.confirmar(EMPRESA, USUARIO, codigoDeOtroPaso))
                 .isInstanceOf(SolicitudInvalidaException.class);
         assertThat(pendiente.estaConfirmado()).isFalse();
         verify(auditoria, never()).registrar(any(), any(), anyString(), anyString(), any(), any());

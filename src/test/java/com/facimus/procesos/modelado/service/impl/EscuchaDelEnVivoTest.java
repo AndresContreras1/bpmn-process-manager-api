@@ -18,7 +18,9 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.Properties;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -151,14 +153,10 @@ class EscuchaDelEnVivoTest {
         when(dos.getParameter()).thenReturn("aviso-2");
         // Sin registro de llamadas: el bucle pide avisos muchas veces
         PGConnection postgres = mock(PGConnection.class, withSettings().stubOnly().strictness(Strictness.LENIENT));
-        AtomicInteger pedidos = new AtomicInteger();
-        when(postgres.getNotifications(500)).thenAnswer(inv -> {
-            if (pedidos.getAndIncrement() == 0) {
-                return new PGNotification[] {uno, dos};
-            }
-            Thread.sleep(5);
-            return null;
-        });
+        // Como el driver, cada pedido espera un poco a que llegue un aviso y vuelve sin nada si no llega ninguno
+        BlockingQueue<PGNotification[]> pendientes = new LinkedBlockingQueue<>();
+        pendientes.add(new PGNotification[] {uno, dos});
+        when(postgres.getNotifications(500)).thenAnswer(inv -> pendientes.poll(5, TimeUnit.MILLISECONDS));
         when(conexion.createStatement()).thenReturn(sentencia);
         when(conexion.unwrap(PGConnection.class)).thenReturn(postgres);
         driver.conexion = conexion;

@@ -123,8 +123,10 @@ class CorreosDeCuentaTest {
         correos.ejecutar(trabajo(PropositoDeEnlace.RECUPERAR_CLAVE, 5L, "ana@acme.com", null, null, "es-CO"));
         correos.ejecutar(trabajo(PropositoDeEnlace.RECUPERAR_CLAVE, 5L, "ana@acme.com", null, null, "es-CO"));
 
-        assertThat(datos.getAllValues().get(0).get("enlace")).isNotEqualTo(datos.getAllValues().get(1).get("enlace"));
-        assertThat((String) datos.getAllValues().get(0).get("enlace"))
+        Map<String, Object> primero = datos.getAllValues().get(0);
+        Map<String, Object> segundo = datos.getAllValues().get(1);
+        assertThat(primero).doesNotContainEntry("enlace", segundo.get("enlace"));
+        assertThat((String) primero.get("enlace"))
                 .startsWith("https://app.example.com/es-CO/restablecer-clave#token=");
         verify(correo, times(2)).enviar(redactado);
     }

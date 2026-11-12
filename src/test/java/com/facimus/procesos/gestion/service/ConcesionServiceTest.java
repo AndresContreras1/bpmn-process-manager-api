@@ -91,9 +91,12 @@ class ConcesionServiceTest {
     @Test
     @DisplayName("Un proceso inactivo o una carpeta de otra tienda no tienen concesiones")
     void recursoQueNoEsDeLaTienda() {
-        assertThatThrownBy(() -> service.listar(EMPRESA, Recurso.proceso(10L)))
+        Recurso proceso = Recurso.proceso(10L);
+        Recurso carpeta = Recurso.carpeta(20L);
+
+        assertThatThrownBy(() -> service.listar(EMPRESA, proceso))
                 .isInstanceOf(RecursoNoEncontradoException.class).hasMessage("Proceso no encontrado.");
-        assertThatThrownBy(() -> service.listar(EMPRESA, Recurso.carpeta(20L)))
+        assertThatThrownBy(() -> service.listar(EMPRESA, carpeta))
                 .isInstanceOf(RecursoNoEncontradoException.class).hasMessage("Carpeta no encontrada.");
     }
 
@@ -146,9 +149,10 @@ class ConcesionServiceTest {
         when(usuarioRepository.existsByIdAndEmpresaId(any(), any())).thenReturn(true);
         when(concesionRepository.findAllByEmpresaIdAndProcesoIdOrderByIdAsc(EMPRESA, 10L))
                 .thenReturn(List.of(concesion(1L, 10L, null, SujetoConcesion.PERSONA, 5L, null, Accion.MODELAR)));
+        Recurso proceso = Recurso.proceso(10L);
 
-        assertThatThrownBy(() -> service.conceder(ADMIN, Recurso.proceso(10L), Accion.MODELAR,
-                SujetoConcesion.PERSONA, 5L, null)).isInstanceOf(ReglaNegocioException.class)
+        assertThatThrownBy(() -> service.conceder(ADMIN, proceso, Accion.MODELAR, SujetoConcesion.PERSONA, 5L, null))
+                .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("Esa concesión ya existe.");
         verify(concesionRepository, never()).save(any());
 

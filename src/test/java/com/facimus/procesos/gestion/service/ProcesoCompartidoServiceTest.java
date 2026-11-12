@@ -61,6 +61,8 @@ class ProcesoCompartidoServiceTest {
     private HistorialCambioService historialCambioService;
     @Mock
     private ProcesoCompartidoMapper procesoCompartidoMapper;
+    @Mock
+    private EmpresaInvitadaResponse invitada;
 
     @InjectMocks
     private ProcesoCompartidoServiceImpl service;
@@ -68,7 +70,6 @@ class ProcesoCompartidoServiceTest {
     private Proceso proceso;
     private Empresa beta;
     private Usuario autor;
-    private final EmpresaInvitadaResponse invitada = mock(EmpresaInvitadaResponse.class);
 
     @BeforeEach
     void setUp() {

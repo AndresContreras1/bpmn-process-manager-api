@@ -200,8 +200,9 @@ class CanalEnVivoTest {
         canal.registrar("a", EMPRESA, PROCESO, mock(SseEmitter.class));
 
         canal.cerrar();
+        String guardado = aviso(EMPRESA, PROCESO, "guardado", "{}");
 
-        assertThatThrownBy(() -> canal.recibir(aviso(EMPRESA, PROCESO, "guardado", "{}")))
+        assertThatThrownBy(() -> canal.recibir(guardado))
                 .isInstanceOf(RejectedExecutionException.class);
     }
 

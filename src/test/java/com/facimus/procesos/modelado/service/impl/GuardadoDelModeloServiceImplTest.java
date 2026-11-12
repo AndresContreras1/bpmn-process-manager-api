@@ -106,9 +106,10 @@ class GuardadoDelModeloServiceImplTest {
     @DisplayName("Guardar en un proceso que no existe no lee el archivo ni el borrador")
     void guardar_procesoQueNoExiste() {
         given(procesoRepository.bloquear(PROCESO_ID, EMPRESA_ID)).willReturn(Optional.empty());
+        ByteArrayInputStream archivo = entrada(XML_NUEVO);
 
-        assertThatThrownBy(() -> servicio.guardar(EMPRESA_ID, USUARIO_ID, RolAcceso.EDITOR, PROCESO_ID,
-                entrada(XML_NUEVO), null)).isInstanceOf(RecursoNoEncontradoException.class)
+        assertThatThrownBy(() -> servicio.guardar(EMPRESA_ID, USUARIO_ID, RolAcceso.EDITOR, PROCESO_ID, archivo, null))
+                .isInstanceOf(RecursoNoEncontradoException.class)
                 .hasMessage("Proceso no encontrado.");
         verifyNoInteractions(modeloBpmnService, importacionBpmnService);
     }
@@ -122,14 +123,15 @@ class GuardadoDelModeloServiceImplTest {
                 .mapToObj(id -> new HistorialCambioResponse(id, LocalDateTime.now(), "Cambio " + id, "Ana", null, null))
                 .toList();
         given(historialCambioService.listarPorProceso(EMPRESA_ID, PROCESO_ID)).willReturn(historial);
+        ByteArrayInputStream archivo = entrada(XML_NUEVO);
 
-        assertThatThrownBy(() -> servicio.guardar(EMPRESA_ID, USUARIO_ID, RolAcceso.EDITOR, PROCESO_ID,
-                entrada(XML_NUEVO), "\"otra-huella\"")).isInstanceOf(PrecondicionFallidaException.class)
+        assertThatThrownBy(() -> servicio.guardar(EMPRESA_ID, USUARIO_ID, RolAcceso.EDITOR, PROCESO_ID, archivo,
+                "\"otra-huella\"")).isInstanceOf(PrecondicionFallidaException.class)
                 .hasMessage("El borrador cambió desde que lo leíste.")
                 .satisfies(error -> {
                     Map<String, Object> detalle = ((PrecondicionFallidaException) error).getDetalle();
-                    assertThat(detalle).containsEntry("huellaActual", Huella.de(XML_ACTUAL));
-                    assertThat(detalle.get("ultimosCambios")).isEqualTo(historial.subList(0, 10));
+                    assertThat(detalle).containsEntry("huellaActual", Huella.de(XML_ACTUAL))
+                            .containsEntry("ultimosCambios", historial.subList(0, 10));
                 });
         verifyNoInteractions(importacionBpmnService);
     }

@@ -121,8 +121,9 @@ class ArtefactoServiceTest {
     void crear_procesoAjeno_lanzaNoEncontrado() {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(PROCESO, EMPRESA)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO,
-                datos(TipoArtefacto.ANOTACION, "Nota", null, null)))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.ANOTACION, "Nota", null, null);
+
+        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO, pedido))
                 .isInstanceOf(RecursoNoEncontradoException.class)
                 .hasMessage("Proceso no encontrado.");
         verify(artefactoRepository, never()).save(any());
@@ -250,8 +251,9 @@ class ArtefactoServiceTest {
         procesoActivo();
         when(laneRepository.findByIdAndEmpresaId(8L, EMPRESA)).thenReturn(Optional.of(laneAjena));
 
-        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO,
-                datos(TipoArtefacto.ANOTACION, "Nota", null, 8L)))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.ANOTACION, "Nota", null, 8L);
+
+        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO, pedido))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("La lane no es de este proceso.");
         verify(artefactoRepository, never()).save(any());
@@ -263,8 +265,9 @@ class ArtefactoServiceTest {
         procesoActivo();
         when(laneRepository.findByIdAndEmpresaId(9L, EMPRESA)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO,
-                datos(TipoArtefacto.ANOTACION, "Nota", null, 9L)))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.ANOTACION, "Nota", null, 9L);
+
+        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO, pedido))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("La lane no es de este proceso.");
     }
@@ -275,8 +278,9 @@ class ArtefactoServiceTest {
         procesoActivo();
         when(laneRepository.findByIdAndEmpresaId(7L, EMPRESA)).thenReturn(Optional.of(lane));
 
-        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO,
-                datos(TipoArtefacto.ANOTACION, "Nota", 6L, 7L)))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.ANOTACION, "Nota", 6L, 7L);
+
+        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO, pedido))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("La lane no es del pool indicado.");
         verify(artefactoRepository, never()).save(any());
@@ -305,8 +309,9 @@ class ArtefactoServiceTest {
         procesoActivo();
         when(poolRepository.findByIdAndEmpresaId(6L, EMPRESA)).thenReturn(Optional.of(poolAjeno));
 
-        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO,
-                datos(TipoArtefacto.ANOTACION, "Nota", 6L, null)))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.ANOTACION, "Nota", 6L, null);
+
+        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO, pedido))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("El pool no es de este proceso.");
         verify(artefactoRepository, never()).save(any());
@@ -317,8 +322,9 @@ class ArtefactoServiceTest {
     void crear_objetoDeDatosSuelto_lanzaReglaNegocio() {
         procesoActivo();
 
-        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO,
-                datos(TipoArtefacto.OBJETO_DATOS, "Invoice", null, null)))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.OBJETO_DATOS, "Invoice", null, null);
+
+        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO, pedido))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("Un objeto de datos o un almacen va en un pool modelado por dentro: es un dato de su "
                         + "proceso.");
@@ -332,8 +338,9 @@ class ArtefactoServiceTest {
         procesoActivo();
         when(poolRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(pool));
 
-        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO,
-                datos(TipoArtefacto.ALMACEN_DATOS, "Orders", 5L, null)))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.ALMACEN_DATOS, "Orders", 5L, null);
+
+        assertThatThrownBy(() -> artefactoService.crear(EMPRESA, AUTOR, PROCESO, pedido))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageStartingWith("Un objeto de datos o un almacen va en un pool modelado por dentro");
         verify(artefactoRepository, never()).save(any());
@@ -360,8 +367,9 @@ class ArtefactoServiceTest {
         Artefacto artefacto = artefacto(TipoArtefacto.ANOTACION, "Nota");
         when(artefactoRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(artefacto));
 
-        assertThatThrownBy(() -> artefactoService.editar(EMPRESA, AUTOR, 40L,
-                datos(TipoArtefacto.ANOTACION, "Otra", null, null), 2L))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.ANOTACION, "Otra", null, null);
+
+        assertThatThrownBy(() -> artefactoService.editar(EMPRESA, AUTOR, 40L, pedido, 2L))
                 .isInstanceOf(ConflictoDeVersionException.class);
         assertThat(artefacto.getTexto()).isEqualTo("Nota");
         verify(artefactoRepository, never()).saveAndFlush(any());
@@ -373,8 +381,9 @@ class ArtefactoServiceTest {
     void editar_inexistente_lanzaNoEncontrado() {
         when(artefactoRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> artefactoService.editar(EMPRESA, AUTOR, 40L,
-                datos(TipoArtefacto.ANOTACION, "Otra", null, null), 3L))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.ANOTACION, "Otra", null, null);
+
+        assertThatThrownBy(() -> artefactoService.editar(EMPRESA, AUTOR, 40L, pedido, 3L))
                 .isInstanceOf(RecursoNoEncontradoException.class)
                 .hasMessage("Artefacto no encontrado.");
     }
@@ -386,8 +395,9 @@ class ArtefactoServiceTest {
         artefacto.setPool(pool);
         when(artefactoRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(artefacto));
 
-        assertThatThrownBy(() -> artefactoService.editar(EMPRESA, AUTOR, 40L,
-                datos(TipoArtefacto.ANOTACION, "Invoice", null, null), 3L))
+        DatosDeArtefacto pedido = datos(TipoArtefacto.ANOTACION, "Invoice", null, null);
+
+        assertThatThrownBy(() -> artefactoService.editar(EMPRESA, AUTOR, 40L, pedido, 3L))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageStartingWith("Un objeto de datos o un almacen");
         verify(artefactoRepository, never()).saveAndFlush(any());

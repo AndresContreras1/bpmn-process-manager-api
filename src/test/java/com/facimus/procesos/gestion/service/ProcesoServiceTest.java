@@ -306,13 +306,15 @@ class ProcesoServiceTest {
     void editarFicha_carpetaODuenoAjenos() {
         conProcesoYAutor();
         when(carpetaRepository.existsByIdAndEmpresaId(2L, 1L)).thenReturn(false);
+        DatosDeFicha conCarpetaAjena = ficha(2L, null);
+        DatosDeFicha conDuenoAjeno = ficha(null, 20L);
 
         RecursoNoEncontradoException sinCarpeta = assertThrows(RecursoNoEncontradoException.class,
-                () -> procesoService.editarFicha(1L, 100L, 10L, ficha(2L, null)));
+                () -> procesoService.editarFicha(1L, 100L, 10L, conCarpetaAjena));
         assertEquals("Carpeta no encontrada.", sinCarpeta.getMessage());
 
         RecursoNoEncontradoException sinDueno = assertThrows(RecursoNoEncontradoException.class,
-                () -> procesoService.editarFicha(1L, 100L, 10L, ficha(null, 20L)));
+                () -> procesoService.editarFicha(1L, 100L, 10L, conDuenoAjeno));
         assertEquals("Usuario no encontrado.", sinDueno.getMessage());
         assertNull(proceso.getDuenoId());
         verify(procesoRepository, never()).saveAndFlush(any());
@@ -368,9 +370,9 @@ class ProcesoServiceTest {
     void editarFicha_versionVieja() {
         ReflectionTestUtils.setField(proceso, "version", 3L);
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 1L)).thenReturn(Optional.of(proceso));
+        DatosDeFicha vieja = new DatosDeFicha(null, null, null, null, List.of(), 2L);
 
-        assertThrows(ConflictoDeVersionException.class, () -> procesoService.editarFicha(1L, 100L, 10L,
-                new DatosDeFicha(null, null, null, null, List.of(), 2L)));
+        assertThrows(ConflictoDeVersionException.class, () -> procesoService.editarFicha(1L, 100L, 10L, vieja));
     }
 
     @Test
@@ -462,9 +464,10 @@ class ProcesoServiceTest {
     void editarDatos_nombreOcupado() {
         conProcesoYAutor();
         when(procesoRepository.existsByEmpresaIdAndNombreIgnoreCaseAndActivoTrue(1L, "Ventas")).thenReturn(true);
+        Long version = proceso.getVersion();
 
         assertThrows(ReglaNegocioException.class,
-                () -> procesoService.editarDatos(1L, 100L, 10L, "Ventas", null, null, proceso.getVersion()));
+                () -> procesoService.editarDatos(1L, 100L, 10L, "Ventas", null, null, version));
         assertEquals("Compras", proceso.getNombre());
         verify(procesoRepository, never()).saveAndFlush(any());
     }

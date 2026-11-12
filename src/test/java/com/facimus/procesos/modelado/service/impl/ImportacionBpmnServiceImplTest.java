@@ -177,9 +177,10 @@ class ImportacionBpmnServiceImplTest {
     @DisplayName("Reemplazar el modelo de un proceso que no existe no lee ni aplica nada")
     void reemplazar_procesoQueNoExiste() {
         given(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(PROCESO_ID, EMPRESA_ID)).willReturn(Optional.empty());
+        ByteArrayInputStream archivo = entrada(ARCHIVO);
 
         assertThatThrownBy(() -> servicio.reemplazar(EMPRESA_ID, USUARIO_ID, RolAcceso.ADMINISTRADOR, PROCESO_ID,
-                entrada(ARCHIVO))).isInstanceOf(RecursoNoEncontradoException.class)
+                archivo)).isInstanceOf(RecursoNoEncontradoException.class)
                 .hasMessage("Proceso no encontrado.");
         verifyNoInteractions(aplicacion, importacionRepository, auditoria);
     }
@@ -250,9 +251,10 @@ class ImportacionBpmnServiceImplTest {
     @DisplayName("Autoguardar en un proceso que no existe no aplica nada")
     void autoguardar_procesoQueNoExiste() {
         given(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(PROCESO_ID, EMPRESA_ID)).willReturn(Optional.empty());
+        ByteArrayInputStream archivo = entrada(ARCHIVO);
 
-        assertThatThrownBy(() -> servicio.autoguardar(EMPRESA_ID, USUARIO_ID, RolAcceso.EDITOR, PROCESO_ID,
-                entrada(ARCHIVO))).isInstanceOf(RecursoNoEncontradoException.class)
+        assertThatThrownBy(() -> servicio.autoguardar(EMPRESA_ID, USUARIO_ID, RolAcceso.EDITOR, PROCESO_ID, archivo))
+                .isInstanceOf(RecursoNoEncontradoException.class)
                 .hasMessage("Proceso no encontrado.");
         verifyNoInteractions(aplicacion);
     }

@@ -86,8 +86,10 @@ class MensajeriaServiceTest {
     @Mock
     private MensajeriaMapper mensajeriaMapper;
 
+    @Mock
+    private MensajeEntranteResponse respuesta;
+
     private final JsonMapper json = JsonMapper.builder().build();
-    private final MensajeEntranteResponse respuesta = mock(MensajeEntranteResponse.class);
     private MensajeriaServiceImpl service;
     private VersionProceso version;
     private Proceso proceso;
@@ -120,10 +122,13 @@ class MensajeriaServiceTest {
     @Test
     @DisplayName("Sin clave externa no se busca repetido; sin version vigente el mensaje no entra")
     void sinClaveExternaNiVersion() {
-        assertThatThrownBy(() -> service.recibir(TIENDA, PROCESO, datos("Order placed", "ORD-1", "  ")))
+        DatosDelEntrante conClaveEnBlanco = datos("Order placed", "ORD-1", "  ");
+        DatosDelEntrante sinClave = datos("Order placed", "ORD-1", null);
+
+        assertThatThrownBy(() -> service.recibir(TIENDA, PROCESO, conClaveEnBlanco))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("El proceso no tiene una versión publicada vigente.");
-        assertThatThrownBy(() -> service.recibir(TIENDA, PROCESO, datos("Order placed", "ORD-1", null)))
+        assertThatThrownBy(() -> service.recibir(TIENDA, PROCESO, sinClave))
                 .isInstanceOf(ReglaNegocioException.class);
         verify(mensajeEntranteRepository, never()).findByEmpresaIdAndClaveExterna(anyLong(), anyString());
     }
@@ -132,12 +137,14 @@ class MensajeriaServiceTest {
     @DisplayName("Un mensaje que la version no recibe, o que la tienda manda, no entra")
     void mensajeQueNoSeRecibe() {
         conGrafo();
+        DatosDelEntrante queNoRecibe = datos("Refund", "ORD-1", null);
+        DatosDelEntrante queMandaLaTienda = datos("Payment authorization request", "ORD-1", null);
 
-        assertThatThrownBy(() -> service.recibir(TIENDA, PROCESO, datos("Refund", "ORD-1", null)))
+        assertThatThrownBy(() -> service.recibir(TIENDA, PROCESO, queNoRecibe))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessage("La versión publicada del proceso no recibe ningún mensaje llamado \"Refund\".");
-        assertThatThrownBy(() -> service.recibir(TIENDA, PROCESO,
-                datos("Payment authorization request", "ORD-1", null))).isInstanceOf(ReglaNegocioException.class);
+        assertThatThrownBy(() -> service.recibir(TIENDA, PROCESO, queMandaLaTienda))
+                .isInstanceOf(ReglaNegocioException.class);
         verify(correlacionador, never()).correlacionar(any(), any(), any(), any(), any());
     }
 

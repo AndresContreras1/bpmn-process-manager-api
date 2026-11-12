@@ -459,9 +459,10 @@ class UsuarioServiceTest {
     @DisplayName("Nadie se desactiva a si mismo, ni con PATCH ni con DELETE")
     void desactivarse_aSiMismo_lanzaReglaNegocio() {
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        Long version = usuario.getVersion();
 
         ReglaNegocioException conPatch = assertThrows(ReglaNegocioException.class,
-                () -> usuarioService.actualizar(1L, 10L, 10L, null, null, false, usuario.getVersion()));
+                () -> usuarioService.actualizar(1L, 10L, 10L, null, null, false, version));
         assertEquals("No puede desactivar su propia cuenta.", conPatch.getMessage());
         assertThrows(ReglaNegocioException.class, () -> usuarioService.desactivar(1L, 10L, 10L));
 
@@ -476,9 +477,10 @@ class UsuarioServiceTest {
         usuario.setRolAcceso(RolAcceso.ADMINISTRADOR);
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.countByEmpresaIdAndRolAccesoAndActivoTrue(1L, RolAcceso.ADMINISTRADOR)).thenReturn(1L);
+        Long version = usuario.getVersion();
 
         assertThrows(ReglaNegocioException.class,
-                () -> usuarioService.actualizar(1L, AUTOR, 10L, null, RolAcceso.EDITOR, null, usuario.getVersion()));
+                () -> usuarioService.actualizar(1L, AUTOR, 10L, null, RolAcceso.EDITOR, null, version));
         assertEquals(RolAcceso.ADMINISTRADOR, usuario.getRolAcceso());
 
         when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
@@ -524,10 +526,11 @@ class UsuarioServiceTest {
     void anonimizada_noSeEdita() {
         usuario.setAnonimizadoEn(LocalDateTime.now());
         when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        Long version = usuario.getVersion();
 
         assertThrows(ReglaNegocioException.class, () -> usuarioService.restablecerClave(1L, AUTOR, 10L));
         assertThrows(ReglaNegocioException.class,
-                () -> usuarioService.actualizar(1L, AUTOR, 10L, "Otro", null, null, usuario.getVersion()));
+                () -> usuarioService.actualizar(1L, AUTOR, 10L, "Otro", null, null, version));
         verify(passwordEncoder, never()).encode(anyString());
         verify(usuarioRepository, never()).saveAndFlush(any());
     }
