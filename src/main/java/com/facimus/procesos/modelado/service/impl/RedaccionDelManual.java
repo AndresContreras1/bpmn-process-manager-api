@@ -25,7 +25,8 @@ import com.openhtmltopdf.svgsupport.BatikSVGDrawer;
  * PR 62: del contenido de un manual a sus dos archivos. El HTML sale de una plantilla Thymeleaf con los textos en el
  * idioma de quien lo pidio; lo que viene de la documentacion y el dibujo ya estan saneados, y la plantilla no lleva
  * nada que se cargue de afuera. El PDF es ese mismo HTML impreso por openhtmltopdf, con el SVG dibujado por Batik, y
- * sin dejarle buscar ningun recurso: lo que no esta en el HTML no existe.
+ * sin dejarle buscar ningun recurso: lo que no esta en el HTML no existe. Tampoco las fuentes del equipo: ver
+ * {@link FuentesFijas}.
  */
 @Component
 public class RedaccionDelManual {
@@ -33,6 +34,7 @@ public class RedaccionDelManual {
     private final TemplateEngine plantillas;
 
     public RedaccionDelManual() {
+        FuentesFijas.instalar();
         ClassLoaderTemplateResolver resolutor = new ClassLoaderTemplateResolver();
         resolutor.setPrefix("manuales/");
         resolutor.setSuffix(".html");

@@ -25,7 +25,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
@@ -102,6 +104,8 @@ public class ManualServiceImpl implements ManualService {
     private final ArchivosTemporales temporales;
     private final JsonMapper json;
     private final Clock reloj;
+    private final TransactionTemplate lectura;
+    private final TransactionTemplate escritura;
     private final Duration vidaDelEnlace;
 
     @SuppressWarnings("java:S107")
@@ -110,7 +114,7 @@ public class ManualServiceImpl implements ManualService {
             DocumentacionService documentacionService, DocumentoService documentoService,
             PreferenciasService preferenciasService, RedaccionDelManual redaccion, ColaDeTrabajos cola,
             Almacen almacen, EnlacesFirmados enlaces, ArchivosTemporales temporales, JsonMapper json, Clock reloj,
-            @Value("${documentos.enlace.vida:5m}") Duration vidaDelEnlace) {
+            PlatformTransactionManager transacciones, @Value("${documentos.enlace.vida:5m}") Duration vidaDelEnlace) {
         this.manualRepository = manualRepository;
         this.procesoRepository = procesoRepository;
         this.documentacionRepository = documentacionRepository;
@@ -125,6 +129,9 @@ public class ManualServiceImpl implements ManualService {
         this.temporales = temporales;
         this.json = json;
         this.reloj = reloj;
+        this.lectura = new TransactionTemplate(transacciones);
+        this.lectura.setReadOnly(true);
+        this.escritura = new TransactionTemplate(transacciones);
         this.vidaDelEnlace = vidaDelEnlace;
     }
 
@@ -197,49 +204,84 @@ public class ManualServiceImpl implements ManualService {
             String nombre = archivo(manual.getProceso().getNombre(), manual.getVersionNumero(), cual);
             String clave = PDF.equals(cual) ? manual.getClavePdf() : manual.getClaveHtml();
             String tipo = PDF.equals(cual) ? MIME_PDF : "text/html;charset=UTF-8";
-            byte[] contenido;
-            try (InputStream entrada = almacen.abrir(clave)) {
-                contenido = entrada.readAllBytes();
-            } catch (IOException e) {
-                throw new UncheckedIOException("No se pudo leer " + clave, e);
-            }
-            return new Descarga(nombre, tipo, contenido.length, new ByteArrayInputStream(contenido));
+            return descarga(nombre, tipo, clave);
         } finally {
             ContextoDeTienda.restaurar(anterior);
         }
     }
 
-    @Override
-    @Transactional
-    public void generar(Long empresaId, Long manualId) {
-        Optional<Manual> pendiente = manualRepository.findByIdAndEmpresaId(manualId, empresaId)
-                .filter(manual -> manual.getEstado() == EstadoManual.PENDIENTE);
-        if (pendiente.isEmpty()) {
-            return;
+    /** El archivo entero, leido del almacen: el manual no guarda su tamano y la descarga lo dice. */
+    private Descarga descarga(String nombre, String tipo, String clave) {
+        byte[] contenido;
+        try (InputStream entrada = almacen.abrir(clave)) {
+            contenido = entrada.readAllBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo leer " + clave, e);
         }
-        Manual manual = pendiente.get();
+        return new Descarga(nombre, tipo, contenido.length, new ByteArrayInputStream(contenido));
+    }
+
+    /**
+     * Armar es leer, imprimir y guardar, y anotar como quedo. Solo leer y anotar tocan la base, cada uno en su
+     * transaccion corta: imprimir puede tardar, y la base corta al minuto una transaccion abierta que no hace nada.
+     */
+    @Override
+    public void generar(Long empresaId, Long manualId) {
+        Optional<Pedido> pendiente = lectura.execute(estado -> manualRepository.findByIdAndEmpresaId(manualId,
+                empresaId).filter(manual -> manual.getEstado() == EstadoManual.PENDIENTE)
+                .map(manual -> new Pedido(manual.getProceso().getId(), manual.getVersionNumero(), manual.getIdioma())));
+        pendiente.ifPresent(pedido -> {
+            Resultado resultado = imprimir(empresaId, manualId, pedido);
+            escritura.executeWithoutResult(estado -> anotar(empresaId, manualId, resultado));
+        });
+    }
+
+    /** El manual en sus dos archivos, ya en el almacen; si algo no se puede armar, el motivo. */
+    private Resultado imprimir(Long empresaId, Long manualId, Pedido pedido) {
         try {
-            Contenido contenido = contenido(empresaId, manual);
-            String html = redaccion.html(contenido, manual.getIdioma());
+            Contenido contenido = lectura.execute(estado -> contenido(empresaId, pedido.procesoId(), pedido.version()));
+            String html = redaccion.html(contenido, pedido.idioma());
             byte[] pdf = redaccion.pdf(html);
-            manual.setClaveHtml(guardar(ClaveDeAlmacen.deManual(empresaId, manualId, HTML),
-                    html.getBytes(StandardCharsets.UTF_8), "text/html"));
-            manual.setClavePdf(guardar(ClaveDeAlmacen.deManual(empresaId, manualId, PDF), pdf, MIME_PDF));
-            manual.setEstado(EstadoManual.DISPONIBLE);
-            manual.setMotivo(null);
+            return Resultado.listo(guardar(ClaveDeAlmacen.deManual(empresaId, manualId, HTML),
+                    html.getBytes(StandardCharsets.UTF_8), "text/html"),
+                    guardar(ClaveDeAlmacen.deManual(empresaId, manualId, PDF), pdf, MIME_PDF));
         } catch (RuntimeException e) {
             log.warn("No se pudo armar el manual {} de la tienda {}", manualId, empresaId, e);
-            manual.setEstado(EstadoManual.FALLIDO);
-            String motivo = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-            manual.setMotivo(motivo.length() > 300 ? motivo.substring(0, 300) : motivo);
+            return Resultado.fallido(e);
         }
-        manual.setListoEn(ahora());
+    }
+
+    /** Anota como quedo, si sigue pendiente: lo que alguien ya anoto no se pisa. */
+    private void anotar(Long empresaId, Long manualId, Resultado resultado) {
+        manualRepository.findByIdAndEmpresaId(manualId, empresaId)
+                .filter(manual -> manual.getEstado() == EstadoManual.PENDIENTE).ifPresent(manual -> {
+                    manual.setEstado(resultado.motivo() == null ? EstadoManual.DISPONIBLE : EstadoManual.FALLIDO);
+                    manual.setClaveHtml(resultado.claveHtml());
+                    manual.setClavePdf(resultado.clavePdf());
+                    manual.setMotivo(resultado.motivo());
+                    manual.setListoEn(ahora());
+                });
+    }
+
+    /** Lo que hace falta saber de un manual pendiente para armarlo. */
+    private record Pedido(Long procesoId, int version, String idioma) {
+    }
+
+    /** Como quedo un manual: sus dos claves en el almacen, o el motivo por el que no se pudo armar. */
+    private record Resultado(String claveHtml, String clavePdf, String motivo) {
+
+        static Resultado listo(String claveHtml, String clavePdf) {
+            return new Resultado(claveHtml, clavePdf, null);
+        }
+
+        static Resultado fallido(RuntimeException e) {
+            String motivo = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            return new Resultado(null, null, motivo.length() > 300 ? motivo.substring(0, 300) : motivo);
+        }
     }
 
     /** Lo que el manual dice, en el orden en que se lee. */
-    private Contenido contenido(Long empresaId, Manual manual) {
-        Long procesoId = manual.getProceso().getId();
-        int numero = manual.getVersionNumero();
+    private Contenido contenido(Long empresaId, Long procesoId, int numero) {
         VersionResponse version = versionService.obtener(empresaId, procesoId, numero);
         DiagramaResponse diagrama = json.readValue(versionService.definicion(empresaId, procesoId, numero),
                 DiagramaResponse.class);

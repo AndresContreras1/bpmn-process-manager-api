@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +29,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
@@ -115,6 +120,8 @@ class ManualServiceImplTest {
 
     private final Clock reloj = Clock.fixed(AHORA, ZoneOffset.UTC);
     private final EnlacesFirmados enlaces = new EnlacesFirmados("secreto-de-las-pruebas-de-manuales", reloj);
+    private final Transacciones transacciones = new Transacciones();
+    private final List<Integer> abiertasAlImprimir = new ArrayList<>();
     private AlmacenEnDisco almacen;
     private ManualServiceImpl servicio;
     private Proceso proceso;
@@ -122,9 +129,16 @@ class ManualServiceImplTest {
     @BeforeEach
     void preparar() {
         almacen = new AlmacenEnDisco(raiz);
+        RedaccionDelManual redaccion = new RedaccionDelManual() {
+            @Override
+            public byte[] pdf(String html) {
+                abiertasAlImprimir.add(transacciones.abiertas);
+                return super.pdf(html);
+            }
+        };
         servicio = new ManualServiceImpl(manualRepository, procesoRepository, documentacionRepository, versionService,
-                documentacionService, documentoService, preferenciasService, new RedaccionDelManual(), cola, almacen,
-                enlaces, new ArchivosTemporales(paso), PARCIAL, reloj, Duration.ofMinutes(5));
+                documentacionService, documentoService, preferenciasService, redaccion, cola, almacen, enlaces,
+                new ArchivosTemporales(paso), PARCIAL, reloj, transacciones, Duration.ofMinutes(5));
         proceso = Proceso.builder().id(PROCESO).empresa(Empresa.builder().id(EMPRESA).build()).nombre("Despacho")
                 .build();
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(PROCESO, EMPRESA)).thenReturn(Optional.of(proceso));
@@ -212,6 +226,10 @@ class ManualServiceImplTest {
         assertThat(manual.getClaveHtml()).isEqualTo("empresas/1/manuales/5/html");
         assertThat(manual.getClavePdf()).isEqualTo("empresas/1/manuales/5/pdf");
         assertThat(paso).as("los archivos de paso se borran al guardarse").isEmptyDirectory();
+        assertThat(abiertasAlImprimir).as("imprimir no retiene ninguna transaccion").containsExactly(0);
+        assertThat(transacciones.soloLectura).as("leer el pedido, leer el contenido, anotar").containsExactly(true,
+                true, false);
+        assertThat(transacciones.abiertas).isZero();
     }
 
     @Test
@@ -248,6 +266,53 @@ class ManualServiceImplTest {
         assertThat(manual.getMotivo()).isEqualTo("Sin versión.");
         assertThat(listo.getEstado()).isEqualTo(EstadoManual.DISPONIBLE);
         assertThat(listo.getListoEn()).isNull();
+        assertThat(abiertasAlImprimir).isEmpty();
+        assertThat(transacciones.deshechas).as("la lectura que fallo se deshace").isEqualTo(1);
+        assertThat(transacciones.abiertas).isZero();
+    }
+
+    @Test
+    @DisplayName("el motivo se corta en 300 letras; una falla sin mensaje se nombra por su clase")
+    void motivos() {
+        Manual largo = manual(EstadoManual.PENDIENTE);
+        Manual mudo = manual(EstadoManual.PENDIENTE);
+        when(manualRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(largo));
+        when(manualRepository.findByIdAndEmpresaId(6L, EMPRESA)).thenReturn(Optional.of(mudo));
+        when(versionService.obtener(EMPRESA, PROCESO, 3)).thenThrow(new IllegalStateException("x".repeat(400)))
+                .thenThrow(new IllegalStateException());
+
+        servicio.generar(EMPRESA, 5L);
+        servicio.generar(EMPRESA, 6L);
+
+        assertThat(largo.getMotivo()).isEqualTo("x".repeat(300));
+        assertThat(mudo.getMotivo()).isEqualTo("IllegalStateException");
+        assertThat(List.of(largo, mudo)).allSatisfy(manual -> {
+            assertThat(manual.getEstado()).isEqualTo(EstadoManual.FALLIDO);
+            assertThat(manual.getClaveHtml()).isNull();
+            assertThat(manual.getListoEn()).isEqualTo(LocalDateTime.of(2026, 11, 12, 10, 0));
+        });
+    }
+
+    @Test
+    @DisplayName("si otro lo anoto mientras se imprimia, no se pisa: queda como lo dejo el otro")
+    void noSePisa() {
+        conVersion();
+        Manual pendiente = manual(EstadoManual.PENDIENTE);
+        Manual cancelado = manual(EstadoManual.FALLIDO);
+        cancelado.setMotivo("Cancelado.");
+        when(manualRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(pendiente),
+                Optional.of(cancelado));
+        when(documentacionService.caracterizacion(EMPRESA, PROCESO)).thenReturn(new CaracterizacionResponse(null,
+                null, null, null, null, null, null, null, null, null, null));
+
+        servicio.generar(EMPRESA, 5L);
+
+        assertThat(abiertasAlImprimir).containsExactly(0);
+        assertThat(cancelado.getEstado()).isEqualTo(EstadoManual.FALLIDO);
+        assertThat(cancelado.getMotivo()).isEqualTo("Cancelado.");
+        assertThat(cancelado.getClavePdf()).isNull();
+        assertThat(cancelado.getListoEn()).isNull();
+        assertThat(pendiente.getClavePdf()).as("el que se leyo al principio no se toca").isNull();
     }
 
     @Test
@@ -331,6 +396,32 @@ class ManualServiceImplTest {
     private String leer(String clave) throws IOException {
         try (InputStream contenido = almacen.abrir(clave)) {
             return new String(contenido.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    /** Transacciones de mentira que llevan la cuenta: cuantas hay abiertas y si cada una era de solo lectura. */
+    private static final class Transacciones implements PlatformTransactionManager {
+
+        private final List<Boolean> soloLectura = new ArrayList<>();
+        private int abiertas;
+        private int deshechas;
+
+        @Override
+        public TransactionStatus getTransaction(TransactionDefinition definicion) {
+            abiertas++;
+            soloLectura.add(definicion != null && definicion.isReadOnly());
+            return new SimpleTransactionStatus();
+        }
+
+        @Override
+        public void commit(TransactionStatus estado) {
+            abiertas--;
+        }
+
+        @Override
+        public void rollback(TransactionStatus estado) {
+            abiertas--;
+            deshechas++;
         }
     }
 

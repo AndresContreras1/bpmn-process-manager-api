@@ -25,6 +25,13 @@ to be easy to write, safe to show to everyone in the store, and printable as a m
 - **The manual is built in the job queue,** in the language of whoever asks: a Thymeleaf template with no external
   resource becomes HTML, and openhtmltopdf prints that HTML as PDF with Batik for the SVG and a URI resolver that
   loads nothing. Both files go to the storage of ADR-0065 and download through signed links.
+- **Printing holds no transaction.** The job reads what it needs in one short read-only transaction, prints and
+  stores without touching the database, and notes the result in a second short transaction, only if the manual is
+  still pending. A slow print can never reach PostgreSQL's one-minute `idle_in_transaction_session_timeout`.
+- **PDFBox never looks at the host's fonts.** The manual uses the 14 standard PDF fonts, which the reader supplies.
+  PDFBox only needs a font to measure and draw them, and it gets the Liberation Sans it ships with. Without this, the
+  first manual scans every installed font and writes a cache to the home folder: minutes on a machine with many
+  fonts, and an output that depends on the machine.
 
 ## Consequences
 
