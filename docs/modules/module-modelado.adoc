@@ -23,9 +23,11 @@
 * `c.f.p.c.almacen.EnlacesFirmados` (in Common)
 * `c.f.p.c.archivos.ArchivosTemporales` (in Common)
 * `c.f.p.g.service.PreferenciasService` (in Gestion)
+* `c.f.p.g.service.PoliticaDePublicacionService` (in Gestion)
 |Aggregate roots
 |* `c.f.p.m.model.NodoFlujo`
 * `c.f.p.m.model.Actividad`
+* `c.f.p.m.model.Aprobacion`
 * `c.f.p.m.model.Arco`
 * `c.f.p.m.model.AristaBpmn`
 * `c.f.p.m.model.Artefacto`
@@ -48,6 +50,7 @@
 * `c.f.p.m.model.Presencia`
 * `c.f.p.m.model.RevisionBorrador`
 * `c.f.p.m.model.RevisionIa`
+* `c.f.p.m.model.SolicitudPublicacion`
 * `c.f.p.m.model.VersionDocumento`
 |Events listened to
 |* `c.f.p.g.event.UsuarioAnonimizado` 
@@ -56,4 +59,5 @@
 * `c.f.p.g.event.ProcesoModificado` 
 * `c.f.p.g.event.ProcesoEliminado` 
 * `c.f.p.g.event.ProcesoCreado` 
+* `c.f.p.g.event.UsuarioAnonimizado` 
 |===

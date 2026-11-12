@@ -78,6 +78,22 @@ public class Proceso extends EntidadEditable {
     @Column(name = "proxima_revision")
     private LocalDate proximaRevision;
 
+    /** PR 64: cuanto mueve la proxima revision confirmar que el proceso sigue vigente. */
+    @Column(name = "meses_entre_revisiones", nullable = false)
+    @Builder.Default
+    private int mesesEntreRevisiones = 12;
+
+    /**
+     * PR 64: la fecha de revision por la que ya se le aviso al dueno que llego, y por la que ya se le aviso que vencio.
+     * Las escribe el aviso diario con una consulta propia, que no cuenta como una edicion del proceso; guardar el
+     * proceso no las toca, asi que una edicion que se cruce con el aviso no le devuelve un valor viejo.
+     */
+    @Column(name = "revision_avisada", insertable = false, updatable = false)
+    private LocalDate revisionAvisada;
+
+    @Column(name = "vencida_avisada", insertable = false, updatable = false)
+    private LocalDate vencidaAvisada;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -88,4 +104,9 @@ public class Proceso extends EntidadEditable {
     @Column(nullable = false, columnDefinition = "varchar(40)[]")
     @Builder.Default
     private List<String> etiquetas = new ArrayList<>();
+
+    /** PR 64: la fecha de revision paso sin que nadie confirmara que el proceso sigue vigente. */
+    public boolean revisionVencida(LocalDate hoy) {
+        return proximaRevision != null && proximaRevision.isBefore(hoy);
+    }
 }

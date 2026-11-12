@@ -158,6 +158,51 @@ class CorreosDeNotificacionesTest {
     }
 
     @Test
+    @DisplayName("PR 64: un aviso de una solicitud enlaza la solicitud, con su boton, en el idioma de la persona")
+    void solicitud() {
+        beto.setIdioma("en-US");
+        pendientes(List.of(40L), notificacion(40L, TipoDeNotificacion.APROBACION_PEDIDA, null));
+
+        correos.ejecutar(trabajo("{\"usuarioId\":5,\"notificaciones\":[40],\"resumen\":false}"));
+
+        CorreoSaliente salido = enviado();
+        assertThat(salido.asunto()).isEqualTo("<b>Ana</b> asks for your approval of Despacho");
+        assertThat(salido.texto()).contains("https://bpm.example.com/en-US/procesos/3?solicitud=12")
+                .doesNotContain("comentario=");
+        assertThat(salido.html()).contains("See the request", "href=\"https://bpm.example.com/en-US/procesos/3"
+                + "?solicitud=12\"");
+    }
+
+    @Test
+    @DisplayName("PR 64: un aviso de recertificacion enlaza el proceso solo, aunque traiga una referencia")
+    void recertificacion() {
+        beto.setIdioma("es-CO");
+        pendientes(List.of(40L), notificacion(40L, TipoDeNotificacion.RECERTIFICACION_VENCIDA, null));
+
+        correos.ejecutar(trabajo("{\"usuarioId\":5,\"notificaciones\":[40],\"resumen\":false}"));
+
+        CorreoSaliente salido = enviado();
+        assertThat(salido.asunto()).isEqualTo("La revisión de Despacho está vencida");
+        assertThat(salido.texto()).contains("https://bpm.example.com/es-CO/procesos/3").doesNotContain("procesos/3?");
+        assertThat(salido.html()).contains("Ver el proceso", "href=\"https://bpm.example.com/es-CO/procesos/3\"");
+    }
+
+    @Test
+    @DisplayName("PR 64: un aviso de una solicitud sin su referencia enlaza el proceso")
+    void solicitudSinReferencia() {
+        beto.setIdioma("fr-FR");
+        Notificacion sinReferencia = notificacion(40L, TipoDeNotificacion.SOLICITUD_PUBLICADA, null);
+        sinReferencia.setReferenciaId(null);
+        pendientes(List.of(40L), sinReferencia);
+
+        correos.ejecutar(trabajo("{\"usuarioId\":5,\"notificaciones\":[40],\"resumen\":false}"));
+
+        CorreoSaliente salido = enviado();
+        assertThat(salido.asunto()).isEqualTo("Despacho est publié");
+        assertThat(salido.html()).contains("Voir la demande", "href=\"https://bpm.example.com/fr-FR/procesos/3\"");
+    }
+
+    @Test
     @DisplayName("sin nada sin leer, o si la persona ya no esta activa, no sale nada pero queda resuelto")
     void nadaQueContar() {
         pendientes(List.of(41L), notificacion(41L, TipoDeNotificacion.MENCION, AHORA));

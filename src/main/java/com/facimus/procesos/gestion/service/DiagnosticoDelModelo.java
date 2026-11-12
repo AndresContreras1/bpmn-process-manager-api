@@ -15,4 +15,10 @@ public interface DiagnosticoDelModelo {
      * igual que en InstantaneaDelModelo: quien pregunta acaba de cargarlo y ya comprobo que puede tocarlo.
      */
     List<String> errores(Long empresaId, ProcesoResponse proceso);
+
+    /**
+     * PR 64: los errores de un diagrama congelado, en el JSON de una instantanea: lo que una solicitud de revision va
+     * a publicar. Se revisa el diagrama congelado, y lo que mira mas alla de el (los procesos que llama) se mira hoy.
+     */
+    List<String> errores(Long empresaId, Long procesoId, String definicion);
 }

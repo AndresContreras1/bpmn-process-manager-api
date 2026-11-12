@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 
@@ -50,4 +51,32 @@ public interface ProcesoService {
     ProcesoResponse cambiarModo(Long empresaId, Long procesoId, Long usuarioId, ModoProceso modo, Long version);
 
     void eliminarLogico(Long empresaId, Long procesoId, Long usuarioId);
+
+    /**
+     * PR 64: congela el borrador para una solicitud de revision, con las mismas condiciones que publicar: el
+     * diagnostico limpio y algo distinto de la version vigente. Si no se cumplen, 409.
+     */
+    BorradorCongelado congelar(Long empresaId, Long procesoId);
+
+    /**
+     * PR 64: por que lo congelado ya no se publicaria: la version vigente cambio desde que se congelo, o el diagnostico
+     * ya no esta limpio. Vacio si se puede publicar.
+     */
+    Optional<String> impedimento(Long empresaId, Long procesoId, BorradorCongelado congelado);
+
+    /**
+     * PR 64: publica lo congelado por el mismo camino que publicar directo (D2), sin volver a mirar el borrador de hoy.
+     * Si ya no se puede, no publica nada y devuelve por que, sin deshacer lo que la transaccion de quien llama hizo.
+     *
+     * @param usuarioId quien completo la aprobacion: queda como quien publico
+     * @param solicitudId la solicitud que se publica, para la bitacora
+     */
+    Optional<String> publicarCongelado(Long empresaId, Long procesoId, Long usuarioId, BorradorCongelado congelado,
+            Long solicitudId);
+
+    /**
+     * PR 64: "sigue vigente". Lo confirma su dueno, o quien puede administrar el proceso; queda en la bitacora con la
+     * nota, y la proxima revision pasa a hoy mas los meses entre revisiones del proceso.
+     */
+    ProcesoResponse recertificar(Long empresaId, Long procesoId, Long usuarioId, String nota);
 }

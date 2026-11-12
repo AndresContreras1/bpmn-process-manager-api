@@ -229,6 +229,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/empresas/actual/historial",
                                 "/api/v1/empresas/actual/configuracion", "/api/v1/empresas/actual/preferencias")
                         .hasAuthority(ADMINISTRADOR)
+                        // PR 64: como publica la tienda lo lee cualquier rol, y lo cambia su administrador
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/empresas/actual/politica-de-publicacion")
+                        .hasAuthority(ADMINISTRADOR)
                         // F12: el idioma y la zona horaria de cada persona son suyos, sea cual sea su rol.
                         .requestMatchers("/api/v1/auth/preferencias").authenticated()
                         // F13: la sesion de quien tiene las cookies, para la web que arranca
@@ -249,6 +252,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/v1/comentarios/*").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/comentarios/*").authenticated()
                         .requestMatchers("/api/v1/notificaciones", "/api/v1/notificaciones/**").authenticated()
+                        // PR 64: el dueno de un proceso confirma que sigue vigente sea cual sea su rol: lo decide su
+                        // servicio (el dueno, o quien administra el proceso)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/recertificacion").authenticated()
                         .requestMatchers("/api/v1/roles/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/compartidos").hasAuthority(ADMINISTRADOR)
                         // Retirar una version cambia lo que la tienda da por bueno: es del administrador (D2).
