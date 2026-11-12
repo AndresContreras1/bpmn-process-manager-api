@@ -18,7 +18,7 @@ Angular web app built on it.
 ![Angular 22](https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white)
 ![bpmn-js 18](https://img.shields.io/badge/bpmn--js-18%20%C2%B7%20BPMN%202.0.2-404040)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-2603-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-2715-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2087%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -184,7 +184,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **2603 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+- **2715 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
   controller and repository slices, service units, security and store isolation — permissions included, as a matrix
   of six people, eight actions and five resources — and integration across modules.
 - **Coverage gate** with JaCoCo: 96 % of lines and 87 % of branches today, and the build fails below 90 % and 80 %
