@@ -64,6 +64,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Editing together** | Autosave of the whole model with `ETag` and `If-Match`, draft revisions to go back to, who is on a process over server-sent events shared by every replica, a soft lock with *take control*, and a comparison by meaning between versions, the draft or a file that was not saved. | [Concurrent edits](docs/api-reference.md#concurrent-edits) |
 | **Diagnosis** | A deterministic catalogue of 21 errors and 16 warnings, each pointing at an element, and a what-if that says what a deletion would take with it. | [Diagnosis](docs/diagnosis-and-versions.md#diagnosis) |
 | **Versions** | Publishing freezes the whole diagram with a SHA-256 fingerprint and keeps its BPMN file, the same bytes forever. What is edited afterwards is the draft, and the process says when it is ahead. | [Versions](docs/diagnosis-and-versions.md#published-versions) |
+| **Documents** | Files attached to a process or one of its elements, with versions. The type comes from the content against a whitelist, an antivirus and a ZIP bomb check review each one in the job queue, each store has a quota, and a download is a five-minute signed link that always arrives as an attachment. Stored in S3 or any compatible service. | [Documents](docs/security.md#documents) |
 | **Repository** | A tree of folders, and for each process its owner, the date of its next review, how reserved it is and its tags, all of them filters of the list. | [The process repository](docs/api-reference.md#the-process-repository) |
 | **Permissions** | Actions granted on a folder or a process — view, comment, model, review, approve, publish, export and administer — to a person, a process role or the whole store, inherited down the folders. The access role sets the ceiling, separation of duties goes last, and a list only shows what each person can see, in the same query. | [Permissions](docs/security.md#permissions-on-folders-and-processes) |
 | **Execution** | Cases that walk a published version, tasks waiting in the tray of each process role, and gateway conditions in a small language of its own that cannot run code. | [Execution](docs/execution.md#running-a-process) |
@@ -71,7 +72,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Dashboard** | Cases by state, cycle time with average and p95, work waiting per role and what did not go as expected, in six queries however many orders there are. | [Dashboard](docs/execution.md#the-dashboard) |
 | **Operations** | Health probes, Prometheus metrics on a management port of their own with business counters, JSON logs, OpenTelemetry traces, and a request id in every response, log line and error. | [Operations endpoints](docs/getting-started.md#operations-endpoints) |
 | **Sign-in** | The session in `HttpOnly` cookies with a CSRF token, a short-lived JWT with rotating refresh tokens, and idle and maximum limits each store chooses. Passwords as NIST SP 800-63B-4 asks, a second factor with an authenticator app or a passkey and recovery codes that each store can require, signing in without a password with a passkey, and signing in with Google or Microsoft, where an account is linked only after its owner confirms it. | [Authentication](docs/security.md#authentication) |
-| **Security** | Store isolation enforced twice: by the build and by row-level security in PostgreSQL, under a role that cannot bypass it. Rate limits in token buckets every instance shares, an audit trail per store chained with SHA-256 that nobody can change, every permission decided by one evaluator, read-only sharing between stores, BPMN files read with hardened XML parsers, and closing a store or anonymizing a person that really deletes. | [Security](docs/security.md) |
+| **Security** | Store isolation enforced twice: by the build and by row-level security in PostgreSQL, under a role that cannot bypass it. Rate limits in token buckets every instance shares, an audit trail per store chained with SHA-256 that nobody can change and anchored every day where nobody can delete it, every permission decided by one evaluator, read-only sharing between stores, BPMN files read with hardened XML parsers, and closing a store or anonymizing a person that really deletes. | [Security](docs/security.md) |
 | **E-mail** | Verifying the e-mail, recovering the password and inviting by e-mail, in Spanish, English and French, with links that work once. Sent over any SMTP server from a queue of jobs that retries. | [Links sent by e-mail](docs/api-reference.md#links-sent-by-e-mail) |
 | **API contract** | OpenAPI for every operation, Problem Details errors, optimistic locking, idempotency keys and stable pagination. | [API reference](docs/api-reference.md) |
 | **AI review** | An optional second opinion from a language model, answered in a validated schema and limited per store. It only advises. | [AI review](docs/diagnosis-and-versions.md#ai-review) |
@@ -84,6 +85,8 @@ flowchart LR
     B(["Browser"]) --> W["<b>web</b><br/>NGINX · Angular 22 · bpmn-js"]
     W -- "/api · live events" --> A["<b>api</b><br/>Spring Boot 4.1 · Java 25"]
     A --> D[("<b>db</b><br/>PostgreSQL 16<br/>row-level security")]
+    A --> S[("<b>almacen</b><br/>S3 · SeaweedFS<br/>documents · anchors")]
+    A -. "optional" .-> V["ClamAV<br/>antivirus"]
     A -. "optional" .-> G["Gemini<br/>AI review"]
     A -. "optional" .-> O["Google · Microsoft<br/>OpenID Connect"]
     A -. "queue of jobs" .-> S["SMTP<br/>e-mail"]
@@ -118,7 +121,7 @@ store's id, or if a request DTO carries one, and Spring Modulith if a module use
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 (JWT, OAuth2 client) · Spring Data JPA · Hibernate 7.4 · MapStruct · Spring Modulith · Bucket4j |
+| Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 (JWT, OAuth2 client) · Spring Data JPA · Hibernate 7.4 · MapStruct · Spring Modulith · Bucket4j · AWS SDK v2 (S3) · Apache Tika |
 | Data | PostgreSQL 16 in `prod`, in `dev` and in the tests, with row-level security, timeouts per role, an index behind every foreign key and `pg_stat_statements` · Flyway migrations, validated by Hibernate · HikariCP with leak detection |
 | Frontend | Angular 22 standalone · bpmn-js 18 · Bootstrap 5 · RxJS · NGINX · ESLint · Prettier · Vitest |
 | Quality | JUnit 5 · Mockito · ArchUnit · Spring Modulith · Testcontainers · Selenium · axe-core · k6 · JaCoCo · PIT · SonarCloud |
@@ -156,7 +159,7 @@ It opens on `http://localhost:4200` and forwards `/api` to the API.
 **The whole stack**, database, API and web, closer to production:
 
 ```bash
-cp .env.example .env     # DB_PASSWORD, JWT_SECRET and MFA_CLAVE_DE_CIFRADO have no default on purpose
+cp .env.example .env     # DB_PASSWORD, JWT_SECRET, MFA_CLAVE_DE_CIFRADO and ALMACEN_S3_CLAVE have no default
 docker compose up -d --build --wait
 ```
 
@@ -221,9 +224,8 @@ files in both directions, editing with others, the repository of processes and i
 open:
 
 - A screen to grant permissions on folders and processes; today they are granted through the API.
-- Documents and process manuals, comments with mentions, review and approval, and full-text search.
+- The process manual, comments with mentions, review and approval, and full-text search.
 - Exporting a store's data during the 30 days of its closing.
-- Anchoring the last hash of the audit trail every day in a bucket with Object Lock.
 - An AI review of a change instead of the whole diagram, so the model only reads what moved.
 - HSTS preload, a month after production runs on HTTPS.
 

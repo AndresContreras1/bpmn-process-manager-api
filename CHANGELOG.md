@@ -8,6 +8,13 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Documents attached to a process or one of its elements, with versions: the type comes from the content against a
+  whitelist (415), the name is cleaned, uploads stream up to 25 MB within a quota per store (413), and the job queue
+  reviews each version with ClamAV and, for Office and OpenOffice files, a ZIP bomb check before it can be downloaded.
+  Downloads are five-minute signed links served by the API as attachments. The storage is S3 or compatible, with
+  SeaweedFS in `compose.yaml`, or a disk folder in development.
+- The daily anchor of the audit trail: each store's last link goes to a bucket with Object Lock in compliance mode,
+  and verifying the trail checks the latest anchor.
 - Granular permissions: actions granted on folders and processes to a person, a process role or the whole organization,
   inherited from the folder, on top of the access role and with separation of duties. Lists only show what can be seen.
 - The process repository: a tree of folders, and for each process its folder, owner, next review date, classification

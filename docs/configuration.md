@@ -30,6 +30,17 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `WEBAUTHN_ORIGINS` | The exact addresses the browser signs passkeys from, separated by commas; the web app's address in production | `APP_PUBLIC_URL` |
 | `WEBAUTHN_RP_NAME` | The name the device shows when it creates a passkey | `BPMN Process Manager` |
 | `MICROSOFT_TENANT` | `organizations` for any work or school account, or the id of one organization to accept only it | `organizations` |
+| `ALMACEN_S3_BUCKET` | The S3 bucket of the documents. Without it they go to `ALMACEN_DIRECTORIO` on disk, which suits development and a single instance | Empty |
+| `ALMACEN_S3_BUCKET_ANCLAS` | A bucket created with Object Lock, for the daily anchor of the audit trail. Without it the anchor goes to the documents' bucket, unlocked | Empty |
+| `ALMACEN_S3_ENDPOINT` | The address of an S3-compatible service, such as the SeaweedFS of `compose.yaml`; empty for AWS | Empty |
+| `ALMACEN_S3_REGION` · `ALMACEN_S3_USUARIO` · `ALMACEN_S3_CLAVE` | Region and credentials; without a user, the AWS default chain (environment, profile, role) | `us-east-1` · empty |
+| `ALMACEN_S3_CREAR_BUCKETS` | Create the missing buckets when starting, the anchors' one with Object Lock. For `compose.yaml`; in AWS they are created beforehand | `false` |
+| `ALMACEN_S3_CIFRAR` | Ask the service to encrypt every document (SSE-S3) | `false` |
+| `ALMACEN_DIRECTORIO` | The folder of the disk storage | `<tmp>/bpmn-process-manager/almacen` |
+| `ANTIVIRUS_HOST` · `ANTIVIRUS_PUERTO` | Where clamd listens. Without a host, documents are not reviewed and say so | Empty · `3310` |
+| `DOCUMENTOS_EXIGIR_ANTIVIRUS` | Without an antivirus, keep documents pending instead of making them available unreviewed | `false` |
+| `DOCUMENTOS_TAMANO_MAXIMO` · `DOCUMENTOS_CUOTA_POR_TIENDA` | Largest document, and space per store counting every version | `25MB` · `1GB` |
+| `BITACORA_ANCLA_RETENCION` | How long nobody can delete an anchor of the audit trail | `400d` |
 | `JWT_PREVIOUS_SECRET` | The signing key before the last rotation: its tokens are still accepted, and nobody signs with it. Empty outside a rotation | Empty |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime. Keep it under 30 minutes, the shortest idle timeout a store can choose: the refresh token and the session last what each store decides in its settings | `900` |
 | `CLAVES_COSTO_BCRYPT` | Cost of BCrypt, from 4 to 31: each step doubles the time of a hash. Raising it invalidates no password, because each login rehashes with the new one | `10` |

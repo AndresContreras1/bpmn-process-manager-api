@@ -9,6 +9,7 @@
 | Language | Java 25 (virtual threads, AOT cache) |
 | Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Security 7) |
 | Persistence | Hibernate 7.4 · Flyway 12 · PostgreSQL 16 everywhere: `dev` through Docker Compose, the tests through Testcontainers |
+| Files | AWS SDK v2 for S3 or a compatible service (SeaweedFS in `compose.yaml`) · Apache Tika's type detection · ClamAV through clamd |
 | Security | Spring Security `AuthenticationManager` · JWT (jjwt 0.12.6, HS256) · BCrypt · SHA-256-hashed refresh tokens |
 | API documentation | springdoc-openapi 3 (OpenAPI 3 and Swagger UI) |
 | Web app | Angular 22 · Bootstrap 5 · RxJS |
@@ -226,6 +227,7 @@ PostgreSQL, not in its memory (D34).
 |---|---|---|
 | Closed sessions | Each instance keeps them in memory, so the JWT filter runs no SQL | The transaction that closes a session sends its code with `NOTIFY`, which PostgreSQL delivers only if that transaction commits. Every instance `LISTEN`s on a connection of its own and revokes the session at once; it rereads the recent closures when it reconnects and every five minutes, in case a notice was missed |
 | Failed logins | Table `intentos_login`, one row per failure | They count the same rows |
+| Documents | The S3 bucket, with their rows in `documentos` and `versiones_documento` | They read the same bucket. The disk storage of development belongs to one instance and does not reach the others |
 | Who is on a process | Tables `presencias` and `bloqueos_edicion`, marked by a heartbeat thread of each instance | Every change sends `NOTIFY` when it commits, and each instance forwards it to the server-sent events of its own connections, reading the list of people from the table, since a notice carries at most 8000 bytes. Rows nobody marks for 60 seconds are swept, like those of an instance that died |
 | AI reviews | Table `revisiones_ia`, one row per answer of the model | They reuse the last one of a process and count the same ones for the store's limit |
 | Scheduled jobs | Table `shedlock`, the lock of each job, with the database's clock | The purge and the simulation clock run in one instance at a time; the lock of the clock lasts as long as the pause between ticks, so two instances do not move it twice as fast |

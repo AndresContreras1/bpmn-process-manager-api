@@ -56,3 +56,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0062 | [The process repository](0062-process-repository.md) | Accepted |
 | 0063 | [Authorization in three layers](0063-granular-permissions.md) | Accepted |
 | 0064 | [The CSRF token lasts the session](0064-csrf-token-per-session.md) | Accepted |
+| 0065 | [Object storage, documents and the daily anchor](0065-object-storage-and-documents.md) | Accepted |
