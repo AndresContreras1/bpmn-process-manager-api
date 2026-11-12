@@ -18,6 +18,7 @@
 * `c.f.p.c.archivos.DetectorDeTipo` (in Common)
 * `c.f.p.c.archivos.InspeccionDeZip` (in Common)
 * `c.f.p.c.almacen.EnlacesFirmados` (in Common)
+* `c.f.p.c.archivos.ArchivosTemporales` (in Common)
 * `c.f.p.g.repository.UsuarioRepository` (in Gestion)
 |Aggregate roots
 |* `c.f.p.m.model.NodoFlujo`
