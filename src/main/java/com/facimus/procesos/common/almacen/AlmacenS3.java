@@ -7,6 +7,8 @@ import java.util.List;
 
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.BucketVersioningStatus;
+import software.amazon.awssdk.services.s3.model.ExpirationStatus;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
@@ -90,13 +92,22 @@ public class AlmacenS3 implements Almacen {
     }
 
     /**
-     * Crea los buckets que falten: el de anclas, con Object Lock, que solo se puede activar al crearlo. Es para el
-     * SeaweedFS de compose.yaml; en AWS los buckets se crean antes, con sus politicas, y esto no se usa.
+     * Crea los buckets que falten (el de anclas con Object Lock, que solo se puede activar al crearlo) y deja el de
+     * documentos guardando cada version (PR 67): un archivo reemplazado o borrado, tambien al borrar una tienda, se
+     * puede recuperar de su version anterior hasta que una regla la vence, a los {@code diasDeVersiones} dias. Es para
+     * el SeaweedFS de compose.yaml; en AWS los buckets se crean antes, con sus politicas y su replica en otra cuenta,
+     * y esto no se usa.
      */
-    public void crearBucketsQueFalten() {
+    public void prepararBuckets(int diasDeVersiones) {
         if (!existe(bucket)) {
             s3.createBucket(peticion -> peticion.bucket(bucket));
         }
+        s3.putBucketVersioning(peticion -> peticion.bucket(bucket)
+                .versioningConfiguration(versiones -> versiones.status(BucketVersioningStatus.ENABLED)));
+        s3.putBucketLifecycleConfiguration(peticion -> peticion.bucket(bucket)
+                .lifecycleConfiguration(ciclo -> ciclo.rules(regla -> regla.id("versiones-anteriores")
+                        .status(ExpirationStatus.ENABLED).filter(filtro -> filtro.prefix(""))
+                        .noncurrentVersionExpiration(vencimiento -> vencimiento.noncurrentDays(diasDeVersiones)))));
         if (!bucketDeAnclas.isBlank() && !existe(bucketDeAnclas)) {
             s3.createBucket(peticion -> peticion.bucket(bucketDeAnclas).objectLockEnabledForBucket(true));
         }

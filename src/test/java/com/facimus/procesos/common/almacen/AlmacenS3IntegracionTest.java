@@ -28,6 +28,9 @@ import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.s3.model.BucketVersioningStatus;
+import software.amazon.awssdk.services.s3.model.ExpirationStatus;
+import software.amazon.awssdk.services.s3.model.ListObjectVersionsResponse;
 import software.amazon.awssdk.services.s3.model.ObjectVersion;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -150,13 +153,50 @@ class AlmacenS3IntegracionTest {
     void crearBuckets() {
         AlmacenS3 almacen = new AlmacenS3(s3, "nuevos-documentos", "nuevas-anclas", false);
 
-        almacen.crearBucketsQueFalten();
-        almacen.crearBucketsQueFalten();
+        almacen.prepararBuckets(35);
+        almacen.prepararBuckets(35);
 
         assertThat(s3.listBuckets().buckets()).extracting(Bucket::name)
                 .contains("nuevos-documentos", "nuevas-anclas");
         assertThat(s3.getObjectLockConfiguration(peticion -> peticion.bucket("nuevas-anclas"))
                 .objectLockConfiguration().objectLockEnabledAsString()).isEqualTo("Enabled");
+    }
+
+    @Test
+    @DisplayName("PR 67: el bucket de documentos, nuevo o de antes, guarda cada version y vence las viejas")
+    void versiones() {
+        s3.createBucket(peticion -> peticion.bucket("documentos-de-antes"));
+        AlmacenS3 almacen = new AlmacenS3(s3, "documentos-de-antes", "", false);
+
+        almacen.prepararBuckets(35);
+
+        assertThat(s3.getBucketVersioning(peticion -> peticion.bucket("documentos-de-antes")).status())
+                .isEqualTo(BucketVersioningStatus.ENABLED);
+        assertThat(s3.getBucketLifecycleConfiguration(peticion -> peticion.bucket("documentos-de-antes")).rules())
+                .singleElement().satisfies(regla -> {
+                    assertThat(regla.status()).isEqualTo(ExpirationStatus.ENABLED);
+                    assertThat(regla.noncurrentVersionExpiration().noncurrentDays()).isEqualTo(35);
+                });
+    }
+
+    @Test
+    @DisplayName("PR 67: un documento reemplazado o borrado con su tienda se recupera de su version anterior")
+    void recuperarDeUnaVersion() throws IOException {
+        AlmacenS3 almacen = new AlmacenS3(s3, "documentos-con-versiones", "", false);
+        almacen.prepararBuckets(35);
+        String clave = ClaveDeAlmacen.deDocumento(5, 14, 1, "a");
+        almacen.guardar(clave, archivo("primera"), "text/plain");
+        almacen.guardar(clave, archivo("segunda"), "text/plain");
+
+        almacen.borrarPrefijo(ClaveDeAlmacen.deEmpresa(5));
+
+        assertThatThrownBy(() -> almacen.abrir(clave)).isInstanceOf(ArchivoNoEncontradoException.class);
+        ListObjectVersionsResponse historia = s3.listObjectVersions(peticion -> peticion
+                .bucket("documentos-con-versiones").prefix(clave));
+        assertThat(historia.deleteMarkers()).hasSize(1);
+        assertThat(historia.versions()).hasSize(2).extracting(version -> new String(s3.getObjectAsBytes(peticion ->
+                peticion.bucket("documentos-con-versiones").key(clave).versionId(version.versionId())).asByteArray()))
+                .containsExactlyInAnyOrder("primera", "segunda");
     }
 
     @Test
