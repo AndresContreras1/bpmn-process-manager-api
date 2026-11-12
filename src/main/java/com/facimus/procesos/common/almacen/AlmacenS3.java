@@ -7,7 +7,6 @@ import java.util.List;
 
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
@@ -56,7 +55,7 @@ public class AlmacenS3 implements Almacen {
     public InputStream abrir(String clave) {
         try {
             return s3.getObject(peticion -> peticion.bucket(bucket).key(ClaveDeAlmacen.comprobar(clave)));
-        } catch (NoSuchKeyException e) {
+        } catch (NoSuchKeyException _) {
             throw new ArchivoNoEncontradoException(clave);
         }
     }
@@ -71,7 +70,7 @@ public class AlmacenS3 implements Almacen {
             List<ObjectIdentifier> claves = pagina.contents().stream()
                     .map(objeto -> ObjectIdentifier.builder().key(objeto.key()).build()).toList();
             if (!claves.isEmpty()) {
-                s3.deleteObjects(peticion -> peticion.bucket(bucket).delete(Delete.builder().objects(claves).build()));
+                s3.deleteObjects(peticion -> peticion.bucket(bucket).delete(borrado -> borrado.objects(claves)));
             }
             token = Boolean.TRUE.equals(pagina.isTruncated()) ? pagina.nextContinuationToken() : null;
         } while (token != null);
@@ -107,7 +106,7 @@ public class AlmacenS3 implements Almacen {
         try {
             s3.headBucket(peticion -> peticion.bucket(nombre));
             return true;
-        } catch (NoSuchBucketException e) {
+        } catch (NoSuchBucketException _) {
             return false;
         }
     }

@@ -24,7 +24,7 @@ public class RevisionDeDocumentos implements ManejadorDeTrabajo {
 
     @Override
     public String tipo() {
-        return DocumentoServiceImpl.REVISAR;
+        return DocumentoServiceImpl.TRABAJO_DE_REVISION;
     }
 
     @Override

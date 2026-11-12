@@ -37,6 +37,7 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `ALMACEN_S3_CREAR_BUCKETS` | Create the missing buckets when starting, the anchors' one with Object Lock. For `compose.yaml`; in AWS they are created beforehand | `false` |
 | `ALMACEN_S3_CIFRAR` | Ask the service to encrypt every document (SSE-S3) | `false` |
 | `ALMACEN_DIRECTORIO` | The folder of the disk storage | `<tmp>/bpmn-process-manager/almacen` |
+| `ARCHIVOS_TEMPORALES` | The folder only the API enters, where an upload waits before the storage and a ZIP is opened for review; each file is deleted when it is done | `<tmp>/bpmn-process-manager/temporales` |
 | `ANTIVIRUS_HOST` · `ANTIVIRUS_PUERTO` | Where clamd listens. Without a host, documents are not reviewed and say so | Empty · `3310` |
 | `DOCUMENTOS_EXIGIR_ANTIVIRUS` | Without an antivirus, keep documents pending instead of making them available unreviewed | `false` |
 | `DOCUMENTOS_TAMANO_MAXIMO` · `DOCUMENTOS_CUOTA_POR_TIENDA` | Largest document, and space per store counting every version | `25MB` · `1GB` |

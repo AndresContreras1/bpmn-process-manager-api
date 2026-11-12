@@ -78,8 +78,9 @@ class ClamAvTest {
     void respuestaRara() {
         clamd.contestar("INSTREAM size limit exceeded. ERROR");
         InputStream contenido = archivo("x");
+        ClamAv clamAv = clamAv();
 
-        assertThatThrownBy(() -> clamAv().revisar(contenido)).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> clamAv.revisar(contenido)).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("size limit exceeded");
     }
 

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.sql.Date;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,6 +39,9 @@ public class AnclaDeBitacoraServiceImpl implements AnclaDeBitacoraService {
 
     private static final Logger log = LoggerFactory.getLogger(AnclaDeBitacoraServiceImpl.class);
 
+    private static final String SECUENCIA = "secuencia";
+    private static final String HASH = "hash";
+
     /** El ultimo eslabon de cada tienda que no tiene ancla hoy ni una con ese mismo eslabon. */
     private static final String POR_ANCLAR = """
             select b.empresa_id, b.secuencia, b.hash from bitacora b
@@ -71,8 +73,7 @@ public class AnclaDeBitacoraServiceImpl implements AnclaDeBitacoraService {
         for (Map<String, Object> pendiente : pendientes) {
             long empresaId = ((Number) pendiente.get("empresa_id")).longValue();
             try {
-                anclar(empresaId, dia, ((Number) pendiente.get("secuencia")).longValue(),
-                        (String) pendiente.get("hash"));
+                anclar(empresaId, dia, ((Number) pendiente.get(SECUENCIA)).longValue(), (String) pendiente.get(HASH));
                 ancladas++;
             } catch (RuntimeException e) {
                 // Una tienda que falla no deja sin ancla a las demas; manana se intenta otra vez
@@ -86,8 +87,8 @@ public class AnclaDeBitacoraServiceImpl implements AnclaDeBitacoraService {
         Map<String, Object> contenido = new LinkedHashMap<>();
         contenido.put("empresaId", empresaId);
         contenido.put("dia", dia.toString());
-        contenido.put("secuencia", secuencia);
-        contenido.put("hash", hash);
+        contenido.put(SECUENCIA, secuencia);
+        contenido.put(HASH, hash);
         String clave = ClaveDeAlmacen.deAncla(empresaId, dia.toString());
         Instant hasta = reloj.instant().plus(retencion);
         boolean inmutable = almacen.guardarInmutable(clave,
@@ -101,22 +102,25 @@ public class AnclaDeBitacoraServiceImpl implements AnclaDeBitacoraService {
 
     @Override
     public Optional<Ancla> ultima(Long empresaId) {
-        List<Map<String, Object>> filas = jdbc.queryForList("""
+        List<Fila> filas = jdbc.query("""
                 select dia, secuencia, clave from anclas_bitacora where empresa_id = ? order by dia desc limit 1
-                """, empresaId);
+                """, (resultado, numero) -> new Fila(resultado.getObject("dia", LocalDate.class),
+                resultado.getLong(SECUENCIA), resultado.getString("clave")), empresaId);
         if (filas.isEmpty()) {
             return Optional.empty();
         }
-        Map<String, Object> fila = filas.getFirst();
-        LocalDate dia = ((Date) fila.get("dia")).toLocalDate();
-        long secuencia = ((Number) fila.get("secuencia")).longValue();
-        try (InputStream contenido = almacen.abrir((String) fila.get("clave"))) {
+        Fila fila = filas.getFirst();
+        try (InputStream contenido = almacen.abrir(fila.clave())) {
             JsonNode ancla = json.readTree(contenido);
-            return Optional.of(new Ancla(dia, ancla.get("secuencia").asLong(), ancla.get("hash").asString()));
-        } catch (ArchivoNoEncontradoException e) {
-            return Optional.of(new Ancla(dia, secuencia, null));
+            return Optional.of(new Ancla(fila.dia(), ancla.get(SECUENCIA).asLong(), ancla.get(HASH).asString()));
+        } catch (ArchivoNoEncontradoException _) {
+            return Optional.of(new Ancla(fila.dia(), fila.secuencia(), null));
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo leer el ancla de la tienda " + empresaId, e);
         }
+    }
+
+    /** Lo que dice la fila del ancla; la verificacion se fia del archivo, no de esto. */
+    private record Fila(LocalDate dia, long secuencia, String clave) {
     }
 }

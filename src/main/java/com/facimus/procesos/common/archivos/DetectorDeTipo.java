@@ -88,7 +88,7 @@ public class DetectorDeTipo {
                 return Optional.of(TipoDeArchivo.PPTX);
             }
             return Optional.empty();
-        } catch (IOException e) {
+        } catch (IOException _) {
             return Optional.empty();
         }
     }
@@ -98,7 +98,7 @@ public class DetectorDeTipo {
         try (InputStream entrada = Files.newInputStream(archivo)) {
             String inicio = new String(entrada.readNBytes(4096), StandardCharsets.UTF_8);
             return inicio.contains("http://www.omg.org/spec/BPMN/20100524/MODEL") && inicio.contains("definitions");
-        } catch (IOException e) {
+        } catch (IOException _) {
             return false;
         }
     }

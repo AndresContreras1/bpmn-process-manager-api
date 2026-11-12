@@ -32,7 +32,7 @@ public class InspeccionDeZip {
         long comprimido;
         try {
             comprimido = Math.max(1, Files.size(archivo));
-        } catch (IOException e) {
+        } catch (IOException _) {
             return Optional.of("No se pudo leer el archivo.");
         }
         long tope = Math.min(maximoDescomprimido, comprimido * proporcionMaxima);
@@ -52,7 +52,7 @@ public class InspeccionDeZip {
                     return Optional.of("El archivo crece demasiado al abrirlo.");
                 }
             }
-        } catch (IOException | IllegalArgumentException e) {
+        } catch (IOException | IllegalArgumentException _) {
             return Optional.of("El archivo está dañado.");
         }
         return Optional.empty();

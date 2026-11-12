@@ -39,12 +39,15 @@ import com.facimus.procesos.common.almacen.ClaveDeAlmacen;
 import com.facimus.procesos.common.almacen.EnlacesFirmados;
 import com.facimus.procesos.common.antivirus.Antivirus;
 import com.facimus.procesos.common.antivirus.ResultadoDelAntivirus;
+import com.facimus.procesos.common.archivos.ArchivosTemporales;
+import com.facimus.procesos.common.archivos.ArchivosTemporales.Temporal;
 import com.facimus.procesos.common.archivos.DetectorDeTipo;
 import com.facimus.procesos.common.archivos.InspeccionDeZip;
 import com.facimus.procesos.common.archivos.NombreDeArchivo;
 import com.facimus.procesos.common.archivos.TipoDeArchivo;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.security.ContextoDeTienda;
+import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
@@ -71,10 +74,17 @@ import com.facimus.procesos.modelado.service.DocumentoService;
 public class DocumentoServiceImpl implements DocumentoService {
 
     /** El tipo de trabajo de la cola que revisa cada version. */
-    public static final String REVISAR = "documentos.revisar";
+    public static final String TRABAJO_DE_REVISION = "documentos.revisar";
 
     private static final String NO_ENCONTRADO = "Documento no encontrado.";
+    private static final String VERSION_NO_ENCONTRADA = "Versión no encontrada.";
     private static final String BINARIO = "application/octet-stream";
+    private static final String RECURSO = "DOCUMENTO";
+    private static final String SUBIDO = "DOCUMENTO_SUBIDO";
+    private static final String VERSION = "version";
+    private static final String TAMANO = "tamano";
+    private static final String TIPO = "tipo";
+    private static final String COMILLA = "Documento \"";
 
     private final DocumentoRepository documentoRepository;
     private final VersionDocumentoRepository versionRepository;
@@ -88,6 +98,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     private final DetectorDeTipo detector;
     private final InspeccionDeZip inspeccionDeZip;
     private final EnlacesFirmados enlaces;
+    private final ArchivosTemporales temporales;
     private final Clock reloj;
     private final Limites limites;
 
@@ -100,13 +111,13 @@ public class DocumentoServiceImpl implements DocumentoService {
     public DocumentoServiceImpl(DocumentoRepository documentoRepository, VersionDocumentoRepository versionRepository,
             ProcesoRepository procesoRepository, ElementosDelProceso elementos, HistorialCambioService historial,
             Auditoria auditoria, ColaDeTrabajos cola, Almacen almacen, Antivirus antivirus, DetectorDeTipo detector,
-            InspeccionDeZip inspeccionDeZip, EnlacesFirmados enlaces, Clock reloj,
+            InspeccionDeZip inspeccionDeZip, EnlacesFirmados enlaces, ArchivosTemporales temporales, Clock reloj,
             @Value("${documentos.tamano-maximo:25MB}") DataSize tamanoMaximo,
             @Value("${documentos.cuota-por-tienda:1GB}") DataSize cuota,
             @Value("${documentos.exigir-antivirus:false}") boolean exigirAntivirus,
             @Value("${documentos.enlace.vida:5m}") Duration vidaDelEnlace) {
         this(documentoRepository, versionRepository, procesoRepository, elementos, historial, auditoria, cola, almacen,
-                antivirus, detector, inspeccionDeZip, enlaces, reloj,
+                antivirus, detector, inspeccionDeZip, enlaces, temporales, reloj,
                 new Limites(tamanoMaximo.toBytes(), cuota.toBytes(), exigirAntivirus, vidaDelEnlace));
     }
 
@@ -114,7 +125,8 @@ public class DocumentoServiceImpl implements DocumentoService {
     DocumentoServiceImpl(DocumentoRepository documentoRepository, VersionDocumentoRepository versionRepository,
             ProcesoRepository procesoRepository, ElementosDelProceso elementos, HistorialCambioService historial,
             Auditoria auditoria, ColaDeTrabajos cola, Almacen almacen, Antivirus antivirus, DetectorDeTipo detector,
-            InspeccionDeZip inspeccionDeZip, EnlacesFirmados enlaces, Clock reloj, Limites limites) {
+            InspeccionDeZip inspeccionDeZip, EnlacesFirmados enlaces, ArchivosTemporales temporales, Clock reloj,
+            Limites limites) {
         this.documentoRepository = documentoRepository;
         this.versionRepository = versionRepository;
         this.procesoRepository = procesoRepository;
@@ -127,6 +139,7 @@ public class DocumentoServiceImpl implements DocumentoService {
         this.detector = detector;
         this.inspeccionDeZip = inspeccionDeZip;
         this.enlaces = enlaces;
+        this.temporales = temporales;
         this.reloj = reloj;
         this.limites = limites;
     }
@@ -145,9 +158,9 @@ public class DocumentoServiceImpl implements DocumentoService {
             Documento documento = documentoRepository.save(Documento.builder().empresa(proceso.getEmpresa())
                     .proceso(proceso).bpmnId(elemento).nombre(recibido.nombre(nombre)).versionActual(1).build());
             VersionDocumento version = guardarVersion(documento, 1, usuarioId, nombre, recibido);
-            historial.registrar(empresaId, usuarioId, proceso, "Documento \"" + documento.getNombre() + "\" agregado.");
-            auditoria.registrar(empresaId, usuarioId, "DOCUMENTO_SUBIDO", "DOCUMENTO", documento.getId(),
-                    Map.of("version", 1, "tamano", version.getTamano(), "tipo", version.getTipo()));
+            historial.registrar(empresaId, usuarioId, proceso, COMILLA + documento.getNombre() + "\" agregado.");
+            auditoria.registrar(empresaId, usuarioId, SUBIDO, RECURSO, documento.getId(),
+                    Map.of(VERSION, 1, TAMANO, version.getTamano(), TIPO, version.getTipo()));
             return respuesta(documento, version);
         });
     }
@@ -164,9 +177,9 @@ public class DocumentoServiceImpl implements DocumentoService {
             documento.setNombre(version.getNombre());
             Documento guardado = documentoRepository.saveAndFlush(documento);
             historial.registrar(empresaId, usuarioId, documento.getProceso(),
-                    "Documento \"" + guardado.getNombre() + "\": versión " + numero + ".");
-            auditoria.registrar(empresaId, usuarioId, "DOCUMENTO_SUBIDO", "DOCUMENTO", documentoId,
-                    Map.of("version", numero, "tamano", version.getTamano(), "tipo", version.getTipo()));
+                    COMILLA + guardado.getNombre() + "\": versión " + numero + ".");
+            auditoria.registrar(empresaId, usuarioId, SUBIDO, RECURSO, documentoId,
+                    Map.of(VERSION, numero, TAMANO, version.getTamano(), TIPO, version.getTipo()));
             return respuesta(guardado, version);
         });
     }
@@ -205,7 +218,7 @@ public class DocumentoServiceImpl implements DocumentoService {
         Documento documento = buscar(empresaId, documentoId);
         int cual = numero == null ? documento.getVersionActual() : numero;
         VersionDocumento version = versionRepository.findByDocumento_IdAndNumeroAndEmpresaId(documentoId, cual,
-                empresaId).orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada."));
+                empresaId).orElseThrow(() -> new RecursoNoEncontradoException(VERSION_NO_ENCONTRADA));
         if (version.getEstado() == EstadoDocumento.PENDIENTE) {
             throw new ReglaNegocioException("El documento todavía se está revisando: inténtalo en un momento.");
         }
@@ -225,8 +238,8 @@ public class DocumentoServiceImpl implements DocumentoService {
         Documento documento = buscar(empresaId, documentoId);
         documentoRepository.delete(documento);
         historial.registrar(empresaId, usuarioId, documento.getProceso(),
-                "Documento \"" + documento.getNombre() + "\" eliminado.");
-        auditoria.registrar(empresaId, usuarioId, "DOCUMENTO_ELIMINADO", "DOCUMENTO", documentoId, Map.of());
+                COMILLA + documento.getNombre() + "\" eliminado.");
+        auditoria.registrar(empresaId, usuarioId, "DOCUMENTO_ELIMINADO", RECURSO, documentoId, Map.of());
     }
 
     @Override
@@ -236,15 +249,18 @@ public class DocumentoServiceImpl implements DocumentoService {
             throw new RecursoNoEncontradoException("El enlace no existe o ya venció: pide otro.");
         }
         // Sin sesion, la tienda la dice el enlace, y solo despues de comprobar su firma
-        return ContextoDeTienda.deLaTienda(empresaId, () -> {
+        Alcance anterior = ContextoDeTienda.fijar(Alcance.deLaTienda(empresaId));
+        try {
             Documento documento = buscar(empresaId, documentoId);
             VersionDocumento version = versionRepository.findByDocumento_IdAndNumeroAndEmpresaId(documento.getId(),
                     numero, empresaId).filter(encontrada -> encontrada.getEstado() == EstadoDocumento.DISPONIBLE)
-                    .orElseThrow(() -> new RecursoNoEncontradoException("Versión no encontrada."));
+                    .orElseThrow(() -> new RecursoNoEncontradoException(VERSION_NO_ENCONTRADA));
             String tipo = TipoDeArchivo.deMime(version.getTipo()).filter(TipoDeArchivo::seMuestra)
                     .map(TipoDeArchivo::mime).orElse(BINARIO);
             return new Descarga(version.getNombre(), tipo, version.getTamano(), almacen.abrir(version.getClave()));
-        });
+        } finally {
+            ContextoDeTienda.restaurar(anterior);
+        }
     }
 
     @Override
@@ -289,21 +305,17 @@ public class DocumentoServiceImpl implements DocumentoService {
     private void bloquear(VersionDocumento version, String motivo) {
         version.setEstado(EstadoDocumento.BLOQUEADO);
         version.setMotivo(motivo.length() > 300 ? motivo.substring(0, 300) : motivo);
-        auditoria.registrar(version.getEmpresa().getId(), null, "DOCUMENTO_BLOQUEADO", "DOCUMENTO",
-                version.getDocumento().getId(), Map.of("version", version.getNumero()));
+        auditoria.registrar(version.getEmpresa().getId(), null, "DOCUMENTO_BLOQUEADO", RECURSO,
+                version.getDocumento().getId(), Map.of(VERSION, version.getNumero()));
     }
 
     /** Un ZIP por dentro se revisa sobre una copia local: la inspeccion lo recorre entero. */
     private Optional<String> problemaDeZip(String clave) {
-        Path copia = null;
-        try (InputStream contenido = almacen.abrir(clave)) {
-            copia = Files.createTempFile("documento-", ".zip");
-            Files.copy(contenido, copia, StandardCopyOption.REPLACE_EXISTING);
-            return inspeccionDeZip.problema(copia);
+        try (Temporal copia = temporales.nuevo("zip-"); InputStream contenido = almacen.abrir(clave)) {
+            Files.copy(contenido, copia.ruta(), StandardCopyOption.REPLACE_EXISTING);
+            return inspeccionDeZip.problema(copia.ruta());
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo revisar " + clave, e);
-        } finally {
-            borrar(copia);
         }
     }
 
@@ -318,9 +330,8 @@ public class DocumentoServiceImpl implements DocumentoService {
     /** Lee el cuerpo a un temporal, lo valida, y siempre borra el temporal al terminar. */
     private DocumentoResponse conArchivo(Long empresaId, String nombre, InputStream contenido,
             Function<Recibido, DocumentoResponse> guardar) {
-        Path temporal = null;
-        try {
-            temporal = Files.createTempFile("documento-", ".subida");
+        try (Temporal recibido = temporales.nuevo("subida-")) {
+            Path temporal = recibido.ruta();
             MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
             long tamano = copiar(new DigestInputStream(contenido, sha256), temporal);
             if (tamano == 0) {
@@ -337,8 +348,6 @@ public class DocumentoServiceImpl implements DocumentoService {
             throw new UncheckedIOException("No se pudo recibir el archivo", e);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("La JVM no tiene SHA-256", e);
-        } finally {
-            borrar(temporal);
         }
     }
 
@@ -352,7 +361,7 @@ public class DocumentoServiceImpl implements DocumentoService {
                 .documento(documento).numero(numero).nombre(recibido.nombre(nombre)).tipo(recibido.tipo().mime())
                 .tamano(recibido.tamano()).sha256(recibido.sha256()).clave(clave).estado(EstadoDocumento.PENDIENTE)
                 .subidoPor(usuarioId).fecha(LocalDateTime.now(reloj).truncatedTo(ChronoUnit.MICROS)).build());
-        cola.encolar(empresaId, REVISAR, String.valueOf(version.getId()));
+        cola.encolar(empresaId, TRABAJO_DE_REVISION, String.valueOf(version.getId()));
         return version;
     }
 
@@ -382,16 +391,6 @@ public class DocumentoServiceImpl implements DocumentoService {
     /** Lo que firma un enlace: la tienda, el documento y la version. */
     static String recurso(Long empresaId, Long documentoId, int numero) {
         return "documento:" + empresaId + ":" + documentoId + ":" + numero;
-    }
-
-    private static void borrar(Path archivo) {
-        if (archivo != null) {
-            try {
-                Files.deleteIfExists(archivo);
-            } catch (IOException e) {
-                archivo.toFile().deleteOnExit();
-            }
-        }
     }
 
     private static DocumentoResponse respuesta(Documento documento, VersionDocumento ultima) {

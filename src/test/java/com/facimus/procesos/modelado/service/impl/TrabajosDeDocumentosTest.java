@@ -40,7 +40,7 @@ class TrabajosDeDocumentosTest {
         RevisionDeDocumentos revision = new RevisionDeDocumentos(proveedor);
         when(proveedor.getObject()).thenReturn(documentos);
 
-        revision.ejecutar(new Trabajo(1, 7L, DocumentoServiceImpl.REVISAR, "42", 1, 5));
+        revision.ejecutar(new Trabajo(1, 7L, DocumentoServiceImpl.TRABAJO_DE_REVISION, "42", 1, 5));
 
         assertThat(revision.tipo()).isEqualTo("documentos.revisar");
         verify(documentos).revisar(7L, 42L);

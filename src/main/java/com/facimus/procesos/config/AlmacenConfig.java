@@ -20,6 +20,7 @@ import com.facimus.procesos.common.almacen.EnlacesFirmados;
 import com.facimus.procesos.common.antivirus.Antivirus;
 import com.facimus.procesos.common.antivirus.ClamAv;
 import com.facimus.procesos.common.antivirus.SinAntivirus;
+import com.facimus.procesos.common.archivos.ArchivosTemporales;
 import com.facimus.procesos.common.archivos.DetectorDeTipo;
 import com.facimus.procesos.common.archivos.InspeccionDeZip;
 import com.facimus.procesos.common.markdown.Markdown;
@@ -54,7 +55,9 @@ public class AlmacenConfig {
             @Value("${almacen.directorio}") String directorio) {
         if (!StringUtils.hasText(bucket)) {
             AlmacenEnDisco disco = new AlmacenEnDisco(Path.of(directorio));
-            log.info("Almacen de documentos: {} (sin ALMACEN_S3_BUCKET)", disco.descripcion());
+            if (log.isInfoEnabled()) {
+                log.info("Almacen de documentos: {} (sin ALMACEN_S3_BUCKET)", disco.descripcion());
+            }
             return disco;
         }
         S3ClientBuilder cliente = S3Client.builder().region(Region.of(region))
@@ -70,7 +73,9 @@ public class AlmacenConfig {
         if (crearBuckets) {
             s3.crearBucketsQueFalten();
         }
-        log.info("Almacen de documentos: {}", s3.descripcion());
+        if (log.isInfoEnabled()) {
+            log.info("Almacen de documentos: {}", s3.descripcion());
+        }
         return s3;
     }
 
@@ -87,6 +92,12 @@ public class AlmacenConfig {
     @Bean
     public EnlacesFirmados enlacesFirmados(@Value("${jwt.secret:}") String secreto, Clock reloj) {
         return new EnlacesFirmados(secreto, reloj);
+    }
+
+    /** La carpeta propia de los archivos de paso, fuera de la temporal que comparte el sistema. */
+    @Bean
+    public ArchivosTemporales archivosTemporales(@Value("${archivos.temporales}") String carpeta) {
+        return new ArchivosTemporales(Path.of(carpeta));
     }
 
     /** PR 62: Markdown a HTML saneado, para la documentacion. */

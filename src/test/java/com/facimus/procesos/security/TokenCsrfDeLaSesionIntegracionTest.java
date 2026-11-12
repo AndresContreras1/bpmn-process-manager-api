@@ -117,7 +117,7 @@ class TokenCsrfDeLaSesionIntegracionTest {
 
         assertThat(renovada.getResponse().getStatus()).isEqualTo(200);
         assertThat(escritos(renovada)).as("POST /api/v1/auth/refresh no toca la cookie XSRF-TOKEN").isEmpty();
-        assertThat(cookies.get(XSRF)).isEqualTo(deLaSesion);
+        assertThat(cookies).containsEntry(XSRF, deLaSesion);
     }
 
     /** Lo que hace la web al arrancar: pedir el token CSRF. */

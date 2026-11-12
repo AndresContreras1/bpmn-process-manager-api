@@ -27,6 +27,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.ObjectVersion;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -125,7 +126,7 @@ class AlmacenS3IntegracionTest {
 
     @Test
     @DisplayName("un ancla con Object Lock no se puede borrar antes de su fecha, ni con las credenciales de la API")
-    void anclaInmutable() throws IOException {
+    void anclaInmutable() {
         Almacen almacen = new AlmacenS3(s3, "documentos", "anclas", false);
         String clave = ClaveDeAlmacen.deAncla(3, "2026-11-12");
 
@@ -152,7 +153,7 @@ class AlmacenS3IntegracionTest {
         almacen.crearBucketsQueFalten();
         almacen.crearBucketsQueFalten();
 
-        assertThat(s3.listBuckets().buckets()).extracting(bucket -> bucket.name())
+        assertThat(s3.listBuckets().buckets()).extracting(Bucket::name)
                 .contains("nuevos-documentos", "nuevas-anclas");
         assertThat(s3.getObjectLockConfiguration(peticion -> peticion.bucket("nuevas-anclas"))
                 .objectLockConfiguration().objectLockEnabledAsString()).isEqualTo("Enabled");

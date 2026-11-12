@@ -12,7 +12,8 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 
 import com.facimus.procesos.common.almacen.Almacen;
 import com.facimus.procesos.common.almacen.AlmacenEnDisco;
@@ -111,23 +113,35 @@ class AnclaDeBitacoraServiceImplTest {
 
     @Test
     @DisplayName("la ultima ancla se lee del almacen, no de la fila")
-    void ultima() {
+    void ultima() throws SQLException {
         anclarDeVerdad(1L, 57L, "c".repeat(64));
-        when(jdbc.queryForList(anyString(), eq(1L))).thenReturn(List.of(
-                Map.of("dia", Date.valueOf(HOY), "secuencia", 99L, "clave", "anclas/1/2026-11-12")));
+        fila(1L, 99L, "anclas/1/2026-11-12");
 
         assertThat(anclas.ultima(1L)).contains(new Ancla(HOY, 57, "c".repeat(64)));
     }
 
     @Test
     @DisplayName("sin anclas no hay ultima; si el almacen ya no la tiene, vuelve sin hash")
-    void sinAncla() {
-        when(jdbc.queryForList(anyString(), eq(1L))).thenReturn(List.of());
-        when(jdbc.queryForList(anyString(), eq(2L))).thenReturn(List.of(
-                Map.of("dia", Date.valueOf(HOY), "secuencia", 8L, "clave", "anclas/2/2026-11-12")));
+    @SuppressWarnings("unchecked")
+    void sinAncla() throws SQLException {
+        when(jdbc.query(anyString(), any(RowMapper.class), eq(1L))).thenReturn(List.of());
+        fila(2L, 8L, "anclas/2/2026-11-12");
 
         assertThat(anclas.ultima(1L)).isEmpty();
         assertThat(anclas.ultima(2L)).contains(new Ancla(HOY, 8, null));
+    }
+
+    /** La fila del ancla de una tienda, pasada por el mapeo del servicio como lo haria la base. */
+    @SuppressWarnings("unchecked")
+    private void fila(long empresaId, long secuencia, String clave) throws SQLException {
+        ResultSet resultado = mock(ResultSet.class);
+        when(resultado.getObject("dia", LocalDate.class)).thenReturn(HOY);
+        when(resultado.getLong("secuencia")).thenReturn(secuencia);
+        when(resultado.getString("clave")).thenReturn(clave);
+        when(jdbc.query(anyString(), any(RowMapper.class), eq(empresaId))).thenAnswer(llamada -> {
+            RowMapper<Object> mapeo = llamada.getArgument(1);
+            return List.of(mapeo.mapRow(resultado, 0));
+        });
     }
 
     private void anclarDeVerdad(Long empresaId, Long secuencia, String hash) {

@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class ClamdFalso implements AutoCloseable {
 
-    /** La cadena de prueba de EICAR, que todo antivirus da por virus sin que lo sea. */
+    /** La cadena de prueba de EICAR, que cualquier antivirus da por virus sin que lo sea. */
     public static final String EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
 
     /**
@@ -64,7 +64,7 @@ public final class ClamdFalso implements AutoCloseable {
         while (!servidor.isClosed()) {
             try (Socket socket = servidor.accept()) {
                 responder(socket);
-            } catch (IOException e) {
+            } catch (IOException _) {
                 // El servidor se cerro, o el cliente se fue a mitad: el siguiente sigue
             }
         }
