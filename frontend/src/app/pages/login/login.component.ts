@@ -10,6 +10,7 @@ import { ErrorCampoComponent } from '../../components/error-campo/error-campo.co
 import { mensajeDeError } from '../../helpers/errores-api';
 import { fueCancelada, soportaPasskeys } from '../../helpers/webauthn';
 import { LoginResponse } from '../../models/login.model';
+import { inicioDe } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
 import { CuentaService } from '../../service/cuenta.service';
 import { SegundoFactorService } from '../../service/segundo-factor.service';
@@ -50,7 +51,8 @@ export class LoginComponent implements OnInit {
   sesionVencida: boolean = false;
   /** F13: se salio desde otra pestaña de la web. */
   sesionCerrada: boolean = false;
-  private volver: string = '/procesos';
+  /** Adonde volver tras entrar; sin uno, al inicio de su rol (inicioDe). */
+  private volver: string | null = null;
 
   ngOnInit(): void {
     const parametros: ParamMap = this.route.snapshot.queryParamMap;
@@ -134,7 +136,7 @@ export class LoginComponent implements OnInit {
             this.paso = 'segundo-factor';
             return;
           }
-          this.router.navigateByUrl(this.volver);
+          this.router.navigateByUrl(this.volver ?? inicioDe(respuesta.usuario.rolAcceso));
         },
         error: (error: unknown) => {
           if (!fueCancelada(error)) {

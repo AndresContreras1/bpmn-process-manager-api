@@ -7,6 +7,8 @@ import { finalize } from 'rxjs';
 
 import { mensajeDeError } from '../../helpers/errores-api';
 import { tokenDelEnlace } from '../../helpers/token-del-enlace';
+import { LoginResponse } from '../../models/login.model';
+import { inicioDe } from '../../models/usuario.model';
 import { CuentaService } from '../../service/cuenta.service';
 
 /**
@@ -44,7 +46,7 @@ export class VincularComponent {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: () => this.router.navigateByUrl('/procesos'),
+        next: (respuesta: LoginResponse) => this.router.navigateByUrl(inicioDe(respuesta.usuario.rolAcceso)),
         error: (error: HttpErrorResponse) =>
           (this.error =
             error.status === 401 ? $localize`That did not confirm it. Check it and try again.` : mensajeDeError(error)),

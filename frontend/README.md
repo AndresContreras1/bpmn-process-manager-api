@@ -356,8 +356,8 @@ that changes anything.
 
 - **`/portal`** lists the published processes of a folder (that folder and the ones inside it, by name) beside the
   folder tree, which here has no controls to change it, or what the search finds. The search is the API of the global
-  search through `PortalService`, without comments, which are not what is published; an element only in the draft
-  opens its process without choosing it. The folder, the text and the page live in the
+  search through `PortalService`, with `publicado=true`: only processes with a version in force, the elements of
+  that version and those processes' documents, without comments. The folder, the text and the page live in the
   address. Each process says its classification and its next review, or *Review overdue* when the API says so.
 - **`/portal/procesos/:id`** opens one process with every read at once (`PortalService.abrir`): the detail, which
   names the owner (`duenoNombre`), the permissions, the characterization sheet, the documentation, the documents, the
@@ -370,7 +370,11 @@ that changes anything.
   with `?elemento=`, which the search uses, opens the process with that element chosen.
 - **The manual** of the version in force: the newest one ready, in the reader's language if there is one, as PDF or as
   a web page. Asking to build one is offered only when the permissions say `EXPORTAR` and the role may send changes
-  (`controlesDelPortal`), and the page asks again every two seconds until the queue finishes it.
+  (`controlesDelPortal`), and the page asks again every two seconds until the queue finishes it, for three minutes
+  at most; after that it says to come back later. The manual's language is shown by its name in the reader's.
+- **Readers start here.** The read-only role lands on `/portal` after signing in, accepting an invitation or linking
+  a provider (`inicioDe`), has it first in the sidebar, and the home page offers it; the other roles start in the
+  process list, as before.
 
 ## Administration
 

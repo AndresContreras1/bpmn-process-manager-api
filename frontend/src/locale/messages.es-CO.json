@@ -381,6 +381,7 @@
     "5815834873672405696": "BPMN para organizaciones",
     "8701890752905421553": "Modela cómo opera tu organización",
     "1676282252222262302": " Cada organización documenta su operación, desde el despacho de pedidos hasta las devoluciones, como procesos BPMN. Sus datos nunca llegan a otra organización. ",
+    "5677643669592962821": "Abrir el portal de procesos",
     "7842409462456201173": "Abrir mis procesos",
     "5564861470382901589": "Crea tu organización",
     "2392878841137990527": "{$START_BLOCK_IF} La organización de demostración trae un proceso de despacho de pedidos publicado: entra con admin@demo.com y every-order-on-time. {$CLOSE_BLOCK_IF}{$START_BLOCK_ELSE} Crea tu organización y modela tu primer proceso; nada de lo que pongas ahí lo ve nadie más. {$CLOSE_BLOCK_ELSE}",

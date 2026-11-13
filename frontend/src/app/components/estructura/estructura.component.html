@@ -188,17 +188,26 @@
         <div class="p-3">
           <p i18n class="barra-titulo" id="seccion-procesos">Processes</p>
           <ul class="nav flex-column mb-3" aria-labelledby="seccion-procesos">
+            <!-- F22: quien solo lee empieza en el portal, y lo tiene primero; el orden del DOM es el del foco -->
+            @if (usuario.rolAcceso === 'SOLO_LECTURA') {
+              <ng-container [ngTemplateOutlet]="enlaceAlPortal" />
+            }
             <li class="nav-item">
               <a i18n class="nav-link" routerLink="/procesos" routerLinkActive="active" id="navbar-procesos">
                 <i class="fa-solid fa-diagram-project fa-fw" aria-hidden="true"></i> Processes
               </a>
             </li>
+            @if (usuario.rolAcceso !== 'SOLO_LECTURA') {
+              <ng-container [ngTemplateOutlet]="enlaceAlPortal" />
+            }
+          </ul>
+          <ng-template #enlaceAlPortal>
             <li class="nav-item">
               <a i18n class="nav-link" routerLink="/portal" routerLinkActive="active" id="navbar-portal">
                 <i class="fa-solid fa-book-open fa-fw" aria-hidden="true"></i> Process portal
               </a>
             </li>
-          </ul>
+          </ng-template>
 
           <p i18n class="barra-titulo" id="seccion-trabajo">Work</p>
           <ul class="nav flex-column mb-3" aria-labelledby="seccion-trabajo">

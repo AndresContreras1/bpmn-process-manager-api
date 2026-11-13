@@ -151,13 +151,16 @@ abstract class PruebaE2E {
         entrarCon(tienda.correo(), tienda.clave());
     }
 
-    /** Entra con cualquiera: hace falta para probar lo que ve quien no es administrador. */
+    /**
+     * Entra con cualquiera: hace falta para probar lo que ve quien no es administrador. Cada rol empieza en su inicio
+     * (F22: quien solo lee, en el portal), asi que se espera a salir del login, no a una pagina.
+     */
     protected void entrarCon(String correo, String clave) {
         ir("/login");
         escribir(Paginas.Login.EMAIL, correo);
         escribir(Paginas.Login.CLAVE, clave);
         pulsable(Paginas.Login.ENTRAR).click();
-        esperarUrl("/procesos");
+        espera.until(ExpectedConditions.not(ExpectedConditions.urlContains("/login")));
     }
 
     /**

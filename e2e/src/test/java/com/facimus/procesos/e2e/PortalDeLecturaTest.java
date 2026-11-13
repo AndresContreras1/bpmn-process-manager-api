@@ -59,9 +59,12 @@ class PortalDeLecturaTest extends PruebaE2E {
         String tarea = prepararProceso(proceso, carpeta, api.usuarioId());
         Path descargas = permitirDescargas();
 
+        // Quien solo lee empieza en el portal, y lo tiene primero en la barra lateral
         entrarCon(correoDe("f22-lectora"), LECTORA);
-        ir("/portal");
+        esperarUrl("/portal");
         visible(By.id("portal-titulo"));
+        assertEquals("navbar-portal", visible(By.cssSelector("#barra-lateral .nav-link")).getDomAttribute("id"),
+                "el portal va primero para quien solo lee");
         assertTrue(navegador.findElements(By.id("carpetas-crear")).isEmpty(), "las carpetas no se cambian aqui");
         revisarAccesibilidad("la entrada del portal");
 
@@ -88,7 +91,7 @@ class PortalDeLecturaTest extends PruebaE2E {
         visible(By.id("portal-proceso-vencida"));
         esperarTexto(By.cssSelector("dd[data-campo='objetivo']"), "Every gift leaves wrapped");
 
-        // Un clic en el inicio del diagrama y otro en el paso: el panel habla de cada uno
+        // Sin nada elegido el panel habla del proceso entero; un clic en el paso lo cambia a ese paso
         ir("/portal/procesos/" + proceso);
         esperarTexto(PANEL, "proceso entero");
         visible(By.cssSelector("#portal-diagrama [data-element-id='" + tarea + "'].marca-documentado"));
