@@ -102,6 +102,10 @@
 - [x] Publishing with approval as an option per store: a request freezes the draft, shows the difference against the
       version in force and is approved, sent back or rejected by N people of a list or a role, never the requester;
       the last approval publishes the frozen version if it still can. Recertification of each process by its owner
+- [x] Review, comments and notifications in the web: asking for a review instead of publishing, the inbox to
+      approve, each request drawn with its difference and listed in words, comment threads beside the canvas with a
+      count over each element and mentions chosen from who can view the process, and the bell, live over
+      server-sent events, with its settings per type
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline

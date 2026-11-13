@@ -8,6 +8,17 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Review, comments and notifications in the web: with a publishing policy that asks for approval, the process page
+  and the modeler offer *Ask for review* instead of Publish, or a link to the open request; an inbox lists what waits
+  for the person's decision and every request of the store by state; a request page draws the frozen draft with its
+  difference marked like the compare page and lists it in words, and lets an approver approve, ask for changes or
+  reject, and the requester or whoever administers the process withdraw it; the administrator sets the policy on its
+  own screen. Comment threads sit in a panel beside the canvas in the modeler and the viewer, for the selected element
+  or the whole process, with a count of open threads drawn over each element, replies, resolve and reopen, edit and
+  delete, the HTML the API cleaned and mentions chosen from a picker that sends ids. The header has a bell with the
+  unread count, live over the notification stream with its own reconnection, the latest notifications, mark one or
+  all read, and a settings page per type. `GET /api/v1/procesos/{id}/mencionables` answers who can be mentioned in a
+  process. The initial bundle stays at 738 kB.
 - The repository and the permissions in the web: the filters of the process list (folder, owner, tag,
   classification, review date, state, category, name, order and page) live in the address; folders move inside
   others and processes move between folders from a dialog driven by the keyboard; a new process can be filed as it

@@ -20,7 +20,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Documents | `GET, POST /api/v1/procesos/{id}/documentos` · `GET, DELETE /api/v1/documentos/{id}` · `POST /api/v1/documentos/{id}/versiones` · `GET /api/v1/documentos/{id}/enlace` · `GET /api/v1/descargas/documentos/{id}/{version}` |
 | Documentation | `GET, PUT /api/v1/procesos/{id}/documentacion` · `POST /api/v1/documentacion/vista-previa` · `GET, PUT /api/v1/procesos/{id}/caracterizacion` |
 | Manuals | `GET, POST /api/v1/procesos/{id}/manuales[?version=]` · `GET /api/v1/manuales/{id}` · `GET /api/v1/manuales/{id}/enlace?formato=pdf\|html` · `GET /api/v1/descargas/manuales/{id}/{formato}` · `PUT /api/v1/procesos/{id}/versiones/{numero}/dibujo` |
-| Comments | `GET, POST /api/v1/procesos/{id}/comentarios[?bpmnId=&version=&estado=]` · `POST /api/v1/comentarios/{id}/respuestas` · `PUT, DELETE /api/v1/comentarios/{id}` · `POST /api/v1/comentarios/{id}/resolver` · `POST /api/v1/comentarios/{id}/reabrir` |
+| Comments | `GET, POST /api/v1/procesos/{id}/comentarios[?bpmnId=&version=&estado=]` · `POST /api/v1/comentarios/{id}/respuestas` · `PUT, DELETE /api/v1/comentarios/{id}` · `POST /api/v1/comentarios/{id}/resolver` · `POST /api/v1/comentarios/{id}/reabrir` · `GET /api/v1/procesos/{id}/mencionables[?q=]` |
 | Search | `GET /api/v1/busqueda?q=&tipo=&pagina=&tamano=` |
 | Review and approval | `GET, PUT /api/v1/empresas/actual/politica-de-publicacion` · `GET, POST /api/v1/procesos/{id}/solicitudes[?estado=]` · `GET /api/v1/solicitudes[?pendientesDeMi=true&estado=]` · `GET /api/v1/solicitudes/{id}` · `POST /api/v1/solicitudes/{id}/aprobar`, `/pedir-cambios`, `/rechazar`, `/retirar` · `POST /api/v1/procesos/{id}/recertificacion` |
 | Notifications | `GET /api/v1/notificaciones[?noLeidas=true]` · `GET /api/v1/notificaciones/conteo` · `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` · `GET /api/v1/notificaciones/flujo` · `GET, PUT /api/v1/notificaciones/preferencias` |
@@ -194,6 +194,12 @@ text and keeps its place, so a thread with replies stays, marked `eliminado`. `G
 answers a page of threads, newest first and up to 50, each with its replies oldest first, filtered by `bpmnId`,
 `version` and `estado`. Every role comments, the read-only one too; reading needs `VER` and writing `COMENTAR` and
 `VER` on the process ([Security](security.md#comments-and-notifications)).
+
+`GET /api/v1/procesos/{id}/mencionables?q=an` answers who can be mentioned there, for a picker: `[{ "id": 2,
+"nombre": "Ana" }]`, the active people of the store who can view the process and whose name contains `q` (up to 100
+characters, `400` beyond; empty for the first ones), without whoever asks, by name and up to 20. It needs `VER` on the
+process, and another store's process answers `404`. Of the first 50 people by name only those who can view it stay,
+so with many people who cannot, a longer `q` finds the rest.
 
 Who hears about it: those mentioned (`MENCION`), everyone else who wrote in the thread when someone replies
 (`RESPUESTA`), and everyone who wrote in it when it is resolved (`HILO_RESUELTO`), never the author. Each one gets a

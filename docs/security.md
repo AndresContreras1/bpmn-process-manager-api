@@ -365,6 +365,13 @@ What people write to each other is cleaned and kept to the store, and what they 
 - **Mentions** are at most 20 ids, each an active person of the store who can view the process. Anything else answers
   `400` with the same reason, whether the person cannot view it, is inactive, is from another store or does not
   exist: the answer never tells which.
+- **Who can be mentioned** (`GET /procesos/{id}/mencionables`) is answered to whoever can view the process, any role
+  (`VER` in the resource rule and in the service): it lists only the name and id of active people who can view that
+  process too, the same people the mention check accepts, never their e-mail or role. Another store's process
+  answers `404`, and so does one hidden by a grant. It is a read, so it spends no bucket of changes and writes no
+  audit entry; it answers at most 20 people from the first 50 by name.
+- **In the web**, a comment, a request and a decision are shown only as the HTML the API returns, through Angular's
+  own sanitizer as well; the bell reads the stream with the session cookies and nothing is stored in the browser.
 - **Isolation.** The three tables have row-level security; another store's comment or notification answers `404`, and
   so does another person's notification in the same store: every query filters by store and recipient.
 - **Audit.** Resolving, reopening and deleting are in the audit trail; writing a comment is not, the comment is its own
