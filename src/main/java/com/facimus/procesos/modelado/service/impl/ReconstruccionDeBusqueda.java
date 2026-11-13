@@ -71,14 +71,14 @@ public class ReconstruccionDeBusqueda implements ManejadorDeTrabajo {
     /**
      * Rehace la tabla tramo a tramo. Termina cuando un tramo ya no encuentra filas despues del ultimo id rehecho, o si
      * no avanza: cada tramo empieza despues del anterior, y uno que no pasa de donde empezo no tiene nada mas que
-     * hacer.
+     * hacer. Un tramo sin filas cuenta como uno que no avanzo: se queda en {@code desde}.
      */
     private void recorrer(Long empresaId, Tabla tabla) {
         long desde = 0L;
-        Optional<Long> hasta = tramo(empresaId, tabla, desde);
-        while (hasta.isPresent() && hasta.get() > desde) {
-            desde = hasta.get();
-            hasta = tramo(empresaId, tabla, desde);
+        long hasta = tramo(empresaId, tabla, desde).orElse(desde);
+        while (hasta > desde) {
+            desde = hasta;
+            hasta = tramo(empresaId, tabla, desde).orElse(desde);
         }
     }
 
