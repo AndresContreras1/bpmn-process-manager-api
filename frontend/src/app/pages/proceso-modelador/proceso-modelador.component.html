@@ -46,7 +46,7 @@
         type="button"
         class="btn btn-primary btn-sm"
         id="modelador-pedir-revision"
-        [disabled]="soloLectura || !diagnostico || diagnostico.errores > 0 || estado === 'guardando'"
+        [disabled]="soloLectura || !diagnostico || diagnostico.errores > 0 || estado !== 'guardado'"
         (click)="pedirRevision()"
       >
         Ask for review

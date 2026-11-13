@@ -59,7 +59,7 @@ class RevisionYComentariosTest extends PruebaE2E {
         assertEquals("ABIERTA", visible(By.id("solicitud-estado")).getDomAttribute("data-estado"));
         esperarTexto(By.id("solicitud-html"), "packing");
         // Contra un diagrama vacio, cada elemento es nuevo: en la lista y pintado en el dibujo
-        espera.until(navegador -> !navegador.findElements(By.cssSelector("[data-testid='solicitud-cambio']"
+        espera.until(navegador -> !navegador.findElements(By.cssSelector("[data-testid='comparacion-cambio']"
                 + "[data-tipo='agregado']")).isEmpty());
         visible(By.cssSelector("#solicitud-diagrama .djs-element.marca-agregado"));
         assertTrue(navegador.findElements(By.id("solicitud-aprobar")).isEmpty(), "quien la pide no la aprueba");

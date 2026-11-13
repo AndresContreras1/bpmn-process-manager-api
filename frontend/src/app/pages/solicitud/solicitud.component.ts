@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 
-import { FilaDeDiferencia, ResumenDeDiferencia, filasDeDiferencia, resumenDeDiferencia } from '../../bpmn/diferencia';
+import { LeyendaComparacionComponent } from '../../bpmn/leyenda-comparacion.component';
 import { LienzoBpmnComponent } from '../../bpmn/lienzo-bpmn.component';
 import { marcasDeComparacion } from '../../bpmn/marcas';
 import { InsigniaComponent } from '../../components/ui/insignia.component';
@@ -45,7 +45,7 @@ interface Dibujado {
  */
 @Component({
   selector: 'app-solicitud',
-  imports: [FormsModule, RouterLink, FechaPipe, InsigniaComponent, LienzoBpmnComponent],
+  imports: [FormsModule, RouterLink, FechaPipe, InsigniaComponent, LeyendaComparacionComponent, LienzoBpmnComponent],
   templateUrl: './solicitud.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
 })
@@ -70,10 +70,10 @@ export class SolicitudComponent implements OnInit {
   xml: string | null = null;
   dibujo: Dibujo = 'congelado';
   marcas: Record<string, string[]> = {};
-  filas: FilaDeDiferencia[] = [];
-  resumen: ResumenDeDiferencia = { agregado: 0, cambiado: 0, movido: 0, quitado: 0 };
   decide: boolean = false;
   retira: boolean = false;
+  /** Retirarla no tiene vuelta atras: el boton primero pregunta. */
+  confirmandoRetiro: boolean = false;
   /** La decision que se esta escribiendo; null mientras no se eligio ninguna. */
   decision: TipoDeDecision | null = null;
   texto: string = '';
@@ -85,10 +85,6 @@ export class SolicitudComponent implements OnInit {
 
   get textoObligatorio(): boolean {
     return this.decision !== null && decisionPideTexto(this.decision);
-  }
-
-  get sinCambios(): boolean {
-    return this.filas.length === 0;
   }
 
   ngOnInit(): void {
@@ -143,16 +139,20 @@ export class SolicitudComponent implements OnInit {
     );
   }
 
-  retirar(): void {
-    const solicitud = this.solicitud;
-    if (solicitud && !this.enviando) {
-      this.enviar(this.solicitudes.retirar(solicitud.id), () => $localize`The request was withdrawn.`);
-    }
+  pedirRetiro(): void {
+    this.confirmandoRetiro = true;
+    setTimeout(() => document.getElementById('solicitud-retirar-confirmar')?.focus());
   }
 
-  mostrarElemento(fila: FilaDeDiferencia): void {
-    if (fila.enElDibujo) {
-      this.lienzo?.mostrar(fila.bpmnId);
+  cancelarRetiro(): void {
+    this.confirmandoRetiro = false;
+    setTimeout(() => document.getElementById('solicitud-retirar')?.focus());
+  }
+
+  retirar(): void {
+    const solicitud = this.solicitud;
+    if (solicitud && this.confirmandoRetiro && !this.enviando) {
+      this.enviar(this.solicitudes.retirar(solicitud.id), () => $localize`The request was withdrawn.`);
     }
   }
 
@@ -169,6 +169,7 @@ export class SolicitudComponent implements OnInit {
         next: (resultado) => {
           this.decision = null;
           this.texto = '';
+          this.confirmandoRetiro = false;
           this.aviso = hecho(resultado);
           this.mostrar(resultado, false);
         },
@@ -182,12 +183,11 @@ export class SolicitudComponent implements OnInit {
    */
   private mostrar(solicitud: Solicitud, conDibujo: boolean): void {
     this.solicitud = solicitud;
-    this.filas = filasDeDiferencia(solicitud.diferencia);
-    this.resumen = resumenDeDiferencia(this.filas);
     this.marcas = solicitud.diferencia ? marcasDeComparacion(solicitud.diferencia) : {};
     this.decide = puedeDecidir(solicitud, this.usuarioId);
     if (!conDibujo) {
-      this.retira = puedeRetirar(solicitud, this.usuarioId, false) && this.retira;
+      // Quien podia retirarla (quien la pidio, o quien administra el proceso) puede mientras siga abierta
+      this.retira = this.retira && solicitud.estado === 'ABIERTA';
       return;
     }
     forkJoin({

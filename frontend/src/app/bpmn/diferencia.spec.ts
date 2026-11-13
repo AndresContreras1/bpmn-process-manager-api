@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Comparacion } from '../models/modelo.model';
-import { filasDeDiferencia, resumenDeDiferencia } from './diferencia';
+import { filasDeDiferencia, gruposDeDiferencia, resumenDeDiferencia } from './diferencia';
 
 const comparacion: Comparacion = {
   de: '2',
@@ -81,5 +81,25 @@ describe('resumenDeDiferencia', () => {
 
   it('todo en cero cuando no hay cambios', () => {
     expect(resumenDeDiferencia([])).toEqual({ agregado: 0, cambiado: 0, movido: 0, quitado: 0 });
+  });
+});
+
+describe('gruposDeDiferencia', () => {
+  it('agrupa las filas por tipo de cambio, en el orden de la lista y sin perder el orden por nombre', () => {
+    const grupos = gruposDeDiferencia(filasDeDiferencia(comparacion));
+
+    expect(grupos.map((grupo) => [grupo.tipo, grupo.filas.map((fila) => fila.bpmnId)])).toEqual([
+      ['agregado', ['Tarea_9', 'Gateway_1']],
+      ['cambiado', ['Tarea_2']],
+      ['movido', ['Evento_1']],
+      ['quitado', ['Tarea_3']],
+    ]);
+  });
+
+  it('un tipo sin cambios no deja un grupo vacio', () => {
+    const soloMovidos: Comparacion = { ...comparacion, agregados: [], cambiados: [], quitados: [] };
+
+    expect(gruposDeDiferencia(filasDeDiferencia(soloMovidos)).map((grupo) => grupo.tipo)).toEqual(['movido']);
+    expect(gruposDeDiferencia([])).toEqual([]);
   });
 });

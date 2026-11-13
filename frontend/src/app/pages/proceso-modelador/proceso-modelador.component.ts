@@ -393,7 +393,13 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   async pedirRevision(): Promise<void> {
     this.error = null;
     await this.autoguardado?.guardarAhora();
-    this.pidiendoRevision = true;
+    // Si no se pudo guardar, lo que se ve no es lo que se congelaria: se dice por que, y no se abre el dialogo
+    const estado = this.autoguardado?.estado ?? 'guardado';
+    if (estado !== 'guardado') {
+      this.error = $localize`The diagram is not saved, so it cannot be sent for review yet: ${this.textoDeEstado[estado]}:estado:.`;
+    } else {
+      this.pidiendoRevision = true;
+    }
     this.cambios.markForCheck();
   }
 

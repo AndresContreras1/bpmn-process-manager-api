@@ -1,63 +1,51 @@
 <section id="comparacion-leyenda" aria-labelledby="comparacion-titulo">
   <h2 i18n class="h6" id="comparacion-titulo">What changed</h2>
-  @if (sinCambios) {
+  @if (grupos().length === 0) {
     <p i18n class="small text-body-secondary mb-0" id="comparacion-sin-cambios">There are no differences.</p>
+  } @else {
+    <p i18n class="small text-body-secondary" id="comparacion-resumen">
+      {{ resumen().agregado }} added, {{ resumen().cambiado }} changed, {{ resumen().movido }} moved,
+      {{ resumen().quitado }} removed
+    </p>
   }
-  @if (comparacion().agregados.length) {
+  @for (grupo of grupos(); track grupo.tipo) {
     <h3 class="h6 small mb-1">
-      <span class="muestra muestra-agregado" aria-hidden="true"></span>
-      <ng-container i18n>Added (green outline)</ng-container>
-    </h3>
-    <ul class="list-unstyled small" id="comparacion-agregados">
-      @for (uno of comparacion().agregados; track uno.bpmnId) {
-        <li>
-          <button type="button" class="btn btn-link btn-sm p-0 text-start" (click)="mostrar.emit(uno.bpmnId)">
-            {{ uno.nombre || uno.bpmnId }}
-          </button>
-        </li>
+      @switch (grupo.tipo) {
+        @case ('agregado') {
+          <span class="muestra muestra-agregado" aria-hidden="true"></span>
+          <ng-container i18n>Added (green outline)</ng-container>
+        }
+        @case ('cambiado') {
+          <span class="muestra muestra-cambiado" aria-hidden="true"></span>
+          <ng-container i18n>Changed (dashed orange outline)</ng-container>
+        }
+        @case ('movido') {
+          <span class="muestra muestra-movido" aria-hidden="true"></span>
+          <ng-container i18n>Only moved (dotted blue outline)</ng-container>
+        }
+        @case ('quitado') {
+          <ng-container i18n>Removed (not in this drawing)</ng-container>
+        }
       }
-    </ul>
-  }
-  @if (comparacion().cambiados.length) {
-    <h3 class="h6 small mb-1">
-      <span class="muestra muestra-cambiado" aria-hidden="true"></span>
-      <ng-container i18n>Changed (dashed orange outline)</ng-container>
     </h3>
-    <ul class="list-unstyled small" id="comparacion-cambiados">
-      @for (uno of comparacion().cambiados; track uno.bpmnId) {
-        <li>
-          <button type="button" class="btn btn-link btn-sm p-0 text-start" (click)="mostrar.emit(uno.bpmnId)">
-            {{ uno.nombre || uno.bpmnId }}
-          </button>
-          <ul class="list-unstyled ms-2 mb-1">
-            @for (campo of uno.campos; track campo.campo) {
-              <li>{{ campo.campo }}: {{ campo.antes ?? '—' }} → {{ campo.despues ?? '—' }}</li>
-            }
-          </ul>
+    <ul class="list-unstyled small" [id]="'comparacion-' + grupo.tipo + 's'">
+      @for (fila of grupo.filas; track fila.bpmnId) {
+        <li data-testid="comparacion-cambio" [attr.data-tipo]="fila.tipo">
+          @if (fila.enElDibujo) {
+            <button type="button" class="btn btn-link btn-sm p-0 text-start" (click)="mostrar.emit(fila.bpmnId)">
+              {{ fila.nombre }}
+            </button>
+          } @else {
+            <span class="text-decoration-line-through">{{ fila.nombre }}</span>
+          }
+          @if (fila.campos.length) {
+            <ul class="list-unstyled ms-2 mb-1">
+              @for (campo of fila.campos; track campo.campo) {
+                <li>{{ campo.campo }}: {{ campo.antes ?? '—' }} → {{ campo.despues ?? '—' }}</li>
+              }
+            </ul>
+          }
         </li>
-      }
-    </ul>
-  }
-  @if (comparacion().movidos.length) {
-    <h3 class="h6 small mb-1">
-      <span class="muestra muestra-movido" aria-hidden="true"></span>
-      <ng-container i18n>Only moved (dotted blue outline)</ng-container>
-    </h3>
-    <ul class="list-unstyled small" id="comparacion-movidos">
-      @for (uno of comparacion().movidos; track uno.bpmnId) {
-        <li>
-          <button type="button" class="btn btn-link btn-sm p-0 text-start" (click)="mostrar.emit(uno.bpmnId)">
-            {{ uno.nombre || uno.bpmnId }}
-          </button>
-        </li>
-      }
-    </ul>
-  }
-  @if (comparacion().quitados.length) {
-    <h3 i18n class="h6 small mb-1">Removed (not in this drawing)</h3>
-    <ul class="list-unstyled small" id="comparacion-quitados">
-      @for (uno of comparacion().quitados; track uno.bpmnId) {
-        <li>{{ uno.nombre || uno.bpmnId }}</li>
       }
     </ul>
   }

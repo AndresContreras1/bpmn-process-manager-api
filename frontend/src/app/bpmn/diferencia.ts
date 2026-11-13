@@ -38,6 +38,19 @@ export function filasDeDiferencia(comparacion: Comparacion | null): FilaDeDifere
   return ORDEN.flatMap((tipo) => [...grupos[tipo]].sort(porNombre));
 }
 
+/** Las filas de un mismo tipo de cambio, bajo su titulo en la leyenda. */
+export interface GrupoDeDiferencia {
+  tipo: TipoDeCambio;
+  filas: FilaDeDiferencia[];
+}
+
+/** Las filas por tipo de cambio, en el orden de la lista y sin grupos vacios. */
+export function gruposDeDiferencia(filas: readonly FilaDeDiferencia[]): GrupoDeDiferencia[] {
+  return ORDEN.map((tipo) => ({ tipo, filas: filas.filter((una) => una.tipo === tipo) })).filter(
+    (grupo) => grupo.filas.length > 0,
+  );
+}
+
 /** Cuantos de cada tipo; todo en cero dice que no hay cambios. */
 export function resumenDeDiferencia(filas: readonly FilaDeDiferencia[]): ResumenDeDiferencia {
   const resumen: ResumenDeDiferencia = { agregado: 0, cambiado: 0, movido: 0, quitado: 0 };

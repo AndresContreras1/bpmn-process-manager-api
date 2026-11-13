@@ -1,4 +1,30 @@
-// Las muestras de color de cada cambio viven en lienzo-bpmn.scss: F21 las usa tambien la pagina de una solicitud.
+@use '../../styles/tokens' as *;
+
+.muestra {
+  display: inline-block;
+  width: 1rem;
+  height: 0.75rem;
+  margin-inline-end: 0.25rem;
+  border-width: 2px;
+  border-radius: 0.125rem;
+  vertical-align: baseline;
+}
+
+.muestra-agregado {
+  border-style: solid;
+  border-color: $bpm-color-estado-exito;
+}
+
+.muestra-cambiado {
+  border-style: dashed;
+  border-color: $bpm-color-estado-aviso;
+}
+
+.muestra-movido {
+  border-style: dotted;
+  border-color: $bpm-color-estado-info;
+}
+
 // WCAG 2.5.8
 .btn-link {
   min-height: 24px;

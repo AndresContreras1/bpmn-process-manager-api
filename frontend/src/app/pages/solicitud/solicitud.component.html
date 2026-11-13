@@ -76,64 +76,15 @@
       </div>
 
       <div class="col-xl-4">
-        <section class="card border-0 shadow-sm mb-3" aria-labelledby="solicitud-diferencia-titulo">
+        <div class="card border-0 shadow-sm mb-3" id="solicitud-diferencia">
           <div class="card-body">
-            <h2 i18n class="h6" id="solicitud-diferencia-titulo">What it changes</h2>
-            @if (sinCambios) {
-              <p i18n class="small text-body-secondary mb-0" id="solicitud-sin-cambios">There are no differences.</p>
+            @if (solicitud.diferencia) {
+              <app-leyenda-comparacion [comparacion]="solicitud.diferencia" (mostrar)="lienzo?.mostrar($event)" />
             } @else {
-              <p i18n class="small text-body-secondary" id="solicitud-resumen">
-                {{ resumen.agregado }} added, {{ resumen.cambiado }} changed, {{ resumen.movido }} moved,
-                {{ resumen.quitado }} removed
-              </p>
-              <ul class="list-unstyled small mb-0" id="solicitud-cambios">
-                @for (fila of filas; track fila.tipo + fila.bpmnId) {
-                  <li class="d-flex gap-2 mb-2" data-testid="solicitud-cambio" [attr.data-tipo]="fila.tipo">
-                    <span class="muestra flex-shrink-0" [class]="'muestra-' + fila.tipo" aria-hidden="true"></span>
-                    <div>
-                      @switch (fila.tipo) {
-                        @case ('agregado') {
-                          <span i18n class="visually-hidden">Added:</span>
-                        }
-                        @case ('cambiado') {
-                          <span i18n class="visually-hidden">Changed:</span>
-                        }
-                        @case ('movido') {
-                          <span i18n class="visually-hidden">Only moved:</span>
-                        }
-                        @case ('quitado') {
-                          <span i18n class="visually-hidden">Removed:</span>
-                        }
-                      }
-                      @if (fila.enElDibujo) {
-                        <button
-                          type="button"
-                          class="btn btn-link btn-sm p-0 text-start align-baseline"
-                          (click)="mostrarElemento(fila)"
-                        >
-                          {{ fila.nombre }}
-                        </button>
-                      } @else {
-                        <span class="text-decoration-line-through">{{ fila.nombre }}</span>
-                      }
-                      @if (fila.campos.length) {
-                        <ul class="list-unstyled ms-2 mb-0 text-body-secondary">
-                          @for (campo of fila.campos; track campo.campo) {
-                            <li>{{ campo.campo }}: {{ campo.antes ?? '—' }} → {{ campo.despues ?? '—' }}</li>
-                          }
-                        </ul>
-                      }
-                    </div>
-                  </li>
-                }
-              </ul>
-              <p i18n class="small text-body-secondary mt-2 mb-0">
-                On the diagram: green outline added, dashed orange changed, dotted blue only moved. What was removed is
-                only in this list.
-              </p>
+              <p i18n class="small text-body-secondary mb-0" id="comparacion-sin-cambios">There are no differences.</p>
             }
           </div>
-        </section>
+        </div>
 
         <section class="card border-0 shadow-sm mb-3" aria-labelledby="solicitud-pedido-titulo">
           <div class="card-body">
@@ -258,16 +209,47 @@
         }
 
         @if (retira) {
-          <button
-            i18n
-            type="button"
-            class="btn btn-outline-danger btn-sm mb-3"
-            id="solicitud-retirar"
-            [disabled]="enviando"
-            (click)="retirar()"
-          >
-            Withdraw the request
-          </button>
+          @if (confirmandoRetiro) {
+            <div
+              class="d-flex flex-wrap align-items-center gap-2 mb-3"
+              role="group"
+              aria-labelledby="solicitud-retirar-pregunta"
+            >
+              <span i18n class="small" id="solicitud-retirar-pregunta"
+                >Withdraw this request? Nobody will be able to decide on it any more.</span
+              >
+              <button
+                i18n
+                type="button"
+                class="btn btn-danger btn-sm"
+                id="solicitud-retirar-confirmar"
+                [disabled]="enviando"
+                (click)="retirar()"
+              >
+                Yes, withdraw it
+              </button>
+              <button
+                i18n
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                id="solicitud-retirar-cancelar"
+                (click)="cancelarRetiro()"
+              >
+                Keep it
+              </button>
+            </div>
+          } @else {
+            <button
+              i18n
+              type="button"
+              class="btn btn-outline-danger btn-sm mb-3"
+              id="solicitud-retirar"
+              [disabled]="enviando"
+              (click)="pedirRetiro()"
+            >
+              Withdraw the request
+            </button>
+          }
         }
 
         <section class="card border-0 shadow-sm" aria-labelledby="solicitud-decisiones-titulo">
