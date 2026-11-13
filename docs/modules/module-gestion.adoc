@@ -5,6 +5,7 @@
 |Spring components
 |_Services_
 
+* `c.f.p.g.service.AnclaDeBitacoraService` (via `c.f.p.g.service.impl.AnclaDeBitacoraServiceImpl`)
 * `c.f.p.g.service.BitacoraService` (via `c.f.p.g.service.impl.BitacoraServiceImpl`)
 * `c.f.p.g.service.CarpetaService` (via `c.f.p.g.service.impl.CarpetaServiceImpl`)
 * `c.f.p.g.service.ConcesionService` (via `c.f.p.g.service.impl.ConcesionServiceImpl`)
@@ -56,10 +57,11 @@ _Others_
 
 * `c.f.p.g.service.ConsultaDns` (via `c.f.p.g.service.impl.ConsultaDnsJndi`)
 |Bean references
-|* `c.f.p.c.auditoria.Auditoria` (in Common)
+|* `c.f.p.c.almacen.Almacen` (in Common)
+* `c.f.p.c.trabajos.ColaDeTrabajos` (in Common)
+* `c.f.p.c.auditoria.Auditoria` (in Common)
 * `c.f.p.c.correo.Redactor` (in Common)
 * `c.f.p.c.correo.Correo` (in Common)
-* `c.f.p.c.trabajos.ColaDeTrabajos` (in Common)
 * `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
 |Aggregate roots
 |* `c.f.p.g.model.Carpeta`
