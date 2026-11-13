@@ -46,7 +46,8 @@
 - [x] Grants on folders and processes, to a person, a process role or the whole store, inherited down the folders,
       decided by one evaluator in three layers: the access role, the grants and separation of duties
 - [x] Lists that only show what each person can see, filtered in the same query
-- [ ] A screen to grant and revoke, and the web hiding what a person cannot do
+- [x] A screen to grant and revoke, with what is inherited from the folders, and the web hiding what a person
+      cannot do
 
 **Data and auditability**
 - [x] Row-level security in PostgreSQL on every table of a store, with a role that cannot bypass it
@@ -87,6 +88,8 @@
 
 **Process repository**
 - [x] A tree of folders, and for each process its owner, next review, classification and tags, with their filters
+- [x] The repository in the web: filters in the address, folders and processes moved from the keyboard, and the
+      global search on Ctrl+K
 - [x] Documents attached to a process or an element, with versions, a type from the content, an antivirus and ZIP
       bomb check in the queue, a quota per store and downloads by signed link, on S3 or compatible storage
 - [x] Documentation in Markdown per process and element, cleaned on the server, and a characterization sheet

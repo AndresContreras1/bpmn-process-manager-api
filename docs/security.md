@@ -76,6 +76,12 @@ people of a process role or the whole store ([API](api-reference.md#permissions)
   needs `VER`: whoever can see a drawing has its content.
 - Running cases and tasks stays under the access role. Grants govern the repository and the model.
 
+**In the web** ([ADR-0073](adr/0073-repository-and-permissions-ui.md)), the process page asks
+`GET /procesos/{id}/permisos` and offers only the buttons that will work, also minding the route matrix (sharing
+with another store and deleting stay with administrators). It is a courtesy, not a check: the API decides, and a
+`403` is still shown with its message. The screen of grants shows the ones of the folders above as inherited, and
+says when a folder cannot be read because the person does not administer it.
+
 `PermisosIntegracionTest` walks the whole matrix — six people, eight actions and five resources — and then the
 `404` of what is hidden, the lists without N+1, the default of the structure policy, moving between folders and
 the same checks through every route of the API.
@@ -379,7 +385,9 @@ The search finds only what the person could open anyway, and never returns marku
   `to_tsquery`; it is a bound parameter, at most 200 characters (`400`), and the page is at most 50.
 - **The fragment is plain text.** `ts_headline` marks the matches with two private-use characters removed from the text
   beforehand, and the answer splits the fragment by them into `{texto, resaltado}` segments. Its own output keeps
-  things like `<img src=x onerror=...>` as written, which is why it is never treated as HTML.
+  things like `<img src=x onerror=...>` as written, which is why it is never treated as HTML. The web shows each
+  segment as interpolated text, the highlighted ones in a `mark`, with no `innerHTML`; a test feeds it a
+  `<script>` and an `&`.
 - **Text of uploaded files** is read in the job queue only after the antivirus clears the version, with the parser of
   the type detected on upload, without OCR or embedded documents, up to 1,000,000 characters and 30 seconds per file
   (counted from when a thread starts reading it), on two fixed threads; a PDF keeps at most 32 MB of what it

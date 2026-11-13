@@ -87,7 +87,7 @@ EUR). English (en-US) is the language of the source.
   against WCAG 2.2 AA: 4.5 for text and 3 for the border of a control.
 - **Dark mode.** The header switches `data-bs-theme` on the page, which Bootstrap reads; the choice is remembered in
   this browser, and without one the app follows the system.
-- **Shell.** A header with the brand, a search of processes by name, the theme and the account; for whoever signed
+- **Shell.** A header with the brand, the global search, the theme and the account; for whoever signed
   in, a sidebar with the sections (Processes, Work, Dashboard and, for administrators, Administration) and the
   breadcrumbs each route declares in `data.migas`. A skip link jumps to the content. The links keep the ids the
   navbar had, which the end-to-end suite looks for.
@@ -161,8 +161,23 @@ EUR). English (en-US) is the language of the source.
   stops typing and cancels the previous request (`debounceTime` and `switchMap`); the state and category filters work
   the same way, and clicking a category filters by it.
 - **Folders** sit beside the list: a tree where a folder filters the list by itself and everything inside it, and
-  where folders are created, renamed and deleted, only when empty. Tags, the classification and the date of the next
-  review filter the list too, and the next review has a column of its own.
+  where folders are created, renamed, moved inside another one and deleted, only when empty. A folder is offered only
+  the folders that are not inside it. Tags, the owner (*Me* for anyone, and each person for an administrator), the
+  classification and the date of the next review filter the list too, and the next review and the classification
+  have columns of their own that sort.
+- **The filters live in the address** ([ADR-0073](../docs/adr/0073-repository-and-permissions-ui.md)):
+  `/procesos?carpeta=3&clasificacion=CONFIDENCIAL&orden=proximaRevision,asc&pagina=2` is a list anyone can open again,
+  and a reload keeps it. Every change of a filter writes the address with `replaceUrl`, so Back leaves the screen
+  instead of undoing a letter, and every change of the address, a link or Back included, reloads the list. What the
+  address says is not trusted: a state, classification or order that does not exist, an id that is not a number or a
+  badly written date fall back to the default. The pure functions are `filtrosDesdeUrl` and `filtrosEnUrl`.
+- **Moving a process** opens a dialog with the tree as radio buttons: it opens on the folder the process is in, the
+  arrows choose another, Enter moves it and Escape closes, and the focus goes back to the button that opened it. It
+  saves the filing card with only the folder changed. The list has a Move button on each row, and the process page
+  has one too.
+- **A new process can be filed as it is created:** the form takes its folder (the one the list was showing, to start
+  with), classification and tags, and saves them with the filing card right after creating it. If that second call
+  fails the process exists anyway, and its page says the filing is still to be done.
 - **The filing card** sits under the diagram of a process: its folder, owner, next review, classification and tags,
   saved on their own with `PUT /procesos/{id}/ficha`, so filing a process is not a change waiting to be published.
 - The API records the change history in Spanish, so the detail page shows each known entry in English and falls back
@@ -177,8 +192,37 @@ EUR). English (en-US) is the language of the source.
   API, such as a repeated name or a diagram that cannot be published yet.
 - The detail page shows the process and its change history. Publishing and deleting ask first in a Bootstrap modal,
   and the page changes only with the API's answer. A published process cannot go back to draft.
-- Buttons follow the user's role: administrators and editors create, edit and publish, only administrators delete,
-  and read-only users just browse. The API enforces the same rules and answers `403` otherwise.
+- **The buttons of a process follow what the API says the person can do with it**, `GET /procesos/{id}/permisos`:
+  Edit, Model, Move and the filing card need `MODELAR`, Publish `PUBLICAR`, the BPMN file `EXPORTAR`, Permissions
+  `ADMINISTRAR`, and Share and Delete `ADMINISTRAR` and an administrator, as the route matrix says. If that answer does
+  not arrive they follow the role, as before: administrators and editors create, edit and publish, only
+  administrators delete, and read-only users browse. The list keeps its row buttons by role, since asking per row
+  would be one request per process. The API decides either way and answers `403` otherwise.
+
+## Search
+
+The header button and Ctrl+K, or Cmd+K, open the search of the whole organization (`GET /busqueda`): processes,
+elements, documents and comments, only what the person can view. The dialog arrives the first time it opens.
+
+- It is a WAI-ARIA combobox: the focus stays in the field, the arrows move the active result across the groups,
+  Enter opens its process, Escape closes, and the focus goes back where it was. The number of results and the errors
+  are read out in an `aria-live` region.
+- It asks 250 ms after the last key, never twice for the same text, and throws away the answer to a text that has
+  changed since (`buscarMientrasSeEscribe`, tested with fake timers).
+- The fragment comes as plain-text segments. Each one is interpolated, the highlighted ones in a `mark`, so whatever a
+  document or a comment says, `<script>` included, is read as text.
+
+## Permissions
+
+`/procesos/:id/permisos` and `/carpetas/:id/permisos`, from the process page and from the folder tree, list what is
+granted there, grant an action to a person, a process role or the whole organization, and take a grant back.
+
+- The grants of every folder above are listed too, as inherited and read-only, each linking to its folder. A folder
+  the person does not administer cannot be read, and the screen says so.
+- The form says what is missing before sending, by the same rule as the API: a person with `PERSONA`, a role with
+  `ROL`, and nothing more. The list of people is the administrator's, so an editor who administers a process grants
+  to a role or to everyone.
+- What the API refuses is shown with its own message, separation of duties included.
 
 ## Diagram viewer
 
@@ -279,7 +323,8 @@ the role from the observable rather than from a snapshot, because the navbar is 
   opens with the ones the person already answers for already ticked: saving sends the whole list, so opening it
   blank and saving would have taken every role away.
 - **Process roles** (`/roles`): the list says which ones a lane is using, and Delete is disabled on those, because
-  the API refuses them with a `409`.
+  the API refuses them with a `409`. *Used by* opens the processes that use one, from `GET /roles/{id}`, each
+  linking to its page.
 - **Sharing** (`/procesos/:id/compartir`): by tax id, which is how a store is known to other stores. It is a
   read-only door to the version in force of that one diagram. What other stores share with you is listed on the
   process list, which is how a guest reaches it.

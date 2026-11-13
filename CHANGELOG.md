@@ -8,6 +8,15 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- The repository and the permissions in the web: the filters of the process list (folder, owner, tag,
+  classification, review date, state, category, name, order and page) live in the address; folders move inside
+  others and processes move between folders from a dialog driven by the keyboard; a new process can be filed as
+  it is created; a global search opens from the header or with Ctrl+K or Cmd+K, grouped by kind, with the
+  matching words marked and never read as HTML; a screen lists, grants and takes back what a person, a process
+  role or the whole organization can do with a folder or a process, with what comes from the folders above as
+  inherited; the process page only offers the buttons that `GET /procesos/{id}/permisos` allows; and the roles
+  page lists the processes that use each role. The header search by name became the global search, and the
+  initial bundle went from 789 kB to 732 kB.
 - Full-text search: `GET /api/v1/busqueda` finds a text in processes, elements of the draft and of the published
   version, documents and comments, with web search syntax (quotes, `-`, `or`), in the store's language (Spanish,
   English or French) and without minding accents. It finds only what the person can view, filtered in the same query,
