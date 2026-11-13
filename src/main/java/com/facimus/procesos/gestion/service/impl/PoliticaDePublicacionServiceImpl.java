@@ -106,10 +106,7 @@ public class PoliticaDePublicacionServiceImpl implements PoliticaDePublicacionSe
             // descarta sin error, y lo demas se guarda para volver a encenderla igual
             Set<Long> pueden = idsDe(quienesAprueban(empresaId, aprobadores));
             aprobadores = aprobadores.stream().filter(pueden::contains).toList();
-            if (rolProcesoId != null
-                    && rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(rolProcesoId, empresaId).isEmpty()) {
-                rolProcesoId = null;
-            }
+            rolProcesoId = siSigueActivo(empresaId, rolProcesoId);
         }
 
         ModoDePublicacion antes = politica.getModo();
@@ -120,10 +117,7 @@ public class PoliticaDePublicacionServiceImpl implements PoliticaDePublicacionSe
         politica = politicaRepository.saveAndFlush(politica);
 
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
-                politica.conAprobacion()
-                        ? "Publicación con aprobación: " + necesarias + (necesarias == 1 ? " aprobación" : " aprobaciones")
-                                + (rolProcesoId == null ? " de una lista de personas." : " de un rol de proceso.")
-                        : "Publicación directa.");
+                descripcion(politica));
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("modo", datos.modo().name());
         detalle.put("antes", antes.name());
@@ -134,6 +128,26 @@ public class PoliticaDePublicacionServiceImpl implements PoliticaDePublicacionSe
         }
         auditoria.registrar(empresaId, usuarioId, "POLITICA_PUBLICACION_CAMBIADA", "EMPRESA", empresaId, detalle);
         return respuesta(empresaId, politica);
+    }
+
+    /** El rol, si sigue activo en la tienda; si no, ninguno. */
+    private Long siSigueActivo(Long empresaId, Long rolProcesoId) {
+        if (rolProcesoId == null
+                || rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(rolProcesoId, empresaId).isEmpty()) {
+            return null;
+        }
+        return rolProcesoId;
+    }
+
+    /** Lo que queda en el historial de la tienda. */
+    private static String descripcion(PoliticaPublicacion politica) {
+        if (!politica.conAprobacion()) {
+            return "Publicación directa.";
+        }
+        int necesarias = politica.getAprobacionesNecesarias();
+        String cuantas = necesarias == 1 ? " aprobación" : " aprobaciones";
+        String deQuien = politica.getRolProcesoId() == null ? " de una lista de personas." : " de un rol de proceso.";
+        return "Publicación con aprobación: " + necesarias + cuantas + deQuien;
     }
 
     /** PR 35: quien se anonimiza deja la lista de aprobadores, como deja sus roles de proceso. */

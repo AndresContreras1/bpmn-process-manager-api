@@ -84,7 +84,7 @@ public class SolicitudServiceImpl implements SolicitudService {
     private static final String NO_ENCONTRADA = "Solicitud no encontrada.";
     private static final String RECURSO = "SOLICITUD";
     private static final String PROCESO = "procesoId";
-    private static final String MARKDOWN = "markdown";
+    private static final String CAMPO_MARKDOWN = "markdown";
     /** El lado de la diferencia que es lo congelado; el otro es el numero de la vigente, o ninguna. */
     private static final String CONGELADO = "solicitud";
     private static final String SIN_VERSION = "ninguna";
@@ -232,7 +232,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         String cuerpo = limpio(texto);
         if (decision != Decision.APROBADA && cuerpo.isEmpty()) {
             throw new SolicitudInvalidaException("Pedir cambios o rechazar una solicitud siempre dice por qué.",
-                    Map.of(MARKDOWN, "Escribe qué hay que cambiar o por qué se rechaza."));
+                    Map.of(CAMPO_MARKDOWN, "Escribe qué hay que cambiar o por qué se rechaza."));
         }
         LocalDateTime ahora = ahora();
         aprobacionRepository.saveAndFlush(Aprobacion.builder().empresa(solicitud.getEmpresa())
@@ -240,12 +240,12 @@ public class SolicitudServiceImpl implements SolicitudService {
                 .html(markdown.aHtml(cuerpo)).fecha(ahora).build());
         auditoria.registrar(empresaId, usuarioId, "SOLICITUD_" + decision.name(), RECURSO, solicitudId,
                 Map.of(PROCESO, solicitud.getProcesoId()));
-        if (decision == Decision.APROBADA) {
-            aprobar(solicitud, usuarioId, ahora);
-        } else if (decision == Decision.CAMBIOS_PEDIDOS) {
-            cerrar(solicitud, EstadoSolicitud.CAMBIOS_PEDIDOS, usuarioId, ahora, TipoDeNotificacion.CAMBIOS_PEDIDOS);
-        } else {
-            cerrar(solicitud, EstadoSolicitud.RECHAZADA, usuarioId, ahora, TipoDeNotificacion.SOLICITUD_RECHAZADA);
+        switch (decision) {
+            case APROBADA -> aprobar(solicitud, usuarioId, ahora);
+            case CAMBIOS_PEDIDOS -> cerrar(solicitud, EstadoSolicitud.CAMBIOS_PEDIDOS, usuarioId, ahora,
+                    TipoDeNotificacion.CAMBIOS_PEDIDOS);
+            case RECHAZADA -> cerrar(solicitud, EstadoSolicitud.RECHAZADA, usuarioId, ahora,
+                    TipoDeNotificacion.SOLICITUD_RECHAZADA);
         }
         return respuesta(solicitudRepository.saveAndFlush(solicitud), true);
     }

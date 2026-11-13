@@ -614,7 +614,8 @@ class RevisionYAprobacionIntegracionTest {
         membresiaRolService.reemplazar(empresaId, ana.usuarioId(), carla.usuarioId(), List.of(rol));
         politica(ana, "{\"modo\":\"CON_APROBACION\",\"rolProcesoId\":" + rol + ",\"version\":1}")
                 .andExpect(status().isOk());
-        assertThatThrownBy(() -> rolProcesoService.eliminar(empresaId, ana.usuarioId(), rol))
+        Long administradora = ana.usuarioId();
+        assertThatThrownBy(() -> rolProcesoService.eliminar(empresaId, administradora, rol))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("política de publicación");
     }
 
