@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.facimus.procesos.common.formularios.Formulario;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Limites;
 
@@ -49,10 +50,22 @@ public record ModeloLeido(String nombre, String descripcion, String categoria, L
      * @param llamado el {@code calledElement} de una {@code callActivity}
      * @param formulario PR 69: el {@code bpm:formulario} que trae, o nulo
      * @param limitesIlegibles PR 69: los limites del formulario que no se leyeron como numero, ya dichos
+     * @param asignacion PR 70: la {@code bpm:asignacion} que trae, o nula
      */
     public record Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
             List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
-            String temporizador, String padre, String llamado, Formulario formulario, List<String> limitesIlegibles) {
+            String temporizador, String padre, String llamado, Formulario formulario, List<String> limitesIlegibles,
+            AsignacionResponse asignacion) {
+
+        /** El de antes del PR 70, sin asignacion. */
+        @SuppressWarnings("java:S107") // lo que se lee de un nodo, por su nombre
+        public Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
+                List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
+                String temporizador, String padre, String llamado, Formulario formulario,
+                List<String> limitesIlegibles) {
+            this(id, elemento, nombre, descripcion, porDefecto, definiciones, adjuntoA, interrumpe, tipoTemporizador,
+                    temporizador, padre, llamado, formulario, limitesIlegibles, null);
+        }
 
         /** PR 68: un {@code timeDuration} que se cuenta en tiempo habil, con el calendario de la tienda. */
         public static final String DURACION_HABIL = "timeDuration+habil";

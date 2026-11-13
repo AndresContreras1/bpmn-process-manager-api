@@ -26,6 +26,7 @@ public class BorradoDePruebas {
     private static final List<String> DE_LAS_HOJAS_A_LA_RAIZ = List.of(
             "delete from temporizadores where version_proceso_id in "
                     + "(select v.id from versiones_proceso v where v.id = ? and v.tipo = 'PRUEBA')",
+            "delete from delegaciones where caso_id in (" + SUS_CASOS + ")",
             "delete from eventos_caso where caso_id in (" + SUS_CASOS + ")",
             "delete from actividades_caso where caso_id in (" + SUS_CASOS + ")",
             "delete from mensajes_salientes where caso_id in (" + SUS_CASOS + ")",

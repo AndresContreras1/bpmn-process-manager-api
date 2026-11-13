@@ -17,9 +17,11 @@ import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.model.DireccionAsociacion;
 import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoTemporizador;
@@ -323,5 +325,19 @@ class HuellaDelDiagramaTest {
         return new DiagramaResponse(diagrama.proceso(), diagrama.compartido(), diagrama.pools(), diagrama.lanes(),
                 diagrama.actividades(), diagrama.gateways(), diagrama.eventos(), arcos, diagrama.mensajes(),
                 diagrama.correlaciones());
+    }
+
+    @Test
+    @DisplayName("PR 70: sin asignaciones la forma canonica es la de antes; una asignacion, o un cambio en ella, la "
+            + "cambia")
+    void asignaciones() {
+        DiagramaArmado conUna = DiagramaArmado.demo();
+        conUna.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.PERSONA, 5L, null));
+        DiagramaArmado conOtra = DiagramaArmado.demo();
+        conOtra.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.PERSONA, 6L, null));
+
+        assertThat(DiagramaCanonico.de(DiagramaArmado.demo().diagrama(), JSON)).doesNotContain("asignacion");
+        assertThat(huella(conUna.diagrama())).isNotEqualTo(huella(DiagramaArmado.demo().diagrama()))
+                .isNotEqualTo(huella(conOtra.diagrama()));
     }
 }

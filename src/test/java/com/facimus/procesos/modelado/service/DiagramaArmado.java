@@ -11,6 +11,7 @@ import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.ArtefactoResponse;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.AsociacionResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
@@ -210,11 +211,20 @@ public class DiagramaArmado {
         actividades.replaceAll(a -> !a.id().equals(id) ? a : new ActividadResponse(a.id(), a.bpmnId(), a.nombre(),
                 a.descripcion(), a.tipoActividad(), a.posicionX(), a.posicionY(), a.laneId(), a.version(),
                 a.creadoPor(), a.fechaCreacion(), a.modificadoPor(), a.fechaModificacion(), a.padreId(),
-                a.procesoLlamadoId(), respuesta));
+                a.procesoLlamadoId(), respuesta, a.asignacion()));
         eventos.replaceAll(e -> !e.id().equals(id) ? e : new EventoResponse(e.id(), e.bpmnId(), e.nombre(),
                 e.tipoEvento(), e.posicionX(), e.posicionY(), e.laneId(), e.version(), e.creadoPor(),
                 e.fechaCreacion(), e.modificadoPor(), e.fechaModificacion(), e.tipoTemporizador(), e.temporizador(),
                 e.adjuntoAId(), e.interrumpe(), e.padreId(), respuesta));
+    }
+
+    /** PR 70: a quien le llega una actividad; nula la deja en la bandeja de su rol. */
+    public void asignacion(String nodo, AsignacionResponse asignacion) {
+        Long id = id(nodo);
+        actividades.replaceAll(a -> !a.id().equals(id) ? a : new ActividadResponse(a.id(), a.bpmnId(), a.nombre(),
+                a.descripcion(), a.tipoActividad(), a.posicionX(), a.posicionY(), a.laneId(), a.version(),
+                a.creadoPor(), a.fechaCreacion(), a.modificadoPor(), a.fechaModificacion(), a.padreId(),
+                a.procesoLlamadoId(), a.formulario(), asignacion));
     }
 
     public void modo(ModoProceso nuevo) {

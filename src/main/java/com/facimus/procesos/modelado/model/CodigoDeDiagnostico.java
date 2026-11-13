@@ -60,6 +60,8 @@ public enum CodigoDeDiagnostico {
     E21(Severidad.ALTA, true),
     /** PR 69: un formulario mal armado, o en un nodo que no llena una persona. */
     E22(Severidad.ALTA),
+    /** PR 70: una asignacion que no se puede cumplir, o en una actividad que no es de usuario. */
+    E23(Severidad.ALTA),
 
     /** Un mensaje sin anclar hacia un pool modelado por dentro, sin ningun nodo con ese nombre que lo espere. */
     A01(Severidad.MEDIA),
@@ -93,7 +95,9 @@ public enum CodigoDeDiagnostico {
     /** PR 55: una asociacion con un extremo que ya no esta en el diagrama. */
     A15(Severidad.BAJA, true),
     /** PR 56: una actividad de llamada todavia no corre el proceso que llama: el caso sigue de largo. */
-    A16(Severidad.MEDIA);
+    A16(Severidad.MEDIA),
+    /** PR 70: una tarea asignada a una variable que ningun campo PERSONA de un formulario del diagrama escribe. */
+    A17(Severidad.MEDIA);
 
     private final Severidad severidad;
     private final boolean estructural;

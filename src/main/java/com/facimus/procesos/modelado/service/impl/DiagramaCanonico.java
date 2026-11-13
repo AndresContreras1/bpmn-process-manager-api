@@ -37,11 +37,12 @@ final class DiagramaCanonico {
     /**
      * PR 55: lo que el diagrama trae desde entonces entra solo cuando dice algo. Un evento sin temporizador, un
      * proceso sin artefactos o ejecutable, como eran todos antes, dan la misma forma canonica que antes: si no, cada
-     * version ya publicada pareceria tener cambios sin publicar. PR 69: lo mismo con el formulario.
+     * version ya publicada pareceria tener cambios sin publicar. PR 69: lo mismo con el formulario; PR 70, con la
+     * asignacion.
      */
     private static final List<String> NUEVOS_SI_VACIOS =
             List.of("tipoTemporizador", "temporizador", "adjuntoAId", "interrumpe", "padreId", "procesoLlamadoId",
-                    "formulario");
+                    "formulario", "asignacion");
 
     private DiagramaCanonico() {
     }

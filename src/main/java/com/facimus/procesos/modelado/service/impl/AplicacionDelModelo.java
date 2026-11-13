@@ -39,6 +39,7 @@ import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Mensaje;
 import com.facimus.procesos.modelado.model.NodoFlujo;
 import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
@@ -366,7 +367,9 @@ class AplicacionDelModelo {
                     case ACTIVIDAD -> actividadRepository.save(Actividad.builder().empresa(empresa)
                             .bpmnId(deseado.bpmnId()).nombre(deseado.nombre()).descripcion(deseado.descripcion())
                             .tipoActividad(deseado.tipoActividad()).posicionX(x).posicionY(y).lane(lane)
-                            .procesoLlamado(procesoLlamado(deseado)).formulario(deseado.formulario()).build());
+                            .procesoLlamado(procesoLlamado(deseado)).formulario(deseado.formulario())
+                            .tipoAsignacion(tipoDeAsignacion(deseado)).asignacionUsuarioId(usuarioAsignado(deseado))
+                            .asignacionCampo(campoAsignado(deseado)).build());
                     case GATEWAY -> gatewayRepository.save(Gateway.builder().empresa(empresa).bpmnId(deseado.bpmnId())
                             .nombre(deseado.nombre()).tipoGateway(deseado.tipoGateway()).posicionX(x).posicionY(y)
                             .lane(lane).build());
@@ -397,8 +400,15 @@ class AplicacionDelModelo {
                     Proceso llamado = procesoLlamado(deseado);
                     cambia |= actividad.getTipoActividad() != deseado.tipoActividad()
                             || !Objects.equals(actividad.getDescripcion(), deseado.descripcion())
-                            || !Objects.equals(idDe(actividad.getProcesoLlamado()), idDe(llamado));
+                            || !Objects.equals(idDe(actividad.getProcesoLlamado()), idDe(llamado))
+                            || actividad.getTipoAsignacion() != tipoDeAsignacion(deseado)
+                            || !Objects.equals(actividad.getAsignacionUsuarioId(), usuarioAsignado(deseado))
+                            || !Objects.equals(actividad.getAsignacionCampo(), campoAsignado(deseado));
                     actividad.setProcesoLlamado(llamado);
+                    // PR 70: la asignacion va con el tipo de la actividad, como el formulario
+                    actividad.setTipoAsignacion(tipoDeAsignacion(deseado));
+                    actividad.setAsignacionUsuarioId(usuarioAsignado(deseado));
+                    actividad.setAsignacionCampo(campoAsignado(deseado));
                     if (cambia) {
                         actividad.setTipoActividad(deseado.tipoActividad());
                         actividad.setDescripcion(deseado.descripcion());
@@ -437,6 +447,19 @@ class AplicacionDelModelo {
 
         private static Long idDe(Proceso uno) {
             return uno == null ? null : uno.getId();
+        }
+
+        /** PR 70: a quien le llega la tarea; nula es la bandeja de su rol, que es lo de siempre. */
+        private static TipoAsignacion tipoDeAsignacion(PlanBpmn.Nodo deseado) {
+            return deseado.asignacion() == null ? null : deseado.asignacion().tipo();
+        }
+
+        private static Long usuarioAsignado(PlanBpmn.Nodo deseado) {
+            return deseado.asignacion() == null ? null : deseado.asignacion().usuarioId();
+        }
+
+        private static String campoAsignado(PlanBpmn.Nodo deseado) {
+            return deseado.asignacion() == null ? null : deseado.asignacion().campo();
         }
 
         /** PR 55 y 56: cada nodo con su subproceso y cada evento de borde con su actividad, ya con todos los nodos. */

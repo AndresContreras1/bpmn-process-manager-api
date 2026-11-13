@@ -105,6 +105,25 @@
     </xsd:complexType>
   </xsd:element>
 
+  <!-- PR 70: a quien le llega una userTask. Sin el, espera en la bandeja del rol de su lane. PERSONA lleva el usuario
+       (su id en la organizacion), CAMPO la variable del caso que tiene a la persona. Va en el nodo. -->
+  <xsd:element name="asignacion">
+    <xsd:complexType>
+      <xsd:attribute name="tipo" type="tTipoAsignacion" use="required"/>
+      <xsd:attribute name="usuario" type="xsd:long"/>
+      <xsd:attribute name="campo" type="xsd:string"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <xsd:simpleType name="tTipoAsignacion">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="ROL"/>
+      <xsd:enumeration value="PERSONA"/>
+      <xsd:enumeration value="INICIADOR"/>
+      <xsd:enumeration value="CAMPO"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
   <xsd:simpleType name="tTipoDeCampo">
     <xsd:restriction base="xsd:string">
       <xsd:enumeration value="TEXTO"/>

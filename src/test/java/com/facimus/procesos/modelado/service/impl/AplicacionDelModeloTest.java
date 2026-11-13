@@ -54,6 +54,7 @@ import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.bpmn.InformeBpmn;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Arco;
@@ -73,6 +74,7 @@ import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoDeDato;
 import com.facimus.procesos.modelado.model.TipoDestino;
@@ -799,6 +801,58 @@ class AplicacionDelModeloTest {
     }
 
     @Test
+    @DisplayName("PR 70: una asignacion que llega, cambia de persona, de tipo o de variable, o se va, es una edicion")
+    void asignaciones_cadaCambioEsUnaEdicion() {
+        preparar();
+        empacar.setTipoAsignacion(TipoAsignacion.PERSONA);
+        empacar.setAsignacionUsuarioId(5L);
+        planNodos.get(EMPACAR).asignacion = new AsignacionResponse(TipoAsignacion.PERSONA, 5L, null);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 0, 0));
+
+        planNodos.get(EMPACAR).asignacion = new AsignacionResponse(TipoAsignacion.PERSONA, 6L, null);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(empacar.getAsignacionUsuarioId()).isEqualTo(6L);
+
+        planNodos.get(EMPACAR).asignacion = new AsignacionResponse(TipoAsignacion.CAMPO, null, "aprobador");
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(empacar.getTipoAsignacion()).isEqualTo(TipoAsignacion.CAMPO);
+        assertThat(empacar.getAsignacionUsuarioId()).isNull();
+        assertThat(empacar.getAsignacionCampo()).isEqualTo("aprobador");
+
+        planNodos.get(EMPACAR).asignacion = new AsignacionResponse(TipoAsignacion.CAMPO, null, "revisor");
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(empacar.getAsignacionCampo()).isEqualTo("revisor");
+
+        planNodos.get(EMPACAR).asignacion = new AsignacionResponse(TipoAsignacion.INICIADOR, null, null);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(empacar.getTipoAsignacion()).isEqualTo(TipoAsignacion.INICIADOR);
+        assertThat(empacar.getAsignacionCampo()).isNull();
+
+        planNodos.get(EMPACAR).asignacion = null;
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(empacar.getTipoAsignacion()).isNull();
+    }
+
+    @Test
+    @DisplayName("PR 70: una tarea nueva se crea con la asignacion del archivo")
+    void asignaciones_tareaNueva() {
+        preparar();
+        guardaConId(actividadRepository, Actividad.class, Actividad::setId);
+        nodoPlan(NodoPlan.actividad("Activity_Aprobar", VENTAS, TipoActividad.USUARIO, "Approve", 150, 60))
+                .asignacion = new AsignacionResponse(TipoAsignacion.PERSONA, 5L, null);
+        nodoPlan(NodoPlan.actividad("Activity_Pagar", VENTAS, TipoActividad.USUARIO, "Pay", 300, 60))
+                .asignacion = new AsignacionResponse(TipoAsignacion.CAMPO, null, "aprobador");
+
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(2, 0, 0));
+        ArgumentCaptor<Actividad> actividades = ArgumentCaptor.forClass(Actividad.class);
+        verify(actividadRepository, times(2)).save(actividades.capture());
+        assertThat(actividades.getAllValues()).extracting(Actividad::getTipoAsignacion,
+                Actividad::getAsignacionUsuarioId, Actividad::getAsignacionCampo).containsExactly(
+                        tuple(TipoAsignacion.PERSONA, 5L, null),
+                        tuple(TipoAsignacion.CAMPO, null, "aprobador"));
+    }
+
+    @Test
     @DisplayName("Un gateway que cambia de tipo es una edicion")
     void gateway_cambiaDeTipo() {
         preparar();
@@ -1492,6 +1546,7 @@ class AplicacionDelModeloTest {
         private String padre;
         private Long procesoLlamado;
         private Formulario formulario;
+        private AsignacionResponse asignacion;
 
         private NodoPlan(String bpmnId, PlanBpmn.Clase clase, String lane, String nombre, int x, int y) {
             this.bpmnId = bpmnId;
@@ -1522,7 +1577,8 @@ class AplicacionDelModeloTest {
 
         PlanBpmn.Nodo armar() {
             return new PlanBpmn.Nodo(bpmnId, lane, clase, tipoActividad, tipoGateway, tipoEvento, nombre, descripcion,
-                    x, y, adjuntoA, interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado, formulario);
+                    x, y, adjuntoA, interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado, formulario,
+                    asignacion);
         }
     }
 

@@ -27,14 +27,26 @@ public record ActividadResponse(
         @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,
         @Schema(description = "Sub-process that contains it; empty in the main flow", example = "12") Long padreId,
         @Schema(description = "Process a call activity runs", example = "7") Long procesoLlamadoId,
-        @Schema(description = "Typed form of a user task; empty when it has none") FormularioResponse formulario) {
+        @Schema(description = "Typed form of a user task; empty when it has none") FormularioResponse formulario,
+        @Schema(description = "Who a user task goes to; empty when it waits in its lane's role tray")
+        AsignacionResponse asignacion) {
+
+    /** El de antes del PR 70, sin asignacion: espera en la bandeja de su rol. */
+    @SuppressWarnings("java:S107") // los campos de la actividad, por su nombre
+    public ActividadResponse(Long id, String bpmnId, String nombre, String descripcion, TipoActividad tipoActividad,
+            int posicionX, int posicionY, Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion,
+            Long modificadoPor, LocalDateTime fechaModificacion, Long padreId, Long procesoLlamadoId,
+            FormularioResponse formulario) {
+        this(id, bpmnId, nombre, descripcion, tipoActividad, posicionX, posicionY, laneId, version, creadoPor,
+                fechaCreacion, modificadoPor, fechaModificacion, padreId, procesoLlamadoId, formulario, null);
+    }
 
     /** El de antes del PR 69, sin formulario. */
     public ActividadResponse(Long id, String bpmnId, String nombre, String descripcion, TipoActividad tipoActividad,
             int posicionX, int posicionY, Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion,
             Long modificadoPor, LocalDateTime fechaModificacion, Long padreId, Long procesoLlamadoId) {
         this(id, bpmnId, nombre, descripcion, tipoActividad, posicionX, posicionY, laneId, version, creadoPor,
-                fechaCreacion, modificadoPor, fechaModificacion, padreId, procesoLlamadoId, null);
+                fechaCreacion, modificadoPor, fechaModificacion, padreId, procesoLlamadoId, null, null);
     }
 
     /** El de antes del PR 56, en el flujo principal. */
@@ -42,7 +54,7 @@ public record ActividadResponse(
             int posicionX, int posicionY, Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion,
             Long modificadoPor, LocalDateTime fechaModificacion) {
         this(id, bpmnId, nombre, descripcion, tipoActividad, posicionX, posicionY, laneId, version, creadoPor,
-                fechaCreacion, modificadoPor, fechaModificacion, null, null, null);
+                fechaCreacion, modificadoPor, fechaModificacion, null, null, null, null);
     }
 
     @Default
