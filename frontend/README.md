@@ -310,8 +310,9 @@ leads here. It is bpmn-js limited to what the model can hold.
 
 `/procesos/:id/comparar` takes two states of a process —any version, the one in force or the draft— and draws the
 second with what changed: added, changed and moved, each with its own line style, and a legend in words that says
-it again. The legend is also the only place that can say what was removed, since it is not in the drawing. Color is
-never the only signal.
+it again, with a count of each kind and each group sorted by name. The legend is also the only place that can say
+what was removed, since it is not in the drawing. Color is never the only signal. The modeler and the page of a
+request use the same legend component.
 
 ## Review, comments and notifications
 
@@ -321,13 +322,15 @@ review and approval:
 - **Asking for review.** When the organization publishes with approval
   (`GET /empresas/actual/politica-de-publicacion`), the process page and the modeler show *Ask for review* instead of
   Publish, or *Review waiting* with a link to the open request. The modeler saves what is left before asking, since
-  the API freezes what is saved. `/politica-de-publicacion` is where the administrator chooses directly or with
+  the API freezes what is saved; like Publish, it waits for a saved draft, and a failed save stops it with the
+  reason. `/politica-de-publicacion` is where the administrator chooses directly or with
   approval, how many approvals, and a list of people (read-only ones cannot approve) or a process role.
 - **`/solicitudes`** is the inbox: by default what waits for the person's decision, and in the other tab every
   request of the organization, filtered by state; the tab and the state live in the address. **`/solicitudes/:id`**
-  draws the frozen draft with the markers of the comparison and lists the same difference in words, grouped and
-  sorted (`filasDeDiferencia`), so what was removed is said too. An approver who has not decided approves, asks for
-  changes or rejects, the last two with a reason; the requester or whoever administers the process withdraws it.
+  draws the frozen draft (read with `para=dibujar`, so viewing is enough) with the markers of the comparison and
+  lists the same difference with the comparison legend, so what was removed is said too. An approver who has not
+  decided approves, asks for changes or rejects, the last two with a reason; the requester or whoever administers the
+  process withdraws it, after confirming.
 - **Comments** sit in a panel beside the canvas, in the modeler and on the process page: the threads of the selected
   element, or of the whole process when nothing is selected, in the draft or in the version on screen. The canvas
   draws over each element a button with its open threads, which selects it. Replies, resolve and reopen, edit and
@@ -337,9 +340,11 @@ review and approval:
 - **Mentions** are a WAI-ARIA combobox that asks `GET /procesos/{id}/mencionables` 250 ms after the last key: the
   arrows move, Enter chooses, Escape closes, and each chosen person is a chip with a button to remove it. The state
   lives in `SelectorDeMenciones`, a plain class with its tests: it never offers who is already chosen and stops at 20.
+  Typed and immediate searches share one `switchMap`, and an answer for other text or after the field lost focus is
+  dropped.
 - **The bell** in the header arrives when the browser is idle. Its number is the count the notification stream sends
   (`/notificaciones/flujo`), on opening and on every change, so it needs no polling and a reconnection catches up by
-  itself; the stream reconnects like the modeler's. It opens a panel with the latest 20, each linking to what it
+  itself; the stream reconnects like the modeler's. While it is open, marking one as read leaves the count to it. It opens a panel with the latest 20, each linking to what it
   points to, mark one or all as read, and a link to `/cuenta/notificaciones`, where each type is sent at once, in the
   daily digest or never. A new notification is read out in an `aria-live` region, and the button says the number in
   words.

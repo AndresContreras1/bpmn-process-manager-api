@@ -197,7 +197,7 @@ answers a page of threads, newest first and up to 50, each with its replies olde
 
 `GET /api/v1/procesos/{id}/mencionables?q=an` answers who can be mentioned there, for a picker: `[{ "id": 2,
 "nombre": "Ana" }]`, the active people of the store who can view the process and whose name contains `q` (up to 100
-characters, `400` beyond; empty for the first ones), without whoever asks, by name and up to 20. It needs `VER` on the
+characters, `400` beyond; empty for the first ones; `%` and `_` are plain characters, not wildcards), without whoever asks, by name and up to 20. It needs `VER` on the
 process, and another store's process answers `404`. Of the first 50 people by name only those who can view it stay,
 so with many people who cannot, a longer `q` finds the rest.
 

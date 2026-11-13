@@ -228,7 +228,6 @@ Modeling, execution, simulation, observability and the security of accounts and 
 files in both directions, editing with others, the repository of processes and its permissions, comments, review
 and approval, and full-text search. What is still open:
 
-- A screen to grant permissions on folders and processes; today they are granted through the API.
 - Exporting a store's data during the 30 days of its closing.
 - An AI review of a change instead of the whole diagram, so the model only reads what moved.
 - HSTS preload, a month after production runs on HTTPS.

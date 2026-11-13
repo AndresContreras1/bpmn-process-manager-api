@@ -12,7 +12,7 @@ tagged. Each pull request adds its line under *Unreleased*.
   and the modeler offer *Ask for review* instead of Publish, or a link to the open request; an inbox lists what waits
   for the person's decision and every request of the store by state; a request page draws the frozen draft with its
   difference marked like the compare page and lists it in words, and lets an approver approve, ask for changes or
-  reject, and the requester or whoever administers the process withdraw it; the administrator sets the policy on its
+  reject, and the requester or whoever administers the process withdraw it after confirming; the administrator sets the policy on its
   own screen. Comment threads sit in a panel beside the canvas in the modeler and the viewer, for the selected element
   or the whole process, with a count of open threads drawn over each element, replies, resolve and reopen, edit and
   delete, the HTML the API cleaned and mentions chosen from a picker that sends ids. The header has a bell with the
