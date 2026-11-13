@@ -10,8 +10,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.extractor.EmbeddedDocumentExtractor;
@@ -27,6 +30,8 @@ import org.apache.tika.parser.pdf.PDFParser;
 import org.apache.tika.parser.pdf.PDFParserConfig;
 import org.apache.tika.parser.txt.TXTParser;
 import org.apache.tika.sax.BodyContentHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -35,6 +40,7 @@ import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import com.facimus.procesos.common.archivos.TipoDeArchivo;
+import com.facimus.procesos.common.trabajos.TrabajoAplazadoException;
 
 /**
  * PR 65: el texto de un documento, para buscarlo, con los parsers de Apache Tika de los tipos de la lista blanca que
@@ -46,21 +52,36 @@ import com.facimus.procesos.common.archivos.TipoDeArchivo;
  * <li>un PDF no pasa por OCR;</li>
  * <li>el texto tiene tope: al llegar, se deja de leer y queda lo leido;</li>
  * <li>un PDF guarda en memoria, como mucho, {@link #MEMORIA_DE_UN_PDF} bytes de lo que descomprime; lo que pase va a
- * archivos de paso de PDFBox, que los borra al cerrar el documento;</li>
- * <li>cada archivo tiene un tiempo, que cuenta desde que un hilo lo empieza a leer: si no termina, se deja y se busca
- * solo por su nombre. El hilo que lo leia se interrumpe; si el parser no lo atiende, sigue ocupado hasta terminar, y
- * por eso los hilos son pocos y fijos: un archivo hecho para colgar al parser ocupa uno, no la maquina.</li>
+ * archivos de paso de PDFBox en la carpeta temporal de la JVM (Tika no deja elegir otra), que los borra al cerrar el
+ * documento;</li>
+ * <li>cada archivo tiene un tiempo, que cuenta desde que toma uno de los pocos lugares de lectura: si no termina, se
+ * deja y se busca solo por su nombre. El hilo que lo leia se interrumpe; si el parser no lo atiende y el hilo no suelta
+ * el archivo en una gracia, se da por colgado y su lugar se repone, hasta {@link #MAXIMO_COLGADOS} colgados a la vez:
+ * un archivo hecho para colgar al parser ocupa un hilo, pero no deja sin lectura a los demas, y unos cuantos no se
+ * llevan la maquina.</li>
  * </ul>
  * Un archivo que no se puede leer no es un error de nadie: el resultado dice por que, y la cola no lo reintenta. Que
- * ningun hilo quede libre en ese tiempo, en cambio, no dice nada del archivo: es una excepcion, y la cola lo vuelve a
- * intentar mas tarde.
+ * ningun lugar quede libre en ese tiempo, en cambio, no dice nada del archivo: el trabajo se aplaza, y la cola lo
+ * vuelve a intentar mas tarde sin gastarle un intento.
  * <p>PDFBox lee con las {@link FuentesFijas} del manual (PR 62): una fuente que el PDF no trae no lo pone a recorrer
  * las fuentes del equipo.
  */
 @Component
 public class ExtractorDeTexto implements AutoCloseable {
 
+    private static final Logger log = LoggerFactory.getLogger(ExtractorDeTexto.class);
+
     private static final int LARGO_DEL_MOTIVO = 300;
+
+    /** Cuanto se espera, tras interrumpirlo, a que el hilo de un archivo vencido lo suelte. */
+    static final Duration GRACIA = Duration.ofSeconds(5);
+
+    /** Cuantos hilos colgados se reponen, como mucho; pasado eso, uno colgado ocupa su lugar hasta terminar. */
+    static final int MAXIMO_COLGADOS = 8;
+
+    private static final int LEYENDO = 0;
+    private static final int TERMINADA = 1;
+    private static final int COLGADA = 2;
 
     /** Cuanto de lo que descomprime un PDF se queda en memoria; el resto, en disco. */
     static final long MEMORIA_DE_UN_PDF = 32L * 1024 * 1024;
@@ -68,7 +89,13 @@ public class ExtractorDeTexto implements AutoCloseable {
     private final Map<TipoDeArchivo, Parser> parsers;
     private final int maximo;
     private final Duration espera;
-    private final ExecutorService hilos;
+    private final Duration gracia;
+    private final int maximoColgados;
+    /** Los lugares de lectura: cuantos archivos se leen a la vez, sin contar los colgados que ya se repusieron. */
+    private final Semaphore libres;
+    private final AtomicInteger colgados = new AtomicInteger();
+    private final ExecutorService hilos = Executors
+            .newThreadPerTaskExecutor(Thread.ofPlatform().daemon().name("lectura-de-texto-", 0).factory());
 
     /**
      * @param maximo cuantos caracteres se guardan, como mucho, de un archivo
@@ -82,12 +109,18 @@ public class ExtractorDeTexto implements AutoCloseable {
     }
 
     ExtractorDeTexto(Map<TipoDeArchivo, Parser> parsers, int maximo, Duration espera, int hilos) {
+        this(parsers, maximo, espera, hilos, GRACIA, MAXIMO_COLGADOS);
+    }
+
+    ExtractorDeTexto(Map<TipoDeArchivo, Parser> parsers, int maximo, Duration espera, int hilos, Duration gracia,
+            int maximoColgados) {
         FuentesFijas.instalar();
         this.parsers = Map.copyOf(parsers);
         this.maximo = maximo;
         this.espera = espera;
-        this.hilos = Executors.newFixedThreadPool(hilos,
-                Thread.ofPlatform().daemon().name("lectura-de-texto-", 0).factory());
+        this.gracia = gracia;
+        this.maximoColgados = maximoColgados;
+        this.libres = new Semaphore(hilos, true);
     }
 
     /** Lo que se leyo de un archivo; sin texto, el motivo. Con texto y motivo, se leyo hasta el tope. */
@@ -104,37 +137,104 @@ public class ExtractorDeTexto implements AutoCloseable {
     }
 
     /**
-     * El texto del archivo, que es del tipo dicho. El tiempo de leerlo empieza cuando un hilo lo toma, no al pedirlo: un
-     * archivo que espera turno no pierde su tiempo detras de otro. Si en ese mismo tiempo ningun hilo lo toma, porque
-     * los ocupan archivos que no terminan, falla sin decir nada del archivo, y la cola lo vuelve a intentar.
+     * El texto del archivo, que es del tipo dicho. El tiempo de leerlo empieza cuando toma un lugar, no al pedirlo: un
+     * archivo que espera turno no pierde su tiempo detras de otro. Si en ese mismo tiempo no queda un lugar libre,
+     * porque los ocupan archivos que no terminan, se aplaza sin decir nada del archivo.
      *
-     * @throws HilosOcupadosException si ningun hilo pudo empezar a leerlo
+     * @throws HilosOcupadosException si no pudo empezar a leerlo
      */
     public Resultado extraer(Path archivo, TipoDeArchivo tipo) {
         Parser parser = parsers.get(tipo);
         if (parser == null) {
             return Resultado.sinTexto("Un archivo de tipo " + tipo.mime() + " no tiene texto que leer.");
         }
-        CountDownLatch empezada = new CountDownLatch(1);
-        Future<Resultado> lectura = hilos.submit(() -> {
-            empezada.countDown();
-            return leer(archivo, parser);
-        });
         try {
-            if (!empezada.await(espera.toMillis(), TimeUnit.MILLISECONDS)) {
-                lectura.cancel(true);
+            if (!libres.tryAcquire(espera.toMillis(), TimeUnit.MILLISECONDS)) {
                 throw new HilosOcupadosException(espera);
             }
-            return lectura.get(espera.toMillis(), TimeUnit.MILLISECONDS);
+            return leerATiempo(archivo, parser);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Se interrumpió la lectura del texto de un documento.", e);
+        }
+    }
+
+    /** Con un lugar ya tomado, que devuelve el hilo al terminar, o este al darlo por colgado. */
+    private Resultado leerATiempo(Path archivo, Parser parser) throws InterruptedException {
+        Lectura lectura = new Lectura();
+        Future<Resultado> futuro;
+        try {
+            futuro = hilos.submit(() -> lectura.correr(archivo, parser));
+        } catch (RejectedExecutionException e) {
+            libres.release();
+            throw e;
+        }
+        try {
+            return futuro.get(espera.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException _) {
-            lectura.cancel(true);
+            lectura.vencer();
             return Resultado.sinTexto("Leerlo tardó más de " + espera.toSeconds() + " s.");
         } catch (ExecutionException e) {
             return Resultado.sinTexto(motivo(e.getCause()));
         } catch (InterruptedException e) {
-            lectura.cancel(true);
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Se interrumpió la lectura del texto de un documento.", e);
+            lectura.interrumpir();
+            throw e;
+        }
+    }
+
+    /** Cuantos hilos colgados se repusieron y siguen con su archivo. */
+    int colgados() {
+        return colgados.get();
+    }
+
+    /**
+     * Un archivo en lectura: quien lo lee, y si termino o se dio por colgado. Lo que pase primero decide quien devuelve
+     * el lugar: el hilo al terminar, o quien lo da por colgado, que lo repone; el colgado, al terminar, solo se
+     * descuenta.
+     */
+    private final class Lectura {
+
+        private final CountDownLatch terminada = new CountDownLatch(1);
+        private final AtomicInteger estado = new AtomicInteger(LEYENDO);
+        private volatile Thread hilo;
+
+        Resultado correr(Path archivo, Parser parser) {
+            hilo = Thread.currentThread();
+            try {
+                return leer(archivo, parser);
+            } finally {
+                if (estado.compareAndSet(LEYENDO, TERMINADA)) {
+                    libres.release();
+                } else {
+                    colgados.decrementAndGet();
+                }
+                terminada.countDown();
+            }
+        }
+
+        void interrumpir() {
+            Thread leyendo = hilo;
+            if (leyendo != null) {
+                leyendo.interrupt();
+            }
+        }
+
+        /** Se le acabo el tiempo: se interrumpe, y si no suelta el archivo en la gracia, se da por colgado. */
+        void vencer() throws InterruptedException {
+            interrumpir();
+            if (terminada.await(gracia.toMillis(), TimeUnit.MILLISECONDS)) {
+                return;
+            }
+            if (colgados.incrementAndGet() > maximoColgados) {
+                colgados.decrementAndGet();
+                log.warn("Un hilo de lectura no suelta un archivo vencido y ya hay {} colgados: ocupa su lugar hasta "
+                        + "terminar", maximoColgados);
+            } else if (estado.compareAndSet(LEYENDO, COLGADA)) {
+                libres.release();
+                log.warn("Un hilo de lectura no suelta un archivo vencido: se da por colgado y su lugar se repone");
+            } else {
+                colgados.decrementAndGet();
+            }
         }
     }
 
@@ -168,8 +268,8 @@ public class ExtractorDeTexto implements AutoCloseable {
         hilos.shutdownNow();
     }
 
-    /** Ningun hilo de lectura quedo libre a tiempo: el archivo no se leyo, y no por culpa suya. */
-    public static final class HilosOcupadosException extends IllegalStateException {
+    /** Ningun lugar de lectura quedo libre a tiempo: el archivo no se leyo, y no por culpa suya. */
+    public static final class HilosOcupadosException extends TrabajoAplazadoException {
 
         HilosOcupadosException(Duration espera) {
             super("Ningún hilo de lectura quedó libre en " + espera.toSeconds()

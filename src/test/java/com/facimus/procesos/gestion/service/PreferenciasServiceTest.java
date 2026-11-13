@@ -143,6 +143,19 @@ class PreferenciasServiceTest {
     }
 
     @Test
+    @DisplayName("Pasar a otra variante de la misma lengua no avisa: la busqueda usa las mismas raices")
+    void mismaLenguaNoAvisa() {
+        ConfiguracionTienda configuracion = conConfiguracion();
+        configuracion.setIdioma("en-US");
+        when(usuarioRepository.findByIdAndEmpresaId(USUARIO, EMPRESA)).thenReturn(Optional.of(usuario()));
+
+        service.cambiarLasDeLaOrganizacion(EMPRESA, USUARIO, "en-AU", "Australia/Sydney");
+
+        assertThat(configuracion.getIdioma()).isEqualTo("en-AU");
+        verify(eventos, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
     @DisplayName("La organizacion no se queda sin idioma ni sin zona")
     void organizacionSinIdiomaOZona() {
         assertThatThrownBy(() -> service.cambiarLasDeLaOrganizacion(EMPRESA, USUARIO, " ", "America/Bogota"))

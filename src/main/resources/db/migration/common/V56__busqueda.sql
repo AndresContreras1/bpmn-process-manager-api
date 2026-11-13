@@ -148,8 +148,9 @@ create policy aislamiento_por_tienda on elementos_buscables
 create function indexar_elemento(la_tabla text, fila jsonb) returns void language plpgsql as $$
 declare
     el_proceso bigint;
-    el_nombre text := coalesce(fila->>'nombre', fila->>'etiqueta', fila->>'texto');
-    el_detalle text := coalesce(fila->>'descripcion', fila->>'condicion', fila->>'contenido');
+    -- Se indexa lo mismo que se guarda: rehacer el vector desde la fila no pierde palabras
+    el_nombre text := left(coalesce(fila->>'nombre', fila->>'etiqueta', fila->>'texto'), 1000);
+    el_detalle text := left(coalesce(fila->>'descripcion', fila->>'condicion', fila->>'contenido'), 2000);
 begin
     delete from elementos_buscables where origen = la_tabla and origen_id = (fila->>'id')::bigint;
     if not (fila->>'activo')::boolean then
@@ -169,7 +170,7 @@ begin
                 when 'mensajes' then 'MENSAJE'
                 else 'ARTEFACTO'
             end,
-            left(el_nombre, 1000), left(el_detalle, 2000),
+            el_nombre, el_detalle,
             vector_de_elemento((fila->>'empresa_id')::bigint, el_proceso, fila->>'bpmn_id', el_nombre, el_detalle));
 end
 $$;
@@ -235,8 +236,8 @@ begin
     end if;
     insert into elementos_buscables (empresa_id, proceso_id, version_numero, origen, bpmn_id, tipo, nombre, detalle,
                                      busqueda)
-    select e.empresa_id, el_proceso, el_numero, 'versiones_proceso', e.bpmn_id, e.tipo, left(e.nombre, 1000),
-           left(e.detalle, 2000), vector_de_elemento(e.empresa_id, el_proceso, e.bpmn_id, e.nombre, e.detalle)
+    select e.empresa_id, el_proceso, el_numero, 'versiones_proceso', e.bpmn_id, e.tipo, e.nombre, e.detalle,
+           vector_de_elemento(e.empresa_id, el_proceso, e.bpmn_id, e.nombre, e.detalle)
     from (
         select v.empresa_id, elemento->>'bpmnId' as bpmn_id,
                case lista.clave
@@ -249,8 +250,9 @@ begin
                    when 'mensajes' then 'MENSAJE'
                    else 'ARTEFACTO'
                end as tipo,
-               coalesce(elemento->>'nombre', elemento->>'etiqueta', elemento->>'texto') as nombre,
-               coalesce(elemento->>'descripcion', elemento->>'condicion', elemento->>'contenido') as detalle
+               left(coalesce(elemento->>'nombre', elemento->>'etiqueta', elemento->>'texto'), 1000) as nombre,
+               left(coalesce(elemento->>'descripcion', elemento->>'condicion', elemento->>'contenido'), 2000)
+                   as detalle
         from versiones_proceso v
         cross join lateral jsonb_each(v.definicion::jsonb) as lista(clave, valor)
         cross join lateral jsonb_array_elements(case when jsonb_typeof(lista.valor) = 'array' then lista.valor

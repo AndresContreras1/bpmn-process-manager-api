@@ -44,6 +44,7 @@ import org.xml.sax.helpers.AttributesImpl;
 import com.facimus.procesos.common.archivos.Archivos;
 import com.facimus.procesos.common.archivos.ArchivosConTexto;
 import com.facimus.procesos.common.archivos.TipoDeArchivo;
+import com.facimus.procesos.common.trabajos.TrabajoAplazadoException;
 import com.facimus.procesos.modelado.service.impl.ExtractorDeTexto.HilosOcupadosException;
 import com.facimus.procesos.modelado.service.impl.ExtractorDeTexto.Resultado;
 
@@ -346,8 +347,8 @@ class ExtractorDeTextoTest {
     }
 
     @Test
-    @DisplayName("si un parser que no atiende la interrupcion ocupa cada hilo, el siguiente falla y no queda leido")
-    void hilosOcupados() {
+    @DisplayName("un hilo que no suelta su archivo se da por colgado y su lugar se repone, hasta el tope de colgados")
+    void colgados() throws Exception {
         CountDownLatch soltar = new CountDownLatch(1);
         Parser terco = new Falso() {
             @Override
@@ -363,16 +364,60 @@ class ExtractorDeTextoTest {
             }
         };
         extractor = new ExtractorDeTexto(Map.of(TipoDeArchivo.TEXTO, terco, TipoDeArchivo.CSV, escribe("hola")), 100,
-                Duration.ofSeconds(1), 1);
+                Duration.ofSeconds(1), 1, Duration.ofMillis(200), 1);
         Path colgado = archivo(new byte[] {1});
-        Path siguiente = archivo(new byte[] {2});
+        Path otroColgado = archivo(new byte[] {2});
+        Path siguiente = archivo(new byte[] {3});
+        Resultado vencido = new Resultado(null, "Leerlo tardó más de 1 s.");
         try {
-            assertThat(extractor.extraer(colgado, TipoDeArchivo.TEXTO))
-                    .isEqualTo(new Resultado(null, "Leerlo tardó más de 1 s."));
+            assertThat(extractor.extraer(colgado, TipoDeArchivo.TEXTO)).isEqualTo(vencido);
+            assertThat(extractor.colgados()).isEqualTo(1);
+            assertThat(extractor.extraer(siguiente, TipoDeArchivo.CSV)).as("el lugar del colgado se repuso")
+                    .isEqualTo(new Resultado("hola", null));
 
+            // Con el tope de colgados lleno, el siguiente colgado ocupa su lugar y el que sigue se aplaza
+            assertThat(extractor.extraer(otroColgado, TipoDeArchivo.TEXTO)).isEqualTo(vencido);
+            assertThat(extractor.colgados()).isEqualTo(1);
             assertThatThrownBy(() -> extractor.extraer(siguiente, TipoDeArchivo.CSV))
-                    .isInstanceOf(HilosOcupadosException.class).hasMessage(
+                    .isInstanceOf(HilosOcupadosException.class).isInstanceOf(TrabajoAplazadoException.class)
+                    .hasMessage(
                             "Ningún hilo de lectura quedó libre en 1 s: el texto del documento se lee en otro intento.");
+
+            // Al terminar, los colgados se descuentan y su lugar vuelve una sola vez
+            soltar.countDown();
+            await().atMost(Duration.ofSeconds(10)).until(() -> extractor.colgados() == 0);
+            assertThat(extractor.extraer(siguiente, TipoDeArchivo.CSV)).isEqualTo(new Resultado("hola", null));
+        } finally {
+            soltar.countDown();
+        }
+    }
+
+    @Test
+    @DisplayName("un hilo que suelta su archivo en la gracia no cuenta como colgado")
+    void sueltaEnLaGracia() {
+        CountDownLatch soltar = new CountDownLatch(1);
+        Parser tardio = new Falso() {
+            @Override
+            public void parse(TikaInputStream stream, ContentHandler handler, Metadata metadata, ParseContext context) {
+                boolean suelto = false;
+                while (!suelto) {
+                    try {
+                        suelto = soltar.await(1, TimeUnit.MINUTES);
+                    } catch (InterruptedException _) {
+                        // Atiende la interrupcion un poco despues
+                        suelto = true;
+                    }
+                }
+            }
+        };
+        extractor = new ExtractorDeTexto(Map.of(TipoDeArchivo.TEXTO, tardio, TipoDeArchivo.CSV, escribe("hola")), 100,
+                Duration.ofSeconds(1), 1, Duration.ofSeconds(5), 1);
+        try {
+            assertThat(extractor.extraer(archivo(new byte[] {1}), TipoDeArchivo.TEXTO))
+                    .isEqualTo(new Resultado(null, "Leerlo tardó más de 1 s."));
+            assertThat(extractor.colgados()).isZero();
+            assertThat(extractor.extraer(archivo(new byte[] {2}), TipoDeArchivo.CSV))
+                    .isEqualTo(new Resultado("hola", null));
         } finally {
             soltar.countDown();
         }
