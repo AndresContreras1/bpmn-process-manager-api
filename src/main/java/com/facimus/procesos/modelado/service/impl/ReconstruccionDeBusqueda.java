@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.service.impl;
 
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -61,17 +62,26 @@ public class ReconstruccionDeBusqueda implements ManejadorDeTrabajo {
 
     @Override
     public void ejecutar(Trabajo trabajo) {
-        Long empresaId = trabajo.empresaId();
         for (Tabla tabla : TABLAS) {
-            Long desde = 0L;
-            while (desde != null) {
-                desde = tramo(empresaId, tabla, desde);
-            }
+            recorrer(trabajo.empresaId(), tabla);
+        }
+    }
+
+    /**
+     * Rehace la tabla tramo a tramo. Termina cuando un tramo ya no encuentra filas despues del ultimo id rehecho, o si
+     * no avanza: cada tramo empieza despues del anterior, y uno que no pasa de donde empezo no tiene nada mas que hacer.
+     */
+    private void recorrer(Long empresaId, Tabla tabla) {
+        long desde = 0L;
+        Long hasta = tramo(empresaId, tabla, desde);
+        while (hasta != null && hasta > desde) {
+            desde = hasta;
+            hasta = tramo(empresaId, tabla, desde);
         }
     }
 
     /** Un tramo, en su transaccion; dice el ultimo id que rehizo, o nada si la tabla ya no tenia mas. */
-    private Long tramo(Long empresaId, Tabla tabla, Long desde) {
+    private @Nullable Long tramo(Long empresaId, Tabla tabla, long desde) {
         return transaccion.execute(estado -> jdbc.queryForObject(TRAMO, Long.class, empresaId, tabla.nombre(), desde,
                 tabla.porTramo()));
     }
