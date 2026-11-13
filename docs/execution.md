@@ -143,8 +143,9 @@ its activity starts waiting, a task in a tray or a receive waiting for its messa
 activity out and the case follows the boundary; one that does not opens another path, every time if it is a cycle,
 while the activity keeps waiting. A timer start (`TEMPORIZADOR_INICIO`) opens production cases on its own while its
 version is in force. A timer says when with an ISO 8601 duration (`PT2H`), a business duration (`DURACION_HABIL`,
-`P2D` is two working days), a date, or a cycle (`R3/PT1H`, or a cron like `0 0 9 * * MON-FRI`). The timeline says when
-each one was armed, when it is due and when it fired.
+`P2D` is two working days), a date, or a cycle (`R3/PT1H`, or a cron like `0 0 9 * * MON-FRI`), within caps the
+diagnosis checks: a hundred years, 366 working days, dates from 1900 to 9999, and a cycle at most once a minute. The
+timeline says when each one was armed, when it is due and when it fired, or why it was not armed.
 
 **When they fire.** Production timers fire from a scheduler that one instance runs every few seconds; each one fires
 in its own transaction, with its case locked, and once, even with two instances or after the API was down. Test timers

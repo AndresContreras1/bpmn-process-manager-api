@@ -17,12 +17,15 @@ tagged. Each pull request adds its line under *Unreleased*.
   a timer start that opens cases on its own, with ISO 8601 durations, dates and cycles, cron cycles, and a new business
   duration (`DURACION_HABIL`, `bpm:habil` in BPMN). Production timers fire from a scheduler, once, also with two
   instances or after the API was down; test timers fire with the store's tick. A timer whose case ends, or whose
-  activity stops waiting, is cancelled. `GET /casos/{id}/temporizadores` and `GET /procesos/{id}/temporizadores` list
-  them.
+  activity stops waiting, is cancelled. `GET /casos/{id}/temporizadores` lists them, and `GET
+  /procesos/{id}/temporizadores` pages the timer starts. Timer expressions have caps the diagnosis checks: a hundred
+  years for a duration, 366 working days for a business one, dates from 1900 to 9999 and a cycle at most once a
+  minute.
 - Two modes for a case: `PRODUCCION` on the wall clock and the business calendar, and `PRUEBA`, the default, on the
   ticks and simulated partners as before. The simulated partners only answer test cases.
 - Trying a draft without publishing it: `POST /procesos/{id}/pruebas` runs it as a test case on a throwaway test
-  version that no list shows and the nightly purge deletes after `PRUEBAS_RETENCION`.
+  version that no list shows and the nightly purge deletes after `PRUEBAS_RETENCION`. Incoming messages never
+  correlate with a test run, and the dashboard and the open-cases gauge leave test runs out.
 - Backups with pgBackRest: PostgreSQL archives every WAL segment within a minute, and a `respaldo` service takes a
   full backup every Sunday and a differential every other day, into a bucket with Object Lock in compliance mode, every
   file encrypted with `RESPALDO_CLAVE`. After each backup the rows of every table are counted and a restore point is

@@ -78,9 +78,6 @@
       local copy until the server confirms
 - [x] One drawing everywhere: the viewers of processes, versions and cases on the same component, the case as
       markers and counters
-- [x] Timers that run (waits, boundary timers and timer starts) on the wall clock and a business calendar per
-      organization with the public holidays of Colombia, the United States, France and Australia; test cases keep the
-      ticks, and a draft can be tried without publishing it (PR 68)
 - [x] A structure view that does everything the canvas does from the keyboard, and targets of at least 24 × 24 px
 
 **Editing with others**
@@ -105,6 +102,9 @@
 - [x] Messaging and a simulation clock: sending, correlating and waiting for the messages the diagram declares
 - [x] Simulated partners for payments, shipping and notifications, deterministic by store and seed
 - [x] An operations dashboard: cases by state, cycle time and open tasks per role
+- [x] Timers that run (waits, boundary timers and timer starts) on the wall clock and a business calendar per
+      organization with the public holidays of Colombia, the United States, France and Australia; test cases keep the
+      ticks, and a draft can be tried without publishing it (PR 68)
 
 **Beyond the model**
 - [x] Deterministic diagnosis of a diagram, with its own catalogue of errors and warnings and a what-if for a deletion

@@ -339,14 +339,24 @@ What PR 68 adds, against the checklist every resource goes through ([ADR-0072](a
 - **IDOR.** The calendar is the store's own, with no id in the path: each store reads and changes only its own. The
   timers of another store's case, the timer starts of its process and a test run of its draft answer `404`.
 - **Who.** Anyone reads the calendar, because every deadline is counted with it; changing it, or its holidays, is the
-  administrator's (the route matrix). Reading timers needs `VER` on the process or the case; trying a draft needs
-  `MODELAR`, like editing it.
+  administrator's (the route matrix). The timer starts of a process need `VER` on the process; the timers of a case
+  follow the other reads of a case (any role of the store, no resource rule). Trying a draft needs `MODELAR`, like
+  editing it.
+- **What a timer tells.** A timer that fails keeps a fixed reason with the exception's class, never its message: the
+  message can carry SQL, constraint names or case data, and every role of the store reads the timers of a case. The
+  whole error goes to the server log.
 - **Audit trail.** Every change to the calendar and to its holidays (see above).
 - **Rate limit.** The general limit on changes; there is no upload.
-- **Quota.** One calendar per store, and holiday changes only from 1900 to 2199, one per day. A test version and its
-  case are deleted by the nightly purge after a day.
+- **Quota.** One calendar per store, and holiday changes only from 1900 to 2199, one per day and at most 500 per
+  store (`409` past that), which keeps the unpaged list of changes and every calendar the engine loads small. Timer
+  expressions have caps the diagnosis checks (`E-16`): a duration up to a hundred years, a business duration up to 366
+  working days, dates from 1900 to 9999, and a cycle no more often than once a minute, so a published timer start
+  cannot open a case on every pass of the scheduler. A test version and its case are deleted by the nightly purge
+  after a day; every delete of that purge checks again that the version is a test one.
 - **Background work.** The timer scheduler finds due timers in every store, and the purge deletes old test versions
   in every store; each timer then fires with its own store's scope.
+- **Test runs stay apart from real orders.** An incoming message never correlates with a test-run case, and the
+  dashboard and the open-cases gauge do not count them.
 
 ## Rate limiting
 
