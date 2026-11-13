@@ -44,9 +44,10 @@ tagged. Each pull request adds its line under *Unreleased*.
   ranks names above descriptions and bodies, and answers each hit with the ids to open it and a fragment in plain-text
   segments with the matches highlighted. PostgreSQL keeps the vectors with triggers and GIN indexes; the job queue
   reads the text of PDF, Office, OpenOffice and plain-text files once the antivirus clears them, with Tika's parsers,
-  a cap of 1,000,000 characters and 30 seconds per file, and searches the rest by name. Changing the store's language
-  rebuilds the vectors in a queued job, in short transactions; searching spends from its own bucket, 60 a minute per
-  person.
+  a cap of 1,000,000 characters and 30 seconds per file, replacing a reading thread that a file leaves stuck, and
+  searches the rest by name. A job that finds no free reading slot is postponed without spending an attempt.
+  Changing the store's language rebuilds the vectors in a queued job, in short transactions; searching spends from its
+  own bucket, 60 a minute per person.
 - Review and approval: each store publishes directly, as before, or with approval by N people of a list or a process
   role. Asking for review (needs PUBLICAR) freezes the draft in a revision and in the snapshot to publish, answers
   the semantic difference against the version in force, and notifies the approvers; each one approves, asks for

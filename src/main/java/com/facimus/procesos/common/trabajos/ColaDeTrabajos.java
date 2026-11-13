@@ -22,7 +22,8 @@ import org.springframework.stereotype.Component;
  * LOCKED}: dos trabajadores, de la misma instancia o de otra, nunca toman el mismo, y ninguno espera al otro.
  *
  * <p>Un trabajo que falla vuelve a la cola con una espera que se duplica en cada intento, hasta su maximo; despues
- * queda fallido, con su ultimo error, para que alguien lo mire. Una tienda no tiene mas de
+ * queda fallido, con su ultimo error, para que alguien lo mire. Uno que se aplaza ({@link TrabajoAplazadoException})
+ * no fallo: vuelve a esperar la espera base sin gastar un intento. Una tienda no tiene mas de
  * {@code trabajos.maximo-en-curso-por-tienda} trabajos corriendo a la vez, asi que una exportacion grande no frena a
  * las demas. Ese tope se cuenta al tomar y sin bloquear: dos trabajadores al mismo tiempo pueden pasarlo por uno.
  */
@@ -105,6 +106,12 @@ public class ColaDeTrabajos {
             manejador.ejecutar(trabajo);
             jdbc.update("update trabajos set estado = 'HECHO', terminado_en = ?, ultimo_error = null where id = ?",
                     ahora(), trabajo.id());
+        } catch (TrabajoAplazadoException aplazado) {
+            jdbc.update("""
+                    update trabajos set estado = 'PENDIENTE', intentos = intentos - 1, disponible_desde = ?,
+                                        tomado_por = null, tomado_en = null, ultimo_error = ?
+                    where id = ?
+                    """, ahora().plus(reglas.esperaBase()), mensaje(aplazado), trabajo.id());
         } catch (RuntimeException fallo) {
             log.warn("El trabajo {} ({}) fallo en el intento {} de {}", trabajo.id(), trabajo.tipo(), trabajo.intento(),
                     trabajo.maximoIntentos(), fallo);

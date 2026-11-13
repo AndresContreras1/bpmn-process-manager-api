@@ -49,6 +49,7 @@ public class BusquedaController {
     @ApiResponse(responseCode = "200", description = "A page of hits, most relevant first")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "429", ref = "TooManyRequests")
     @GetMapping
     public ResponseEntity<PageResponse<ResultadoDeBusquedaResponse>> buscar(
             @Parameter(description = "What to search for, up to 200 characters", example = "\"credit approval\" -card")

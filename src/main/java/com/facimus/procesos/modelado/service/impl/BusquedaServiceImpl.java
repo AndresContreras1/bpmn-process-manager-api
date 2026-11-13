@@ -41,8 +41,9 @@ import lombok.RequiredArgsConstructor;
  * gana solo por largo.
  * <p>El fragmento lo arma {@code ts_headline} con dos marcas de uso privado de Unicode que se quitan antes del texto,
  * asi que no pueden venir de el; aqui se parte por ellas en tramos de texto plano. Nada del texto se vuelve HTML. El de
- * un documento sale de sus primeros {@value #LARGO_DEL_FRAGMENTO} caracteres: ts_headline vuelve a leer cada texto que
- * recibe, y una pagina de documentos largos no puede costar millones de caracteres.
+ * un documento, y la documentacion de un proceso o de un elemento, salen de sus primeros {@value #LARGO_DEL_FRAGMENTO}
+ * caracteres: ts_headline vuelve a leer cada texto que recibe, y una pagina de textos largos no puede costar millones
+ * de caracteres.
  * <p>F22: solo lo publicado deja fuera los procesos que nunca se publicaron, los elementos que solo estan en el
  * borrador y los comentarios; de un elemento que esta en las dos, sale la fila de la version vigente.
  */
@@ -58,7 +59,7 @@ public class BusquedaServiceImpl implements BusquedaService {
     static final String OPCIONES = "StartSel=" + INICIO + ", StopSel=" + FIN
             + ", MaxWords=35, MinWords=15, MaxFragments=2, FragmentDelimiter=\" … \"";
 
-    /** De cuantos caracteres del texto de un documento sale su fragmento. */
+    /** De cuantos caracteres del texto de un documento, o de una documentacion, sale su fragmento. */
     static final int LARGO_DEL_FRAGMENTO = 20_000;
 
     /** Lo buscado, con la configuracion de la tienda, una sola vez para cada parte de la consulta. */
@@ -135,7 +136,8 @@ public class BusquedaServiceImpl implements BusquedaService {
                    null::bigint as comentario_id, null::bigint as hilo_id,
                    ts_headline(b.configuracion,
                                translate(concat_ws(E'\\n', p.nombre, p.descripcion, p.categoria,
-                                                   array_to_string(p.etiquetas, ', '), documentacion_de(p.id, null)),
+                                                   array_to_string(p.etiquetas, ', '),
+                                                   left(documentacion_de(p.id, null), :largoDelFragmento)),
                                          :marcas, ''),
                                b.consulta, :opciones) as fragmento
             from procesos p
@@ -146,7 +148,8 @@ public class BusquedaServiceImpl implements BusquedaService {
                    i.version_numero, null, null, null,
                    ts_headline(b.configuracion,
                                translate(concat_ws(E'\\n', i.nombre, i.detalle,
-                                                   documentacion_de(i.proceso_id, i.bpmn_id)), :marcas, ''),
+                                                   left(documentacion_de(i.proceso_id, i.bpmn_id), :largoDelFragmento)),
+                                         :marcas, ''),
                                b.consulta, :opciones)
             from elementos_buscables i
             join procesos p on p.id = i.proceso_id
@@ -174,7 +177,6 @@ public class BusquedaServiceImpl implements BusquedaService {
             cross join buscado b
             where c.empresa_id = :empresa and c.id = any(cast(:comentarios as bigint[]))
             """;
-
 
     /** Una fila de la pagina: que es, su id en su tabla y cuantas hay en total. */
     record Acierto(String tipo, Long fila, Long total) {
