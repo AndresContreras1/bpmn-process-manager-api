@@ -65,57 +65,102 @@ public final class Patrones {
      * antes, y contarla como de un atomo suelto dejaria pasar {@code (a{1000})(?i){1000}}.
      */
     static long repeticiones(String patron) {
-        Deque<long[]> niveles = new ArrayDeque<>();
-        niveles.push(new long[] {1});
-        long ultimo = 1;
-        int i = 0;
-        while (i < patron.length()) {
-            char c = patron.charAt(i);
-            if (patron.startsWith(CITA, i)) {
-                // Entre \Q y \E cada caracter es texto, parentesis incluidos; sin texto no deja nada que repetir
-                int fin = patron.indexOf(FIN_DE_CITA, i + 2);
-                int hasta = fin < 0 ? patron.length() : fin;
-                ultimo = hasta > i + 2 ? 1 : ultimo;
-                i = fin < 0 ? patron.length() : fin + 2;
-            } else if (c == '\\') {
-                ultimo = 1;
-                i += 2;
-            } else if (c == '[') {
-                ultimo = 1;
-                i = finDeLaClase(patron, i);
-            } else if (c == '(' && finDeLasBanderas(patron, i) > 0) {
-                // (?i) solo cambia banderas: tampoco deja nada que repetir
-                i = finDeLasBanderas(patron, i);
-            } else if (c == '(') {
-                ultimo = 1;
-                niveles.push(new long[] {1});
-                i++;
-            } else if (c == ')') {
-                ultimo = niveles.size() > 1 ? niveles.pop()[0] : 1;
-                i++;
-            } else if (c == '{') {
-                int cierre = patron.indexOf('}', i);
-                long veces = cierre < 0 ? -1 : veces(patron.substring(i + 1, cierre));
-                if (veces < 0) {
-                    ultimo = 1;
-                    i++;
-                } else {
-                    // Con el tope basta saber que se paso: asi el producto nunca se desborda
-                    ultimo = Math.min(ultimo * veces, REPETICIONES_MAXIMAS + 1L);
-                    i = cierre + 1;
-                }
+        Lectura lectura = new Lectura(patron);
+        while (lectura.quedaPatron()) {
+            lectura.avanzar();
+        }
+        return lectura.mayor();
+    }
+
+    /**
+     * Un recorrido del patron de izquierda a derecha: en que posicion va, cuanto repite el ultimo atomo y, por cada
+     * grupo abierto, la repeticion mas grande que tiene dentro.
+     */
+    private static final class Lectura {
+
+        private final String patron;
+        private final Deque<long[]> niveles = new ArrayDeque<>();
+        private long ultimo = 1;
+        private int posicion;
+
+        Lectura(String patron) {
+            this.patron = patron;
+            niveles.push(new long[] {1});
+        }
+
+        boolean quedaPatron() {
+            return posicion < patron.length();
+        }
+
+        /** Lee lo que empieza en la posicion actual y lo anota en el grupo que lo contiene. */
+        void avanzar() {
+            if (patron.startsWith(CITA, posicion)) {
+                leerCita();
             } else {
-                ultimo = 1;
-                i++;
+                switch (patron.charAt(posicion)) {
+                    case '\\' ->atomoHasta(posicion + 2);
+                    case '[' -> atomoHasta(finDeLaClase(patron, posicion));
+                    case '(' -> abrirGrupo();
+                    case ')' -> cerrarGrupo();
+                    case '{' -> leerRepeticion();
+                    default -> atomoHasta(posicion + 1);
+                }
             }
             long[] nivel = niveles.peek();
             nivel[0] = Math.max(nivel[0], ultimo);
         }
-        long mayor = 1;
-        for (long[] nivel : niveles) {
-            mayor = Math.max(mayor, nivel[0]);
+
+        /** Entre {@code \Q} y {@code \E} cada caracter es texto, parentesis incluidos; sin texto no deja nada que repetir. */
+        private void leerCita() {
+            int fin = patron.indexOf(FIN_DE_CITA, posicion + 2);
+            int hasta = fin < 0 ? patron.length() : fin;
+            ultimo = hasta > posicion + 2 ? 1 : ultimo;
+            posicion = fin < 0 ? patron.length() : fin + 2;
         }
-        return mayor;
+
+        /** Un atomo suelto, que se repite una vez, termina justo antes de {@code fin}. */
+        private void atomoHasta(int fin) {
+            ultimo = 1;
+            posicion = fin;
+        }
+
+        /** {@code (?i)} solo cambia banderas: tampoco deja nada que repetir. Otro parentesis abre un grupo. */
+        private void abrirGrupo() {
+            int banderas = finDeLasBanderas(patron, posicion);
+            if (banderas > 0) {
+                posicion = banderas;
+            } else {
+                ultimo = 1;
+                niveles.push(new long[] {1});
+                posicion++;
+            }
+        }
+
+        private void cerrarGrupo() {
+            ultimo = niveles.size() > 1 ? niveles.pop()[0] : 1;
+            posicion++;
+        }
+
+        private void leerRepeticion() {
+            int cierre = patron.indexOf('}', posicion);
+            long veces = cierre < 0 ? -1 : veces(patron.substring(posicion + 1, cierre));
+            if (veces < 0) {
+                atomoHasta(posicion + 1);
+            } else {
+                // Con el tope basta saber que se paso: asi el producto nunca se desborda
+                ultimo = Math.min(ultimo * veces, REPETICIONES_MAXIMAS + 1L);
+                posicion = cierre + 1;
+            }
+        }
+
+        /** La repeticion mas grande de cada grupo que quedo abierto, el de afuera incluido. */
+        long mayor() {
+            long mayor = 1;
+            for (long[] nivel : niveles) {
+                mayor = Math.max(mayor, nivel[0]);
+            }
+            return mayor;
+        }
     }
 
     /** Donde termina un grupo de solo banderas, como {@code (?i)} o {@code (?s-m)}; -1 si no es uno. */

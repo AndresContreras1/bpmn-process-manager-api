@@ -32,14 +32,14 @@ public record ArbolDeCondicion(
     /** El arbol de una condicion compilada. */
     public static ArbolDeCondicion de(Condicion condicion) {
         return switch (condicion) {
-            case Condicion.Y y -> new ArbolDeCondicion(Y, List.of(de(y.izquierda()), de(y.derecha())), null, null,
-                    null);
-            case Condicion.O o -> new ArbolDeCondicion(O, List.of(de(o.izquierda()), de(o.derecha())), null, null,
-                    null);
-            case Condicion.No no -> new ArbolDeCondicion(NO, List.of(de(no.condicion())), null, null, null);
-            case Condicion.Grupo grupo -> de(grupo.condicion());
-            case Condicion.Comparacion comparacion -> new ArbolDeCondicion(COMPARACION, List.of(),
-                    comparacion.ruta(), comparacion.operador().simbolo(), comparacion.literal());
+            case Condicion.Y(Condicion izquierda, Condicion derecha) -> new ArbolDeCondicion(Y, List.of(de(izquierda),
+                    de(derecha)), null, null, null);
+            case Condicion.O(Condicion izquierda, Condicion derecha) -> new ArbolDeCondicion(O, List.of(de(izquierda),
+                    de(derecha)), null, null, null);
+            case Condicion.No(Condicion negada) -> new ArbolDeCondicion(NO, List.of(de(negada)), null, null, null);
+            case Condicion.Grupo(Condicion agrupada) -> de(agrupada);
+            case Condicion.Comparacion(String ruta, Operador operador, Object literal, var _) -> new ArbolDeCondicion(
+                    COMPARACION, List.of(), ruta, operador.simbolo(), literal);
         };
     }
 
@@ -52,20 +52,19 @@ public record ArbolDeCondicion(
 
     private static void juntarRutas(Condicion condicion, List<String> rutas) {
         switch (condicion) {
-            case Condicion.Y y -> {
-                juntarRutas(y.izquierda(), rutas);
-                juntarRutas(y.derecha(), rutas);
+            case Condicion.Y(Condicion izquierda, Condicion derecha) -> {
+                juntarRutas(izquierda, rutas);
+                juntarRutas(derecha, rutas);
             }
-            case Condicion.O o -> {
-                juntarRutas(o.izquierda(), rutas);
-                juntarRutas(o.derecha(), rutas);
+            case Condicion.O(Condicion izquierda, Condicion derecha) -> {
+                juntarRutas(izquierda, rutas);
+                juntarRutas(derecha, rutas);
             }
-            case Condicion.No no -> juntarRutas(no.condicion(), rutas);
-            case Condicion.Grupo grupo -> juntarRutas(grupo.condicion(), rutas);
-            case Condicion.Comparacion comparacion -> {
-                if (!rutas.contains(comparacion.ruta())) {
-                    rutas.add(comparacion.ruta());
-                }
+            case Condicion.No(Condicion negada) -> juntarRutas(negada, rutas);
+            case Condicion.Grupo(Condicion agrupada) -> juntarRutas(agrupada, rutas);
+            case Condicion.Comparacion(String ruta, var _, var _, var _) when !rutas.contains(ruta) -> rutas.add(ruta);
+            case Condicion.Comparacion _ -> {
+                // La ruta ya estaba: cada una se lista una sola vez
             }
         }
     }

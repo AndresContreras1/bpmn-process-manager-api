@@ -69,34 +69,33 @@ public final class RespuestasDelFormulario {
         Map<String, Object> contestadas = respuestas == null ? Map.of() : respuestas;
         Map<String, String> errores = new LinkedHashMap<>();
         desconocidas(formulario, contestadas, errores);
-        Map<String, Object> valores = new LinkedHashMap<>();
         Recorrido recorrido = new Recorrido(formulario, delCaso);
         for (CampoDeFormulario campo : formulario.campos()) {
-            if (!recorrido.visible(campo)) {
-                continue;
+            if (recorrido.visible(campo)) {
+                revisar(campo, contestadas.get(campo.nombre()), referencias, recorrido, errores);
             }
-            String nombre = campo.nombre();
-            Object valor;
-            try {
-                valor = leer(campo, contestadas.get(nombre));
-                if (valor != null) {
-                    referencias(campo, valor, referencias);
-                }
-            } catch (ValorInvalido invalido) {
-                errores.put(nombre, invalido.getMessage());
-                continue;
-            }
-            if (valor == null) {
-                if (recorrido.obligatorio(campo)) {
-                    errores.put(nombre, OBLIGATORIO);
-                }
-                continue;
-            }
-            valores.put(nombre, valor);
-            recorrido.contestado(nombre, valor);
         }
-        return new Resultado(errores.isEmpty() ? Collections.unmodifiableMap(valores) : Map.of(),
-                Collections.unmodifiableMap(errores));
+        return new Resultado(errores.isEmpty() ? recorrido.valores() : Map.of(), Collections.unmodifiableMap(errores));
+    }
+
+    /** Un campo visible: su valor queda como contestado, o su nombre en los errores con el motivo. */
+    private static void revisar(CampoDeFormulario campo, Object crudo, Referencias referencias, Recorrido recorrido,
+            Map<String, String> errores) {
+        Object valor;
+        try {
+            valor = leer(campo, crudo);
+            if (valor != null) {
+                referencias(campo, valor, referencias);
+            }
+        } catch (ValorInvalido invalido) {
+            errores.put(campo.nombre(), invalido.getMessage());
+            return;
+        }
+        if (valor != null) {
+            recorrido.contestado(campo.nombre(), valor);
+        } else if (recorrido.obligatorio(campo)) {
+            errores.put(campo.nombre(), OBLIGATORIO);
+        }
     }
 
     /**
@@ -106,23 +105,26 @@ public final class RespuestasDelFormulario {
     public static Map<String, Object> iniciales(Formulario formulario, Variables delCaso) {
         Map<String, Object> iniciales = new LinkedHashMap<>();
         for (CampoDeFormulario campo : formulario.campos()) {
-            if (campo.porDefecto() == null || !campo.tipo().llevaValor()) {
-                continue;
-            }
-            Optional<Object> variable = delCaso.valor(campo.porDefecto());
-            if (variable.isEmpty()) {
-                continue;
-            }
-            try {
-                Object valor = leer(campo, variable.orElseThrow());
-                if (valor != null) {
-                    iniciales.put(campo.nombre(), valor);
-                }
-            } catch (ValorInvalido _) {
-                // Un valor por defecto que no cabe en el campo no se propone: quien llena el formulario lo escribe
-            }
+            inicial(campo, delCaso).ifPresent(valor -> iniciales.put(campo.nombre(), valor));
         }
         return Collections.unmodifiableMap(iniciales);
+    }
+
+    /** El valor que se propone en un campo: el de la variable que nombra, si existe y cabe en el. */
+    private static Optional<Object> inicial(CampoDeFormulario campo, Variables delCaso) {
+        if (campo.porDefecto() == null || !campo.tipo().llevaValor()) {
+            return Optional.empty();
+        }
+        return delCaso.valor(campo.porDefecto()).flatMap(variable -> cabe(campo, variable));
+    }
+
+    private static Optional<Object> cabe(CampoDeFormulario campo, Object variable) {
+        try {
+            return Optional.ofNullable(leer(campo, variable));
+        } catch (ValorInvalido _) {
+            // Un valor por defecto que no cabe en el campo no se propone: quien llena el formulario lo escribe
+            return Optional.empty();
+        }
     }
 
     /** El nombre que encabeza una ruta: {@code metodo} en {@code metodo.codigo}. */
@@ -176,6 +178,11 @@ public final class RespuestasDelFormulario {
             arriba.put(nombre, valor);
         }
 
+        /** Lo contestado en los campos visibles, en el orden del formulario. */
+        Map<String, Object> valores() {
+            return Collections.unmodifiableMap(arriba);
+        }
+
         /**
          * Una condicion que no compila no deberia llegar aqui: el esquema se reviso al guardarlo y al publicarlo. Si
          * llegara, vale lo que valdria sin ella.
@@ -208,7 +215,7 @@ public final class RespuestasDelFormulario {
             case FECHA_HORA -> fechaYHora(campo, crudo);
             case SI_NO -> siNo(crudo);
             case LISTA -> opcion(campo, crudo);
-            case LISTA_MULTIPLE -> opciones(campo, crudo);
+            case LISTA_MULTIPLE -> sinRespuestaSiVacia(opciones(campo, crudo));
             case PERSONA, ARCHIVO -> id(crudo);
             case SECCION -> null;
         };
@@ -360,7 +367,7 @@ public final class RespuestasDelFormulario {
             throw new ValorInvalido("Es una lista con los valores de las opciones elegidas.");
         }
         if (lista.isEmpty()) {
-            return null;
+            return List.of();
         }
         List<String> elegidas = new ArrayList<>();
         for (Object elemento : lista) {
@@ -380,6 +387,11 @@ public final class RespuestasDelFormulario {
             throw new ValorInvalido("Elige como mucho " + campo.maximo().intValue() + ".");
         }
         return List.copyOf(elegidas);
+    }
+
+    /** Una lista sin ninguna opcion elegida no es una respuesta. */
+    private static Object sinRespuestaSiVacia(List<String> elegidas) {
+        return elegidas.isEmpty() ? null : elegidas;
     }
 
     private static void exigirOpcion(CampoDeFormulario campo, String elegida) {
