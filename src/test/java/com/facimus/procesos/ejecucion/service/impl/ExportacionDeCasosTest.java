@@ -70,7 +70,7 @@ class ExportacionDeCasosTest {
     @Test
     @DisplayName("las columnas del CSV son las claves del JSON de cada caso, sin la version de la fila")
     void columnas() {
-        assertThat(ExportacionDeCasos.COLUMNAS_DE_CASOS).containsExactlyElementsOf(caso(1, null).keySet());
+        assertThat(caso(1, null).keySet()).containsExactlyElementsOf(ExportacionDeCasos.COLUMNAS_DE_CASOS);
         assertThat(ExportacionDeCasos.CASOS).contains("v.numero as version_del_proceso").doesNotContain("c.version,");
     }
 

@@ -115,7 +115,7 @@ class ExportacionDelModeladoTest {
 
         parte.escribir(EMPRESA, paquete);
 
-        assertThat(paquete.archivos().get("procesos/3-despacho/manuales/manuales.json")).isEqualTo(List.of(
+        assertThat(paquete.archivos()).containsEntry("procesos/3-despacho/manuales/manuales.json", List.of(
                 fila("id", 5L, "versionNumero", 2, "estado", "DISPONIBLE"),
                 fila("id", 6L, "versionNumero", 3, "estado", "FALLIDO")));
         assertThat(new String((byte[]) paquete.archivos().get("procesos/3-despacho/manuales/5-v2.html"),
@@ -141,7 +141,7 @@ class ExportacionDelModeladoTest {
         parte.escribir(EMPRESA, paquete);
 
         String archivo = "procesos/3-despacho/documentos/12/v1-Guia-de-empaque.pdf";
-        assertThat(paquete.archivos().get("procesos/3-despacho/documentos/documentos.json")).isEqualTo(List.of(
+        assertThat(paquete.archivos()).containsEntry("procesos/3-despacho/documentos/documentos.json", List.of(
                 fila("id", 12L, "nombre", "Guía", "versiones", List.of(
                         fila("numero", 1, "nombre", "../Guía de empaque.pdf", "estado", "DISPONIBLE", "archivo",
                                 archivo),

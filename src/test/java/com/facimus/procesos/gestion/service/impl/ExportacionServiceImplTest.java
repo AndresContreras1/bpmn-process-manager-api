@@ -229,16 +229,29 @@ class ExportacionServiceImplTest {
         assertThatThrownBy(() -> servicio.obtener(2L, EXPORTACION)).isInstanceOf(RecursoNoEncontradoException.class);
     }
 
-    @Test
-    @DisplayName("armarla corre cada parte con la tienda fijada y sin transaccion abierta, deja el ZIP con su "
-            + "manifiesto en el almacen, la anota LISTA por 24 horas con su huella y manda el correo")
-    void generar() throws IOException {
+    /** Arma una exportacion pendiente y la devuelve como quedo. */
+    private Exportacion armarUnaPendiente() {
         Exportacion pendiente = exportacion(EstadoExportacion.PENDIENTE);
         when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
         when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        servicio.generar(EMPRESA, EXPORTACION);
+        return pendiente;
+    }
+
+    /** La clave con la que el ZIP subio al almacen. */
+    private String claveGuardada() {
+        ArgumentCaptor<String> clave = ArgumentCaptor.forClass(String.class);
+        verify(almacen).guardar(clave.capture(), any(Path.class), eq("application/zip"));
+        return clave.getValue();
+    }
+
+    @Test
+    @DisplayName("armarla corre cada parte con la tienda fijada y sin transaccion abierta, deja el ZIP con su "
+            + "manifiesto en el almacen, devuelve el contexto que tenia y borra el archivo de paso")
+    void generar() throws IOException {
         Alcance antes = ContextoDeTienda.fijar(Alcance.SISTEMA);
         try {
-            servicio.generar(EMPRESA, EXPORTACION);
+            armarUnaPendiente();
             assertThat(ContextoDeTienda.actual()).contains(Alcance.SISTEMA);
         } finally {
             ContextoDeTienda.restaurar(antes);
@@ -246,12 +259,22 @@ class ExportacionServiceImplTest {
 
         assertThat(alcancesDeLasPartes).containsExactly(Alcance.deLaTienda(EMPRESA), Alcance.deLaTienda(EMPRESA));
         assertThat(transaccionesDeLasPartes).containsExactly(0, 0);
-        ArgumentCaptor<String> clave = ArgumentCaptor.forClass(String.class);
-        verify(almacen).guardar(clave.capture(), any(Path.class), eq("application/zip"));
-        assertThat(clave.getValue()).as("cada intento sube a su carpeta").matches(CLAVE_DE_UN_INTENTO);
-        Map<String, byte[]> archivos = PaqueteZipTest.abrir(guardado);
-        assertThat(archivos.keySet()).containsExactly("organizacion.json", "casos/casos.json", "manifest.json");
-        JsonNode manifiesto = json.readTree(archivos.get("manifest.json"));
+        assertThat(claveGuardada()).as("cada intento sube a su carpeta").matches(CLAVE_DE_UN_INTENTO);
+        assertThat(PaqueteZipTest.abrir(guardado).keySet()).containsExactly("organizacion.json", "casos/casos.json",
+                "manifest.json");
+        assertThat(transacciones.soloLectura).containsExactly(true, false);
+        try (Stream<Path> quedan = Files.list(paso)) {
+            assertThat(quedan).as("el archivo de paso se borra").isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("el manifiesto del ZIP armado lleva el formato, la exportacion, la tienda, quien la pidio, cuando y "
+            + "en que zona, y la lista de sus archivos")
+    void generarConManifiesto() throws IOException {
+        armarUnaPendiente();
+
+        JsonNode manifiesto = json.readTree(PaqueteZipTest.abrir(guardado).get("manifest.json"));
         assertThat(manifiesto.get("formato").asInt()).isEqualTo(1);
         assertThat(manifiesto.get("exportacion").asLong()).isEqualTo(EXPORTACION);
         assertThat(manifiesto.get("tienda").get("id").asLong()).isEqualTo(EMPRESA);
@@ -263,10 +286,17 @@ class ExportacionServiceImplTest {
         assertThat(manifiesto.get("generadaEn").asString()).isEqualTo(AHORA_LOCAL.toString());
         assertThat(manifiesto.get("zonaHoraria").asString()).isEqualTo("UTC");
         assertThat(manifiesto.get("archivos")).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("armada, la anota LISTA por 24 horas con su clave y su huella, lo deja en la bitacora y manda el "
+            + "correo")
+    void generarLaDejaLista() {
+        Exportacion pendiente = armarUnaPendiente();
 
         LocalDateTime lista = LocalDateTime.of(2026, 11, 12, 10, 0);
         assertThat(pendiente.getEstado()).isEqualTo(EstadoExportacion.LISTA);
-        assertThat(pendiente.getClave()).isEqualTo(clave.getValue());
+        assertThat(pendiente.getClave()).isEqualTo(claveGuardada());
         assertThat(pendiente.getSha256()).isEqualTo(Huella.de(guardado));
         assertThat(pendiente.getTamano()).isEqualTo(guardado.length);
         assertThat(pendiente.getArchivos()).isEqualTo(2);
@@ -277,10 +307,6 @@ class ExportacionServiceImplTest {
         verify(auditoria).registrar(EMPRESA, null, "EXPORTACION_LISTA", "EXPORTACION", EXPORTACION,
                 Map.of("sha256", Huella.de(guardado), "tamano", (long) guardado.length, "archivos", 2));
         verify(almacen, never()).borrarPrefijo(anyString());
-        assertThat(transacciones.soloLectura).containsExactly(true, false);
-        try (Stream<Path> quedan = Files.list(paso)) {
-            assertThat(quedan).as("el archivo de paso se borra").isEmpty();
-        }
     }
 
     @Test

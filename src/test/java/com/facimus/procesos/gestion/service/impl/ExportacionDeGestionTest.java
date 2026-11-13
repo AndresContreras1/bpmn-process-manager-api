@@ -76,7 +76,7 @@ class ExportacionDeGestionTest {
         assertThat(paquete.archivos().keySet()).containsExactly("organizacion.json", "personas.json", "roles.json",
                 "membresias.json", "carpetas.json", "concesiones.json", "procesos/procesos.json", "historial.json",
                 "bitacora/bitacora.json", "bitacora/verificacion.json", "bitacora/anclas.json");
-        assertThat(paquete.archivos().get("organizacion.json")).isEqualTo(Map.of("tienda", fila("id", 1L, "nombre",
+        assertThat(paquete.archivos()).containsEntry("organizacion.json", Map.of("tienda", fila("id", 1L, "nombre",
                 "Acme"), "configuracion", fila("idioma", "es-CO")));
         assertThat(paquete.filas("personas.json")).containsExactly(fila("id", 7L, "nombre", "Ana"));
         assertThat(paquete.filas("roles.json")).containsExactly(fila("id", 2L));
@@ -95,7 +95,7 @@ class ExportacionDeGestionTest {
     void organizacionVacia() {
         parte.escribir(EMPRESA, paquete);
 
-        assertThat(paquete.archivos().get("organizacion.json")).isEqualTo(Map.of("tienda", Map.of(),
+        assertThat(paquete.archivos()).containsEntry("organizacion.json", Map.of("tienda", Map.of(),
                 "configuracion", Map.of()));
     }
 
@@ -123,11 +123,11 @@ class ExportacionDeGestionTest {
                 .containsKey("procesos/8-devoluciones/proceso.json")
                 .doesNotContainKeys("procesos/7-order-fulfillment/versiones/v1.svg",
                         "procesos/7-order-fulfillment/versiones/v2.bpmn",
-                        "procesos/8-devoluciones/versiones/versiones.json");
-        assertThat(paquete.archivos().get("procesos/7-order-fulfillment/versiones/versiones.json"))
-                .isEqualTo(List.of(fila("numero", 1, "huella", "a"), fila("numero", 2, "huella", "b")));
-        assertThat(paquete.archivos().get("procesos/procesos.json")).isEqualTo(List.of(fila("id", 7L, "nombre",
-                "Order Fulfillment"), fila("id", 8L, "nombre", "Devoluciones")));
+                        "procesos/8-devoluciones/versiones/versiones.json")
+                .containsEntry("procesos/7-order-fulfillment/versiones/versiones.json",
+                        List.of(fila("numero", 1, "huella", "a"), fila("numero", 2, "huella", "b")))
+                .containsEntry("procesos/procesos.json", List.of(fila("id", 7L, "nombre", "Order Fulfillment"),
+                        fila("id", 8L, "nombre", "Devoluciones")));
     }
 
     @Test

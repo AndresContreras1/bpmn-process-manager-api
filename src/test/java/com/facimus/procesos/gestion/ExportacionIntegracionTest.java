@@ -307,8 +307,32 @@ class ExportacionIntegracionTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("LISTA"))
                 .andExpect(jsonPath("$.pedidaPor").value(ana.usuarioId())));
-        String enlace = enlaceDelCorreo(ana);
-        byte[] zip = mvc.perform(get(enlace))
+        byte[] zip = bajarSinSesion(enlaceDelCorreo(ana));
+
+        assertThat(Huella.de(zip)).isEqualTo(lista.get("sha256").asString());
+        assertThat((long) zip.length).isEqualTo(lista.get("tamano").asLong());
+        Map<String, byte[]> archivos = abrir(zip);
+        String carpeta = disposicion(archivos);
+        loDelProceso(archivos, carpeta);
+        sinElDocumentoBorrado(archivos, carpeta);
+        anclasSinClaves(archivos);
+        manifiestoContraCadaArchivo(archivos, exportacion);
+        personasSinSecretos(archivos);
+        cadenaVerificableFuera(archivos);
+        assertThat(json.readTree(archivos.get("bitacora/verificacion.json")).get("integra").asBoolean()).isTrue();
+        assertThat(texto(archivos, "casos/casos.csv")).startsWith("id,procesoId,versionDelProceso,referencia,")
+                .contains(",'=1+2,").doesNotContain(",=1+2,");
+        ningunSecretoNiNadaAjeno(archivos, secretos);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(jdbc.queryForList(
+                "select accion from bitacora where empresa_id = ? and recurso = 'EXPORTACION' and recurso_id = ? "
+                        + "order by secuencia", String.class, empresaId, exportacion))
+                .containsExactly("EXPORTACION_PEDIDA", "EXPORTACION_LISTA", "EXPORTACION_DESCARGADA"));
+    }
+
+    /** El enlace baja el ZIP sin sesion, como un adjunto que el navegador no interpreta ni guarda en cache. */
+    private byte[] bajarSinSesion(String enlace) throws Exception {
+        return mvc.perform(get(enlace))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "application/zip"))
                 .andExpect(header().string("Content-Disposition",
@@ -317,10 +341,10 @@ class ExportacionIntegracionTest {
                 .andExpect(header().string("Content-Security-Policy", "default-src 'none'; sandbox"))
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andReturn().getResponse().getContentAsByteArray();
+    }
 
-        assertThat(Huella.de(zip)).isEqualTo(lista.get("sha256").asString());
-        assertThat((long) zip.length).isEqualTo(lista.get("tamano").asLong());
-        Map<String, byte[]> archivos = abrir(zip);
+    /** Cada archivo de la tienda en su lugar; devuelve la carpeta del proceso. */
+    private String disposicion(Map<String, byte[]> archivos) {
         String carpeta = archivos.keySet().stream().filter(ruta -> ruta.endsWith("/proceso.json"))
                 .map(ruta -> ruta.substring(0, ruta.lastIndexOf('/'))).findFirst().orElseThrow();
         assertThat(carpeta).matches("procesos/\\d+-fulfillment-" + numero + "-\\d+");
@@ -332,39 +356,44 @@ class ExportacionIntegracionTest {
                 carpeta + "/versiones/versiones.json", carpeta + "/versiones/v1.json", carpeta + "/versiones/v1.bpmn",
                 carpeta + "/borrador.bpmn", carpeta + "/borrador.json", carpeta + "/documentacion.json",
                 carpeta + "/caracterizacion.json", carpeta + "/documentos/documentos.json");
+        return carpeta;
+    }
+
+    /** El modelo, la documentacion, la caracterizacion, los comentarios y el documento, con su contenido. */
+    private void loDelProceso(Map<String, byte[]> archivos, String carpeta) {
         assertThat(texto(archivos, carpeta + "/versiones/v1.bpmn")).contains("definitions", "Fulfillment " + numero);
         assertThat(texto(archivos, carpeta + "/borrador.bpmn")).contains("definitions");
         assertThat(texto(archivos, carpeta + "/documentacion.json")).contains("Del pago a la entrega.");
         assertThat(texto(archivos, carpeta + "/caracterizacion.json")).contains("Entregar a tiempo");
         assertThat(texto(archivos, "comentarios.json")).contains("Quien revisa la **direccion**?");
-        assertThat(archivos.get(carpeta + "/documentos/" + documento(archivos, carpeta) + "/v1-Guia-de-empaque.pdf"))
-                .isEqualTo(Archivos.PDF);
+        assertThat(archivos).containsEntry(carpeta + "/documentos/" + documento(archivos, carpeta)
+                + "/v1-Guia-de-empaque.pdf", Archivos.PDF);
+    }
+
+    /** El documento borrado antes de exportar no sale ni en la lista ni con sus bytes. */
+    private void sinElDocumentoBorrado(Map<String, byte[]> archivos, String carpeta) {
         JsonNode documentos = json.readTree(archivos.get(carpeta + "/documentos/documentos.json"));
         assertThat(documentos).as("el borrado no esta en la lista").hasSize(1);
         assertThat(documentos.get(0).get("id").asLong()).isNotEqualTo(documentoBorrado);
         assertThat(archivos.keySet()).as("ni sus bytes").noneMatch(ruta -> ruta.startsWith(carpeta + "/documentos/"
                 + documentoBorrado + "/") || ruta.contains("Borrador-viejo"));
+    }
+
+    /** Las anclas salen con su dia y su hash, y con el archivo del almacen inmutable, pero sin su clave. */
+    private void anclasSinClaves(Map<String, byte[]> archivos) {
         assertThat(json.readTree(archivos.get("bitacora/anclas.json"))).allSatisfy(ancla -> assertThat(
                 ancla.propertyNames()).as("ninguna clave del almacen sale").contains("dia", "hash")
                 .doesNotContain("clave"));
         assertThat(archivos.keySet()).anyMatch(ruta -> ruta.startsWith("bitacora/anclas/") && ruta.endsWith(".json"));
+    }
 
-        manifiestoContraCadaArchivo(archivos, exportacion);
-        personasSinSecretos(archivos);
-        cadenaVerificableFuera(archivos);
-        assertThat(json.readTree(archivos.get("bitacora/verificacion.json")).get("integra").asBoolean()).isTrue();
-        assertThat(texto(archivos, "casos/casos.csv")).startsWith("id,procesoId,versionDelProceso,referencia,")
-                .contains(",'=1+2,").doesNotContain(",=1+2,");
+    /** Ningun archivo lleva un secreto de la gente ni algo de la otra tienda. */
+    private void ningunSecretoNiNadaAjeno(Map<String, byte[]> archivos, List<String> secretos) {
         for (Map.Entry<String, byte[]> archivo : archivos.entrySet()) {
             String contenido = new String(archivo.getValue(), StandardCharsets.UTF_8);
             assertThat(secretos).as(archivo.getKey()).noneMatch(contenido::contains);
             assertThat(contenido).as(archivo.getKey()).doesNotContain("Ajeno " + numero, ajeno.email());
         }
-
-        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(jdbc.queryForList(
-                "select accion from bitacora where empresa_id = ? and recurso = 'EXPORTACION' and recurso_id = ? "
-                        + "order by secuencia", String.class, empresaId, exportacion))
-                .containsExactly("EXPORTACION_PEDIDA", "EXPORTACION_LISTA", "EXPORTACION_DESCARGADA"));
     }
 
     private String documento(Map<String, byte[]> archivos, String carpeta) {

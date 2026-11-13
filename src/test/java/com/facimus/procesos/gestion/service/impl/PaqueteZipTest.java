@@ -80,7 +80,7 @@ class PaqueteZipTest {
     @Test
     @DisplayName("un arreglo JSON sin filas es un arreglo vacio, y con filas una por linea")
     void filasJson() throws IOException {
-        try (FilasJson _ = paquete.filasJson("vacio.json")) {
+        try (var _ = paquete.filasJson("vacio.json")) {
             // ninguna fila
         }
         try (FilasJson filas = paquete.filasJson("dos.json")) {
