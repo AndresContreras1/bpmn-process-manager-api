@@ -9,8 +9,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -118,6 +120,20 @@ class AnclaDeBitacoraServiceImplTest {
         fila(1L, 99L, "anclas/1/2026-11-12");
 
         assertThat(anclas.ultima(1L)).contains(new Ancla(HOY, 57, "c".repeat(64)));
+    }
+
+    @Test
+    @DisplayName("PR 66: la ultima ancla se lee de donde se guardo inmutable, no del almacen de los documentos")
+    void ultimaDelAlmacenInmutable() throws SQLException {
+        Almacen s3 = mock(Almacen.class);
+        when(s3.abrirInmutable("anclas/1/2026-11-12")).thenReturn(new ByteArrayInputStream(
+                ("{\"secuencia\":57,\"hash\":\"" + "d".repeat(64) + "\"}").getBytes(StandardCharsets.UTF_8)));
+        AnclaDeBitacoraServiceImpl conS3 = new AnclaDeBitacoraServiceImpl(jdbc, s3, JsonMapper.builder().build(),
+                Clock.fixed(AHORA, ZoneOffset.UTC), Duration.ofDays(400));
+        fila(1L, 99L, "anclas/1/2026-11-12");
+
+        assertThat(conS3.ultima(1L)).contains(new Ancla(HOY, 57, "d".repeat(64)));
+        verify(s3, never()).abrir(anyString());
     }
 
     @Test
