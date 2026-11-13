@@ -298,13 +298,14 @@ class CalendarioLaboralTest {
         @DisplayName("La jornada empieza antes de terminar, y hay al menos un dia habil")
         void reglasDelCalendario() {
             LocalTime ocho = LocalTime.of(8, 0);
+            LocalTime cinco = LocalTime.of(17, 0);
             Set<DayOfWeek> ninguno = Set.of();
             Map<LocalDate, String> sinRenombrados = Map.of();
             Set<LocalDate> sinQuitados = Set.of();
 
             assertThatThrownBy(() -> new CalendarioLaboral(Pais.CO, BOGOTA, ocho, ocho, ENTRE_SEMANA, sinRenombrados,
                     sinQuitados)).isInstanceOf(IllegalArgumentException.class);
-            assertThatThrownBy(() -> new CalendarioLaboral(Pais.CO, BOGOTA, ocho, LocalTime.of(17, 0), ninguno,
+            assertThatThrownBy(() -> new CalendarioLaboral(Pais.CO, BOGOTA, ocho, cinco, ninguno,
                     sinRenombrados, sinQuitados)).isInstanceOf(IllegalArgumentException.class);
         }
     }

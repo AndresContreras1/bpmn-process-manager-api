@@ -6,6 +6,7 @@ import java.time.Month;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -22,6 +23,7 @@ public final class FestivosPorPais {
     private static final String ADICIONAL = " (additional day)";
     private static final String OBSERVADO = " (observed)";
     private static final String ANZAC = "Anzac Day";
+    private static final Set<DayOfWeek> FIN_DE_SEMANA = EnumSet.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
 
     private FestivosPorPais() {
     }
@@ -181,6 +183,6 @@ public final class FestivosPorPais {
     }
 
     private static boolean esFinDeSemana(LocalDate fecha) {
-        return fecha.getDayOfWeek() == DayOfWeek.SATURDAY || fecha.getDayOfWeek() == DayOfWeek.SUNDAY;
+        return FIN_DE_SEMANA.contains(fecha.getDayOfWeek());
     }
 }
