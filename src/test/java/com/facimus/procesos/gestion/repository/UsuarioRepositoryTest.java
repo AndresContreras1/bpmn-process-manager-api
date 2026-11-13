@@ -116,6 +116,19 @@ class UsuarioRepositoryTest {
     }
 
     @Test
+    @DisplayName("F21: un % o un _ en lo escrito buscan ese caracter, no cualquier cosa")
+    void conFiltros_losComodinesDeLikeSonLiterales() {
+        guardar(usuario(tienda, "ana_maria@demo.com", RolAcceso.EDITOR, true));
+        guardar(usuario(tienda, "anaxmaria@demo.com", RolAcceso.EDITOR, true));
+        guardar(usuario(tienda, "50pct@demo.com", RolAcceso.EDITOR, true));
+
+        assertThat(buscar("a_m", false)).containsExactly("ana_maria@demo.com");
+        assertThat(buscar("_", false)).containsExactly("ana_maria@demo.com");
+        assertThat(buscar("%", false)).isEmpty();
+        assertThat(buscar("\\", false)).isEmpty();
+    }
+
+    @Test
     @DisplayName("Los desactivados solo salen si se piden: es lo que permite volver a darles de alta")
     void conFiltros_incluirInactivos_traeLosDesactivados() {
         guardar(usuario(tienda, "ada@demo.com", RolAcceso.ADMINISTRADOR, true));
