@@ -16,7 +16,8 @@ tagged. Each pull request adds its line under *Unreleased*.
   `GET /tareas/{id}/formulario` and `GET /procesos/{id}/formulario-de-inicio` read it. The form is frozen in the
   version, travels in BPMN as `bpm:formulario` and comes back on import, and the diagnosis checks it as `E-22`.
   Completing a task or opening a case validates the answers against the version's form (`400` with `errors` per
-  field) and stores them with their types under `tarea.<name>`.
+  field) and stores them with their types under `tarea.<name>`; the tasks screen shows each rejected key next to the
+  message.
 - A business calendar per organization: country (Colombia, United States, France or Australia), time zone, working
   hours and working days, with each country's public holidays computed (Ley 51 de 1983 and Easter for Colombia, the
   federal ones with their observed day, the French jours feries, the Australian national ones with their additional

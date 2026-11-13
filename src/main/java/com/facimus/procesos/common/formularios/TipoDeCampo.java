@@ -15,7 +15,10 @@ public enum TipoDeCampo {
     MONEDA(0),
     /** Un dia, sin hora: {@code 2026-11-12}. */
     FECHA(0),
-    /** Un dia y una hora local de la organizacion: {@code 2026-11-12T09:30:00}. */
+    /**
+     * Un dia y una hora de reloj, la local de la organizacion y sin zona: {@code 2026-11-12T09:30:00}. Se guarda como se
+     * escribio; una hora que un cambio de horario salta o repite no se revisa.
+     */
     FECHA_HORA(0),
     SI_NO(0),
     /** Una de las opciones. */

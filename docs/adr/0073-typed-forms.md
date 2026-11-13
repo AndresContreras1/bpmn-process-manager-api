@@ -33,14 +33,18 @@ the gateways (D6) to read.
   time and has no backtracking (back-references and look-arounds are refused when saving). The one costly thing left,
   compiling nested counted repetitions such as `((a{1000}){1000}){1000}`, is refused before compiling: a pattern is up
   to 200 characters and its counted repetitions, multiplied by those that contain them, cannot pass 1,000, the same
-  idea as the program size limit of RE2 in C++.
+  idea as the program size limit of RE2 in C++. The count reads the pattern the way RE2/J parses it: text between
+  `\Q` and `\E` is literal, parentheses included, and a flags group such as `(?i)` or an empty `\Q\E` leaves the
+  repetition after it on the atom before it, so none of them can hide a level of nesting.
 - **Conditions in the D6 grammar, compiled by the server (D36).** `visibleSi` and `requeridoSi` are written in the
   language of the gateway conditions and read the case variables and, by name, the fields above the one that asks.
   Asking for a field below, or for a section, is an error, so a form has no cycles and is evaluated top to bottom.
   Every answer that carries a form brings each condition compiled as a JSON tree (`visibleSiArbol`,
   `requeridoSiArbol`): `Y` and `O` with two parts, `NO` with one, and the leaf `COMPARACION` with `ruta`, `operador`
   and a typed `valor`. The web only walks that tree; the grammar is never written again in TypeScript. The tree is not
-  stored: it is compiled again from the text each time, so it can never drift from it.
+  stored: it is compiled again from the text each time, so it can never drift from it. A condition over 1,000
+  characters, which only a BPMN file can bring, is not compiled for an answer (it comes without a tree): the compiler
+  goes down one level per `not` or parenthesis, and the diagnosis refuses it by its length anyway.
 - **Frozen in the version.** The form travels in the diagram, so publishing freezes it in the version's definition
   with the rest; a case reads the form of its own version, and changing the draft does not touch the cases already
   open. A version published before PR 69 keeps its fingerprint: the form only enters the canonical form when a node
@@ -68,8 +72,16 @@ the gateways (D6) to read.
 - **In BPMN as `bpm:formulario`.** The writer puts each form in the node's `extensionElements`: one
   `bpm:campoFormulario` per field with its properties as attributes and its options as `bpm:opcion`, declared in
   `bpm.xsd`. The reader brings it back whole; a field whose type does not exist is left out with a note, as are fields
-  past the hundredth and a form on a node that does not take one. The web declares the same types in its `bpm:`
+  past the hundredth and a form on a node that does not take one, and a limit that does not read as a number is left
+  empty with a note instead of loosening the field in silence. The web declares the same types in its `bpm:`
   package, so saving from bpmn-js keeps the forms instead of dropping what it does not know.
+- **One way to store a field.** A field is kept in the shape it comes back from BPMN: a blank text is no text,
+  `requerido: false` is not saying it, an empty list of options is none, and a limit loses its trailing zeros and its
+  exponent (`1E+3` and `1000.00` are `1000`). Without that, exporting and importing a form, or the modeler's autosave
+  of a process nobody touched, would count as an edit and show changes nobody made.
+- **Dates are wall-clock values.** `FECHA_HORA` is a day and a time with no zone, stored as written: the organization's
+  local time, not an instant. A time that a change of clock skips or repeats in the store's zone is not checked; a
+  form that needs an instant asks for a date and a time zone apart, or waits for a typed instant field.
 
 ## Consequences
 

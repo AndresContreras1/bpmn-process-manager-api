@@ -101,7 +101,8 @@ class ReglaDeRecursoTest {
                 .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "actividades"));
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/eventos/{id}/formulario", null).orElseThrow())
                 .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "eventos"));
-        // El de una tarea se comprueba en su service, como el resto de la bandeja
+        // El de una tarea es una ruta de operacion, como el resto de la bandeja y /casos: la acota la tienda, sin
+        // permiso por proceso
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/tareas/{id}/formulario", null)).isEmpty();
     }
 

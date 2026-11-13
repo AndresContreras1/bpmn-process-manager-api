@@ -366,14 +366,20 @@ What PR 69 adds, against the checklist every resource goes through ([ADR-0073](a
   are case variables. A test reads and updates the forms as another store and sees nothing.
 - **IDOR.** Saving the form of another store's activity or event, reading the start form of its process, and reading
   the form of its task or completing that task answer `404`.
-- **Who.** Saving a form is modeling the element (`MODELAR`, administrators and editors, the route matrix); anyone
-  reads it, like the diagram. Completing a task or opening a case keeps its rules.
+- **Who.** Saving a form is modeling the element (`MODELAR`, administrators and editors, the route matrix). The start
+  form of a process is read with `VER` on that process, like the diagram. The form of a task is an operations route,
+  like the rest of the tray and `/casos`: it is scoped to the store, with no per-process permission, and it carries the
+  case variables that `GET /casos/{id}` already shows to any role of the store. Completing a task or opening a case
+  keeps its rules.
 - **Audit trail.** Saving or removing a form is an edit of the draft: it goes to the process history, like every other
   edit of the model, not to the audit trail.
 - **Rate limit and quota.** The general limit on changes. A form has up to 100 fields and a list up to 200 options, a
   condition up to 1,000 characters and a pattern up to 200.
 - **What a user writes cannot hang the server.** A pattern is evaluated with RE2/J, in time linear in the text, and the
-  one costly part left, compiling nested counted repetitions, is refused before compiling. Conditions are the gateway
+  one costly part left, compiling nested counted repetitions, is refused before compiling. That count reads `\Q...\E`
+  as plain text and knows that `(?i)` or an empty `\Q\E` leaves the next repetition on the group before it, so neither
+  hides a nesting level. A condition longer than 1,000 characters, which only a BPMN file can bring, is never compiled:
+  the diagnosis refuses it by its length. Conditions are the gateway
   grammar, which runs no code. A number is read within fifteen integer digits and six decimals, so a limit such as
   `1E+999999999` is refused instead of written out. The server is the one that decides on every answer: a key the form
   does not ask for, or one of a hidden field, never reaches the case variables.

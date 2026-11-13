@@ -236,11 +236,15 @@ Each field has a `nombre` (the variable it fills: a letter, then letters, digits
 | `minimo`, `maximo` | `NUMERO`, `MONEDA`, `LISTA_MULTIPLE` | The value, or how many options are chosen |
 | `largoMinimo`, `largoMaximo` | `TEXTO` (up to 1000), `TEXTO_LARGO` (up to 10000) | Characters, counted as people count them |
 | `patron` | `TEXTO`, `TEXTO_LARGO` | An RE2 expression the whole text matches, up to 200 characters |
-| `desde`, `hasta` | `FECHA`, `FECHA_HORA` | ISO 8601 limits, both included |
+| `desde`, `hasta` | `FECHA`, `FECHA_HORA` | ISO 8601 limits, both included; a `FECHA_HORA` is a wall-clock time, with no zone |
 | `moneda` | `MONEDA` | ISO 4217 code; it sets the decimals (two without one) |
 | `opciones` | `LISTA`, `LISTA_MULTIPLE` | 1 to 200, each with a unique `valor` and an `etiqueta` |
 | `porDefecto` | every type but `SECCION` | A case variable whose value is offered, such as `order.total` |
 | `visibleSi` | every type | A condition; on a section it hides every field up to the next section |
+
+A field comes back in one shape whichever way it was sent: a blank text, `requerido: false` and an empty `opciones`
+come back absent, and a limit comes back without trailing zeros or exponent (`1E+3` and `1000.00` are `1000`), which is
+also how it travels in BPMN.
 
 Conditions use the [gateway grammar](execution.md#running-a-process) and read the case variables and the fields above
 by name. A form that is not well built answers `400` with each property in `errors` (`campos[1].patron`, with a
