@@ -48,10 +48,11 @@ public record ModeloLeido(String nombre, String descripcion, String categoria, L
      * @param padre el {@code subProcess} donde esta, o nulo si esta en el proceso
      * @param llamado el {@code calledElement} de una {@code callActivity}
      * @param formulario PR 69: el {@code bpm:formulario} que trae, o nulo
+     * @param limitesIlegibles PR 69: los limites del formulario que no se leyeron como numero, ya dichos
      */
     public record Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
             List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
-            String temporizador, String padre, String llamado, Formulario formulario) {
+            String temporizador, String padre, String llamado, Formulario formulario, List<String> limitesIlegibles) {
 
         /** PR 68: un {@code timeDuration} que se cuenta en tiempo habil, con el calendario de la tienda. */
         public static final String DURACION_HABIL = "timeDuration+habil";

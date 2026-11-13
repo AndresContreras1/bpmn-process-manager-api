@@ -276,8 +276,8 @@ public final class EsquemaDelFormulario {
             if (condicion == null || condicion.isBlank()) {
                 return;
             }
-            if (condicion.length() > 1_000) {
-                anotar(propiedad, "No puede superar 1000" + CARACTERES);
+            if (condicion.length() > CampoDeFormulario.LARGO_DE_CONDICION) {
+                anotar(propiedad, "No puede superar " + CampoDeFormulario.LARGO_DE_CONDICION + CARACTERES);
                 return;
             }
             List<String> rutas;

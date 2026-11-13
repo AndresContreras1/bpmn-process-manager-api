@@ -12,4 +12,9 @@ public record OpcionDeLista(
         @Size(max = 100, message = "El valor de la opcion no puede superar 100 caracteres.") String valor,
         @Schema(description = "What the person sees", example = "Credit card")
         @Size(max = 200, message = "La etiqueta de la opcion no puede superar 200 caracteres.") String etiqueta) {
+
+    /** Una etiqueta en blanco es ninguna, como vuelve del BPMN: se muestra el valor. */
+    public OpcionDeLista {
+        etiqueta = etiqueta == null || etiqueta.isBlank() ? null : etiqueta;
+    }
 }

@@ -483,6 +483,7 @@ public final class ConversionBpmn {
                         + "inicios simples: se deja fuera.");
                 return null;
             }
+            nodo.limitesIlegibles().forEach(ilegible -> notas.convertido(nodo.id(), ilegible));
             List<CampoDeFormulario> campos = new ArrayList<>();
             for (CampoDeFormulario campo : nodo.formulario().campos()) {
                 if (campo.tipo() == null) {

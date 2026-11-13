@@ -14,8 +14,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * PR 69: un campo del formulario como lo ve quien lo dibuja o lo llena: su esquema y, D36, sus condiciones ya
- * compiladas por el servidor, para que la web solo las recorra. Una condicion que no compila llega sin arbol: el
- * diagnostico la marca como E-22 y la version no se publica con ella.
+ * compiladas por el servidor, para que la web solo las recorra. Una condicion que no compila, o que es demasiado larga
+ * para compilarla, llega sin arbol: el diagnostico la marca como E-22 y la version no se publica con ella.
  */
 @Schema(description = "A field of a typed form, with its conditions compiled by the server")
 public record CampoDeFormularioResponse(
@@ -54,8 +54,13 @@ public record CampoDeFormularioResponse(
                 largoMaximo, patron, desde, hasta, moneda, opciones, porDefecto, visibleSi, requeridoSi);
     }
 
+    /**
+     * Lo que pasa de {@link CampoDeFormulario#LARGO_DE_CONDICION} no se compila: llega asi por un BPMN, que no pasa por
+     * la validacion de la API, y el compilador baja un nivel por cada {@code not} o parentesis. El diagnostico lo marca
+     * como E-22 por largo.
+     */
     private static ArbolDeCondicion arbol(String condicion) {
-        if (condicion == null || condicion.isBlank()) {
+        if (condicion == null || condicion.isBlank() || condicion.length() > CampoDeFormulario.LARGO_DE_CONDICION) {
             return null;
         }
         try {

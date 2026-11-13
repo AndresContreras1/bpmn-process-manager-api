@@ -417,6 +417,59 @@ class FormulariosIntegracionTest {
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("1 error");
     }
 
+    @Test
+    @DisplayName("Una condicion de 100 KB que llega por el BPMN no se compila: el diagrama se lee y el diagnostico la marca")
+    void condicionEnormePorElBpmn() throws Exception {
+        conFormularios();
+        String xml = mvc.perform(get("/api/v1/procesos/" + proceso + "/modelo").with(como(ana)))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        String enorme = "not ".repeat(25_000) + "aprobado == true";
+        String roto = xml.replace("requeridoSi=\"aprobado == true\"", "requeridoSi=\"" + enorme + "\"");
+        assertThat(roto).isNotEqualTo(xml);
+
+        mvc.perform(put("/api/v1/procesos/" + proceso + "/modelo").with(como(ana))
+                .contentType(MediaType.APPLICATION_XML).content(roto)).andExpect(status().isOk());
+
+        JsonNode campo = formularioDe(cuerpo(mvc.perform(get("/api/v1/procesos/" + proceso + "/diagrama")
+                .with(como(carla))).andExpect(status().isOk())), "actividades", "Approve refund").get("campos").get(1);
+        assertThat(campo.get("requeridoSi").asString()).hasSize(enorme.length());
+        assertThat(campo.path("requeridoSiArbol").isNull() || campo.path("requeridoSiArbol").isMissingNode()).isTrue();
+        mvc.perform(get("/api/v1/procesos/" + proceso + "/diagnostico").with(como(carla)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hallazgos[?(@.codigo == 'E-22')].elementoId").value(contains(aprobar.intValue())))
+                .andExpect(jsonPath("$.hallazgos[?(@.codigo == 'E-22')].problema").value(contains(
+                        containsString("1000 caracteres"))));
+    }
+
+    @Test
+    @DisplayName("Guardar desde el modelador lo que se exporto no cambia nada, aunque el formulario diga false o 1E+2")
+    void guardarOtraVezNoCambia() throws Exception {
+        String formulario = """
+                {"version": 0, "campos": [
+                  {"nombre": "aprobado", "etiqueta": "Approved?", "tipo": "SI_NO", "requerido": false, "ayuda": ""},
+                  {"nombre": "piezas", "etiqueta": "Pieces", "tipo": "NUMERO", "minimo": 1E+2, "maximo": 1000.00},
+                  {"nombre": "canal", "etiqueta": "Channel", "tipo": "LISTA",
+                   "opciones": [{"valor": "WEB", "etiqueta": ""}]},
+                  {"nombre": "nota", "etiqueta": "Note", "tipo": "TEXTO", "opciones": []}]}""";
+        mvc.perform(put("/api/v1/actividades/" + aprobar + "/formulario").with(como(ana))
+                        .contentType(MediaType.APPLICATION_JSON).content(formulario))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.formulario.campos[1].minimo").value(100));
+        String xml = mvc.perform(get("/api/v1/procesos/" + proceso + "/modelo").with(como(ana)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        int version = cuerpo(mvc.perform(get("/api/v1/actividades/" + aprobar).with(como(ana)))).get("version")
+                .asInt();
+        // El modelador lo vuelve a escribir a su manera: un archivo identico ni se lee, este si
+        String comoLoGuardaElModelador = xml.replace("<bpm:formulario>", "<bpm:formulario >");
+        assertThat(comoLoGuardaElModelador).isNotEqualTo(xml);
+
+        mvc.perform(put("/api/v1/procesos/" + proceso + "/modelo").with(como(ana))
+                        .contentType(MediaType.APPLICATION_XML).content(comoLoGuardaElModelador))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.creados").value(0))
+                .andExpect(jsonPath("$.editados").value(0)).andExpect(jsonPath("$.dadosDeBaja").value(0));
+        mvc.perform(get("/api/v1/actividades/" + aprobar).with(como(ana)))
+                .andExpect(jsonPath("$.version").value(version));
+    }
+
     // ---------- Cada tienda, lo suyo ----------
 
     @Test

@@ -28,6 +28,11 @@ final class FormularioBpmn {
     private static final String OPCION = "opcion";
     private static final String BPM = "bpm";
     private static final String ETIQUETA = "etiqueta";
+    private static final String NOMBRE = "nombre";
+    private static final String MINIMO = "minimo";
+    private static final String MAXIMO = "maximo";
+    private static final String LARGO_MINIMO = "largoMinimo";
+    private static final String LARGO_MAXIMO = "largoMaximo";
     /** Un decimal de XML, sin exponente: {@code 1E+999999999} se leeria, pero escribirlo entero no terminaria. */
     private static final Pattern DECIMAL = Pattern.compile("-?\\d{1,18}(\\.\\d{1,12})?");
 
@@ -43,15 +48,15 @@ final class FormularioBpmn {
             } else {
                 salida.abrir(BPM, CAMPO);
             }
-            salida.atributo("nombre", campo.nombre());
+            salida.atributo(NOMBRE, campo.nombre());
             salida.atributo(ETIQUETA, campo.etiqueta());
             salida.atributo("tipo", campo.tipo());
             salida.atributo("ayuda", campo.ayuda());
             salida.atributo("requerido", Boolean.TRUE.equals(campo.requerido()) ? "true" : null);
-            salida.atributo("minimo", plano(campo.minimo()));
-            salida.atributo("maximo", plano(campo.maximo()));
-            salida.atributo("largoMinimo", campo.largoMinimo());
-            salida.atributo("largoMaximo", campo.largoMaximo());
+            salida.atributo(MINIMO, plano(campo.minimo()));
+            salida.atributo(MAXIMO, plano(campo.maximo()));
+            salida.atributo(LARGO_MINIMO, campo.largoMinimo());
+            salida.atributo(LARGO_MAXIMO, campo.largoMaximo());
             salida.atributo("patron", campo.patron());
             salida.atributo("desde", campo.desde());
             salida.atributo("hasta", campo.hasta());
@@ -78,11 +83,11 @@ final class FormularioBpmn {
 
     /**
      * El formulario que trae el nodo, o nulo si no trae ninguno. No decide nada: un tipo que no existe llega sin tipo,
-     * y la conversion deja ese campo fuera con su nota; un numero que no se lee llega vacio.
+     * y la conversion deja ese campo fuera con su nota; un numero que no se lee llega vacio, y
+     * {@link #limitesIlegibles(Element)} dice cuales.
      */
     static Formulario leer(Element nodo) {
-        Element extensiones = Dom.hijo(nodo, EspaciosBpmn.BPMN, "extensionElements");
-        Element formulario = extensiones == null ? null : Dom.hijo(extensiones, EspaciosBpmn.BPM, FORMULARIO);
+        Element formulario = elFormulario(nodo);
         if (formulario == null) {
             return null;
         }
@@ -92,17 +97,54 @@ final class FormularioBpmn {
             for (Element opcion : Dom.hijos(campo, EspaciosBpmn.BPM, OPCION)) {
                 opciones.add(new OpcionDeLista(Dom.atributo(opcion, "valor"), Dom.atributo(opcion, ETIQUETA)));
             }
-            campos.add(new CampoDeFormulario(Dom.atributo(campo, "nombre"), Dom.atributo(campo, ETIQUETA),
+            campos.add(new CampoDeFormulario(Dom.atributo(campo, NOMBRE), Dom.atributo(campo, ETIQUETA),
                     tipo(Dom.atributo(campo, "tipo")), Dom.atributo(campo, "ayuda"),
                     "true".equals(Dom.atributo(campo, "requerido")) ? Boolean.TRUE : null,
-                    decimal(Dom.atributo(campo, "minimo")), decimal(Dom.atributo(campo, "maximo")),
-                    entero(Dom.atributo(campo, "largoMinimo")), entero(Dom.atributo(campo, "largoMaximo")),
+                    decimal(Dom.atributo(campo, MINIMO)), decimal(Dom.atributo(campo, MAXIMO)),
+                    entero(Dom.atributo(campo, LARGO_MINIMO)), entero(Dom.atributo(campo, LARGO_MAXIMO)),
                     Dom.atributo(campo, "patron"), Dom.atributo(campo, "desde"), Dom.atributo(campo, "hasta"),
                     Dom.atributo(campo, "moneda"), opciones.isEmpty() ? null : opciones,
                     Dom.atributo(campo, "porDefecto"), Dom.atributo(campo, "visibleSi"),
                     Dom.atributo(campo, "requeridoSi")));
         }
         return new Formulario(campos);
+    }
+
+    /**
+     * Los limites que el formulario trae pero no se leen como numero, uno por linea: {@link #leer(Element)} los deja
+     * vacios, y la conversion avisa que el campo se quedo sin ese limite en vez de aflojarlo en silencio.
+     */
+    static List<String> limitesIlegibles(Element nodo) {
+        Element formulario = elFormulario(nodo);
+        if (formulario == null) {
+            return List.of();
+        }
+        List<String> ilegibles = new ArrayList<>();
+        for (Element campo : Dom.hijos(formulario, EspaciosBpmn.BPM, CAMPO)) {
+            for (String limite : List.of(MINIMO, MAXIMO)) {
+                String valor = Dom.atributo(campo, limite);
+                if (valor != null && decimal(valor) == null) {
+                    ilegibles.add(ilegible(campo, limite, "un numero de hasta 18 cifras y 12 decimales"));
+                }
+            }
+            for (String limite : List.of(LARGO_MINIMO, LARGO_MAXIMO)) {
+                String valor = Dom.atributo(campo, limite);
+                if (valor != null && entero(valor) == null) {
+                    ilegibles.add(ilegible(campo, limite, "un entero"));
+                }
+            }
+        }
+        return ilegibles;
+    }
+
+    private static String ilegible(Element campo, String limite, String esperado) {
+        return "El campo \"" + Dom.atributo(campo, NOMBRE) + "\" del formulario trae un " + limite + " que no es "
+                + esperado + ": se deja sin ese limite.";
+    }
+
+    private static Element elFormulario(Element nodo) {
+        Element extensiones = Dom.hijo(nodo, EspaciosBpmn.BPMN, "extensionElements");
+        return extensiones == null ? null : Dom.hijo(extensiones, EspaciosBpmn.BPM, FORMULARIO);
     }
 
     private static TipoDeCampo tipo(String valor) {

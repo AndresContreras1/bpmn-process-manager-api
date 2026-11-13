@@ -3,8 +3,10 @@ package com.facimus.procesos.modelado.bpmn;
 import static com.facimus.procesos.common.formularios.CampoArmado.campo;
 import static com.facimus.procesos.common.formularios.CampoArmado.formulario;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.ByteArrayInputStream;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +19,7 @@ import org.w3c.dom.NodeList;
 
 import com.facimus.procesos.common.formularios.CampoDeFormulario;
 import com.facimus.procesos.common.formularios.Formulario;
+import com.facimus.procesos.common.formularios.OpcionDeLista;
 import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.common.xml.LimitesXml;
 import com.facimus.procesos.common.xml.SecureXml;
@@ -86,7 +89,7 @@ class FormularioBpmnTest {
     }
 
     @Test
-    @DisplayName("Un decimal de XML no lleva exponente: 1E+3 sale como 1000")
+    @DisplayName("Un decimal de XML no lleva exponente ni ceros de sobra: 1E+3 sale como 1000 y -2.50 como -2.5")
     void numerosPlanos() {
         DiagramaArmado armado = DiagramaArmado.demo();
         armado.formulario("Receive order", formulario(campo("a", TipoDeCampo.NUMERO).minimo("-2.50")
@@ -96,7 +99,7 @@ class FormularioBpmnTest {
         Element campo = elementos(leer(xml), BPM, "campoFormulario").getFirst();
 
         assertThat(campo.getAttribute("maximo")).isEqualTo("1000");
-        assertThat(campo.getAttribute("minimo")).isEqualTo("-2.50");
+        assertThat(campo.getAttribute("minimo")).isEqualTo("-2.5");
         assertThat(EsquemaBpmn.problemas(xml)).isEmpty();
     }
 
@@ -185,6 +188,34 @@ class FormularioBpmnTest {
         assertThat(campos.get(1).largoMinimo()).isNull();
         assertThat(campos.get(1).largoMaximo()).isEqualTo(40);
         assertThat(campos.get(2).minimo()).isEqualByComparingTo("-0.25");
+        assertThat(plan.informe().convertidos()).filteredOn(hallazgo -> hallazgo.detalle().contains("limite"))
+                .extracting(Hallazgo::elemento, Hallazgo::detalle).containsExactly(
+                tuple("U", "El campo \"a\" del formulario trae un minimo que no es un numero de hasta 18 cifras y 12 "
+                        + "decimales: se deja sin ese limite."),
+                tuple("U", "El campo \"a\" del formulario trae un maximo que no es un numero de hasta 18 cifras y 12 "
+                        + "decimales: se deja sin ese limite."),
+                tuple("U", "El campo \"b\" del formulario trae un largoMinimo que no es un entero: se deja sin ese "
+                        + "limite."));
+    }
+
+    @Test
+    @DisplayName("Ida y vuelta igual aunque diga false, 1E+2, 1000.00, un texto en blanco o una lista vacia")
+    void idaYVueltaDeLoQueNoSeEscribe() {
+        Formulario formulario = new Formulario(List.of(
+                new CampoDeFormulario("aprobado", "Approved?", TipoDeCampo.SI_NO, "", Boolean.FALSE, null, null, null,
+                        null, null, null, null, null, List.of(), " ", "", null),
+                new CampoDeFormulario("piezas", "Pieces", TipoDeCampo.NUMERO, null, null, new BigDecimal("1E+2"),
+                        new BigDecimal("1000.00"), null, null, null, null, null, null, null, null, null, null),
+                new CampoDeFormulario("canal", "Channel", TipoDeCampo.LISTA, null, null, null, null, null, null, null,
+                        null, null, null, List.of(new OpcionDeLista("WEB", "")), null, null, null)));
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.formulario("Receive order", formulario);
+
+        PlanBpmn plan = importar(exportar(armado.diagrama()));
+
+        assertThat(nodo(plan, "Activity_" + armado.id("Receive order")).formulario()).isEqualTo(formulario);
+        assertThat(plan.informe().convertidos()).filteredOn(hallazgo -> hallazgo.detalle().contains("formulario"))
+                .isEmpty();
     }
 
     @Test

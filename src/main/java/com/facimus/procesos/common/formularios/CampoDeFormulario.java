@@ -58,10 +58,39 @@ public record CampoDeFormulario(
         @Size(max = 200, message = "La variable por defecto no puede superar 200 caracteres.") String porDefecto,
         @Schema(description = "D6 condition: the field (or the fields of a section) shows only when it holds",
                 example = "order.total > 100")
-        @Size(max = 1000, message = "La condicion de visibilidad no puede superar 1000 caracteres.") String visibleSi,
+        @Size(max = CampoDeFormulario.LARGO_DE_CONDICION,
+                message = "La condicion de visibilidad no puede superar 1000 caracteres.") String visibleSi,
         @Schema(description = "D6 condition: the field must be filled when it holds", example = "metodo == 'TARJETA'")
-        @Size(max = 1000, message = "La condicion de obligatoriedad no puede superar 1000 caracteres.")
+        @Size(max = CampoDeFormulario.LARGO_DE_CONDICION,
+                message = "La condicion de obligatoriedad no puede superar 1000 caracteres.")
         String requeridoSi) {
+
+    /** Lo mas largo que puede ser una condicion; lo que pase de ahi ni se compila. */
+    public static final int LARGO_DE_CONDICION = 1_000;
+
+    /** Cuanto puede correrse la coma de un limite al escribirlo entero: lo que pase no cabe y el esquema lo rechaza. */
+    private static final int EXPONENTE_QUE_CABE = 15;
+
+    /**
+     * Un campo se guarda siempre de una sola forma, la que vuelve al leerlo del BPMN: un texto en blanco es ninguno,
+     * {@code requerido: false} es no decirlo, una lista sin opciones es ninguna y un limite va sin ceros de sobra ni
+     * exponente ({@code 1E+3} y {@code 1000.00} son {@code 1000}). Asi el mismo formulario es igual a si mismo despues
+     * de exportarlo e importarlo, y guardarlo otra vez desde el modelador no cuenta como un cambio.
+     */
+    public CampoDeFormulario {
+        ayuda = conTexto(ayuda);
+        requerido = Boolean.TRUE.equals(requerido) ? Boolean.TRUE : null;
+        minimo = plano(minimo);
+        maximo = plano(maximo);
+        patron = conTexto(patron);
+        desde = conTexto(desde);
+        hasta = conTexto(hasta);
+        moneda = conTexto(moneda);
+        opciones = opciones == null || opciones.isEmpty() ? null : opciones;
+        porDefecto = conTexto(porDefecto);
+        visibleSi = conTexto(visibleSi);
+        requeridoSi = conTexto(requeridoSi);
+    }
 
     /** Un campo con lo justo: nombre, etiqueta y tipo. Lo usan el importador y las pruebas. */
     public static CampoDeFormulario de(String nombre, String etiqueta, TipoDeCampo tipo) {
@@ -80,5 +109,24 @@ public record CampoDeFormulario(
 
     public boolean esSeccion() {
         return tipo == TipoDeCampo.SECCION;
+    }
+
+    private static String conTexto(String texto) {
+        return texto == null || texto.isBlank() ? null : texto;
+    }
+
+    /**
+     * El limite sin ceros de sobra. Uno con la coma corrida mas alla de lo que cabe ({@code 1E+999999999}) se deja como
+     * vino: escribirlo entero no terminaria, y el esquema lo rechaza por grande.
+     */
+    private static BigDecimal plano(BigDecimal numero) {
+        if (numero == null) {
+            return null;
+        }
+        BigDecimal sinCeros = numero.stripTrailingZeros();
+        if (sinCeros.scale() >= 0) {
+            return sinCeros;
+        }
+        return sinCeros.scale() >= -EXPONENTE_QUE_CABE ? sinCeros.setScale(0) : numero;
     }
 }
