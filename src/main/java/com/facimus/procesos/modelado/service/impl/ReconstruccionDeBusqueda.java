@@ -1,8 +1,8 @@
 package com.facimus.procesos.modelado.service.impl;
 
 import java.util.List;
+import java.util.Optional;
 
-import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -75,16 +75,16 @@ public class ReconstruccionDeBusqueda implements ManejadorDeTrabajo {
      */
     private void recorrer(Long empresaId, Tabla tabla) {
         long desde = 0L;
-        Long hasta = tramo(empresaId, tabla, desde);
-        while (hasta != null && hasta > desde) {
-            desde = hasta;
+        Optional<Long> hasta = tramo(empresaId, tabla, desde);
+        while (hasta.isPresent() && hasta.get() > desde) {
+            desde = hasta.get();
             hasta = tramo(empresaId, tabla, desde);
         }
     }
 
     /** Un tramo, en su transaccion; dice el ultimo id que rehizo, o nada si la tabla ya no tenia mas. */
-    private @Nullable Long tramo(Long empresaId, Tabla tabla, long desde) {
-        return transaccion.execute(estado -> jdbc.queryForObject(TRAMO, Long.class, empresaId, tabla.nombre(), desde,
-                tabla.porTramo()));
+    private Optional<Long> tramo(Long empresaId, Tabla tabla, long desde) {
+        return Optional.ofNullable(transaccion.execute(estado -> jdbc.queryForObject(TRAMO, Long.class, empresaId,
+                tabla.nombre(), desde, tabla.porTramo())));
     }
 }
