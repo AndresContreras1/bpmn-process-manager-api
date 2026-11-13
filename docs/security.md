@@ -271,7 +271,7 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `DOCUMENTO_SUBIDO` · `DOCUMENTO_ELIMINADO` · `DOCUMENTO_BLOQUEADO` | A document or a new version is uploaded, a document is deleted, or the review retains a version |
 | `COMENTARIO_RESUELTO` · `COMENTARIO_REABIERTO` · `COMENTARIO_ELIMINADO` | A comment thread is resolved or reopened, or a comment is deleted, with whether it was one's own |
 | `EXPORTACION_PEDIDA` · `EXPORTACION_LISTA` · `EXPORTACION_FALLIDA` · `EXPORTACION_DESCARGADA` · `EXPORTACION_VENCIDA` | A full export is asked for, is ready with its SHA-256, size and files, fails with the reason, is downloaded with its link (from the address and browser of the download), or expires and is deleted |
-| `TIENDA_BORRADA` | The purge deleted the store: the SHA-256 and the key of its deletion certificate, the rows and the objects |
+| `TIENDA_BORRADA` | The purge deleted the store: the SHA-256 and the key of its deletion certificate, the rows and the objects (`reanotado` when a retry of the job audits a certificate stored before) |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
 the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
@@ -374,7 +374,8 @@ The full export of a store carries everything in it, so who gets it and how is n
   Listing exports does not show the link.
 - **The link** goes only by e-mail, to whoever asked, through the job queue. It signs the store, the export and its
   expiry, 24 hours after it is ready, with the same HMAC key as documents' links; a changed or expired link, or one
-  of an export already deleted, answers `404`. The ZIP goes as an attachment with `nosniff`, a sandboxed policy and
+  of an export already deleted, answers `404`. It also needs whoever asked to still be an active administrator: the
+  e-mail is not sent, and a link already sent stops working, once they are deactivated or lose the role. The ZIP goes as an attachment with `nosniff`, a sandboxed policy and
   `no-store`, and NGINX logs the link without its signature.
 - **What leaves.** Each query names its columns. People leave without password hashes, WebAuthn handles, TOTP
   secrets, recovery codes, passkeys, sessions, refresh tokens, e-mail links or linked identities; those tables are not
@@ -383,7 +384,10 @@ The full export of a store carries everything in it, so who gets it and how is n
   Storage keys are not exported, and files the antivirus blocked or has not checked stay out.
 - **Paths** inside the ZIP are fixed by the code; a name somebody typed is cleaned before it becomes part of one, and
   the writer refuses `..`, absolute, hidden or repeated paths.
-- **CSV** cells that a spreadsheet would run as a formula start with an apostrophe.
+- **CSV** cells that a spreadsheet would run as a formula start with an apostrophe (`common/csv/CeldaCsv`, shared
+  with the audit trail's CSV).
+- **Errors.** A failed export says only that it failed; the exception, which can name tables or buckets, stays in
+  the log.
 - **Isolation.** The job pins the store in the row-level security context while it builds, so the database refuses
   any row of another store. `exportaciones` has row-level security; another store's export answers `404`.
 - **Audit.** Asking, ready, failed, downloaded and expired are in the audit trail.

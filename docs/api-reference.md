@@ -252,13 +252,18 @@ to check it without the API, is in [Export format](export-format.md).
 
 When it is ready, an e-mail in the language of whoever asked brings a link to `GET
 /api/v1/descargas/exportaciones/{id}?empresa=&vence=&firma=`, which downloads the ZIP without a session for 24 hours;
-a changed or expired link answers `404`. The link is only in the e-mail. Then the ZIP is deleted.
+a changed or expired link answers `404`, and so does a good one once whoever asked is no longer an active
+administrator of the store; a missing or non-numeric `empresa` or `vence` answers `400`. The link is only in the
+e-mail. Then the ZIP is deleted.
 
 | Route | Answers |
 |---|---|
 | `POST /api/v1/organizacion/exportaciones` | `202` with the export; `409` while another one of the store is being built; `403` "Verificación requerida" when the identity was not confirmed in the last ten minutes (`POST /api/v1/auth/reautenticacion` fixes it); `429` after ten in a day |
-| `GET /api/v1/organizacion/exportaciones` | The store's exports, newest first |
+| `GET /api/v1/organizacion/exportaciones?pagina=0&tamano=20` | A page of the store's exports, newest first (`tamano` 1 to 50, `400` otherwise), as `content`, `page`, `size`, `totalElements` and `totalPages` |
 | `GET /api/v1/organizacion/exportaciones/{id}` | One export: `estado` (`PENDIENTE`, `LISTA`, `FALLIDA` with a `motivo`, or `VENCIDA`), `pedidaPor`, `pedidaEn`, `listaEn`, `venceEn`, `tamano`, `archivos` and the `sha256` of the ZIP; another store's id answers `404` |
+
+A failed export's `motivo` never says what failed inside: it is "No se pudo armar la exportación: pide otra." or, when
+the queue gave up on it, "La cola no la terminó a tiempo: pide otra."; the cause is in the log with the export's id.
 
 Administrators only. Asking, ready, failed, downloaded and expired go to the audit trail
 ([Security](security.md#organization-export)).
@@ -274,9 +279,10 @@ curl -s http://localhost:8080/api/v1/organizacion/exportaciones/4 -b sesion.txt
 answers it with `bajaSolicitadaEn` and `borradoProgramadoPara`, 30 days later. Until then the store is read-only,
 every change answers `409` with the title "Tienda dada de baja", and `DELETE /api/v1/empresas/actual/baja` cancels
 the closing; then everything of the store is deleted ([The life of the data](security.md#the-life-of-the-data)).
-With `"exportar": true` the closing also asks for a full export, in the same transaction (`409`, and nothing changes,
-if one is already being built), and while the 30 days last an administrator can ask for more: besides cancelling the
-closing, it is the only change a closing store accepts. The purge leaves a deletion certificate
+With `"exportar": true` the closing also asks for a full export, in the same transaction; if one is already being
+built, the closing goes on without asking for another, and that one's link reaches whoever asked for it. While the 30
+days last an administrator can ask for more: besides cancelling the closing, it is the only change a closing store
+accepts. The purge leaves a deletion certificate
 ([Export format](export-format.md#the-deletion-certificate)).
 Administrators only, like `POST /api/v1/usuarios/{id}/anonimizar`, which deletes the personal data of a user on
 request.

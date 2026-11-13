@@ -38,7 +38,7 @@ comentarios.json                   every comment, with its thread, anchor, menti
 historial.json                     the history of the store and of every process
 bitacora/bitacora.json             the audit trail, in chain order, with every field of its hashes
 bitacora/verificacion.json         the trail verified when the export was built
-bitacora/anclas.json               the daily anchors of the trail
+bitacora/anclas.json               the daily anchors of the trail: day, sequence, hash, whether locked, when
 bitacora/anclas/<day>.json         each anchor file, as the immutable storage keeps it
 casos/casos.json, casos/casos.csv  the cases, with their reference, state and variables
 casos/actividades.json             the steps of each case
@@ -132,12 +132,15 @@ and its SHA-256 goes to the store's audit trail, which outlives the store, as th
   "zonaHoraria" : "UTC",
   "filas" : { "procesos_compartidos" : 0, "usuarios" : 3 },
   "totalDeFilas" : 412,
-  "almacen" : { "prefijo" : "empresas/2/", "objetosBorrados" : 9 },
+  "almacen" : { "prefijo" : "empresas/2/", "objetosBorrados" : 9, "intento" : 1 },
   "ultimaExportacion" : { "id" : 4, "sha256" : "5e8a...", "listaEn" : "2026-11-20T08:00" },
   "conservadas" : [ "empresas", "bitacora", "anclas_bitacora" ]
 }
 ```
 
 It names the store only by its id, and nobody by anything. `filas` has one entry per table the purge deletes from;
-`ultimaExportacion` is `null` when the store never exported. The operator keeps it: the store has nobody left who can
+`ultimaExportacion` is `null` when the store never exported. `objetosBorrados` counts what the attempt of the job
+that issued it deleted, and `intento` says which attempt that was: from the second on, an earlier one may have deleted
+some objects already. A store purged before the certificate existed, whose job was still queued, gets one with
+`filas`, `totalDeFilas` and the dates `null`. The operator keeps it: the store has nobody left who can
 sign in ([Security](security.md#the-life-of-the-data)).

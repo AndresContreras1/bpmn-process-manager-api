@@ -165,8 +165,8 @@ created with Object Lock, or its retention passed.
 
 **An export stays `PENDIENTE` or ends `FALLIDA`.** It is a job of the queue (`exportaciones.generar`): `select
 estado, intentos, ultimo_error from trabajos where tipo = 'exportaciones.generar' order by id desc limit 5`. A failed
-export says why in its `motivo` (`GET /api/v1/organizacion/exportaciones/{id}`), usually a file the storage could not
-give back; the administrator asks for another one. One that stays pending more than `EXPORTACIONES_PENDIENTE_MAXIMA`
+export's `motivo` only says it failed; the cause is in the log, `No se pudo armar la exportacion <id> de la tienda
+<store>`, usually a file the storage could not give back. The administrator asks for another one. One that stays pending more than `EXPORTACIONES_PENDIENTE_MAXIMA`
 (six hours) is marked failed by the hourly cleanup, so the store is never stuck with one in course. The e-mail with
 the link is another job (`exportaciones.correo`), and an expired export sends nothing.
 
