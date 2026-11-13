@@ -17,7 +17,10 @@ by the web; approval cannot break them (D32).
 
 - **A policy per store, off by default.** `politicas_publicacion` holds at most one row per store: `DIRECTA` (what a
   store without a row has) or `CON_APROBACION`, with N approvals (1 to 10) from a list of people (up to 50) or from a
-  process role, never both. Saving it with approval checks that the chosen source has at least N active people. Only
+  process role, never both. Saving it with approval checks that the chosen source has at least N active people who
+  are not read-only (a read-only person on the list is a `400`). Turning it off never fails over its approvers: people
+  who could no longer approve and a deleted role are dropped, so the emergency path cannot be blocked by stale data.
+  A process role that the policy names cannot be deleted while it does. Only
   the store administrator changes it (`PUT /empresas/actual/politica-de-publicacion`, with its version); every role
   reads it, so the web knows whether to offer publishing or asking for a review. Store-level settings live under
   `/empresas/actual`, like the configuration and the domains, not under a new `/organizacion` root.
@@ -36,9 +39,17 @@ by the web; approval cannot break them (D32).
   what is reviewed or what is published. Old revisions may be pruned; the request keeps its own snapshot.
 - **The approvers are fixed when it is asked for.** They are the people of the list or of the role who are active and
   can view and approve that process according to the single evaluator (D31), without the requester: whoever asks never
-  approves, and the separation of duties of PR 60 keeps out whoever changed the process last. If fewer than N remain,
-  the request is refused with `409`. Requests already open keep the approvers and the N they were opened with when the
-  policy changes.
+  approves, and the separation of duties of PR 60 keeps out whoever changed the process last. The evaluator decides
+  for every candidate at once (`Permisos.quienesPueden`), reading the process, the grants, the folders and the
+  candidates' roles a single time, since the process row is locked meanwhile. If fewer than N remain, the request is
+  refused with `409`; if more than 200 remain (a large role), too, naming the cause, since a request keeps up to 200.
+  Requests already open keep the approvers and the N they were opened with when the policy changes.
+- **Publishing or recertifying is not a change for D31.** The approval that publishes and the confirmation that a
+  process is still valid write their columns with their own statements, which leave the process's `version` and
+  `modificado_por` alone. Saved through JPA, they would make the last approver (or the owner who recertifies) the last
+  to change the process, and the separation of duties would drop them from the next request: with N equal to the size
+  of the list, the store could not publish again. Publishing directly with the `PATCH` is still a change by whoever
+  publishes.
 - **One open request per process,** enforced by a partial unique index as well as by the service, and the process row
   is locked while one is opened.
 - **Decisions.** Each approver approves, asks for changes or rejects, once. Asking for changes and rejecting need a
@@ -67,14 +78,19 @@ by the web; approval cannot break them (D32).
   more when it has passed. The date each warning was sent for is stored, so a repeated job warns nobody twice and a
   new date gets its own two warnings. Process responses carry `revisionVencida`, computed against the API clock.
 - **Anonymizing** a person removes them from the policy's list and withdraws their open requests with a reason; their
-  decisions stay, shown with the pseudonym. Deleting a store deletes its policy, requests and decisions.
+  decisions stay, shown with the pseudonym. Deleting a process withdraws its open request, with the reason, as the
+  system. Deleting a store deletes its policy, requests and decisions.
 
 ## Consequences
 
 - With approval on, publishing takes at least one other person; a store of one cannot turn it on usefully.
-- An approver who edits the draft while a request is open becomes the last to change the process and, by the
-  separation of duties, can no longer approve it.
-- The drawing of a version (ADR-0066) is still sent by the web after publishing: after the last approval, by the web
-  of whoever approved.
+- An approver who changes the process itself (its header, file or mode) while a request is open becomes the last to
+  change it and, by the separation of duties, can no longer approve it.
+- The drawing of a version (ADR-0066) is still sent by the web after publishing, and that route needs `PUBLICAR`:
+  after the last approval, the web of whoever approved sends it when that person can also publish. When a grant gives
+  the last approver `APROBAR` without `PUBLICAR`, the version is published but its drawing is refused, and its manual
+  says it has no drawing, as for any version whose drawing did not arrive.
+- Review dates are UTC days of the API clock, for every store: "arrived", "overdue" and `revisionVencida` turn a few
+  hours away from local midnight in stores far from UTC.
 - The web screens (asking, the inbox, the request with its difference) come with F21; the portal shows overdue
   reviews with F22.

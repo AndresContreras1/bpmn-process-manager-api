@@ -229,8 +229,12 @@ with `PUT` and the `version` read:
 
 `aprobacionesNecesarias` goes from 1 to 10 (1 when left out). The approvers come from `aprobadores` (up to 50 people)
 or from `rolProcesoId` (the people of that process role), never both (`400`); with approval there have to be at least
-as many active people as approvals (`400`). An id that is not an active person of the store answers `400` naming its
-position (`"aprobadores[1]"`), the same for every case; a role that does not exist, `404`; a stale `version`, `409`.
+as many people who can approve as approvals (`400`): active, and not read-only. An id that is not an active person of
+the store answers `400` naming its position (`"aprobadores[1]"`), the same for every case, and a read-only person too,
+saying so; of a role, only its active people who are not read-only count; a role that does not exist, `404`; a stale
+`version`, `409`. Turning the policy off with `DIRECTA` never fails over who approved: people who could not approve
+any more and a role that was deleted are dropped, and the rest is kept for turning it on again. A process role that
+the policy names cannot be deleted (`409`) until the policy names another source.
 
 With `CON_APROBACION`, `PATCH /api/v1/procesos/{id}` with `"estado": "PUBLICADO"` answers `409` for everyone, the
 administrator included, with a problem whose `detail` says that a review has to be asked for. Its request and its
@@ -245,8 +249,13 @@ change what is reviewed. It answers `201` with `Location` and the request: `esta
 the process, never the requester nor whoever changed the process last) and `diferencia`, the comparison of
 `GET .../comparar` between the version in force and the frozen snapshot (against an empty diagram if there is none).
 It answers `409` when the store publishes directly, when the process already has an open request, when fewer people
-can approve than the policy asks, and with the same reasons as publishing: diagnosis errors or no change since the
-version in force.
+can approve than the policy asks, when more than 200 could (a request keeps up to 200 approvers: a role that large
+has to be replaced by a smaller one or a list), and with the same reasons as publishing: diagnosis errors or no
+change since the version in force. Deleting the process withdraws its open request, with the reason.
+
+Publishing through a request does not count as a change of the process by its last approver: the process keeps its
+`version` and its `modificadoPor`, so whoever approved can approve the next request too. The same holds for
+recertifying.
 
 | Route | What it does |
 |---|---|
@@ -272,10 +281,11 @@ curl -s -X POST http://localhost:8080/api/v1/solicitudes/4/aprobar -b sesion.txt
 **Recertification.** `POST /api/v1/procesos/{id}/recertificacion`, with an optional `{ "nota": "What was checked" }`
 (up to 2000 characters), confirms the process is still valid: its owner does it, whatever their role, or whoever can
 administer the process (`403` otherwise). It answers the process with `proximaRevision` moved to today plus its
-`mesesEntreRevisiones`, and records who, when, the note and whether it was overdue in the audit trail and the history.
+`mesesEntreRevisiones` (its `version` stays the same), and records who, when, the note and whether it was overdue in
+the audit trail and the history.
 The owner is notified once when the review date arrives (`RECERTIFICACION_PENDIENTE`) and once more when it has passed
 (`RECERTIFICACION_VENCIDA`). Every process answer carries `mesesEntreRevisiones` and `revisionVencida`, true once the
-date has passed with nobody confirming it.
+date has passed with nobody confirming it. Days are UTC days of the API clock, for every store.
 
 ## Permissions
 

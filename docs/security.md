@@ -276,7 +276,7 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `DOCUMENTO_SUBIDO` · `DOCUMENTO_ELIMINADO` · `DOCUMENTO_BLOQUEADO` | A document or a new version is uploaded, a document is deleted, or the review retains a version |
 | `COMENTARIO_RESUELTO` · `COMENTARIO_REABIERTO` · `COMENTARIO_ELIMINADO` | A comment thread is resolved or reopened, or a comment is deleted, with whether it was one's own |
 | `POLITICA_PUBLICACION_CAMBIADA` | The store's publishing policy changes, with the mode before and after, the approvals and how many people or which role |
-| `PUBLICACION_SOLICITADA` · `SOLICITUD_APROBADA` · `SOLICITUD_CAMBIOS_PEDIDOS` · `SOLICITUD_RECHAZADA` · `SOLICITUD_RETIRADA` · `SOLICITUD_SIN_PUBLICAR` | A review is asked for, decided on, withdrawn (by its requester, by an administrator of the process, or by the API when its requester is anonymized), or approved without publishing, with why; the publication itself is `PROCESO_PUBLICADO` with the request |
+| `PUBLICACION_SOLICITADA` · `SOLICITUD_APROBADA` · `SOLICITUD_CAMBIOS_PEDIDOS` · `SOLICITUD_RECHAZADA` · `SOLICITUD_RETIRADA` · `SOLICITUD_SIN_PUBLICAR` | A review is asked for, decided on, withdrawn (by its requester, by an administrator of the process, or by the API when its requester is anonymized or its process deleted), or approved without publishing, with why; the publication itself is `PROCESO_PUBLICADO` with the request |
 | `PROCESO_RECERTIFICADO` | Someone confirms a process is still valid, with the next and the previous review dates, whether it was overdue and the note |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
@@ -381,15 +381,18 @@ Publishing with approval is a layer over the versions, and it cannot be skipped
 - **Who asks, who approves.** Asking needs `PUBLICAR` on the process, so a grant that denies publishing cannot be
   worked around by asking others. The approvers are fixed when the request is opened: active people of the list or
   role who can view and approve the process through the evaluator, so the separation of duties of PR 60 keeps out
-  whoever changed the process last, and the requester is never one of them. Deciding needs `APROBAR` on the process
-  and being one of them; anyone else answers `403`. Each person decides once.
+  whoever changed the process last, and the requester is never one of them. Read-only people never approve: the
+  policy refuses them on its list and does not count them in a role. Publishing through a request and recertifying do
+  not count as changing the process, so they never take the next approval away from whoever did them. Deciding needs
+  `APROBAR` on the process and being one of them; anyone else answers `403`. Each person decides once.
 - **What is approved is what is published.** The request keeps the snapshot it froze; the last approval publishes
   exactly that, after checking that the version in force is still the one it was compared with and that its
   diagnosis is still clean. Otherwise it publishes nothing and says why. The request row is locked while a decision
   is taken, and the process row while a request is opened.
 - **Isolation.** The three tables (`politicas_publicacion`, `solicitudes_publicacion`, `aprobaciones`) have row-level
   security; another store's request answers `404`, and a request of a process someone cannot view answers `404` too.
-  Lists filter by the processes the person can view in their own query.
+  Lists, the inbox of pending decisions included, filter by the processes the person can view in their own query,
+  so a grant that hides a process also hides its requests from its approvers.
 - **Text.** The request's text and the reasons for changes and rejections are Markdown cleaned like comments, up to
   10 000 characters (the request and a check of the table); asking for changes or rejecting without a reason is a
   `400` and a check of the table.

@@ -16,6 +16,10 @@ tagged. Each pull request adds its line under *Unreleased*.
   approval on, publishing directly answers 409 for everyone. Recertification: a daily job tells each process owner
   when its review date arrives and once more when it passes, "still valid" moves the date by the process's months
   between reviews, and process answers say when a review is overdue. Everything is audited.
+  Publishing through a request and recertifying leave the process's version and last editor alone, so the separation
+  of duties never blocks the next round; the approvers are evaluated in one pass; read-only people never count as
+  approvers; turning the policy off never fails over stale approvers; a role the policy names cannot be deleted;
+  deleting a process withdraws its open request.
 - Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
   like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
   can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads
