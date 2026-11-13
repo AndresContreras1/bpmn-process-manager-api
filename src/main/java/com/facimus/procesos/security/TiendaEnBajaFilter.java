@@ -27,8 +27,8 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * PR 35: una tienda dada de baja pasa sus 30 dias de gracia en solo lectura. Su gente entra y lo mira todo, y un
  * administrador puede cancelar la baja o pedir la exportacion completa (PR 66) para llevarse lo suyo; cualquier otro
- * cambio responde 409. Va detras de la autorizacion, y solo
- * pregunta a la base por una peticion que cambia algo y que el rol de quien la hace permite.
+ * cambio responde 409. Va detras de la autorizacion, y solo pregunta a la base por una peticion que cambia algo y que
+ * el rol de quien la hace permite.
  */
 public class TiendaEnBajaFilter extends OncePerRequestFilter {
 

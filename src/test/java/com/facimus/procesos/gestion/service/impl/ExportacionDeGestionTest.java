@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -130,7 +131,8 @@ class ExportacionDeGestionTest {
     }
 
     @Test
-    @DisplayName("cada ancla sale en su fila y con el archivo del almacen inmutable; una que ya no esta se salta")
+    @DisplayName("cada ancla sale en su fila, sin la clave del almacen, y con el archivo del almacen inmutable; una "
+            + "que ya no esta se salta")
     void anclas() {
         lector.con(ExportacionDeGestion.ANCLAS, List.of(fila("dia", "2026-11-10", "clave", "anclas/1/2026-11-10"),
                 fila("dia", "2026-11-11", "clave", "anclas/1/2026-11-11")), EMPRESA);
@@ -144,7 +146,9 @@ class ExportacionDeGestionTest {
         assertThat(paquete.archivos()).doesNotContainKey("bitacora/anclas/2026-11-10.json");
         assertThat(new String((byte[]) paquete.archivos().get("bitacora/anclas/2026-11-11.json"),
                 StandardCharsets.UTF_8)).isEqualTo("{\"hash\":\"h\"}");
-        assertThat(paquete.filas("bitacora/anclas.json")).hasSize(2);
+        assertThat(paquete.filas("bitacora/anclas.json")).hasSize(2)
+                .allSatisfy(fila -> assertThat(fila).asInstanceOf(InstanceOfAssertFactories.map(String.class, Object.class))
+                        .containsKey("dia").doesNotContainKey("clave"));
     }
 
     @Test
@@ -165,7 +169,7 @@ class ExportacionDeGestionTest {
         });
 
         assertThatThrownBy(() -> parte.escribir(EMPRESA, paquete)).isInstanceOf(UncheckedIOException.class)
-                .hasMessageContaining("anclas/1/2026-11-10");
+                .hasMessageContaining("2026-11-10").hasMessageNotContaining("anclas/1/");
     }
 
     @Test

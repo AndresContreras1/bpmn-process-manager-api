@@ -185,6 +185,12 @@ public class ExportacionDeGestion implements ParteDeLaExportacion {
         }
     }
 
+    private static Map<String, Object> sinClave(Map<String, Object> ancla) {
+        Map<String, Object> exportada = new LinkedHashMap<>(ancla);
+        exportada.remove(CLAVE);
+        return exportada;
+    }
+
     private static void escribirSiHay(Paquete paquete, String ruta, Object contenido) {
         if (contenido != null) {
             paquete.texto(ruta, contenido.toString());
@@ -201,14 +207,15 @@ public class ExportacionDeGestion implements ParteDeLaExportacion {
         }
         paquete.json("bitacora/verificacion.json", bitacoraService.verificar(empresaId));
         List<Map<String, Object>> anclas = lector.filas(ANCLAS, empresaId);
-        paquete.json("bitacora/anclas.json", anclas);
+        // La clave del almacen sirve para abrir el archivo, y no sale: ninguna clave del almacen se exporta
+        paquete.json("bitacora/anclas.json", anclas.stream().map(ExportacionDeGestion::sinClave).toList());
         for (Map<String, Object> ancla : anclas) {
             try (InputStream archivo = almacen.abrirInmutable((String) ancla.get(CLAVE))) {
                 paquete.copiar("bitacora/anclas/" + ancla.get("dia") + ".json", archivo);
             } catch (ArchivoNoEncontradoException _) {
                 // La fila dice que el almacen ya no la tiene, y la verificacion de arriba lo cuenta
             } catch (IOException e) {
-                throw new UncheckedIOException("No se pudo leer el ancla " + ancla.get(CLAVE), e);
+                throw new UncheckedIOException("No se pudo leer el ancla del " + ancla.get("dia"), e);
             }
         }
     }
