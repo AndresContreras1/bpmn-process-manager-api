@@ -200,7 +200,16 @@ public class ProcesoServiceImpl implements ProcesoService {
     public ProcesoDetalleResponse obtenerDetalle(Long empresaId, Long procesoId, boolean incluirInactivos) {
         Proceso proceso = buscar(empresaId, procesoId, incluirInactivos);
         return new ProcesoDetalleResponse(conBorrador(proceso),
-                historialCambioService.listarPorProceso(empresaId, procesoId));
+                historialCambioService.listarPorProceso(empresaId, procesoId), nombreDelDueno(empresaId, proceso));
+    }
+
+    /** F22: quien responde por el proceso, por su nombre; vacio si no tiene dueno o si ya no es de la tienda. */
+    private String nombreDelDueno(Long empresaId, Proceso proceso) {
+        Long duenoId = proceso.getDuenoId();
+        if (duenoId == null) {
+            return null;
+        }
+        return usuarioRepository.findByIdAndEmpresaId(duenoId, empresaId).map(Usuario::getNombre).orElse(null);
     }
 
     @Override
