@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,7 +30,6 @@ import org.apache.tika.sax.BodyContentHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.util.unit.DataSize;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -45,11 +45,15 @@ import com.facimus.procesos.common.archivos.TipoDeArchivo;
  * <li>lo que viene incrustado (un adjunto dentro de un PDF, una hoja dentro de un Word) no se abre;</li>
  * <li>un PDF no pasa por OCR;</li>
  * <li>el texto tiene tope: al llegar, se deja de leer y queda lo leido;</li>
- * <li>cada archivo tiene un tiempo: si no termina, se deja y se busca solo por su nombre. El hilo que lo leia se
- * interrumpe; si el parser no lo atiende, sigue ocupado hasta terminar, y por eso los hilos son pocos y fijos: un
- * archivo hecho para colgar al parser ocupa uno, no la maquina.</li>
+ * <li>un PDF guarda en memoria, como mucho, {@link #MEMORIA_DE_UN_PDF} bytes de lo que descomprime; lo que pase va a
+ * archivos de paso de PDFBox, que los borra al cerrar el documento;</li>
+ * <li>cada archivo tiene un tiempo, que cuenta desde que un hilo lo empieza a leer: si no termina, se deja y se busca
+ * solo por su nombre. El hilo que lo leia se interrumpe; si el parser no lo atiende, sigue ocupado hasta terminar, y
+ * por eso los hilos son pocos y fijos: un archivo hecho para colgar al parser ocupa uno, no la maquina.</li>
  * </ul>
- * Un archivo que no se puede leer no es un error de nadie: el resultado dice por que, y la cola no lo reintenta.
+ * Un archivo que no se puede leer no es un error de nadie: el resultado dice por que, y la cola no lo reintenta. Que
+ * ningun hilo quede libre en ese tiempo, en cambio, no dice nada del archivo: es una excepcion, y la cola lo vuelve a
+ * intentar mas tarde.
  * <p>PDFBox lee con las {@link FuentesFijas} del manual (PR 62): una fuente que el PDF no trae no lo pone a recorrer
  * las fuentes del equipo.
  */
@@ -57,6 +61,9 @@ import com.facimus.procesos.common.archivos.TipoDeArchivo;
 public class ExtractorDeTexto implements AutoCloseable {
 
     private static final int LARGO_DEL_MOTIVO = 300;
+
+    /** Cuanto de lo que descomprime un PDF se queda en memoria; el resto, en disco. */
+    static final long MEMORIA_DE_UN_PDF = 32L * 1024 * 1024;
 
     private final Map<TipoDeArchivo, Parser> parsers;
     private final int maximo;
@@ -69,9 +76,9 @@ public class ExtractorDeTexto implements AutoCloseable {
      * @param hilos cuantos archivos se leen a la vez
      */
     @Autowired
-    public ExtractorDeTexto(@Value("${documentos.texto.maximo:1MB}") DataSize maximo,
+    public ExtractorDeTexto(@Value("${documentos.texto.caracteres:1000000}") int maximo,
             @Value("${documentos.texto.espera:30s}") Duration espera, @Value("${documentos.texto.hilos:2}") int hilos) {
-        this(parsers(), (int) Math.min(maximo.toBytes(), Integer.MAX_VALUE), espera, hilos);
+        this(parsers(), maximo, espera, hilos);
     }
 
     ExtractorDeTexto(Map<TipoDeArchivo, Parser> parsers, int maximo, Duration espera, int hilos) {
@@ -96,14 +103,28 @@ public class ExtractorDeTexto implements AutoCloseable {
         }
     }
 
-    /** El texto del archivo, que es del tipo dicho. */
+    /**
+     * El texto del archivo, que es del tipo dicho. El tiempo de leerlo empieza cuando un hilo lo toma, no al pedirlo: un
+     * archivo que espera turno no pierde su tiempo detras de otro. Si en ese mismo tiempo ningun hilo lo toma, porque
+     * los ocupan archivos que no terminan, falla sin decir nada del archivo, y la cola lo vuelve a intentar.
+     *
+     * @throws HilosOcupadosException si ningun hilo pudo empezar a leerlo
+     */
     public Resultado extraer(Path archivo, TipoDeArchivo tipo) {
         Parser parser = parsers.get(tipo);
         if (parser == null) {
             return Resultado.sinTexto("Un archivo de tipo " + tipo.mime() + " no tiene texto que leer.");
         }
-        Future<Resultado> lectura = hilos.submit(() -> leer(archivo, parser));
+        CountDownLatch empezada = new CountDownLatch(1);
+        Future<Resultado> lectura = hilos.submit(() -> {
+            empezada.countDown();
+            return leer(archivo, parser);
+        });
         try {
+            if (!empezada.await(espera.toMillis(), TimeUnit.MILLISECONDS)) {
+                lectura.cancel(true);
+                throw new HilosOcupadosException(espera);
+            }
             return lectura.get(espera.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException _) {
             lectura.cancel(true);
@@ -147,6 +168,15 @@ public class ExtractorDeTexto implements AutoCloseable {
         hilos.shutdownNow();
     }
 
+    /** Ningun hilo de lectura quedo libre a tiempo: el archivo no se leyo, y no por culpa suya. */
+    public static final class HilosOcupadosException extends IllegalStateException {
+
+        HilosOcupadosException(Duration espera) {
+            super("Ningún hilo de lectura quedó libre en " + espera.toSeconds()
+                    + " s: el texto del documento se lee en otro intento.");
+        }
+    }
+
     /** Los parsers de cada tipo con texto: PDF sin OCR, los de Office y OpenOffice, y el de texto plano. */
     static Map<TipoDeArchivo, Parser> parsers() {
         PagesConfig soloTexto = new PagesConfig();
@@ -154,6 +184,7 @@ public class ExtractorDeTexto implements AutoCloseable {
         PDFParserConfig configuracion = new PDFParserConfig();
         configuracion.setPages(soloTexto);
         configuracion.setExtractInlineImages(false);
+        configuracion.setMaxMainMemoryBytes(MEMORIA_DE_UN_PDF);
         Parser office = new OOXMLParser();
         Parser openOffice = new OpenDocumentParser();
         Parser textoPlano = new TXTParser();

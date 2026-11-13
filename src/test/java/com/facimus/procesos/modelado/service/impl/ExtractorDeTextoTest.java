@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -35,7 +36,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.util.unit.DataSize;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.AttributesImpl;
@@ -43,6 +43,7 @@ import org.xml.sax.helpers.AttributesImpl;
 import com.facimus.procesos.common.archivos.Archivos;
 import com.facimus.procesos.common.archivos.ArchivosConTexto;
 import com.facimus.procesos.common.archivos.TipoDeArchivo;
+import com.facimus.procesos.modelado.service.impl.ExtractorDeTexto.HilosOcupadosException;
 import com.facimus.procesos.modelado.service.impl.ExtractorDeTexto.Resultado;
 
 /** PR 65: el texto de cada tipo de documento, y cada tope que lo protege de un archivo hecho para danar. */
@@ -136,6 +137,7 @@ class ExtractorDeTextoTest {
                 pdf -> {
                     assertThat(pdf.getPDFParserConfig().getPages().getText()).isEqualTo(TextPolicy.EXTRACT);
                     assertThat(pdf.getPDFParserConfig().isExtractInlineImages()).isFalse();
+                    assertThat(pdf.getPDFParserConfig().getMaxMainMemoryBytes()).isEqualTo(32L * 1024 * 1024);
                 });
         assertThat(parsers.get(TipoDeArchivo.DOCX)).isInstanceOf(OOXMLParser.class);
         assertThat(parsers.get(TipoDeArchivo.XLSX)).isInstanceOf(OOXMLParser.class);
@@ -150,7 +152,7 @@ class ExtractorDeTextoTest {
     @Test
     @DisplayName("el tope de la configuracion se cuenta en caracteres")
     void configuracion() {
-        extractor = new ExtractorDeTexto(DataSize.ofBytes(5), ESPERA, 1);
+        extractor = new ExtractorDeTexto(5, ESPERA, 1);
 
         assertThat(extractor.extraer(archivo("abcdefgh".getBytes(StandardCharsets.UTF_8)), TipoDeArchivo.TEXTO))
                 .isEqualTo(new Resultado("abcde", "El texto pasa de 5 caracteres: se guardan los primeros."));
@@ -301,6 +303,60 @@ class ExtractorDeTextoTest {
     }
 
     @Test
+    @DisplayName("el tiempo cuenta desde que un hilo lo empieza a leer, no mientras espera turno detras de otro")
+    void tiempoDesdeQueEmpieza() throws Exception {
+        CountDownLatch empezado = new CountDownLatch(1);
+        Parser primero = tarda("uno", Duration.ofMillis(1200), empezado);
+        Parser segundo = tarda("dos", Duration.ofMillis(1200), new CountDownLatch(1));
+        extractor = new ExtractorDeTexto(Map.of(TipoDeArchivo.TEXTO, primero, TipoDeArchivo.CSV, segundo), 100,
+                Duration.ofSeconds(2), 1);
+        Path uno = archivo(new byte[] {1});
+        Path dos = archivo(new byte[] {2});
+        CompletableFuture<Resultado> antes = new CompletableFuture<>();
+        Thread.ofPlatform().start(() -> antes.complete(extractor.extraer(uno, TipoDeArchivo.TEXTO)));
+        assertThat(empezado.await(10, TimeUnit.SECONDS)).isTrue();
+
+        // Espera su turno 1,2 s y se lee en otros 1,2: pasa de 2 s desde que se pidio, pero no desde que empezo
+        Resultado despues = extractor.extraer(dos, TipoDeArchivo.CSV);
+
+        assertThat(despues).isEqualTo(new Resultado("dos", null));
+        assertThat(antes.get(10, TimeUnit.SECONDS)).isEqualTo(new Resultado("uno", null));
+    }
+
+    @Test
+    @DisplayName("si un parser que no atiende la interrupcion ocupa cada hilo, el siguiente falla y no queda leido")
+    void hilosOcupados() {
+        CountDownLatch soltar = new CountDownLatch(1);
+        Parser terco = new Falso() {
+            @Override
+            public void parse(TikaInputStream stream, ContentHandler handler, Metadata metadata, ParseContext context) {
+                boolean suelto = false;
+                while (!suelto) {
+                    try {
+                        suelto = soltar.await(1, TimeUnit.MINUTES);
+                    } catch (InterruptedException _) {
+                        // No atiende la interrupcion: sigue hasta que lo suelten
+                    }
+                }
+            }
+        };
+        extractor = new ExtractorDeTexto(Map.of(TipoDeArchivo.TEXTO, terco, TipoDeArchivo.CSV, escribe("hola")), 100,
+                Duration.ofSeconds(1), 1);
+        Path colgado = archivo(new byte[] {1});
+        Path siguiente = archivo(new byte[] {2});
+        try {
+            assertThat(extractor.extraer(colgado, TipoDeArchivo.TEXTO))
+                    .isEqualTo(new Resultado(null, "Leerlo tardó más de 1 s."));
+
+            assertThatThrownBy(() -> extractor.extraer(siguiente, TipoDeArchivo.CSV))
+                    .isInstanceOf(HilosOcupadosException.class).hasMessage(
+                            "Ningún hilo de lectura quedó libre en 1 s: el texto del documento se lee en otro intento.");
+        } finally {
+            soltar.countDown();
+        }
+    }
+
+    @Test
     @DisplayName("si interrumpen a quien espera, no se da por leido: falla para que la cola lo intente otra vez")
     void interrumpido() {
         Parser lento = new Falso() {
@@ -355,6 +411,26 @@ class ExtractorDeTextoTest {
 
         assertThatThrownBy(() -> extractor.extraer(documento, TipoDeArchivo.TEXTO))
                 .isInstanceOf(RejectedExecutionException.class);
+    }
+
+    /** Un parser que avisa que empezo, tarda lo dicho y escribe su texto. */
+    private static Parser tarda(String texto, Duration cuanto, CountDownLatch empezado) {
+        return new Falso() {
+            @Override
+            public void parse(TikaInputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
+                    throws SAXException {
+                empezado.countDown();
+                try {
+                    Thread.sleep(cuanto);
+                } catch (InterruptedException _) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                abrir(handler);
+                caracteres(handler, texto);
+                cerrar(handler);
+            }
+        };
     }
 
     /** Un parser que escribe un texto dentro del cuerpo de un XHTML, como los de Tika. */

@@ -17,6 +17,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -46,6 +47,7 @@ import com.facimus.procesos.modelado.model.EstadoDocumento;
 import com.facimus.procesos.modelado.model.VersionDocumento;
 import com.facimus.procesos.modelado.repository.VersionDocumentoRepository;
 import com.facimus.procesos.modelado.service.TextoDeDocumentosService;
+import com.facimus.procesos.modelado.service.impl.ExtractorDeTexto.HilosOcupadosException;
 import com.facimus.procesos.modelado.service.impl.ExtractorDeTexto.Resultado;
 
 /** PR 65: leer el texto de un archivo solo cuando ya esta disponible, fuera de toda transaccion, y anotarlo una vez. */
@@ -194,6 +196,19 @@ class TextoDeDocumentosServiceImplTest {
                 .hasMessage("No se pudo bajar " + CLAVE + " del almacen");
         verify(versionRepository, never()).guardarTexto(any(), any(), any(), any());
         verifyNoInteractions(extractor);
+        assertThat(archivosDePaso()).isZero();
+    }
+
+    @Test
+    @DisplayName("si ningun hilo de lectura quedo libre, el trabajo falla sin anotar nada: la cola lo lee mas tarde")
+    void hilosOcupados() throws IOException {
+        existe(version("application/pdf", EstadoDocumento.DISPONIBLE, null));
+        when(almacen.abrir(CLAVE)).thenReturn(new ByteArrayInputStream(CONTENIDO));
+        HilosOcupadosException ocupados = new HilosOcupadosException(Duration.ofSeconds(30));
+        when(extractor.extraer(any(Path.class), eq(TipoDeArchivo.PDF))).thenThrow(ocupados);
+
+        assertThatThrownBy(() -> servicio.leer(EMPRESA, VERSION)).isSameAs(ocupados);
+        verify(versionRepository, never()).guardarTexto(any(), any(), any(), any());
         assertThat(archivosDePaso()).isZero();
     }
 
