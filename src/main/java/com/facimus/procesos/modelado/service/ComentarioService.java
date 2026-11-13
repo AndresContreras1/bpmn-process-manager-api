@@ -8,6 +8,7 @@ import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.modelado.dto.response.ComentarioResponse;
 import com.facimus.procesos.modelado.dto.response.HiloResponse;
+import com.facimus.procesos.modelado.dto.response.PersonaResponse;
 import com.facimus.procesos.modelado.model.EstadoHilo;
 
 /**
@@ -40,6 +41,12 @@ public interface ComentarioService {
     ComentarioResponse resolver(Long empresaId, Long usuarioId, Long comentarioId);
 
     ComentarioResponse reabrir(Long empresaId, Long usuarioId, Long comentarioId);
+
+    /**
+     * F21: a quien se puede mencionar en el proceso, para elegirlo por su nombre: personas activas de la tienda que lo
+     * pueden ver, sin quien pregunta, por nombre y como mucho veinte. Pide ver el proceso.
+     */
+    List<PersonaResponse> mencionables(Long empresaId, Long usuarioId, Long procesoId, String texto);
 
     /** Quien lo escribio, o un administrador. */
     void eliminar(Long empresaId, Long usuarioId, RolAcceso rol, Long comentarioId);

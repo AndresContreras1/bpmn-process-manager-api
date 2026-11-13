@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -496,5 +497,66 @@ class ComentarioServiceImplTest {
         assertThat(sinNombre.getHtml()).isEqualTo("<p>Hola</p>");
         verify(comentarioRepository).save(conNombre);
         verify(comentarioRepository, never()).save(sinNombre);
+    }
+
+    @Test
+    @DisplayName("F21: a quien mencionar sale de las primeras cincuenta personas activas por nombre que pueden ver el proceso")
+    @SuppressWarnings("unchecked")
+    void mencionables() {
+        List<Usuario> candidatas = List.of(persona(ANA, "Ana", RolAcceso.ADMINISTRADOR, true),
+                persona(BETO, "Beto", RolAcceso.EDITOR, true), persona(CARLA, "Carla", RolAcceso.SOLO_LECTURA, true),
+                persona(DORA, "Dora", RolAcceso.EDITOR, true));
+        ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
+        when(usuarioRepository.findAll(any(Specification.class), pagina.capture()))
+                .thenAnswer(llamada -> new PageImpl<>(candidatas, llamada.getArgument(1), candidatas.size()));
+        ArgumentCaptor<Collection<Actor>> actores = ArgumentCaptor.forClass(Collection.class);
+        when(permisos.quienesPueden(eq(EMPRESA), eq(Recurso.proceso(PROCESO)), actores.capture(),
+                eq(Set.of(Accion.VER)))).thenReturn(Set.of(ANA, BETO, CARLA));
+
+        List<PersonaResponse> personas = servicio.mencionables(EMPRESA, ANA, PROCESO, "a");
+
+        // Quien pregunta no se menciona a si mismo, y quien no ve el proceso no sale
+        assertThat(personas).containsExactly(new PersonaResponse(BETO, "Beto"), new PersonaResponse(CARLA, "Carla"));
+        assertThat(actores.getValue()).extracting(Actor::usuarioId).containsExactly(BETO, CARLA, DORA);
+        assertThat(actores.getValue()).extracting(Actor::rol).containsExactly(RolAcceso.EDITOR,
+                RolAcceso.SOLO_LECTURA, RolAcceso.EDITOR);
+        assertThat(pagina.getValue().getPageNumber()).isZero();
+        assertThat(pagina.getValue().getPageSize()).isEqualTo(ComentarioServiceImpl.CANDIDATOS_A_MENCION);
+        assertThat(pagina.getValue().getSort()).isEqualTo(Sort.by("nombre", "id"));
+        verify(permisos).exigir(EMPRESA, ANA, Accion.VER, Recurso.proceso(PROCESO));
+    }
+
+    @Test
+    @DisplayName("F21: a quien mencionar son como mucho veinte, las mismas que caben en un comentario")
+    @SuppressWarnings("unchecked")
+    void mencionablesConTope() {
+        List<Usuario> candidatas = new ArrayList<>();
+        for (long id = 200; id < 230; id++) {
+            candidatas.add(persona(id, "Persona " + id, RolAcceso.EDITOR, true));
+        }
+        when(usuarioRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(candidatas));
+        when(permisos.quienesPueden(eq(EMPRESA), eq(Recurso.proceso(PROCESO)), anyCollection(),
+                eq(Set.of(Accion.VER)))).thenAnswer(llamada -> Set.copyOf(((Collection<Actor>) llamada.getArgument(2))
+                        .stream().map(Actor::usuarioId).toList()));
+
+        List<PersonaResponse> personas = servicio.mencionables(EMPRESA, ANA, PROCESO, null);
+
+        assertThat(personas).hasSize(ComentarioServiceImpl.MENCIONABLES)
+                .extracting(PersonaResponse::id).startsWith(200L, 201L).endsWith(219L);
+    }
+
+    @Test
+    @DisplayName("F21: quien no ve el proceso no sabe a quien se puede mencionar en el: responde 404 sin buscar a nadie")
+    @SuppressWarnings("unchecked")
+    void mencionablesSinVer() {
+        doThrow(new RecursoNoEncontradoException("Proceso no encontrado.")).when(permisos).exigir(EMPRESA, DORA,
+                Accion.VER, Recurso.proceso(PROCESO));
+
+        assertThatThrownBy(() -> servicio.mencionables(EMPRESA, DORA, PROCESO, "a"))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> servicio.mencionables(EMPRESA, ANA, 99L, "a"))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verify(usuarioRepository, never()).findAll(any(Specification.class), any(Pageable.class));
     }
 }

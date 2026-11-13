@@ -239,6 +239,8 @@ class AutorizacionPorRolTest {
             # PR 63: comentar es de cualquier rol, tambien de quien solo lee; las notificaciones son de cada persona
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/comentarios     | 404
             SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/comentarios     | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/mencionables    | 404
+            EDITOR        | GET    | /api/v1/procesos/{id}/mencionables    | 404
             SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/respuestas   | 404
             SOLO_LECTURA  | PUT    | /api/v1/comentarios/{id}              | 404
             SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/resolver     | 404

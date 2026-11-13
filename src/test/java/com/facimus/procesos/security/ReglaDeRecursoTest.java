@@ -56,6 +56,8 @@ class ReglaDeRecursoTest {
                 // PR 63: comentar no es modelar: tambien lo hace quien solo lee
                 Arguments.of("GET", P + "/comentarios", null, Accion.VER),
                 Arguments.of("POST", P + "/comentarios", null, Accion.COMENTAR),
+                // F21: a quien mencionar lo sabe quien ve el proceso
+                Arguments.of("GET", P + "/mencionables", null, Accion.VER),
                 // PR 64: pedir una revision es el primer paso de publicar; confirmar que sigue vigente lo decide su
                 // servicio, a quien ve el proceso
                 Arguments.of("GET", P + "/solicitudes", null, Accion.VER),

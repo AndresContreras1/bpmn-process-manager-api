@@ -38,6 +38,7 @@ import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.repository.UsuarioSpecifications;
 import com.facimus.procesos.gestion.repository.VersionProcesoRepository;
 import com.facimus.procesos.gestion.service.Actor;
 import com.facimus.procesos.gestion.service.Permisos;
@@ -66,6 +67,10 @@ public class ComentarioServiceImpl implements ComentarioService {
     private static final String RECURSO = "COMENTARIO";
     private static final String PROCESO = "procesoId";
     private static final String NO_PUEDE_VER = "No es una persona de la organización que pueda ver este proceso.";
+    /** F21: cuantas personas se miran, por nombre, para quedarse con las que pueden ver el proceso. */
+    static final int CANDIDATOS_A_MENCION = 50;
+    /** Las que se responden: las mismas que caben en las menciones de un comentario. */
+    static final int MENCIONABLES = 20;
 
     private final ComentarioRepository comentarioRepository;
     private final ProcesoRepository procesoRepository;
@@ -113,6 +118,25 @@ public class ComentarioServiceImpl implements ComentarioService {
         return PageResponse.from(hilos.map(hilo -> new HiloResponse(respuesta(hilo, nombres),
                 respuestas.getOrDefault(hilo.getId(), List.of()).stream()
                         .map(una -> respuesta(una, nombres)).toList())));
+    }
+
+    /**
+     * Las primeras personas activas por nombre que contienen el texto, y de ellas las que pueden ver el proceso, en una
+     * sola evaluacion de permisos. Quien pregunta no se menciona a si mismo: un aviso nunca va a su autor.
+     */
+    @Override
+    public List<PersonaResponse> mencionables(Long empresaId, Long usuarioId, Long procesoId, String texto) {
+        procesoVisible(empresaId, usuarioId, procesoId);
+        List<Usuario> candidatos = usuarioRepository
+                .findAll(UsuarioSpecifications.conFiltros(empresaId, texto, false),
+                        PageRequest.of(0, CANDIDATOS_A_MENCION, Sort.by("nombre", "id")))
+                .getContent().stream().filter(usuario -> !usuario.getId().equals(usuarioId)).toList();
+        Set<Long> pueden = permisos.quienesPueden(empresaId, Recurso.proceso(procesoId),
+                candidatos.stream().map(usuario -> new Actor(usuario.getId(), empresaId, usuario.getRolAcceso()))
+                        .toList(),
+                Set.of(Accion.VER));
+        return candidatos.stream().filter(usuario -> pueden.contains(usuario.getId())).limit(MENCIONABLES)
+                .map(usuario -> new PersonaResponse(usuario.getId(), usuario.getNombre())).toList();
     }
 
     @Override

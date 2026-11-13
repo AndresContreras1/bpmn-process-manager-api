@@ -3,6 +3,7 @@ package com.facimus.procesos.modelado;
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.atLeastOnce;
@@ -296,6 +297,24 @@ class ComentariosIntegracionTest {
                 proceso)).isZero();
         comentar(ajeno, texto("x")).andExpect(status().isNotFound());
         comentar(dora, texto("x")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("F21: a quien mencionar son quienes ven el proceso, por nombre y sin quien pregunta; lo ajeno es un 404")
+    void mencionables() throws Exception {
+        String ruta = "/api/v1/procesos/{id}/mencionables";
+        mvc.perform(get(ruta, proceso).with(principal(beto))).andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].nombre").value(contains("Ana", "Carla")))
+                .andExpect(jsonPath("$[0].id").value(ana.usuarioId()));
+        mvc.perform(get(ruta, proceso).param("q", "AR").with(principal(beto))).andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id").value(contains(carla.usuarioId().intValue())));
+        // Quien solo lee tambien menciona: comentar es de cualquier rol
+        mvc.perform(get(ruta, proceso).with(principal(carla))).andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].nombre").value(contains("Ana", "Beto")));
+        mvc.perform(get(ruta, proceso).param("q", "x".repeat(101)).with(principal(beto)))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get(ruta, proceso).with(principal(dora))).andExpect(status().isNotFound());
+        mvc.perform(get(ruta, proceso).with(principal(ajeno))).andExpect(status().isNotFound());
     }
 
     @Test
