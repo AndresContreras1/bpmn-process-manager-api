@@ -14,6 +14,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,6 +34,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.facimus.procesos.common.archivos.ArchivosConTexto;
 import com.facimus.procesos.common.correo.Correo;
@@ -62,6 +65,7 @@ import com.facimus.procesos.modelado.model.TipoArtefacto;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.repository.VersionDocumentoRepository;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
 import com.facimus.procesos.modelado.service.ArtefactoService;
@@ -150,6 +154,10 @@ class BusquedaIntegracionTest {
     private JdbcTemplate jdbc;
     @Autowired
     private JsonMapper json;
+    @Autowired
+    private VersionDocumentoRepository versionDocumentoRepository;
+    @Autowired
+    private PlatformTransactionManager transacciones;
 
     private Long empresaId;
     private ApiPrincipal ana;
@@ -485,6 +493,33 @@ class BusquedaIntegracionTest {
     }
 
     @Test
+    @DisplayName("el texto de una version se guarda una vez, y nunca en una que dejo de estar disponible")
+    void textoUnaSolaVez() throws Exception {
+        Long despacho = proceso("Despacho", "Del pago a la entrega");
+        Long documento = subir(despacho, "Garantia.txt", "Cubre defectos de fabrica".getBytes(StandardCharsets.UTF_8));
+        vaciarLaCola();
+        Long version = jdbc.queryForObject("select id from versiones_documento where documento_id = ?", Long.class,
+                documento);
+
+        assertThat(guardarTexto(version, "Cubre golpes")).as("ya tiene su texto").isZero();
+        jdbc.update("update versiones_documento set texto_extraido_en = null, estado = 'BLOQUEADO' where id = ?",
+                version);
+        assertThat(guardarTexto(version, "Cubre golpes")).as("dejo de estar disponible").isZero();
+        assertThat(jdbc.queryForObject("select texto from versiones_documento where id = ?", String.class, version))
+                .isEqualTo("Cubre defectos de fabrica");
+
+        jdbc.update("update versiones_documento set estado = 'DISPONIBLE' where id = ?", version);
+        assertThat(guardarTexto(version, "Cubre golpes")).isOne();
+        assertThat(jdbc.queryForObject("select texto from versiones_documento where id = ?", String.class, version))
+                .isEqualTo("Cubre golpes");
+    }
+
+    private Integer guardarTexto(Long version, String texto) {
+        return new TransactionTemplate(transacciones).execute(estado -> versionDocumentoRepository
+                .guardarTexto(empresaId, version, texto, LocalDateTime.now()));
+    }
+
+    @Test
     @DisplayName("un documento borrado ya no se encuentra")
     void documentoBorrado() throws Exception {
         Long despacho = proceso("Despacho", "Del pago a la entrega");
@@ -803,12 +838,17 @@ class BusquedaIntegracionTest {
     void rolesYTipo() throws Exception {
         Long despacho = proceso("Despacho", "Revisar el despacho");
         comentar(despacho, "El despacho sale hoy");
+        actividadService.crear(empresaId, ana.usuarioId(), lane(despacho), "Despacho del pedido", null,
+                TipoActividad.USUARIO, 160, 80);
+        subir(despacho, "Guia.txt", "Pasos del despacho".getBytes(StandardCharsets.UTF_8));
+        vaciarLaCola();
 
         for (ApiPrincipal quien : List.of(ana, beto, carla)) {
-            assertThat(tipos(resultados(quien, "despacho"))).contains("PROCESO", "COMENTARIO");
+            assertThat(tipos(resultados(quien, "despacho"))).contains("PROCESO", "ELEMENTO", "DOCUMENTO",
+                    "COMENTARIO");
         }
-        assertThat(tipos(resultados(beto, "despacho", "tipo", "PROCESO"))).containsOnly("PROCESO");
-        assertThat(tipos(resultados(beto, "despacho", "tipo", "COMENTARIO"))).containsOnly("COMENTARIO");
-        assertThat(resultados(beto, "despacho", "tipo", "DOCUMENTO")).isEmpty();
+        for (String tipo : List.of("PROCESO", "ELEMENTO", "DOCUMENTO", "COMENTARIO")) {
+            assertThat(tipos(resultados(beto, "despacho", "tipo", tipo))).as(tipo).containsOnly(tipo);
+        }
     }
 }

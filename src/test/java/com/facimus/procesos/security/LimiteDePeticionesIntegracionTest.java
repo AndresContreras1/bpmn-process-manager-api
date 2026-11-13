@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -98,6 +99,11 @@ class LimiteDePeticionesIntegracionTest {
         login("nadie9@limite.test", "no-es-la-clave", desde).andExpect(status().isTooManyRequests())
                 .andExpect(header().exists(HttpHeaders.RETRY_AFTER))
                 .andExpect(jsonPath("$.title").value("Demasiadas peticiones"));
+        // Una letra codificada en la ruta llega al mismo controller, y gasta del mismo cubo
+        mockMvc.perform(post(URI.create("/api/v1/auth/logi%6E")).with(SesionEnCookies.conCsrf()).with(desde)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(new LoginRequest("nadie9@limite.test", "no-es-la-clave"))))
+                .andExpect(status().isTooManyRequests());
 
         login("nadie9@limite.test", "no-es-la-clave", direccion()).andExpect(status().isUnauthorized());
     }
@@ -153,6 +159,8 @@ class LimiteDePeticionesIntegracionTest {
             buscar(acceso).andExpect(status().isOk());
         }
         buscar(acceso).andExpect(status().isTooManyRequests()).andExpect(header().exists(HttpHeaders.RETRY_AFTER));
+        mockMvc.perform(get(URI.create("/api/v1/busqued%61?q=pedido")).with(SesionEnCookies.conSesion(acceso)))
+                .andExpect(status().isTooManyRequests());
         mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(acceso))).andExpect(status().isOk());
         crearProceso(acceso, "Despues de buscar").andExpect(status().isCreated());
 

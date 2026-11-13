@@ -237,11 +237,14 @@ class BusquedaServiceImplTest {
                 .doesNotContain("(to_tsquery(");
         assertThat(BusquedaServiceImpl.OPCIONES.split(", ")).containsExactly("StartSel=\uE000", "StopSel=\uE001",
                 "MaxWords=35", "MinWords=15", "MaxFragments=2", "FragmentDelimiter=\" … \"");
-        // Lo buscado se arma una vez, y el fragmento de un documento sale solo del principio de su texto
+        // Lo buscado se arma una vez, y el fragmento de un documento o de una documentacion sale solo del principio
         assertThat(BusquedaServiceImpl.PAGINA).startsWith("with buscado as materialized")
                 .containsOnlyOnce("websearch_to_tsquery");
         assertThat(BusquedaServiceImpl.DETALLES).startsWith("with buscado as materialized")
-                .containsOnlyOnce("websearch_to_tsquery").contains("left(a.texto, :largoDelFragmento)");
+                .containsOnlyOnce("websearch_to_tsquery").contains("left(a.texto, :largoDelFragmento)",
+                        "left(documentacion_de(p.id, null), :largoDelFragmento)",
+                        "left(documentacion_de(i.proceso_id, i.bpmn_id), :largoDelFragmento)")
+                .doesNotContain(", documentacion_de(");
 
         assertThat(BusquedaServiceImpl.MARCAS.toCharArray()).containsExactly(BusquedaServiceImpl.INICIO,
                 BusquedaServiceImpl.FIN);

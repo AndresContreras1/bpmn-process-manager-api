@@ -14,6 +14,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 import com.facimus.procesos.common.api.Problemas;
 import com.facimus.procesos.common.security.ApiPrincipal;
@@ -73,20 +74,20 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String ruta = request.getRequestURI();
+        String ruta = ruta(request);
         return !ruta.startsWith("/api/") || SIN_EFECTOS.contains(request.getMethod()) && !esBusqueda(request, ruta);
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        long tope = tope(request.getRequestURI());
+        String ruta = ruta(request);
+        long tope = tope(ruta);
         if (request.getContentLengthLong() > tope) {
             responder(request, response, HttpStatus.CONTENT_TOO_LARGE, "Cuerpo demasiado grande",
                     "La petición no puede superar " + (tope / 1024) + " KB.", null);
             return;
         }
-        String ruta = request.getRequestURI();
         String ip = request.getRemoteAddr();
         Optional<Duration> espera = clase(request, ruta).flatMap(clase -> limites.gastar(clase,
                 porPersona(clase) ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
@@ -102,6 +103,15 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * La ruta como la compara Spring MVC al elegir el controller: decodificada y sin parametros de ruta. Comparar la
+     * URI tal como llega dejaria pasar {@code /api/v1/busqued%61} o {@code /api/v1/auth/logi%6E} sin gastar de su cubo,
+     * y llegarian al mismo controller.
+     */
+    private static String ruta(HttpServletRequest request) {
+        return UrlPathHelper.defaultInstance.getPathWithinApplication(request);
     }
 
     private long tope(String ruta) {

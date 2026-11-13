@@ -65,8 +65,8 @@ public class PreferenciasServiceImpl implements PreferenciasService {
         String anterior = configuracion.getIdioma();
         configuracion.setIdioma(Idiomas.validar(idioma));
         configuracion.setZonaHoraria(Idiomas.validarZona(zonaHoraria));
-        if (!configuracion.getIdioma().equals(anterior)) {
-            // PR 65: la busqueda rehace sus vectores con las raices del idioma nuevo
+        if (!configuracion.getIdioma().regionMatches(0, anterior, 0, 2)) {
+            // PR 65: la busqueda rehace sus vectores con las raices de la lengua nueva; en-US y en-AU tienen las mismas
             eventos.publishEvent(new IdiomaDeTiendaCambiado(empresaId, configuracion.getIdioma()));
         }
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
