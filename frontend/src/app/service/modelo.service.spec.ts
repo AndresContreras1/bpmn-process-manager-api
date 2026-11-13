@@ -23,9 +23,11 @@ describe('ModeloService', () => {
   it('F21: lee el XML de una revision del borrador como texto, que es lo que congela una solicitud', async () => {
     const xml = firstValueFrom(modelos.modeloDeRevision(7, 31));
 
-    const peticion = http.expectOne(`${api}/7/revisiones/31/modelo`);
+    const peticion = http.expectOne((p) => p.url === `${api}/7/revisiones/31/modelo`);
     expect(peticion.request.method).toBe('GET');
     expect(peticion.request.responseType).toBe('text');
+    // Sin para=dibujar la ruta pide EXPORTAR, y quien solo puede aprobar no veria el diagrama
+    expect(peticion.request.params.get('para')).toBe('dibujar');
     peticion.flush('<definitions/>');
     await expect(xml).resolves.toBe('<definitions/>');
   });

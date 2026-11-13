@@ -93,7 +93,7 @@ describe('CampanaService', () => {
     expect(campana.cargando()).toBe(false);
   });
 
-  it('marcar uno leido lo cambia en la lista y adelanta el conteo, sin bajar de cero', () => {
+  it('con el flujo cerrado, marcar uno leido lo cambia en la lista y baja el conteo, sin bajar de cero', () => {
     campana.iniciar();
     flujo.next({ tipo: 'conteo', datos: { noLeidas: 1 } });
     campana.cargar();
@@ -105,6 +105,20 @@ describe('CampanaService', () => {
 
     campana.marcarLeida(aviso(5));
     expect(campana.noLeidas()).toBe(0);
+  });
+
+  it('con el flujo abierto el conteo es el del flujo, aunque llegue antes que la respuesta de marcar leido', () => {
+    const respuesta = new Subject<Notificacion>();
+    notificaciones.marcarLeida.mockReturnValue(respuesta);
+    campana.iniciar();
+    flujo.next({ tipo: 'conectado' });
+    flujo.next({ tipo: 'conteo', datos: { noLeidas: 2 } });
+
+    campana.marcarLeida(aviso(2));
+    flujo.next({ tipo: 'conteo', datos: { noLeidas: 1 } });
+    respuesta.next(aviso(2, { leidaEn: '2026-11-12T11:00:00' }));
+
+    expect(campana.noLeidas()).toBe(1);
   });
 
   it('uno que ya estaba leido no se vuelve a mandar', () => {

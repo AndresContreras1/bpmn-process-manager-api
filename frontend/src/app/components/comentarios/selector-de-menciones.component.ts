@@ -9,7 +9,7 @@ import {
   output,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subject, catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
+import { Subject, catchError, debounceTime, map, merge, of, switchMap } from 'rxjs';
 
 import { ESPERA_AL_ESCRIBIR_MS } from '../../helpers/buscador';
 import { SelectorDeMenciones } from '../../helpers/menciones';
@@ -52,7 +52,10 @@ export class SelectorDeMencionesComponent implements OnInit {
   private readonly comentarios = inject(ComentarioService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cambios = inject(ChangeDetectorRef);
-  private readonly textos = new Subject<string>();
+  /** Lo que se escribe espera la pausa; lo que pide la flecha o el foco va ya. Las dos van por la misma busqueda. */
+  private readonly escritos = new Subject<string>();
+  private readonly inmediatos = new Subject<string>();
+  private enfocado: boolean = false;
 
   readonly id: string = `menciones-${++siguiente}`;
   readonly selector = new SelectorDeMenciones();
@@ -62,20 +65,27 @@ export class SelectorDeMencionesComponent implements OnInit {
 
   ngOnInit(): void {
     this.selector.reiniciar(this.iniciales());
-    this.textos
+    // switchMap: una busqueda nueva deja sin efecto la anterior, venga de donde venga
+    merge(this.escritos.pipe(debounceTime(ESPERA_AL_ESCRIBIR_MS)), this.inmediatos)
       .pipe(
-        debounceTime(ESPERA_AL_ESCRIBIR_MS),
-        distinctUntilChanged(),
         switchMap((texto) => {
           this.buscando = true;
-          return this.comentarios.mencionables(this.procesoId(), texto).pipe(catchError(() => of([] as Persona[])));
+          return this.comentarios.mencionables(this.procesoId(), texto).pipe(
+            catchError(() => of([] as Persona[])),
+            map((personas) => ({ texto, personas })),
+          );
         }),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((personas) => {
+      .subscribe(({ texto, personas }) => {
         this.buscando = false;
+        // Una respuesta para otro texto, o que llega con el foco ya fuera, no abre la lista sobre la pagina
+        if (texto !== this.texto || !this.enfocado) {
+          this.cambios.markForCheck();
+          return;
+        }
         this.selector.ofrecer(personas);
-        this.sinResultados = !this.selector.abierto && this.texto.trim() !== '';
+        this.sinResultados = !this.selector.abierto && texto.trim() !== '';
         this.cambios.markForCheck();
       });
   }
@@ -87,11 +97,12 @@ export class SelectorDeMencionesComponent implements OnInit {
 
   escribir(evento: Event): void {
     this.texto = (evento.target as HTMLInputElement).value;
-    this.textos.next(this.texto);
+    this.escritos.next(this.texto);
   }
 
   /** Al entrar al campo, las primeras personas, aunque no haya nada escrito. */
   enfocar(): void {
+    this.enfocado = true;
     if (!this.selector.abierto && !this.selector.lleno) {
       this.buscarYa();
     }
@@ -99,6 +110,7 @@ export class SelectorDeMencionesComponent implements OnInit {
 
   /** Salir del campo cierra la lista; las opciones se eligen con mousedown, antes de que el foco se vaya. */
   salir(): void {
+    this.enfocado = false;
     this.selector.cerrar();
   }
 
@@ -163,17 +175,6 @@ export class SelectorDeMencionesComponent implements OnInit {
 
   /** Quien termina de escribir y baja con la flecha no espera a la pausa: pregunta ya. */
   private buscarYa(): void {
-    this.buscando = true;
-    this.comentarios
-      .mencionables(this.procesoId(), this.texto)
-      .pipe(
-        catchError(() => of([] as Persona[])),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((personas) => {
-        this.buscando = false;
-        this.selector.ofrecer(personas);
-        this.cambios.markForCheck();
-      });
+    this.inmediatos.next(this.texto);
   }
 }

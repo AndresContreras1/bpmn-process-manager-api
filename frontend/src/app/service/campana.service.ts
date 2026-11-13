@@ -15,7 +15,7 @@ import { NotificacionService } from './notificacion.service';
 /**
  * PR F21: lo que muestra la campana del encabezado, para quien entro: cuantos avisos faltan por leer, los ultimos y
  * si el flujo en vivo esta abierto. El conteo lo manda la API (al abrir el flujo y cada vez que cambia), asi que la
- * web no lo calcula: solo lo adelanta al marcar uno leido, hasta que el flujo diga el suyo.
+ * web no lo calcula: solo lo baja ella misma al marcar uno leido cuando el flujo esta cerrado, que si no lo dice el.
  */
 @Injectable({ providedIn: 'root' })
 export class CampanaService {
@@ -72,7 +72,11 @@ export class CampanaService {
     this.notificaciones.marcarLeida(aviso.id).subscribe({
       next: (leida) => {
         this.avisos.update((lista) => conAvisoLeido(lista, leida));
-        this.noLeidas.update((cuantas) => Math.max(0, cuantas - 1));
+        // Con el flujo abierto el conteo nuevo llega por el, a veces antes que esta respuesta: restar otra vez lo
+        // dejaria uno por debajo
+        if (!this.conectada()) {
+          this.noLeidas.update((cuantas) => Math.max(0, cuantas - 1));
+        }
       },
       error: () => this.error.set(true),
     });

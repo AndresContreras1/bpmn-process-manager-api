@@ -56,7 +56,8 @@ export class SolicitudesComponent implements OnInit {
       this.bandeja = parametros.get('bandeja') === 'todas' ? 'todas' : 'pendientes';
       const estado = parametros.get('estado') as EstadoSolicitud | null;
       this.estado = estado && ESTADOS_SOLICITUD.includes(estado) ? estado : '';
-      this.cargar(Number(parametros.get('pagina') ?? 0) || 0);
+      // Una pagina negativa o con decimales en la direccion es la primera; la API la rechazaria
+      this.cargar(Math.max(0, Math.trunc(Number(parametros.get('pagina')) || 0)));
     });
   }
 

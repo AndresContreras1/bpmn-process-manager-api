@@ -18,6 +18,7 @@ import { BPM_MODDLE } from './modulos/bpm.moddle';
 import { ModoDelLienzo, moduloDeModoYReglas, moduloDelModo } from './modulos/modulos-del-lienzo';
 import { ModoProceso } from './modulos/reglas';
 import { traduccion } from './modulos/traduccion';
+import { esEleccion } from './seleccion';
 
 /** Para que se abre el lienzo: ver un proceso, editarlo, seguir un caso o comparar. */
 export type ModoLienzo = 'ver' | 'editar' | 'caso' | 'comparar';
@@ -297,9 +298,8 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
     const eventos = this.bpmn.get('eventBus');
     eventos.on('commandStack.changed', () => this.cambio.emit());
     eventos.on('selection.changed', ({ oldSelection, newSelection }: Cualquiera) => {
-      // F21: al importar, bpmn-js vacia una seleccion que ya estaba vacia; eso no es elegir nada, y borraria lo que la
-      // pagina eligio antes de que el dibujo llegara (un elemento de la direccion, el hilo de un aviso)
-      if (!oldSelection?.length && !newSelection.length) {
+      // F21: al importar, bpmn-js vacia una seleccion que ya estaba vacia, y eso no es elegir nada
+      if (!esEleccion(oldSelection, newSelection)) {
         return;
       }
       const elemento = newSelection.length === 1 ? newSelection[0] : null;
