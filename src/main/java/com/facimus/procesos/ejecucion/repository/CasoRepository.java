@@ -46,6 +46,7 @@ public interface CasoRepository extends RepositorioTenant<Caso>, JpaSpecificatio
             from Caso c
             where c.empresa.id = :empresaId
               and (:procesoId is null or c.proceso.id = :procesoId)
+              and c.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
             group by c.estado
             order by c.estado
             """)
@@ -63,17 +64,25 @@ public interface CasoRepository extends RepositorioTenant<Caso>, JpaSpecificatio
               and (:procesoId is null or c.proceso.id = :procesoId)
               and c.estado = com.facimus.procesos.ejecucion.model.EstadoCaso.TERMINADO
               and c.tickFin is not null
+              and c.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
             order by c.tickFin - c.tickInicio
             """)
     List<Integer> ticksDeCiclo(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId);
 
     /** Cuantos hay en un estado en toda la instalacion: es lo que publica el medidor de Actuator. */
-    long countByEstado(EstadoCaso estado);
+    @Query("""
+            select count(c) from Caso c
+            where c.estado = :estado and c.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
+            """)
+    long countByEstado(@Param("estado") EstadoCaso estado);
 
     /** Cuantos casos lleva un proceso: es por donde siguen numerando las tandas de pedidos simulados. */
     long countByEmpresaIdAndProcesoId(Long empresaId, Long procesoId);
 
-    /** Los casos de un proceso con esa referencia: por aqui encuentra su caso un mensaje que llega. */
+    /**
+     * Los casos de un proceso con esa referencia: por aqui encuentra su caso un mensaje que llega. PR 68: los de una
+     * prueba del borrador no estan; un mensaje de fuera es de los pedidos de verdad, y la prueba corre en otro grafo.
+     */
     List<Caso> porReferencia(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId,
             @Param("referencia") String referencia);
 

@@ -50,6 +50,7 @@ import lombok.experimental.SuperBuilder;
         where c.empresa.id = :empresaId
           and c.proceso.id = :procesoId
           and c.referencia = :referencia
+          and c.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
         order by c.id
         """)
 @Getter
