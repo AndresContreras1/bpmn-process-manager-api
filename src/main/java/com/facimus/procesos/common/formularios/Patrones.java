@@ -25,6 +25,9 @@ public final class Patrones {
     /** Cuantas veces se puede repetir algo, sumando lo que se anida. */
     static final int REPETICIONES_MAXIMAS = 1_000;
 
+    private static final String CITA = "\\Q";
+    private static final String FIN_DE_CITA = "\\E";
+
     private Patrones() {
     }
 
@@ -56,6 +59,10 @@ public final class Patrones {
      * clase entre corchetes es un solo atomo y {@code {n}}, {@code {n,}} y {@code {n,m}} multiplican lo de antes por
      * el mayor de sus numeros. Lo que no sea una repeticion bien escrita no multiplica: RE2/J lo trata como texto o
      * lo rechaza al compilar.
+     *
+     * <p>Lo que va entre {@code \Q} y {@code \E} es texto. Lo que no deja nada que repetir, un grupo de banderas como
+     * {@code (?i)} o un {@code \Q\E} vacio, no cambia a que se aplica la repeticion que sigue: RE2/J la pega a lo de
+     * antes, y contarla como de un atomo suelto dejaria pasar {@code (a{1000})(?i){1000}}.
      */
     static long repeticiones(String patron) {
         Deque<long[]> niveles = new ArrayDeque<>();
@@ -64,13 +71,23 @@ public final class Patrones {
         int i = 0;
         while (i < patron.length()) {
             char c = patron.charAt(i);
-            if (c == '\\') {
+            if (patron.startsWith(CITA, i)) {
+                // Entre \Q y \E cada caracter es texto, parentesis incluidos; sin texto no deja nada que repetir
+                int fin = patron.indexOf(FIN_DE_CITA, i + 2);
+                int hasta = fin < 0 ? patron.length() : fin;
+                ultimo = hasta > i + 2 ? 1 : ultimo;
+                i = fin < 0 ? patron.length() : fin + 2;
+            } else if (c == '\\') {
                 ultimo = 1;
                 i += 2;
             } else if (c == '[') {
                 ultimo = 1;
                 i = finDeLaClase(patron, i);
+            } else if (c == '(' && finDeLasBanderas(patron, i) > 0) {
+                // (?i) solo cambia banderas: tampoco deja nada que repetir
+                i = finDeLasBanderas(patron, i);
             } else if (c == '(') {
+                ultimo = 1;
                 niveles.push(new long[] {1});
                 i++;
             } else if (c == ')') {
@@ -99,6 +116,19 @@ public final class Patrones {
             mayor = Math.max(mayor, nivel[0]);
         }
         return mayor;
+    }
+
+    /** Donde termina un grupo de solo banderas, como {@code (?i)} o {@code (?s-m)}; -1 si no es uno. */
+    private static int finDeLasBanderas(String patron, int desde) {
+        int i = desde + 1;
+        if (i >= patron.length() || patron.charAt(i) != '?') {
+            return -1;
+        }
+        i++;
+        while (i < patron.length() && (Character.isLetter(patron.charAt(i)) || patron.charAt(i) == '-')) {
+            i++;
+        }
+        return i < patron.length() && patron.charAt(i) == ')' ? i + 1 : -1;
     }
 
     /** Donde termina una clase entre corchetes: un {@code ]} justo al abrir, o tras {@code ^}, es parte de ella. */

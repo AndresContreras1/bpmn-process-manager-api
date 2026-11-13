@@ -47,7 +47,9 @@ class PatronesTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"((a{1000}){1000}){1000}", "(a{999}){999}", "((a{100}){100}){100}", "(a{2}){501}",
-        "([a-z]{50}){21}", "(?:(?:x{10}){10}){11}"})
+        "([a-z]{50}){21}", "(?:(?:x{10}){10}){11}", "(\\Q)\\Ea{1000}){1000}",
+        "((\\Q)\\E\\Q)\\Ea{1000}){1000}){1000}", "(a{1000})(?i){1000}", "(a{1000})\\Q\\E{1000}",
+        "(a{100})(?i)(?s-m){100}"})
     @DisplayName("Repeticiones anidadas que se comerian la memoria se rechazan sin compilar, y rapido")
     void repeticionesAnidadas(String patron) {
         assertTimeoutPreemptively(RAPIDO, () -> assertThat(Patrones.problema(patron)).hasValueSatisfying(
@@ -86,10 +88,30 @@ class PatronesTest {
         "[^]a]{3}; 3",
         "[\\]]{4}; 4",
         ")a{5}; 5",
-        "a{5}); 5"})
+        "a{5}); 5",
+        "\\Q(\\E{5}; 5",
+        "\\Q)\\Ea{3}; 3",
+        "(\\Q)\\Ea{3}){2}; 6",
+        "\\Qa{9}; 1",
+        "\\Qa{9}\\E; 1",
+        "(a{3})\\Q\\E{2}; 6",
+        "(a{3})\\Qx\\E{2}; 3",
+        "(a{3})(?i){2}; 6",
+        "(a{3})(?i:){2}; 3",
+        "(?i:a{3}){2}; 6",
+        "(?P<n>a{3}){2}; 6"})
     @DisplayName("Cuanto repite un patron: lo contado, multiplicado por lo que lo contiene")
     void cuantoRepite(String patron, long veces) {
         assertThat(Patrones.repeticiones(patron)).isEqualTo(veces);
+    }
+
+    @Test
+    @DisplayName("Un texto entre \\Q y \\E sirve y se cumple tal cual, parentesis incluidos")
+    void textoCitado() {
+        assertThat(Patrones.problema("\\Q(+57)\\E \\d{10}")).isEmpty();
+
+        assertThat(Patrones.cumple("\\Q(+57)\\E \\d{10}", "(+57) 3001234567")).isTrue();
+        assertThat(Patrones.cumple("\\Q(+57)\\E \\d{10}", "+57 3001234567")).isFalse();
     }
 
     @Test
