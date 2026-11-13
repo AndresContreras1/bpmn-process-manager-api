@@ -135,6 +135,14 @@ export class TareasComponent implements OnInit {
     return this.yo !== null && tarea.asignadoA === this.yo;
   }
 
+  /**
+   * Completa la que tiene quien mira, o la que no tiene nadie, que asi la toma. La de otra persona solo la completa
+   * ella; la API la rechaza, asi que el boton no se ofrece.
+   */
+  puedeCompletar(tarea: Tarea): boolean {
+    return tarea.asignadoA === null || this.esMia(tarea);
+  }
+
   /** Tomarla la deja en manos de quien la toma: desde entonces solo esa persona la completa. */
   tomar(tarea: Tarea): void {
     this.mandar(this.tareaService.reclamar(tarea.id), $localize`You took "${tarea.nodoNombre}".`);
