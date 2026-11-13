@@ -174,11 +174,12 @@ hour of a timer (`PT2H` is two ticks). A timer whose case ends, or whose activit
 
 **Deadlines** ([ADR-0075](adr/0075-deadlines-and-escalation.md)). A user task, or the whole case on its start event,
 can have a deadline in wall-clock hours or in business days of the store's calendar. It counts from the moment the task
-starts waiting, or the case opens; the timeline says when it is due. It is `A_TIEMPO`, then `POR_VENCER` in its last
+starts waiting, or the case opens; the line that creates the task, or opens the case, says when it is due. It is `A_TIEMPO`, then `POR_VENCER` in its last
 quarter, then `VENCIDA`: a scheduler moves production deadlines every minute, and the store's tick moves test ones
 (eight hours are eight ticks). Each change writes a timeline line and notifies, once, whoever holds the task (or the
-members of its role while nobody does) and the process owner; for the case, whoever opened it and the owner. A task
-completed after its deadline stays `VENCIDA`, which is what the dashboard counts as late. A deadline only tells: to make
+members of its role while nobody does) and the process owner; for the case, whoever opened it and the owner. A test
+case notifies nobody: its timeline is where the simulation shows it. A task completed after its deadline stays
+`VENCIDA`, even when no pass of the scheduler came first, which is what the dashboard counts as late. A deadline only tells: to make
 the case act when a task is late, draw a boundary timer.
 
 **Escalation.** A non-interrupting boundary timer can escalate the task it hangs from when it fires: notify its holder
@@ -252,9 +253,10 @@ reading inside the body of a message — while these three it knows for certain,
 **Compliance with deadlines** is counted per process, per activity and per person, and for whole cases: on time when a
 task with a deadline was completed before it, late when it was completed after it or still waits past it. What still
 waits on time, what was skipped and the test runs of a draft do not count; by person is whoever completed the task, or
-holds it while it waits overdue.
+holds it while it waits overdue. It only counts the processes the caller may see: a process a grant hides is neither
+named nor counted.
 
-**It costs ten queries**, whether the store has five orders or five thousand, and a test counts the statements so
+**It costs ten queries** (eleven for one process, which first checks that it belongs to the store), whether the store has five orders or five thousand, and a test counts the statements so
 it stays that way. A dashboard that grew with the orders would stop being openable exactly on the day it mattered.
 
 For whoever runs the server rather than the store, Actuator publishes four gauges next to the memory and

@@ -60,7 +60,7 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `LIMPIEZA_RETENCION_IDEMPOTENCIA` | How long a spent idempotency key is kept | `24h` |
 | `SIMULACION_TICK` | How often the clock of the stores that asked for it advances one tick. A store in `MANUAL`, which is the default, never moves by itself. | `30s` |
 | `TEMPORIZADORES_REPASO` | How often one instance looks for the production timers that are due and fires them. A timer due while the API was down fires on the first pass. | `5s` |
-| `PLAZOS_REPASO` | How often one instance moves the production deadlines that entered their last quarter or passed, and sends their notices. A deadline that changed while the API was down moves, and notifies, on the first pass. | `1m` |
+| `PLAZOS_REPASO` | How often one instance moves the production deadlines that entered their last quarter or passed, and sends their notices. A pass works through them in batches of 100 for up to five minutes, so the deadlines that changed while the API was down move, and notify, on the first pass. | `1m` |
 | `PRUEBAS_RETENCION` | How long a test run of a draft (its test version and its case) is kept before the nightly purge deletes it | `1d` |
 | `CACHE_VERSIONES` | Keeps what a published version says in memory. `false` turns it off and the API answers the same, only slower. | `true` |
 | `CACHE_VERSIONES_MAXIMO` · `CACHE_VERSIONES_INACTIVIDAD` | Versions each cache remembers at a time, and how long an unused entry is kept | `200` · `2h` |

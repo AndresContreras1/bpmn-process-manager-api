@@ -382,14 +382,18 @@ When the timer fires, `AVISAR` notifies the holder and the supervisor; `REASIGNA
 (the delegation it had ends) and notifies both. The supervisor is `usuarioId`, an active administrator or editor
 (`400` otherwise), or the process owner when it is empty. Without `accion` the timer only opens its path, as before.
 Escalating from an event that is not a non-interrupting timer boundary answers `409`, and so does `REASIGNAR` on a
-boundary of something that is not a user task. An interrupting boundary timer already takes the task out and the case
+boundary of something that is not a user task. The rule holds afterwards: `PUT /actividades/{id}` that changes the type
+of an activity a `REASIGNAR` boundary hangs from, and `PUT /eventos/{id}` that attaches such a boundary to an activity
+of another type, answer `409` until the escalation is `AVISAR`. An interrupting boundary timer already takes the task out and the case
 follows its path. Each escalation writes a `TAREA_ESCALADA` line; a reassignment also goes to the audit trail. It
 travels in BPMN as `bpm:escalamiento`.
 
 The three notification types `PLAZO_POR_VENCER`, `PLAZO_VENCIDO` and `TAREA_ESCALADA` reach the notification center
 and its stream, and are e-mailed at once unless the person chooses otherwise in `/notificaciones/preferencias`; their
 `referenciaId` is the case, and the e-mail links to it. `GET /api/v1/procesos/{id}/tablero` and
-`GET /api/v1/empresas/actual/tablero` answer the compliance in `cumplimiento` ([Execution](execution.md#the-dashboard)):
+`GET /api/v1/empresas/actual/tablero` answer the compliance in `cumplimiento` ([Execution](execution.md#the-dashboard)),
+over the processes the caller may see: a process a grant hides is neither named nor counted. The dashboard of another
+store's process, or of one that does not exist, answers `404`.
 
 ```json
 "cumplimiento": { "tareasATiempo": 40, "tareasTarde": 5, "casos": { "aTiempo": 30, "tarde": 2 },

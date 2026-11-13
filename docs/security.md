@@ -442,16 +442,20 @@ What PR 71 adds, against the checklist every resource goes through ([ADR-0075](a
   notices are rows of `notificaciones`. A test reads and updates them as another store and sees nothing.
 - **IDOR.** Saving the deadline or the escalation of another store's activity or event answers `404`. A supervisor of
   another store is a `400` with the same reason as one who does not exist, so the answer never tells which. The
-  dashboard counts only the caller's store: another store's process id answers an empty compliance, never its numbers.
+  dashboard of another store's process, or of one that does not exist, answers `404`.
 - **Who.** Saving a deadline or an escalation is modeling the element (`MODELAR`, administrators and editors, the route
   matrix). The supervisor must be an active administrator or editor, checked when saving and again when the timer
   fires: one who can no longer hold tasks gets a notice instead of the task. The dashboard and the due dates of tasks
-  and cases are read by any role, like the rest of operations.
+  and cases are read by any role, like the rest of operations, but compliance names processes and activities, so it
+  only counts the processes the caller may see (PR 60): a process a grant hides from a reader is neither named nor
+  counted on the company dashboard, and its own dashboard answers `404` to them, as `VER` denied does.
 - **Notices go only to the people of the task.** Whoever holds the task, or the members of its process role while
-  nobody does, the process owner, and for a case whoever opened it. The notification center drops inactive people,
-  and a notice carries ids, not text: the e-mail says which process and links to the case.
+  nobody does, the process owner, and for a case whoever opened it. The notification center drops inactive people
+  and anyone outside the store, and a notice carries ids, not text: the e-mail says which process and links to the
+  case. A test-mode case (a simulation) notifies nobody.
 - **Exactly once, also with two instances.** The scheduler runs under ShedLock, and each deadline moves with an update
-  that only matches the state it read, so a second pass, or a second instance, writes nothing and notifies nobody. The
+  that only matches the state it read, so a second pass, or a second instance, writes nothing and notifies nobody; a
+  test runs two sweeps at the same time on the same overdue task and gets one line and one notice per person. The
   update does not touch the optimistic version, so nobody completing the task gets a `409` because of it.
 - **Audit trail.** A reassignment by escalation (`TAREA_ESCALADA`, the system as actor). Saving a deadline or an
   escalation is an edit of the draft and goes to the process history. The state changes and the notices are in the case
@@ -460,7 +464,8 @@ What PR 71 adds, against the checklist every resource goes through ([ADR-0075](a
   caps of a timer, so a deadline cannot ask the calendar for a count it cannot finish.
 - **What arrives from a file.** A BPMN file can name any user id as the supervisor; it is never trusted, and the engine
   looks it up in the case's store when the timer fires. A deadline outside its cap or an unknown unit is left out on
-  import with a note.
+  import with a note, and `REASIGNAR` on a boundary of an activity that is not a user task becomes `AVISAR`, with a
+  note, as the API would require.
 
 ## Comments and notifications
 

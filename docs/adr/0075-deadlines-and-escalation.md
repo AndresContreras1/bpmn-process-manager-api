@@ -26,16 +26,20 @@ escalate a task that waits too long; and to measure, afterwards, how often deadl
   a node has one.
 - **When a deadline is due.** When a case reaches a user task, or opens through a start event, the engine counts the
   deadline from that moment. Hours are added to the instant, so a clock change does not stretch or shrink them;
-  business days are working days of the PR 68 calendar (`CalendarioLaboral.sumarHoras`): two business days from a
+  business days are working days of the PR 68 calendar (`CalendarioLaboral.sumarDias`): two business days from a
   Friday at three are the next Tuesday at three, skipping the weekend and any holiday. The task, or the case, keeps
   `vence_en` and `aviso_en` (UTC) in production, or `vence_tick` and `aviso_tick` in test mode, where a tick is an hour
   like for a timer and a business day is as many ticks as the working day has hours. `aviso_*` is where the last quarter
-  of the deadline starts. The deadline goes into the timeline (`"Review refund" vence el 2026-07-14 15:00
-  (America/Bogota)`). A calendar that cannot count it arms none, and the timeline says so; the case goes on.
+  of the deadline starts. The line that creates the task, or opens the case, says when it is due (`"Review refund"
+  queda en la bandeja … Vence el 2026-07-14 15:00 (America/Bogota).`), so the timeline gets no second line for it. A
+  calendar that cannot count it arms none, and the same line says so; the case goes on.
 - **Three states that only move forward.** `estado_plazo` is `A_TIEMPO`, `POR_VENCER` (from `aviso_*`) or `VENCIDA`
   (from `vence_*`). A sweep moves them while the task waits, or the case is open or in error: in production a scheduler
   under ShedLock every `PLAZOS_REPASO` (one minute), across stores, each one in its store's scope and its own
-  transaction; in test mode the store's tick, after its messages and timers. When a task is completed, or a case
+  transaction; in test mode the store's tick, after its messages and timers. A production pass reads batches of 100
+  by id, each one after the last id it saw, until a batch comes back short or the pass has run five minutes (below the
+  ten-minute lock): a backlog after the API was down clears in one pass, and a row that fails on every pass does not
+  hold back the ones after it. When a task is completed, or a case
   finishes, its state is set from the clock at that moment, so one completed after its deadline stays `VENCIDA` even if
   the sweep had not passed yet; a cancelled or failed case is not measured.
 - **Each notice exactly once.** The sweep reads the row, computes the state the clock gives it, and writes it with a
@@ -52,7 +56,9 @@ escalate a task that waits too long; and to measure, afterwards, how often deadl
   words are in Spanish, English and French. A task's notice goes to whoever holds it, or, while it waits in its role
   tray, to the members of that role, and to the process owner (`procesos.dueno_id`); a case's, to whoever opened it and
   the owner. The system is the author, so nobody is left out for having caused it, and the notification center still
-  drops inactive people.
+  drops inactive people. A test-mode case, a simulation of a draft or of a published version, notifies nobody: its
+  deadlines run in ticks and concern no real customer, so an e-mail about them would reach people who are not testing
+  anything. Its timeline still records each change, which is where whoever runs the simulation looks.
 - **Escalation is the boundary timer of PR 68.** An interrupting boundary timer already takes the task out and the
   case follows the boundary's path. A non-interrupting one, which until now only opened its path, can also escalate:
   `PUT /eventos/{id}/escalamiento` saves `AVISAR` (notify) or `REASIGNAR` (hand the task over) and the supervisor
@@ -67,12 +73,22 @@ escalate a task that waits too long; and to measure, afterwards, how often deadl
   - Without a supervisor and without an owner the timeline says there was nobody to escalate to.
   A cycle escalates every time it fires. The boundary's own expression says when (`PT6H`, a business duration, a
   cycle), independent of the deadline.
+
+  `REASIGNAR` needs a user task, and the model keeps it that way after it is saved: the activity service refuses to
+  change the type of an activity a `REASIGNAR` boundary hangs from, and the event service refuses to attach such a
+  boundary to an activity of another type (`409` both). The importer turns a `REASIGNAR` boundary on another kind of
+  activity into `AVISAR` for the same supervisor, with a note.
 - **Compliance in the dashboard.** `GET /procesos/{id}/tablero` and `GET /empresas/actual/tablero` gain `cumplimiento`:
   tasks on time and late in total, by process, by activity and by person, and whole cases on time and late. A task
   counts once its outcome is known: on time if completed before its deadline, late if completed after it or still
   waiting past it. A task still on time and waiting, an omitted one, one without a deadline or a test run does not
   count. By person is whoever completed it, or holds it while it waits overdue. Four grouped queries, so the
   dashboard costs ten queries however many cases there are.
+- **Only what the caller may see.** The company dashboard is open to every role, and compliance names processes and
+  activities. The four queries take the caller's PR 60 visibility (hidden folders, hidden processes and the processes a
+  grant of their own shows anyway) in the same `WHERE`, so a process a grant hides is neither named nor counted in the
+  totals. The per-process dashboard first asks whether the process belongs to the store: another store's id, or one
+  that does not exist, answers `404`, which costs one more query (eleven).
 - **Inboxes by due date.** Every inbox of PR 70 is ordered by `vence_en`, then by `vence_tick` (test runs), then the
   tasks without a deadline, oldest first. Tasks and cases answer `venceEn`, `venceTick` and `estadoPlazo`.
 - **In BPMN.** `bpm:plazo` (`cantidad`, `unidad`) goes in the `extensionElements` of a `userTask` or a `startEvent`,
@@ -89,6 +105,8 @@ escalate a task that waits too long; and to measure, afterwards, how often deadl
   the inbox and the dashboard read it.
 - The process owner, set in the PR 59 filing, becomes who hears about late work by default; a process without an owner
   only tells the people of the task.
+- The older blocks of the company dashboard (cases by state, cycle time, trays, messages) are counts without names,
+  and stay over every process of the store; only the compliance block is filtered by what the caller may see.
 - The web shows the new timeline lines and keeps the new BPMN elements when saving; editing deadlines and escalation in
   the modeler and showing due dates in the tray belong to the work portal and the form designer screens (plan F23 and
   F24). The API is complete.
@@ -105,13 +123,19 @@ escalate a task that waits too long; and to measure, afterwards, how often deadl
   `TableroServiceImplTest`, `PlazoDelNodoServiceImplTest`, `CorreosDeNotificacionesTest` and
   `NotificacionServiceImplTest`: each rule with mocks.
 - `MotorConPlazosTest` (PostgreSQL): the engine arms each deadline, the sweep moves them with the real queries and the
-  conditional update and notifies once, a stale save does not put a state back, a test case moves with ticks, the
-  inbox order, both escalation kinds and the interrupting boundary, and the compliance queries against tasks and cases
-  counted by hand.
-- `PlazoBpmnTest` (schema, round trip, notes), `AplicacionDelModeloTest`, `HuellaDelDiagramaTest`,
+  conditional update and notifies once; the conditional update of a task and of a case called twice (one row, then
+  none), from another store, and after the task was completed or the case finished; a stale save of a task or of a
+  case that does not put a state back; a test case that moves with ticks and notifies nobody; the inbox order, both
+  escalation kinds and the interrupting boundary; and the compliance queries against tasks and cases of two processes
+  counted by hand, with the process filter, a draft's test run left out and the visibility of a hidden process or
+  folder.
+- `PlazoBpmnTest` (schema, round trip, notes, `REASIGNAR` on a non-user activity), `AplicacionDelModeloTest`, `HuellaDelDiagramaTest`,
   `GrafoDeVersionTest`, `ActividadServiceTest` and `EventoServiceTest`.
 - `PlazosIntegracionTest`: saving deadlines and escalation by HTTP (roles, `400`, `409`, `404` for another store),
   a production case from start to end with a clock moved by hand (due soon, escalated to the supervisor, overdue,
-  each notice once in the notification table, completed late, counted late in the dashboard), the inbox order with a
-  test run, and row-level security on the deadlines and the notices.
+  each notice once in the notification table, completed late, counted late in the dashboard), a task completed after
+  its deadline before any sweep counted late, two sweeps at the same time on the same overdue task (both read it, a
+  session outside the pool holds the row until both wait, and exactly one line and one notice per person come out),
+  the company dashboard of a reader a grant hides the process from, another store's process dashboard answering `404`,
+  the inbox order with a test run, and row-level security on the deadlines and the notices.
 - `AutorizacionPorRolTest` and `ReglaDeRecursoTest`: the three new routes.

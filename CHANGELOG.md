@@ -19,7 +19,8 @@ tagged. Each pull request adds its line under *Unreleased*.
   and a supervisor) or `REASIGNAR` (hand the task to the supervisor, audited as `TAREA_ESCALADA`); the supervisor is a
   named administrator or editor, or the process owner. Carried in BPMN as `bpm:escalamiento`.
 - Compliance with deadlines in the dashboard (`cumplimiento`): tasks on time and late in total, per process, per
-  activity and per person, and whole cases. Inboxes are ordered by due date.
+  activity and per person, and whole cases, over the processes the caller may see. Inboxes are ordered by due date.
+  The dashboard of another store's process answers `404`.
 - Assignment of user tasks: to the tray of the lane's role (the default), to a fixed person, to whoever opened the case
   or to the person a case variable names, such as a `PERSONA` field of an earlier form. `PUT
   /actividades/{id}/asignacion` saves the rule; it is frozen in the version, travels in BPMN as `bpm:asignacion` and
