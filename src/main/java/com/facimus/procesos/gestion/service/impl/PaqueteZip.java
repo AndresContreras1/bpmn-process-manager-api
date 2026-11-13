@@ -36,8 +36,6 @@ final class PaqueteZip implements Paquete, AutoCloseable {
     /** Lo que mide una ruta como mucho, lo que aceptan los sistemas de archivos de siempre. */
     static final int LARGO_MAXIMO_DE_RUTA = 255;
 
-    /** Lo que una hoja de calculo leeria como el comienzo de una formula (OWASP, CSV injection). */
-
     private static final byte[] APERTURA = "[".getBytes(StandardCharsets.UTF_8);
     private static final byte[] SALTO = "\n".getBytes(StandardCharsets.UTF_8);
     private static final byte[] SEPARADOR = ",\n".getBytes(StandardCharsets.UTF_8);
