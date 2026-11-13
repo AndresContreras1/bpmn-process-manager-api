@@ -115,12 +115,18 @@ export function fichaConCarpeta(proceso: Proceso, carpetaId: number | null): Fic
   };
 }
 
-/** Lo que el formulario de crear deja archivar de entrada. */
+/** Lo que el formulario de crear deja archivar de entrada: el dueno solo lo elige un administrador. */
 export interface ArchivoInicial {
   carpetaId: number | null;
+  duenoId: number | null;
+  proximaRevision: string;
   clasificacion: Clasificacion;
   etiquetas: string;
 }
+
+/** Los mismos limites que valida la API en PUT /procesos/{id}/ficha. */
+export const MAXIMO_DE_ETIQUETAS = 10;
+export const LARGO_MAXIMO_DE_ETIQUETA = 40;
 
 /** Las etiquetas escritas separadas por comas, sin las vacias ni las repetidas. */
 export function leerEtiquetas(texto: string): string[] {
@@ -131,23 +137,67 @@ export function leerEtiquetas(texto: string): string[] {
   return [...new Set(etiquetas)];
 }
 
+/** Que tienen de mas las etiquetas escritas: null si la API las va a aceptar. */
+export type FaltaEnEtiquetas = 'demasiadas' | 'larga';
+
 /**
- * La ficha de un proceso recien creado, o null si no hay nada que archivar: sin carpeta, interno y sin etiquetas es
- * como nace cualquier proceso, y entonces no hace falta una segunda peticion.
+ * La regla de la API dicha antes de enviar: como mucho diez etiquetas y de cuarenta caracteres cada una. Al crear,
+ * la ficha va en una segunda peticion, y un 400 ahi dejaria el proceso creado sin archivar.
+ */
+export function faltaEnEtiquetas(texto: string): FaltaEnEtiquetas | null {
+  const etiquetas = leerEtiquetas(texto);
+  if (etiquetas.length > MAXIMO_DE_ETIQUETAS) {
+    return 'demasiadas';
+  }
+  return etiquetas.some((etiqueta) => etiqueta.length > LARGO_MAXIMO_DE_ETIQUETA) ? 'larga' : null;
+}
+
+/**
+ * La ficha de un proceso recien creado, o null si no hay nada que archivar: sin carpeta, sin dueno, sin fecha de
+ * revision, interno y sin etiquetas es como nace cualquier proceso, y entonces no hace falta una segunda peticion.
  */
 export function fichaInicial(archivo: ArchivoInicial, proceso: Proceso): FichaRequest | null {
   const etiquetas = leerEtiquetas(archivo.etiquetas);
-  if (archivo.carpetaId === null && archivo.clasificacion === 'INTERNA' && etiquetas.length === 0) {
+  const proximaRevision = archivo.proximaRevision.trim() || null;
+  if (
+    archivo.carpetaId === null &&
+    archivo.duenoId === null &&
+    proximaRevision === null &&
+    archivo.clasificacion === 'INTERNA' &&
+    etiquetas.length === 0
+  ) {
     return null;
   }
   return {
     carpetaId: archivo.carpetaId,
-    duenoId: proceso.duenoId ?? null,
-    proximaRevision: null,
+    duenoId: archivo.duenoId ?? proceso.duenoId ?? null,
+    proximaRevision,
     clasificacion: archivo.clasificacion,
     etiquetas,
     version: proceso.version,
   };
+}
+
+/** Lo que la pagina de un proceso dice al abrirse, de lo que le paso la pantalla que la abrio. */
+export interface AvisosAlAbrir {
+  error: string | null;
+  aviso: string | null;
+}
+
+/**
+ * Los avisos que trae la direccion al llegar del formulario: creado, editado, o creado sin la ficha porque la segunda
+ * peticion fallo. Basta con el has de ParamMap, y asi se prueba sin el router.
+ */
+export function avisosAlAbrir(consulta: { has(nombre: string): boolean }): AvisosAlAbrir {
+  if (consulta.has('creado')) {
+    return {
+      aviso: $localize`Process created as a draft.`,
+      error: consulta.has('sinArchivar')
+        ? $localize`The process was created as a draft, but its filing could not be saved. Set it below.`
+        : null,
+    };
+  }
+  return { aviso: consulta.has('editado') ? $localize`Changes saved.` : null, error: null };
 }
 
 /** Nombre de cada estado en la interfaz. */

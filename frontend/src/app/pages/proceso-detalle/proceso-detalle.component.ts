@@ -8,10 +8,18 @@ import { EMPTY, Observable, catchError, finalize, forkJoin, map, of, switchMap, 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { MoverProcesoComponent } from '../../components/mover-proceso/mover-proceso.component';
 import { FichaRepositorioComponent } from './components/ficha-repositorio/ficha-repositorio.component';
-import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
+import { esConflictoDeVersion, mensajeDeError, mensajeDeLaApi } from '../../helpers/errores-api';
 import { Accion, BotonesDelProceso, botonesDelProceso } from '../../models/concesion.model';
 import { Diagrama } from '../../models/diagrama.model';
-import { EstadoProceso, NOMBRE_ESTADO, Proceso, ProcesoDetalle, cambioEnIngles } from '../../models/proceso.model';
+import {
+  AvisosAlAbrir,
+  EstadoProceso,
+  NOMBRE_ESTADO,
+  Proceso,
+  ProcesoDetalle,
+  avisosAlAbrir,
+  cambioEnIngles,
+} from '../../models/proceso.model';
 import { Version } from '../../models/version.model';
 import { AuthService } from '../../service/auth.service';
 import { ConcesionService } from '../../service/concesion.service';
@@ -81,6 +89,8 @@ export class ProcesoDetalleComponent implements OnInit {
   botones: BotonesDelProceso = botonesDelProceso(null, this.rol);
   /** Abierto el dialogo de mover de carpeta. */
   moviendo: boolean = false;
+  /** El bpmnId que trae la direccion, hasta que el diagrama llega y se elige. */
+  private elementoPedido: string | null = null;
 
   /** El archivo BPMN como descarga: la API lo manda como adjunto con el nombre del proceso, y pide EXPORTAR. */
   get enlaceBpmn(): string {
@@ -113,14 +123,14 @@ export class ProcesoDetalleComponent implements OnInit {
   aviso: string | null = null;
 
   ngOnInit(): void {
+    // Lo que trae la direccion se dice con la primera carga: antes, la carga limpia los mensajes y se lo llevaria
     const consulta: ParamMap = this.route.snapshot.queryParamMap;
-    if (consulta.has('sinArchivar')) {
-      this.error = $localize`The process was created as a draft, but its filing could not be saved. Set it below.`;
-    } else if (consulta.has('creado')) {
-      this.aviso = $localize`Process created as a draft.`;
-    } else if (consulta.has('editado')) {
-      this.aviso = $localize`Changes saved.`;
-    }
+    let alAbrir: AvisosAlAbrir | null = avisosAlAbrir(consulta);
+    // F19: la busqueda global abre un proceso con el elemento que encontro (?elemento=), tambien desde otro proceso
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((parametros: ParamMap) => {
+      this.elementoPedido = parametros.get('elemento');
+      this.elegirElPedido();
+    });
     // Si el id de la ruta cambia, switchMap cancela la peticion anterior y carga el proceso nuevo
     this.route.paramMap
       .pipe(
@@ -129,6 +139,7 @@ export class ProcesoDetalleComponent implements OnInit {
           this.cargando = true;
           this.noEncontrado = false;
           this.error = null;
+          this.aviso = null;
         }),
         switchMap((id: number) =>
           this.cargar(id).pipe(
@@ -149,6 +160,12 @@ export class ProcesoDetalleComponent implements OnInit {
       .subscribe((carga: Carga) => {
         this.mostrar(carga);
         this.cargando = false;
+        if (alAbrir) {
+          this.error = alAbrir.error;
+          this.aviso = alAbrir.aviso;
+          alAbrir = null;
+        }
+        this.elegirElPedido();
       });
   }
 
@@ -196,6 +213,20 @@ export class ProcesoDetalleComponent implements OnInit {
     }
     const nodo = [...bpmnIdsDeNodos(diagrama)].find(([, bpmnId]) => bpmnId === elegido.id);
     this.nodoElegido = nodo ? detallarNodo(diagrama, nodo[0], this.mensajes) : null;
+  }
+
+  /**
+   * El elemento que pidio la direccion, elegido una vez, cuando llega un diagrama que lo tiene; despues lo elige la
+   * persona. Si la direccion cambia antes que el proceso, el diagrama de ahora no lo tiene y se espera al siguiente.
+   */
+  private elegirElPedido(): void {
+    const pedido = this.elementoPedido;
+    if (pedido && this.diagrama && !this.cargando) {
+      this.elegirNodo({ id: pedido, tipo: '', nombre: '' });
+      if (this.nodoElegido) {
+        this.elementoPedido = null;
+      }
+    }
   }
 
   alGuardarFicha(proceso: Proceso): void {
@@ -271,7 +302,7 @@ export class ProcesoDetalleComponent implements OnInit {
           this.mostrar(carga);
           this.aviso = $localize`Version ${numero} was retired. New cases will start on whatever is in force now.`;
         },
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
       });
   }
 
@@ -290,7 +321,7 @@ export class ProcesoDetalleComponent implements OnInit {
       )
       .subscribe({
         next: () => this.router.navigate(['/procesos'], { queryParams: { eliminado: 1 } }),
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
       });
   }
 
@@ -300,7 +331,8 @@ export class ProcesoDetalleComponent implements OnInit {
    */
   private noSePudoPublicar(id: number, error: HttpErrorResponse): void {
     if (!esConflictoDeVersion(error)) {
-      this.error = mensajeDeError(error);
+      // Un 403 por una concesion que falta trae su propio motivo, que no es cuestion del rol
+      this.error = mensajeDeLaApi(error);
       return;
     }
     this.error = $localize`Someone saved a change before you, so the process was not published. This page now shows the latest version: check it and publish again.`;

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { Proceso, fichaConCarpeta, fichaInicial, leerEtiquetas } from './proceso.model';
+import {
+  Proceso,
+  avisosAlAbrir,
+  faltaEnEtiquetas,
+  fichaConCarpeta,
+  fichaInicial,
+  leerEtiquetas,
+} from './proceso.model';
 
 const proceso: Proceso = {
   id: 7,
@@ -66,13 +73,20 @@ describe('leerEtiquetas', () => {
 
 describe('fichaInicial', () => {
   const nuevo: Proceso = { ...proceso, carpetaId: null, duenoId: 2, version: 0 };
+  const vacio = {
+    carpetaId: null,
+    duenoId: null,
+    proximaRevision: '',
+    clasificacion: 'INTERNA' as const,
+    etiquetas: '',
+  };
 
-  it('sin carpeta, interno y sin etiquetas no hay nada que archivar', () => {
-    expect(fichaInicial({ carpetaId: null, clasificacion: 'INTERNA', etiquetas: ' , ' }, nuevo)).toBeNull();
+  it('sin carpeta, sin dueno, sin fecha, interno y sin etiquetas no hay nada que archivar', () => {
+    expect(fichaInicial({ ...vacio, etiquetas: ' , ', proximaRevision: ' ' }, nuevo)).toBeNull();
   });
 
-  it('con cualquiera de las tres se archiva, con la version que devolvio el alta', () => {
-    expect(fichaInicial({ carpetaId: 5, clasificacion: 'INTERNA', etiquetas: '' }, nuevo)).toEqual({
+  it('con cualquiera de las cinco se archiva, con la version que devolvio el alta', () => {
+    expect(fichaInicial({ ...vacio, carpetaId: 5 }, nuevo)).toEqual({
       carpetaId: 5,
       duenoId: 2,
       proximaRevision: null,
@@ -80,11 +94,52 @@ describe('fichaInicial', () => {
       etiquetas: [],
       version: 0,
     });
-    expect(fichaInicial({ carpetaId: null, clasificacion: 'CONFIDENCIAL', etiquetas: '' }, nuevo)?.clasificacion).toBe(
-      'CONFIDENCIAL',
-    );
-    expect(fichaInicial({ carpetaId: null, clasificacion: 'INTERNA', etiquetas: 'gdpr' }, nuevo)?.etiquetas).toEqual([
-      'gdpr',
-    ]);
+    expect(fichaInicial({ ...vacio, clasificacion: 'CONFIDENCIAL' }, nuevo)?.clasificacion).toBe('CONFIDENCIAL');
+    expect(fichaInicial({ ...vacio, etiquetas: 'gdpr' }, nuevo)?.etiquetas).toEqual(['gdpr']);
+    expect(fichaInicial({ ...vacio, proximaRevision: '2027-03-01' }, nuevo)?.proximaRevision).toBe('2027-03-01');
+    expect(fichaInicial({ ...vacio, duenoId: 9 }, nuevo)?.duenoId).toBe(9);
+  });
+
+  it('sin dueno elegido se queda el que devolvio el alta', () => {
+    expect(fichaInicial({ ...vacio, carpetaId: 5 }, { ...nuevo, duenoId: null })?.duenoId).toBeNull();
+    expect(fichaInicial({ ...vacio, carpetaId: 5 }, nuevo)?.duenoId).toBe(2);
+  });
+});
+
+describe('faltaEnEtiquetas', () => {
+  it('diez etiquetas de cuarenta caracteres pasan, como en la API', () => {
+    const diez = Array.from({ length: 10 }, (_, i) => `${i}`.padEnd(40, 'x')).join(',');
+    expect(faltaEnEtiquetas(diez)).toBeNull();
+    expect(faltaEnEtiquetas('')).toBeNull();
+  });
+
+  it('la undecima sobra, y las repetidas no cuentan', () => {
+    const once = Array.from({ length: 11 }, (_, i) => `t${i}`).join(',');
+    expect(faltaEnEtiquetas(once)).toBe('demasiadas');
+    expect(faltaEnEtiquetas(Array.from({ length: 11 }, () => 'igual').join(','))).toBeNull();
+  });
+
+  it('una de cuarenta y un caracteres es larga, contada sin los espacios de los bordes', () => {
+    expect(faltaEnEtiquetas(`gdpr, ${'x'.repeat(41)}`)).toBe('larga');
+    expect(faltaEnEtiquetas(`  ${'x'.repeat(40)}  `)).toBeNull();
+  });
+});
+
+describe('avisosAlAbrir', () => {
+  const consulta = (...nombres: string[]) => ({ has: (nombre: string) => nombres.includes(nombre) });
+
+  it('creado avisa del borrador', () => {
+    expect(avisosAlAbrir(consulta('creado'))).toEqual({ aviso: 'Process created as a draft.', error: null });
+  });
+
+  it('creado sin archivar avisa del borrador y dice que la ficha quedo por hacer', () => {
+    const avisos = avisosAlAbrir(consulta('creado', 'sinArchivar'));
+    expect(avisos.aviso).toBe('Process created as a draft.');
+    expect(avisos.error).toContain('filing could not be saved');
+  });
+
+  it('editado dice que se guardo, y sin nada no dice nada', () => {
+    expect(avisosAlAbrir(consulta('editado'))).toEqual({ aviso: 'Changes saved.', error: null });
+    expect(avisosAlAbrir(consulta())).toEqual({ aviso: null, error: null });
   });
 });
