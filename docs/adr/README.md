@@ -60,3 +60,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0066 | [Documentation in Markdown and the process manual](0066-documentation-and-process-manual.md) | Accepted |
 | 0068 | [Backups with pgBackRest and a monthly restore drill](0068-backup-and-restore.md) | Accepted |
 | 0072 | [Business calendar, timers and the two modes of a case](0072-business-calendar-and-timers.md) | Accepted |
+| 0073 | [Typed forms frozen in the version](0073-typed-forms.md) | Accepted |

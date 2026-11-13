@@ -358,6 +358,28 @@ What PR 68 adds, against the checklist every resource goes through ([ADR-0072](a
 - **Test runs stay apart from real orders.** An incoming message never correlates with a test-run case, and the
   dashboard and the open-cases gauge do not count them.
 
+## Typed forms
+
+What PR 69 adds, against the checklist every resource goes through ([ADR-0073](adr/0073-typed-forms.md)):
+
+- **Row-level security.** A form is a column of `nodos_flujo` (V59), which already has the store's policy; the answers
+  are case variables. A test reads and updates the forms as another store and sees nothing.
+- **IDOR.** Saving the form of another store's activity or event, reading the start form of its process, and reading
+  the form of its task or completing that task answer `404`.
+- **Who.** Saving a form is modeling the element (`MODELAR`, administrators and editors, the route matrix); anyone
+  reads it, like the diagram. Completing a task or opening a case keeps its rules.
+- **Audit trail.** Saving or removing a form is an edit of the draft: it goes to the process history, like every other
+  edit of the model, not to the audit trail.
+- **Rate limit and quota.** The general limit on changes. A form has up to 100 fields and a list up to 200 options, a
+  condition up to 1,000 characters and a pattern up to 200.
+- **What a user writes cannot hang the server.** A pattern is evaluated with RE2/J, in time linear in the text, and the
+  one costly part left, compiling nested counted repetitions, is refused before compiling. Conditions are the gateway
+  grammar, which runs no code. A number is read within fifteen integer digits and six decimals, so a limit such as
+  `1E+999999999` is refused instead of written out. The server is the one that decides on every answer: a key the form
+  does not ask for, or one of a hidden field, never reaches the case variables.
+- **References.** A person field takes only an active user of the store; a file field, only a document of the same
+  process whose latest version passed the antivirus.
+
 ## Rate limiting
 
 Every request that changes something spends a token of a bucket (Bucket4j) before it reaches anything. Each bucket

@@ -20,7 +20,7 @@ entries in Spanish.
 | `RolProceso` | Process role | Store | Name and description |
 | `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag, order and the kind of partner behind it (`integracion`) |
 | `Lane` | Lane | Pool | Process role and order |
-| `Actividad` · `Gateway` · `Evento` | Flow nodes | Lane | Name and position on the canvas. Activities add a description and a type (`USUARIO`, `SERVICIO`, `ENVIO` or `RECEPCION`), gateways a type (`EXCLUSIVO`, `PARALELO` or `INCLUSIVO`), and events a type (`INICIO`, `FIN`, `MENSAJE_INICIO`, `MENSAJE_INTERMEDIO` or `MENSAJE_FIN`). |
+| `Actividad` · `Gateway` · `Evento` | Flow nodes | Lane | Name and position on the canvas. Activities add a description and a type (`USUARIO`, `SERVICIO`, `ENVIO` or `RECEPCION`), gateways a type (`EXCLUSIVO`, `PARALELO` or `INCLUSIVO`), and events a type (`INICIO`, `FIN`, `MENSAJE_INICIO`, `MENSAJE_INTERMEDIO` or `MENSAJE_FIN`). A user activity and a plain start event can carry a typed form (`Formulario`): its fields, in the order they are filled. |
 | `Arco` | Sequence flow | Pool | Source node, target node, label and condition |
 | `Mensaje` | Message flow | Process | Sending and receiving pool, content, the nodes it is anchored to, how it travels (`CORREO`, `SERVICIO_WEB`, `COLA`), what the process does if it fails (`CONTINUAR`, `MANEJAR_ERROR`, `FINALIZAR`), the fields it carries, the name its body takes among the case variables, and the message that answers it |
 | `Correlacion` | Correlation key | Message | The criterion that correlates the message, the field of the body that carries it, and what to do with a message that matches no open case |
@@ -61,8 +61,15 @@ say whether they wait a calendar duration, a business duration (`DURACION_HABIL`
 business calendar (`calendarios`, with its changes to the holidays in `festivos`) is what business time is counted with
 ([ADR-0072](adr/0072-business-calendar-and-timers.md)).
 
+A form is a value of its node, not an entity: the JSON column `nodos_flujo.formulario`, frozen with the rest of the
+diagram in the definition of each version. Its fields (`CampoDeFormulario`) have a name, a label, one of twelve types
+and the validations and conditions that type admits ([ADR-0073](adr/0073-typed-forms.md)); the answers of a case are
+not stored apart, they are its variables.
+
 ## Modeling rules
 
+- Only a person fills a form: only a user activity or a plain start event carries one, and a node with a form
+  cannot change to another type while it has it. A condition of a field reads only the fields above it.
 - A sequence flow joins two different nodes of the same pool, so it never crosses pools. There is at most one
   sequence flow from one node to another.
 - A process starts at a start event and ends at an end event: no sequence flow arrives at a start event, and none

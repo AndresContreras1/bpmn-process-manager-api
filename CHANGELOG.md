@@ -8,6 +8,15 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Typed forms on user tasks and plain start events: text, long text, number, money, date, date and time, yes/no,
+  list, multiple list, person, file and section, with required, minimum and maximum, length and a pattern evaluated
+  with RE2/J in linear time (nested counted repetitions are capped before compiling). Fields show and become required
+  by conditions in the gateway grammar, which the server compiles into a JSON tree for the web to walk, and take a
+  default from a case variable. `PUT /actividades/{id}/formulario` and `PUT /eventos/{id}/formulario` save a form;
+  `GET /tareas/{id}/formulario` and `GET /procesos/{id}/formulario-de-inicio` read it. The form is frozen in the
+  version, travels in BPMN as `bpm:formulario` and comes back on import, and the diagnosis checks it as `E-22`.
+  Completing a task or opening a case validates the answers against the version's form (`400` with `errors` per
+  field) and stores them with their types under `tarea.<name>`.
 - A business calendar per organization: country (Colombia, United States, France or Australia), time zone, working
   hours and working days, with each country's public holidays computed (Ley 51 de 1983 and Easter for Colombia, the
   federal ones with their observed day, the French jours feries, the Australian national ones with their additional
@@ -167,6 +176,8 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- Free key-value data, when completing a task or opening a case without a form, is taken only in `PRUEBA` mode; a
+  `PRODUCCION` case answers `400` for each key, and its variables are corrected with `PATCH /casos/{id}/variables`.
 - `E-18` no longer stops an executable process from publishing a timer: it now flags a cycle on a timer that fires only
   once. A case step keeps a subtype of up to 30 characters, so `TEMPORIZADOR_INTERMEDIO` fits.
 - The README and the guides cover BPMN files, the bpmn-js modeler, editing together, the process repository and

@@ -62,6 +62,15 @@ evaluates that gateway again. A case can also be cancelled, which switches off i
 declares, the body of every message received. `caso.referencia` and `caso.tick` are always readable and come from
 the case itself.
 
+**Forms.** A user task or a plain start event can ask for its data with a typed form, frozen in the version
+([ADR-0073](adr/0073-typed-forms.md)). Then what a task hands over, or what a case opens with, are the answers to that
+form: the server walks it from the top, drops the fields a condition hides, refuses a key it does not ask for, checks
+each answer against its type and its rules, and answers `400` with an error per field when one fails. What passes lands
+with its type, so `tarea.approveRefund.aprobado == true` compares a boolean and `tarea.approveRefund.monto > 100` a
+number. Without a form, free key-value data is for test cases only: a `PRODUCCION` case refuses it, and its variables
+are corrected with `PATCH /api/v1/casos/{id}/variables`. `GET /api/v1/tareas/{id}/formulario` answers the form with the
+values offered from the case and its conditions already compiled.
+
 **Whose tray.** A task is born with the process role of its lane, and `GET /tareas?rolProcesoId=2` is the tray of
 that role. An administrator can also say which roles each person belongs to, with
 `PUT /usuarios/{id}/roles-proceso` and the whole list, and then `GET /tareas?mias=true` answers only the tasks of

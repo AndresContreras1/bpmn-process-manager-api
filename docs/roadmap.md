@@ -105,6 +105,9 @@
 - [x] Timers that run (waits, boundary timers and timer starts) on the wall clock and a business calendar per
       organization with the public holidays of Colombia, the United States, France and Australia; test cases keep the
       ticks, and a draft can be tried without publishing it (PR 68)
+- [x] Typed forms on user tasks and start events, frozen in the version and carried in BPMN: twelve field types,
+      RE2 patterns, conditions the server compiles for the web, and every answer checked by the server (PR 69)
+- [ ] The form designer in the modeler and the form a person fills in the web (F23)
 
 **Beyond the model**
 - [x] Deterministic diagnosis of a diagram, with its own catalogue of errors and warnings and a what-if for a deletion

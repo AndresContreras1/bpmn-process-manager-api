@@ -27,6 +27,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Activities | `GET, POST /api/v1/lanes/{laneId}/actividades` · `GET, PUT, DELETE /api/v1/actividades/{id}` |
 | Gateways | `GET, POST /api/v1/lanes/{laneId}/gateways` · `GET, PUT, DELETE /api/v1/gateways/{id}` |
 | Events | `GET, POST /api/v1/lanes/{laneId}/eventos` · `GET, PUT, DELETE /api/v1/eventos/{id}` |
+| Forms | `PUT /api/v1/actividades/{id}/formulario` · `PUT /api/v1/eventos/{id}/formulario` · `GET /api/v1/procesos/{procesoId}/formulario-de-inicio` · `GET /api/v1/tareas/{id}/formulario` |
 | Sequence flows | `POST /api/v1/arcos` · `GET /api/v1/pools/{poolId}/arcos` · `GET, PUT, DELETE /api/v1/arcos/{id}` |
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
 | Correlation keys | `GET, PUT /api/v1/mensajes/{mensajeId}/correlacion` |
@@ -206,6 +207,71 @@ to pass the diagnosis (`409` with the errors), and whoever asks needs `MODELAR` 
 listed with the others and their tasks reach the trays, so whoever tests can walk each path; incoming messages never
 correlate with them, and the dashboard does not count them. How the timers work is
 in [ADR-0072](adr/0072-business-calendar-and-timers.md) and [Execution](execution.md).
+
+## Typed forms
+
+A user task and a plain start event can carry a form. `PUT /api/v1/actividades/{id}/formulario` (or
+`/eventos/{id}/formulario`) replaces it whole with the node's `version`; `"campos": []` removes it. Administrators and
+editors, with `MODELAR` on the process:
+
+```json
+{ "version": 3, "campos": [
+  { "nombre": "aprobado", "etiqueta": "Approved?", "tipo": "SI_NO", "requerido": true },
+  { "nombre": "monto", "etiqueta": "Amount", "tipo": "MONEDA", "moneda": "COP", "maximo": 5000000,
+    "porDefecto": "order.total", "requeridoSi": "aprobado == true" },
+  { "nombre": "motivo", "etiqueta": "Why not", "tipo": "TEXTO_LARGO", "visibleSi": "aprobado == false" },
+  { "nombre": "codigo", "etiqueta": "Code", "tipo": "TEXTO", "patron": "[A-Z]{3}-[0-9]{4}", "largoMaximo": 8 },
+  { "nombre": "canal", "etiqueta": "Channel", "tipo": "LISTA",
+    "opciones": [ { "valor": "WEB", "etiqueta": "Web" }, { "valor": "TIENDA", "etiqueta": "Store" } ] } ] }
+```
+
+Each field has a `nombre` (the variable it fills: a letter, then letters, digits or `_`, up to 60, unique and not
+`and`, `or`, `not`, `true`, `false`, `caso` or `tarea`), an `etiqueta`, a `tipo` (`TEXTO`, `TEXTO_LARGO`, `NUMERO`,
+`MONEDA`, `FECHA`, `FECHA_HORA`, `SI_NO`, `LISTA`, `LISTA_MULTIPLE`, `PERSONA`, `ARCHIVO` or `SECCION`) and an optional
+`ayuda`. What each type admits:
+
+| Property | Types | Meaning |
+|---|---|---|
+| `requerido`, `requeridoSi` | every type but `SECCION` | Must be answered while visible; `requeridoSi` is a condition |
+| `minimo`, `maximo` | `NUMERO`, `MONEDA`, `LISTA_MULTIPLE` | The value, or how many options are chosen |
+| `largoMinimo`, `largoMaximo` | `TEXTO` (up to 1000), `TEXTO_LARGO` (up to 10000) | Characters, counted as people count them |
+| `patron` | `TEXTO`, `TEXTO_LARGO` | An RE2 expression the whole text matches, up to 200 characters |
+| `desde`, `hasta` | `FECHA`, `FECHA_HORA` | ISO 8601 limits, both included |
+| `moneda` | `MONEDA` | ISO 4217 code; it sets the decimals (two without one) |
+| `opciones` | `LISTA`, `LISTA_MULTIPLE` | 1 to 200, each with a unique `valor` and an `etiqueta` |
+| `porDefecto` | every type but `SECCION` | A case variable whose value is offered, such as `order.total` |
+| `visibleSi` | every type | A condition; on a section it hides every field up to the next section |
+
+Conditions use the [gateway grammar](execution.md#running-a-process) and read the case variables and the fields above
+by name. A form that is not well built answers `400` with each property in `errors` (`campos[1].patron`, with a
+back-reference or a repetition that grows too much refused); a form on another kind of node, `409`. Every answer that
+carries a form — the activity or event, the diagram, a version's diagram and the two reads below — brings each condition
+compiled next to its text, for the web to evaluate without parsing it:
+
+```json
+"visibleSiArbol": { "tipo": "Y", "partes": [
+  { "tipo": "COMPARACION", "partes": [], "ruta": "aprobado", "operador": "==", "valor": false },
+  { "tipo": "NO", "partes": [ { "tipo": "COMPARACION", "partes": [], "ruta": "order.vip", "operador": "==", "valor": true } ] } ] }
+```
+
+`GET /api/v1/tareas/{id}/formulario` answers the form frozen in the version of the task's case, the `valores` offered
+in each field and the case `variables` the conditions read. `GET /api/v1/procesos/{id}/formulario-de-inicio` answers
+the start form of the version in force (`404` without one). Any role reads both.
+
+`POST /api/v1/tareas/{id}/completar` and `POST /api/v1/procesos/{id}/casos` check `datos` and `variables` against that
+form. A wrong answer is a `400` with the field under its body property, and nothing is saved:
+
+```json
+{ "title": "Validación fallida", "status": 400, "detail": "Las respuestas no cumplen el formulario.",
+  "errors": { "datos.aprobado": "Es true o false.", "datos.monto": "Debe ser como mucho 5000000.",
+              "datos.cupon": "No es un campo de este formulario." } }
+```
+
+What passes is stored with its type under `tarea.<taskNameInCamel>`: numbers as numbers, yes/no as a boolean, dates as
+ISO 8601 text, a multiple list as a list, a person or a file as its id (an active person of the store; a document of
+the process whose latest version is available). A hidden field is dropped. Without a form, free key-value data is
+taken only by a `PRUEBA` case; a `PRODUCCION` one answers `400` for each key. The form also travels in BPMN as
+`bpm:formulario` ([ADR-0073](adr/0073-typed-forms.md)).
 
 ## Permissions
 
