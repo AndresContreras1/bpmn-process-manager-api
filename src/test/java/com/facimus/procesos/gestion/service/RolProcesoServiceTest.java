@@ -32,6 +32,7 @@ import com.facimus.procesos.gestion.mapper.RolProcesoMapper;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.repository.PoliticaPublicacionRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
 import com.facimus.procesos.gestion.service.impl.RolProcesoServiceImpl;
 
@@ -44,6 +45,8 @@ class RolProcesoServiceTest {
     private EmpresaRepository empresaRepository;
     @Mock
     private UsoDeRoles usoDeRoles;
+    @Mock
+    private PoliticaPublicacionRepository politicaRepository;
 
     @Spy
     private RolProcesoMapper rolProcesoMapper = Mappers.getMapper(RolProcesoMapper.class);
@@ -92,6 +95,24 @@ class RolProcesoServiceTest {
                 () -> rolProcesoService.eliminar(1L, 10L, 5L));
 
         verify(rolProcesoRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("PR 64: el rol de quienes aprueban en la politica de publicacion no se elimina, aunque no lo use ningun "
+            + "proceso")
+    void eliminar_rol_de_la_politica() {
+        when(rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, 1L)).thenReturn(Optional.of(rol));
+        when(usoDeRoles.procesosQueLoUsan(1L, 5L)).thenReturn(List.of());
+        when(politicaRepository.existsByEmpresaIdAndRolProcesoId(1L, 5L)).thenReturn(true);
+
+        ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
+                () -> rolProcesoService.eliminar(1L, 10L, 5L));
+
+        assertEquals("El rol \"Analista\" es el de quienes aprueban en la política de publicación: cámbiala antes de "
+                + "eliminarlo.", error.getMessage());
+        assertTrue(rol.isActivo());
+        verify(rolProcesoRepository, never()).save(any());
+        verify(historialCambioService, never()).registrarDeTienda(any(), any(), any(), any(), anyString());
     }
 
     @Test

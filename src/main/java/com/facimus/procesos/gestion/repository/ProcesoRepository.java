@@ -103,6 +103,23 @@ public interface ProcesoRepository extends RepositorioTenant<Proceso>, JpaSpecif
     int anotarAvisos(@Param("id") Long id, @Param("empresaId") Long empresaId, @Param("revision") LocalDate revision,
             @Param("vencida") LocalDate vencida);
 
+    /**
+     * PR 64: publica una version aprobada en una solicitud, con la misma idea que {@link #anotarAvisos}: quien dio la
+     * ultima aprobacion no cambio el proceso, asi que no sube su version ni lo deja modificado por nadie.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query(value = "update procesos set estado = 'PUBLICADO', version_publicada = :numero, huella_publicada = :huella "
+            + "where id = :id and empresa_id = :empresaId", nativeQuery = true)
+    int anotarPublicacion(@Param("id") Long id, @Param("empresaId") Long empresaId, @Param("numero") int numero,
+            @Param("huella") String huella);
+
+    /** PR 64: mueve la proxima revision de un proceso que se confirmo vigente, tambien sin darlo por modificado. */
+    @Modifying(flushAutomatically = true)
+    @Query(value = "update procesos set proxima_revision = :fecha where id = :id and empresa_id = :empresaId",
+            nativeQuery = true)
+    int anotarRecertificacion(@Param("id") Long id, @Param("empresaId") Long empresaId,
+            @Param("fecha") LocalDate fecha);
+
     /** PR 59: las etiquetas en uso, para sugerirlas. */
     @Query(value = """
             select distinct etiqueta from procesos, unnest(etiquetas) as etiqueta

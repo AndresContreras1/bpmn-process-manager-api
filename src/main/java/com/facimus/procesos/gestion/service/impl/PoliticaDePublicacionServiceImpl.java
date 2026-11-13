@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -21,6 +22,7 @@ import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Accion;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.PoliticaDePublicacionResponse;
 import com.facimus.procesos.gestion.dto.response.PoliticaDePublicacionResponse.Aprobador;
 import com.facimus.procesos.gestion.event.UsuarioAnonimizado;
@@ -56,6 +58,8 @@ public class PoliticaDePublicacionServiceImpl implements PoliticaDePublicacionSe
 
     private static final String APROBADORES = "aprobadores";
     private static final String NO_ES_DE_LA_TIENDA = "No es una persona activa de la organización.";
+    private static final String SOLO_LEE = "Es de solo lectura: no puede aprobar.";
+    private static final Set<Accion> PARA_APROBAR = EnumSet.of(Accion.VER, Accion.APROBAR);
 
     private final PoliticaPublicacionRepository politicaRepository;
     private final RolProcesoRepository rolProcesoRepository;
@@ -90,27 +94,43 @@ public class PoliticaDePublicacionServiceImpl implements PoliticaDePublicacionSe
         }
         int necesarias = datos.aprobacionesNecesarias() == null ? 1 : datos.aprobacionesNecesarias();
         List<Long> aprobadores = datos.aprobadores().stream().distinct().toList();
-        validar(empresaId, datos.modo(), necesarias, datos.rolProcesoId(), aprobadores);
+        Long rolProcesoId = datos.rolProcesoId();
+        if (rolProcesoId != null && !aprobadores.isEmpty()) {
+            throw new SolicitudInvalidaException("Los aprobadores salen de una lista o de un rol de proceso, no de los "
+                    + "dos.");
+        }
+        if (datos.modo() == ModoDePublicacion.CON_APROBACION) {
+            validar(empresaId, necesarias, rolProcesoId, aprobadores);
+        } else {
+            // Apagarla no depende de quienes aprobaban: quien ya no puede aprobar, o un rol que ya no esta, se
+            // descarta sin error, y lo demas se guarda para volver a encenderla igual
+            Set<Long> pueden = idsDe(quienesAprueban(empresaId, aprobadores));
+            aprobadores = aprobadores.stream().filter(pueden::contains).toList();
+            if (rolProcesoId != null
+                    && rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(rolProcesoId, empresaId).isEmpty()) {
+                rolProcesoId = null;
+            }
+        }
 
         ModoDePublicacion antes = politica.getModo();
         politica.setModo(datos.modo());
         politica.setAprobacionesNecesarias(necesarias);
-        politica.setRolProcesoId(datos.rolProcesoId());
+        politica.setRolProcesoId(rolProcesoId);
         politica.setAprobadores(new ArrayList<>(aprobadores));
         politica = politicaRepository.saveAndFlush(politica);
 
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
                 politica.conAprobacion()
                         ? "Publicación con aprobación: " + necesarias + (necesarias == 1 ? " aprobación" : " aprobaciones")
-                                + (datos.rolProcesoId() == null ? " de una lista de personas." : " de un rol de proceso.")
+                                + (rolProcesoId == null ? " de una lista de personas." : " de un rol de proceso.")
                         : "Publicación directa.");
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("modo", datos.modo().name());
         detalle.put("antes", antes.name());
         detalle.put("aprobacionesNecesarias", necesarias);
         detalle.put(APROBADORES, aprobadores.size());
-        if (datos.rolProcesoId() != null) {
-            detalle.put("rolProcesoId", datos.rolProcesoId());
+        if (rolProcesoId != null) {
+            detalle.put("rolProcesoId", rolProcesoId);
         }
         auditoria.registrar(empresaId, usuarioId, "POLITICA_PUBLICACION_CAMBIADA", "EMPRESA", empresaId, detalle);
         return respuesta(empresaId, politica);
@@ -138,15 +158,15 @@ public class PoliticaDePublicacionServiceImpl implements PoliticaDePublicacionSe
     /**
      * Las personas de la fuente que siguen activas y pueden ver y aprobar ese proceso, sin quien pide, de menor a
      * mayor id. Aprobar lo decide el evaluador entero (D31): una concesion que reserva aprobar, y la separacion de
-     * funciones, que no deja aprobar a quien cambio el proceso por ultima vez.
+     * funciones, que no deja aprobar a quien cambio el proceso por ultima vez. Se evaluan todas de una vez, con las
+     * tablas leidas una sola vez: el proceso esta tomado mientras se abre la solicitud.
      */
     private List<Long> aprobadoresDe(Long empresaId, Long procesoId, Long solicitanteId, List<Long> fuente) {
         List<Long> otros = fuente.stream().filter(id -> !id.equals(solicitanteId)).distinct().toList();
-        return activos(empresaId, otros).stream().filter(usuario -> {
-            Actor actor = new Actor(usuario.getId(), empresaId, usuario.getRolAcceso());
-            return permisos.puede(actor, Accion.VER, Recurso.proceso(procesoId))
-                    && permisos.puede(actor, Accion.APROBAR, Recurso.proceso(procesoId));
-        }).map(Usuario::getId).sorted().toList();
+        List<Actor> actores = activos(empresaId, otros).stream()
+                .map(usuario -> new Actor(usuario.getId(), empresaId, usuario.getRolAcceso())).toList();
+        return permisos.quienesPueden(empresaId, Recurso.proceso(procesoId), actores, PARA_APROBAR).stream().sorted()
+                .toList();
     }
 
     /** Las que siguen activas en la tienda, de esas. */
@@ -156,6 +176,16 @@ public class PoliticaDePublicacionServiceImpl implements PoliticaDePublicacionSe
         }
         return usuarioRepository.findAllByEmpresaIdAndIdIn(empresaId, ids).stream().filter(Usuario::isActivo)
                 .toList();
+    }
+
+    /** Las que podrian aprobar algo: activas y con un rol que no es solo de lectura. */
+    private List<Usuario> quienesAprueban(Long empresaId, List<Long> ids) {
+        return activos(empresaId, ids).stream().filter(usuario -> usuario.getRolAcceso() != RolAcceso.SOLO_LECTURA)
+                .toList();
+    }
+
+    private static Set<Long> idsDe(List<Usuario> usuarios) {
+        return usuarios.stream().map(Usuario::getId).collect(Collectors.toSet());
     }
 
     /** Un rol desactivado ya no tiene a nadie que apruebe. */
@@ -168,30 +198,22 @@ public class PoliticaDePublicacionServiceImpl implements PoliticaDePublicacionSe
     }
 
     /**
-     * Una fuente o la otra; con aprobacion, ademas, la elegida tiene que tener al menos tantas personas como
-     * aprobaciones pide. Cada aprobador de la lista es alguien activo de la tienda: uno que no lo es, de otra tienda o
-     * que no existe responde lo mismo.
+     * Con aprobacion, la fuente elegida tiene que tener al menos tantas personas que aprueban como aprobaciones pide.
+     * Cada aprobador de la lista es alguien activo de la tienda que no es de solo lectura: uno que no esta activo, de
+     * otra tienda o que no existe responde lo mismo. De un rol cuentan solo esas personas.
      */
-    private void validar(Long empresaId, ModoDePublicacion modo, int necesarias, Long rolProcesoId,
-            List<Long> aprobadores) {
-        if (rolProcesoId != null && !aprobadores.isEmpty()) {
-            throw new SolicitudInvalidaException("Los aprobadores salen de una lista o de un rol de proceso, no de los "
-                    + "dos.");
-        }
-        int personas = aprobadores.size();
+    private void validar(Long empresaId, int necesarias, Long rolProcesoId, List<Long> aprobadores) {
+        int personas;
         if (rolProcesoId != null) {
             RolProceso rol = rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(rolProcesoId, empresaId)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Rol de proceso no encontrado."));
-            personas = activos(empresaId, membresiaRolRepository.personasDe(empresaId, rol.getId())).size();
-        } else if (!aprobadores.isEmpty()) {
-            exigirPersonasDeLaTienda(empresaId, aprobadores);
-        }
-        if (modo != ModoDePublicacion.CON_APROBACION) {
-            return;
-        }
-        if (rolProcesoId == null && aprobadores.isEmpty()) {
+            personas = quienesAprueban(empresaId, membresiaRolRepository.personasDe(empresaId, rol.getId())).size();
+        } else if (aprobadores.isEmpty()) {
             throw new SolicitudInvalidaException("Con aprobación hay que decir quién aprueba: una lista de personas o "
                     + "un rol de proceso.", Map.of(APROBADORES, "Elige personas o un rol de proceso."));
+        } else {
+            exigirQuienesAprueban(empresaId, aprobadores);
+            personas = aprobadores.size();
         }
         if (personas < necesarias) {
             throw new SolicitudInvalidaException("La política pide " + necesarias + " aprobaciones y quienes aprueban "
@@ -200,16 +222,22 @@ public class PoliticaDePublicacionServiceImpl implements PoliticaDePublicacionSe
         }
     }
 
-    private void exigirPersonasDeLaTienda(Long empresaId, List<Long> aprobadores) {
-        Set<Long> activos = activos(empresaId, aprobadores).stream().map(Usuario::getId).collect(Collectors.toSet());
+    private void exigirQuienesAprueban(Long empresaId, List<Long> aprobadores) {
+        Map<Long, Usuario> activos = new HashMap<>();
+        activos(empresaId, aprobadores).forEach(usuario -> activos.put(usuario.getId(), usuario));
         Map<String, String> errores = new TreeMap<>();
         for (int i = 0; i < aprobadores.size(); i++) {
-            if (!activos.contains(aprobadores.get(i))) {
-                errores.put(APROBADORES + "[" + i + "]", NO_ES_DE_LA_TIENDA);
+            Usuario usuario = activos.get(aprobadores.get(i));
+            String campo = APROBADORES + "[" + i + "]";
+            if (usuario == null) {
+                errores.put(campo, NO_ES_DE_LA_TIENDA);
+            } else if (usuario.getRolAcceso() == RolAcceso.SOLO_LECTURA) {
+                errores.put(campo, SOLO_LEE);
             }
         }
         if (!errores.isEmpty()) {
-            throw new SolicitudInvalidaException("Solo aprueban personas activas de la organización.", errores);
+            throw new SolicitudInvalidaException("Solo aprueban personas activas de la organización que no son de "
+                    + "solo lectura.", errores);
         }
     }
 

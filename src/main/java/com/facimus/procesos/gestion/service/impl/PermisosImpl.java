@@ -1,6 +1,7 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,7 +68,7 @@ public class PermisosImpl implements Permisos {
         }
         Tablas tablas = tablas(actor);
         Optional<List<Concesion>> cadena = cadena(tablas, actor.empresaId(), recurso);
-        return cadena.isEmpty() || decidir(cadena.get(), tablas, actor, accion);
+        return cadena.isEmpty() || decidir(cadena.get(), tablas.roles(), actor, accion);
     }
 
     @Override
@@ -129,7 +130,7 @@ public class PermisosImpl implements Permisos {
         }
         Set<Long> carpetasOcultas = new HashSet<>();
         for (Long carpeta : tablas.padres().keySet()) {
-            if (!decidir(cadenaDeCarpeta(tablas, carpeta), tablas, actor, Accion.VER)) {
+            if (!decidir(cadenaDeCarpeta(tablas, carpeta), tablas.roles(), actor, Accion.VER)) {
                 carpetasOcultas.add(carpeta);
             }
         }
@@ -139,15 +140,80 @@ public class PermisosImpl implements Permisos {
         tablas.concesiones().stream().map(Concesion::getProcesoId).filter(Objects::nonNull).forEach(conConcesion::add);
         for (Proceso proceso : procesoRepository.findAllByIdInAndEmpresaId(conConcesion, actor.empresaId())) {
             List<Concesion> cadena = cadenaDeProceso(tablas, proceso.getId(), proceso.getCarpetaId());
-            (decidir(cadena, tablas, actor, Accion.VER) ? visibles : ocultos).add(proceso.getId());
+            (decidir(cadena, tablas.roles(), actor, Accion.VER) ? visibles : ocultos).add(proceso.getId());
         }
         return new Visibilidad(false, carpetasOcultas, ocultos, visibles);
     }
 
+    @Override
+    public Set<Long> quienesPueden(Long empresaId, Recurso recurso, Collection<Actor> actores, Set<Accion> acciones) {
+        Set<Long> pueden = new HashSet<>();
+        if (actores.isEmpty()) {
+            return pueden;
+        }
+        Lectura lectura = leer(empresaId, recurso, actores);
+        for (Actor actor : actores) {
+            if (acciones.stream().allMatch(accion -> puede(lectura, actor, accion))) {
+                pueden.add(actor.usuarioId());
+            }
+        }
+        return pueden;
+    }
+
+    /**
+     * Lo que se lee una vez para evaluar a varias personas sobre el mismo recurso: quien lo cambio por ultima vez, si
+     * es de la tienda, las concesiones que lo alcanzan (null si la tienda no concedio nada o el recurso no es suyo) y
+     * los roles de proceso de cada una.
+     */
+    private record Lectura(Long ultimo, boolean deLaTienda, boolean conConcesiones, List<Concesion> cadena,
+            Map<Long, Set<Long>> roles) {
+    }
+
+    private Lectura leer(Long empresaId, Recurso recurso, Collection<Actor> actores) {
+        Optional<Proceso> proceso = recurso.tipo() == Recurso.Tipo.PROCESO
+                ? procesoRepository.findByIdAndEmpresaId(recurso.id(), empresaId) : Optional.empty();
+        Long ultimo = proceso.map(Proceso::getModificadoPor).orElse(null);
+        boolean deLaTienda = recurso.tipo() == Recurso.Tipo.PROCESO ? proceso.isPresent()
+                : carpetaRepository.existsByIdAndEmpresaId(recurso.id(), empresaId);
+        if (!concesionRepository.existsByEmpresaId(empresaId)) {
+            return new Lectura(ultimo, deLaTienda, false, null, Map.of());
+        }
+        Tablas tablas = tablas(new Actor(null, empresaId, RolAcceso.ADMINISTRADOR));
+        List<Concesion> cadena = null;
+        if (recurso.tipo() == Recurso.Tipo.CARPETA && tablas.padres().containsKey(recurso.id())) {
+            cadena = cadenaDeCarpeta(tablas, recurso.id());
+        } else if (proceso.isPresent()) {
+            cadena = cadenaDeProceso(tablas, proceso.get().getId(), proceso.get().getCarpetaId());
+        }
+        Map<Long, Set<Long>> roles = new HashMap<>();
+        List<Long> ids = actores.stream().map(Actor::usuarioId).distinct().toList();
+        for (Object[] par : membresiaRolRepository.rolesDeCada(empresaId, ids)) {
+            roles.computeIfAbsent((Long) par[0], _ -> new HashSet<>()).add((Long) par[1]);
+        }
+        return new Lectura(ultimo, deLaTienda, true, cadena, roles);
+    }
+
+    /** La misma decision que {@link #puede(Actor, Accion, Recurso)}, con lo leido para todas. */
+    private static boolean puede(Lectura lectura, Actor actor, Accion accion) {
+        if (accion == Accion.APROBAR && actor.usuarioId().equals(lectura.ultimo())) {
+            return false;
+        }
+        if (actor.rol() == RolAcceso.ADMINISTRADOR) {
+            return true;
+        }
+        if (actor.rol() == RolAcceso.SOLO_LECTURA && !DE_LECTURA.contains(accion)) {
+            return !lectura.deLaTienda();
+        }
+        if (!lectura.conConcesiones()) {
+            return porDefecto(actor, accion);
+        }
+        return lectura.cadena() == null
+                || decidir(lectura.cadena(), lectura.roles().getOrDefault(actor.usuarioId(), Set.of()), actor, accion);
+    }
+
     /** Con concesiones de esa accion, solo quien tenga una; sin ninguna, lo de siempre. Ver lo trae cualquier otra. */
-    private static boolean decidir(List<Concesion> cadena, Tablas tablas, Actor actor, Accion accion) {
-        boolean tiene = cadena.stream()
-                .anyMatch(concesion -> aplica(concesion, actor, tablas.roles()) && cubre(concesion, accion));
+    private static boolean decidir(List<Concesion> cadena, Set<Long> roles, Actor actor, Accion accion) {
+        boolean tiene = cadena.stream().anyMatch(concesion -> aplica(concesion, actor, roles) && cubre(concesion, accion));
         if (tiene) {
             return true;
         }

@@ -42,4 +42,8 @@ public interface SolicitudPublicacionRepository extends RepositorioTenant<Solici
 
     List<SolicitudPublicacion> findAllByEmpresaIdAndSolicitanteIdAndEstado(Long empresaId, Long solicitanteId,
             EstadoSolicitud estado);
+
+    /** La abierta de un proceso, que es una como mucho, para retirarla cuando el proceso se da de baja. */
+    List<SolicitudPublicacion> findAllByEmpresaIdAndProcesoIdAndEstado(Long empresaId, Long procesoId,
+            EstadoSolicitud estado);
 }

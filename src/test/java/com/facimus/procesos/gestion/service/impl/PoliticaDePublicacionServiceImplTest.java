@@ -8,22 +8,28 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -72,6 +78,8 @@ class PoliticaDePublicacionServiceImplTest {
     private static final Long ELIO = 8L;
     /** Lo cambio por ultima vez: la separacion de funciones no lo deja aprobar. */
     private static final Long FIDEL = 9L;
+    /** Activa, pero de solo lectura: nunca aprueba. */
+    private static final Long GINA = 10L;
     private static final Long ROL = 30L;
     private static final Long PROCESO = 3L;
 
@@ -94,6 +102,8 @@ class PoliticaDePublicacionServiceImplTest {
 
     @InjectMocks
     private PoliticaDePublicacionServiceImpl servicio;
+    @Captor
+    private ArgumentCaptor<Collection<Actor>> actores;
 
     private Empresa empresa;
 
@@ -103,7 +113,7 @@ class PoliticaDePublicacionServiceImplTest {
         when(empresaRepository.findById(EMPRESA)).thenReturn(Optional.of(empresa));
         List<Usuario> personas = List.of(persona(ADMIN, "Ana", true), persona(BETO, "Beto", true),
                 persona(CARLA, "Carla", true), persona(DORA, "Dora", false), persona(ELIO, "Elio", true),
-                persona(FIDEL, "Fidel", true));
+                persona(FIDEL, "Fidel", true), lectora(GINA, "Gina"));
         when(usuarioRepository.findAllByEmpresaIdAndIdIn(eq(EMPRESA), anyCollection())).thenAnswer(llamada -> {
             Collection<Long> ids = llamada.getArgument(1);
             return personas.stream().filter(una -> ids.contains(una.getId())).toList();
@@ -113,12 +123,23 @@ class PoliticaDePublicacionServiceImplTest {
         RolProceso rol = RolProceso.builder().id(ROL).nombre("Duenos de proceso").empresa(empresa).build();
         when(rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(ROL, EMPRESA)).thenReturn(Optional.of(rol));
         when(rolProcesoRepository.findByIdAndEmpresaId(ROL, EMPRESA)).thenReturn(Optional.of(rol));
-        when(membresiaRolRepository.personasDe(EMPRESA, ROL)).thenReturn(List.of(BETO, CARLA, DORA));
-        when(permisos.puede(any(Actor.class), any(Accion.class), eq(Recurso.proceso(PROCESO)))).thenAnswer(llamada -> {
-            Long quien = ((Actor) llamada.getArgument(0)).usuarioId();
-            Accion accion = llamada.getArgument(1);
-            return accion == Accion.VER ? !quien.equals(ELIO) : !quien.equals(FIDEL);
-        });
+        when(membresiaRolRepository.personasDe(EMPRESA, ROL)).thenReturn(List.of(BETO, CARLA, DORA, GINA));
+        // El evaluador, de una vez para todas: Elio no ve el proceso y Fidel lo cambio por ultima vez. Las devuelve
+        // al reves, para que el orden lo ponga el servicio
+        when(permisos.quienesPueden(eq(EMPRESA), eq(Recurso.proceso(PROCESO)), anyCollection(),
+                eq(EnumSet.of(Accion.VER, Accion.APROBAR)))).thenAnswer(llamada -> {
+                    Collection<Actor> actores = llamada.getArgument(2);
+                    Set<Long> pueden = new TreeSet<>(Comparator.reverseOrder());
+                    actores.stream().filter(actor -> actor.rol() != RolAcceso.SOLO_LECTURA).map(Actor::usuarioId)
+                            .filter(id -> !id.equals(ELIO) && !id.equals(FIDEL)).forEach(pueden::add);
+                    return pueden;
+                });
+    }
+
+    private Usuario lectora(Long id, String nombre) {
+        Usuario usuario = persona(id, nombre, true);
+        usuario.setRolAcceso(RolAcceso.SOLO_LECTURA);
+        return usuario;
     }
 
     private Usuario persona(Long id, String nombre, boolean activo) {
@@ -245,32 +266,56 @@ class PoliticaDePublicacionServiceImplTest {
     }
 
     @Test
-    @DisplayName("publicar directo no necesita aprobadores, pero los que se guardan tienen que ser de la tienda")
+    @DisplayName("publicar directo no necesita aprobadores; de los que manda se guardan solo quienes podrian aprobar")
     void directaSinAprobadores() {
         assertThat(servicio.guardar(EMPRESA, ADMIN, new DatosDePolitica(ModoDePublicacion.DIRECTA, null, null,
                 List.of(), null)).modo()).isEqualTo(ModoDePublicacion.DIRECTA);
 
-        DatosDePolitica conAjena = new DatosDePolitica(ModoDePublicacion.DIRECTA, null, null, List.of(BETO, 99L),
-                null);
-        SolicitudInvalidaException error = catchThrowableOfType(SolicitudInvalidaException.class,
-                () -> servicio.guardar(EMPRESA, ADMIN, conAjena));
-        assertThat(error.getErrores()).containsOnly(Map.entry("aprobadores[1]",
-                "No es una persona activa de la organización."));
+        // Apagarla con la lista que devolvio el GET: Dora se desactivo, Gina es de solo lectura y 99 no es de la tienda
+        servicio.guardar(EMPRESA, ADMIN, new DatosDePolitica(ModoDePublicacion.DIRECTA, null, null,
+                List.of(CARLA, DORA, BETO, GINA, 99L), null));
+
+        ArgumentCaptor<PoliticaPublicacion> guardada = ArgumentCaptor.forClass(PoliticaPublicacion.class);
+        verify(politicaRepository, times(2)).saveAndFlush(guardada.capture());
+        assertThat(guardada.getValue().getAprobadores()).containsExactly(CARLA, BETO);
     }
 
     @Test
-    @DisplayName("una persona desactivada, de otra tienda o que no existe responde igual, y dice cual")
+    @DisplayName("apagarla con un rol que ya se elimino lo descarta, en vez de responder 404; uno vigente se guarda")
+    void directaConRolEliminado() {
+        guardada(ModoDePublicacion.CON_APROBACION, 1, ROL, List.of());
+        when(rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(ROL, EMPRESA)).thenReturn(Optional.empty());
+
+        servicio.guardar(EMPRESA, ADMIN, new DatosDePolitica(ModoDePublicacion.DIRECTA, 1, ROL, null, 4L));
+
+        ArgumentCaptor<PoliticaPublicacion> guardada = ArgumentCaptor.forClass(PoliticaPublicacion.class);
+        verify(politicaRepository).saveAndFlush(guardada.capture());
+        assertThat(guardada.getValue().getModo()).isEqualTo(ModoDePublicacion.DIRECTA);
+        assertThat(guardada.getValue().getRolProcesoId()).isNull();
+
+        RolProceso rol = RolProceso.builder().id(ROL).nombre("Duenos de proceso").empresa(empresa).build();
+        when(rolProcesoRepository.findByIdAndEmpresaIdAndActivoTrue(ROL, EMPRESA)).thenReturn(Optional.of(rol));
+        servicio.guardar(EMPRESA, ADMIN, new DatosDePolitica(ModoDePublicacion.DIRECTA, 1, ROL, null, 4L));
+        verify(politicaRepository, times(2)).saveAndFlush(guardada.capture());
+        assertThat(guardada.getValue().getRolProcesoId()).isEqualTo(ROL);
+    }
+
+    @Test
+    @DisplayName("una persona desactivada, de otra tienda o que no existe responde igual, una de solo lectura dice "
+            + "que no aprueba, y cada una dice cual es")
     void personasDeLaTienda() {
         DatosDePolitica lista = new DatosDePolitica(ModoDePublicacion.CON_APROBACION, 1, null,
-                List.of(DORA, BETO, 99L), null);
+                List.of(DORA, BETO, 99L, GINA), null);
 
         SolicitudInvalidaException error = catchThrowableOfType(SolicitudInvalidaException.class,
                 () -> servicio.guardar(EMPRESA, ADMIN, lista));
 
-        assertThat(error).hasMessage("Solo aprueban personas activas de la organización.");
+        assertThat(error).hasMessage("Solo aprueban personas activas de la organización que no son de solo lectura.");
         assertThat(error.getErrores()).containsOnly(Map.entry("aprobadores[0]",
                 "No es una persona activa de la organización."), Map.entry("aprobadores[2]",
-                        "No es una persona activa de la organización."));
+                        "No es una persona activa de la organización."),
+                Map.entry("aprobadores[3]", "Es de solo lectura: no puede aprobar."));
+        verify(politicaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -280,7 +325,7 @@ class PoliticaDePublicacionServiceImplTest {
                 null);
         assertThatThrownBy(() -> servicio.guardar(EMPRESA, ADMIN, tres)).isInstanceOf(SolicitudInvalidaException.class)
                 .hasMessage("La política pide 3 aprobaciones y quienes aprueban son 2.");
-        // Del rol cuentan las activas: Beto y Carla, no Dora
+        // Del rol cuentan las activas que no son de solo lectura: Beto y Carla, no Dora ni Gina
         DatosDePolitica delRol = new DatosDePolitica(ModoDePublicacion.CON_APROBACION, 3, ROL, null, null);
         assertThatThrownBy(() -> servicio.guardar(EMPRESA, ADMIN, delRol))
                 .isInstanceOf(SolicitudInvalidaException.class)
@@ -318,6 +363,13 @@ class PoliticaDePublicacionServiceImplTest {
         Optional<ReglaDeAprobacion> regla = servicio.reglaPara(EMPRESA, PROCESO, ADMIN);
 
         assertThat(regla).contains(new ReglaDeAprobacion(2, List.of(BETO, CARLA)));
+        // Al evaluador llegan las activas sin quien pide, cada una una vez y con su rol de acceso, en una sola llamada
+        verify(permisos).quienesPueden(eq(EMPRESA), eq(Recurso.proceso(PROCESO)), actores.capture(),
+                eq(EnumSet.of(Accion.VER, Accion.APROBAR)));
+        assertThat(actores.getValue()).containsExactlyInAnyOrder(new Actor(FIDEL, EMPRESA, RolAcceso.EDITOR),
+                new Actor(CARLA, EMPRESA, RolAcceso.EDITOR), new Actor(ELIO, EMPRESA, RolAcceso.EDITOR),
+                new Actor(BETO, EMPRESA, RolAcceso.EDITOR));
+        verify(permisos, never()).puede(any(), any(), any());
     }
 
     @Test

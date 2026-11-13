@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,6 +54,7 @@ import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.notificaciones.NotificacionPedida;
 import com.facimus.procesos.common.notificaciones.TipoDeNotificacion;
+import com.facimus.procesos.gestion.event.ProcesoEliminado;
 import com.facimus.procesos.gestion.event.UsuarioAnonimizado;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.Usuario;
@@ -338,6 +340,23 @@ class SolicitudServiceImplTest {
     }
 
     @Test
+    @DisplayName("una solicitud guarda hasta 200 aprobadores: con mas, 409 con la causa y sin congelar; con 200, pasa")
+    void maximoDeAprobadores() {
+        congelable(2);
+        List<Long> demasiados = LongStream.rangeClosed(100, 300).boxed().toList();
+        when(politica.reglaPara(EMPRESA, PROCESO, ANA)).thenReturn(Optional.of(new ReglaDeAprobacion(1, demasiados)));
+
+        assertThatThrownBy(() -> servicio.pedir(EMPRESA, ANA, PROCESO, null)).isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("Una solicitud admite hasta 200 aprobadores y 201 personas pueden aprobar este proceso: la "
+                        + "política tiene que tomarlos de una lista o de un rol de proceso más chico.");
+        verify(procesoService, never()).congelar(anyLong(), anyLong());
+
+        List<Long> justos = demasiados.subList(0, SolicitudServiceImpl.MAXIMO_DE_APROBADORES);
+        when(politica.reglaPara(EMPRESA, PROCESO, ANA)).thenReturn(Optional.of(new ReglaDeAprobacion(1, justos)));
+        assertThat(servicio.pedir(EMPRESA, ANA, PROCESO, null).aprobadores()).hasSize(200);
+    }
+
+    @Test
     @DisplayName("lo que impide congelar (diagnostico, sin cambios) impide pedir, y no deja revision")
     void noSeCongela() {
         congelable(2);
@@ -579,6 +598,25 @@ class SolicitudServiceImplTest {
         verify(solicitudRepository).save(solicitud);
         verify(auditoria).registrar(EMPRESA, null, "SOLICITUD_RETIRADA", "SOLICITUD", SOLICITUD,
                 Map.of("procesoId", PROCESO, "propia", false));
+    }
+
+    @Test
+    @DisplayName("al dar de baja un proceso, su solicitud abierta se retira, dice por que y la anota el sistema")
+    void procesoDadoDeBaja() {
+        SolicitudPublicacion solicitud = abierta(2);
+        when(solicitudRepository.findAllByEmpresaIdAndProcesoIdAndEstado(EMPRESA, PROCESO, EstadoSolicitud.ABIERTA))
+                .thenReturn(List.of(solicitud));
+
+        servicio.alDarseDeBaja(new ProcesoEliminado(EMPRESA, PROCESO));
+
+        assertThat(solicitud.getEstado()).isEqualTo(EstadoSolicitud.RETIRADA);
+        assertThat(solicitud.getMotivo()).isEqualTo("El proceso se dio de baja.");
+        assertThat(solicitud.getCerradaPor()).isNull();
+        assertThat(solicitud.getCerradaEn()).isEqualTo(AHORA);
+        verify(solicitudRepository).save(solicitud);
+        verify(auditoria).registrar(EMPRESA, null, "SOLICITUD_RETIRADA", "SOLICITUD", SOLICITUD,
+                Map.of("procesoId", PROCESO, "propia", false));
+        verify(eventos, never()).publishEvent(any(Object.class));
     }
 
     @Test

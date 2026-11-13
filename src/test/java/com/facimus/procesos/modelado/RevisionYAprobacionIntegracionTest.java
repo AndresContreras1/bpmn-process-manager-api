@@ -2,9 +2,11 @@ package com.facimus.procesos.modelado;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -38,18 +40,24 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.correo.Correo;
+import com.facimus.procesos.common.model.Accion;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.gestion.model.Clasificacion;
+import com.facimus.procesos.gestion.model.SujetoConcesion;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.Actor;
+import com.facimus.procesos.gestion.service.ConcesionService;
 import com.facimus.procesos.gestion.service.DatosDeFicha;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RecertificacionService;
+import com.facimus.procesos.gestion.service.Recurso;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
@@ -121,6 +129,8 @@ class RevisionYAprobacionIntegracionTest {
     private ArcoService arcoService;
     @Autowired
     private RecertificacionService recertificacionService;
+    @Autowired
+    private ConcesionService concesionService;
     @Autowired
     private ColaDeTrabajos cola;
     @Autowired
@@ -508,6 +518,118 @@ class RevisionYAprobacionIntegracionTest {
         mvc.perform(get("/api/v1/empresas/actual/politica-de-publicacion").with(principal(ana)))
                 .andExpect(jsonPath("$.aprobadores.length()").value(1))
                 .andExpect(jsonPath("$.aprobadores[0].nombre").value("Carla"));
+    }
+
+    @Test
+    @DisplayName("dos rondas seguidas con tantas aprobaciones como aprobadores: publicar no deja a quien aprobo como el "
+            + "ultimo en cambiar el proceso (D31), ni le sube su version")
+    void dosRondas() throws Exception {
+        conAprobacion(2, carla, elio);
+        Long version = procesoService.obtener(empresaId, proceso, false).version();
+        Long modificadoPor = jdbc.queryForObject("select modificado_por from procesos where id = ?", Long.class,
+                proceso);
+
+        long primera = id(pedir(beto, "{}").andExpect(status().isCreated()));
+        decidir(carla, primera, "aprobar", "{}").andExpect(status().isOk());
+        decidir(elio, primera, "aprobar", "{}").andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("PUBLICADA"));
+        assertThat(jdbc.queryForObject("select modificado_por from procesos where id = ?", Long.class, proceso))
+                .isEqualTo(modificadoPor);
+        assertThat(procesoService.obtener(empresaId, proceso, false).version()).isEqualTo(version);
+
+        renombrar("Revisar y empacar");
+        long segunda = id(pedir(beto, "{}").andExpect(status().isCreated())
+                .andExpect(jsonPath("$.aprobadores.length()").value(2)));
+        decidir(elio, segunda, "aprobar", "{}").andExpect(status().isOk());
+        decidir(carla, segunda, "aprobar", "{}").andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("PUBLICADA")).andExpect(jsonPath("$.versionPublicada").value(2));
+        mvc.perform(get("/api/v1/procesos/{id}", proceso).with(principal(beto)))
+                .andExpect(jsonPath("$.proceso.versionPublicada").value(2))
+                .andExpect(jsonPath("$.proceso.estado").value("PUBLICADO"))
+                .andExpect(jsonPath("$.proceso.borradorPendiente").value(false));
+    }
+
+    @Test
+    @DisplayName("la duena que confirma su proceso sigue aprobando: recertificar no cuenta como cambiarlo (D31)")
+    void recertificarYAprobar() throws Exception {
+        procesoService.editarFicha(empresaId, proceso, ana.usuarioId(), new DatosDeFicha(null, carla.usuarioId(), HOY,
+                Clasificacion.INTERNA, List.of(), procesoService.obtener(empresaId, proceso, false).version(), 12));
+        conAprobacion(1, carla);
+        long solicitud = id(pedir(beto, "{}").andExpect(status().isCreated()));
+        Long version = procesoService.obtener(empresaId, proceso, false).version();
+
+        mvc.perform(post("/api/v1/procesos/{id}/recertificacion", proceso).with(principal(carla)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(version.intValue()))
+                .andExpect(jsonPath("$.proximaRevision").value(HOY.plusMonths(12).toString()));
+
+        decidir(carla, solicitud, "aprobar", "{}").andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("PUBLICADA"));
+        renombrar("Revisar otra vez");
+        pedir(beto, "{}").andExpect(status().isCreated()).andExpect(jsonPath("$.aprobadores[0].nombre").value("Carla"));
+    }
+
+    @Test
+    @DisplayName("la bandeja y el detalle no muestran las solicitudes de un proceso que una concesion le oculta a "
+            + "quien pregunta, aunque este entre sus aprobadores")
+    void bandejaSinLoQueNoSeVe() throws Exception {
+        conAprobacion(1, carla, elio);
+        long solicitud = id(pedir(beto, "{}").andExpect(status().isCreated())
+                .andExpect(jsonPath("$.aprobadores.length()").value(2)));
+        // Desde ahora ven el proceso solo Beto, Carla y quien administra
+        Actor admin = new Actor(ana.usuarioId(), empresaId, RolAcceso.ADMINISTRADOR);
+        for (ApiPrincipal quien : List.of(beto, carla)) {
+            concesionService.conceder(admin, Recurso.proceso(proceso), Accion.VER, SujetoConcesion.PERSONA,
+                    quien.usuarioId(), null);
+        }
+
+        for (ApiPrincipal oculto : List.of(elio, dora)) {
+            mvc.perform(get("/api/v1/solicitudes").with(principal(oculto)))
+                    .andExpect(jsonPath("$.totalElements").value(0));
+            mvc.perform(get("/api/v1/solicitudes/{id}", solicitud).with(principal(oculto)))
+                    .andExpect(status().isNotFound());
+        }
+        mvc.perform(get("/api/v1/solicitudes?pendientesDeMi=true").with(principal(elio)))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get("/api/v1/solicitudes?pendientesDeMi=true").with(principal(carla)))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("/api/v1/solicitudes").with(principal(ana))).andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("una persona de solo lectura no aprueba; apagar la politica no depende de quienes aprobaban, y el rol "
+            + "que la politica nombra no se elimina")
+    void politicaQueSeSostiene() throws Exception {
+        politica(ana, "{\"modo\":\"CON_APROBACION\",\"aprobacionesNecesarias\":2,\"aprobadores\":["
+                + carla.usuarioId() + "," + dora.usuarioId() + "]}").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors['aprobadores[1]']").value("Es de solo lectura: no puede aprobar."));
+
+        conAprobacion(1, carla, elio);
+        usuarioService.desactivar(empresaId, ana.usuarioId(), elio.usuarioId());
+        // La web reenvia lo que leyo, con Elio desactivado: se apaga igual, y Elio sale de la lista
+        politica(ana, "{\"modo\":\"DIRECTA\",\"aprobadores\":[" + carla.usuarioId() + "," + elio.usuarioId()
+                + "],\"version\":0}").andExpect(status().isOk()).andExpect(jsonPath("$.modo").value("DIRECTA"))
+                .andExpect(jsonPath("$.aprobadores.length()").value(1));
+
+        Long rol = rolProcesoService.crear(empresaId, ana.usuarioId(), "Aprobadores", null).id();
+        membresiaRolService.reemplazar(empresaId, ana.usuarioId(), carla.usuarioId(), List.of(rol));
+        politica(ana, "{\"modo\":\"CON_APROBACION\",\"rolProcesoId\":" + rol + ",\"version\":1}")
+                .andExpect(status().isOk());
+        assertThatThrownBy(() -> rolProcesoService.eliminar(empresaId, ana.usuarioId(), rol))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("política de publicación");
+    }
+
+    @Test
+    @DisplayName("dar de baja un proceso retira su solicitud abierta, que dice por que")
+    void procesoDadoDeBaja() throws Exception {
+        conAprobacion(1, carla);
+        long solicitud = id(pedir(beto, "{}").andExpect(status().isCreated()));
+
+        mvc.perform(delete("/api/v1/procesos/{id}", proceso).with(principal(ana))).andExpect(status().isNoContent());
+
+        assertThat(jdbc.queryForMap("select estado, motivo, cerrada_por from solicitudes_publicacion where id = ?",
+                solicitud)).containsEntry("estado", "RETIRADA").containsEntry("motivo", "El proceso se dio de baja.")
+                .containsEntry("cerrada_por", null);
+        await().atMost(ESPERA).until(() -> enBitacora("SOLICITUD_RETIRADA") == 1);
     }
 
     @Test

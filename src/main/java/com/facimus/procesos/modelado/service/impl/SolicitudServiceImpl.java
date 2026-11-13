@@ -33,6 +33,7 @@ import com.facimus.procesos.common.model.Accion;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.notificaciones.NotificacionPedida;
 import com.facimus.procesos.common.notificaciones.TipoDeNotificacion;
+import com.facimus.procesos.gestion.event.ProcesoEliminado;
 import com.facimus.procesos.gestion.event.UsuarioAnonimizado;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.Usuario;
@@ -88,6 +89,8 @@ public class SolicitudServiceImpl implements SolicitudService {
     private static final String CONGELADO = "solicitud";
     private static final String SIN_VERSION = "ninguna";
     private static final Sort RECIENTES = Sort.by(Sort.Direction.DESC, "fechaCreacion", "id");
+    /** Los aprobadores que una solicitud guarda, como mucho: el mismo tope que pone la base. */
+    static final int MAXIMO_DE_APROBADORES = 200;
 
     private final SolicitudPublicacionRepository solicitudRepository;
     private final AprobacionRepository aprobacionRepository;
@@ -144,6 +147,12 @@ public class SolicitudServiceImpl implements SolicitudService {
             throw new ReglaNegocioException("La política pide " + regla.necesarias() + " aprobaciones y solo "
                     + regla.aprobadores().size() + " personas pueden aprobar este proceso sin contar a quien pide la "
                     + "revisión.");
+        }
+        // Un rol no tiene tope de personas; una solicitud si, y lo dice antes de que lo diga la base
+        if (regla.aprobadores().size() > MAXIMO_DE_APROBADORES) {
+            throw new ReglaNegocioException("Una solicitud admite hasta " + MAXIMO_DE_APROBADORES + " aprobadores y "
+                    + regla.aprobadores().size() + " personas pueden aprobar este proceso: la política tiene que "
+                    + "tomarlos de una lista o de un rol de proceso más chico.");
         }
         BorradorCongelado congelado = procesoService.congelar(empresaId, procesoId);
         RevisionBorradorResponse revision = guardado.puntoDeGuardado(empresaId, usuarioId, procesoId,
@@ -289,13 +298,33 @@ public class SolicitudServiceImpl implements SolicitudService {
     @EventListener
     @Transactional
     public void alAnonimizarse(UsuarioAnonimizado anonimizado) {
+        retirarPorElSistema(anonimizado.empresaId(),
+                solicitudRepository.findAllByEmpresaIdAndSolicitanteIdAndEstado(anonimizado.empresaId(),
+                        anonimizado.usuarioId(), EstadoSolicitud.ABIERTA),
+                "Quien pidió la revisión ya no está en la organización.", anonimizado.usuarioId());
+    }
+
+    /**
+     * Un proceso dado de baja ya no se publica: su solicitud abierta se retira en la misma transaccion, y dice por que.
+     * Nadie la cierra en persona; la bitacora la anota como del sistema.
+     */
+    @EventListener
+    @Transactional
+    public void alDarseDeBaja(ProcesoEliminado eliminado) {
+        retirarPorElSistema(eliminado.empresaId(),
+                solicitudRepository.findAllByEmpresaIdAndProcesoIdAndEstado(eliminado.empresaId(),
+                        eliminado.procesoId(), EstadoSolicitud.ABIERTA),
+                "El proceso se dio de baja.", null);
+    }
+
+    private void retirarPorElSistema(Long empresaId, List<SolicitudPublicacion> abiertas, String motivo,
+            Long cerradaPor) {
         LocalDateTime ahora = ahora();
-        for (SolicitudPublicacion solicitud : solicitudRepository.findAllByEmpresaIdAndSolicitanteIdAndEstado(
-                anonimizado.empresaId(), anonimizado.usuarioId(), EstadoSolicitud.ABIERTA)) {
-            solicitud.setMotivo("Quien pidió la revisión ya no está en la organización.");
-            cerrar(solicitud, EstadoSolicitud.RETIRADA, anonimizado.usuarioId(), ahora, null);
+        for (SolicitudPublicacion solicitud : abiertas) {
+            solicitud.setMotivo(motivo);
+            cerrar(solicitud, EstadoSolicitud.RETIRADA, cerradaPor, ahora, null);
             solicitudRepository.save(solicitud);
-            auditoria.registrar(anonimizado.empresaId(), null, "SOLICITUD_RETIRADA", RECURSO, solicitud.getId(),
+            auditoria.registrar(empresaId, null, "SOLICITUD_RETIRADA", RECURSO, solicitud.getId(),
                     Map.of(PROCESO, solicitud.getProcesoId(), "propia", false));
         }
     }

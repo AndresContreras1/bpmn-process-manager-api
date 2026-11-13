@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.repository;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.Modifying;
@@ -29,6 +30,13 @@ public interface MembresiaRolRepository extends RepositorioTenant<MembresiaRol> 
             order by m.usuario.id
             """)
     List<Long> personasDe(@Param("empresaId") Long empresaId, @Param("rolId") Long rolId);
+
+    /** PR 64: los roles de varias personas de una vez, de a pares: el id de la persona y el de un rol suyo. */
+    @Query("""
+            select m.usuario.id, m.rolProceso.id from MembresiaRol m
+            where m.empresa.id = :empresaId and m.usuario.id in :usuarios
+            """)
+    List<Object[]> rolesDeCada(@Param("empresaId") Long empresaId, @Param("usuarios") Collection<Long> usuarios);
 
     /** Deja a una persona sin ninguno, que es el primer paso de reemplazar su lista entera. */
     @Modifying

@@ -60,4 +60,5 @@
 * `c.f.p.g.event.ProcesoEliminado` 
 * `c.f.p.g.event.ProcesoCreado` 
 * `c.f.p.g.event.UsuarioAnonimizado` 
+* `c.f.p.g.event.ProcesoEliminado` 
 |===

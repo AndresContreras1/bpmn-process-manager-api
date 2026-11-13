@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +15,8 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +65,12 @@ class PermisosTest {
     private static final Actor CON_ROL = new Actor(4L, EMPRESA, RolAcceso.EDITOR);
     private static final Actor SIN_ROL = new Actor(5L, EMPRESA, RolAcceso.EDITOR);
     private static final Actor LECTOR = new Actor(6L, EMPRESA, RolAcceso.SOLO_LECTURA);
+    private static final List<Actor> TODOS = List.of(ADMIN, CON_ROL, SIN_ROL, LECTOR);
+    private static final List<Recurso> RECURSOS = List.of(PROCESO, SUELTO, RAIZ, CARPETA, Recurso.proceso(99L),
+            Recurso.carpeta(98L));
+    private static final List<Set<Accion>> PEDIDOS = List.of(EnumSet.of(Accion.VER, Accion.APROBAR),
+            EnumSet.of(Accion.MODELAR), EnumSet.of(Accion.VER, Accion.PUBLICAR), EnumSet.of(Accion.ADMINISTRAR),
+            EnumSet.of(Accion.COMENTAR), EnumSet.of(Accion.APROBAR));
 
     @Mock
     private ConcesionRepository concesionRepository;
@@ -86,6 +95,7 @@ class PermisosTest {
         when(procesoRepository.findByIdAndEmpresaId(10L, EMPRESA)).thenReturn(Optional.of(proceso));
         when(procesoRepository.findByIdAndEmpresaId(11L, EMPRESA)).thenReturn(Optional.of(suelto));
         when(procesoRepository.existsByIdAndEmpresaId(10L, EMPRESA)).thenReturn(true);
+        when(procesoRepository.existsByIdAndEmpresaId(11L, EMPRESA)).thenReturn(true);
         when(carpetaRepository.existsByIdAndEmpresaId(2L, EMPRESA)).thenReturn(true);
         when(procesoRepository.findAllByIdInAndEmpresaId(anyCollection(), eq(EMPRESA))).thenAnswer(invocacion ->
                 List.of(proceso, suelto).stream()
@@ -96,6 +106,75 @@ class PermisosTest {
                 Carpeta.builder().id(2L).nombre("Pagos").padreId(1L).build()));
         when(membresiaRolRepository.rolesDe(EMPRESA, 4L)).thenReturn(List.of(3L));
         when(membresiaRolRepository.rolesDe(EMPRESA, 5L)).thenReturn(List.of());
+        when(membresiaRolRepository.rolesDeCada(eq(EMPRESA), anyCollection())).thenAnswer(
+                invocacion -> invocacion.<Collection<Long>>getArgument(1).contains(4L)
+                        ? List.<Object[]>of(new Object[] { 4L, 3L }) : List.<Object[]>of());
+    }
+
+    /** Lo que responde de varias a la vez es lo que responde preguntando por cada una, recurso por recurso. */
+    private void decideLoMismoQueDeAUna() {
+        for (Recurso recurso : RECURSOS) {
+            for (Set<Accion> acciones : PEDIDOS) {
+                Set<Long> esperadas = TODOS.stream()
+                        .filter(actor -> acciones.stream().allMatch(accion -> permisos.puede(actor, accion, recurso)))
+                        .map(Actor::usuarioId).collect(Collectors.toSet());
+                assertThat(permisos.quienesPueden(EMPRESA, recurso, TODOS, acciones)).as(recurso + " " + acciones)
+                        .isEqualTo(esperadas);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("De varias personas a la vez decide lo mismo que de a una, sin concesiones y con la separacion de "
+            + "funciones")
+    void variasSinConcesiones() {
+        decideLoMismoQueDeAUna();
+        ReflectionTestUtils.setField(proceso, "modificadoPor", 4L);
+        decideLoMismoQueDeAUna();
+        ReflectionTestUtils.setField(proceso, "modificadoPor", 2L);
+        decideLoMismoQueDeAUna();
+        assertThat(permisos.quienesPueden(EMPRESA, PROCESO, TODOS, EnumSet.of(Accion.VER, Accion.APROBAR)))
+                .containsExactlyInAnyOrder(4L, 5L);
+    }
+
+    @Test
+    @DisplayName("De varias personas a la vez decide lo mismo que de a una con concesiones a personas, a roles, a la "
+            + "organizacion y heredadas de las carpetas")
+    void variasConConcesiones() {
+        conConcesiones(concesion(null, 1L, SujetoConcesion.ROL, null, 3L, Accion.VER),
+                concesion(11L, null, SujetoConcesion.PERSONA, 5L, null, Accion.VER));
+        decideLoMismoQueDeAUna();
+        conConcesiones(concesion(10L, null, SujetoConcesion.PERSONA, 5L, null, Accion.APROBAR),
+                concesion(null, 2L, SujetoConcesion.ROL, null, 3L, Accion.ADMINISTRAR));
+        decideLoMismoQueDeAUna();
+        ReflectionTestUtils.setField(proceso, "modificadoPor", 5L);
+        decideLoMismoQueDeAUna();
+        conConcesiones(concesion(10L, null, SujetoConcesion.ORGANIZACION, null, null, Accion.PUBLICAR),
+                concesion(null, 1L, SujetoConcesion.PERSONA, 4L, null, Accion.MODELAR));
+        decideLoMismoQueDeAUna();
+    }
+
+    @Test
+    @DisplayName("De varias personas a la vez lee el proceso, las concesiones, las carpetas y los roles una sola vez")
+    void variasLeenUnaVez() {
+        conConcesiones(concesion(null, 1L, SujetoConcesion.ROL, null, 3L, Accion.APROBAR));
+
+        assertThat(permisos.quienesPueden(EMPRESA, PROCESO, TODOS, EnumSet.of(Accion.VER, Accion.APROBAR)))
+                .containsExactlyInAnyOrder(2L, 4L);
+
+        verify(procesoRepository, times(1)).findByIdAndEmpresaId(10L, EMPRESA);
+        verify(concesionRepository, times(1)).findAllByEmpresaId(EMPRESA);
+        verify(carpetaRepository, times(1)).findAllByEmpresaId(EMPRESA);
+        verify(membresiaRolRepository, times(1)).rolesDeCada(EMPRESA, List.of(2L, 4L, 5L, 6L));
+        verify(membresiaRolRepository, never()).rolesDe(any(), any());
+    }
+
+    @Test
+    @DisplayName("Sin personas no hay a quien evaluar, y no se lee nada")
+    void ningunaPersona() {
+        assertThat(permisos.quienesPueden(EMPRESA, PROCESO, List.of(), EnumSet.of(Accion.APROBAR))).isEmpty();
+        verify(procesoRepository, never()).findByIdAndEmpresaId(anyLong(), anyLong());
+        verify(concesionRepository, never()).existsByEmpresaId(anyLong());
     }
 
     @Test

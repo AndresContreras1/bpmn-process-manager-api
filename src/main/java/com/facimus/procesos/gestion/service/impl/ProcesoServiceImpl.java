@@ -55,6 +55,7 @@ import com.facimus.procesos.gestion.service.Recurso;
 import com.facimus.procesos.gestion.service.VersionService;
 import com.facimus.procesos.gestion.service.Visibilidad;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -81,6 +82,7 @@ public class ProcesoServiceImpl implements ProcesoService {
     private final Auditoria auditoria;
     private final PoliticaDePublicacionService politicaDePublicacion;
     private final Clock reloj;
+    private final EntityManager entityManager;
 
     @Override
     public PageResponse<ProcesoResponse> buscar(Long empresaId, String nombre, EstadoProceso estado,
@@ -270,7 +272,10 @@ public class ProcesoServiceImpl implements ProcesoService {
         return conBorrador(proceso);
     }
 
-    /** R-44 y R-45: no se publica lo que no se puede ejecutar, ni se publica dos veces lo mismo. */
+    /**
+     * R-44 y R-45: no se publica lo que no se puede ejecutar, ni se publica dos veces lo mismo. Publicar directo es un
+     * cambio de quien publica: sube la version del proceso y lo deja modificado por el.
+     */
     private ProcesoResponse publicar(Proceso proceso, Usuario autor) {
         Long empresaId = proceso.getEmpresa().getId();
         exigirSinErrores("El proceso no se puede publicar: ",
@@ -279,23 +284,21 @@ public class ProcesoServiceImpl implements ProcesoService {
         Instantanea instantanea = instantaneaDelModelo.tomar(empresaId,
                 procesoMapper.toResponse(proceso).publicadoComo(numero));
         exigirCambios(proceso, instantanea);
-        return registrarPublicacion(proceso, autor, numero, instantanea, Map.of(VERSION, numero));
-    }
-
-    /** La publicacion en si, la misma venga de publicar directo o de una solicitud aprobada (D2). */
-    private ProcesoResponse registrarPublicacion(Proceso proceso, Usuario autor, int numero, Instantanea instantanea,
-            Map<String, Object> detalle) {
-        Long empresaId = proceso.getEmpresa().getId();
         versionService.publicar(proceso, numero, autor.getId(), instantanea);
         proceso.setEstado(EstadoProceso.PUBLICADO);
         proceso.setVersionPublicada(numero);
         proceso.setHuellaPublicada(instantanea.huella());
         proceso = procesoRepository.saveAndFlush(proceso);
+        registrarPublicacion(proceso, autor, numero, Map.of(VERSION, numero));
+        return respuesta(proceso).conBorradorPendiente(false);
+    }
 
+    /** Lo que deja una publicacion, la misma venga de publicar directo o de una solicitud aprobada (D2). */
+    private void registrarPublicacion(Proceso proceso, Usuario autor, int numero, Map<String, Object> detalle) {
+        Long empresaId = proceso.getEmpresa().getId();
         historialCambioService.registrar(proceso, autor, "Versión " + numero + " publicada.");
         eventos.publishEvent(new ProcesoPublicado(empresaId, proceso.getId(), numero, autor.getNombre()));
         auditoria.registrar(empresaId, autor.getId(), "PROCESO_PUBLICADO", "PROCESO", proceso.getId(), detalle);
-        return respuesta(proceso).conBorradorPendiente(false);
     }
 
     private static void exigirSinErrores(String que, List<String> errores) {
@@ -363,11 +366,18 @@ public class ProcesoServiceImpl implements ProcesoService {
         if (impedimento.isPresent()) {
             return impedimento;
         }
+        Usuario autor = autor(empresaId, usuarioId);
+        int numero = congelado.numero();
+        versionService.publicar(proceso, numero, usuarioId, congelado.instantanea());
+        // D31: publicar lo que otros revisaron no es cambiar el proceso. Si se guardara como un cambio, quien dio la
+        // ultima aprobacion quedaria como el ultimo en modificarlo y la separacion de funciones lo sacaria de las
+        // proximas solicitudes; tampoco sube la version que tiene abierta quien edita la ficha
+        procesoRepository.anotarPublicacion(procesoId, empresaId, numero, congelado.instantanea().huella());
+        entityManager.refresh(proceso);
         Map<String, Object> detalle = new LinkedHashMap<>();
-        detalle.put(VERSION, congelado.numero());
+        detalle.put(VERSION, numero);
         detalle.put("solicitud", solicitudId);
-        registrarPublicacion(proceso, autor(empresaId, usuarioId), congelado.numero(), congelado.instantanea(),
-                detalle);
+        registrarPublicacion(proceso, autor, numero, detalle);
         return Optional.empty();
     }
 
@@ -383,8 +393,10 @@ public class ProcesoServiceImpl implements ProcesoService {
         LocalDate hoy = LocalDate.now(reloj);
         LocalDate anterior = proceso.getProximaRevision();
         LocalDate siguiente = hoy.plusMonths(proceso.getMesesEntreRevisiones());
-        proceso.setProximaRevision(siguiente);
-        proceso = procesoRepository.saveAndFlush(proceso);
+        // Confirmar que sigue vigente no es cambiarlo: no le sube la version a quien edita la ficha, ni deja a quien
+        // lo confirma como el ultimo en modificarlo, que la separacion de funciones sacaria de sus aprobadores (D31)
+        procesoRepository.anotarRecertificacion(procesoId, empresaId, siguiente);
+        entityManager.refresh(proceso);
 
         historialCambioService.registrar(proceso, autor, "Revisión hecha: el proceso sigue vigente. Próxima revisión: "
                 + siguiente + ".");

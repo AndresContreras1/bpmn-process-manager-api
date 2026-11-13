@@ -5,10 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -51,6 +56,8 @@ import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.impl.ProcesoServiceImpl;
+
+import jakarta.persistence.EntityManager;
 
 /**
  * PR 64: lo que el proceso pone para publicar con aprobacion (D32): congelar el borrador con las condiciones de
@@ -98,12 +105,18 @@ class PublicacionConAprobacionTest {
     private PoliticaDePublicacionService politicaDePublicacion;
     @Mock
     private Clock reloj;
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private ProcesoServiceImpl procesoService;
 
     private Usuario ana;
     private Proceso proceso;
+    /** Lo que las consultas propias dejaron en la base, y que el proceso lee recien cuando se refresca. */
+    private Runnable enLaBase = () -> {
+        // nada todavia
+    };
 
     @BeforeEach
     void preparar() {
@@ -119,6 +132,27 @@ class PublicacionConAprobacionTest {
         when(instantaneaDelModelo.tomar(eq(EMPRESA), any(ProcesoResponse.class))).thenReturn(INSTANTANEA);
         when(reloj.instant()).thenReturn(Instant.parse("2026-11-12T10:00:00Z"));
         when(reloj.getZone()).thenReturn(ZoneOffset.UTC);
+        when(procesoRepository.anotarPublicacion(eq(PROCESO), eq(EMPRESA), anyInt(), anyString()))
+                .thenAnswer(llamada -> {
+                    int numero = llamada.getArgument(2);
+                    String huella = llamada.getArgument(3);
+                    enLaBase = () -> {
+                        proceso.setEstado(EstadoProceso.PUBLICADO);
+                        proceso.setVersionPublicada(numero);
+                        proceso.setHuellaPublicada(huella);
+                    };
+                    return 1;
+                });
+        when(procesoRepository.anotarRecertificacion(eq(PROCESO), eq(EMPRESA), any(LocalDate.class)))
+                .thenAnswer(llamada -> {
+                    LocalDate fecha = llamada.getArgument(2);
+                    enLaBase = () -> proceso.setProximaRevision(fecha);
+                    return 1;
+                });
+        doAnswer(llamada -> {
+            enLaBase.run();
+            return null;
+        }).when(entityManager).refresh(proceso);
     }
 
     private BorradorCongelado congelado() {
@@ -229,7 +263,13 @@ class PublicacionConAprobacionTest {
         Optional<String> impedimento = procesoService.publicarCongelado(EMPRESA, PROCESO, ANA, congelado(), 40L);
 
         assertThat(impedimento).isEmpty();
-        verify(versionService).publicar(proceso, 3, ANA, INSTANTANEA);
+        // D31: no se guarda como un cambio de quien aprobo; se anota aparte y el proceso se vuelve a leer
+        InOrder orden = inOrder(versionService, procesoRepository, entityManager, historialCambioService);
+        orden.verify(versionService).publicar(proceso, 3, ANA, INSTANTANEA);
+        orden.verify(procesoRepository).anotarPublicacion(PROCESO, EMPRESA, 3, HUELLA);
+        orden.verify(entityManager).refresh(proceso);
+        orden.verify(historialCambioService).registrar(proceso, ana, "Versión 3 publicada.");
+        verify(procesoRepository, never()).saveAndFlush(any());
         assertThat(proceso.getEstado()).isEqualTo(EstadoProceso.PUBLICADO);
         assertThat(proceso.getVersionPublicada()).isEqualTo(3);
         assertThat(proceso.getHuellaPublicada()).isEqualTo(HUELLA);
@@ -252,6 +292,7 @@ class PublicacionConAprobacionTest {
 
         verify(versionService, never()).publicar(any(), anyInt(), any(), any());
         verify(procesoRepository, never()).saveAndFlush(any());
+        verify(procesoRepository, never()).anotarPublicacion(anyLong(), anyLong(), anyInt(), any());
         assertThat(proceso.getVersionPublicada()).isEqualTo(2);
     }
 
@@ -267,6 +308,9 @@ class PublicacionConAprobacionTest {
         assertThat(proceso.getProximaRevision()).isEqualTo(LocalDate.of(2027, 5, 12));
         assertThat(respuesta.proximaRevision()).isEqualTo(LocalDate.of(2027, 5, 12));
         assertThat(respuesta.revisionVencida()).isFalse();
+        // Confirmarlo no es cambiarlo: ni sube su version ni lo deja modificado por quien confirma (D31)
+        verify(procesoRepository).anotarRecertificacion(PROCESO, EMPRESA, LocalDate.of(2027, 5, 12));
+        verify(procesoRepository, never()).saveAndFlush(any());
         verify(permisos, never()).exigir(anyLong(), anyLong(), any(), any());
         verify(historialCambioService).registrar(proceso, ana, "Revisión hecha: el proceso sigue vigente. Próxima "
                 + "revisión: 2027-05-12.");
@@ -309,6 +353,7 @@ class PublicacionConAprobacionTest {
         assertThatThrownBy(() -> procesoService.recertificar(EMPRESA, PROCESO, ANA, null))
                 .isInstanceOf(SinPermisoException.class);
         assertThat(proceso.getProximaRevision()).isEqualTo(HOY);
+        verify(procesoRepository, times(1)).anotarRecertificacion(eq(PROCESO), eq(EMPRESA), any());
     }
 
     @Test
