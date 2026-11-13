@@ -43,7 +43,8 @@ public class ReconstruccionDeBusqueda implements ManejadorDeTrabajo {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transaccion;
 
-    public ReconstruccionDeBusqueda(ObjectProvider<ColaDeTrabajos> cola, JdbcTemplate jdbc, PlatformTransactionManager transacciones) {
+    public ReconstruccionDeBusqueda(ObjectProvider<ColaDeTrabajos> cola, JdbcTemplate jdbc,
+            PlatformTransactionManager transacciones) {
         this.cola = cola;
         this.jdbc = jdbc;
         this.transaccion = new TransactionTemplate(transacciones);
@@ -69,7 +70,8 @@ public class ReconstruccionDeBusqueda implements ManejadorDeTrabajo {
 
     /**
      * Rehace la tabla tramo a tramo. Termina cuando un tramo ya no encuentra filas despues del ultimo id rehecho, o si
-     * no avanza: cada tramo empieza despues del anterior, y uno que no pasa de donde empezo no tiene nada mas que hacer.
+     * no avanza: cada tramo empieza despues del anterior, y uno que no pasa de donde empezo no tiene nada mas que
+     * hacer.
      */
     private void recorrer(Long empresaId, Tabla tabla) {
         long desde = 0L;
