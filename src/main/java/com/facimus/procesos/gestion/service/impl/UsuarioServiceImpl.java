@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.event.UsuarioAnonimizado;
 import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
@@ -34,6 +36,7 @@ import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.repository.UsuarioSpecifications;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.IdentidadExternaService;
+import com.facimus.procesos.gestion.service.NotificacionService;
 import com.facimus.procesos.gestion.service.SegundoFactorService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -57,6 +60,8 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final SegundoFactorService segundoFactorService;
     private final IdentidadExternaService identidadExternaService;
     private final Auditoria auditoria;
+    private final NotificacionService notificacionService;
+    private final ApplicationEventPublisher eventos;
 
     private static final SecureRandom ALEATORIO = new SecureRandom();
 
@@ -198,6 +203,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         }
         // Quien la pide es otro administrador activo: la tienda no se queda sin ninguno.
         String correo = usuario.getEmail();
+        String nombre = usuario.getNombre();
         String seudonimo = "Persona anonimizada " + usuarioId;
         String correoSeudonimo = "anonimizada-" + usuarioId + "@anonimo.invalid";
         usuario.setNombre(seudonimo);
@@ -216,6 +222,9 @@ public class UsuarioServiceImpl implements UsuarioService {
         identidadExternaService.borrarDe(empresaId, usuarioId);
         sesionService.cerrarTodas(empresaId, usuarioId);
         historialCambioService.seudonimizarUsuario(empresaId, usuarioId, seudonimo, correo, correoSeudonimo);
+        // PR 63: sus notificaciones eran solo suyas; los comentarios que la nombraban la nombran con su seudonimo
+        notificacionService.borrarDe(empresaId, usuarioId);
+        eventos.publishEvent(new UsuarioAnonimizado(empresaId, usuarioId, nombre, seudonimo));
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.USUARIO, usuarioId,
                 "Usuario anonimizado: su nombre y su correo ya no constan en ninguna parte.");
         auditoria.registrar(empresaId, autorId, "USUARIO_ANONIMIZADO", "USUARIO", usuarioId, Map.of());
