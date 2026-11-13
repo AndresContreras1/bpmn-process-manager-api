@@ -92,7 +92,9 @@
 - [x] Documentation in Markdown per process and element, cleaned on the server, and a characterization sheet
 - [x] The process manual in HTML and PDF, built in the queue from the published version and the drawing the web
       app sends when publishing
-- [ ] Comments with mentions, review and approval, and full-text search
+- [x] Comment threads on a process, an element or a version, with mentions of who can view it, resolve and reopen,
+      and a notification center in the app, over server-sent events and by e-mail, immediate or in a daily digest
+- [ ] Review and approval, and full-text search
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline

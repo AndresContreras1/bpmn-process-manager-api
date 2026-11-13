@@ -57,7 +57,10 @@ class ReglaDeRecursoTest {
                 Arguments.of("POST", P + "/pruebas", null, Accion.MODELAR),
                 Arguments.of("GET", P + "/temporizadores", null, Accion.VER),
                 // PR 69: el formulario de inicio de la version vigente se lee como el proceso
-                Arguments.of("GET", P + "/formulario-de-inicio", null, Accion.VER));
+                Arguments.of("GET", P + "/formulario-de-inicio", null, Accion.VER),
+                // PR 63: comentar no es modelar: tambien lo hace quien solo lee
+                Arguments.of("GET", P + "/comentarios", null, Accion.VER),
+                Arguments.of("POST", P + "/comentarios", null, Accion.COMENTAR));
     }
 
     @ParameterizedTest(name = "{0} {1} {2} pide {3}")
@@ -85,6 +88,21 @@ class ReglaDeRecursoTest {
         assertThat(regla.accion()).isEqualTo(esperada);
         assertThat(regla.clase()).isEqualTo(ReglaDeRecurso.Clase.ELEMENTO);
         assertThat(regla.tipo()).isEqualTo(tipo);
+    }
+
+    static Stream<Arguments> rutasDeComentarios() {
+        return Stream.of(Arguments.of("PUT", "/api/v1/comentarios/{id}"),
+                Arguments.of("DELETE", "/api/v1/comentarios/{id}"),
+                Arguments.of("POST", "/api/v1/comentarios/{id}/respuestas"),
+                Arguments.of("POST", "/api/v1/comentarios/{id}/resolver"),
+                Arguments.of("POST", "/api/v1/comentarios/{id}/reabrir"));
+    }
+
+    @ParameterizedTest(name = "{0} {1} pide COMENTAR sobre el proceso del comentario")
+    @MethodSource("rutasDeComentarios")
+    void rutaDeComentario(String metodo, String patron) {
+        assertThat(ReglaDeRecurso.de(metodo, patron, null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.COMENTAR, ReglaDeRecurso.Clase.ELEMENTO, "comentarios"));
     }
 
     @Test
@@ -145,5 +163,9 @@ class ReglaDeRecursoTest {
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/organizacion/calendario", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("DELETE", "/api/v1/organizacion/calendario/festivos/{fecha}", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/casos/{id}/temporizadores", null)).isEmpty();
+        // PR 63: las notificaciones son de cada persona, no de un proceso: las filtra su servicio
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/notificaciones", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("POST", "/api/v1/notificaciones/{id}/leida", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/notificaciones/preferencias", null)).isEmpty();
     }
 }

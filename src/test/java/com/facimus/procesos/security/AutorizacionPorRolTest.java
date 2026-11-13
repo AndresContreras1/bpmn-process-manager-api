@@ -274,6 +274,20 @@ class AutorizacionPorRolTest {
             EDITOR        | PUT    | /api/v1/actividades/{id}/asignacion        | 404
             ADMINISTRADOR | PUT    | /api/v1/actividades/{id}/asignacion        | 404
             SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/asignacion        | 403
+            # PR 63: comentar es de cualquier rol, tambien de quien solo lee; las notificaciones son de cada persona
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/comentarios     | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/comentarios     | 404
+            SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/respuestas   | 404
+            SOLO_LECTURA  | PUT    | /api/v1/comentarios/{id}              | 404
+            SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/resolver     | 404
+            SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/reabrir      | 404
+            SOLO_LECTURA  | DELETE | /api/v1/comentarios/{id}              | 404
+            SOLO_LECTURA  | GET    | /api/v1/notificaciones                | 200
+            SOLO_LECTURA  | GET    | /api/v1/notificaciones/conteo         | 200
+            SOLO_LECTURA  | POST   | /api/v1/notificaciones/{id}/leida     | 404
+            SOLO_LECTURA  | POST   | /api/v1/notificaciones/leidas         | 200
+            SOLO_LECTURA  | GET    | /api/v1/notificaciones/preferencias   | 200
+            EDITOR        | PUT    | /api/v1/notificaciones/preferencias   | 200
 
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
@@ -311,6 +325,13 @@ class AutorizacionPorRolTest {
         } else if (metodo == HttpMethod.PUT && ruta.endsWith("/formulario")) {
             // PR 69: un formulario vacio y su version, para que quien modela pase y choque con que el nodo no existe
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"campos\":[],\"version\":0}");
+        } else if (ruta.equals("/api/v1/procesos/{id}/comentarios") || ruta.startsWith("/api/v1/comentarios/")) {
+            // PR 63: con texto y version, para que quien solo lee pase la autorizacion y choque con que no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content(metodo == HttpMethod.PUT
+                    ? "{\"markdown\":\"x\",\"version\":0}" : "{\"markdown\":\"x\"}");
+        } else if (ruta.equals("/api/v1/notificaciones/preferencias")) {
+            peticion.contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"preferencias\":[{\"tipo\":\"MENCION\",\"envio\":\"NUNCA\"}]}");
         } else if (ruta.equals("/api/v1/simulacion/tick")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"ticks\":1}");
         } else if (ruta.equals("/api/v1/simulacion/pedidos")) {

@@ -21,6 +21,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
@@ -36,6 +37,7 @@ import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.event.UsuarioAnonimizado;
 import com.facimus.procesos.gestion.mapper.UsuarioMapper;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
@@ -84,6 +86,12 @@ class UsuarioServiceTest {
 
     @Mock
     private Auditoria auditoria;
+
+    @Mock
+    private NotificacionService notificacionService;
+
+    @Mock
+    private ApplicationEventPublisher eventos;
 
     @InjectMocks
     private UsuarioServiceImpl usuarioService;
@@ -565,6 +573,9 @@ class UsuarioServiceTest {
         verify(historialCambioService).registrarDeTienda(1L, AUTOR, RecursoDeHistorial.USUARIO, 10L,
                 "Usuario anonimizado: su nombre y su correo ya no constan en ninguna parte.");
         verify(auditoria).registrar(1L, AUTOR, "USUARIO_ANONIMIZADO", "USUARIO", 10L, Map.of());
+        // PR 63: sus notificaciones se van, y los comentarios que la nombraban pasan a su seudonimo
+        verify(notificacionService).borrarDe(1L, 10L);
+        verify(eventos).publishEvent(new UsuarioAnonimizado(1L, 10L, "Juan", "Persona anonimizada 10"));
     }
 
     @Test
@@ -579,6 +590,7 @@ class UsuarioServiceTest {
         usuarioService.anonimizar(1L, AUTOR, 10L);
         verify(usuarioRepository, never()).saveAndFlush(any());
         verify(historialCambioService, never()).seudonimizarUsuario(any(), any(), any(), any(), any());
+        verifyNoInteractions(notificacionService, eventos);
     }
 
     @Test

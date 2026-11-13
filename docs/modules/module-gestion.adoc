@@ -19,6 +19,7 @@
 * `c.f.p.g.service.IdentidadExternaService` (via `c.f.p.g.service.impl.IdentidadExternaServiceImpl`)
 * `c.f.p.g.service.LimpiezaService` (via `c.f.p.g.service.impl.LimpiezaServiceImpl`)
 * `c.f.p.g.service.MembresiaRolService` (via `c.f.p.g.service.impl.MembresiaRolServiceImpl`)
+* `c.f.p.g.service.NotificacionService` (via `c.f.p.g.service.impl.NotificacionServiceImpl`)
 * `c.f.p.g.service.PasskeyService` (via `c.f.p.g.service.impl.PasskeyServiceImpl`)
 * `c.f.p.g.service.Permisos` (via `c.f.p.g.service.impl.PermisosImpl`)
 * `c.f.p.g.service.PreferenciasService` (via `c.f.p.g.service.impl.PreferenciasServiceImpl`)
@@ -46,7 +47,9 @@ _Repositories_
 * `c.f.p.g.repository.HistorialCambioRepository`
 * `c.f.p.g.repository.IdentidadExternaRepository`
 * `c.f.p.g.repository.MembresiaRolRepository`
+* `c.f.p.g.repository.NotificacionRepository`
 * `c.f.p.g.repository.PasskeyRepository`
+* `c.f.p.g.repository.PreferenciaNotificacionRepository`
 * `c.f.p.g.repository.ProcesoCompartidoRepository`
 * `c.f.p.g.repository.ProcesoRepository`
 * `c.f.p.g.repository.RefreshTokenRepository`
@@ -80,7 +83,9 @@ _Others_
 * `c.f.p.g.model.HistorialCambio`
 * `c.f.p.g.model.IdentidadExterna`
 * `c.f.p.g.model.MembresiaRol`
+* `c.f.p.g.model.Notificacion`
 * `c.f.p.g.model.Passkey`
+* `c.f.p.g.model.PreferenciaNotificacion`
 * `c.f.p.g.model.Proceso`
 * `c.f.p.g.model.ProcesoCompartido`
 * `c.f.p.g.model.RefreshToken`
@@ -92,4 +97,5 @@ _Others_
 * `c.f.p.g.model.VinculoPendiente`
 |Events listened to
 |* `c.f.p.c.auditoria.SucesoAuditable` (async) 
+* `c.f.p.c.notificaciones.NotificacionPedida` (async) 
 |===

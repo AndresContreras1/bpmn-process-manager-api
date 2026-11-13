@@ -20,6 +20,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Documents | `GET, POST /api/v1/procesos/{id}/documentos` · `GET, DELETE /api/v1/documentos/{id}` · `POST /api/v1/documentos/{id}/versiones` · `GET /api/v1/documentos/{id}/enlace` · `GET /api/v1/descargas/documentos/{id}/{version}` |
 | Documentation | `GET, PUT /api/v1/procesos/{id}/documentacion` · `POST /api/v1/documentacion/vista-previa` · `GET, PUT /api/v1/procesos/{id}/caracterizacion` |
 | Manuals | `GET, POST /api/v1/procesos/{id}/manuales[?version=]` · `GET /api/v1/manuales/{id}` · `GET /api/v1/manuales/{id}/enlace?formato=pdf\|html` · `GET /api/v1/descargas/manuales/{id}/{formato}` · `PUT /api/v1/procesos/{id}/versiones/{numero}/dibujo` |
+| Comments | `GET, POST /api/v1/procesos/{id}/comentarios[?bpmnId=&version=&estado=]` · `POST /api/v1/comentarios/{id}/respuestas` · `PUT, DELETE /api/v1/comentarios/{id}` · `POST /api/v1/comentarios/{id}/resolver` · `POST /api/v1/comentarios/{id}/reabrir` |
+| Notifications | `GET /api/v1/notificaciones[?noLeidas=true]` · `GET /api/v1/notificaciones/conteo` · `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` · `GET /api/v1/notificaciones/flujo` · `GET, PUT /api/v1/notificaciones/preferencias` |
 | Permissions | `GET /api/v1/procesos/{id}/permisos` · `GET, POST /api/v1/procesos/{id}/concesiones` · `GET, POST /api/v1/carpetas/{id}/concesiones` · `DELETE /api/v1/concesiones/{id}` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
 | Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` · `PUT /api/v1/procesos/{procesoId}/pools/orden` |
@@ -342,6 +344,53 @@ workload:
 
 ```json
 { "sinAsignar": 3, "personas": [ { "usuarioId": 5, "nombre": "Luis Gomez", "tareas": 4 } ] }
+```
+
+## Comments and notifications
+
+A thread starts with `POST /api/v1/procesos/{id}/comentarios`:
+
+```json
+{ "markdown": "Who checks the **address** before packing?", "bpmnId": "Activity_0b3k9xq",
+  "versionDelProceso": 2, "menciones": [2, 5] }
+```
+
+Only `markdown` is required, up to 10 000 characters, converted and cleaned like the documentation. `bpmnId` anchors
+the thread to an element of the draft (`404` if it has none), or with `versionDelProceso` to an element of that
+published version (`404` if the version does not exist). `menciones` are ids of people of the store who can view
+the process, at most 20; any other id answers `400` with `errors` naming its position (`"menciones[1]"`) and the same
+reason for every case, so it never says whether someone exists. The answer is `201` with the comment: its `html`, the
+`autor` and the `menciones` with their names, `estado` (`ABIERTO` or `RESUELTO`, only on the first comment of a
+thread) and the `version` to send back when editing.
+
+`POST /api/v1/comentarios/{id}/respuestas` takes `{ "markdown", "menciones" }`; replying to a reply answers in its
+thread. `PUT /api/v1/comentarios/{id}` takes the same with the `version` read, and only its author edits it (`403`,
+`409` with a stale version). `POST .../resolver` and `.../reabrir` act on the first comment of a thread (`409` on a
+reply, on a resolved thread or on an open one). `DELETE` is for its author or an administrator: the comment loses its
+text and keeps its place, so a thread with replies stays, marked `eliminado`. `GET /api/v1/procesos/{id}/comentarios`
+answers a page of threads, newest first and up to 50, each with its replies oldest first, filtered by `bpmnId`,
+`version` and `estado`. Every role comments, the read-only one too; reading needs `VER` and writing `COMENTAR` and
+`VER` on the process ([Security](security.md#comments-and-notifications)).
+
+Who hears about it: those mentioned (`MENCION`), everyone else who wrote in the thread when someone replies
+(`RESPUESTA`), and everyone who wrote in it when it is resolved (`HILO_RESUELTO`), never the author. Each one gets a
+notification that only they see; another's answers `404`.
+
+| Route | Answers |
+|---|---|
+| `GET /api/v1/notificaciones?noLeidas=true&pagina=0&tamano=20` | A page, newest first and up to 50: `tipo`, `procesoId` and `proceso`, `referenciaId` (the comment), `autor`, `creadaEn`, `leidaEn` |
+| `GET /api/v1/notificaciones/conteo` | `{ "noLeidas": 3 }` |
+| `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` | The notification read · the count, now `0` |
+| `GET /api/v1/notificaciones/flujo` | Server-sent events: `conteo` when it opens and whenever it changes, `notificacion` with each new one, and a heartbeat every 25 seconds; at most five per person on each instance (`429`) |
+| `GET, PUT /api/v1/notificaciones/preferencias` | Each type with `envio`: `INMEDIATO`, `RESUMEN_DIARIO` or `NUNCA`, and whether it is the default. `PUT` takes `{ "preferencias": [{ "tipo": "HILO_RESUELTO", "envio": "NUNCA" }] }` and leaves the other types as they were |
+
+By default a mention and a reply are e-mailed at once, and a resolved thread waits for the daily digest. An e-mail is
+written in the person's language, says who did what in which process with a link to it, and never carries the
+comment's text; one that is already read when its e-mail would leave is not sent.
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/comentarios -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"   -H "Content-Type: application/json" -d '{"markdown":"Who checks the address?","menciones":[2]}'
+curl -N http://localhost:8080/api/v1/notificaciones/flujo -b sesion.txt
 ```
 
 ## Permissions

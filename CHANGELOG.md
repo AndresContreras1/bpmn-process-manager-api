@@ -60,6 +60,12 @@ tagged. Each pull request adds its line under *Unreleased*.
   verifies every audit trail against its anchor and every published version against its fingerprint. It prints the
   RPO and the RTO it measured.
 - The documents' bucket keeps every version for 35 days (`ALMACEN_S3_DIAS_DE_VERSIONES`) when the API prepares it.
+- Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
+  like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
+  can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads
+  reach a notification center that only its recipient sees, a server-sent event stream shared by every replica, and
+  e-mail in the person's language, immediate or in a daily digest as each person chooses per type. Resolving,
+  reopening and deleting are audited; read notifications are purged after 90 days.
 - Documentation in Markdown for a process and each of its elements, converted on the server and cleaned against a
   whitelist, with a preview; a characterization sheet per process; the drawing of each version, which the modeler
   sends right after publishing and the server cleans; and the manual of a published version in HTML and PDF, built in

@@ -17,6 +17,7 @@ import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.Limpieza;
 import com.facimus.procesos.gestion.service.LimpiezaService;
+import com.facimus.procesos.gestion.service.NotificacionService;
 import com.facimus.procesos.modelado.service.RevisionService;
 import com.facimus.procesos.security.DesafiosWebAuthn;
 import com.facimus.procesos.security.IntentosDeLogin;
@@ -49,6 +50,7 @@ public class LimpiezaConfig {
     private final LimitesDePeticiones limitesDePeticiones;
     private final DesafiosWebAuthn desafiosWebAuthn;
     private final CasoService casoService;
+    private final NotificacionService notificacionService;
     /** PR 68: cuanto se guarda una prueba del borrador antes de que la purga se la lleve con su caso. */
     private final Duration retencionDePruebas;
     private final Clock reloj;
@@ -57,7 +59,8 @@ public class LimpiezaConfig {
     public LimpiezaConfig(LimpiezaService limpiezaService, RevisionService revisionService,
             IntentosDeLogin intentosDeLogin, ColaDeTrabajos colaDeTrabajos, CuentaService cuentaService,
             EmpresaService empresaService, LimitesDePeticiones limitesDePeticiones, DesafiosWebAuthn desafiosWebAuthn,
-            CasoService casoService, @Value("${pruebas.retencion}") Duration retencionDePruebas, Clock reloj) {
+            CasoService casoService, NotificacionService notificacionService,
+            @Value("${pruebas.retencion}") Duration retencionDePruebas, Clock reloj) {
         this.limpiezaService = limpiezaService;
         this.revisionService = revisionService;
         this.intentosDeLogin = intentosDeLogin;
@@ -67,6 +70,7 @@ public class LimpiezaConfig {
         this.limitesDePeticiones = limitesDePeticiones;
         this.desafiosWebAuthn = desafiosWebAuthn;
         this.casoService = casoService;
+        this.notificacionService = notificacionService;
         this.retencionDePruebas = retencionDePruebas;
         this.reloj = reloj;
     }
@@ -111,6 +115,10 @@ public class LimpiezaConfig {
         int pruebas = casoService.olvidarPruebasAntesDe(LocalDateTime.now(reloj).minus(retencionDePruebas));
         if (pruebas > 0) {
             log.info("Limpieza: {} versiones de prueba del borrador, con sus casos.", pruebas);
+        }
+        int notificaciones = notificacionService.olvidarLeidas();
+        if (notificaciones > 0) {
+            log.info("Limpieza: {} notificaciones leidas que pasaron su retencion.", notificaciones);
         }
         int tiendas = empresaService.borrarLasDadasDeBaja();
         if (tiendas > 0) {

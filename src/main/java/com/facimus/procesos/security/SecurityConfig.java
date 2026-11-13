@@ -247,6 +247,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, CALENDARIO, CALENDARIO + "/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.DELETE, CALENDARIO + "/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").authenticated()
+                        // PR 63: comentar es de cualquier rol, tambien de quien solo lee: lo decide COMENTAR sobre el
+                        // proceso, y editar o borrar un comentario lo decide su servicio. Las notificaciones son de
+                        // cada persona, sea cual sea su rol.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/comentarios",
+                                "/api/v1/comentarios/*/respuestas", "/api/v1/comentarios/*/resolver",
+                                "/api/v1/comentarios/*/reabrir").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/comentarios/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/comentarios/*").authenticated()
+                        .requestMatchers("/api/v1/notificaciones", "/api/v1/notificaciones/**").authenticated()
                         .requestMatchers("/api/v1/roles/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/compartidos").hasAuthority(ADMINISTRADOR)
                         // Retirar una version cambia lo que la tienda da por bueno: es del administrador (D2).
