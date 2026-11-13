@@ -25,6 +25,10 @@ import org.springframework.scheduling.support.CronExpression;
  * <li>un ciclo: un intervalo que se repite ({@code R3/PT1H}, {@code R/2026-01-01T08:00:00Z/P1D},
  * {@code R2/PT1H/2026-01-01T08:00:00Z}) o una expresion cron de seis campos ({@code 0 0 9 * * MON-FRI}).</li>
  * </ul>
+ *
+ * <p>Con topes, para que lo que el diagnostico acepta se pueda armar siempre y no se coma a la tienda: una duracion
+ * no pasa de cien anos, una habil de 366 jornadas (o 366 dias de horas de jornada), una fecha va de 1900 a 9999 y un
+ * ciclo no salta mas de una vez por minuto.
  */
 public final class ExpresionDeTiempo {
 
@@ -33,6 +37,13 @@ public final class ExpresionDeTiempo {
     private static final char PERIODO = 'P';
     private static final char TIEMPO = 'T';
     private static final char REPETIR = 'R';
+
+    /** Cien anos contados por lo largo, con meses de 31 dias: P100Y cabe, P100Y1D ya no. */
+    private static final long DIAS_DE_CIEN_ANOS = 31L * 12 * 100;
+    private static final int JORNADAS_MAXIMAS = 366;
+    private static final int PRIMER_ANIO = 1900;
+    private static final int ULTIMO_ANIO = 9999;
+    private static final Duration VUELTA_MINIMA = Duration.ofMinutes(1);
 
     private ExpresionDeTiempo() {
     }
@@ -71,21 +82,18 @@ public final class ExpresionDeTiempo {
     }
 
     public static Duracion duracion(String texto) {
-        return leerDuracion(limpiar(texto), false);
+        String limpio = limpiar(texto);
+        return acotada(limpio, leerDuracion(limpio, false));
     }
 
     public static Duracion duracionHabil(String texto) {
-        return leerDuracion(limpiar(texto), true);
+        String limpio = limpiar(texto);
+        return acotada(limpio, leerDuracion(limpio, true));
     }
 
     public static Fecha fecha(String texto) {
         String limpio = limpiar(texto);
-        try {
-            TemporalAccessor leido = DateTimeFormatter.ISO_DATE_TIME.parse(limpio);
-            return new Fecha(LocalDateTime.from(leido), leido.query(TemporalQueries.zone()));
-        } catch (DateTimeException _) {
-            throw mal(limpio, "una fecha y hora" + EN_ISO);
-        }
+        return acotada(limpio, leerFecha(limpio));
     }
 
     public static Ciclo ciclo(String texto) {
@@ -93,11 +101,17 @@ public final class ExpresionDeTiempo {
         if (!limpio.isEmpty() && limpio.charAt(0) == REPETIR) {
             return intervalo(limpio);
         }
+        CronExpression cron;
         try {
-            return new Ciclo(null, null, null, null, CronExpression.parse(limpio));
+            cron = CronExpression.parse(limpio);
         } catch (IllegalArgumentException _) {
             throw mal(limpio, UN_CICLO + " en ISO 8601 ni una expresion cron.");
         }
+        if (limpio.charAt(0) != '@' && !soloCifras(limpio.substring(0, finDelPrimerCampo(limpio)))) {
+            throw new ExpresionMalEscrita("\"" + limpio + "\" saltaria mas de una vez por minuto: los segundos van "
+                    + "fijos, como en 0 0 9 * * MON-FRI.");
+        }
+        return new Ciclo(null, null, null, null, cron);
     }
 
     /** R, con o sin cuantas veces, y uno o dos tramos: un periodo, o un inicio y un periodo, o un periodo y un fin. */
@@ -112,13 +126,13 @@ public final class ExpresionDeTiempo {
         Duracion periodo;
         try {
             if (partes.length == 2) {
-                periodo = duracion(partes[1]);
+                periodo = leerDuracion(limpiar(partes[1]), false);
             } else if (partes[1].indexOf(PERIODO) == 0) {
-                periodo = duracion(partes[1]);
-                fin = fecha(partes[2]);
+                periodo = leerDuracion(limpiar(partes[1]), false);
+                fin = leerFecha(limpiar(partes[2]));
             } else {
-                inicio = fecha(partes[1]);
-                periodo = duracion(partes[2]);
+                inicio = leerFecha(limpiar(partes[1]));
+                periodo = leerDuracion(limpiar(partes[2]), false);
             }
         } catch (ExpresionMalEscrita _) {
             throw mal(limpio, UN_CICLO + EN_ISO);
@@ -126,6 +140,17 @@ public final class ExpresionDeTiempo {
         if (periodo.esCero()) {
             throw new ExpresionMalEscrita("\"" + limpio + "\" se repetiria sin esperar nada: el periodo no puede ser "
                     + "cero.");
+        }
+        if (periodo.dias().isZero() && periodo.tiempo().compareTo(VUELTA_MINIMA) < 0) {
+            throw new ExpresionMalEscrita("\"" + limpio + "\" saltaria mas de una vez por minuto: el periodo es de "
+                    + "un minuto o mas.");
+        }
+        acotada(limpio, periodo);
+        if (inicio != null) {
+            acotada(limpio, inicio);
+        }
+        if (fin != null) {
+            acotada(limpio, fin);
         }
         return new Ciclo(repeticiones, inicio, periodo, fin, null);
     }
@@ -180,6 +205,58 @@ public final class ExpresionDeTiempo {
                     + "jornada (P2D, PT4H), no anos, meses ni semanas.");
         }
         return new Duracion(dias, tiempo, habil);
+    }
+
+    private static Fecha leerFecha(String limpio) {
+        try {
+            TemporalAccessor leido = DateTimeFormatter.ISO_DATE_TIME.parse(limpio);
+            return new Fecha(LocalDateTime.from(leido), leido.query(TemporalQueries.zone()));
+        } catch (DateTimeException _) {
+            throw mal(limpio, "una fecha y hora" + EN_ISO);
+        }
+    }
+
+    /** Las duraciones con su tope: cien anos de calendario, o 366 jornadas de tiempo habil. */
+    private static Duracion acotada(String limpio, Duracion duracion) {
+        if (duracion.habil()) {
+            if (duracion.dias().getDays() > JORNADAS_MAXIMAS
+                    || duracion.tiempo().compareTo(Duration.ofDays(JORNADAS_MAXIMAS)) > 0) {
+                throw new ExpresionMalEscrita("\"" + limpio + "\" pasa de " + JORNADAS_MAXIMAS + " jornadas: es el "
+                        + "tope de una duracion habil.");
+            }
+            return duracion;
+        }
+        // Por partes y en ese orden: sumar antes de saber que cada una cabe podria desbordar la cuenta
+        long dias = 31L * duracion.dias().toTotalMonths() + duracion.dias().getDays();
+        Duration tope = Duration.ofDays(DIAS_DE_CIEN_ANOS);
+        if (dias > DIAS_DE_CIEN_ANOS || duracion.tiempo().compareTo(tope) > 0
+                || Duration.ofDays(dias).plus(duracion.tiempo()).compareTo(tope) > 0) {
+            throw new ExpresionMalEscrita("\"" + limpio + "\" pasa de cien anos: es el tope de una duracion.");
+        }
+        return duracion;
+    }
+
+    private static Fecha acotada(String limpio, Fecha fecha) {
+        int anio = fecha.local().getYear();
+        if (anio < PRIMER_ANIO || anio > ULTIMO_ANIO) {
+            throw new ExpresionMalEscrita("\"" + limpio + "\" cae fuera de los anos que se cuentan: de "
+                    + PRIMER_ANIO + " a " + ULTIMO_ANIO + ".");
+        }
+        return fecha;
+    }
+
+    private static int finDelPrimerCampo(String limpio) {
+        int espacio = limpio.indexOf(' ');
+        return espacio < 0 ? limpio.length() : espacio;
+    }
+
+    private static boolean soloCifras(String campo) {
+        for (int i = 0; i < campo.length(); i++) {
+            if (campo.charAt(i) < '0' || campo.charAt(i) > '9') {
+                return false;
+            }
+        }
+        return !campo.isEmpty();
     }
 
     private static String limpiar(String texto) {

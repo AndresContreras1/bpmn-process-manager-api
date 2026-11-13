@@ -30,6 +30,16 @@ class ExpresionDeTemporizadorTest {
         assertThat(ExpresionDeTemporizador.problema(tipo, expresion)).get().asString().contains("ISO 8601");
     }
 
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {"DURACION|P999999999Y|cien anos", "DURACION|PT2562047788015215H|cien anos",
+            "DURACION_HABIL|P3000D|366 jornadas", "FECHA|+999999-01-01T00:00:00|de 1900 a 9999",
+            "CICLO|R/P999999999Y|cien anos", "CICLO|* * * * * *|una vez por minuto",
+            "CICLO|R/PT0.000001S|una vez por minuto"})
+    @DisplayName("PR 68: lo que se lee pero pasa los topes tambien es un problema (E-16), con el tope que pasa")
+    void fueraDeLosTopes(TipoTemporizador tipo, String expresion, String tope) {
+        assertThat(ExpresionDeTemporizador.problema(tipo, expresion)).get().asString().contains(tope);
+    }
+
     @Test
     @DisplayName("PR 68: un mes habil no se entiende, y lo dice")
     void mesHabil() {

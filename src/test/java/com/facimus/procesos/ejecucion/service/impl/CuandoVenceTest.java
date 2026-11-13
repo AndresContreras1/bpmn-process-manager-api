@@ -1,6 +1,7 @@
 package com.facimus.procesos.ejecucion.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -19,6 +20,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import com.facimus.procesos.common.tiempo.ExpresionDeTiempo;
+import com.facimus.procesos.common.tiempo.ExpresionMalEscrita;
 import com.facimus.procesos.gestion.model.Pais;
 import com.facimus.procesos.gestion.service.CalendarioLaboral;
 import com.facimus.procesos.modelado.model.TipoTemporizador;
@@ -203,5 +205,25 @@ class CuandoVenceTest {
             assertThat(CuandoVence.enTicks(Duration.ZERO)).isOne();
             assertThat(CuandoVence.enTicks(Duration.ofHours(Integer.MAX_VALUE + 5L))).isEqualTo(Integer.MAX_VALUE);
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {"DURACION|P999999999Y", "DURACION|P300000Y", "DURACION|PT2562047788015215H",
+            "DURACION_HABIL|P3000D", "CICLO|R/P999999999Y", "CICLO|* * * * * *",
+            "CICLO|R/PT0.000001S"})
+    @DisplayName("Lo que pasa los topes no se cuenta ni en produccion ni en prueba: es una expresion mal escrita")
+    void fueraDeLosTopes(TipoTemporizador tipo, String expresion) {
+        Instant desde = en(BOGOTA, "2026-01-09T15:00:00");
+
+        assertThatThrownBy(() -> CuandoVence.primero(tipo, expresion, desde, COLOMBIA))
+                .isInstanceOf(ExpresionMalEscrita.class);
+        assertThatThrownBy(() -> CuandoVence.ticks(tipo, expresion, COLOMBIA)).isInstanceOf(ExpresionMalEscrita.class);
+    }
+
+    @Test
+    @DisplayName("Una fecha fuera de los anos que se cuentan no vence nunca en produccion: es una expresion mal escrita")
+    void fechaFueraDeLosTopes() {
+        assertThatThrownBy(() -> CuandoVence.primero(TipoTemporizador.FECHA, "+999999-01-01T00:00:00",
+                en(BOGOTA, "2026-01-09T15:00:00"), COLOMBIA)).isInstanceOf(ExpresionMalEscrita.class);
     }
 }

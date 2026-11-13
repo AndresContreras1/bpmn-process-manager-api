@@ -176,6 +176,89 @@ class ExpresionDeTiempoTest {
     }
 
     @Test
+    @DisplayName("Una duracion llega hasta cien anos contados por lo largo, y ni un dia mas")
+    void duracion_topeDeCienAnos() {
+        assertThat(ExpresionDeTiempo.duracion("P100Y").dias()).isEqualTo(Period.ofYears(100));
+        assertThat(ExpresionDeTiempo.duracion("P1200M").dias()).isEqualTo(Period.ofMonths(1200));
+        assertThat(ExpresionDeTiempo.duracion("P37200D").dias()).isEqualTo(Period.ofDays(37_200));
+        assertThat(ExpresionDeTiempo.duracion("PT892800H").tiempo()).isEqualTo(Duration.ofDays(37_200));
+        assertThatThrownBy(() -> ExpresionDeTiempo.duracion("P100Y1D")).isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessage("\"P100Y1D\" pasa de cien anos: es el tope de una duracion.");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"P101Y", "P999999999Y", "P300000Y", "P37201D", "PT892801H", "PT2562047788015215H",
+            "P1200MT24H", "P5315W1D"})
+    @DisplayName("Lo que pasa de cien anos no se espera, aunque se lea: el motor no podria contarlo")
+    void duracion_masDeCienAnos(String texto) {
+        assertThatThrownBy(() -> ExpresionDeTiempo.duracion(texto)).isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessageContaining("pasa de cien anos");
+    }
+
+    @Test
+    @DisplayName("Una duracion habil llega hasta 366 jornadas, o 366 dias de horas de jornada")
+    void duracionHabil_tope() {
+        assertThat(ExpresionDeTiempo.duracionHabil("P366D").dias()).isEqualTo(Period.ofDays(366));
+        assertThat(ExpresionDeTiempo.duracionHabil("PT8784H").tiempo()).isEqualTo(Duration.ofDays(366));
+        assertThatThrownBy(() -> ExpresionDeTiempo.duracionHabil("P367D")).isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessage("\"P367D\" pasa de 366 jornadas: es el tope de una duracion habil.");
+        assertThatThrownBy(() -> ExpresionDeTiempo.duracionHabil("PT8785H")).isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessageContaining("pasa de 366 jornadas");
+        assertThatThrownBy(() -> ExpresionDeTiempo.duracionHabil("P3000D")).isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessageContaining("pasa de 366 jornadas");
+    }
+
+    @Test
+    @DisplayName("Una fecha va de 1900 a 9999; fuera de ahi no se arma ni se guarda")
+    void fecha_tope() {
+        assertThat(ExpresionDeTiempo.fecha("1900-01-01T00:00:00").local().getYear()).isEqualTo(1900);
+        assertThat(ExpresionDeTiempo.fecha("9999-12-31T23:59:59Z").local().getYear()).isEqualTo(9999);
+        assertThatThrownBy(() -> ExpresionDeTiempo.fecha("+999999-01-01T00:00:00"))
+                .isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessage("\"+999999-01-01T00:00:00\" cae fuera de los anos que se cuentan: de 1900 a 9999.");
+        assertThatThrownBy(() -> ExpresionDeTiempo.fecha("1899-12-31T23:59:59Z"))
+                .isInstanceOf(ExpresionMalEscrita.class).hasMessageContaining("de 1900 a 9999");
+        assertThatThrownBy(() -> ExpresionDeTiempo.fecha("+10000-01-01T00:00:00"))
+                .isInstanceOf(ExpresionMalEscrita.class).hasMessageContaining("de 1900 a 9999");
+    }
+
+    @Test
+    @DisplayName("Un ciclo salta a lo sumo una vez por minuto: un minuto vale, menos no")
+    void ciclo_unaVezPorMinuto() {
+        assertThat(ExpresionDeTiempo.ciclo("R/PT1M").periodo().tiempo()).isEqualTo(Duration.ofMinutes(1));
+        assertThat(ExpresionDeTiempo.ciclo("R/P1D").periodo().dias()).isEqualTo(Period.ofDays(1));
+        assertThatThrownBy(() -> ExpresionDeTiempo.ciclo("R/PT59S")).isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessage("\"R/PT59S\" saltaria mas de una vez por minuto: el periodo es de un minuto o mas.");
+        assertThatThrownBy(() -> ExpresionDeTiempo.ciclo("R/PT0.000001S")).isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessageContaining("mas de una vez por minuto");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"R/P999999999Y", "R3/P101Y", "R/+999999-01-01T00:00:00/P1D", "R/PT1H/1800-01-01T00:00:00Z"})
+    @DisplayName("Un ciclo cuyo periodo o cuyas fechas pasan los topes tampoco se arma")
+    void ciclo_fueraDeLosTopes(String texto) {
+        assertThatThrownBy(() -> ExpresionDeTiempo.ciclo(texto)).isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessageStartingWith("\"" + texto + "\"")
+                .hasMessageNotContaining("no es un ciclo");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"* * * * * *", "*/30 * * * * *", "0,30 * * * * *", "0-5 0 9 * * *"})
+    @DisplayName("Un cron que salta mas de una vez por minuto no es un ciclo: los segundos van fijos")
+    void ciclo_cronDemasiadoSeguido(String texto) {
+        assertThatThrownBy(() -> ExpresionDeTiempo.ciclo(texto)).isInstanceOf(ExpresionMalEscrita.class)
+                .hasMessage("\"" + texto + "\" saltaria mas de una vez por minuto: los segundos van fijos, como en "
+                        + "0 0 9 * * MON-FRI.");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0 * * * * *", "30 0 9 * * MON-FRI", "@hourly", "@daily"})
+    @DisplayName("Uno que salta cada minuto, o una de las macros, si es un ciclo")
+    void ciclo_cronPorMinuto(String texto) {
+        assertThat(ExpresionDeTiempo.ciclo(texto).esCron()).isTrue();
+    }
+
+    @Test
     @DisplayName("Las repeticiones se leen enteras, cifra por cifra, y un numero absurdo no pasa")
     void ciclo_repeticiones() {
         assertThat(ExpresionDeTiempo.ciclo("R105/PT1H").repeticiones()).isEqualTo(105);

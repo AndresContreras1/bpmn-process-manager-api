@@ -1,6 +1,7 @@
 package com.facimus.procesos.ejecucion.service.impl;
 
 import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -45,6 +46,8 @@ import lombok.RequiredArgsConstructor;
 class Temporizadores {
 
     private static final DateTimeFormatter COMO_SE_LEE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    /** Lo que se guarda en vence_en, y bastante menos que lo que cabe en un timestamp: ningun plazo pasa del 9999. */
+    private static final Instant ULTIMO_INSTANTE = Instant.parse("9999-12-31T23:59:59Z");
 
     private final TemporizadorRepository temporizadorRepository;
     private final ActividadCasoRepository actividadCasoRepository;
@@ -175,17 +178,38 @@ class Temporizadores {
                 || temporizador.getDisparos() < temporizador.getRepeticiones();
     }
 
-    /** Pone cuando vence: una hora en produccion, un tick en prueba. Dice si hay alguna vez por delante. */
+    /**
+     * Pone cuando vence: una hora en produccion, un tick en prueba. Dice si hay alguna vez por delante.
+     *
+     * <p>El diagnostico ya pone topes a lo que se escribe, pero una version publicada antes de ellos, o un calendario
+     * con una jornada de minutos, todavia puede pedir una cuenta que se sale de las fechas: eso tampoco se arma, en vez
+     * de tumbar la apertura del caso o la publicacion.
+     */
     private boolean programar(Temporizador temporizador, int tick, CalendarioLaboral calendario) {
-        if (temporizador.getModo() == ModoCaso.PRUEBA) {
-            temporizador.setVenceTick(tick + CuandoVence.ticks(temporizador.getTipoTemporizador(),
-                    temporizador.getExpresion(), calendario));
+        try {
+            if (temporizador.getModo() == ModoCaso.PRUEBA) {
+                temporizador.setVenceTick(Math.addExact(tick, CuandoVence.ticks(temporizador.getTipoTemporizador(),
+                        temporizador.getExpresion(), calendario)));
+                return true;
+            }
+            Optional<Instant> vence = CuandoVence.primero(temporizador.getTipoTemporizador(),
+                    temporizador.getExpresion(), temporizador.getCreadoEn().toInstant(ZoneOffset.UTC), calendario);
+            if (vence.isEmpty()) {
+                return false;
+            }
+            if (vence.orElseThrow().isAfter(ULTIMO_INSTANTE)) {
+                throw new ExpresionMalEscrita(fueraDeLaCuenta(temporizador));
+            }
+            temporizador.setVenceEn(utc(vence.orElseThrow()));
             return true;
+        } catch (DateTimeException | ArithmeticException | IllegalStateException _) {
+            throw new ExpresionMalEscrita(fueraDeLaCuenta(temporizador));
         }
-        Optional<Instant> vence = CuandoVence.primero(temporizador.getTipoTemporizador(), temporizador.getExpresion(),
-                temporizador.getCreadoEn().toInstant(ZoneOffset.UTC), calendario);
-        vence.ifPresent(instante -> temporizador.setVenceEn(utc(instante)));
-        return vence.isPresent();
+    }
+
+    private static String fueraDeLaCuenta(Temporizador temporizador) {
+        return "\"" + temporizador.getExpresion() + "\" no vence dentro de lo que se puede contar: fechas hasta el "
+                + "ano 9999 y tiempo habil en los proximos diez anos.";
     }
 
     private Temporizador.TemporizadorBuilder<?, ?> nuevo(TemporizadorDeLaVersion evento, ModoCaso modo) {
