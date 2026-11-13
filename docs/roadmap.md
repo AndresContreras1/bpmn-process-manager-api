@@ -108,7 +108,8 @@
       server-sent events, with its settings per type
 - [x] A read-only portal of what is published: folders, search and the process sheet with its owner, the diagram of
       the version in force where a click or the keyboard shows each element's documentation and documents, the
-      manual, and overdue reviews in sight, without a single control that changes anything
+      manual, and overdue reviews in sight, without a single control that changes anything; the read-only role
+      starts there
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline

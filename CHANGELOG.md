@@ -9,13 +9,15 @@ tagged. Each pull request adds its line under *Unreleased*.
 ### Added
 
 - A read-only portal of what is published, in the web: `/portal` lists the published processes of a folder beside
-  the folder tree, or what the search finds among processes, elements and documents, without comments, with
-  the folder, the text and the page in the address; `/portal/procesos/{id}` shows the process sheet (owner,
+  the folder tree, or what the search finds among what is published (`GET /api/v1/busqueda?publicado=true`: processes
+  with a version in force, the elements of that version and their documents, without comments), with the folder, the
+  text and the page in the address; `/portal/procesos/{id}` shows the process sheet (owner,
   classification, next review and characterization), the diagram of the version in force with the documented
   elements marked, where a click or Enter in the read-only structure tree shows an element's documentation and its
   documents to download, and the manual of that version, which only someone who may export can ask to build. Overdue
-  reviews carry a badge in the list and on the page, and nothing in the portal changes anything.
-  `GET /api/v1/procesos/{id}` adds `duenoNombre`, the owner's name. The initial bundle is 739 kB.
+  reviews carry a badge in the list and on the page, and nothing in the portal changes anything. The read-only role
+  starts in the portal after signing in, and has it first in the sidebar.
+  `GET /api/v1/procesos/{id}` adds `duenoNombre`, the owner's name. The initial bundle is 740 kB.
 - Review, comments and notifications in the web: with a publishing policy that asks for approval, the process page
   and the modeler offer *Ask for review* instead of Publish, or a link to the open request; an inbox lists what waits
   for the person's decision and every request of the store by state; a request page draws the frozen draft with its
@@ -224,6 +226,8 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Security
 
+- `GET /api/v1/procesos/{id}/permisos` answers `404` for another store's process, like every other read of it,
+  instead of every action.
 - The browser's session lives in two `HttpOnly`, `Secure`, `SameSite=Lax` cookies, and what changes something with
   them, the login included, needs the CSRF token of the `XSRF-TOKEN` cookie in `X-XSRF-TOKEN`. The access token
   follows RFC 8725 (`iss`, `aud`, `jti`, `kid`), and the signing key can rotate without closing sessions.

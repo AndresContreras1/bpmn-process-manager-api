@@ -21,7 +21,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Documentation | `GET, PUT /api/v1/procesos/{id}/documentacion` · `POST /api/v1/documentacion/vista-previa` · `GET, PUT /api/v1/procesos/{id}/caracterizacion` |
 | Manuals | `GET, POST /api/v1/procesos/{id}/manuales[?version=]` · `GET /api/v1/manuales/{id}` · `GET /api/v1/manuales/{id}/enlace?formato=pdf\|html` · `GET /api/v1/descargas/manuales/{id}/{formato}` · `PUT /api/v1/procesos/{id}/versiones/{numero}/dibujo` |
 | Comments | `GET, POST /api/v1/procesos/{id}/comentarios[?bpmnId=&version=&estado=]` · `POST /api/v1/comentarios/{id}/respuestas` · `PUT, DELETE /api/v1/comentarios/{id}` · `POST /api/v1/comentarios/{id}/resolver` · `POST /api/v1/comentarios/{id}/reabrir` · `GET /api/v1/procesos/{id}/mencionables[?q=]` |
-| Search | `GET /api/v1/busqueda?q=&tipo=&pagina=&tamano=` |
+| Search | `GET /api/v1/busqueda?q=&tipo=&publicado=&pagina=&tamano=` |
 | Review and approval | `GET, PUT /api/v1/empresas/actual/politica-de-publicacion` · `GET, POST /api/v1/procesos/{id}/solicitudes[?estado=]` · `GET /api/v1/solicitudes[?pendientesDeMi=true&estado=]` · `GET /api/v1/solicitudes/{id}` · `POST /api/v1/solicitudes/{id}/aprobar`, `/pedir-cambios`, `/rechazar`, `/retirar` · `POST /api/v1/procesos/{id}/recertificacion` |
 | Notifications | `GET /api/v1/notificaciones[?noLeidas=true]` · `GET /api/v1/notificaciones/conteo` · `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` · `GET /api/v1/notificaciones/flujo` · `GET, PUT /api/v1/notificaciones/preferencias` |
 | Permissions | `GET /api/v1/procesos/{id}/permisos` · `GET, POST /api/v1/procesos/{id}/concesiones` · `GET, POST /api/v1/carpetas/{id}/concesiones` · `DELETE /api/v1/concesiones/{id}` |
@@ -128,7 +128,7 @@ fingerprint of the draft nor counts as a change waiting to be published ([ADR-00
 `GET /api/v1/procesos/etiquetas` lists the tags in use, to suggest them.
 
 `GET /api/v1/procesos/{id}` also answers `duenoNombre`, the owner's name, beside the process and its history: the
-list of people is the administrator's, so for anyone else the owner's id names nobody. It is empty when the process
+list of people is the administrator's, so for anyone else the owner's id names nobody. It is `null` when the process
 has no owner, or when the owner is no longer found in the store. The read-only portal of the web shows it in the
 process sheet ([ADR-0075](adr/0075-read-only-portal.md)).
 
@@ -239,6 +239,7 @@ content is never there.
 |---|---|
 | `q` | Up to 200 characters (`400` beyond), web search syntax: `"credit approval"` is a phrase, `-card` excludes, `card or cash` is either. Accents and case do not matter, and words match by their stem in the store's language (Spanish, English or French). Empty, or only common words like "the", answers an empty page |
 | `tipo` | Only `PROCESO`, `ELEMENTO`, `DOCUMENTO` or `COMENTARIO` (`400` for anything else) |
+| `publicado` | `true` keeps only what is published: processes with a version in force, the elements of that version (the hit carries its `version`), the documents of those processes, and no comments. `false` by default. The read-only portal searches this way ([ADR-0075](adr/0075-read-only-portal.md)) |
 | `pagina`, `tamano` | From `0`; from 1 to 50, 20 by default |
 
 The answer is a page, most relevant first: a name beats a description, a description beats a body.
@@ -345,7 +346,8 @@ A grant is an action on a folder or a process for a subject: `{ "accion": "MODEL
 "usuarioId": 2 }`, with `ROL` and `rolProcesoId` for the people of a process role, or `ORGANIZACION` for everyone in
 the store. The actions are `VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` and
 `ADMINISTRAR`. Listing, granting and revoking need `ADMINISTRAR` on the resource. `GET /api/v1/procesos/{id}/permisos`
-answers what the person asking can do with a process, so a client shows only the buttons that will work. How the
+answers what the person asking can do with a process, so a client shows only the buttons that will work; another
+store's process answers `404`, like every other read of it. How the
 grants are decided is in [Security](security.md#permissions-on-folders-and-processes).
 
 ## The store's own history and settings
