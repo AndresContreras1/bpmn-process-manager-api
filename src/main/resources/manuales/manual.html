@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.toLanguageTag()}">
+<head>
+<meta charset="UTF-8" />
+<title th:text="${m.proceso}">Proceso</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 20mm; @bottom-right { content: counter(page) " / " counter(pages); font-size: 8pt; color: #555555; } }
+  body { font-family: sans-serif; font-size: 10pt; color: #1b1b1b; line-height: 1.45; margin: 0; }
+  main { max-width: 900px; margin: 0 auto; padding: 0 8px; }
+  h1 { font-size: 20pt; color: #0f6e56; margin: 0 0 4pt; }
+  h2 { font-size: 13pt; color: #0f6e56; border-bottom: 1pt solid #cfe3dc; padding-bottom: 2pt; margin: 18pt 0 6pt; }
+  h3 { font-size: 11pt; margin: 14pt 0 4pt; }
+  .meta { color: #555555; font-size: 9pt; margin: 0; }
+  table { border-collapse: collapse; }
+  table.ficha { width: 100%; }
+  table.ficha th { text-align: left; width: 28%; vertical-align: top; padding: 4pt 6pt; background: #f2f7f5; font-weight: bold; }
+  table.ficha td { padding: 4pt 6pt; vertical-align: top; white-space: pre-wrap; border-bottom: 0.5pt solid #e3e3e3; }
+  .documentacion table th, .documentacion table td { border: 0.5pt solid #cccccc; padding: 2pt 4pt; }
+  .dibujo { margin: 6pt 0; }
+  .dibujo svg { max-width: 100%; height: auto; }
+  .paso { margin: 6pt 0 10pt; page-break-inside: avoid; }
+  .paso h4 { font-size: 10pt; margin: 0; }
+  .tipo { color: #555555; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .sin { color: #6b6b6b; font-style: italic; }
+  footer { margin-top: 24pt; color: #6b6b6b; font-size: 8pt; }
+</style>
+</head>
+<body>
+<main>
+  <h1 th:text="${m.proceso}">Proceso</h1>
+  <p class="meta" th:text="#{manual.version(${m.version}, ${#temporals.format(m.publicadaEn, 'yyyy-MM-dd')})}">Version</p>
+  <p class="meta" th:if="${m.categoria != null}" th:text="#{manual.categoria(${m.categoria})}">Categoria</p>
+  <p th:if="${m.descripcion != null}" th:text="${m.descripcion}">Descripcion</p>
+
+  <section th:if="${!m.ficha.isEmpty()}">
+    <h2 th:text="#{manual.ficha}">Ficha</h2>
+    <table class="ficha">
+      <tr th:each="campo : ${m.ficha}">
+        <th th:text="#{${'ficha.' + campo.clave}}">Campo</th>
+        <td th:text="${campo.valor}">Valor</td>
+      </tr>
+    </table>
+  </section>
+
+  <section>
+    <h2 th:text="#{manual.diagrama}">Diagrama</h2>
+    <div class="dibujo" th:if="${m.dibujo != null}" th:utext="${m.dibujo}"></div>
+    <p class="sin" th:if="${m.dibujo == null}" th:text="#{manual.sinDibujo}">Sin dibujo</p>
+  </section>
+
+  <section th:if="${m.documentacion != null}">
+    <h2 th:text="#{manual.documentacion}">Documentacion</h2>
+    <div class="documentacion" th:utext="${m.documentacion}"></div>
+  </section>
+
+  <section>
+    <h2 th:text="#{manual.pasos}">Pasos</h2>
+    <p class="sin" th:if="${m.secciones.isEmpty()}" th:text="#{manual.sinPasos}">Sin pasos</p>
+    <div th:each="seccion : ${m.secciones}">
+      <h3 th:text="${seccion.participante + ' · ' + seccion.lane}">Lane</h3>
+      <p class="meta" th:if="${seccion.rol != null}" th:text="#{manual.rol(${seccion.rol})}">Rol</p>
+      <div class="paso" th:each="paso : ${seccion.pasos}">
+        <div class="tipo" th:text="#{${'tipo.' + paso.tipo}}">Tipo</div>
+        <h4 th:text="${paso.nombre}">Paso</h4>
+        <p th:if="${paso.descripcion != null}" th:text="${paso.descripcion}">Descripcion</p>
+        <div class="documentacion" th:if="${paso.documentacion != null}" th:utext="${paso.documentacion}"></div>
+      </div>
+    </div>
+  </section>
+
+  <section th:if="${!m.documentos.isEmpty()}">
+    <h2 th:text="#{manual.documentos}">Documentos</h2>
+    <ul>
+      <li th:each="documento : ${m.documentos}" th:text="#{manual.documento(${documento.nombre}, ${documento.version})}">Documento</li>
+    </ul>
+  </section>
+
+  <footer th:text="#{manual.generado(${#temporals.format(m.generadoEn, 'yyyy-MM-dd HH:mm')})}">Generado</footer>
+</main>
+</body>
+</html>

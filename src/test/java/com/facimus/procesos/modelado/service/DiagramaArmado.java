@@ -176,6 +176,15 @@ public class DiagramaArmado {
         return id;
     }
 
+    /** PR 68: un temporizador de borde que no interrumpe a su actividad. */
+    public Long bordeQueNoInterrumpe(String lane, String nombre, TipoTemporizador tipoTemporizador, String expresion,
+            String adjuntoA) {
+        Long id = registrar(nombre);
+        eventos.add(new EventoResponse(id, "Event_" + id, nombre, TipoEvento.TEMPORIZADOR_BORDE, 0, 0, id(lane), 0L,
+                null, null, null, null, tipoTemporizador, expresion, id(adjuntoA), Boolean.FALSE));
+        return id;
+    }
+
     /** PR 56: una actividad dentro de un subproceso, o de llamada con {@code llamado}. */
     public Long actividadEn(String lane, String nombre, TipoActividad tipo, String padre, Long llamado) {
         Long id = registrar(nombre);

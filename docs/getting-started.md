@@ -42,6 +42,8 @@ curl -s -c sesion.txt http://localhost:8080/api/v1/auth/csrf
 XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
 curl -s -b sesion.txt -c sesion.txt -X POST http://localhost:8080/api/v1/auth/login -H "X-XSRF-TOKEN: $XSRF" \
   -H "Content-Type: application/json" -d '{"email":"admin@demo.com","password":"every-order-on-time"}'
+# Signing in changes the CSRF token: the session's is the one the jar has now
+XSRF=$(awk '$6 == "XSRF-TOKEN" {print $7}' sesion.txt)
 
 # List the store's processes
 curl -s http://localhost:8080/api/v1/procesos -b sesion.txt
@@ -73,11 +75,12 @@ The app opens on `http://localhost:4200`, and the Angular dev server forwards th
 Database, API and web app together, each in its own container:
 
 ```bash
-cp .env.example .env   # fill in DB_PASSWORD, JWT_SECRET and MFA_CLAVE_DE_CIFRADO
+cp .env.example .env   # fill in DB_PASSWORD, JWT_SECRET, MFA_CLAVE_DE_CIFRADO, ALMACEN_S3_CLAVE and RESPALDO_CLAVE
 docker compose up -d --build --wait
 ```
 
-`--wait` comes back when all three report healthy, and the app is then on `http://localhost` (or on `WEB_PORT`).
+`--wait` comes back when every service reports healthy, the first backup of the database included, and the app is
+then on `http://localhost` (or on `WEB_PORT`).
 
 **The stack starts empty.** It runs the `prod` profile, and the demo store belongs to `dev`, so there is nothing to
 sign in with yet: create your store from the app, or with `POST /api/v1/empresas`, and the account you give it is
@@ -92,8 +95,10 @@ collection and for curl, but nothing in the browser uses it.
 
 The database keeps its data in a named volume, so `docker compose down` does not lose it; `docker compose down -v`
 does. The API waits for the database to answer and reports itself as up only once Flyway has migrated the schema,
-which `--wait` and the container health checks rely on. `.env` is not committed, and the three values without a
-default, `DB_PASSWORD`, `JWT_SECRET` and `MFA_CLAVE_DE_CIFRADO`, stop the stack until they are set.
+which `--wait` and the container health checks rely on. `.env` is not committed, and the five values without a
+default, `DB_PASSWORD`, `JWT_SECRET`, `MFA_CLAVE_DE_CIFRADO`, `ALMACEN_S3_CLAVE` and `RESPALDO_CLAVE`, stop the stack
+until they are set. Every change of the database also goes, encrypted, to the backups' bucket in the storage
+([Backup and recovery](runbook.md#backup-and-recovery)).
 
 ## End-to-end tests
 
@@ -104,8 +109,10 @@ docker compose up -d --build --wait
 
 A separate Maven module that does not hang from this pom, so `./mvnw verify` never runs it and the normal build
 stays as fast as it was. It drives a headless Chrome against the stack above: signing in, creating a process,
-fixing a diagram in the editor until the diagnosis lets it be published, sharing it and reading it as the other
-store, and administering roles and users. [e2e/README.md](../e2e/README.md) says what each scenario covers.
+fixing a diagram in the modeler until the diagnosis lets it be published, editing it without a mouse, two people on
+one process, filing it in a folder, sharing it and reading it as the other store, running an order, and
+administering roles and users, with axe-core over every screen. [e2e/README.md](../e2e/README.md) says what each
+scenario covers.
 
 ## Postman collection
 

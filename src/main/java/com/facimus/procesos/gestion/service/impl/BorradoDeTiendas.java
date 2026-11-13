@@ -7,6 +7,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
+
 /**
  * PR 35: el borrado de una tienda que cumplio la gracia de su baja. Borra cada fila suya, tabla por tabla, de las que
  * apuntan a otras hacia las que nadie apunta, y de la fila de la tienda deja una lapida: el id y las fechas de la baja
@@ -34,6 +36,7 @@ public class BorradoDeTiendas {
             "delete from claves_idempotencia where empresa_id = ?",
             "delete from trabajos where empresa_id = ?",
             "delete from membresias_rol where empresa_id = ?",
+            "delete from temporizadores where empresa_id = ?",
             "delete from eventos_caso where empresa_id = ?",
             "delete from actividades_caso where empresa_id = ?",
             "delete from mensajes_salientes where empresa_id = ?",
@@ -46,6 +49,11 @@ public class BorradoDeTiendas {
             "delete from importaciones where empresa_id = ?",
             "delete from formas_bpmn where empresa_id = ?",
             "delete from aristas_bpmn where empresa_id = ?",
+            "delete from manuales where empresa_id = ?",
+            "delete from caracterizaciones where empresa_id = ?",
+            "delete from documentacion where empresa_id = ?",
+            "delete from versiones_documento where empresa_id = ?",
+            "delete from documentos where empresa_id = ?",
             "delete from asociaciones where empresa_id = ?",
             "delete from artefactos where empresa_id = ?",
             "delete from correlaciones where empresa_id = ?",
@@ -62,6 +70,8 @@ public class BorradoDeTiendas {
             "delete from procesos where empresa_id = ?",
             "delete from carpetas where empresa_id = ?",
             "delete from roles_proceso where empresa_id = ?",
+            "delete from festivos where empresa_id = ?",
+            "delete from calendarios where empresa_id = ?",
             "delete from configuracion_tienda where empresa_id = ?",
             "delete from usuarios where empresa_id = ?");
 
@@ -69,10 +79,15 @@ public class BorradoDeTiendas {
     static final String LAPIDA = "update empresas set nombre = ?, nit = ?, correo_contacto = ?, borrada_en = ? "
             + "where id = ?";
 
-    private final JdbcTemplate jdbc;
+    /** PR 61: el trabajo de la cola que borra los archivos de una tienda del almacen. */
+    public static final String BORRAR_ARCHIVOS = "almacen.borrar-tienda";
 
-    public BorradoDeTiendas(JdbcTemplate jdbc) {
+    private final JdbcTemplate jdbc;
+    private final ColaDeTrabajos cola;
+
+    public BorradoDeTiendas(JdbcTemplate jdbc, ColaDeTrabajos cola) {
         this.jdbc = jdbc;
+        this.cola = cola;
     }
 
     /** Todo o nada: si una sentencia falla, la tienda queda como estaba y la purga de la noche siguiente reintenta. */
@@ -84,6 +99,9 @@ public class BorradoDeTiendas {
         }
         String marca = "borrada-" + empresaId;
         jdbc.update(LAPIDA, "Tienda borrada", marca, marca + "@borrada.invalid", ahora, empresaId);
+        // PR 61: los archivos de sus documentos. El almacen no es transaccional, asi que va a la cola en esta misma
+        // transaccion, como trabajo del sistema (los de la tienda se acaban de borrar): se reintenta hasta que sale.
+        cola.encolar(null, BORRAR_ARCHIVOS, String.valueOf(empresaId));
         return filas;
     }
 }

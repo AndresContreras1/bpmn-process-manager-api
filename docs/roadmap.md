@@ -42,11 +42,17 @@
       and CORP, and Trusted Types in report mode; the forwarded headers believed only from the internal network
 - [ ] HSTS preload, a month after production runs on HTTPS
 
+**Authorization**
+- [x] Grants on folders and processes, to a person, a process role or the whole store, inherited down the folders,
+      decided by one evaluator in three layers: the access role, the grants and separation of duties
+- [x] Lists that only show what each person can see, filtered in the same query
+- [ ] A screen to grant and revoke, and the web hiding what a person cannot do
+
 **Data and auditability**
 - [x] Row-level security in PostgreSQL on every table of a store, with a role that cannot bypass it
 - [x] An audit trail per store chained with SHA-256, that nobody can change or delete, fed from the outbox, with a
       verification that names where it breaks and a CSV export safe from formulas
-- [ ] The daily anchor of the last hash in a bucket with Object Lock
+- [x] The daily anchor of the last hash in a bucket with Object Lock, checked when the trail is verified
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
 - [x] Soft delete and change history for every BPMN element
 - [x] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
@@ -59,6 +65,35 @@
 - [x] Field-level validation errors in Problem Details
 - [x] Aggregate endpoint that returns a complete BPMN diagram for the back-office web app
 
+**BPMN**
+- [x] XML read with hardened parsers and limits, and the geometry of every element (BPMN DI) kept in the model
+- [x] BPMN 2.0.2 export of a process and of each version, valid against the OMG schemas, with what BPMN has no
+      element for in an extension of its own
+- [x] Import from any tool by differences, with a report, the hard rules of the model and what other tools wrote kept
+      for the way back; a corpus of real files in the build and a fuzzer every night
+- [x] Documental processes, timers, boundary events, terminate ends, tasks without a type, annotations, groups and
+      data objects
+- [x] Sub-processes and call activities, with circular calls refused when publishing
+- [x] A modeler on bpmn-js with the rules of the model, a properties panel, the diagnosis as markers, autosave and a
+      local copy until the server confirms
+- [x] One drawing everywhere: the viewers of processes, versions and cases on the same component, the case as
+      markers and counters
+- [x] A structure view that does everything the canvas does from the keyboard, and targets of at least 24 × 24 px
+
+**Editing with others**
+- [x] `ETag` and `If-Match` on every editable resource, autosave of the whole model, and draft revisions
+- [x] A comparison by meaning between versions, the draft or a file, matched by `bpmnId`
+- [x] Presence over server-sent events shared by every replica, a soft lock and *take control*, in the API and the web
+
+**Process repository**
+- [x] A tree of folders, and for each process its owner, next review, classification and tags, with their filters
+- [x] Documents attached to a process or an element, with versions, a type from the content, an antivirus and ZIP
+      bomb check in the queue, a quota per store and downloads by signed link, on S3 or compatible storage
+- [x] Documentation in Markdown per process and element, cleaned on the server, and a characterization sheet
+- [x] The process manual in HTML and PDF, built in the queue from the published version and the drawing the web
+      app sends when publishing
+- [ ] Comments with mentions, review and approval, and full-text search
+
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline
 - [x] A condition language of its own, checked when publishing and evaluated when running, that cannot execute code
@@ -67,6 +102,9 @@
 - [x] Messaging and a simulation clock: sending, correlating and waiting for the messages the diagram declares
 - [x] Simulated partners for payments, shipping and notifications, deterministic by store and seed
 - [x] An operations dashboard: cases by state, cycle time and open tasks per role
+- [x] Timers that run (waits, boundary timers and timer starts) on the wall clock and a business calendar per
+      organization with the public holidays of Colombia, the United States, France and Australia; test cases keep the
+      ticks, and a draft can be tried without publishing it (PR 68)
 
 **Beyond the model**
 - [x] Deterministic diagnosis of a diagram, with its own catalogue of errors and warnings and a what-if for a deletion
@@ -104,11 +142,18 @@
 - [x] Tracing with OpenTelemetry: a `traceId` in the logs and the errors, spans of the engine and the diagnosis, and
       OTLP export with a configurable sampling rate
 
+**Backup and recovery**
+- [x] Continuous WAL archiving, a full backup every week and a differential every day with pgBackRest, encrypted, into
+      a bucket with Object Lock, and the backups' bucket in another account in production (PR 67)
+- [x] Documents kept with every version for 35 days, and their replication to another account described for AWS
+- [x] A restore drill every month, in a workflow: an empty container recovers the last backup, and the rows of every
+      table, every audit trail and every version fingerprint are checked, with the RPO and the RTO measured
+
 **Supply chain**
 - [x] Every GitHub Action pinned to a commit SHA, with a CI step that fails otherwise, and a read-only token per job
 - [x] Dependabot for Maven, npm, Actions, Docker and Compose, with a seven-day cooldown, and base images pinned by digest
 - [x] CodeQL over Java, TypeScript and the workflows, and gitleaks over every commit
-- [x] Trivy over both images: a fixable critical vulnerability fails the pipeline
+- [x] Trivy over the three images: a fixable critical vulnerability fails the pipeline
 - [x] CycloneDX SBOM of the API, inside the jar, and of the web app
 
 **Repository governance**

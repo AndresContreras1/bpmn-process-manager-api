@@ -9,7 +9,14 @@ entries in Spanish.
 |---|---|---|---|
 | `Empresa` | Store (tenant) | — | Name, NIT and contact email |
 | `Usuario` | User | Store | Email (the login), access role (`ADMINISTRADOR`, `EDITOR` or `SOLO_LECTURA`) and status |
-| `Proceso` | Process | Store | Name, description, category and state (`BORRADOR` or `PUBLICADO`) |
+| `Proceso` | Process | Store | Name, description, category, state (`BORRADOR` or `PUBLICADO`), mode (`EJECUTABLE` or `DOCUMENTAL`), and its filing: folder, owner, next review, classification (`INTERNA`, `CONFIDENCIAL` or `RESTRINGIDA`) and tags |
+| `Carpeta` | Folder | Store | Name and parent folder; sisters do not share a name, and the tree has at most eight levels |
+| `Documento` | Document | Process | The element it is attached to (`bpmnId`, or none for the whole process), the name of its latest version and which one it is |
+| `VersionDocumento` | Document version | Document | Number, cleaned name, type detected from the content, size, SHA-256, storage key, state (`PENDIENTE`, `DISPONIBLE` or `BLOQUEADO`) with its reason, and whether an antivirus reviewed it |
+| `Documentacion` | Documentation | Process | The element it documents (`bpmnId`, or none for the whole process), its Markdown and the cleaned HTML |
+| `Caracterizacion` | Characterization sheet | Process | Objective, scope, inputs, outputs, suppliers, customers, indicators, risks and regulation |
+| `Manual` | Process manual | Process | The published version it describes, its language, state (`PENDIENTE`, `DISPONIBLE` or `FALLIDO`) with its reason, and where its HTML and PDF are |
+| `Concesion` | Grant | Store | An action (`VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` or `ADMINISTRAR`) on a folder or a process, for a person, a process role or the whole store (`PERSONA`, `ROL` or `ORGANIZACION`) |
 | `RolProceso` | Process role | Store | Name and description |
 | `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag, order and the kind of partner behind it (`integracion`) |
 | `Lane` | Lane | Pool | Process role and order |
@@ -18,9 +25,12 @@ entries in Spanish.
 | `Mensaje` | Message flow | Process | Sending and receiving pool, content, the nodes it is anchored to, how it travels (`CORREO`, `SERVICIO_WEB`, `COLA`), what the process does if it fails (`CONTINUAR`, `MANEJAR_ERROR`, `FINALIZAR`), the fields it carries, the name its body takes among the case variables, and the message that answers it |
 | `Correlacion` | Correlation key | Message | The criterion that correlates the message, the field of the body that carries it, and what to do with a message that matches no open case |
 | `HistorialCambio` | History entry | Process | Description, author and date |
-| `Caso` | Case | Store | The process and the published version it runs on, the reference its messages are matched by, state (`ABIERTO`, `TERMINADO`, `CANCELADO`, `FALLIDO` or `ERROR`) and the case variables as JSON |
+| `Caso` | Case | Store | The process and the published version it runs on, the reference its messages are matched by, state (`ABIERTO`, `TERMINADO`, `CANCELADO`, `FALLIDO` or `ERROR`), mode (`PRODUCCION` on the wall clock and the business calendar, or `PRUEBA` on the store's ticks) and the case variables as JSON |
 | `ActividadCaso` | Step of a case | Case | The node of the version it went through, copied by id and by name, its kind, the process role of its lane, state (`PENDIENTE`, `EN_ESPERA`, `COMPLETADA`, `FALLIDA` or `OMITIDA`), how many tokens have reached it, who took it and what they handed over |
 | `EventoCaso` | Timeline entry | Case | What happened, when, and who caused it. Only inserted |
+| `Temporizador` | Armed timer | Store | The process, version and timer event it comes from, the case and step that armed it (none for a timer start), class (`INICIO`, `INTERMEDIO` or `BORDE`), mode, expression, whether it interrupts, when it is due (an instant in `PRODUCCION`, a tick in `PRUEBA`), how many times it fired and state (`PROGRAMADO`, `DISPARADO`, `CANCELADO` or `FALLIDO`) |
+| `Calendario` | Business calendar | Store | Country (`CO`, `US`, `FR` or `AU`), IANA time zone, working hours and working days. One per store, saved the first time an administrator changes it |
+| `FestivoEditado` | Holiday change | Store | A day the store made a holiday or renamed (with its name), or a computed holiday it removed. The computed ones are not stored |
 | `MembresiaRol` | Membership | Store | Which process roles a user belongs to; the pair is unique |
 
 Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory `empresa_id` that cannot be updated.
@@ -39,7 +49,17 @@ documental (`procesos.modo`), and what only describes it lives in `artefactos` (
 stores) and `asociaciones`, whose ends are `bpmn_id`s ([ADR-0055](adr/0055-descriptive-bpmn-elements.md)). A node may
 sit inside a sub-process (`padre_id`), and a call activity points to another process
 ([ADR-0056](adr/0056-subprocesses-and-call-activity.md)). `revisiones_borrador` keeps compressed save points of a
-draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
+draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)). Who has a process open, and who holds the lock to edit
+it, live in `presencias` and `bloqueos_edicion` ([ADR-0058](adr/0058-presence-and-soft-lock.md)). Tags are an array
+column of the process with a GIN index, so a page of the list reads them without another query
+([ADR-0062](adr/0062-process-repository.md)), and grants live in `concesiones`, each one naming either a folder or a
+process ([ADR-0063](adr/0063-granular-permissions.md)).
+
+A version is `PUBLICADA` or `PRUEBA` (`versiones_proceso.tipo`): a test version freezes a draft to run it without
+publishing, has number 0, is never listed nor in force, and the nightly purge deletes it with its cases. Timer events
+say whether they wait a calendar duration, a business duration (`DURACION_HABIL`), a date or a cycle, and the store's
+business calendar (`calendarios`, with its changes to the holidays in `festivos`) is what business time is counted with
+([ADR-0072](adr/0072-business-calendar-and-timers.md)).
 
 ## Modeling rules
 
@@ -68,7 +88,7 @@ draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
 - Turning a gateway parallel retires the conditions of its outgoing flows and its default flow, because a parallel
   gateway follows all of them: the history says how many were retired.
 - Reordering the lanes of a pool, or the participants of a process, takes the complete list of their ids, so what
-  the editor shows after a drag is what gets saved.
+  a client shows after a drag is what gets saved.
 - Flow-node names are unique within a process, including when a node is renamed.
 - Process and process-role names are unique among a store's active records, ignoring case. The database enforces it
   too.

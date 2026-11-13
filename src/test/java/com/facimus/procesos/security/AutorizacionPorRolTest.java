@@ -214,6 +214,45 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 200
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual/tablero | 200
 
+            # PR 61: los documentos los lee cualquier rol; subirlos y borrarlos es de administrador y editor
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/documentos      | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/documentos?nombre=a.pdf | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/documentos?nombre=a.pdf | 403
+            SOLO_LECTURA  | GET    | /api/v1/documentos/{id}               | 404
+            SOLO_LECTURA  | GET    | /api/v1/documentos/{id}/enlace        | 404
+            EDITOR        | POST   | /api/v1/documentos/{id}/versiones?nombre=a.pdf | 404
+            SOLO_LECTURA  | POST   | /api/v1/documentos/{id}/versiones?nombre=a.pdf | 403
+            EDITOR        | DELETE | /api/v1/documentos/{id}               | 404
+            SOLO_LECTURA  | DELETE | /api/v1/documentos/{id}               | 403
+
+            # PR 62: la documentacion y los manuales los lee cualquier rol; escribirlos y pedirlos, administrador y editor
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/documentacion    | 404
+            EDITOR        | PUT    | /api/v1/procesos/{id}/documentacion    | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/documentacion    | 403
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/caracterizacion  | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/caracterizacion  | 403
+            EDITOR        | POST   | /api/v1/procesos/{id}/manuales         | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/manuales         | 403
+            SOLO_LECTURA  | GET    | /api/v1/manuales/{id}                  | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/versiones/1/dibujo | 403
+
+            # PR 68: el calendario lo lee cualquier rol y lo cambia el administrador; los temporizadores se leen;
+            # probar el borrador es de quien modela
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/calendario                      | 200
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/calendario/festivos?anio=2026   | 200
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/calendario/ediciones            | 200
+            ADMINISTRADOR | PUT    | /api/v1/organizacion/calendario                      | 400
+            EDITOR        | PUT    | /api/v1/organizacion/calendario                      | 403
+            SOLO_LECTURA  | PUT    | /api/v1/organizacion/calendario                      | 403
+            EDITOR        | PUT    | /api/v1/organizacion/calendario/festivos/2026-09-04  | 403
+            ADMINISTRADOR | DELETE | /api/v1/organizacion/calendario/ediciones/2026-09-04 | 404
+            EDITOR        | DELETE | /api/v1/organizacion/calendario/festivos/2026-08-17  | 403
+            SOLO_LECTURA  | DELETE | /api/v1/organizacion/calendario/ediciones/2026-09-04 | 403
+            SOLO_LECTURA  | GET    | /api/v1/casos/{id}/temporizadores                    | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/temporizadores                 | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/pruebas                        | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/pruebas                        | 403
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)
@@ -238,6 +277,9 @@ class AutorizacionPorRolTest {
         } else if (ruta.equals("/api/v1/procesos/{id}/mensajes-entrantes")) {
             // Con nombre, para que el editor pase la autorizacion y choque con que el proceso no existe.
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"nombre\":\"Order placed\"}");
+        } else if (ruta.equals("/api/v1/procesos/{id}/documentacion")) {
+            // PR 62: con texto, para que el editor pase la autorizacion y choque con que el proceso no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"markdown\":\"x\"}");
         } else if (ruta.equals("/api/v1/simulacion/tick")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"ticks\":1}");
         } else if (ruta.equals("/api/v1/simulacion/pedidos")) {
@@ -245,7 +287,8 @@ class AutorizacionPorRolTest {
             peticion.contentType(MediaType.APPLICATION_JSON)
                     .content("{\"procesoId\":" + ID_INEXISTENTE + ",\"cantidad\":1}");
         } else if (metodo != HttpMethod.GET && (ruta.startsWith("/api/v1/tareas/")
-                || ruta.equals("/api/v1/procesos/{id}/casos"))) {
+                || ruta.equals("/api/v1/procesos/{id}/casos") || ruta.equals("/api/v1/procesos/{id}/pruebas")
+                || ruta.equals("/api/v1/organizacion/calendario"))) {
             // Llevan cuerpo: sin el, la peticion fallaria por el cuerpo y no por la regla de roles, que es lo que
             // esta matriz comprueba.
             peticion.contentType(MediaType.APPLICATION_JSON).content("{}");

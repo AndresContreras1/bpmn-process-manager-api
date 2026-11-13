@@ -99,7 +99,7 @@ public class ActividadCaso extends EntidadEditable {
      * El tipo de actividad, de gateway o de evento del nodo, como texto: son tres enumerados distintos segun el
      * tipo de nodo, y aqui lo que importa es lo que decia la version.
      */
-    @Column(nullable = false, length = 20, updatable = false)
+    @Column(nullable = false, length = 30, updatable = false)
     private String subtipo;
 
     /** El rol de proceso de la lane del nodo: el rol en cuya bandeja aparece la tarea. */

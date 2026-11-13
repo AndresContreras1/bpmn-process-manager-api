@@ -535,13 +535,33 @@ class DiagnosticoServiceTest {
     }
 
     @Test
-    @DisplayName("E-18: un temporizador valido tampoco corre todavia en un proceso ejecutable")
-    void e18_temporizadorNoCorre() {
+    @DisplayName("E-18: un ciclo en una espera o en un borde que interrumpe, que solo pueden saltar una vez")
+    void e18_cicloQueSaltaUnaVez() {
         DiagramaArmado armado = DiagramaArmado.demo();
         Long espera = armado.temporizador(DiagramaArmado.VENTAS, "Espera", TipoEvento.TEMPORIZADOR_INTERMEDIO,
-                TipoTemporizador.DURACION, "PT2H", null);
+                TipoTemporizador.CICLO, "R3/PT1H", null);
+        Long interrumpe = armado.temporizador(DiagramaArmado.VENTAS, "Corta", TipoEvento.TEMPORIZADOR_BORDE,
+                TipoTemporizador.CICLO, "R3/PT1H", "Receive order");
+        armado.bordeQueNoInterrumpe(DiagramaArmado.VENTAS, "Avisa", TipoTemporizador.CICLO, "R3/PT1H",
+                "Receive order");
+        armado.temporizador(DiagramaArmado.VENTAS, "Cada lunes", TipoEvento.TEMPORIZADOR_INICIO,
+                TipoTemporizador.CICLO, "0 0 9 * * MON", null);
+        armado.temporizador(DiagramaArmado.VENTAS, "Dos dias", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION_HABIL, "P2D", null);
 
-        assertThat(codigos(diagnosticar(armado), "E-18")).containsExactly(espera);
+        assertThat(codigos(diagnosticar(armado), "E-18")).containsExactlyInAnyOrder(espera, interrumpe);
+    }
+
+    @Test
+    @DisplayName("E-16: una duracion habil cuenta dias y horas; un mes habil no se entiende")
+    void e16_duracionHabil() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        Long mes = armado.temporizador(DiagramaArmado.VENTAS, "Un mes", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION_HABIL, "P1M", null);
+        armado.temporizador(DiagramaArmado.VENTAS, "Dos dias", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION_HABIL, "P2DT4H", null);
+
+        assertThat(codigos(diagnosticar(armado), "E-16")).containsExactly(mes);
     }
 
     @Test
