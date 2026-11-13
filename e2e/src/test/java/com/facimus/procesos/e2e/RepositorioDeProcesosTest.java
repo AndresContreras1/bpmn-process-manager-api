@@ -7,6 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
@@ -36,8 +37,8 @@ class RepositorioDeProcesosTest extends PruebaE2E {
         espera.until(navegador -> new Select(desplegable).getOptions().size() == 2);
         new Select(desplegable).selectByVisibleText("Operations");
         new Select(visible(By.id("ficha-clasificacion"))).selectByValue("CONFIDENCIAL");
-        visible(By.id("ficha-etiquetas")).sendKeys("Logistics, gdpr");
-        pulsable(By.id("ficha-guardar")).click();
+        // La ficha queda bajo el borde de la ventana: se manda con Enter, como haria una persona
+        visible(By.id("ficha-etiquetas")).sendKeys("Logistics, gdpr", Keys.ENTER);
         visible(By.id("ficha-aviso"));
         assertEquals("CONFIDENCIAL", api.get("/procesos/" + archivado).get("proceso").get("clasificacion").asText());
 

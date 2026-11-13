@@ -9,7 +9,14 @@ entries in Spanish.
 |---|---|---|---|
 | `Empresa` | Store (tenant) | — | Name, NIT and contact email |
 | `Usuario` | User | Store | Email (the login), access role (`ADMINISTRADOR`, `EDITOR` or `SOLO_LECTURA`) and status |
-| `Proceso` | Process | Store | Name, description, category and state (`BORRADOR` or `PUBLICADO`) |
+| `Proceso` | Process | Store | Name, description, category, state (`BORRADOR` or `PUBLICADO`), mode (`EJECUTABLE` or `DOCUMENTAL`), and its filing: folder, owner, next review, classification (`INTERNA`, `CONFIDENCIAL` or `RESTRINGIDA`) and tags |
+| `Carpeta` | Folder | Store | Name and parent folder; sisters do not share a name, and the tree has at most eight levels |
+| `Documento` | Document | Process | The element it is attached to (`bpmnId`, or none for the whole process), the name of its latest version and which one it is |
+| `VersionDocumento` | Document version | Document | Number, cleaned name, type detected from the content, size, SHA-256, storage key, state (`PENDIENTE`, `DISPONIBLE` or `BLOQUEADO`) with its reason, and whether an antivirus reviewed it |
+| `Documentacion` | Documentation | Process | The element it documents (`bpmnId`, or none for the whole process), its Markdown and the cleaned HTML |
+| `Caracterizacion` | Characterization sheet | Process | Objective, scope, inputs, outputs, suppliers, customers, indicators, risks and regulation |
+| `Manual` | Process manual | Process | The published version it describes, its language, state (`PENDIENTE`, `DISPONIBLE` or `FALLIDO`) with its reason, and where its HTML and PDF are |
+| `Concesion` | Grant | Store | An action (`VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` or `ADMINISTRAR`) on a folder or a process, for a person, a process role or the whole store (`PERSONA`, `ROL` or `ORGANIZACION`) |
 | `RolProceso` | Process role | Store | Name and description |
 | `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag, order and the kind of partner behind it (`integracion`) |
 | `Lane` | Lane | Pool | Process role and order |
@@ -39,7 +46,11 @@ documental (`procesos.modo`), and what only describes it lives in `artefactos` (
 stores) and `asociaciones`, whose ends are `bpmn_id`s ([ADR-0055](adr/0055-descriptive-bpmn-elements.md)). A node may
 sit inside a sub-process (`padre_id`), and a call activity points to another process
 ([ADR-0056](adr/0056-subprocesses-and-call-activity.md)). `revisiones_borrador` keeps compressed save points of a
-draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
+draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)). Who has a process open, and who holds the lock to edit
+it, live in `presencias` and `bloqueos_edicion` ([ADR-0058](adr/0058-presence-and-soft-lock.md)). Tags are an array
+column of the process with a GIN index, so a page of the list reads them without another query
+([ADR-0062](adr/0062-process-repository.md)), and grants live in `concesiones`, each one naming either a folder or a
+process ([ADR-0063](adr/0063-granular-permissions.md)).
 
 ## Modeling rules
 
@@ -68,7 +79,7 @@ draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
 - Turning a gateway parallel retires the conditions of its outgoing flows and its default flow, because a parallel
   gateway follows all of them: the history says how many were retired.
 - Reordering the lanes of a pool, or the participants of a process, takes the complete list of their ids, so what
-  the editor shows after a drag is what gets saved.
+  a client shows after a drag is what gets saved.
 - Flow-node names are unique within a process, including when a node is renamed.
 - Process and process-role names are unique among a store's active records, ignoring case. The database enforces it
   too.

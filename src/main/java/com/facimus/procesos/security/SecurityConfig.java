@@ -29,7 +29,7 @@ import org.springframework.security.oauth2.client.web.DefaultOAuth2Authorization
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.header.writers.CrossOriginOpenerPolicyHeaderWriter.CrossOriginOpenerPolicy;
 import org.springframework.security.web.header.writers.CrossOriginResourcePolicyHeaderWriter.CrossOriginResourcePolicy;
 import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
@@ -105,7 +105,8 @@ public class SecurityConfig {
             ProveedoresOidc.Clientes clientesOidc, PeticionesOidc peticionesOidc, EntradaExterna entradaExterna,
             LimitesDePeticiones limites, VerificacionHumana verificacionHumana,
             @Value("${limites.cuerpo-maximo}") DataSize cuerpoMaximo,
-            @Value("${limites.cuerpo-maximo-bpmn}") DataSize cuerpoMaximoBpmn) throws Exception {
+            @Value("${limites.cuerpo-maximo-bpmn}") DataSize cuerpoMaximoBpmn,
+            @Value("${documentos.tamano-maximo:25MB}") DataSize cuerpoMaximoDocumento) throws Exception {
         reglasComunes(http)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthEntryPoint)
@@ -123,7 +124,8 @@ public class SecurityConfig {
                 .addFilterAfter(new InscripcionObligatoriaFilter(jsonMapper), SegundoFactorPendienteFilter.class)
                 // PR 32: el cubo de cada peticion, ya sabiendo quien es: lo que cambia algo cuenta por persona.
                 .addFilterAfter(new LimiteDePeticionesFilter(limites, verificacionHumana, jsonMapper,
-                        cuerpoMaximo.toBytes(), cuerpoMaximoBpmn.toBytes()), InscripcionObligatoriaFilter.class)
+                        cuerpoMaximo.toBytes(), cuerpoMaximoBpmn.toBytes(), cuerpoMaximoDocumento.toBytes()),
+                        InscripcionObligatoriaFilter.class)
                 // Detras de la autorizacion: una peticion que el rol rechaza no le pregunta nada a la base.
                 .addFilterAfter(new TiendaEnBajaFilter(empresaService, jsonMapper), AuthorizationFilter.class)
                 .addFilterAfter(new IdempotencyFilter(idempotenciaService, jsonMapper), TiendaEnBajaFilter.class);
@@ -167,6 +169,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, LOGIN, "/api/v1/auth/refresh", "/api/v1/auth/logout")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
+                        // PR 61: bajar un documento con su enlace firmado: la firma es el permiso, y vence en minutos
+                        .requestMatchers(HttpMethod.GET, "/api/v1/descargas/documentos/*/*",
+                                "/api/v1/descargas/manuales/*/*").permitAll()
                         // PR 50: la ida al proveedor, su vuelta, los proveedores que hay y confirmar un vinculo:
                         // quien los usa todavia no tiene sesion.
                         .requestMatchers(HttpMethod.GET, OIDC + "/**", "/api/v1/auth/proveedores").permitAll()
@@ -277,15 +282,17 @@ public class SecurityConfig {
     /**
      * D29: el token CSRF de una SPA. La web lo lee de la cookie {@code XSRF-TOKEN}, la unica que su JavaScript puede
      * leer, y lo devuelve en {@code X-XSRF-TOKEN}; otro sitio no puede leer esa cookie, asi que no puede mandarlo.
+     * <p>
+     * ADR-0064: el token lo cambia {@link CookiesDeSesion} al abrir y al cerrar la sesion, no Spring. Spring lo cambia
+     * cada vez que su SessionManagementFilter ve a alguien autenticado que el repositorio del contexto no tenia, y con
+     * STATELESS ese repositorio no guarda nada: cada peticion con la cookie de acceso le parecia un login nuevo.
      */
-    // S3330: XSRF-TOKEN no es HttpOnly porque la web tiene que leerla; las cookies de la sesion si lo son.
     // S4502: CSRF no se apaga; solo se salta lo que no trae cookies de sesion (ver pideCsrf).
-    @SuppressWarnings({ "java:S3330", "java:S4502" })
+    @SuppressWarnings("java:S4502")
     static void csrf(CsrfConfigurer<HttpSecurity> csrf) {
-        CookieCsrfTokenRepository repositorio = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        repositorio.setCookieCustomizer(cookie -> cookie.secure(true).sameSite("Lax"));
         csrf.spa()
-                .csrfTokenRepository(repositorio)
+                .csrfTokenRepository(CookiesDeSesion.repositorioCsrf())
+                .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
                 .requireCsrfProtectionMatcher(SecurityConfig::pideCsrf);
     }
 

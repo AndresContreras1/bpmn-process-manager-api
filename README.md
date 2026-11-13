@@ -4,8 +4,10 @@
 
 BPMN Process Manager is a multi-tenant platform where online stores draw how their orders move — from checkout to
 delivery, payments and returns — as BPMN process diagrams, and then run them. Each store works in a private
-workspace with role-based access, every change is validated and recorded, and a published diagram becomes an
-immutable version that orders run on. This repository holds the REST API and the Angular web app built on it.
+workspace, with its processes filed in folders and permissions down to a single process. Diagrams are drawn in a
+bpmn-js modeler or brought from any other tool as BPMN 2.0.2 files, every change is validated and recorded, and a
+published diagram becomes an immutable version that orders run on. This repository holds the REST API and the
+Angular web app built on it.
 
 [![CI](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndresContreras1/bpmn-process-manager-api/actions/workflows/ci.yml)
 ![Java 25](https://img.shields.io/badge/Java-25-007396?logo=openjdk&logoColor=white)
@@ -14,9 +16,10 @@ immutable version that orders run on. This repository holds the REST API and the
 ![Hibernate 7.4](https://img.shields.io/badge/Hibernate-7.4-59666C?logo=hibernate&logoColor=white)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16%20%C2%B7%20row--level%20security-4169E1?logo=postgresql&logoColor=white)
 ![Angular 22](https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white)
+![bpmn-js 18](https://img.shields.io/badge/bpmn--js-18%20%C2%B7%20BPMN%202.0.2-404040)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-1561-success?logo=junit5&logoColor=white)
-![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2085%25%20branches-success)
+![Tests](https://img.shields.io/badge/tests-2791-success?logo=junit5&logoColor=white)
+![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2087%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
 > [!NOTE]
@@ -28,14 +31,14 @@ immutable version that orders run on. This repository holds the REST API and the
 
 [What it does](#what-it-does) · [Features](#features) · [Architecture](#architecture) ·
 [Quick start](#quick-start) · [Documentation](#documentation) · [Quality](#quality) ·
-[Project structure](#project-structure) · [Roadmap](#roadmap) · [Credits](#credits) · [License](#license)
+[Project structure](#project-structure) · [Roadmap](#roadmap) · [License](#license)
 
 ## What it does
 
 ```mermaid
 flowchart LR
-    M["<b>Model</b><br/>pools, lanes, steps,<br/>flows and messages"]
-    D["<b>Diagnose</b><br/>15 errors that block<br/>publishing, 14 warnings"]
+    M["<b>Model</b><br/>in the bpmn-js modeler,<br/>or from a BPMN file"]
+    D["<b>Diagnose</b><br/>21 errors that block<br/>publishing, 16 warnings"]
     P["<b>Publish</b><br/>an immutable version,<br/>fingerprinted"]
     R["<b>Run</b><br/>cases, trays, messages<br/>and the store's clock"]
     W["<b>Watch</b><br/>dashboard, case timeline<br/>and Actuator gauges"]
@@ -44,8 +47,8 @@ flowchart LR
     W -. "what the numbers say<br/>goes back into the diagram" .-> M
 ```
 
-A store draws its process, the diagnosis refuses to publish one that would not run, and publishing freezes the
-diagram into a version. From then on an order is a case walking that exact version: it stops where a person has to
+A store draws its process, or imports it from Camunda Modeler, bpmn.io or any tool that writes BPMN 2.0, the
+diagnosis refuses to publish one that would not run, and publishing freezes the diagram into a version. From then on an order is a case walking that exact version: it stops where a person has to
 act, sends what the diagram says it sends, waits for the answer, and closes. Publishing again does not move an
 order that is already running — it finishes on the diagram it started with.
 
@@ -56,43 +59,56 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 
 | Area | What you get | Details |
 |---|---|---|
-| **Modeling** | Participants, lanes, activities, gateways, events, sequence flows, message flows and correlation keys. Every change is checked against the BPMN rules, so a model never ends up in an invalid state. | [Domain model](docs/domain-model.md) |
-| **Diagnosis** | A deterministic catalogue of errors and warnings, each pointing at an element, and a what-if that says what a deletion would take with it. | [Diagnosis](docs/diagnosis-and-versions.md#diagnosis) |
-| **Versions** | Publishing freezes the whole diagram with a SHA-256 fingerprint. What is edited afterwards is the draft, and the process says when it is ahead. | [Versions](docs/diagnosis-and-versions.md#published-versions) |
+| **Modeling** | Participants, lanes, tasks, gateways, events with timers and boundary events, sub-processes and call activities, sequence and message flows, correlation keys, and annotations, groups and data objects. A process is executable or only documents. Every change is checked against the BPMN rules, so a model never ends up in an invalid state. | [Domain model](docs/domain-model.md) |
+| **BPMN 2.0.2 files** | Export a process or any of its versions as a file that validates against the OMG schemas and opens in bpmn.io and Camunda Modeler. Import from any tool by differences, element by element, with a report of what was converted, what was left out and what was kept to write it back. A fuzzer feeds the importer every night. | [BPMN files](docs/api-reference.md#endpoints) |
+| **Editing together** | Autosave of the whole model with `ETag` and `If-Match`, draft revisions to go back to, who is on a process over server-sent events shared by every replica, a soft lock with *take control*, and a comparison by meaning between versions, the draft or a file that was not saved. | [Concurrent edits](docs/api-reference.md#concurrent-edits) |
+| **Diagnosis** | A deterministic catalogue of 21 errors and 16 warnings, each pointing at an element, and a what-if that says what a deletion would take with it. | [Diagnosis](docs/diagnosis-and-versions.md#diagnosis) |
+| **Versions** | Publishing freezes the whole diagram with a SHA-256 fingerprint and keeps its BPMN file, the same bytes forever. What is edited afterwards is the draft, and the process says when it is ahead. | [Versions](docs/diagnosis-and-versions.md#published-versions) |
+| **Documents** | Files attached to a process or one of its elements, with versions. The type comes from the content against a whitelist, an antivirus and a ZIP bomb check review each one in the job queue, each store has a quota, and a download is a five-minute signed link that always arrives as an attachment. Stored in S3 or any compatible service. | [Documents](docs/security.md#documents) |
+| **Documentation** | Markdown for the process and each of its elements, converted and cleaned on the server, a characterization sheet, and a manual of each published version in HTML and PDF, in the reader's language, with the drawing the modeler sent when publishing. | [Documentation](docs/api-reference.md#documentation-and-the-manual) |
+| **Repository** | A tree of folders, and for each process its owner, the date of its next review, how reserved it is and its tags, all of them filters of the list. | [The process repository](docs/api-reference.md#the-process-repository) |
+| **Permissions** | Actions granted on a folder or a process — view, comment, model, review, approve, publish, export and administer — to a person, a process role or the whole store, inherited down the folders. The access role sets the ceiling, separation of duties goes last, and a list only shows what each person can see, in the same query. | [Permissions](docs/security.md#permissions-on-folders-and-processes) |
 | **Execution** | Cases that walk a published version, tasks waiting in the tray of each process role, and gateway conditions in a small language of its own that cannot run code. | [Execution](docs/execution.md#running-a-process) |
 | **Messaging and simulation** | Outbox and inbox per process, correlation by key, a clock in ticks per store, and four simulated partners — payments, carrier, notifications, customer — deterministic by seed. | [Simulation](docs/execution.md#messages-and-the-clock) |
 | **Dashboard** | Cases by state, cycle time with average and p95, work waiting per role and what did not go as expected, in six queries however many orders there are. | [Dashboard](docs/execution.md#the-dashboard) |
 | **Operations** | Health probes, Prometheus metrics on a management port of their own with business counters, JSON logs, OpenTelemetry traces, and a request id in every response, log line and error. | [Operations endpoints](docs/getting-started.md#operations-endpoints) |
+| **Backup and recovery** | Every WAL segment archived within a minute and a full backup every week with daily differentials, by pgBackRest, encrypted, into a bucket with Object Lock that the database's own keys cannot empty; documents with versions. A drill every month restores into an empty container and checks the rows of every table, every audit trail and every version fingerprint, and measures the RPO and the RTO. | [Backup and recovery](docs/runbook.md#backup-and-recovery) |
 | **Sign-in** | The session in `HttpOnly` cookies with a CSRF token, a short-lived JWT with rotating refresh tokens, and idle and maximum limits each store chooses. Passwords as NIST SP 800-63B-4 asks, a second factor with an authenticator app or a passkey and recovery codes that each store can require, signing in without a password with a passkey, and signing in with Google or Microsoft, where an account is linked only after its owner confirms it. | [Authentication](docs/security.md#authentication) |
-| **Security** | Store isolation enforced twice: by the build and by row-level security in PostgreSQL, under a role that cannot bypass it. Rate limits in token buckets every instance shares, an audit trail per store chained with SHA-256 that nobody can change, roles checked in one place, read-only sharing between stores, and closing a store or anonymizing a person that really deletes. | [Security](docs/security.md) |
+| **Security** | Store isolation enforced twice: by the build and by row-level security in PostgreSQL, under a role that cannot bypass it. Rate limits in token buckets every instance shares, an audit trail per store chained with SHA-256 that nobody can change and anchored every day where nobody can delete it, every permission decided by one evaluator, read-only sharing between stores, BPMN files read with hardened XML parsers, and closing a store or anonymizing a person that really deletes. | [Security](docs/security.md) |
 | **E-mail** | Verifying the e-mail, recovering the password and inviting by e-mail, in Spanish, English and French, with links that work once. Sent over any SMTP server from a queue of jobs that retries. | [Links sent by e-mail](docs/api-reference.md#links-sent-by-e-mail) |
 | **API contract** | OpenAPI for every operation, Problem Details errors, optimistic locking, idempotency keys and stable pagination. | [API reference](docs/api-reference.md) |
 | **AI review** | An optional second opinion from a language model, answered in a validated schema and limited per store. It only advises. | [AI review](docs/diagnosis-and-versions.md#ai-review) |
-| **Web app** | Angular client for all of it: processes, diagram viewer and editor with live diagnosis, administration, cases, tasks, clock and dashboard. | [frontend/](frontend/README.md) |
+| **Web app** | Angular client for all of it, in Spanish, English and French, light or dark: the bpmn-js modeler with live diagnosis and a structure view that edits without a mouse, who else is editing, the comparison of two states, viewers for versions and cases, the repository, account security, administration, cases, tasks, clock and dashboard. | [frontend/](frontend/README.md) |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    B(["Browser"]) --> W["<b>web</b><br/>NGINX · Angular 22"]
-    W -- "/api" --> A["<b>api</b><br/>Spring Boot 4.1 · Java 25"]
+    B(["Browser"]) --> W["<b>web</b><br/>NGINX · Angular 22 · bpmn-js"]
+    W -- "/api · live events" --> A["<b>api</b><br/>Spring Boot 4.1 · Java 25"]
     A --> D[("<b>db</b><br/>PostgreSQL 16<br/>row-level security")]
+    A --> S[("<b>almacen</b><br/>S3 · SeaweedFS<br/>documents · anchors · backups")]
+    D -- "WAL · backups<br/>pgBackRest, AES-256" --> S
+    A -. "optional" .-> V["ClamAV<br/>antivirus"]
     A -. "optional" .-> G["Gemini<br/>AI review"]
     A -. "optional" .-> O["Google · Microsoft<br/>OpenID Connect"]
-    A -. "queue of jobs" .-> S["SMTP<br/>e-mail"]
+    A -. "queue of jobs" .-> M["SMTP<br/>e-mail"]
 ```
 
 The browser only talks to the web container: NGINX serves the app and forwards `/api` inside the network, so there
-is no API URL baked into the build and no CORS to configure. Every outside service is optional: without its
+is no API URL baked into the build and no CORS to configure. Who is on a process reaches the browser as
+server-sent events, and the replicas tell each other through PostgreSQL's `LISTEN/NOTIFY`, so several instances
+need nothing besides the database. The database sends every change, encrypted, to a bucket of its own that its keys
+cannot empty, and a drill restores it every month. Every outside service is optional: without its
 configuration the API starts and the feature is simply not offered. Inside the API, the code is split into modules
 that only depend downwards:
 
 ```mermaid
 flowchart BT
     common["<b>common</b><br/>tenant base entity · identity · store context<br/>errors · pagination · conditions"]
-    gestion["<b>gestion</b><br/>stores · users · sessions · second factor<br/>processes · process roles · audit trail"]
-    security["<b>security</b><br/>filter chain · JWT · cookies<br/>Google and Microsoft · rate limits"]
-    modelado["<b>modelado</b><br/>pools · lanes · nodes · flows<br/>messages · diagnosis"]
+    gestion["<b>gestion</b><br/>stores · users · sessions · second factor<br/>processes · folders · permissions · audit trail"]
+    security["<b>security</b><br/>filter chain · JWT · cookies · passkeys<br/>Google and Microsoft · rate limits · resource checks"]
+    modelado["<b>modelado</b><br/>pools · lanes · nodes · flows · messages<br/>diagnosis · BPMN files · presence · comparison"]
     ejecucion["<b>ejecucion</b><br/>cases · trays · timeline<br/>message trays · clock · engine"]
     integracion["<b>integracion</b><br/>simulated gateway, carrier,<br/>notifier and customer"]
 
@@ -109,10 +125,10 @@ store's id, or if a request DTO carries one, and Spring Modulith if a module use
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 (JWT, OAuth2 client) · Spring Data JPA · Hibernate 7.4 · MapStruct · Spring Modulith · Bucket4j |
-| Data | PostgreSQL 16 in `prod`, in `dev` and in the tests, with row-level security, timeouts per role, an index behind every foreign key and `pg_stat_statements` · Flyway migrations, validated by Hibernate · HikariCP with leak detection |
-| Frontend | Angular 22 standalone · Bootstrap 5 · RxJS · NGINX · ESLint · Prettier · Vitest |
-| Quality | JUnit 5 · Mockito · ArchUnit · Spring Modulith · Testcontainers · Selenium · k6 · JaCoCo · SonarCloud |
+| Backend | Java 25 · Spring Boot 4.1 · Spring Security 7 (JWT, OAuth2 client) · Spring Data JPA · Hibernate 7.4 · MapStruct · Spring Modulith · Bucket4j · AWS SDK v2 (S3) · Apache Tika |
+| Data | PostgreSQL 16 in `prod`, in `dev` and in the tests, with row-level security, timeouts per role, an index behind every foreign key and `pg_stat_statements` · Flyway migrations, validated by Hibernate · HikariCP with leak detection · pgBackRest |
+| Frontend | Angular 22 standalone · bpmn-js 18 · Bootstrap 5 · RxJS · NGINX · ESLint · Prettier · Vitest |
+| Quality | JUnit 5 · Mockito · ArchUnit · Spring Modulith · Testcontainers · Selenium · axe-core · k6 · JaCoCo · PIT · SonarCloud |
 | Delivery | Docker multi-stage images · Docker Compose · GitHub Actions |
 
 [Architecture](docs/architecture.md) covers the request lifecycle, the module boundaries and the published-version
@@ -144,10 +160,10 @@ It opens on `http://localhost:4200` and forwards `/api` to the API.
 |---|---|---|
 | Demo Store administrator | `admin@demo.com` | `every-order-on-time` |
 
-**The whole stack**, database, API and web, closer to production:
+**The whole stack**, database with its backups, storage, API and web, closer to production:
 
 ```bash
-cp .env.example .env     # DB_PASSWORD, JWT_SECRET and MFA_CLAVE_DE_CIFRADO have no default on purpose
+cp .env.example .env     # DB_PASSWORD, JWT_SECRET, MFA_CLAVE_DE_CIFRADO, ALMACEN_S3_CLAVE and RESPALDO_CLAVE have no default
 docker compose up -d --build --wait
 ```
 
@@ -172,17 +188,23 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **1561 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
-  controller and repository slices, service units, security and store isolation, and integration across modules.
-- **Coverage gate** with JaCoCo: 96 % of lines and 85 % of branches today, and the build fails below 90 % and 80 %
+- **2791 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+  controller and repository slices, service units, security and store isolation — permissions included, as a matrix
+  of six people, eight actions and five resources — and integration across modules.
+- **Coverage gate** with JaCoCo: 96 % of lines and 87 % of branches today, and the build fails below 90 % and 80 %
   in the service packages, where the business rules live.
-- **Mutation testing** with PIT over the services, the engine and the conditions: 76 % of 1660 mutations caught, run
-  every night with a floor of 75 %. Spotless keeps the imports and the whitespace of every changed file in order.
+- **Mutation testing** with PIT over the services, the engine and the conditions: 91 % of 3274 mutations caught,
+  run every night with a floor of 75 %, and a **fuzzer** that feeds the BPMN importer broken files every night after
+  it. Spotless keeps the imports and the whitespace of every changed file in order.
+- **The web app** has 120 Vitest tests over its logic — the rules of the modeler, the tree of the structure view, the
+  autosave, the live connection — and 27 Selenium scenarios, with axe-core over every screen.
 - **Every pull request** runs nine jobs: build and test on Ubuntu and Windows, architecture rules, Docker image
   with k6 load tests, SonarCloud quality gate, frontend build, web image with the whole stack, Selenium end-to-end
-  tests against it, the format check and the supply chain checks; CodeQL runs beside them.
+  tests against it, the format check and the supply chain checks; CodeQL runs beside them. Every month a **restore
+  drill** backs up a stack the order peak filled, restores it into an empty container and verifies it.
 - **Supply chain**: every action pinned to a commit SHA, Dependabot, CodeQL, gitleaks over every commit, Trivy over
-  both images, and a CycloneDX SBOM of each. [Supply chain](docs/security.md#supply-chain) has the detail.
+  the API, web and database images, and a CycloneDX SBOM of the API and the web. [Supply chain](docs/security.md#supply-chain)
+  has the detail.
 
 [Quality and testing](docs/testing.md) breaks every suite down.
 
@@ -190,39 +212,31 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 
 ```text
 ├── src/main/java/…/procesos   the API: common · security · gestion · modelado · ejecucion · integracion
-├── src/main/resources         profiles and Flyway migrations
+├── src/main/resources         profiles, Flyway migrations and the BPMN schemas
 ├── src/test                   unit, slice, integration and architecture suites, all on PostgreSQL
-├── frontend/                  Angular web app and its NGINX image
+├── frontend/                  Angular web app on bpmn-js and its NGINX image
 ├── e2e/                       Selenium end-to-end suite, a separate Maven module
 ├── k6/                        load tests: a sales peak and an order peak
+├── ops/respaldo/              PostgreSQL with pgBackRest: backups, restore and the monthly drill
 ├── postman/                   collection that tours the API end to end
 ├── docs/                      the detailed documentation
-├── compose.yaml               db, api and web
+├── compose.yaml               db, api, web, storage and backups
 └── Dockerfile                 multi-stage image of the API: JRE 25 on Alpine, AOT cache, non-root user
 ```
 
 ## Roadmap
 
-Modeling, execution, simulation, observability and the security of accounts and data are done. What is still
+Modeling, execution, simulation, observability and the security of accounts and data are done, and so are BPMN
+files in both directions, editing with others, the repository of processes and its permissions. What is still
 open:
 
+- A screen to grant permissions on folders and processes; today they are granted through the API.
+- Comments with mentions, review and approval, and full-text search.
 - Exporting a store's data during the 30 days of its closing.
-- Anchoring the last hash of the audit trail every day in a bucket with Object Lock.
 - An AI review of a change instead of the whole diagram, so the model only reads what moved.
 - HSTS preload, a month after production runs on HTTPS.
 
 The [roadmap](docs/roadmap.md) lists every item, done and open.
-
-## Credits
-
-This project began as a five-person team project for the Web Development course of my Systems Engineering degree,
-in the team repository [Facimus-Curiositatem/Beta-back](https://github.com/Facimus-Curiositatem/Beta-back). My
-contributions there were the stateless security (filter chain, JWT, `ApiPrincipal`, Problem Details for `401` and
-`403`, CORS) and the multi-tenancy and authorization (tenant checks on every lookup, the cross-tenant `404` policy,
-the centralized role matrix, the ArchUnit isolation rules and the two-store integration suite).
-
-This repository is my personal continuation. It evolves independently from the team version and is oriented to
-e-commerce operations.
 
 ## License
 
