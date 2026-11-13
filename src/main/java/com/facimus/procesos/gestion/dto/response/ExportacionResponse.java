@@ -22,5 +22,6 @@ public record ExportacionResponse(
         @Schema(description = "Size of the ZIP in bytes", example = "184320") Long tamano,
         @Schema(description = "Files inside the ZIP, the manifest aside", example = "42") Integer archivos,
         @Schema(description = "SHA-256 of the whole ZIP, in hex", example = "9f86d081884c7d65...") String sha256,
-        @Schema(example = "No se pudo leer el documento 12 del almacén.") String motivo) {
+        @Schema(description = "Why it is FALLIDA: a fixed text that never says what failed inside",
+                example = "No se pudo armar la exportación: pide otra.") String motivo) {
 }

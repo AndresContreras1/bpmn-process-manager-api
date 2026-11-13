@@ -92,14 +92,20 @@ public class AlmacenS3 implements Almacen {
         return bloqueado;
     }
 
-    /** PR 66: del bucket con Object Lock si lo hay, que es donde {@link #guardarInmutable} lo dejo. */
+    /**
+     * PR 66: del bucket con Object Lock si lo hay, que es donde {@link #guardarInmutable} lo dejo. Si no esta ahi, del
+     * de los documentos: un ancla guardada antes de configurar el bucket con Object Lock quedo en ese, sin bloqueo (su
+     * fila lo dice), y se sigue leyendo de donde quedo.
+     */
     @Override
     public InputStream abrirInmutable(String clave) {
-        String donde = bucketDeAnclas.isBlank() ? bucket : bucketDeAnclas;
+        if (bucketDeAnclas.isBlank()) {
+            return abrir(clave);
+        }
         try {
-            return s3.getObject(peticion -> peticion.bucket(donde).key(ClaveDeAlmacen.comprobar(clave)));
+            return s3.getObject(peticion -> peticion.bucket(bucketDeAnclas).key(ClaveDeAlmacen.comprobar(clave)));
         } catch (NoSuchKeyException _) {
-            throw new ArchivoNoEncontradoException(clave);
+            return abrir(clave);
         }
     }
 

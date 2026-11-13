@@ -88,6 +88,9 @@ public class ExportacionServiceImpl implements ExportacionService {
      */
     static final String NO_SE_PUDO_ARMAR = "No se pudo armar la exportación: pide otra.";
 
+    /** Lo que dice una que la limpieza dio por atascada. */
+    static final String ATASCADA = "La cola no la terminó a tiempo: pide otra.";
+
     private final ExportacionRepository exportacionRepository;
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
@@ -184,10 +187,24 @@ public class ExportacionServiceImpl implements ExportacionService {
                     .filter(una -> pedidaPorUnAdministrador(empresaId, una))
                     .orElseThrow(() -> new RecursoNoEncontradoException(NO_ENCONTRADA));
             InputStream contenido = abrir(exportacion.getClave());
-            auditoria.registrar(empresaId, null, "EXPORTACION_DESCARGADA", RECURSO, exportacionId, Map.of());
+            anotarDescarga(empresaId, exportacionId, contenido);
             return new Descarga(archivo(exportacion), exportacion.getTamano(), contenido);
         } finally {
             ContextoDeTienda.restaurar(anterior);
+        }
+    }
+
+    /** Si la bitacora falla, el ZIP ya abierto se cierra: si no, la conexion al almacen quedaria colgada. */
+    private void anotarDescarga(Long empresaId, Long exportacionId, InputStream contenido) {
+        try {
+            auditoria.registrar(empresaId, null, "EXPORTACION_DESCARGADA", RECURSO, exportacionId, Map.of());
+        } catch (RuntimeException e) {
+            try {
+                contenido.close();
+            } catch (IOException cierre) {
+                e.addSuppressed(cierre);
+            }
+            throw e;
         }
     }
 
@@ -282,7 +299,8 @@ public class ExportacionServiceImpl implements ExportacionService {
     /**
      * Anota como quedo, con la fila bloqueada, si sigue pendiente. Si mientras se armaba otro intento la dejo lista o
      * la limpieza la dio por atascada, lo que subio este intento sobra y se borra, y solo eso: el ZIP de la que quedo
-     * lista es el de otro intento, en otra carpeta.
+     * lista es el de otro intento, en otra carpeta. Si este intento no la pudo armar, queda FALLIDA y se borra la
+     * carpeta entera de la exportacion: un intento anterior pudo subir su ZIP y caerse antes de anotarlo.
      */
     private void anotar(Long empresaId, Long exportacionId, Resultado resultado) {
         Optional<Exportacion> pendiente = exportacionRepository.bloquear(exportacionId, empresaId)
@@ -295,10 +313,7 @@ public class ExportacionServiceImpl implements ExportacionService {
         }
         Exportacion exportacion = pendiente.get();
         if (resultado.motivo() != null) {
-            exportacion.setEstado(EstadoExportacion.FALLIDA);
-            exportacion.setMotivo(resultado.motivo());
-            auditoria.registrar(empresaId, null, "EXPORTACION_FALLIDA", RECURSO, exportacionId,
-                    Map.of(MOTIVO, resultado.motivo()));
+            fallar(empresaId, exportacion, resultado.motivo());
             return;
         }
         // En segundos enteros: el vencimiento es lo que firma el enlace
@@ -367,13 +382,20 @@ public class ExportacionServiceImpl implements ExportacionService {
     private void abandonar(Clave clave) {
         escritura.executeWithoutResult(estado -> exportacionRepository.bloquear(clave.id(), clave.empresaId())
                 .filter(exportacion -> exportacion.getEstado() == EstadoExportacion.PENDIENTE)
-                .ifPresent(exportacion -> {
-                    String motivo = "La cola no la terminó a tiempo: pide otra.";
-                    exportacion.setEstado(EstadoExportacion.FALLIDA);
-                    exportacion.setMotivo(motivo);
-                    auditoria.registrar(clave.empresaId(), null, "EXPORTACION_FALLIDA", RECURSO, clave.id(),
-                            Map.of(MOTIVO, motivo));
-                }));
+                .ifPresent(exportacion -> fallar(clave.empresaId(), exportacion, ATASCADA)));
+    }
+
+    /**
+     * La deja FALLIDA, con la fila ya bloqueada, y borra lo que hubiera subido cualquier intento: nada apunta al ZIP de
+     * una fallida, y sin esto quedaria en el almacen hasta que se purgue la tienda. Si borrar falla, la transaccion se
+     * deshace y la fila sigue PENDIENTE: la cola o la limpieza vuelven a intentarlo.
+     */
+    private void fallar(Long empresaId, Exportacion exportacion, String motivo) {
+        exportacion.setEstado(EstadoExportacion.FALLIDA);
+        exportacion.setMotivo(motivo);
+        almacen.borrarPrefijo(ClaveDeAlmacen.carpetaDeExportacion(empresaId, exportacion.getId()));
+        auditoria.registrar(empresaId, null, "EXPORTACION_FALLIDA", RECURSO, exportacion.getId(),
+                Map.of(MOTIVO, motivo));
     }
 
     /** Lista, y con su enlace todavia vigente. */

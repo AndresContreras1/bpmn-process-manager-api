@@ -5,14 +5,16 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import com.facimus.procesos.common.almacen.Almacen;
+import com.facimus.procesos.common.almacen.ArchivoNoEncontradoException;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.service.LecturaDeFilas;
@@ -29,7 +31,9 @@ import com.facimus.procesos.modelado.service.ModeloBpmnService;
  * activo), su documentacion en Markdown, su ficha de caracterizacion, los manuales que se armaron y los documentos con
  * cada version; y en la raiz, los comentarios de la tienda. De los documentos salen los bytes de las versiones
  * disponibles: una bloqueada por el antivirus o todavia sin revisar figura en la lista, pero su archivo no sale. Los
- * documentos eliminados no salen. Las claves del almacen se usan para leer y no se exportan.
+ * documentos eliminados no salen. Las claves del almacen se usan para leer y no se exportan. Un archivo disponible
+ * que el almacen ya no tiene no frena la exportacion: su lista lo marca como faltante, y la tienda se puede llevar lo
+ * demas.
  */
 @Component
 @Order(2)
@@ -72,6 +76,8 @@ public class ExportacionDelModelado implements ParteDeLaExportacion {
     private static final String CLAVE_PDF = "clavePdf";
     private static final String ESTADO = "estado";
     private static final String NUMERO = "numero";
+
+    private static final Logger log = LoggerFactory.getLogger(ExportacionDelModelado.class);
 
     private final ProcesoRepository procesoRepository;
     private final ModeloBpmnService modeloBpmnService;
@@ -118,41 +124,46 @@ public class ExportacionDelModelado implements ParteDeLaExportacion {
         }
     }
 
-    /** La lista de manuales, sin las claves del almacen, y el HTML y el PDF de cada uno que quedo disponible. */
+    /**
+     * La lista de manuales, sin las claves del almacen, y el HTML y el PDF de cada uno que quedo disponible. Los
+     * archivos van antes que la lista, para que la lista diga cual falto ({@code "faltantes": ["pdf"]}).
+     */
     private void escribirManuales(Long empresaId, Long procesoId, String carpeta, Paquete paquete) {
         List<Map<String, Object>> manuales = filas(MANUALES, empresaId, procesoId);
         if (manuales.isEmpty()) {
             return;
         }
-        List<Map<String, Object>> claves = new ArrayList<>();
         for (Map<String, Object> manual : manuales) {
-            Map<String, Object> clave = new LinkedHashMap<>();
-            clave.put(CLAVE_HTML, manual.remove(CLAVE_HTML));
-            clave.put(CLAVE_PDF, manual.remove(CLAVE_PDF));
-            claves.add(clave);
-        }
-        paquete.json(carpeta + "manuales.json", manuales);
-        for (int i = 0; i < manuales.size(); i++) {
-            Map<String, Object> manual = manuales.get(i);
+            String html = (String) manual.remove(CLAVE_HTML);
+            String pdf = (String) manual.remove(CLAVE_PDF);
             if (EstadoManual.DISPONIBLE.name().equals(manual.get(ESTADO))) {
                 String nombre = carpeta + manual.get("id") + "-v" + manual.get("versionNumero");
-                copiar(paquete, nombre + ".html", (String) claves.get(i).get(CLAVE_HTML));
-                copiar(paquete, nombre + ".pdf", (String) claves.get(i).get(CLAVE_PDF));
+                List<String> faltantes = new ArrayList<>();
+                if (!copiar(paquete, nombre + ".html", html)) {
+                    faltantes.add("html");
+                }
+                if (!copiar(paquete, nombre + ".pdf", pdf)) {
+                    faltantes.add("pdf");
+                }
+                if (!faltantes.isEmpty()) {
+                    manual.put("faltantes", faltantes);
+                }
             }
         }
+        paquete.json(carpeta + "manuales.json", manuales);
     }
 
     /**
      * La lista de documentos con sus versiones, sin las claves del almacen, y el archivo de cada version disponible:
      * {@code documentos/12/v2-Packing-instructions.pdf}. El nombre que eligio quien lo subio pasa por
-     * {@link Paquete#tramo} antes de entrar en la ruta.
+     * {@link Paquete#tramo} antes de entrar en la ruta. Una version cuyo archivo el almacen ya no tiene sale sin
+     * {@code archivo} y con {@code "faltante": true}.
      */
     private void escribirDocumentos(Long empresaId, Long procesoId, String carpeta, Paquete paquete) {
         List<Map<String, Object>> documentos = filas(DOCUMENTOS, empresaId, procesoId);
         if (documentos.isEmpty()) {
             return;
         }
-        Map<String, String> archivos = new LinkedHashMap<>();
         for (Map<String, Object> documento : documentos) {
             Object documentoId = documento.get("id");
             List<Map<String, Object>> versiones = filas(VERSIONES_DE_DOCUMENTO, empresaId, documentoId);
@@ -161,19 +172,26 @@ public class ExportacionDelModelado implements ParteDeLaExportacion {
                 if (EstadoDocumento.DISPONIBLE.name().equals(version.get(ESTADO))) {
                     String ruta = carpeta + documentoId + "/v" + version.get(NUMERO) + "-"
                             + Paquete.tramo((String) version.get("nombre"));
-                    version.put("archivo", ruta);
-                    archivos.put(ruta, clave);
+                    if (copiar(paquete, ruta, clave)) {
+                        version.put("archivo", ruta);
+                    } else {
+                        version.put("faltante", true);
+                    }
                 }
             }
             documento.put("versiones", versiones);
         }
         paquete.json(carpeta + "documentos.json", documentos);
-        archivos.forEach((ruta, clave) -> copiar(paquete, ruta, clave));
     }
 
-    private void copiar(Paquete paquete, String ruta, String clave) {
+    /** Copia el archivo de esa clave a esa ruta; si el almacen ya no lo tiene, no copia nada y devuelve false. */
+    private boolean copiar(Paquete paquete, String ruta, String clave) {
         try (InputStream contenido = almacen.abrir(clave)) {
             paquete.copiar(ruta, contenido);
+            return true;
+        } catch (ArchivoNoEncontradoException _) {
+            log.warn("La exportacion sigue sin {}: el almacen ya no tiene su archivo", ruta);
+            return false;
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo leer " + ruta + " del almacén", e);
         }

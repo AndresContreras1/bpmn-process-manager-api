@@ -154,6 +154,22 @@ class AlmacenS3IntegracionTest {
     }
 
     @Test
+    @DisplayName("un ancla guardada antes de configurar el bucket de anclas se sigue leyendo del de documentos, donde "
+            + "quedo")
+    void anclaDeAntesDelBucketDeAnclas() throws IOException {
+        String clave = ClaveDeAlmacen.deAncla(5, "2026-11-01");
+        assertThat(new AlmacenS3(s3, "documentos", "", false).guardarInmutable(clave, "{\"hash\":\"vieja\"}"
+                .getBytes(), Instant.now().plusSeconds(60))).isFalse();
+
+        Almacen conBucketDeAnclas = new AlmacenS3(s3, "documentos", "anclas", false);
+
+        try (InputStream contenido = conBucketDeAnclas.abrirInmutable(clave)) {
+            assertThat(new String(contenido.readAllBytes())).isEqualTo("{\"hash\":\"vieja\"}");
+        }
+        assertThat(s3.listObjectsV2(peticion -> peticion.bucket("anclas").prefix(clave)).contents()).isEmpty();
+    }
+
+    @Test
     @DisplayName("crea los buckets que faltan, el de anclas con Object Lock; si ya estan, no hace nada")
     void crearBuckets() {
         AlmacenS3 almacen = new AlmacenS3(s3, "nuevos-documentos", "nuevas-anclas", false);

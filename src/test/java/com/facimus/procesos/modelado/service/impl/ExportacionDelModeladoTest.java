@@ -21,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.facimus.procesos.common.almacen.Almacen;
+import com.facimus.procesos.common.almacen.ArchivoNoEncontradoException;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.service.LecturaDeFilasDePrueba;
@@ -151,6 +152,44 @@ class ExportacionDelModeladoTest {
         verify(almacen, never()).abrir("d/2");
         verify(almacen, never()).abrir("d/3");
         assertThat(paquete.archivos().keySet()).filteredOn(ruta -> ruta.contains("/documentos/12/")).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("un archivo disponible que el almacen ya no tiene no frena la exportacion: no sale, y su lista lo "
+            + "marca como faltante")
+    void archivosFaltantes() {
+        lector.con(ExportacionDelModelado.MANUALES, List.of(
+                fila("id", 5L, "versionNumero", 2, "estado", "DISPONIBLE", "claveHtml", "m/5/html", "clavePdf",
+                        "m/5/pdf"),
+                fila("id", 7L, "versionNumero", 4, "estado", "DISPONIBLE", "claveHtml", "m/7/html", "clavePdf",
+                        "m/7/pdf")),
+                EMPRESA, 3L)
+                .con(ExportacionDelModelado.DOCUMENTOS, List.of(fila("id", 12L)), EMPRESA, 3L)
+                .con(ExportacionDelModelado.VERSIONES_DE_DOCUMENTO, List.of(
+                        fila("numero", 1, "nombre", "perdido.pdf", "estado", "DISPONIBLE", "clave", "d/1"),
+                        fila("numero", 2, "nombre", "nuevo.pdf", "estado", "DISPONIBLE", "clave", "d/2")),
+                        EMPRESA, 12L);
+        when(almacen.abrir("m/5/html")).thenReturn(bytes("<html/>"));
+        when(almacen.abrir("m/5/pdf")).thenThrow(new ArchivoNoEncontradoException("m/5/pdf"));
+        when(almacen.abrir("m/7/html")).thenThrow(new ArchivoNoEncontradoException("m/7/html"));
+        when(almacen.abrir("m/7/pdf")).thenThrow(new ArchivoNoEncontradoException("m/7/pdf"));
+        when(almacen.abrir("d/1")).thenThrow(new ArchivoNoEncontradoException("d/1"));
+        when(almacen.abrir("d/2")).thenReturn(bytes("%PDF-2"));
+
+        parte.escribir(EMPRESA, paquete);
+
+        assertThat(paquete.archivos().get("procesos/3-despacho/manuales/manuales.json")).isEqualTo(List.of(
+                fila("id", 5L, "versionNumero", 2, "estado", "DISPONIBLE", "faltantes", List.of("pdf")),
+                fila("id", 7L, "versionNumero", 4, "estado", "DISPONIBLE", "faltantes", List.of("html", "pdf"))));
+        String nuevo = "procesos/3-despacho/documentos/12/v2-nuevo.pdf";
+        assertThat(paquete.archivos().get("procesos/3-despacho/documentos/documentos.json")).isEqualTo(List.of(
+                fila("id", 12L, "versiones", List.of(
+                        fila("numero", 1, "nombre", "perdido.pdf", "estado", "DISPONIBLE", "faltante", true),
+                        fila("numero", 2, "nombre", "nuevo.pdf", "estado", "DISPONIBLE", "archivo", nuevo)))));
+        assertThat(paquete.archivos()).containsKeys("procesos/3-despacho/manuales/5-v2.html", nuevo)
+                .doesNotContainKeys("procesos/3-despacho/manuales/5-v2.pdf", "procesos/3-despacho/manuales/7-v4.html",
+                        "procesos/3-despacho/manuales/7-v4.pdf", "procesos/3-despacho/documentos/12/v1-perdido.pdf")
+                .containsKey("comentarios.json");
     }
 
     @Test

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -400,6 +402,44 @@ class ExportacionServiceImplTest {
     }
 
     @Test
+    @DisplayName("si no se pudo armar, con la fila ya bloqueada se borra la carpeta entera de la exportacion: lo que "
+            + "subio un intento anterior que se cayo antes de anotarla no queda en el almacen")
+    void fallidaBorraLoDeOtrosIntentos() {
+        Exportacion pendiente = exportacion(EstadoExportacion.PENDIENTE);
+        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        when(partes.orderedStream()).thenAnswer(llamada -> Stream.<ParteDeLaExportacion>of((empresaId, paquete) -> {
+            throw new IllegalStateException("roto");
+        }));
+
+        servicio.generar(EMPRESA, EXPORTACION);
+
+        InOrder orden = inOrder(exportacionRepository, almacen, auditoria);
+        orden.verify(exportacionRepository).bloquear(EXPORTACION, EMPRESA);
+        orden.verify(almacen).borrarPrefijo(CARPETA);
+        orden.verify(auditoria).registrar(EMPRESA, null, "EXPORTACION_FALLIDA", "EXPORTACION", EXPORTACION,
+                Map.of("motivo", ExportacionServiceImpl.NO_SE_PUDO_ARMAR));
+        assertThat(pendiente.getEstado()).isEqualTo(EstadoExportacion.FALLIDA);
+    }
+
+    @Test
+    @DisplayName("si borrar la carpeta de una que no se pudo armar falla, el error sube sin anotarla: la transaccion "
+            + "se deshace y la cola la intenta otra vez")
+    void fallidaSinBorrarSeReintenta() {
+        Exportacion pendiente = exportacion(EstadoExportacion.PENDIENTE);
+        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        doThrow(new IllegalStateException("Bucket documentos-prod: SlowDown")).when(almacen).guardar(anyString(),
+                any(Path.class), anyString());
+        doThrow(new IllegalStateException("almacen caido")).when(almacen).borrarPrefijo(CARPETA);
+
+        assertThatThrownBy(() -> servicio.generar(EMPRESA, EXPORTACION)).hasMessage("almacen caido");
+
+        verifyNoInteractions(auditoria);
+        assertThat(transacciones.abiertas).isZero();
+    }
+
+    @Test
     @DisplayName("si la cola arma la misma exportacion dos veces a la vez, el que llega tarde no pisa ni borra el ZIP "
             + "del que la dejo lista: solo borra el suyo")
     void dosIntentosALaVez() {
@@ -544,6 +584,54 @@ class ExportacionServiceImplTest {
                 .isInstanceOf(RecursoNoEncontradoException.class);
         verifyNoInteractions(auditoria);
         assertThat(ContextoDeTienda.actual()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("si la bitacora no puede anotar la descarga, el ZIP que ya se abrio se cierra y el error sube")
+    void descargaSinBitacoraCierraElZip() {
+        Exportacion lista = lista(AHORA_LOCAL.plusHours(1));
+        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(lista));
+        List<String> cerrados = new ArrayList<>();
+        InputStream zip = new ByteArrayInputStream("zip".getBytes(StandardCharsets.UTF_8)) {
+            @Override
+            public void close() {
+                cerrados.add(CLAVE);
+            }
+        };
+        when(almacen.abrir(CLAVE)).thenReturn(zip);
+        doThrow(new IllegalStateException("bitacora caida")).when(auditoria).registrar(EMPRESA, null,
+                "EXPORTACION_DESCARGADA", "EXPORTACION", EXPORTACION, Map.of());
+        Instant vence = lista.getVenceEn().toInstant(ZoneOffset.UTC);
+        long segundos = vence.getEpochSecond();
+        String firma = enlaces.firmar("exportacion:1:4", vence);
+
+        assertThatThrownBy(() -> servicio.descargar(EMPRESA, EXPORTACION, segundos, firma))
+                .hasMessage("bitacora caida");
+        assertThat(cerrados).containsExactly(CLAVE);
+        assertThat(ContextoDeTienda.actual()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("la limpieza borra del almacen lo que haya subido una atascada al darla por fallida, y no toca el "
+            + "ZIP de una que termino mientras tanto")
+    void limpiarBorraLoDeUnaAtascada() {
+        Exportacion atascada = exportacion(EstadoExportacion.PENDIENTE);
+        atascada.setId(6L);
+        Exportacion terminada = lista(AHORA_LOCAL.plusHours(24));
+        terminada.setId(8L);
+        when(exportacionRepository.findAllByEstadoAndVenceEnBeforeOrderByIdAsc(EstadoExportacion.LISTA, AHORA_LOCAL))
+                .thenReturn(List.of());
+        when(exportacionRepository.findAllByEstadoAndPedidaEnBeforeOrderByIdAsc(EstadoExportacion.PENDIENTE,
+                AHORA_LOCAL.minusHours(6))).thenReturn(List.of(atascada, terminada));
+        when(exportacionRepository.bloquear(6L, EMPRESA)).thenReturn(Optional.of(atascada));
+        when(exportacionRepository.bloquear(8L, EMPRESA)).thenReturn(Optional.of(terminada));
+
+        servicio.limpiar();
+
+        verify(almacen).borrarPrefijo("empresas/1/exportaciones/6/");
+        verify(almacen, never()).borrarPrefijo("empresas/1/exportaciones/8/");
+        assertThat(atascada.getMotivo()).isEqualTo(ExportacionServiceImpl.ATASCADA);
+        assertThat(terminada.getEstado()).isEqualTo(EstadoExportacion.LISTA);
     }
 
     @Test
