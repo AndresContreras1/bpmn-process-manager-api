@@ -73,7 +73,7 @@ export interface HistorialCambio {
 export interface ProcesoDetalle {
   proceso: Proceso;
   historial: HistorialCambio[];
-  /** F22: el nombre del dueno, que quien solo lee no podria buscar; vacio si no tiene. */
+  /** F22: el nombre del dueno, que quien solo lee no podria buscar; null si no tiene. */
   duenoNombre?: string | null;
 }
 

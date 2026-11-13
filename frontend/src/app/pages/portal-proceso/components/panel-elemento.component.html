@@ -2,7 +2,7 @@
   <div class="card-body p-3">
     <h2 class="h5 mb-3" id="portal-panel-titulo" tabindex="-1">
       @if (elemento(); as elegido) {
-        <span id="portal-panel-elemento" [attr.data-elemento]="elegido.id">{{ elegido.nombre || '—' }}</span>
+        <span id="portal-panel-elemento" [attr.data-elemento]="elegido.id">{{ elegido.nombre || elegido.id }}</span>
       } @else {
         <span i18n id="portal-panel-elemento">The whole process</span>
       }

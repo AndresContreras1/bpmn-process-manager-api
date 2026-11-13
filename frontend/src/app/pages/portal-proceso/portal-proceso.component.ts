@@ -107,11 +107,15 @@ export class PortalProcesoComponent implements OnInit {
   ngOnInit(): void {
     this.ruta.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((parametros: ParamMap) => {
       this.elementoPedido = parametros.get('elemento');
-      this.elegirElPedido();
+      // Al pasar a otro proceso la direccion trae su elemento antes que su id: no se busca en el diagrama que se va,
+      // se elige cuando el nuevo termine de dibujarse (alDibujar)
+      if (this.idDeLaRuta() === this.id) {
+        this.elegirElPedido();
+      }
     });
     this.ruta.paramMap
       .pipe(
-        map((parametros: ParamMap) => Number(parametros.get('id'))),
+        map((parametros: ParamMap) => idDe(parametros)),
         tap((id: number) => {
           this.id = id;
           this.cargando.set(true);
@@ -188,6 +192,10 @@ export class PortalProcesoComponent implements OnInit {
     });
   }
 
+  private idDeLaRuta(): number {
+    return idDe(this.ruta.snapshot.paramMap);
+  }
+
   private elegirElPedido(): void {
     const pedido = this.elementoPedido;
     const lienzo = this.lienzo();
@@ -196,4 +204,8 @@ export class PortalProcesoComponent implements OnInit {
       lienzo.mostrar(pedido);
     }
   }
+}
+
+function idDe(parametros: ParamMap): number {
+  return Number(parametros.get('id'));
 }

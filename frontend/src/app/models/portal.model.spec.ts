@@ -15,6 +15,7 @@ import {
   leerDireccionDelPortal,
   manualEnCurso,
   manualParaBajar,
+  nombreDeLengua,
   marcasDeDocumentados,
   resultadosDelPortal,
   revisionVencida,
@@ -160,6 +161,18 @@ describe('portal.model', () => {
     });
   });
 
+  describe('nombreDeLengua', () => {
+    it('nombra la lengua del manual en la de quien lee, sin la region', () => {
+      expect(nombreDeLengua('en-US', 'en-AU')).toBe('English');
+      expect(nombreDeLengua('fr-FR', 'es-CO')).toBe('francés');
+      expect(nombreDeLengua('es_CO', 'fr-FR')).toBe('espagnol');
+    });
+
+    it('un codigo que no se puede nombrar se muestra tal cual', () => {
+      expect(nombreDeLengua('es-CO', 'no es un idioma!')).toBe('es-CO');
+    });
+  });
+
   describe('manualParaBajar', () => {
     it('prefiere el listo de la version vigente en la lengua de quien lee', () => {
       const manuales = [manual(3, { idioma: 'en-AU' }), manual(2, { idioma: 'es' }), manual(1, { idioma: 'es-CO' })];
@@ -226,7 +239,7 @@ describe('portal.model', () => {
   });
 
   describe('resultadosDelPortal', () => {
-    it('deja procesos, elementos y documentos, en su orden, sin los comentarios', () => {
+    it('deja procesos, elementos publicados y documentos, en su orden, sin comentarios ni borradores', () => {
       const encontrados = resultadosDelPortal([
         resultado({ titulo: 'proceso' }),
         resultado({ tipo: 'COMENTARIO', titulo: 'comentario' }),
@@ -234,7 +247,7 @@ describe('portal.model', () => {
         resultado({ tipo: 'ELEMENTO', bpmnId: 'Task_2', version: 2, titulo: 'publicado' }),
         resultado({ tipo: 'DOCUMENTO', documentoId: 5, titulo: 'documento' }),
       ]);
-      expect(encontrados.map((uno) => uno.titulo)).toEqual(['proceso', 'del borrador', 'publicado', 'documento']);
+      expect(encontrados.map((uno) => uno.titulo)).toEqual(['proceso', 'publicado', 'documento']);
     });
 
     it('sin resultados no hay nada', () => {

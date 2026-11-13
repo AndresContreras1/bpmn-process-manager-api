@@ -98,6 +98,19 @@ function lenguaDe(idioma: string): string {
   return idioma.split(/[-_]/)[0].toLowerCase();
 }
 
+/**
+ * El nombre de la lengua de un manual en la de quien lee: en-US es "English" en ingles y "inglés" en espanol. Un codigo
+ * que el navegador no sabe nombrar se muestra tal cual, antes que nada.
+ */
+export function nombreDeLengua(idioma: string, deQuienLee: string): string {
+  const lengua = lenguaDe(idioma);
+  try {
+    return new Intl.DisplayNames([deQuienLee], { type: 'language' }).of(lengua) ?? idioma;
+  } catch {
+    return idioma;
+  }
+}
+
 /** Un campo de la ficha de caracterizacion con lo que dice. */
 export interface CampoLeido {
   campo: CampoCaracterizacion;
@@ -120,12 +133,14 @@ export function revisionVencida(proceso: Pick<Proceso, 'revisionVencida'>): bool
 }
 
 /**
- * Los resultados de la busqueda que tienen sentido en el portal: los comentarios son conversacion de trabajo, no lo
- * publicado. Un elemento llega una sola vez aunque este en el borrador y en la version vigente (la API se queda con
- * uno), asi que no se puede saber por el resultado si esta publicado: si no lo esta, su pagina se abre sin elegirlo.
+ * Los resultados de la busqueda que tienen sentido en el portal. El portal ya busca solo lo publicado (publicado=true),
+ * y la API trae cada elemento de la version vigente, con su numero; aun asi, lo que no es de lo publicado no se ensena:
+ * ni los comentarios, que son conversacion de trabajo, ni un elemento sin version, que es del borrador.
  */
 export function resultadosDelPortal(resultados: readonly ResultadoDeBusqueda[]): ResultadoDeBusqueda[] {
-  return resultados.filter((resultado) => resultado.tipo !== 'COMENTARIO');
+  return resultados.filter(
+    (resultado) => resultado.tipo !== 'COMENTARIO' && !(resultado.tipo === 'ELEMENTO' && resultado.version === null),
+  );
 }
 
 /**

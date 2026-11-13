@@ -17,12 +17,18 @@ import { abrirDescarga } from '../../../helpers/archivos';
 import { mensajeDeError } from '../../../helpers/errores-api';
 import { FormatoManual, Manual } from '../../../models/documentacion.model';
 import { EnlaceDeDescarga } from '../../../models/documento.model';
-import { manualEnCurso, manualParaBajar } from '../../../models/portal.model';
+import { manualEnCurso, manualParaBajar, nombreDeLengua } from '../../../models/portal.model';
 import { FechaPipe } from '../../../pipes/fecha.pipe';
 import { ManualService } from '../../../service/manual.service';
 
 /** Cada cuanto se vuelve a preguntar por un manual que la cola todavia arma. */
 export const INTERVALO_DEL_MANUAL: number = 2000;
+
+/**
+ * Cuantas veces se pregunta antes de dejar de esperar: tres minutos. Un manual que tarda mas esta atascado o lo dejo
+ * otra persona, y una pestana abierta no puede quedarse preguntando para siempre.
+ */
+export const REVISIONES_DEL_MANUAL: number = 90;
 
 /**
  * F22: el manual de la version vigente, en el portal. Quien puede exportar lo pide y espera a que la cola lo arme;
@@ -48,13 +54,21 @@ export class ManualDelPortalComponent implements OnChanges {
   readonly pidiendo = signal<boolean>(false);
   readonly error = signal<string | null>(null);
   readonly anuncio = signal<string>('');
+  /** Se pregunto REVISIONES_DEL_MANUAL veces y sigue en la cola: se deja de preguntar y se dice que vuelva luego. */
+  readonly demorado = signal<boolean>(false);
   readonly listo = computed((): Manual | null => manualParaBajar(this.manuales(), this.version(), this.idioma));
   readonly enCurso = computed((): Manual | null => manualEnCurso(this.manuales(), this.version()));
   private sondeo: Subscription | null = null;
+  private revisiones: number = 0;
 
   ngOnChanges(): void {
     this.manuales.set(this.manualesLeidos());
-    this.programarRevision();
+    this.esperarDeNuevo();
+  }
+
+  /** La lengua del manual con su nombre, en la de quien lee. */
+  lengua(manual: Manual): string {
+    return nombreDeLengua(manual.idioma, this.idioma);
   }
 
   /** El de la version vigente, en el idioma de quien lo pide; la API lo arma en la cola. */
@@ -74,7 +88,7 @@ export class ManualDelPortalComponent implements OnChanges {
         next: (manual: Manual) => {
           this.manuales.update((antes) => [manual, ...antes.filter((uno) => uno.id !== manual.id)]);
           this.anuncio.set($localize`The manual of version ${manual.version} is being built.`);
-          this.programarRevision();
+          this.esperarDeNuevo();
         },
         error: (error: HttpErrorResponse) => this.error.set(mensajeDeError(error)),
       });
@@ -92,13 +106,28 @@ export class ManualDelPortalComponent implements OnChanges {
       });
   }
 
-  /** Mientras uno de la version vigente este en la cola, se vuelve a mirar la lista cada dos segundos. */
+  /** Un manual recien pedido, o una lista nueva, vuelven a contar desde cero. */
+  private esperarDeNuevo(): void {
+    this.revisiones = 0;
+    this.demorado.set(false);
+    this.programarRevision();
+  }
+
+  /**
+   * Mientras uno de la version vigente este en la cola, se vuelve a mirar la lista cada dos segundos, hasta
+   * REVISIONES_DEL_MANUAL veces.
+   */
   private programarRevision(): void {
     this.sondeo?.unsubscribe();
     this.sondeo = null;
     if (!this.enCurso()) {
       return;
     }
+    if (this.revisiones >= REVISIONES_DEL_MANUAL) {
+      this.demorado.set(true);
+      return;
+    }
+    this.revisiones++;
     this.sondeo = timer(INTERVALO_DEL_MANUAL)
       .pipe(
         switchMap(() => this.servicio.listar(this.procesoId())),

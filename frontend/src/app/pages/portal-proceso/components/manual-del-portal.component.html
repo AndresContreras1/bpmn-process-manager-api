@@ -12,7 +12,7 @@
 
     @if (listo(); as manual) {
       <p class="small mb-2" id="portal-manual-listo" [attr.data-manual]="manual.id">
-        <span i18n>Built on {{ manual.listoEn | fecha: 'fechaHora' }}, in {{ manual.idioma }}.</span>
+        <span i18n>Built on {{ manual.listoEn | fecha: 'fechaHora' }}, in {{ lengua(manual) }}.</span>
       </p>
       <div class="d-flex flex-wrap gap-2 mb-2">
         <button type="button" class="btn btn-sm btn-primary" id="portal-manual-pdf" (click)="bajar(manual, 'pdf')">
@@ -34,10 +34,16 @@
     }
 
     @if (enCurso()) {
-      <p class="small mb-2" role="status" id="portal-manual-en-curso">
-        <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-        <span i18n>Being built…</span>
-      </p>
+      @if (demorado()) {
+        <p i18n class="small text-body-secondary mb-2" role="status" id="portal-manual-demorado">
+          It is still being built. Come back in a few minutes.
+        </p>
+      } @else {
+        <p class="small mb-2" role="status" id="portal-manual-en-curso">
+          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+          <span i18n>Being built…</span>
+        </p>
+      }
     } @else if (puedePedir()) {
       <button
         type="button"

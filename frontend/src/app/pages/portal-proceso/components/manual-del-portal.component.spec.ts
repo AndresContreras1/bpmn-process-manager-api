@@ -1,9 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Observable, of } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 
 import { Manual } from '../../../models/documentacion.model';
 import { ManualService } from '../../../service/manual.service';
-import { INTERVALO_DEL_MANUAL, ManualDelPortalComponent } from './manual-del-portal.component';
+import { INTERVALO_DEL_MANUAL, ManualDelPortalComponent, REVISIONES_DEL_MANUAL } from './manual-del-portal.component';
 
 function manual(id: number, cambios: Partial<Manual> = {}): Manual {
   return {
@@ -26,12 +26,20 @@ function manual(id: number, cambios: Partial<Manual> = {}): Manual {
 describe('ManualDelPortalComponent', () => {
   let pedidos: number;
   let listas: Manual[][];
+  let revisadas: number;
+  /** Lo que contesta pedir; sin uno, un manual pendiente al momento. */
+  let respuesta: Observable<Manual> | null;
+  /** La lista cuando ya no quedan las preparadas. */
+  let siempre: Manual[];
   let fixture: ComponentFixture<ManualDelPortalComponent>;
 
   beforeEach(() => {
     vi.useFakeTimers();
     pedidos = 0;
     listas = [];
+    revisadas = 0;
+    respuesta = null;
+    siempre = [];
     TestBed.configureTestingModule({
       imports: [ManualDelPortalComponent],
       providers: [
@@ -40,9 +48,12 @@ describe('ManualDelPortalComponent', () => {
           useValue: {
             pedir: (): Observable<Manual> => {
               pedidos++;
-              return of(manual(9, { estado: 'PENDIENTE', listoEn: null }));
+              return respuesta ?? of(manual(9, { estado: 'PENDIENTE', listoEn: null }));
             },
-            listar: (): Observable<Manual[]> => of(listas.shift() ?? []),
+            listar: (): Observable<Manual[]> => {
+              revisadas++;
+              return of(listas.shift() ?? siempre);
+            },
             enlace: () => of({ url: '/x', venceEn: '' }),
           },
         },
@@ -114,5 +125,37 @@ describe('ManualDelPortalComponent', () => {
 
     expect(anuncio()).toContain('could not be built: No font');
     expect(boton('portal-manual-pedir')!.textContent).toContain('Build the manual');
+  });
+
+  it('pedirlo dos veces seguidas manda un solo pedido mientras el primero no contesta', () => {
+    respuesta = new Subject<Manual>();
+    con([], true);
+
+    fixture.componentInstance.pedir();
+    fixture.componentInstance.pedir();
+
+    expect(pedidos).toBe(1);
+    expect(fixture.componentInstance.pidiendo()).toBe(true);
+  });
+
+  it('dice la lengua del manual por su nombre, no por su codigo', () => {
+    con([manual(3, { idioma: 'fr-FR' })], false);
+
+    expect(fixture.nativeElement.querySelector('#portal-manual-listo').textContent).toContain('in French');
+  });
+
+  it('un manual que no sale de la cola deja de preguntarse a los tres minutos, y dice que se vuelva luego', () => {
+    const atascado = manual(9, { estado: 'PENDIENTE', listoEn: null });
+    siempre = [atascado];
+    con([atascado], false);
+
+    vi.advanceTimersByTime(INTERVALO_DEL_MANUAL * REVISIONES_DEL_MANUAL);
+    fixture.detectChanges();
+    expect(revisadas).toBe(REVISIONES_DEL_MANUAL);
+    expect(fixture.nativeElement.querySelector('#portal-manual-demorado')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('#portal-manual-en-curso')).toBeNull();
+
+    vi.advanceTimersByTime(INTERVALO_DEL_MANUAL * 10);
+    expect(revisadas).toBe(REVISIONES_DEL_MANUAL);
   });
 });
