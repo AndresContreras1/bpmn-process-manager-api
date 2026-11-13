@@ -2,7 +2,6 @@ package com.facimus.procesos.gestion.controller;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
@@ -17,6 +16,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.response.ExportacionResponse;
 import com.facimus.procesos.gestion.service.ExportacionService;
@@ -28,6 +29,8 @@ import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -65,14 +68,19 @@ public class ExportacionController {
                 .body(exportacion);
     }
 
-    @Operation(summary = "List the exports of the store", description = "Newest first, with their state, size, "
-            + "SHA-256 and until when their link works. The link itself only goes by e-mail.")
-    @ApiResponse(responseCode = "200", description = "The exports")
+    @Operation(summary = "List the exports of the store", description = "Newest first, up to 50 a page, with their "
+            + "state, size, SHA-256 and until when their link works. The link itself only goes by e-mail.")
+    @ApiResponse(responseCode = "200", description = "A page of exports")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
     @GetMapping(EXPORTACIONES)
-    public ResponseEntity<List<ExportacionResponse>> listar(@AuthenticationPrincipal ApiPrincipal principal) {
-        return ResponseEntity.ok(exportacionService.listar(principal.empresaId()));
+    public ResponseEntity<PageResponse<ExportacionResponse>> listar(
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = Paginacion.PAGINA_INVALIDA) int pagina,
+            @RequestParam(defaultValue = "20") @Min(value = 1, message = Paginacion.TAMANO_INVALIDO)
+            @Max(value = Paginacion.TAMANO_MAXIMO, message = Paginacion.TAMANO_INVALIDO) int tamano,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(exportacionService.listar(principal.empresaId(), Paginacion.de(pagina, tamano)));
     }
 
     @Operation(summary = "Get an export and whether it is ready")
@@ -88,9 +96,11 @@ public class ExportacionController {
 
     @Operation(summary = "Download an export with its signed link",
             description = "The link comes in the e-mail that says the export is ready, and works until the export "
-                    + "expires, 24 hours later. A changed or expired link, or one of an export already deleted, "
-                    + "answers 404. Every download goes to the audit trail.")
+                    + "expires, 24 hours later. A changed or expired link, one of an export already deleted, or one "
+                    + "whose requester is no longer an active administrator answers 404. Every download goes to the "
+                    + "audit trail.")
     @ApiResponse(responseCode = "200", description = "The ZIP, as an attachment")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "404", ref = "NotFound")
     @SecurityRequirements()
     @GetMapping("/api/v1/descargas/exportaciones/{id}")

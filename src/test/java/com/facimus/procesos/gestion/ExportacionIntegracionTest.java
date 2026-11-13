@@ -2,12 +2,16 @@ package com.facimus.procesos.gestion;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -42,6 +46,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -162,6 +167,7 @@ class ExportacionIntegracionTest {
     private JsonMapper json;
 
     private int numero;
+    private long documentoBorrado;
     private String nombre;
     private Long empresaId;
     private ApiPrincipal ana;
@@ -246,6 +252,12 @@ class ExportacionIntegracionTest {
         mvc.perform(post("/api/v1/procesos/{id}/documentos", proceso).param("nombre", "Guía de empaque.pdf")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM).content(Archivos.PDF).with(como(beto)))
                 .andExpect(status().isCreated());
+        // Uno que se borra antes de exportar: no sale ni en la lista ni con sus bytes
+        long borrado = leer(mvc.perform(post("/api/v1/procesos/{id}/documentos", proceso)
+                .param("nombre", "Borrador viejo.pdf").contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .content(Archivos.PDF).with(como(beto))).andExpect(status().isCreated())).get("id").asLong();
+        mvc.perform(delete("/api/v1/documentos/{id}", borrado).with(como(ana))).andExpect(status().isNoContent());
+        documentoBorrado = borrado;
         mensajeriaService.recibir(empresaId, proceso, DatosDelEntrante.aMano(TiendaConMensajeria.PEDIDO, null,
                 Map.of("orderId", "=1+2"), "exporta-" + numero));
         vaciarLaCola();
@@ -287,7 +299,8 @@ class ExportacionIntegracionTest {
 
         long exportacion = pedir(ana);
         mvc.perform(get(EXPORTACIONES).with(como(ana))).andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(exportacion));
+                .andExpect(jsonPath("$.content[0].id").value(exportacion))
+                .andExpect(jsonPath("$.size").value(20));
         vaciarLaCola();
 
         JsonNode lista = leer(mvc.perform(get(EXPORTACIONES + "/{id}", exportacion).with(como(ana)))
@@ -326,6 +339,14 @@ class ExportacionIntegracionTest {
         assertThat(texto(archivos, "comentarios.json")).contains("Quien revisa la **direccion**?");
         assertThat(archivos.get(carpeta + "/documentos/" + documento(archivos, carpeta) + "/v1-Guia-de-empaque.pdf"))
                 .isEqualTo(Archivos.PDF);
+        JsonNode documentos = json.readTree(archivos.get(carpeta + "/documentos/documentos.json"));
+        assertThat(documentos).as("el borrado no esta en la lista").hasSize(1);
+        assertThat(documentos.get(0).get("id").asLong()).isNotEqualTo(documentoBorrado);
+        assertThat(archivos.keySet()).as("ni sus bytes").noneMatch(ruta -> ruta.startsWith(carpeta + "/documentos/"
+                + documentoBorrado + "/") || ruta.contains("Borrador-viejo"));
+        assertThat(json.readTree(archivos.get("bitacora/anclas.json"))).allSatisfy(ancla -> assertThat(
+                ancla.propertyNames()).as("ninguna clave del almacen sale").contains("dia", "hash")
+                .doesNotContain("clave"));
         assertThat(archivos.keySet()).anyMatch(ruta -> ruta.startsWith("bitacora/anclas/") && ruta.endsWith(".json"));
 
         manifiestoContraCadaArchivo(archivos, exportacion);
@@ -459,7 +480,7 @@ class ExportacionIntegracionTest {
 
         mvc.perform(get(EXPORTACIONES + "/{id}", exportacion).with(como(ajeno))).andExpect(status().isNotFound());
         mvc.perform(get(EXPORTACIONES).with(como(ajeno))).andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == " + exportacion + ")]").isEmpty());
+                .andExpect(jsonPath("$.content[?(@.id == " + exportacion + ")]").isEmpty());
         mvc.perform(get(enlace.replace("empresa=" + empresaId, "empresa=" + otraId)))
                 .andExpect(status().isNotFound());
         Integer vistas = ContextoDeTienda.deLaTienda(otraId, () -> jdbc.queryForObject(
@@ -487,7 +508,10 @@ class ExportacionIntegracionTest {
         long exportacion = pedir(ana);
         vaciarLaCola();
         String enlace = enlaceDelCorreo(ana);
-        Path zip = ALMACEN.resolve("empresas/" + empresaId + "/exportaciones/" + exportacion + "/organizacion");
+        String clave = jdbc.queryForObject("select clave from exportaciones where id = ?", String.class, exportacion);
+        assertThat(clave).matches("empresas/" + empresaId + "/exportaciones/" + exportacion
+                + "/[0-9a-f-]{36}/organizacion");
+        Path zip = ALMACEN.resolve(clave);
         assertThat(zip).exists();
         Instant antes = Instant.now().minusSeconds(5).truncatedTo(ChronoUnit.SECONDS);
         mvc.perform(get("/api/v1/descargas/exportaciones/{id}", exportacion).param("empresa", empresaId.toString())
@@ -508,6 +532,80 @@ class ExportacionIntegracionTest {
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(jdbc.queryForList(
                 "select accion from bitacora where empresa_id = ? and recurso_id = ? and recurso = 'EXPORTACION'",
                 String.class, empresaId, exportacion)).contains("EXPORTACION_VENCIDA"));
+    }
+
+    @Test
+    @DisplayName("la lista va de a una pagina de hasta 50, de la mas nueva a la mas vieja")
+    void listaPaginada() throws Exception {
+        long primera = pedir(ana);
+        vaciarLaCola();
+        long segunda = pedir(ana);
+
+        mvc.perform(get(EXPORTACIONES).param("tamano", "1").with(como(ana))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(segunda))
+                .andExpect(jsonPath("$.totalElements").value(2));
+        mvc.perform(get(EXPORTACIONES).param("tamano", "1").param("pagina", "1").with(como(ana)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(primera));
+        mvc.perform(get(EXPORTACIONES).param("tamano", "51").with(como(ana))).andExpect(status().isBadRequest());
+        mvc.perform(get(EXPORTACIONES).param("pagina", "-1").with(como(ana))).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("la base garantiza una en curso por tienda y que una LISTA tenga su archivo y su huella")
+    void laBaseLoGarantiza() throws Exception {
+        pedir(ana);
+        LocalDateTime ahora = LocalDateTime.now(ZoneOffset.UTC);
+
+        assertThatThrownBy(() -> ContextoDeTienda.comoSistema(() -> jdbc.update(
+                "insert into exportaciones (empresa_id, estado, pedida_por, pedida_en) values (?, 'PENDIENTE', ?, ?)",
+                empresaId, ana.usuarioId(), ahora))).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> ContextoDeTienda.comoSistema(() -> jdbc.update("""
+                insert into exportaciones (empresa_id, estado, pedida_por, pedida_en, vence_en, tamano)
+                values (?, 'LISTA', ?, ?, ?, 1)
+                """, empresaId, ana.usuarioId(), ahora, ahora.plusHours(24))))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(ContextoDeTienda.comoSistema(() -> jdbc.update(
+                "insert into exportaciones (empresa_id, estado, pedida_por, pedida_en) values (?, 'FALLIDA', ?, ?)",
+                empresaId, ana.usuarioId(), ahora))).as("otra que no esta en curso, si").isOne();
+    }
+
+    @Test
+    @DisplayName("el enlace es de un administrador activo: si a quien la pidio le quitan el rol, el correo no sale y "
+            + "el enlace que ya tenia deja de bajar")
+    void soloUnAdministradorActivo() throws Exception {
+        long primera = pedir(ana);
+        vaciarLaCola();
+        String enlace = enlaceDelCorreo(ana);
+        mvc.perform(get(enlace)).andExpect(status().isOk());
+
+        jdbc.update("update usuarios set rol_acceso = 'EDITOR' where id = ?", ana.usuarioId());
+        mvc.perform(get(enlace)).andExpect(status().isNotFound());
+
+        jdbc.update("update usuarios set rol_acceso = 'ADMINISTRADOR' where id = ?", ana.usuarioId());
+        long segunda = pedir(ana);
+        jdbc.update("update usuarios set rol_acceso = 'EDITOR' where id = ?", ana.usuarioId());
+        clearInvocations(correo);
+        vaciarLaCola();
+        verify(correo, never()).enviar(argThat(uno -> uno.asunto()
+                .contains("exportación")));
+        assertThat(jdbc.queryForObject("select estado from exportaciones where id = ?", String.class, segunda))
+                .isEqualTo("LISTA");
+        assertThat(primera).isNotEqualTo(segunda);
+    }
+
+    @Test
+    @DisplayName("dar de baja con exportar y una ya en curso: la baja sale y no se pide otra")
+    void bajaConUnaEnCurso() throws Exception {
+        long enCurso = pedir(ana);
+
+        mvc.perform(post("/api/v1/empresas/actual/baja").with(como(ana)).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("confirmacion", nombre, "exportar", true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bajaSolicitadaEn").isNotEmpty());
+
+        assertThat(jdbc.queryForList("select id from exportaciones where empresa_id = ?", Long.class, empresaId))
+                .containsExactly(enCurso);
     }
 
     @Test

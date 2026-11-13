@@ -16,11 +16,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +34,12 @@ import com.facimus.procesos.common.almacen.Almacen;
 import com.facimus.procesos.common.almacen.ArchivoNoEncontradoException;
 import com.facimus.procesos.common.almacen.ClaveDeAlmacen;
 import com.facimus.procesos.common.almacen.EnlacesFirmados;
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.archivos.ArchivosTemporales;
 import com.facimus.procesos.common.archivos.ArchivosTemporales.Temporal;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
@@ -58,6 +62,10 @@ import tools.jackson.databind.json.JsonMapper;
  * para el manifiesto. El ZIP va al almacen, la fila queda LISTA con su huella y su vencimiento, y el correo con el
  * enlace firmado sale por la cola. Leer y anotar van en transacciones cortas: armar puede tardar, y la base corta una
  * transaccion abierta que no hace nada.
+ * <p>
+ * La cola puede armar la misma exportacion dos veces a la vez: reabre un trabajo en curso que pasa de su umbral, y una
+ * tienda grande puede tardar mas. Por eso cada intento sube su ZIP a su propia carpeta, y anotar bloquea la fila: el
+ * primero que llega la deja lista, y el que llega tarde solo borra lo suyo.
  */
 @Service
 public class ExportacionServiceImpl implements ExportacionService {
@@ -73,7 +81,12 @@ public class ExportacionServiceImpl implements ExportacionService {
     private static final Logger log = LoggerFactory.getLogger(ExportacionServiceImpl.class);
     private static final String NO_ENCONTRADA = "Exportación no encontrada.";
     private static final String MOTIVO = "motivo";
-    private static final int LARGO_DEL_MOTIVO = 300;
+
+    /**
+     * Lo que dice una exportacion que no se pudo armar, en la API y en la bitacora. Nunca el mensaje de la excepcion:
+     * puede llevar SQL, nombres de buckets o rutas internas. Ese va al log, con el id de la exportacion.
+     */
+    static final String NO_SE_PUDO_ARMAR = "No se pudo armar la exportación: pide otra.";
 
     private final ExportacionRepository exportacionRepository;
     private final EmpresaRepository empresaRepository;
@@ -135,9 +148,15 @@ public class ExportacionServiceImpl implements ExportacionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ExportacionResponse> listar(Long empresaId) {
-        return exportacionRepository.findAllByEmpresaIdOrderByIdDesc(empresaId).stream()
-                .map(ExportacionServiceImpl::respuesta).toList();
+    public boolean hayEnCurso(Long empresaId) {
+        return exportacionRepository.existsByEmpresaIdAndEstado(empresaId, EstadoExportacion.PENDIENTE);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ExportacionResponse> listar(Long empresaId, Pageable pagina) {
+        return PageResponse.from(exportacionRepository.findAllByEmpresaIdOrderByIdDesc(empresaId, pagina)
+                .map(ExportacionServiceImpl::respuesta));
     }
 
     @Override
@@ -149,7 +168,9 @@ public class ExportacionServiceImpl implements ExportacionService {
 
     /**
      * Sin transaccion propia: la bitacora anota la descarga en la suya, y en una de solo lectura no podria. La
-     * exportacion se lee con la tienda que dice el enlace, y solo despues de comprobar su firma.
+     * exportacion se lee con la tienda que dice el enlace, y solo despues de comprobar su firma. El enlace es de quien
+     * la pidio mientras siga siendo un administrador activo: si en esas 24 horas lo desactivan o le quitan el rol, deja
+     * de abrir.
      */
     @Override
     public Descarga descargar(Long empresaId, Long exportacionId, long vence, String firma) {
@@ -160,6 +181,7 @@ public class ExportacionServiceImpl implements ExportacionService {
         try {
             Exportacion exportacion = exportacionRepository.findByIdAndEmpresaId(exportacionId, empresaId)
                     .filter(this::vigente)
+                    .filter(una -> pedidaPorUnAdministrador(empresaId, una))
                     .orElseThrow(() -> new RecursoNoEncontradoException(NO_ENCONTRADA));
             InputStream contenido = abrir(exportacion.getClave());
             auditoria.registrar(empresaId, null, "EXPORTACION_DESCARGADA", RECURSO, exportacionId, Map.of());
@@ -167,6 +189,16 @@ public class ExportacionServiceImpl implements ExportacionService {
         } finally {
             ContextoDeTienda.restaurar(anterior);
         }
+    }
+
+    private boolean pedidaPorUnAdministrador(Long empresaId, Exportacion exportacion) {
+        return exportacion.getPedidaPor() != null && usuarioRepository.findByIdAndEmpresaId(
+                exportacion.getPedidaPor(), empresaId).filter(ExportacionServiceImpl::puedeRecibirla).isPresent();
+    }
+
+    /** Quien puede recibir el enlace y bajar la exportacion: un administrador activo de la tienda. */
+    static boolean puedeRecibirla(Usuario usuario) {
+        return usuario.isActivo() && usuario.getRolAcceso() == RolAcceso.ADMINISTRADOR;
     }
 
     private InputStream abrir(String clave) {
@@ -208,9 +240,11 @@ public class ExportacionServiceImpl implements ExportacionService {
                 partes.orderedStream().forEach(parte -> parte.escribir(empresaId, paquete));
                 resumen = paquete.terminar(cabecera(empresaId, exportacionId, pedido));
             }
-            String clave = ClaveDeAlmacen.deExportacion(empresaId, exportacionId);
+            String intento = UUID.randomUUID().toString();
+            String clave = ClaveDeAlmacen.deExportacion(empresaId, exportacionId, intento);
             almacen.guardar(clave, temporal.ruta(), "application/zip");
-            return new Resultado(clave, resumen, null);
+            return new Resultado(ClaveDeAlmacen.carpetaDelIntento(empresaId, exportacionId, intento), clave, resumen,
+                    null);
         } catch (IOException e) {
             return fallida(empresaId, exportacionId, new UncheckedIOException(e));
         } catch (RuntimeException e) {
@@ -222,9 +256,7 @@ public class ExportacionServiceImpl implements ExportacionService {
 
     private static Resultado fallida(Long empresaId, Long exportacionId, RuntimeException e) {
         log.warn("No se pudo armar la exportacion {} de la tienda {}", exportacionId, empresaId, e);
-        String motivo = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-        return new Resultado(null, null, motivo.length() > LARGO_DEL_MOTIVO ? motivo.substring(0, LARGO_DEL_MOTIVO)
-                : motivo);
+        return new Resultado(null, null, null, NO_SE_PUDO_ARMAR);
     }
 
     /** Lo que el manifiesto dice antes de la lista de archivos. */
@@ -248,15 +280,16 @@ public class ExportacionServiceImpl implements ExportacionService {
     }
 
     /**
-     * Anota como quedo, si sigue pendiente. Si mientras se armaba la limpieza la dio por atascada, lo que se subio
-     * sobra y se borra: nadie lo va a bajar.
+     * Anota como quedo, con la fila bloqueada, si sigue pendiente. Si mientras se armaba otro intento la dejo lista o
+     * la limpieza la dio por atascada, lo que subio este intento sobra y se borra, y solo eso: el ZIP de la que quedo
+     * lista es el de otro intento, en otra carpeta.
      */
     private void anotar(Long empresaId, Long exportacionId, Resultado resultado) {
-        Optional<Exportacion> pendiente = exportacionRepository.findByIdAndEmpresaId(exportacionId, empresaId)
+        Optional<Exportacion> pendiente = exportacionRepository.bloquear(exportacionId, empresaId)
                 .filter(exportacion -> exportacion.getEstado() == EstadoExportacion.PENDIENTE);
         if (pendiente.isEmpty()) {
             if (resultado.clave() != null) {
-                almacen.borrarPrefijo(ClaveDeAlmacen.carpetaDeExportacion(empresaId, exportacionId));
+                almacen.borrarPrefijo(resultado.carpeta());
             }
             return;
         }
@@ -321,8 +354,8 @@ public class ExportacionServiceImpl implements ExportacionService {
 
     private void vencer(Clave clave) {
         almacen.borrarPrefijo(ClaveDeAlmacen.carpetaDeExportacion(clave.empresaId(), clave.id()));
-        escritura.executeWithoutResult(estado -> exportacionRepository.findByIdAndEmpresaId(clave.id(),
-                clave.empresaId()).filter(exportacion -> exportacion.getEstado() == EstadoExportacion.LISTA)
+        escritura.executeWithoutResult(estado -> exportacionRepository.bloquear(clave.id(), clave.empresaId())
+                .filter(exportacion -> exportacion.getEstado() == EstadoExportacion.LISTA)
                 .ifPresent(exportacion -> {
                     exportacion.setEstado(EstadoExportacion.VENCIDA);
                     exportacion.setClave(null);
@@ -332,8 +365,8 @@ public class ExportacionServiceImpl implements ExportacionService {
     }
 
     private void abandonar(Clave clave) {
-        escritura.executeWithoutResult(estado -> exportacionRepository.findByIdAndEmpresaId(clave.id(),
-                clave.empresaId()).filter(exportacion -> exportacion.getEstado() == EstadoExportacion.PENDIENTE)
+        escritura.executeWithoutResult(estado -> exportacionRepository.bloquear(clave.id(), clave.empresaId())
+                .filter(exportacion -> exportacion.getEstado() == EstadoExportacion.PENDIENTE)
                 .ifPresent(exportacion -> {
                     String motivo = "La cola no la terminó a tiempo: pide otra.";
                     exportacion.setEstado(EstadoExportacion.FALLIDA);
@@ -379,8 +412,8 @@ public class ExportacionServiceImpl implements ExportacionService {
     private record Pedido(String tienda, Long usuarioId, String nombre, String email, LocalDateTime pedidaEn) {
     }
 
-    /** Como quedo: la clave del ZIP y su resumen, o el motivo por el que no se pudo armar. */
-    private record Resultado(String clave, PaqueteZip.Resumen resumen, String motivo) {
+    /** Como quedo: la carpeta del intento, la clave del ZIP y su resumen, o el motivo por el que no se pudo armar. */
+    private record Resultado(String carpeta, String clave, PaqueteZip.Resumen resumen, String motivo) {
     }
 
     /** Una exportacion por su tienda y su id, para cambiarla en su propia transaccion. */

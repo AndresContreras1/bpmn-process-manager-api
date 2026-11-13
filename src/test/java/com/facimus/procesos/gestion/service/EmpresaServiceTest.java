@@ -178,6 +178,21 @@ class EmpresaServiceTest {
     }
 
     @Test
+    @DisplayName("PR 66: con una exportacion ya en curso, la baja sigue y no pide otra: el enlace de esa ya va a llegar")
+    void pedirBaja_conExportacionEnCurso() {
+        Empresa acme = acme();
+        when(empresaRepository.bloquear(1L)).thenReturn(Optional.of(acme));
+        when(empresaRepository.saveAndFlush(acme)).thenReturn(acme);
+        when(exportacionService.hayEnCurso(1L)).thenReturn(true);
+
+        EmpresaResponse respuesta = empresaService.pedirBaja(1L, 7L, "Acme", true);
+
+        assertNotNull(respuesta.bajaSolicitadaEn());
+        verify(exportacionService, never()).pedir(any(), any());
+        verify(auditoria).registrar(1L, 7L, "TIENDA_DADA_DE_BAJA", "EMPRESA", 1L, Map.of());
+    }
+
+    @Test
     @DisplayName("Sin el nombre exacto no se da de baja, y una tienda ya en baja no se da de baja otra vez")
     void pedirBaja_rechazos() {
         Empresa acme = acme();

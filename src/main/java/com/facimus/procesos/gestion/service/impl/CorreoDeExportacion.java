@@ -31,7 +31,7 @@ import com.facimus.procesos.gestion.service.Idiomas;
  * PR 66: el correo que lleva el enlace de una exportacion lista a quien la pidio, en su idioma. El enlace va a la API
  * por la misma direccion publica de la web, que NGINX le pasa, firmado hasta el vencimiento de la exportacion: es lo
  * unico que lo abre, y no queda en ninguna otra parte. Si mientras esperaba en la cola la exportacion vencio, o quien
- * la pidio ya no esta activo, no sale.
+ * la pidio ya no es un administrador activo de la tienda, no sale.
  */
 @Component
 public class CorreoDeExportacion implements ManejadorDeTrabajo {
@@ -82,7 +82,8 @@ public class CorreoDeExportacion implements ManejadorDeTrabajo {
             return;
         }
         Exportacion exportacion = lista.get();
-        usuarioRepository.findByIdAndEmpresaId(exportacion.getPedidaPor(), empresaId).filter(Usuario::isActivo)
+        usuarioRepository.findByIdAndEmpresaId(exportacion.getPedidaPor(), empresaId)
+                .filter(ExportacionServiceImpl::puedeRecibirla)
                 .ifPresent(usuario -> enviar(empresaId, exportacion, usuario, ahora));
     }
 

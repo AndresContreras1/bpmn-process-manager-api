@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,6 +41,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
@@ -51,9 +54,11 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.almacen.Almacen;
 import com.facimus.procesos.common.almacen.ArchivoNoEncontradoException;
 import com.facimus.procesos.common.almacen.EnlacesFirmados;
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.archivos.ArchivosTemporales;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
@@ -85,6 +90,7 @@ class ExportacionServiceImplTest {
     private static final LocalDateTime AHORA_LOCAL = LocalDateTime.ofInstant(AHORA, ZoneOffset.UTC);
     private static final String CLAVE = "empresas/1/exportaciones/4/organizacion";
     private static final String CARPETA = "empresas/1/exportaciones/4/";
+    private static final String CLAVE_DE_UN_INTENTO = "empresas/1/exportaciones/4/[0-9a-f-]{36}/organizacion";
 
     @Mock
     private ExportacionRepository exportacionRepository;
@@ -113,6 +119,7 @@ class ExportacionServiceImplTest {
     private final Empresa acme = Empresa.builder().id(EMPRESA).nombre("Acme").build();
     private ExportacionServiceImpl servicio;
     private byte[] guardado;
+    private final Map<String, byte[]> subidos = new LinkedHashMap<>();
 
     @BeforeEach
     void preparar() {
@@ -126,10 +133,11 @@ class ExportacionServiceImplTest {
         });
         doAnswer(llamada -> {
             guardado = Files.readAllBytes(llamada.getArgument(1));
+            subidos.put(llamada.getArgument(0), guardado);
             return null;
         }).when(almacen).guardar(anyString(), any(Path.class), anyString());
-        when(usuarioRepository.findByIdAndEmpresaId(ANA, EMPRESA)).thenReturn(Optional.of(
-                Usuario.builder().id(ANA).nombre("Ana").email("ana@acme.test").build()));
+        when(usuarioRepository.findByIdAndEmpresaId(ANA, EMPRESA)).thenReturn(Optional.of(ana(RolAcceso.ADMINISTRADOR,
+                true)));
         when(partes.orderedStream()).thenAnswer(llamada -> Stream.of(parte("organizacion.json"),
                 parte("casos/casos.json")));
     }
@@ -141,6 +149,15 @@ class ExportacionServiceImplTest {
             transaccionesDeLasPartes.add(transacciones.abiertas);
             paquete.json(ruta, Map.of("de", empresaId));
         };
+    }
+
+    private static Usuario ana(RolAcceso rol, boolean activa) {
+        return Usuario.builder().id(ANA).nombre("Ana").email("ana@acme.test").rolAcceso(rol).activo(activa).build();
+    }
+
+    /** La carpeta del intento que subio ese ZIP. */
+    private static String carpeta(String clave) {
+        return clave.substring(0, clave.lastIndexOf('/') + 1);
     }
 
     private Exportacion exportacion(EstadoExportacion estado) {
@@ -192,15 +209,20 @@ class ExportacionServiceImplTest {
     }
 
     @Test
-    @DisplayName("se listan las de la tienda, y una de otra tienda no existe")
+    @DisplayName("se listan las de la tienda de a una pagina, y una de otra tienda no existe")
     void listarYObtener() {
-        when(exportacionRepository.findAllByEmpresaIdOrderByIdDesc(EMPRESA))
-                .thenReturn(List.of(lista(AHORA_LOCAL.plusHours(1))));
+        PageRequest pagina = PageRequest.of(1, 5);
+        when(exportacionRepository.findAllByEmpresaIdOrderByIdDesc(EMPRESA, pagina))
+                .thenReturn(new PageImpl<>(List.of(lista(AHORA_LOCAL.plusHours(1))), pagina, 6));
         when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA))
                 .thenReturn(Optional.of(lista(AHORA_LOCAL.plusHours(1))));
 
-        assertThat(servicio.listar(EMPRESA)).singleElement()
+        PageResponse<ExportacionResponse> listadas = servicio.listar(EMPRESA, pagina);
+        assertThat(listadas.content()).singleElement()
                 .satisfies(una -> assertThat(una.sha256()).isEqualTo("f".repeat(64)));
+        assertThat(listadas.page()).isEqualTo(1);
+        assertThat(listadas.size()).isEqualTo(5);
+        assertThat(listadas.totalElements()).isEqualTo(6);
         assertThat(servicio.obtener(EMPRESA, EXPORTACION)).isEqualTo(new ExportacionResponse(EXPORTACION,
                 EstadoExportacion.LISTA, ANA, LocalDateTime.of(2026, 11, 12, 9, 59), AHORA_LOCAL.minusHours(23),
                 AHORA_LOCAL.plusHours(1), 321L, 2, "f".repeat(64), null));
@@ -213,6 +235,7 @@ class ExportacionServiceImplTest {
     void generar() throws IOException {
         Exportacion pendiente = exportacion(EstadoExportacion.PENDIENTE);
         when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
         Alcance antes = ContextoDeTienda.fijar(Alcance.SISTEMA);
         try {
             servicio.generar(EMPRESA, EXPORTACION);
@@ -223,7 +246,9 @@ class ExportacionServiceImplTest {
 
         assertThat(alcancesDeLasPartes).containsExactly(Alcance.deLaTienda(EMPRESA), Alcance.deLaTienda(EMPRESA));
         assertThat(transaccionesDeLasPartes).containsExactly(0, 0);
-        verify(almacen).guardar(eq(CLAVE), any(Path.class), eq("application/zip"));
+        ArgumentCaptor<String> clave = ArgumentCaptor.forClass(String.class);
+        verify(almacen).guardar(clave.capture(), any(Path.class), eq("application/zip"));
+        assertThat(clave.getValue()).as("cada intento sube a su carpeta").matches(CLAVE_DE_UN_INTENTO);
         Map<String, byte[]> archivos = PaqueteZipTest.abrir(guardado);
         assertThat(archivos.keySet()).containsExactly("organizacion.json", "casos/casos.json", "manifest.json");
         JsonNode manifiesto = json.readTree(archivos.get("manifest.json"));
@@ -241,7 +266,7 @@ class ExportacionServiceImplTest {
 
         LocalDateTime lista = LocalDateTime.of(2026, 11, 12, 10, 0);
         assertThat(pendiente.getEstado()).isEqualTo(EstadoExportacion.LISTA);
-        assertThat(pendiente.getClave()).isEqualTo(CLAVE);
+        assertThat(pendiente.getClave()).isEqualTo(clave.getValue());
         assertThat(pendiente.getSha256()).isEqualTo(Huella.de(guardado));
         assertThat(pendiente.getTamano()).isEqualTo(guardado.length);
         assertThat(pendiente.getArchivos()).isEqualTo(2);
@@ -251,6 +276,7 @@ class ExportacionServiceImplTest {
         verify(cola).encolar(EMPRESA, "exportaciones.correo", "4");
         verify(auditoria).registrar(EMPRESA, null, "EXPORTACION_LISTA", "EXPORTACION", EXPORTACION,
                 Map.of("sha256", Huella.de(guardado), "tamano", (long) guardado.length, "archivos", 2));
+        verify(almacen, never()).borrarPrefijo(anyString());
         assertThat(transacciones.soloLectura).containsExactly(true, false);
         try (Stream<Path> quedan = Files.list(paso)) {
             assertThat(quedan).as("el archivo de paso se borra").isEmpty();
@@ -274,6 +300,7 @@ class ExportacionServiceImplTest {
     void fallida() throws IOException {
         Exportacion pendiente = exportacion(EstadoExportacion.PENDIENTE);
         when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
         when(partes.orderedStream()).thenAnswer(llamada -> Stream.<ParteDeLaExportacion>of((empresaId, paquete) -> {
             paquete.texto("uno.txt", "x");
             throw new IllegalStateException("No se pudo leer el documento 12 del almacén.");
@@ -282,12 +309,12 @@ class ExportacionServiceImplTest {
         servicio.generar(EMPRESA, EXPORTACION);
 
         assertThat(pendiente.getEstado()).isEqualTo(EstadoExportacion.FALLIDA);
-        assertThat(pendiente.getMotivo()).isEqualTo("No se pudo leer el documento 12 del almacén.");
+        assertThat(pendiente.getMotivo()).isEqualTo("No se pudo armar la exportación: pide otra.");
         assertThat(pendiente.getClave()).isNull();
         verify(almacen, never()).guardar(anyString(), any(), anyString());
         verify(cola, never()).encolar(any(), anyString(), anyString());
         verify(auditoria).registrar(EMPRESA, null, "EXPORTACION_FALLIDA", "EXPORTACION", EXPORTACION,
-                Map.of("motivo", "No se pudo leer el documento 12 del almacén."));
+                Map.of("motivo", "No se pudo armar la exportación: pide otra."));
         assertThat(ContextoDeTienda.actual()).isEmpty();
         try (Stream<Path> quedan = Files.list(paso)) {
             assertThat(quedan).isEmpty();
@@ -295,31 +322,21 @@ class ExportacionServiceImplTest {
     }
 
     @Test
-    @DisplayName("el motivo se corta en 300 caracteres, y uno sin mensaje dice que fallo")
-    void motivos() {
-        Exportacion larga = exportacion(EstadoExportacion.PENDIENTE);
-        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(larga));
-        when(partes.orderedStream()).thenAnswer(llamada -> Stream.<ParteDeLaExportacion>of((empresaId, paquete) -> {
-            throw new IllegalStateException("x".repeat(301));
-        }));
-        servicio.generar(EMPRESA, EXPORTACION);
-        assertThat(larga.getMotivo()).hasSize(300);
+    @DisplayName("el motivo nunca dice lo de adentro: ni el SQL, ni el bucket, ni el mensaje de la excepcion")
+    void motivoSinLoDeAdentro() {
+        Exportacion pendiente = exportacion(EstadoExportacion.PENDIENTE);
+        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        doThrow(new IllegalStateException("Bucket documentos-prod: AccessDenied (request 7F3A)")).when(almacen)
+                .guardar(anyString(), any(Path.class), anyString());
 
-        Exportacion muda = exportacion(EstadoExportacion.PENDIENTE);
-        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(muda));
-        when(partes.orderedStream()).thenAnswer(llamada -> Stream.<ParteDeLaExportacion>of((empresaId, paquete) -> {
-            throw new UnsupportedOperationException();
-        }));
         servicio.generar(EMPRESA, EXPORTACION);
-        assertThat(muda.getMotivo()).isEqualTo("UnsupportedOperationException");
 
-        Exportacion justa = exportacion(EstadoExportacion.PENDIENTE);
-        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(justa));
-        when(partes.orderedStream()).thenAnswer(llamada -> Stream.<ParteDeLaExportacion>of((empresaId, paquete) -> {
-            throw new IllegalStateException("y".repeat(300));
-        }));
-        servicio.generar(EMPRESA, EXPORTACION);
-        assertThat(justa.getMotivo()).isEqualTo("y".repeat(300));
+        assertThat(pendiente.getEstado()).isEqualTo(EstadoExportacion.FALLIDA);
+        assertThat(pendiente.getMotivo()).isEqualTo(ExportacionServiceImpl.NO_SE_PUDO_ARMAR)
+                .doesNotContain("Bucket", "documentos-prod", "7F3A");
+        verify(auditoria).registrar(EMPRESA, null, "EXPORTACION_FALLIDA", "EXPORTACION", EXPORTACION,
+                Map.of("motivo", ExportacionServiceImpl.NO_SE_PUDO_ARMAR));
     }
 
     @Test
@@ -327,12 +344,14 @@ class ExportacionServiceImplTest {
     void abandonadaMientrasSeArmaba() {
         Exportacion pendiente = exportacion(EstadoExportacion.PENDIENTE);
         Exportacion abandonada = exportacion(EstadoExportacion.FALLIDA);
-        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente),
-                Optional.of(abandonada));
+        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(pendiente));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(abandonada));
 
         servicio.generar(EMPRESA, EXPORTACION);
 
-        verify(almacen).borrarPrefijo(CARPETA);
+        String subido = subidos.keySet().iterator().next();
+        verify(almacen).borrarPrefijo(carpeta(subido));
+        verify(almacen, never()).borrarPrefijo(CARPETA);
         assertThat(abandonada.getEstado()).isEqualTo(EstadoExportacion.FALLIDA);
         assertThat(abandonada.getClave()).isNull();
         verifyNoInteractions(cola, auditoria);
@@ -342,7 +361,8 @@ class ExportacionServiceImplTest {
     @DisplayName("si fallo y ademas ya no esta pendiente, no hay nada que borrar ni que anotar")
     void fallidaYAbandonada() {
         when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(
-                Optional.of(exportacion(EstadoExportacion.PENDIENTE)), Optional.empty());
+                Optional.of(exportacion(EstadoExportacion.PENDIENTE)));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.empty());
         when(partes.orderedStream()).thenAnswer(llamada -> Stream.<ParteDeLaExportacion>of((empresaId, paquete) -> {
             throw new IllegalStateException("roto");
         }));
@@ -351,6 +371,35 @@ class ExportacionServiceImplTest {
 
         verify(almacen, never()).borrarPrefijo(anyString());
         verifyNoInteractions(cola, auditoria);
+    }
+
+    @Test
+    @DisplayName("si la cola arma la misma exportacion dos veces a la vez, el que llega tarde no pisa ni borra el ZIP "
+            + "del que la dejo lista: solo borra el suyo")
+    void dosIntentosALaVez() {
+        Exportacion fila = exportacion(EstadoExportacion.PENDIENTE);
+        // Los dos intentos la leyeron PENDIENTE antes de que el primero la anotara
+        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA))
+                .thenAnswer(llamada -> Optional.of(exportacion(EstadoExportacion.PENDIENTE)));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(fila));
+
+        servicio.generar(EMPRESA, EXPORTACION);
+        String primero = fila.getClave();
+        byte[] delPrimero = subidos.get(primero);
+        servicio.generar(EMPRESA, EXPORTACION);
+
+        assertThat(subidos).hasSize(2);
+        String segundo = subidos.keySet().stream().filter(clave -> !clave.equals(primero)).findFirst().orElseThrow();
+        assertThat(carpeta(segundo)).isNotEqualTo(carpeta(primero));
+        assertThat(fila.getEstado()).isEqualTo(EstadoExportacion.LISTA);
+        assertThat(fila.getClave()).as("la clave sigue siendo la del primero").isEqualTo(primero);
+        assertThat(fila.getSha256()).as("y la huella, la de sus bytes").isEqualTo(Huella.de(delPrimero));
+        verify(almacen).borrarPrefijo(carpeta(segundo));
+        verify(almacen, never()).borrarPrefijo(carpeta(primero));
+        verify(almacen, never()).borrarPrefijo(CARPETA);
+        verify(cola).encolar(EMPRESA, "exportaciones.correo", "4");
+        verify(auditoria).registrar(eq(EMPRESA), any(), eq("EXPORTACION_LISTA"), eq("EXPORTACION"), eq(EXPORTACION),
+                any());
     }
 
     @Test
@@ -414,6 +463,48 @@ class ExportacionServiceImplTest {
     }
 
     @Test
+    @DisplayName("con un enlace bueno no se baja si quien la pidio ya no es un administrador activo, o no se sabe "
+            + "quien la pidio")
+    void quienLaPidioYaNoEsAdministrador() {
+        Exportacion lista = lista(AHORA_LOCAL.plusHours(1));
+        Exportacion sinQuien = lista(AHORA_LOCAL.plusHours(1));
+        sinQuien.setPedidaPor(null);
+        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(lista),
+                Optional.of(lista), Optional.of(lista), Optional.of(sinQuien));
+        when(usuarioRepository.findByIdAndEmpresaId(ANA, EMPRESA)).thenReturn(
+                Optional.of(ana(RolAcceso.EDITOR, true)), Optional.of(ana(RolAcceso.ADMINISTRADOR, false)),
+                Optional.empty());
+        Instant vence = lista.getVenceEn().toInstant(ZoneOffset.UTC);
+        long segundos = vence.getEpochSecond();
+        String firma = enlaces.firmar("exportacion:1:4", vence);
+
+        for (int intento = 0; intento < 4; intento++) {
+            assertThatThrownBy(() -> servicio.descargar(EMPRESA, EXPORTACION, segundos, firma))
+                    .isInstanceOf(RecursoNoEncontradoException.class);
+        }
+        verifyNoInteractions(almacen, auditoria);
+        assertThat(ContextoDeTienda.actual()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("puede recibirla y bajarla solo un administrador activo")
+    void puedeRecibirla() {
+        assertThat(ExportacionServiceImpl.puedeRecibirla(ana(RolAcceso.ADMINISTRADOR, true))).isTrue();
+        assertThat(ExportacionServiceImpl.puedeRecibirla(ana(RolAcceso.ADMINISTRADOR, false))).isFalse();
+        assertThat(ExportacionServiceImpl.puedeRecibirla(ana(RolAcceso.EDITOR, true))).isFalse();
+        assertThat(ExportacionServiceImpl.puedeRecibirla(ana(RolAcceso.SOLO_LECTURA, true))).isFalse();
+    }
+
+    @Test
+    @DisplayName("hay una en curso si la tienda tiene una PENDIENTE")
+    void hayEnCurso() {
+        when(exportacionRepository.existsByEmpresaIdAndEstado(EMPRESA, EstadoExportacion.PENDIENTE)).thenReturn(true);
+
+        assertThat(servicio.hayEnCurso(EMPRESA)).isTrue();
+        assertThat(servicio.hayEnCurso(2L)).isFalse();
+    }
+
+    @Test
     @DisplayName("una lista cuyo ZIP ya no esta en el almacen no existe, y no se anota como bajada")
     void sinElArchivo() {
         Exportacion lista = lista(AHORA_LOCAL.plusHours(1));
@@ -442,8 +533,8 @@ class ExportacionServiceImplTest {
                 .thenReturn(List.of(vencida, otraVencida));
         when(exportacionRepository.findAllByEstadoAndPedidaEnBeforeOrderByIdAsc(EstadoExportacion.PENDIENTE,
                 AHORA_LOCAL.minusHours(6))).thenReturn(List.of(atascada));
-        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(vencida));
-        when(exportacionRepository.findByIdAndEmpresaId(6L, EMPRESA)).thenReturn(Optional.of(atascada));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(vencida));
+        when(exportacionRepository.bloquear(6L, EMPRESA)).thenReturn(Optional.of(atascada));
         doThrow(new IllegalStateException("almacen caido")).when(almacen).borrarPrefijo("empresas/1/exportaciones/5/");
 
         assertThat(servicio.limpiar()).isEqualTo(2);
@@ -471,8 +562,8 @@ class ExportacionServiceImplTest {
                 .thenReturn(List.of(lista(AHORA_LOCAL.minusMinutes(1))));
         when(exportacionRepository.findAllByEstadoAndPedidaEnBeforeOrderByIdAsc(EstadoExportacion.PENDIENTE,
                 AHORA_LOCAL.minusHours(6))).thenReturn(List.of(terminada));
-        when(exportacionRepository.findByIdAndEmpresaId(EXPORTACION, EMPRESA)).thenReturn(Optional.of(yaVencida));
-        when(exportacionRepository.findByIdAndEmpresaId(6L, EMPRESA)).thenReturn(Optional.of(terminada));
+        when(exportacionRepository.bloquear(EXPORTACION, EMPRESA)).thenReturn(Optional.of(yaVencida));
+        when(exportacionRepository.bloquear(6L, EMPRESA)).thenReturn(Optional.of(terminada));
 
         servicio.limpiar();
 

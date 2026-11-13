@@ -1,8 +1,10 @@
 package com.facimus.procesos.gestion.service;
 
 import java.io.InputStream;
-import java.util.List;
 
+import org.springframework.data.domain.Pageable;
+
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.gestion.dto.response.ExportacionResponse;
 
 /**
@@ -15,12 +17,18 @@ public interface ExportacionService {
     /** Pide una exportacion; la cola la arma. Si la tienda ya tiene una en curso, 409. */
     ExportacionResponse pedir(Long empresaId, Long usuarioId);
 
-    /** Las de la tienda, de la mas nueva a la mas vieja. */
-    List<ExportacionResponse> listar(Long empresaId);
+    /** Si la tienda tiene una en curso: la baja no pide otra, porque el enlace de esa ya va a llegar. */
+    boolean hayEnCurso(Long empresaId);
+
+    /** Las de la tienda, de la mas nueva a la mas vieja, de a una pagina. */
+    PageResponse<ExportacionResponse> listar(Long empresaId, Pageable pagina);
 
     ExportacionResponse obtener(Long empresaId, Long exportacionId);
 
-    /** El ZIP, con el enlace firmado del correo. Un enlace que no vale, vencido o de algo que ya no esta no existe. */
+    /**
+     * El ZIP, con el enlace firmado del correo. Un enlace que no vale, vencido, de algo que ya no esta o de alguien que
+     * ya no es un administrador activo de la tienda no existe.
+     */
     Descarga descargar(Long empresaId, Long exportacionId, long vence, String firma);
 
     /** El trabajo de la cola: arma el ZIP, lo deja en el almacen y manda el enlace por correo. */

@@ -108,8 +108,9 @@ public class EmpresaServiceImpl implements EmpresaService {
                         + " solo se puede consultar, y ese día se borran sus datos.");
         auditoria.registrar(empresaId, autorId, "TIENDA_DADA_DE_BAJA", "EMPRESA", empresaId, Map.of());
         EmpresaResponse respuesta = empresaMapper.toResponse(empresaRepository.saveAndFlush(empresa));
-        if (exportar) {
-            // PR 66: llevarse lo suyo antes de irse; el enlace le llega por correo a quien la da de baja
+        if (exportar && !exportacionService.hayEnCurso(empresaId)) {
+            // PR 66: llevarse lo suyo antes de irse; el enlace le llega por correo a quien la da de baja. Con una ya
+            // en curso no se pide otra, y la baja sigue: el enlace de esa le llega a quien la pidio.
             exportacionService.pedir(empresaId, autorId);
         }
         return respuesta;

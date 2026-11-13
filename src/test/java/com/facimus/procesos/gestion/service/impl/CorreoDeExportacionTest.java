@@ -27,6 +27,7 @@ import com.facimus.procesos.common.correo.Correo;
 import com.facimus.procesos.common.correo.CorreoSaliente;
 import com.facimus.procesos.common.correo.Redactor;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.trabajos.Trabajo;
 import com.facimus.procesos.gestion.model.ConfiguracionTienda;
 import com.facimus.procesos.gestion.model.EstadoExportacion;
@@ -72,7 +73,8 @@ class CorreoDeExportacionTest {
                 new Redactor(), correo, reloj, "https://tienda.example/");
         exportacion = Exportacion.builder().id(4L).empresa(acme).estado(EstadoExportacion.LISTA).pedidaPor(ANA)
                 .tamano(2049L).archivos(42).sha256("ab".repeat(32)).venceEn(VENCE).build();
-        ana = Usuario.builder().id(ANA).nombre("Ana").email("ana@acme.test").activo(true).build();
+        ana = Usuario.builder().id(ANA).nombre("Ana").email("ana@acme.test").rolAcceso(RolAcceso.ADMINISTRADOR)
+                .activo(true).build();
         when(exportacionRepository.findByIdAndEmpresaId(4L, EMPRESA)).thenReturn(Optional.of(exportacion));
         when(usuarioRepository.findByIdAndEmpresaId(ANA, EMPRESA)).thenReturn(Optional.of(ana));
         when(configuracionRepository.findByEmpresaId(EMPRESA))
@@ -128,7 +130,8 @@ class CorreoDeExportacionTest {
     }
 
     @Test
-    @DisplayName("una que ya no esta LISTA, vencida, sin quien la pidio, o de alguien inactivo, no manda nada")
+    @DisplayName("una que ya no esta LISTA, vencida, sin quien la pidio, de alguien inactivo o de alguien que ya no "
+            + "es administrador no manda nada")
     void noSale() {
         exportacion.setEstado(EstadoExportacion.VENCIDA);
         ejecutar();
@@ -140,6 +143,11 @@ class CorreoDeExportacionTest {
         ejecutar();
         exportacion.setPedidaPor(ANA);
         ana.setActivo(false);
+        ejecutar();
+        ana.setActivo(true);
+        ana.setRolAcceso(RolAcceso.EDITOR);
+        ejecutar();
+        ana.setRolAcceso(RolAcceso.SOLO_LECTURA);
         ejecutar();
         when(exportacionRepository.findByIdAndEmpresaId(4L, EMPRESA)).thenReturn(Optional.empty());
         ejecutar();
