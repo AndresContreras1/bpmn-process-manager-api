@@ -203,6 +203,19 @@ class PermisosTest {
     }
 
     @Test
+    @DisplayName("Las acciones de un proceso o una carpeta de otra tienda responden 404, tambien a un administrador")
+    void accionesDeLoAjeno() {
+        Recurso procesoAjeno = Recurso.proceso(99L);
+        Recurso carpetaAjena = Recurso.carpeta(98L);
+
+        assertThatThrownBy(() -> permisos.acciones(ADMIN, procesoAjeno)).isInstanceOf(RecursoNoEncontradoException.class)
+                .hasMessage("Proceso no encontrado.");
+        assertThatThrownBy(() -> permisos.acciones(LECTOR, carpetaAjena))
+                .isInstanceOf(RecursoNoEncontradoException.class).hasMessage("Carpeta no encontrada.");
+        assertThat(permisos.acciones(ADMIN, SUELTO)).isEqualTo(EnumSet.allOf(Accion.class));
+    }
+
+    @Test
     @DisplayName("Nadie aprueba el proceso que el mismo cambio por ultima vez, ni siquiera un administrador")
     void separacionDeFunciones() {
         ReflectionTestUtils.setField(proceso, "modificadoPor", 2L);

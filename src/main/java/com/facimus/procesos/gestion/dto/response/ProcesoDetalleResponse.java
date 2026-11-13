@@ -12,6 +12,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record ProcesoDetalleResponse(
         ProcesoResponse proceso,
         @Schema(description = "Changes, newest first") List<HistorialCambioResponse> historial,
-        @Schema(description = "Name of the person who owns it; empty when nobody does", example = "Ana Gomez")
+        @Schema(description = "Name of the person who owns it; null when nobody does", example = "Ana Gomez")
         String duenoNombre) {
 }

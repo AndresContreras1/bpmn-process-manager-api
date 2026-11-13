@@ -24,6 +24,7 @@ public interface Permisos {
     /** Lo mismo cuando solo se tiene el id de quien pide. */
     void exigir(Long empresaId, Long usuarioId, Accion accion, Recurso recurso);
 
+    /** Lo que el actor puede hacer con el recurso; uno que no es de su tienda responde 404. */
     Set<Accion> acciones(Actor actor, Recurso recurso);
 
     /** Si el actor tiene una concesion expresa de esa accion, sin contar lo que trae por defecto. */

@@ -75,8 +75,7 @@ public class PermisosImpl implements Permisos {
     public void exigir(Actor actor, Accion accion, Recurso recurso) {
         if (!puede(actor, accion, recurso)) {
             if (accion == Accion.VER) {
-                throw new RecursoNoEncontradoException(
-                        recurso.tipo() == Recurso.Tipo.PROCESO ? "Proceso no encontrado." : "Carpeta no encontrada.");
+                throw noEncontrado(recurso);
             }
             throw new SinPermisoException("No tienes permiso para hacer esto aquí.");
         }
@@ -89,6 +88,10 @@ public class PermisosImpl implements Permisos {
 
     @Override
     public Set<Accion> acciones(Actor actor, Recurso recurso) {
+        // Lo ajeno no tiene acciones que contar: responde 404, como cada lectura del recurso
+        if (!esDeLaTienda(actor.empresaId(), recurso)) {
+            throw noEncontrado(recurso);
+        }
         Set<Accion> acciones = EnumSet.noneOf(Accion.class);
         for (Accion accion : Accion.values()) {
             if (puede(actor, accion, recurso)) {
@@ -240,6 +243,11 @@ public class PermisosImpl implements Permisos {
             case MODELAR, REVISAR, APROBAR, PUBLICAR -> actor.rol() != RolAcceso.SOLO_LECTURA;
             case ADMINISTRAR -> actor.rol() == RolAcceso.ADMINISTRADOR;
         };
+    }
+
+    private static RecursoNoEncontradoException noEncontrado(Recurso recurso) {
+        return new RecursoNoEncontradoException(
+                recurso.tipo() == Recurso.Tipo.PROCESO ? "Proceso no encontrado." : "Carpeta no encontrada.");
     }
 
     private boolean esDeLaTienda(Long empresaId, Recurso recurso) {
