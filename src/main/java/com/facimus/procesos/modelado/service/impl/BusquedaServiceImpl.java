@@ -36,10 +36,13 @@ import lombok.RequiredArgsConstructor;
  * de procesos) y se queda con la pagina; la segunda trae de esa pagina lo que hace falta mostrar, con su fragmento
  * resaltado. Ninguna escribe: los vectores los mantiene la base (V56).
  * <p>El texto va por {@code websearch_to_tsquery}, que entiende comillas, {@code -} y {@code or} y nunca falla por
- * sintaxis; nunca por {@code to_tsquery}. El orden es {@code ts_rank_cd} normalizado por el largo: un nombre gana a un
- * cuerpo, y un archivo largo no gana solo por largo.
+ * sintaxis; nunca por {@code to_tsquery}. Se arma una vez por consulta, con la configuracion de la tienda, y cada parte
+ * la reusa. El orden es {@code ts_rank_cd} normalizado por el largo: un nombre gana a un cuerpo, y un archivo largo no
+ * gana solo por largo.
  * <p>El fragmento lo arma {@code ts_headline} con dos marcas de uso privado de Unicode que se quitan antes del texto,
- * asi que no pueden venir de el; aqui se parte por ellas en tramos de texto plano. Nada del texto se vuelve HTML.
+ * asi que no pueden venir de el; aqui se parte por ellas en tramos de texto plano. Nada del texto se vuelve HTML. El de
+ * un documento sale de sus primeros {@value #LARGO_DEL_FRAGMENTO} caracteres: ts_headline vuelve a leer cada texto que
+ * recibe, y una pagina de documentos largos no puede costar millones de caracteres.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,14 +50,25 @@ import lombok.RequiredArgsConstructor;
 public class BusquedaServiceImpl implements BusquedaService {
 
     /** Donde empieza y donde termina una palabra resaltada en lo que devuelve ts_headline. */
-    static final char INICIO = '';
-    static final char FIN = '';
-    static final String MARCAS = "";
-    static final String OPCIONES = "StartSel=, StopSel=, MaxWords=35, MinWords=15, MaxFragments=2, "
-            + "FragmentDelimiter=\" … \"";
+    static final char INICIO = '\uE000';
+    static final char FIN = '\uE001';
+    static final String MARCAS = "" + INICIO + FIN;
+    static final String OPCIONES = "StartSel=" + INICIO + ", StopSel=" + FIN
+            + ", MaxWords=35, MinWords=15, MaxFragments=2, FragmentDelimiter=\" … \"";
 
-    private static final String CON_LO_VISIBLE = """
-            with visibles as (
+    /** De cuantos caracteres del texto de un documento sale su fragmento. */
+    static final int LARGO_DEL_FRAGMENTO = 20_000;
+
+    /** Lo buscado, con la configuracion de la tienda, una sola vez para cada parte de la consulta. */
+    private static final String CON_LO_BUSCADO = """
+            with buscado as materialized (
+                select c.configuracion, websearch_to_tsquery(c.configuracion, :texto) as consulta
+                from (select configuracion_de_busqueda(:empresa) as configuracion) c
+            )
+            """;
+
+    private static final String CON_LO_VISIBLE = CON_LO_BUSCADO + """
+            , visibles as (
                 select p.id, p.version_publicada from procesos p
                 where p.empresa_id = :empresa and p.activo
                   and (p.carpeta_id is null or p.carpeta_id <> all(cast(:carpetasOcultas as bigint[]))
@@ -62,40 +76,39 @@ public class BusquedaServiceImpl implements BusquedaService {
                   and p.id <> all(cast(:procesosOcultos as bigint[]))
             ),
             aciertos as (
-                select 'PROCESO' as tipo, 1 as orden, p.id as fila,
-                       ts_rank_cd(p.busqueda, websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto), 1)
-                           as rango
+                select 'PROCESO' as tipo, 1 as orden, p.id as fila, ts_rank_cd(p.busqueda, b.consulta, 1) as rango
                 from procesos p
                 join visibles v on v.id = p.id
-                where p.busqueda @@ websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto)
+                cross join buscado b
+                where p.busqueda @@ b.consulta
                   and coalesce(:tipo, 'PROCESO') = 'PROCESO'
                 union all
                 select 'ELEMENTO', 2, e.fila, e.rango
                 from (
                     select distinct on (i.proceso_id, i.bpmn_id) i.id as fila,
-                           ts_rank_cd(i.busqueda, websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto), 1)
-                               as rango
+                           ts_rank_cd(i.busqueda, b.consulta, 1) as rango
                     from elementos_buscables i
                     join visibles v on v.id = i.proceso_id
-                    where i.busqueda @@ websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto)
+                    cross join buscado b
+                    where i.busqueda @@ b.consulta
                       and (i.version_numero is null or i.version_numero = v.version_publicada)
                       and coalesce(:tipo, 'ELEMENTO') = 'ELEMENTO'
                     order by i.proceso_id, i.bpmn_id, rango desc, i.version_numero nulls first
                 ) e
                 union all
-                select 'DOCUMENTO', 3, d.id,
-                       ts_rank_cd(a.busqueda, websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto), 1)
+                select 'DOCUMENTO', 3, d.id, ts_rank_cd(a.busqueda, b.consulta, 1)
                 from versiones_documento a
                 join documentos d on d.id = a.documento_id and d.version_actual = a.numero and d.activo
                 join visibles v on v.id = d.proceso_id
-                where a.busqueda @@ websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto)
+                cross join buscado b
+                where a.busqueda @@ b.consulta
                   and coalesce(:tipo, 'DOCUMENTO') = 'DOCUMENTO'
                 union all
-                select 'COMENTARIO', 4, c.id,
-                       ts_rank_cd(c.busqueda, websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto), 1)
+                select 'COMENTARIO', 4, c.id, ts_rank_cd(c.busqueda, b.consulta, 1)
                 from comentarios c
                 join visibles v on v.id = c.proceso_id
-                where c.busqueda @@ websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto)
+                cross join buscado b
+                where c.busqueda @@ b.consulta
                   and coalesce(:tipo, 'COMENTARIO') = 'COMENTARIO'
             )
             """;
@@ -112,49 +125,52 @@ public class BusquedaServiceImpl implements BusquedaService {
     static final String CONTEO = CON_LO_VISIBLE + "select count(*) from aciertos";
 
     /** Lo que se muestra de cada cosa de la pagina, con el fragmento de su texto donde aparece lo buscado. */
-    static final String DETALLES = """
+    static final String DETALLES = CON_LO_BUSCADO + """
             select 'PROCESO' as tipo, p.id as fila, p.id as proceso_id, p.nombre as proceso, p.nombre as titulo,
                    null as bpmn_id, null as tipo_de_elemento, null::integer as version, null::bigint as documento_id,
                    null::bigint as comentario_id, null::bigint as hilo_id,
-                   ts_headline(configuracion_de_busqueda(:empresa),
+                   ts_headline(b.configuracion,
                                translate(concat_ws(E'\\n', p.nombre, p.descripcion, p.categoria,
                                                    array_to_string(p.etiquetas, ', '), documentacion_de(p.id, null)),
                                          :marcas, ''),
-                               websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto), :opciones)
-                       as fragmento
+                               b.consulta, :opciones) as fragmento
             from procesos p
+            cross join buscado b
             where p.empresa_id = :empresa and p.id = any(cast(:procesos as bigint[]))
             union all
             select 'ELEMENTO', i.id, i.proceso_id, p.nombre, coalesce(i.nombre, i.bpmn_id), i.bpmn_id, i.tipo,
                    i.version_numero, null, null, null,
-                   ts_headline(configuracion_de_busqueda(:empresa),
+                   ts_headline(b.configuracion,
                                translate(concat_ws(E'\\n', i.nombre, i.detalle,
                                                    documentacion_de(i.proceso_id, i.bpmn_id)), :marcas, ''),
-                               websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto), :opciones)
+                               b.consulta, :opciones)
             from elementos_buscables i
             join procesos p on p.id = i.proceso_id
+            cross join buscado b
             where i.empresa_id = :empresa and i.id = any(cast(:elementos as bigint[]))
             union all
             select 'DOCUMENTO', d.id, d.proceso_id, p.nombre, d.nombre, d.bpmn_id, null, null, d.id, null, null,
-                   ts_headline(configuracion_de_busqueda(:empresa),
-                               translate(concat_ws(E'\\n', translate(a.nombre, '._', '  '), left(a.texto, 100000)),
-                                         :marcas, ''),
-                               websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto), :opciones)
+                   ts_headline(b.configuracion,
+                               translate(concat_ws(E'\\n', translate(a.nombre, '._', '  '),
+                                                   left(a.texto, :largoDelFragmento)), :marcas, ''),
+                               b.consulta, :opciones)
             from documentos d
             join versiones_documento a on a.documento_id = d.id and a.numero = d.version_actual
             join procesos p on p.id = d.proceso_id
+            cross join buscado b
             where d.empresa_id = :empresa and d.id = any(cast(:documentos as bigint[]))
             union all
             select 'COMENTARIO', c.id, c.proceso_id, p.nombre, u.nombre, h.bpmn_id, null, h.version_numero, null,
                    c.id, h.id,
-                   ts_headline(configuracion_de_busqueda(:empresa), translate(c.markdown, :marcas, ''),
-                               websearch_to_tsquery(configuracion_de_busqueda(:empresa), :texto), :opciones)
+                   ts_headline(b.configuracion, translate(c.markdown, :marcas, ''), b.consulta, :opciones)
             from comentarios c
             join comentarios h on h.id = coalesce(c.padre_id, c.id)
             join procesos p on p.id = c.proceso_id
             join usuarios u on u.id = c.autor_id
+            cross join buscado b
             where c.empresa_id = :empresa and c.id = any(cast(:comentarios as bigint[]))
             """;
+
 
     /** Una fila de la pagina: que es, su id en su tabla y cuantas hay en total. */
     record Acierto(String tipo, Long fila, Long total) {
@@ -212,7 +228,8 @@ public class BusquedaServiceImpl implements BusquedaService {
                 .addValue("empresa", empresaId)
                 .addValue("texto", texto)
                 .addValue("marcas", MARCAS)
-                .addValue("opciones", OPCIONES);
+                .addValue("opciones", OPCIONES)
+                .addValue("largoDelFragmento", LARGO_DEL_FRAGMENTO);
         Map<String, List<Long>> filas = aciertos.stream().collect(Collectors.groupingBy(Acierto::tipo,
                 Collectors.mapping(Acierto::fila, Collectors.toList())));
         for (TipoDeResultado tipo : TipoDeResultado.values()) {

@@ -40,6 +40,9 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
 
     private static final String REGISTRO = "/api/v1/empresas";
 
+    /** PR 65: la unica lectura que gasta de un cubo, el de buscar de cada persona. */
+    private static final String BUSQUEDA = "/api/v1/busqueda";
+
     /** PR 54: las rutas que reciben un archivo BPMN, que tienen su propio tope, el mismo que lee SecureXml. */
     private static final Pattern RUTAS_BPMN = Pattern
             .compile("/api/v1/procesos/(importar|\\d+/(modelo|comparar|versiones/\\d+/dibujo))");
@@ -70,7 +73,8 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return SIN_EFECTOS.contains(request.getMethod()) || !request.getRequestURI().startsWith("/api/");
+        String ruta = request.getRequestURI();
+        return !ruta.startsWith("/api/") || SIN_EFECTOS.contains(request.getMethod()) && !esBusqueda(request, ruta);
     }
 
     @Override
@@ -85,7 +89,7 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         String ruta = request.getRequestURI();
         String ip = request.getRemoteAddr();
         Optional<Duration> espera = clase(request, ruta).flatMap(clase -> limites.gastar(clase,
-                clase == ClaseDeLimite.ESCRITURA ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
+                porPersona(clase) ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
         if (espera.isPresent()) {
             long segundos = Math.max(1, (espera.get().toMillis() + 999) / 1000);
             responder(request, response, HttpStatus.TOO_MANY_REQUESTS, "Demasiadas peticiones",
@@ -107,8 +111,19 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         return RUTAS_DOCUMENTOS.matcher(ruta).matches() ? cuerpoMaximoDocumento : cuerpoMaximo;
     }
 
+    private static boolean esBusqueda(HttpServletRequest request, String ruta) {
+        return "GET".equals(request.getMethod()) && BUSQUEDA.equals(ruta);
+    }
+
+    private static boolean porPersona(ClaseDeLimite clase) {
+        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.BUSQUEDA;
+    }
+
     /** De que cubo gasta. Lo que cambia algo sin sesion no cuenta por persona: la autorizacion lo va a rechazar. */
     private static Optional<ClaseDeLimite> clase(HttpServletRequest request, String ruta) {
+        if (esBusqueda(request, ruta)) {
+            return usuario().map(id -> ClaseDeLimite.BUSQUEDA);
+        }
         boolean esPost = "POST".equals(request.getMethod());
         if (esPost && AUTENTICACION.contains(ruta)) {
             return Optional.of(ClaseDeLimite.AUTENTICACION);

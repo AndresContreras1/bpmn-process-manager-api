@@ -44,7 +44,7 @@ class BusquedaServiceImplTest {
 
     private static final Long EMPRESA = 1L;
     private static final Actor CARLA = new Actor(9L, EMPRESA, RolAcceso.SOLO_LECTURA);
-    private static final String MARCADO = "Aprobar el crédito del cliente";
+    private static final String MARCADO = "Aprobar el \uE000crédito\uE001 del cliente";
 
     @Mock
     private NamedParameterJdbcTemplate jdbc;
@@ -145,8 +145,9 @@ class BusquedaServiceImplTest {
         assertThat(detalles.getValue("elementos")).isEqualTo("{5}");
         assertThat(detalles.getValue("documentos")).isEqualTo("{}");
         assertThat(detalles.getValue("comentarios")).isEqualTo("{7}");
-        assertThat(detalles.getValue("marcas")).isEqualTo("");
+        assertThat(detalles.getValue("marcas")).isEqualTo("\uE000\uE001");
         assertThat(detalles.getValue("opciones")).isEqualTo(BusquedaServiceImpl.OPCIONES);
+        assertThat(detalles.getValue("largoDelFragmento")).isEqualTo(20_000);
         verify(jdbc, never()).queryForObject(eq(BusquedaServiceImpl.CONTEO), any(SqlParameterSource.class),
                 eq(Long.class));
     }
@@ -217,7 +218,7 @@ class BusquedaServiceImplTest {
         assertThat(BusquedaServiceImpl.segmentos("")).isEmpty();
         assertThat(BusquedaServiceImpl.segmentos("<b>sin</b> & marcas"))
                 .containsExactly(new Segmento("<b>sin</b> & marcas", false));
-        assertThat(BusquedaServiceImpl.segmentos("unodos y tres"))
+        assertThat(BusquedaServiceImpl.segmentos("\uE000uno\uE001\uE000dos\uE001 y \uE000tres\uE001"))
                 .containsExactly(new Segmento("uno", true), new Segmento("dos", true), new Segmento(" y ", false),
                         new Segmento("tres", true));
     }
@@ -234,7 +235,14 @@ class BusquedaServiceImplTest {
     void consultas() {
         assertThat(BusquedaServiceImpl.PAGINA).contains("websearch_to_tsquery").doesNotContain(" to_tsquery(")
                 .doesNotContain("(to_tsquery(");
-        assertThat(BusquedaServiceImpl.OPCIONES).contains("StartSel=").contains("StopSel=");
+        assertThat(BusquedaServiceImpl.OPCIONES).isEqualTo("StartSel=\uE000, StopSel=\uE001, MaxWords=35, MinWords=15, "
+                + "MaxFragments=2, FragmentDelimiter=\" … \"");
+        // Lo buscado se arma una vez, y el fragmento de un documento sale solo del principio de su texto
+        assertThat(BusquedaServiceImpl.PAGINA).startsWith("with buscado as materialized")
+                .containsOnlyOnce("websearch_to_tsquery");
+        assertThat(BusquedaServiceImpl.DETALLES).startsWith("with buscado as materialized")
+                .containsOnlyOnce("websearch_to_tsquery").contains("left(a.texto, :largoDelFragmento)");
+
         assertThat(BusquedaServiceImpl.MARCAS)
                 .isEqualTo(String.valueOf(new char[] {BusquedaServiceImpl.INICIO, BusquedaServiceImpl.FIN}));
     }
