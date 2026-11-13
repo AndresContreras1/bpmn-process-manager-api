@@ -57,6 +57,7 @@ class MotorDeProcesos {
     private final JsonMapper json;
     private final ObservationRegistry observaciones;
     private final Temporizadores temporizadores;
+    private final AsignacionAlCrear asignacion;
 
     /** Abre el caso por el nodo que empieza el proceso y lo avanza hasta donde llegue. */
     void arrancar(Caso caso, GrafoDeVersion grafo, NodoDeLaVersion inicio, Momento momento) {
@@ -242,12 +243,7 @@ class MotorDeProcesos {
     private void procesarActividad(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
             VariablesDelCaso variables, Momento momento) {
         if (nodo.esTareaDeUsuario()) {
-            token.setEstado(EstadoActividadCaso.EN_ESPERA);
-            actividadCasoRepository.save(token);
-            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA,
-                    comillas(nodo.nombre()) + " queda en la bandeja a la espera de que alguien la complete.",
-                    momento.autorId());
-            temporizadores.armarBordes(caso, grafo, token, momento);
+            esperarAUnaPersona(caso, grafo, token, nodo, variables, momento);
             return;
         }
         if (quedarseEsperando(caso, grafo, token, nodo, momento)) {
@@ -488,6 +484,30 @@ class MotorDeProcesos {
     private List<ActividadCaso> vivosDe(Caso caso) {
         return actividadCasoRepository.findAllByCasoIdAndEmpresaIdAndEstadoInOrderByIdAsc(caso.getId(),
                 caso.getEmpresa().getId(), VIVOS);
+    }
+
+    /**
+     * Una tarea de usuario espera a una persona. PR 70: la que dice su regla de asignacion, si dice una que la pueda
+     * completar; si no, la bandeja del rol de su lane, y la linea de tiempo cuenta por que.
+     */
+    private void esperarAUnaPersona(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
+            VariablesDelCaso variables, Momento momento) {
+        AsignacionAlCrear.Destino destino = asignacion.decidir(caso, grafo, nodo, variables);
+        token.setEstado(EstadoActividadCaso.EN_ESPERA);
+        token.setAsignadoA(destino.usuarioId());
+        actividadCasoRepository.save(token);
+        if (destino.usuarioId() == null) {
+            String porQueNo = destino.porQueNo() == null ? "" : " " + destino.porQueNo();
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA,
+                    comillas(nodo.nombre()) + " queda en la bandeja a la espera de que alguien la complete." + porQueNo,
+                    momento.autorId());
+        } else {
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA,
+                    comillas(nodo.nombre()) + " espera a que la complete quien la tiene.", momento.autorId());
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_ASIGNADA, comillas(nodo.nombre())
+                    + " le llega al usuario " + destino.usuarioId() + ", " + destino.como() + ".");
+        }
+        temporizadores.armarBordes(caso, grafo, token, momento);
     }
 
     private static String comillas(String texto) {

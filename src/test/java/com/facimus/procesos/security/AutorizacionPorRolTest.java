@@ -189,8 +189,18 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/tareas/{id}            | 404
             EDITOR        | POST   | /api/v1/tareas/{id}/completar  | 404
             SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/completar  | 403
-            EDITOR        | POST   | /api/v1/tareas/{id}/asignar    | 404
-            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/asignar    | 403
+            # PR 70: las bandejas y la carga las lee cualquiera; tomar, soltar, reasignar y delegar, quien opera
+            SOLO_LECTURA  | GET    | /api/v1/tareas?bandeja=MIAS    | 200
+            SOLO_LECTURA  | GET    | /api/v1/tareas?bandeja=SIN_ASIGNAR | 200
+            SOLO_LECTURA  | GET    | /api/v1/tareas/carga           | 200
+            EDITOR        | POST   | /api/v1/tareas/{id}/reclamar   | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/reclamar   | 403
+            ADMINISTRADOR | POST   | /api/v1/tareas/{id}/soltar     | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/soltar     | 403
+            EDITOR        | POST   | /api/v1/tareas/{id}/reasignar  | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/reasignar  | 403
+            EDITOR        | POST   | /api/v1/tareas/{id}/delegar    | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/delegar    | 403
 
             # Mensajeria: las bandejas las lee cualquier rol; mandar un mensaje es de administrador y editor
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/bandeja-salida   | 200
@@ -260,6 +270,10 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/formulario            | 403
             SOLO_LECTURA  | GET    | /api/v1/tareas/{id}/formulario             | 404
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/formulario-de-inicio | 404
+            # PR 70: a quien le llega una tarea lo decide quien modela
+            EDITOR        | PUT    | /api/v1/actividades/{id}/asignacion        | 404
+            ADMINISTRADOR | PUT    | /api/v1/actividades/{id}/asignacion        | 404
+            SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/asignacion        | 403
 
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
@@ -288,6 +302,12 @@ class AutorizacionPorRolTest {
         } else if (ruta.equals("/api/v1/procesos/{id}/documentacion")) {
             // PR 62: con texto, para que el editor pase la autorizacion y choque con que el proceso no existe
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"markdown\":\"x\"}");
+        } else if (ruta.endsWith("/reasignar") || ruta.endsWith("/delegar")) {
+            // PR 70: con persona y motivo, para que quien opera pase y choque con que la tarea no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"usuarioId\":1,\"motivo\":\"x\"}");
+        } else if (ruta.endsWith("/asignacion")) {
+            // PR 70: la bandeja del rol y su version, para que quien modela pase y choque con que el nodo no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"tipo\":\"ROL\",\"version\":0}");
         } else if (metodo == HttpMethod.PUT && ruta.endsWith("/formulario")) {
             // PR 69: un formulario vacio y su version, para que quien modela pase y choque con que el nodo no existe
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"campos\":[],\"version\":0}");

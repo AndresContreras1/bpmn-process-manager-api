@@ -12,8 +12,10 @@ export interface Tarea {
   nodoNombre: string;
   rolProcesoId: number | null;
   estado: EstadoPaso;
-  /** Quien la tomo; vacia mientras nadie la tome. Tomarla es una nota para el equipo, no un permiso. */
+  /** Quien la tiene, el unico que la completa; vacia mientras espera en la bandeja de su rol. */
   asignadoA: number | null;
+  /** Quien se la delego a quien la tiene; le vuelve si la suelta. */
+  delegadaPor?: number | null;
   tickInicio: number;
   tickFin: number | null;
   datosSalida: Datos | null;
@@ -24,11 +26,6 @@ export interface Tarea {
 /** Lo que entrega quien completa la tarea; va a las variables del caso bajo tarea.<nombreEnCamel>. */
 export interface CompletarTareaRequest {
   datos: Datos;
-}
-
-/** Quien toma la tarea; vacio la deja libre otra vez. */
-export interface AsignarTareaRequest {
-  usuarioId: number | null;
 }
 
 /** Filtros de la bandeja. Por defecto, las que esperan a los roles de quien entro. */

@@ -8,22 +8,26 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.SinPermisoException;
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.common.auditoria.Auditoria;
+import com.facimus.procesos.ejecucion.dto.response.CargaDeTrabajoResponse;
 import com.facimus.procesos.ejecucion.dto.response.FormularioDeTareaResponse;
 import com.facimus.procesos.ejecucion.dto.response.TareaResponse;
 import com.facimus.procesos.ejecucion.mapper.CasoMapper;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
+import com.facimus.procesos.ejecucion.model.Bandeja;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.EstadoDelegacion;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
-import com.facimus.procesos.ejecucion.repository.CasoRepository;
 import com.facimus.procesos.ejecucion.service.TareaService;
+import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.MembresiaRolService;
-import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.dto.response.FormularioResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -31,32 +35,61 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * La bandeja de tareas. Completar una tarea es lo que mas veces mueve un caso, asi que es donde mas se nota D3: se
- * bloquea el caso antes de leer la tarea, y solo despues se mira si sigue en espera.
+ * bloquea el caso antes de leer la tarea, y solo despues se mira si sigue en espera y quien la tiene.
  */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class TareaServiceImpl implements TareaService {
 
+    static final String YA_COMPLETADA = "La tarea ya fue completada.";
+    static final String DE_OTRA_PERSONA = "La tarea la tiene otra persona: solo ella la completa. Quien reparte el "
+            + "trabajo se la puede reasignar.";
+    static final String NO_ES_DE_SU_ROL = "La tarea espera en la bandeja de un rol al que no perteneces: la toma "
+            + "alguien de ese rol o un administrador.";
+    /** PR 70: lo que la bitacora de la tienda anota cuando un administrador completa la tarea de otra persona. */
+    static final String COMPLETADA_POR_OTRO = "TAREA_COMPLETADA_POR_OTRO";
+    static final String RECURSO = "TAREA";
+
     private final ActividadCasoRepository actividadCasoRepository;
-    private final CasoRepository casoRepository;
-    private final UsuarioService usuarioService;
+    private final Tareas tareas;
     private final MembresiaRolService membresiaRolService;
+    private final ConfiguracionTiendaService configuracionTiendaService;
+    private final PersonasDeLaTarea personas;
     private final GrafosDeVersion grafos;
     private final MotorDeProcesos motor;
     private final RelojDeLaTienda reloj;
     private final Bitacora bitacora;
+    private final Auditoria auditoria;
     private final CasoMapper casoMapper;
     private final JsonMapper json;
     private final FormulariosDelCaso formularios;
 
     @Override
+    @SuppressWarnings("java:S107") // cada filtro de la bandeja, por su nombre
+    public PageResponse<TareaResponse> bandeja(Long empresaId, Long usuarioId, Bandeja bandeja, Long rolProcesoId,
+            Long procesoId, EstadoActividadCaso estado, Pageable pagina) {
+        return laBandeja(empresaId, usuarioId, bandeja, rolProcesoId, procesoId, estado, pagina);
+    }
+
+    /** La de antes del PR 70; va aqui y no en la interfaz para que corra en la transaccion de solo lectura. */
+    @Override
+    @SuppressWarnings("java:S107") // cada filtro de la bandeja, por su nombre
     public PageResponse<TareaResponse> bandeja(Long empresaId, Long usuarioId, boolean mias, Long rolProcesoId,
             Long procesoId, EstadoActividadCaso estado, Pageable pagina) {
+        return laBandeja(empresaId, usuarioId, mias ? Bandeja.DE_MIS_ROLES : Bandeja.TODAS, rolProcesoId, procesoId,
+                estado, pagina);
+    }
+
+    @SuppressWarnings("java:S107") // cada filtro de la bandeja, por su nombre
+    private PageResponse<TareaResponse> laBandeja(Long empresaId, Long usuarioId, Bandeja bandeja, Long rolProcesoId,
+            Long procesoId, EstadoActividadCaso estado, Pageable pagina) {
         EstadoActividadCaso buscado = estado == null ? EstadoActividadCaso.EN_ESPERA : estado;
-        if (!mias) {
+        Bandeja cual = bandeja == null ? Bandeja.TODAS : bandeja;
+        if (cual != Bandeja.DE_MIS_ROLES) {
             return PageResponse.from(actividadCasoRepository
-                    .bandejaPorRol(empresaId, rolProcesoId, procesoId, buscado, pagina)
+                    .bandejaPorRol(empresaId, rolProcesoId, procesoId, buscado,
+                            cual == Bandeja.MIAS ? usuarioId : null, cual == Bandeja.SIN_ASIGNAR, pagina)
                     .map(casoMapper::toTarea));
         }
         List<Long> roles = membresiaRolService.idsDeLosRolesDe(empresaId, usuarioId);
@@ -75,7 +108,7 @@ public class TareaServiceImpl implements TareaService {
 
     @Override
     public TareaResponse obtener(Long empresaId, Long tareaId) {
-        return casoMapper.toTarea(exigirTarea(empresaId, tareaId));
+        return casoMapper.toTarea(tareas.exigir(empresaId, tareaId));
     }
 
     /**
@@ -85,14 +118,15 @@ public class TareaServiceImpl implements TareaService {
     @Override
     @Transactional
     public TareaResponse completar(Long empresaId, Long usuarioId, Long tareaId, Map<String, Object> datos) {
-        Caso caso = bloquearElCasoDe(empresaId, tareaId);
-        ActividadCaso tarea = exigirTarea(empresaId, tareaId);
+        Caso caso = tareas.bloquearSuCaso(empresaId, tareaId);
+        ActividadCaso tarea = tareas.exigir(empresaId, tareaId);
         if (tarea.getEstado() != EstadoActividadCaso.EN_ESPERA) {
-            throw new ReglaNegocioException("La tarea ya fue completada.");
+            throw new ReglaNegocioException(YA_COMPLETADA);
         }
         if (caso.getEstado() != EstadoCaso.ABIERTO) {
             throw new ReglaNegocioException("El caso ya está cerrado.");
         }
+        Long porQuien = quienLaTiene(empresaId, usuarioId, tarea);
 
         GrafoDeVersion grafo = grafos.del(empresaId, caso.getVersionProceso());
         VariablesDelCaso variables = VariablesDelCaso.de(caso, json);
@@ -104,20 +138,52 @@ public class TareaServiceImpl implements TareaService {
             tarea.setDatosSalida(casoMapper.aJson(valores));
         }
         Momento momento = new Momento(reloj.ahora(empresaId), usuarioId);
+        tareas.cerrarDelegacion(tarea, EstadoDelegacion.COMPLETADA);
+        tarea.setAsignadoA(porQuien);
         tarea.setEstado(EstadoActividadCaso.COMPLETADA);
         tarea.setTickFin(momento.tick());
         actividadCasoRepository.save(tarea);
-        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_COMPLETADA,
-                "\"" + tarea.getNodoNombre() + "\" se completo.", usuarioId);
+        if (porQuien.equals(usuarioId)) {
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_COMPLETADA,
+                    "\"" + tarea.getNodoNombre() + "\" se completo.", usuarioId);
+        } else {
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_COMPLETADA, "\"" + tarea.getNodoNombre()
+                    + "\" se completo: la completo un administrador por el usuario " + porQuien + ", que la tenia.",
+                    usuarioId);
+            auditoria.registrar(empresaId, usuarioId, COMPLETADA_POR_OTRO, RECURSO, tareaId,
+                    Map.of("casoId", caso.getId(), "laTenia", porQuien));
+        }
 
         motor.seguirDesde(caso, grafo, tarea.getNodoId(), momento);
         return casoMapper.toTarea(tarea);
     }
 
+    /**
+     * PR 70: en nombre de quien se completa. La completa quien la tiene; la que no tiene nadie, quien la podria tomar,
+     * que asi la toma; la de otra persona, solo un administrador de una tienda que lo deja.
+     */
+    private Long quienLaTiene(Long empresaId, Long usuarioId, ActividadCaso tarea) {
+        Long laTiene = tarea.getAsignadoA();
+        if (usuarioId.equals(laTiene)) {
+            return laTiene;
+        }
+        UsuarioResponse quien = personas.quienActua(empresaId, usuarioId);
+        if (laTiene == null) {
+            if (!personas.esCandidata(empresaId, quien, tarea)) {
+                throw new SinPermisoException(NO_ES_DE_SU_ROL);
+            }
+            return usuarioId;
+        }
+        if (PersonasDeLaTarea.administra(quien) && configuracionTiendaService.administradorCompletaPorOtro(empresaId)) {
+            return laTiene;
+        }
+        throw new ReglaNegocioException(DE_OTRA_PERSONA);
+    }
+
     /** Solo lee: el formulario viene de la version del caso, que no cambia, y las variables, de su fila. */
     @Override
     public FormularioDeTareaResponse formulario(Long empresaId, Long tareaId) {
-        ActividadCaso tarea = exigirTarea(empresaId, tareaId);
+        ActividadCaso tarea = tareas.exigir(empresaId, tareaId);
         Caso caso = tarea.getCaso();
         FormularioResponse formulario = grafos.del(empresaId, caso.getVersionProceso())
                 .formularioDe(tarea.getNodoId()).orElse(null);
@@ -126,38 +192,9 @@ public class TareaServiceImpl implements TareaService {
                 FormulariosDelCaso.iniciales(formulario, variables), variables.paraLeer());
     }
 
-    /**
-     * Reservar una tarea es una nota para el equipo: la bandeja la sigue viendo el rol entero y completarla no
-     * exige tenerla reservada (D13).
-     */
     @Override
-    @Transactional
-    public TareaResponse asignar(Long empresaId, Long tareaId, Long usuarioId) {
-        ActividadCaso tarea = exigirTarea(empresaId, tareaId);
-        if (tarea.getEstado() != EstadoActividadCaso.EN_ESPERA) {
-            throw new ReglaNegocioException("La tarea ya fue completada.");
-        }
-        if (usuarioId != null) {
-            usuarioService.obtener(empresaId, usuarioId);
-        }
-        tarea.setAsignadoA(usuarioId);
-        return casoMapper.toTarea(actividadCasoRepository.save(tarea));
-    }
-
-    /** Solo una actividad de usuario es una tarea; los demas pasos del caso los mueve el motor, no una persona. */
-    private ActividadCaso exigirTarea(Long empresaId, Long tareaId) {
-        ActividadCaso tarea = actividadCasoRepository.findByIdAndEmpresaId(tareaId, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Tarea no encontrada."));
-        if (!tarea.esTarea()) {
-            throw new RecursoNoEncontradoException("Tarea no encontrada.");
-        }
-        return tarea;
-    }
-
-    private Caso bloquearElCasoDe(Long empresaId, Long tareaId) {
-        Long casoId = actividadCasoRepository.casoDe(tareaId, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Tarea no encontrada."));
-        return casoRepository.bloquear(casoId, empresaId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Tarea no encontrada."));
+    public CargaDeTrabajoResponse carga(Long empresaId, Long procesoId) {
+        return new CargaDeTrabajoResponse(actividadCasoRepository.sinAsignar(empresaId, procesoId),
+                actividadCasoRepository.cargaPorPersona(empresaId, procesoId));
     }
 }

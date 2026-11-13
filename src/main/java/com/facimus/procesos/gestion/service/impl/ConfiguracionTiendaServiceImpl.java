@@ -78,7 +78,8 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
     @SuppressWarnings("java:S107") // cada parte de la configuracion, por su nombre
     public ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
             ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones,
-            PoliticaSegundoFactor segundoFactor, Boolean soloEntradaExterna, Long version) {
+            PoliticaSegundoFactor segundoFactor, Boolean soloEntradaExterna, Boolean administradorCompletaPorOtro,
+            Long version) {
         ConfiguracionTienda configuracion = buscar(empresaId);
         configuracion.verificarVersion(version);
         configuracion.setPoliticaEstructura(politica);
@@ -99,6 +100,11 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
                 && soloEntradaExterna != configuracion.isSoloEntradaExterna();
         if (cambiaLaEntrada) {
             configuracion.setSoloEntradaExterna(soloEntradaExterna);
+        }
+        boolean cambiaCompletarPorOtro = administradorCompletaPorOtro != null
+                && administradorCompletaPorOtro != configuracion.isAdministradorCompletaPorOtro();
+        if (cambiaCompletarPorOtro) {
+            configuracion.setAdministradorCompletaPorOtro(administradorCompletaPorOtro);
         }
         configuracion = configuracionTiendaRepository.saveAndFlush(configuracion);
 
@@ -125,7 +131,14 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
                 "politicaSegundoFactor", configuracion.getPoliticaSegundoFactor().name(),
                 "soloEntradaExterna", configuracion.isSoloEntradaExterna(),
                 "inactividadSesionMinutos", configuracion.getInactividadSesionMinutos(),
-                "duracionSesionHoras", configuracion.getDuracionSesionHoras()));
+                "duracionSesionHoras", configuracion.getDuracionSesionHoras(),
+                "administradorCompletaPorOtro", configuracion.isAdministradorCompletaPorOtro()));
+        if (cambiaCompletarPorOtro) {
+            historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
+                    Boolean.TRUE.equals(administradorCompletaPorOtro)
+                            ? "Un administrador puede completar la tarea que tiene otra persona."
+                            : "Solo quien tiene una tarea la completa.");
+        }
         if (cambiaLaEntrada) {
             historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
                     Boolean.TRUE.equals(soloEntradaExterna)
@@ -168,6 +181,11 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
             throw new ReglaNegocioException("La regla de rechazo de pagos no está bien escrita: "
                     + malEscrita.getMessage());
         }
+    }
+
+    @Override
+    public boolean administradorCompletaPorOtro(Long empresaId) {
+        return buscar(empresaId).isAdministradorCompletaPorOtro();
     }
 
     @Override

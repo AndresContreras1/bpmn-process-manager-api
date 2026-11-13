@@ -107,6 +107,18 @@ class ReglaDeRecursoTest {
     }
 
     @Test
+    @DisplayName("PR 70: decidir a quien le llega una tarea es modelar la actividad; operar las tareas no pide permiso "
+            + "por proceso")
+    void asignacion() {
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/actividades/{id}/asignacion", null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "actividades"));
+        for (String accion : new String[] {"reclamar", "soltar", "reasignar", "delegar"}) {
+            assertThat(ReglaDeRecurso.de("POST", "/api/v1/tareas/{id}/" + accion, null)).isEmpty();
+        }
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/tareas/carga", null)).isEmpty();
+    }
+
+    @Test
     @DisplayName("en una carpeta, editarla es modelar y conceder es administrar")
     void carpetas() {
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/carpetas/{id}", null).orElseThrow().accion())

@@ -20,6 +20,7 @@ import com.facimus.procesos.common.condiciones.EvaluadorDeCondiciones;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
@@ -55,12 +56,14 @@ final class GrafoDeVersion {
     private final boolean ejecutable;
     private final Map<Long, TemporizadorDeLaVersion> temporizadores;
     private final Map<Long, FormularioResponse> formularios;
+    private final Map<Long, AsignacionResponse> asignaciones;
 
     private GrafoDeVersion(Long poolDeLaTienda, Map<Long, NodoDeLaVersion> nodos,
             Map<Long, List<ArcoDeLaVersion>> salidas, Map<Long, List<ArcoDeLaVersion>> entradas,
             List<MensajeDeLaVersion> mensajes, boolean ejecutable, Map<Long, TemporizadorDeLaVersion> temporizadores,
-            Map<Long, FormularioResponse> formularios) {
+            Map<Long, FormularioResponse> formularios, Map<Long, AsignacionResponse> asignaciones) {
         this.ejecutable = ejecutable;
+        this.asignaciones = Collections.unmodifiableMap(asignaciones);
         this.temporizadores = Collections.unmodifiableMap(temporizadores);
         this.formularios = Collections.unmodifiableMap(formularios);
         this.poolDeLaTienda = poolDeLaTienda;
@@ -104,7 +107,28 @@ final class GrafoDeVersion {
         salidas.values().forEach(lista -> lista.sort(POR_ORDEN));
         return new GrafoDeVersion(pool, nodos, salidas, entradas, mensajesDelDiagrama(diagrama),
                 diagrama.proceso().modo().ejecuta(), temporizadoresDelPool(diagrama, nodos),
-                formulariosDelPool(diagrama, nodos));
+                formulariosDelPool(diagrama, nodos), asignacionesDelPool(diagrama, nodos));
+    }
+
+    /**
+     * PR 70: a quien le llega cada tarea de usuario del pool de la tienda, como la congelo la version. La que no trae
+     * ninguna espera en la bandeja de su rol; una instantanea de antes no trae ninguna.
+     */
+    private static Map<Long, AsignacionResponse> asignacionesDelPool(DiagramaResponse diagrama,
+            Map<Long, NodoDeLaVersion> nodos) {
+        Map<Long, AsignacionResponse> asignaciones = new HashMap<>();
+        for (ActividadResponse actividad : diagrama.actividades()) {
+            if (actividad.asignacion() != null && nodos.containsKey(actividad.id())
+                    && nodos.get(actividad.id()).esTareaDeUsuario()) {
+                asignaciones.put(actividad.id(), actividad.asignacion());
+            }
+        }
+        return asignaciones;
+    }
+
+    /** PR 70: a quien le llega una tarea de usuario, si la version le dio a alguien; vacio es la bandeja del rol. */
+    Optional<AsignacionResponse> asignacionDe(Long nodoId) {
+        return Optional.ofNullable(asignaciones.get(nodoId));
     }
 
     /**

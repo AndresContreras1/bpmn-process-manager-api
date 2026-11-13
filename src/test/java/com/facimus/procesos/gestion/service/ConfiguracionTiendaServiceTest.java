@@ -135,7 +135,61 @@ class ConfiguracionTiendaServiceTest {
                 "politicaSegundoFactor", "TODOS",
                 "soloEntradaExterna", true,
                 "inactividadSesionMinutos", 15,
-                "duracionSesionHoras", 1));
+                "duracionSesionHoras", 1,
+                "administradorCompletaPorOtro", false));
+    }
+
+    @Test
+    @DisplayName("PR 70: encender y apagar que un administrador complete por otro se guarda, se anota y va a la "
+            + "bitacora")
+    void editarCompletarPorOtro() {
+        ConfiguracionTienda configuracion = configuracion();
+        guardaLaQueLlega(configuracion);
+
+        ConfiguracionTiendaResponse encendida = service.editar(EMPRESA, USUARIO,
+                PoliticaEstructura.ADMINISTRADOR_Y_EDITOR, null, null, LimitesDeSesion.SIN_CAMBIOS, null, null, true,
+                null);
+
+        assertThat(configuracion.isAdministradorCompletaPorOtro()).isTrue();
+        assertThat(encendida.administradorCompletaPorOtro()).isTrue();
+        verifyHistorial("Un administrador puede completar la tarea que tiene otra persona.");
+        verify(auditoria).registrar(EMPRESA, USUARIO, "CONFIGURACION_CAMBIADA", "EMPRESA", EMPRESA, Map.of(
+                "politicaEstructura", "ADMINISTRADOR_Y_EDITOR",
+                "politicaSegundoFactor", "OPCIONAL",
+                "soloEntradaExterna", false,
+                "inactividadSesionMinutos", 60,
+                "duracionSesionHoras", 24,
+                "administradorCompletaPorOtro", true));
+
+        service.editar(EMPRESA, USUARIO, PoliticaEstructura.ADMINISTRADOR_Y_EDITOR, null, null,
+                LimitesDeSesion.SIN_CAMBIOS, null, null, false, null);
+
+        assertThat(configuracion.isAdministradorCompletaPorOtro()).isFalse();
+        verifyHistorial("Solo quien tiene una tarea la completa.");
+    }
+
+    @Test
+    @DisplayName("PR 70: la politica que no llega, o llega igual, no cambia ni se anota; de fabrica esta apagada")
+    void completarPorOtroSinCambios() {
+        ConfiguracionTienda configuracion = configuracion();
+        guardaLaQueLlega(configuracion);
+        assertThat(service.administradorCompletaPorOtro(EMPRESA)).isFalse();
+
+        service.editar(EMPRESA, USUARIO, PoliticaEstructura.ADMINISTRADOR_Y_EDITOR, null, null,
+                LimitesDeSesion.SIN_CAMBIOS, null, null, false, null);
+        service.editar(EMPRESA, USUARIO, PoliticaEstructura.ADMINISTRADOR_Y_EDITOR, null, null,
+                LimitesDeSesion.SIN_CAMBIOS, null, null, null);
+
+        assertThat(configuracion.isAdministradorCompletaPorOtro()).isFalse();
+        verify(historialCambioService, times(2)).registrarDeTienda(eq(EMPRESA), eq(USUARIO),
+                eq(RecursoDeHistorial.EMPRESA), eq(EMPRESA), anyString());
+
+        configuracion.setAdministradorCompletaPorOtro(true);
+        service.editar(EMPRESA, USUARIO, PoliticaEstructura.ADMINISTRADOR_Y_EDITOR, null, null,
+                LimitesDeSesion.SIN_CAMBIOS, null, null, true, null);
+        assertThat(service.administradorCompletaPorOtro(EMPRESA)).isTrue();
+        verify(historialCambioService, times(3)).registrarDeTienda(eq(EMPRESA), eq(USUARIO),
+                eq(RecursoDeHistorial.EMPRESA), eq(EMPRESA), anyString());
     }
 
     @Test

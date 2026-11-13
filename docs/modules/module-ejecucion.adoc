@@ -3,7 +3,8 @@
 |Base package
 |`com.facimus.procesos.ejecucion`
 |Bean references
-|* `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
+|* `c.f.p.c.auditoria.Auditoria` (in Common)
+* `c.f.p.c.metricas.MetricasDeNegocio` (in Common)
 * `c.f.p.g.service.VersionService` (in Gestion)
 * `c.f.p.g.service.ProcesoService` (in Gestion)
 * `c.f.p.g.service.UsuarioService` (in Gestion)

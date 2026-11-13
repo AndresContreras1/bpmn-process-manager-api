@@ -142,6 +142,7 @@ public class CasoServiceImpl implements CasoService {
                 .modo(modo)
                 .variables(casoMapper.aJson(conTipo))
                 .tickInicio(momento.tick())
+                .iniciadoPor(momento.autorId())
                 .build());
         motor.arrancar(caso, grafo, inicio, momento);
         return casoMapper.toResponse(caso);

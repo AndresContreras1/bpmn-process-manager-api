@@ -34,6 +34,7 @@ import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
@@ -98,6 +99,8 @@ class FormulariosIntegracionTest {
     private ProcesoService procesoService;
     @Autowired
     private RolProcesoService rolProcesoService;
+    @Autowired
+    private MembresiaRolService membresiaRolService;
     @Autowired
     private PoolService poolService;
     @Autowired
@@ -556,8 +559,12 @@ class FormulariosIntegracionTest {
             return lanes.getFirst();
         }
         Long pool = poolService.listarPorProceso(tienda, enProceso).getFirst().id();
-        return laneService.crear(tienda, autor, pool, "Support",
-                rolProcesoService.crear(tienda, autor, "Support " + tiendas, null).id()).id();
+        Long rol = rolProcesoService.crear(tienda, autor, "Support " + tiendas, null).id();
+        if (tienda.equals(empresaId)) {
+            // PR 70: Beto es de Support, asi que toma las tareas de su lane al completarlas
+            membresiaRolService.reemplazar(tienda, autor, beto.usuarioId(), List.of(rol));
+        }
+        return laneService.crear(tienda, autor, pool, "Support", rol).id();
     }
 
     private void publicar(Long tienda, Long autor, Long enProceso) {

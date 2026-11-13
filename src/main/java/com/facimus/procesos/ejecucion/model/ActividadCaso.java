@@ -38,6 +38,8 @@ import lombok.experimental.SuperBuilder;
           and a.estado = :estado
           and (:rolProcesoId is null or a.rolProcesoId = :rolProcesoId)
           and (:procesoId is null or a.caso.proceso.id = :procesoId)
+          and (:asignadoA is null or a.asignadoA = :asignadoA)
+          and (:sinAsignar = false or a.asignadoA is null)
         order by a.id
         """)
 @NamedQuery(name = "ActividadCaso.bandejaPorRol.count", query = """
@@ -48,6 +50,8 @@ import lombok.experimental.SuperBuilder;
           and a.estado = :estado
           and (:rolProcesoId is null or a.rolProcesoId = :rolProcesoId)
           and (:procesoId is null or a.caso.proceso.id = :procesoId)
+          and (:asignadoA is null or a.asignadoA = :asignadoA)
+          and (:sinAsignar = false or a.asignadoA is null)
         """)
 @NamedQuery(name = "ActividadCaso.bandejaDeMisRoles", query = """
         select a from ActividadCaso a
@@ -114,9 +118,13 @@ public class ActividadCaso extends EntidadEditable {
     @Column(nullable = false)
     private int llegadas;
 
-    /** El usuario que reservo la tarea; la bandeja la sigue viendo su rol entero. */
+    /** PR 70: quien tiene la tarea, el unico que la completa; vacio mientras espera en la bandeja de su rol. */
     @Column(name = "asignado_a")
     private Long asignadoA;
+
+    /** PR 70: quien la delego en quien la tiene ahora; le vuelve si el delegado la suelta. */
+    @Column(name = "delegada_por")
+    private Long delegadaPor;
 
     @Column(name = "tick_inicio", nullable = false)
     private int tickInicio;

@@ -112,4 +112,11 @@ public class Caso extends EntidadEditable {
 
     @Column(name = "fecha_fin")
     private LocalDateTime fechaFin;
+
+    /**
+     * PR 70: quien lo abrio a mano, a quien va una tarea asignada al iniciador. Vacio si lo abrio un mensaje o un
+     * temporizador.
+     */
+    @Column(name = "iniciado_por", updatable = false)
+    private Long iniciadoPor;
 }
