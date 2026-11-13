@@ -84,20 +84,20 @@ record ReglaDeRecurso(Accion accion, Clase clase, String tipo) {
         if (lee || DE_OPERACION.contains(tramo)) {
             return Accion.VER;
         }
-        if (COMENTARIOS.equals(tramo)) {
-            return Accion.COMENTAR;
-        }
-        if ("versiones".equals(tramo) || SOLICITUDES.equals(tramo)) {
-            return Accion.PUBLICAR;
-        }
-        // PR 64: confirmar que sigue vigente lo decide su servicio: su dueno, o quien administra el proceso
-        if ("recertificacion".equals(tramo)) {
-            return Accion.VER;
-        }
-        // PR 62: armar un manual es exportar el proceso
-        if ("manuales".equals(tramo)) {
-            return Accion.EXPORTAR;
-        }
-        return "revision".equals(tramo) ? Accion.REVISAR : Accion.MODELAR;
+        return alEscribir(tramo);
+    }
+
+    /** Lo que pide escribir en una parte del proceso. */
+    private static Accion alEscribir(String tramo) {
+        return switch (tramo) {
+            case COMENTARIOS -> Accion.COMENTAR;
+            case "versiones", SOLICITUDES -> Accion.PUBLICAR;
+            // PR 64: confirmar que sigue vigente lo decide su servicio: su dueno, o quien administra el proceso
+            case "recertificacion" -> Accion.VER;
+            // PR 62: armar un manual es exportar el proceso
+            case "manuales" -> Accion.EXPORTAR;
+            case "revision" -> Accion.REVISAR;
+            default -> Accion.MODELAR;
+        };
     }
 }

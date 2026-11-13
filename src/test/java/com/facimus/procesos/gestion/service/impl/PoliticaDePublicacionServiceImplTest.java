@@ -128,9 +128,9 @@ class PoliticaDePublicacionServiceImplTest {
         // al reves, para que el orden lo ponga el servicio
         when(permisos.quienesPueden(eq(EMPRESA), eq(Recurso.proceso(PROCESO)), anyCollection(),
                 eq(EnumSet.of(Accion.VER, Accion.APROBAR)))).thenAnswer(llamada -> {
-                    Collection<Actor> actores = llamada.getArgument(2);
+                    Collection<Actor> candidatos = llamada.getArgument(2);
                     Set<Long> pueden = new TreeSet<>(Comparator.reverseOrder());
-                    actores.stream().filter(actor -> actor.rol() != RolAcceso.SOLO_LECTURA).map(Actor::usuarioId)
+                    candidatos.stream().filter(actor -> actor.rol() != RolAcceso.SOLO_LECTURA).map(Actor::usuarioId)
                             .filter(id -> !id.equals(ELIO) && !id.equals(FIDEL)).forEach(pueden::add);
                     return pueden;
                 });

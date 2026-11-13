@@ -248,15 +248,15 @@ class BusquedaServiceImplTest {
     void consultas() {
         assertThat(BusquedaServiceImpl.PAGINA).contains("websearch_to_tsquery").doesNotContain(" to_tsquery(")
                 .doesNotContain("(to_tsquery(");
-        assertThat(BusquedaServiceImpl.OPCIONES).isEqualTo("StartSel=\uE000, StopSel=\uE001, MaxWords=35, MinWords=15, "
-                + "MaxFragments=2, FragmentDelimiter=\" … \"");
+        assertThat(BusquedaServiceImpl.OPCIONES.split(", ")).containsExactly("StartSel=\uE000", "StopSel=\uE001",
+                "MaxWords=35", "MinWords=15", "MaxFragments=2", "FragmentDelimiter=\" … \"");
         // Lo buscado se arma una vez, y el fragmento de un documento sale solo del principio de su texto
         assertThat(BusquedaServiceImpl.PAGINA).startsWith("with buscado as materialized")
                 .containsOnlyOnce("websearch_to_tsquery");
         assertThat(BusquedaServiceImpl.DETALLES).startsWith("with buscado as materialized")
                 .containsOnlyOnce("websearch_to_tsquery").contains("left(a.texto, :largoDelFragmento)");
 
-        assertThat(BusquedaServiceImpl.MARCAS)
-                .isEqualTo(String.valueOf(new char[] {BusquedaServiceImpl.INICIO, BusquedaServiceImpl.FIN}));
+        assertThat(BusquedaServiceImpl.MARCAS.toCharArray()).containsExactly(BusquedaServiceImpl.INICIO,
+                BusquedaServiceImpl.FIN);
     }
 }

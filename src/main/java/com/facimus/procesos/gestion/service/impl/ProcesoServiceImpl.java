@@ -305,8 +305,11 @@ public class ProcesoServiceImpl implements ProcesoService {
     /** Lo que deja una publicacion, la misma venga de publicar directo o de una solicitud aprobada (D2). */
     private void registrarPublicacion(Proceso proceso, Usuario autor, int numero, Map<String, Object> detalle) {
         Long empresaId = proceso.getEmpresa().getId();
+        // Quien publica siempre es alguien: sale de autor(), que falla si la persona no esta. Su nombre se lee
+        // antes de anotar el cambio, que tambien acepta cambios sin autor
+        String quien = autor.getNombre();
         historialCambioService.registrar(proceso, autor, "Versión " + numero + " publicada.");
-        eventos.publishEvent(new ProcesoPublicado(empresaId, proceso.getId(), numero, autor.getNombre()));
+        eventos.publishEvent(new ProcesoPublicado(empresaId, proceso.getId(), numero, quien));
         auditoria.registrar(empresaId, autor.getId(), "PROCESO_PUBLICADO", "PROCESO", proceso.getId(), detalle);
     }
 
