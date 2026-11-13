@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import com.facimus.procesos.common.csv.CeldaCsv;
 import com.facimus.procesos.gestion.service.Paquete;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -34,7 +35,6 @@ final class PaqueteZip implements Paquete, AutoCloseable {
     static final int LARGO_MAXIMO_DE_RUTA = 255;
 
     /** Lo que una hoja de calculo leeria como el comienzo de una formula (OWASP, CSV injection). */
-    private static final String COMIENZOS_DE_FORMULA = "=+-@\t\r";
 
     private static final byte[] APERTURA = "[".getBytes(StandardCharsets.UTF_8);
     private static final byte[] SALTO = "\n".getBytes(StandardCharsets.UTF_8);
@@ -175,28 +175,8 @@ final class PaqueteZip implements Paquete, AutoCloseable {
         }
     }
 
-    /**
-     * Una celda de CSV (RFC 4180) que una hoja de calculo no ejecuta: un texto que empieza por =, +, -, @, tabulador
-     * o retorno lleva delante un apostrofo, y lo que tiene comas, comillas o saltos va entre comillas, con las comillas
-     * dobladas. Un numero queda como numero: -5 es un dato, no una formula.
-     */
-    static String celda(Object valor) {
-        if (valor == null) {
-            return "";
-        }
-        String texto = valor.toString();
-        if (!(valor instanceof Number) && !texto.isEmpty() && COMIENZOS_DE_FORMULA.indexOf(texto.charAt(0)) >= 0) {
-            texto = "'" + texto;
-        }
-        if (texto.indexOf(',') >= 0 || texto.indexOf('"') >= 0 || texto.indexOf('\n') >= 0
-                || texto.indexOf('\r') >= 0) {
-            texto = "\"" + texto.replace("\"", "\"\"") + "\"";
-        }
-        return texto;
-    }
-
     private static byte[] linea(List<?> celdas) {
-        return celdas.stream().map(PaqueteZip::celda)
+        return celdas.stream().map(CeldaCsv::de)
                 .collect(Collectors.joining(",", "", FIN_DE_LINEA_CSV)).getBytes(StandardCharsets.UTF_8);
     }
 

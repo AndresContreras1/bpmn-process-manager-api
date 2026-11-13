@@ -108,27 +108,6 @@ class PaqueteZipTest {
                 "id,referencia,nota\r\n1,\"'=HYPERLINK(\"\"x\"\")\",\r\n-5,\"a,b\",\"dijo \"\"hola\"\"\nadios\"\r\n");
     }
 
-    @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {"=1+1", "+1", "-1", "@SUM(A1)", "\tx", "\rx"})
-    @DisplayName("un texto que una hoja de calculo leeria como formula lleva un apostrofo delante")
-    void formulas(String peligroso) {
-        assertThat(PaqueteZip.celda(peligroso).replace("\"", "")).isEqualTo("'" + peligroso);
-    }
-
-    @Test
-    @DisplayName("lo que no es una formula queda como esta: un numero negativo, un texto comun, nada")
-    void sinFormula() {
-        assertThat(PaqueteZip.celda(-5)).isEqualTo("-5");
-        assertThat(PaqueteZip.celda(-2.5)).isEqualTo("-2.5");
-        assertThat(PaqueteZip.celda("Despacho")).isEqualTo("Despacho");
-        assertThat(PaqueteZip.celda("a=b")).isEqualTo("a=b");
-        assertThat(PaqueteZip.celda("")).isEmpty();
-        assertThat(PaqueteZip.celda(null)).isEmpty();
-        assertThat(PaqueteZip.celda("\rx")).isEqualTo("\"'\rx\"");
-        assertThat(PaqueteZip.celda("dos\rlineas")).isEqualTo("\"dos\rlineas\"");
-        assertThat(PaqueteZip.celda("una \"cita\"")).isEqualTo("\"una \"\"cita\"\"\"");
-    }
-
     @Test
     @DisplayName("una fila con otro numero de celdas que la cabecera, o un CSV sin columnas, se rechazan")
     void csvMalArmado() {
