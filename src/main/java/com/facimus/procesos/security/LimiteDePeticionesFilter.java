@@ -14,6 +14,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 import com.facimus.procesos.common.api.Problemas;
 import com.facimus.procesos.common.security.ApiPrincipal;
@@ -40,8 +41,16 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
 
     private static final String REGISTRO = "/api/v1/empresas";
 
+    /** PR 65: la unica lectura que gasta de un cubo, el de buscar de cada persona. */
+    private static final String BUSQUEDA = "/api/v1/busqueda";
+
     /** PR 54: las rutas que reciben un archivo BPMN, que tienen su propio tope, el mismo que lee SecureXml. */
-    private static final Pattern RUTAS_BPMN = Pattern.compile("/api/v1/procesos/(importar|[0-9]+/(modelo|comparar))");
+    private static final Pattern RUTAS_BPMN = Pattern
+            .compile("/api/v1/procesos/(importar|\\d+/(modelo|comparar|versiones/\\d+/dibujo))");
+
+    /** PR 61: las rutas que reciben un documento, con el tope de un documento. */
+    private static final Pattern RUTAS_DOCUMENTOS = Pattern
+            .compile("/api/v1/(procesos/\\d+/documentos|documentos/\\d+/versiones)");
 
     private static final Set<String> CORREO = Set.of("/api/v1/auth/recuperacion", "/api/v1/auth/verificacion",
             "/api/v1/usuarios/invitaciones");
@@ -51,34 +60,37 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
     private final JsonMapper jsonMapper;
     private final long cuerpoMaximo;
     private final long cuerpoMaximoBpmn;
+    private final long cuerpoMaximoDocumento;
 
     public LimiteDePeticionesFilter(LimitesDePeticiones limites, VerificacionHumana verificacionHumana,
-            JsonMapper jsonMapper, long cuerpoMaximo, long cuerpoMaximoBpmn) {
+            JsonMapper jsonMapper, long cuerpoMaximo, long cuerpoMaximoBpmn, long cuerpoMaximoDocumento) {
         this.limites = limites;
         this.verificacionHumana = verificacionHumana;
         this.jsonMapper = jsonMapper;
         this.cuerpoMaximo = cuerpoMaximo;
         this.cuerpoMaximoBpmn = cuerpoMaximoBpmn;
+        this.cuerpoMaximoDocumento = cuerpoMaximoDocumento;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return SIN_EFECTOS.contains(request.getMethod()) || !request.getRequestURI().startsWith("/api/");
+        String ruta = ruta(request);
+        return !ruta.startsWith("/api/") || SIN_EFECTOS.contains(request.getMethod()) && !esBusqueda(request, ruta);
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        long tope = RUTAS_BPMN.matcher(request.getRequestURI()).matches() ? cuerpoMaximoBpmn : cuerpoMaximo;
+        String ruta = ruta(request);
+        long tope = tope(ruta);
         if (request.getContentLengthLong() > tope) {
             responder(request, response, HttpStatus.CONTENT_TOO_LARGE, "Cuerpo demasiado grande",
                     "La petición no puede superar " + (tope / 1024) + " KB.", null);
             return;
         }
-        String ruta = request.getRequestURI();
         String ip = request.getRemoteAddr();
         Optional<Duration> espera = clase(request, ruta).flatMap(clase -> limites.gastar(clase,
-                clase == ClaseDeLimite.ESCRITURA ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
+                porPersona(clase) ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
         if (espera.isPresent()) {
             long segundos = Math.max(1, (espera.get().toMillis() + 999) / 1000);
             responder(request, response, HttpStatus.TOO_MANY_REQUESTS, "Demasiadas peticiones",
@@ -93,8 +105,35 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * La ruta como la compara Spring MVC al elegir el controller: decodificada y sin parametros de ruta. Comparar la
+     * URI tal como llega dejaria pasar {@code /api/v1/busqued%61} o {@code /api/v1/auth/logi%6E} sin gastar de su cubo,
+     * y llegarian al mismo controller.
+     */
+    private static String ruta(HttpServletRequest request) {
+        return UrlPathHelper.defaultInstance.getPathWithinApplication(request);
+    }
+
+    private long tope(String ruta) {
+        if (RUTAS_BPMN.matcher(ruta).matches()) {
+            return cuerpoMaximoBpmn;
+        }
+        return RUTAS_DOCUMENTOS.matcher(ruta).matches() ? cuerpoMaximoDocumento : cuerpoMaximo;
+    }
+
+    private static boolean esBusqueda(HttpServletRequest request, String ruta) {
+        return "GET".equals(request.getMethod()) && BUSQUEDA.equals(ruta);
+    }
+
+    private static boolean porPersona(ClaseDeLimite clase) {
+        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.BUSQUEDA;
+    }
+
     /** De que cubo gasta. Lo que cambia algo sin sesion no cuenta por persona: la autorizacion lo va a rechazar. */
     private static Optional<ClaseDeLimite> clase(HttpServletRequest request, String ruta) {
+        if (esBusqueda(request, ruta)) {
+            return usuario().map(id -> ClaseDeLimite.BUSQUEDA);
+        }
         boolean esPost = "POST".equals(request.getMethod());
         if (esPost && AUTENTICACION.contains(ruta)) {
             return Optional.of(ClaseDeLimite.AUTENTICACION);

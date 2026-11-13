@@ -2,13 +2,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { EMPTY, Observable, Subject, catchError, debounceTime, finalize, switchMap, tap } from 'rxjs';
 
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { marcarErroresDelServidor, mensajeDeError } from '../../helpers/errores-api';
 import { PageResponse } from '../../models/page-response.model';
-import { RolProceso } from '../../models/rol-proceso.model';
+import { ProcesoDelRol, RolProceso } from '../../models/rol-proceso.model';
 import { AuthService } from '../../service/auth.service';
 import { RolProcesoService } from '../../service/rol-proceso.service';
 
@@ -18,7 +19,7 @@ import { RolProcesoService } from '../../service/rol-proceso.service';
  */
 @Component({
   selector: 'app-roles',
-  imports: [FormsModule, ReactiveFormsModule, ErrorCampoComponent, ModalConfirmarComponent],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, ErrorCampoComponent, ModalConfirmarComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './roles.component.html',
 })
@@ -45,6 +46,10 @@ export class RolesComponent implements OnInit {
   enviando: boolean = false;
   error: string | null = null;
   aviso: string | null = null;
+  /** HU-20.4: el rol cuya lista de procesos esta abierta, y esa lista cuando llega. */
+  abierto: number | null = null;
+  procesosDelRol: ProcesoDelRol[] | null = null;
+  errorDeProcesos: string | null = null;
 
   ngOnInit(): void {
     this.busqueda$
@@ -84,6 +89,33 @@ export class RolesComponent implements OnInit {
   irAPagina(pagina: number): void {
     this.paginaActual = pagina;
     this.buscar();
+  }
+
+  /** Abre o cierra la lista de procesos que usan el rol: la pide al abrirla, porque la lista de roles solo cuenta. */
+  verProcesos(rol: RolProceso): void {
+    if (this.abierto === rol.id) {
+      this.abierto = null;
+      return;
+    }
+    this.abierto = rol.id;
+    this.procesosDelRol = null;
+    this.errorDeProcesos = null;
+    this.rolProcesoService
+      .obtener(rol.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (completo: RolProceso) => {
+          if (this.abierto === rol.id) {
+            this.procesosDelRol = completo.procesos ?? [];
+          }
+        },
+        // Una respuesta tardia de un rol que ya se cerro o se cambio no le toca al que esta abierto ahora
+        error: (error: HttpErrorResponse) => {
+          if (this.abierto === rol.id) {
+            this.errorDeProcesos = mensajeDeError(error);
+          }
+        },
+      });
   }
 
   editar(rol: RolProceso): void {

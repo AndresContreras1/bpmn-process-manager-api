@@ -55,7 +55,7 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
-@TestPropertySource(properties = {"modelado.en-vivo.escuchar=true", "modelado.en-vivo.vencimiento-bloqueo=PT2S",
+@TestPropertySource(properties = {"avisos.escuchar=true", "modelado.en-vivo.vencimiento-bloqueo=PT2S",
     "modelado.en-vivo.conexiones-por-usuario=2"})
 class EnVivoIntegracionTest {
 

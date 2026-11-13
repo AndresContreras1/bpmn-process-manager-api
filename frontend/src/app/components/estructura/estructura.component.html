@@ -33,17 +33,20 @@
       </a>
 
       @if (usuario) {
-        <form class="d-none d-md-flex flex-grow-1 mx-lg-4 busqueda" role="search" (ngSubmit)="buscar()" id="busqueda">
-          <label i18n class="visually-hidden" for="busqueda-global">Search processes by name</label>
-          <input
-            i18n-placeholder
-            class="form-control form-control-sm"
-            type="search"
-            id="busqueda-global"
-            placeholder="Search processes"
-            [formControl]="busqueda"
-          />
-        </form>
+        <!-- F19: la busqueda del encabezado es la global, la misma que abre Ctrl+K desde cualquier pantalla -->
+        <div class="flex-grow-1 mx-lg-4 busqueda" role="search">
+          <button
+            type="button"
+            class="btn btn-sm btn-light w-100 d-flex align-items-center gap-2 text-start"
+            id="navbar-buscar"
+            aria-keyshortcuts="Control+K Meta+K"
+            (click)="busquedaGlobal.abrir()"
+          >
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <span i18n class="flex-grow-1 text-truncate">Search everything</span>
+            <kbd class="d-none d-md-inline small" aria-hidden="true">{{ atajoVisible }}</kbd>
+          </button>
+        </div>
       }
 
       <ul class="navbar-nav ms-auto align-items-center gap-1">
@@ -290,5 +293,11 @@
   }
   @defer (when verificacion.pidiendo()) {
     <app-dialogo-de-verificacion />
+  }
+  <!-- F19: la busqueda global llega la primera vez que alguien la abre -->
+  @defer (when busquedaGlobal.abierta()) {
+    @if (busquedaGlobal.abierta()) {
+      <app-busqueda-global />
+    }
   }
 }

@@ -43,7 +43,19 @@ class ReglaDeRecursoTest {
                 Arguments.of("GET", P + "/concesiones", null, Accion.ADMINISTRAR),
                 Arguments.of("POST", P + "/concesiones", null, Accion.ADMINISTRAR),
                 Arguments.of("POST", P + "/bloqueo/tomar-control", null, Accion.MODELAR),
-                Arguments.of("GET", P + "/en-vivo", null, Accion.VER));
+                Arguments.of("GET", P + "/en-vivo", null, Accion.VER),
+                Arguments.of("GET", P + "/documentos", null, Accion.VER),
+                Arguments.of("POST", P + "/documentos", null, Accion.MODELAR),
+                Arguments.of("GET", P + "/documentacion", null, Accion.VER),
+                Arguments.of("PUT", P + "/documentacion", null, Accion.MODELAR),
+                Arguments.of("GET", P + "/caracterizacion", null, Accion.VER),
+                Arguments.of("PUT", P + "/caracterizacion", null, Accion.MODELAR),
+                Arguments.of("PUT", P + "/versiones/{numero}/dibujo", null, Accion.PUBLICAR),
+                Arguments.of("GET", P + "/manuales", null, Accion.VER),
+                Arguments.of("POST", P + "/manuales", null, Accion.EXPORTAR),
+                // PR 63: comentar no es modelar: tambien lo hace quien solo lee
+                Arguments.of("GET", P + "/comentarios", null, Accion.VER),
+                Arguments.of("POST", P + "/comentarios", null, Accion.COMENTAR));
     }
 
     @ParameterizedTest(name = "{0} {1} {2} pide {3}")
@@ -57,7 +69,7 @@ class ReglaDeRecursoTest {
 
     static Stream<Arguments> rutasDeElementos() {
         return Stream.of("pools", "lanes", "actividades", "gateways", "eventos", "arcos", "mensajes", "artefactos",
-                "asociaciones", "nodos").flatMap(tipo -> Stream.of(
+                "asociaciones", "nodos", "documentos", "manuales").flatMap(tipo -> Stream.of(
                         Arguments.of("GET", "/api/v1/" + tipo + "/{id}", Accion.VER, tipo),
                         Arguments.of("PUT", "/api/v1/" + tipo + "/{id}", Accion.MODELAR, tipo),
                         Arguments.of("DELETE", "/api/v1/" + tipo + "/{id}", Accion.MODELAR, tipo)));
@@ -71,6 +83,21 @@ class ReglaDeRecursoTest {
         assertThat(regla.accion()).isEqualTo(esperada);
         assertThat(regla.clase()).isEqualTo(ReglaDeRecurso.Clase.ELEMENTO);
         assertThat(regla.tipo()).isEqualTo(tipo);
+    }
+
+    static Stream<Arguments> rutasDeComentarios() {
+        return Stream.of(Arguments.of("PUT", "/api/v1/comentarios/{id}"),
+                Arguments.of("DELETE", "/api/v1/comentarios/{id}"),
+                Arguments.of("POST", "/api/v1/comentarios/{id}/respuestas"),
+                Arguments.of("POST", "/api/v1/comentarios/{id}/resolver"),
+                Arguments.of("POST", "/api/v1/comentarios/{id}/reabrir"));
+    }
+
+    @ParameterizedTest(name = "{0} {1} pide COMENTAR sobre el proceso del comentario")
+    @MethodSource("rutasDeComentarios")
+    void rutaDeComentario(String metodo, String patron) {
+        assertThat(ReglaDeRecurso.de(metodo, patron, null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.COMENTAR, ReglaDeRecurso.Clase.ELEMENTO, "comentarios"));
     }
 
     @Test
@@ -99,5 +126,15 @@ class ReglaDeRecursoTest {
         assertThat(ReglaDeRecurso.de("POST", "/api/v1/arcos", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/usuarios/{id}", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", null, null)).isEmpty();
+        // PR 61: bajar con un enlace firmado no tiene sesion: la firma es el permiso
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/documentos/{documentoId}/{numero}", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/manuales/{manualId}/{formato}", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("POST", "/api/v1/documentacion/vista-previa", null)).isEmpty();
+        // PR 63: las notificaciones son de cada persona, no de un proceso: las filtra su servicio
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/notificaciones", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("POST", "/api/v1/notificaciones/{id}/leida", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/notificaciones/preferencias", null)).isEmpty();
+        // PR 65: la busqueda no tiene recurso: su servicio filtra lo que cada quien puede ver, en la misma consulta
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/busqueda", null)).isEmpty();
     }
 }

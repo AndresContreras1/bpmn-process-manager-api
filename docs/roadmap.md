@@ -42,11 +42,18 @@
       and CORP, and Trusted Types in report mode; the forwarded headers believed only from the internal network
 - [ ] HSTS preload, a month after production runs on HTTPS
 
+**Authorization**
+- [x] Grants on folders and processes, to a person, a process role or the whole store, inherited down the folders,
+      decided by one evaluator in three layers: the access role, the grants and separation of duties
+- [x] Lists that only show what each person can see, filtered in the same query
+- [x] A screen to grant and revoke, with what is inherited from the folders, and the web hiding what a person
+      cannot do
+
 **Data and auditability**
 - [x] Row-level security in PostgreSQL on every table of a store, with a role that cannot bypass it
 - [x] An audit trail per store chained with SHA-256, that nobody can change or delete, fed from the outbox, with a
       verification that names where it breaks and a CSV export safe from formulas
-- [ ] The daily anchor of the last hash in a bucket with Object Lock
+- [x] The daily anchor of the last hash in a bucket with Object Lock, checked when the trail is verified
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
 - [x] Soft delete and change history for every BPMN element
 - [x] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
@@ -58,6 +65,41 @@
 - [x] Full OpenAPI documentation (`@Tag`, `@Operation`, `@ApiResponse`, `@Schema`), not published in production
 - [x] Field-level validation errors in Problem Details
 - [x] Aggregate endpoint that returns a complete BPMN diagram for the back-office web app
+
+**BPMN**
+- [x] XML read with hardened parsers and limits, and the geometry of every element (BPMN DI) kept in the model
+- [x] BPMN 2.0.2 export of a process and of each version, valid against the OMG schemas, with what BPMN has no
+      element for in an extension of its own
+- [x] Import from any tool by differences, with a report, the hard rules of the model and what other tools wrote kept
+      for the way back; a corpus of real files in the build and a fuzzer every night
+- [x] Documental processes, timers, boundary events, terminate ends, tasks without a type, annotations, groups and
+      data objects
+- [x] Sub-processes and call activities, with circular calls refused when publishing
+- [x] A modeler on bpmn-js with the rules of the model, a properties panel, the diagnosis as markers, autosave and a
+      local copy until the server confirms
+- [x] One drawing everywhere: the viewers of processes, versions and cases on the same component, the case as
+      markers and counters
+- [x] A structure view that does everything the canvas does from the keyboard, and targets of at least 24 × 24 px
+
+**Editing with others**
+- [x] `ETag` and `If-Match` on every editable resource, autosave of the whole model, and draft revisions
+- [x] A comparison by meaning between versions, the draft or a file, matched by `bpmnId`
+- [x] Presence over server-sent events shared by every replica, a soft lock and *take control*, in the API and the web
+
+**Process repository**
+- [x] A tree of folders, and for each process its owner, next review, classification and tags, with their filters
+- [x] The repository in the web: filters in the address, folders and processes moved from the keyboard, and the
+      global search on Ctrl+K
+- [x] Documents attached to a process or an element, with versions, a type from the content, an antivirus and ZIP
+      bomb check in the queue, a quota per store and downloads by signed link, on S3 or compatible storage
+- [x] Documentation in Markdown per process and element, cleaned on the server, and a characterization sheet
+- [x] The process manual in HTML and PDF, built in the queue from the published version and the drawing the web
+      app sends when publishing
+- [x] Comment threads on a process, an element or a version, with mentions of who can view it, resolve and reopen,
+      and a notification center in the app, over server-sent events and by e-mail, immediate or in a daily digest
+- [x] Full-text search over processes, elements of the draft and of the published version, documents with the text
+      read from the file, and comments, in the store's language and filtered by what each person can view
+- [ ] Review and approval
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline
