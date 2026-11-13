@@ -348,7 +348,7 @@ class ExtractorDeTextoTest {
 
     @Test
     @DisplayName("un hilo que no suelta su archivo se da por colgado y su lugar se repone, hasta el tope de colgados")
-    void colgados() throws Exception {
+    void colgados() {
         CountDownLatch soltar = new CountDownLatch(1);
         Parser terco = new Falso() {
             @Override

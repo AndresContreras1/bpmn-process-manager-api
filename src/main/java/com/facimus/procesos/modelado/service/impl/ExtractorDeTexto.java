@@ -15,6 +15,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.extractor.EmbeddedDocumentExtractor;
@@ -74,7 +75,7 @@ public class ExtractorDeTexto implements AutoCloseable {
     private static final int LARGO_DEL_MOTIVO = 300;
 
     /** Cuanto se espera, tras interrumpirlo, a que el hilo de un archivo vencido lo suelte. */
-    static final Duration GRACIA = Duration.ofSeconds(5);
+    static final Duration GRACIA_POR_OMISION = Duration.ofSeconds(5);
 
     /** Cuantos hilos colgados se reponen, como mucho; pasado eso, uno colgado ocupa su lugar hasta terminar. */
     static final int MAXIMO_COLGADOS = 8;
@@ -109,7 +110,7 @@ public class ExtractorDeTexto implements AutoCloseable {
     }
 
     ExtractorDeTexto(Map<TipoDeArchivo, Parser> parsers, int maximo, Duration espera, int hilos) {
-        this(parsers, maximo, espera, hilos, GRACIA, MAXIMO_COLGADOS);
+        this(parsers, maximo, espera, hilos, GRACIA_POR_OMISION, MAXIMO_COLGADOS);
     }
 
     ExtractorDeTexto(Map<TipoDeArchivo, Parser> parsers, int maximo, Duration espera, int hilos, Duration gracia,
@@ -196,10 +197,10 @@ public class ExtractorDeTexto implements AutoCloseable {
 
         private final CountDownLatch terminada = new CountDownLatch(1);
         private final AtomicInteger estado = new AtomicInteger(LEYENDO);
-        private volatile Thread hilo;
+        private final AtomicReference<Thread> hilo = new AtomicReference<>();
 
         Resultado correr(Path archivo, Parser parser) {
-            hilo = Thread.currentThread();
+            hilo.set(Thread.currentThread());
             try {
                 return leer(archivo, parser);
             } finally {
@@ -213,7 +214,7 @@ public class ExtractorDeTexto implements AutoCloseable {
         }
 
         void interrumpir() {
-            Thread leyendo = hilo;
+            Thread leyendo = hilo.get();
             if (leyendo != null) {
                 leyendo.interrupt();
             }
@@ -236,26 +237,26 @@ public class ExtractorDeTexto implements AutoCloseable {
                 colgados.decrementAndGet();
             }
         }
-    }
 
-    private Resultado leer(Path archivo, Parser parser) {
-        TextoAcotado texto = new TextoAcotado(maximo);
-        ParseContext contexto = new ParseContext();
-        contexto.set(EmbeddedDocumentExtractor.class, new SinIncrustados());
-        try (TikaInputStream entrada = TikaInputStream.get(archivo)) {
-            parser.parse(entrada, new BodyContentHandler(texto), new Metadata(), contexto);
-        } catch (IOException | SAXException | TikaException e) {
-            // Llegar al tope corta el analisis con una excepcion, que algunos parsers envuelven en la suya
-            if (!texto.lleno()) {
-                return Resultado.sinTexto(motivo(e));
+        private Resultado leer(Path archivo, Parser parser) {
+            TextoAcotado texto = new TextoAcotado(maximo);
+            ParseContext contexto = new ParseContext();
+            contexto.set(EmbeddedDocumentExtractor.class, new SinIncrustados());
+            try (TikaInputStream entrada = TikaInputStream.get(archivo)) {
+                parser.parse(entrada, new BodyContentHandler(texto), new Metadata(), contexto);
+            } catch (IOException | SAXException | TikaException e) {
+                // Llegar al tope corta el analisis con una excepcion, que algunos parsers envuelven en la suya
+                if (!texto.lleno()) {
+                    return Resultado.sinTexto(motivo(e));
+                }
             }
+            String leido = texto.texto();
+            if (leido.isEmpty()) {
+                return Resultado.sinTexto("El archivo no tiene texto que leer.");
+            }
+            return texto.lleno() ? new Resultado(leido, "El texto pasa de " + maximo + " caracteres: se guardan los primeros.")
+                    : Resultado.leido(leido);
         }
-        String leido = texto.texto();
-        if (leido.isEmpty()) {
-            return Resultado.sinTexto("El archivo no tiene texto que leer.");
-        }
-        return texto.lleno() ? new Resultado(leido, "El texto pasa de " + maximo + " caracteres: se guardan los primeros.")
-                : Resultado.leido(leido);
     }
 
     private static String motivo(Throwable causa) {
