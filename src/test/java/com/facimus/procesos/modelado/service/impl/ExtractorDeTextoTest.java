@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -51,6 +52,8 @@ class ExtractorDeTextoTest {
 
     private static final String XHTML = "http://www.w3.org/1999/xhtml";
     private static final Duration ESPERA = Duration.ofSeconds(20);
+    /** Cuanto espera turno un archivo, y cuanto tarda luego en leerse, en la prueba del tiempo de 2 s. */
+    private static final Duration TURNO = Duration.ofMillis(1200);
 
     @TempDir
     private Path carpeta;
@@ -284,43 +287,62 @@ class ExtractorDeTextoTest {
     @Test
     @DisplayName("un archivo que no termina a tiempo se deja sin texto, y el hilo que lo leia se interrumpe")
     void tiempo() throws InterruptedException {
+        CountDownLatch soltar = new CountDownLatch(1);
         CountDownLatch interrumpido = new CountDownLatch(1);
         Parser lento = new Falso() {
             @Override
             public void parse(TikaInputStream stream, ContentHandler handler, Metadata metadata, ParseContext context) {
                 try {
-                    Thread.sleep(Duration.ofMinutes(1));
+                    soltar.await();
                 } catch (InterruptedException _) {
                     interrumpido.countDown();
                 }
             }
         };
 
-        Resultado resultado = conParser(lento, 100, Duration.ofSeconds(1));
+        try {
+            Resultado resultado = conParser(lento, 100, Duration.ofSeconds(1));
 
-        assertThat(resultado).isEqualTo(new Resultado(null, "Leerlo tardó más de 1 s."));
-        assertThat(interrumpido.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(resultado).isEqualTo(new Resultado(null, "Leerlo tardó más de 1 s."));
+            assertThat(interrumpido.await(10, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            soltar.countDown();
+        }
     }
 
     @Test
     @DisplayName("el tiempo cuenta desde que un hilo lo empieza a leer, no mientras espera turno detras de otro")
     void tiempoDesdeQueEmpieza() throws Exception {
-        CountDownLatch empezado = new CountDownLatch(1);
-        Parser primero = tarda("uno", Duration.ofMillis(1200), empezado);
-        Parser segundo = tarda("dos", Duration.ofMillis(1200), new CountDownLatch(1));
+        CountDownLatch empezoElPrimero = new CountDownLatch(1);
+        CountDownLatch soltarElPrimero = new CountDownLatch(1);
+        CountDownLatch empezoElSegundo = new CountDownLatch(1);
+        CountDownLatch soltarElSegundo = new CountDownLatch(1);
+        Parser primero = leeAlSoltarlo("uno", empezoElPrimero, soltarElPrimero);
+        Parser segundo = leeAlSoltarlo("dos", empezoElSegundo, soltarElSegundo);
         extractor = new ExtractorDeTexto(Map.of(TipoDeArchivo.TEXTO, primero, TipoDeArchivo.CSV, segundo), 100,
                 Duration.ofSeconds(2), 1);
         Path uno = archivo(new byte[] {1});
         Path dos = archivo(new byte[] {2});
         CompletableFuture<Resultado> antes = new CompletableFuture<>();
-        Thread.ofPlatform().start(() -> antes.complete(extractor.extraer(uno, TipoDeArchivo.TEXTO)));
-        assertThat(empezado.await(10, TimeUnit.SECONDS)).isTrue();
+        CompletableFuture<Resultado> despues = new CompletableFuture<>();
+        try {
+            Thread.ofPlatform().start(() -> antes.complete(extractor.extraer(uno, TipoDeArchivo.TEXTO)));
+            assertThat(empezoElPrimero.await(10, TimeUnit.SECONDS)).isTrue();
+            Thread.ofPlatform().start(() -> despues.complete(extractor.extraer(dos, TipoDeArchivo.CSV)));
 
-        // Espera su turno 1,2 s y se lee en otros 1,2: pasa de 2 s desde que se pidio, pero no desde que empezo
-        Resultado despues = extractor.extraer(dos, TipoDeArchivo.CSV);
+            // Espera su turno 1,2 s y se lee en otros 1,2: pasa de 2 s desde que se pidio, pero no desde que empezo
+            await().during(TURNO).atMost(TURNO.multipliedBy(5)).until(() -> !despues.isDone());
+            soltarElPrimero.countDown();
+            assertThat(empezoElSegundo.await(10, TimeUnit.SECONDS)).isTrue();
+            await().during(TURNO).atMost(TURNO.multipliedBy(5)).until(() -> !despues.isDone());
+            soltarElSegundo.countDown();
 
-        assertThat(despues).isEqualTo(new Resultado("dos", null));
-        assertThat(antes.get(10, TimeUnit.SECONDS)).isEqualTo(new Resultado("uno", null));
+            assertThat(despues.get(10, TimeUnit.SECONDS)).isEqualTo(new Resultado("dos", null));
+            assertThat(antes.get(10, TimeUnit.SECONDS)).isEqualTo(new Resultado("uno", null));
+        } finally {
+            soltarElPrimero.countDown();
+            soltarElSegundo.countDown();
+        }
     }
 
     @Test
@@ -359,11 +381,12 @@ class ExtractorDeTextoTest {
     @Test
     @DisplayName("si interrumpen a quien espera, no se da por leido: falla para que la cola lo intente otra vez")
     void interrumpido() {
+        CountDownLatch soltar = new CountDownLatch(1);
         Parser lento = new Falso() {
             @Override
             public void parse(TikaInputStream stream, ContentHandler handler, Metadata metadata, ParseContext context) {
                 try {
-                    Thread.sleep(Duration.ofMinutes(1));
+                    soltar.await();
                 } catch (InterruptedException _) {
                     Thread.currentThread().interrupt();
                 }
@@ -380,6 +403,7 @@ class ExtractorDeTextoTest {
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
         } finally {
             Thread.interrupted();
+            soltar.countDown();
         }
     }
 
@@ -413,15 +437,15 @@ class ExtractorDeTextoTest {
                 .isInstanceOf(RejectedExecutionException.class);
     }
 
-    /** Un parser que avisa que empezo, tarda lo dicho y escribe su texto. */
-    private static Parser tarda(String texto, Duration cuanto, CountDownLatch empezado) {
+    /** Un parser que avisa que empezo, sigue leyendo hasta que la prueba lo suelta y escribe su texto. */
+    private static Parser leeAlSoltarlo(String texto, CountDownLatch empezado, CountDownLatch soltar) {
         return new Falso() {
             @Override
             public void parse(TikaInputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
                     throws SAXException {
                 empezado.countDown();
                 try {
-                    Thread.sleep(cuanto);
+                    soltar.await();
                 } catch (InterruptedException _) {
                     Thread.currentThread().interrupt();
                     return;

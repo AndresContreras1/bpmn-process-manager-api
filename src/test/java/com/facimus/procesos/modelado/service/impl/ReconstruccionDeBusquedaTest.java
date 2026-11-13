@@ -91,4 +91,27 @@ class ReconstruccionDeBusquedaTest {
         verify(transacciones, times(8)).commit(any());
         verifyNoInteractions(proveedorDeLaCola);
     }
+
+    @Test
+    @DisplayName("un tramo que no pasa de donde empezo termina su tabla, y el trabajo sigue con la siguiente")
+    void sinAvance() {
+        when(transacciones.getTransaction(any())).thenAnswer(llamada -> new SimpleTransactionStatus());
+        Map<String, List<Long>> ultimos = new HashMap<>();
+        ultimos.put("procesos", new ArrayList<>(List.of(5L, 5L)));
+        ultimos.put("elementos_buscables", new ArrayList<>(List.of(0L)));
+        ultimos.put("comentarios", new ArrayList<>(Arrays.asList((Long) null)));
+        ultimos.put("versiones_documento", new ArrayList<>(Arrays.asList((Long) null)));
+        List<String> tablas = new ArrayList<>();
+        when(jdbc.queryForObject(eq(ReconstruccionDeBusqueda.TRAMO), eq(Long.class), any(), any(), any(), any()))
+                .thenAnswer(llamada -> {
+                    String tabla = llamada.getArgument(3);
+                    tablas.add(tabla);
+                    return ultimos.get(tabla).removeFirst();
+                });
+
+        reconstruccion.ejecutar(new Trabajo(1, EMPRESA, "busqueda.rehacer", "7", 1, 5));
+
+        assertThat(tablas).containsExactly("procesos", "procesos", "elementos_buscables", "comentarios",
+                "versiones_documento");
+    }
 }
