@@ -7,7 +7,7 @@
       </p>
     </div>
     @if (puedeEditar) {
-      <a i18n class="btn btn-primary" routerLink="/procesos/nuevo" id="procesos-nuevo">
+      <a i18n class="btn btn-primary" routerLink="/procesos/nuevo" [queryParams]="alCrear" id="procesos-nuevo">
         <i class="fa-solid fa-plus" aria-hidden="true"></i> New process
       </a>
     }
@@ -37,7 +37,11 @@
 
   <div class="row g-3">
     <div class="col-lg-3">
-      <app-carpetas [puedeEditar]="puedeEditar" (elegir)="filtrarPorCarpeta($event)" />
+      <app-carpetas
+        [puedeEditar]="puedeEditar"
+        [seleccionada]="filtros.carpetaId ?? null"
+        (elegir)="filtrarPorCarpeta($event)"
+      />
     </div>
     <div class="col-lg-9">
       <div class="card border-0 shadow-sm">
@@ -103,6 +107,27 @@
                 <option i18n value="">All classifications</option>
                 @for (uno of clasificaciones; track uno) {
                   <option [value]="uno">{{ nombreClasificacion[uno] }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-4">
+              <select
+                i18n-aria-label
+                class="form-select form-select-sm"
+                id="procesos-dueno"
+                name="dueno"
+                aria-label="Filter by owner"
+                [(ngModel)]="filtros.duenoId"
+                (ngModelChange)="filtrar()"
+              >
+                <option i18n [ngValue]="null">Any owner</option>
+                @if (yo !== null) {
+                  <option i18n [ngValue]="yo">Me</option>
+                }
+                @for (usuario of usuarios; track usuario.id) {
+                  @if (usuario.id !== yo) {
+                    <option [ngValue]="usuario.id">{{ usuario.nombre }}</option>
+                  }
                 }
               </select>
             </div>
@@ -223,6 +248,16 @@
                       <td class="d-none d-md-table-cell text-body-secondary small">
                         {{ proceso.fechaModificacion | fecha: 'fechaHora' }}
                       </td>
+                      <td class="d-none d-lg-table-cell text-body-secondary small" data-testid="proceso-revision">
+                        @if (proceso.proximaRevision) {
+                          {{ proceso.proximaRevision | fecha: 'fecha' }}
+                        } @else {
+                          <span aria-hidden="true">—</span><span i18n class="visually-hidden">none</span>
+                        }
+                      </td>
+                      <td class="d-none d-xl-table-cell small" data-testid="proceso-clasificacion">
+                        {{ nombreClasificacion[proceso.clasificacion ?? 'INTERNA'] }}
+                      </td>
                       @if (puedeEditar) {
                         <td class="text-end text-nowrap">
                           <div
@@ -241,6 +276,18 @@
                               <i class="fa-solid fa-pen" aria-hidden="true"></i
                               ><span i18n class="d-none d-lg-inline ms-1">Edit</span>
                             </a>
+                            <button
+                              i18n-title
+                              type="button"
+                              class="btn btn-outline-secondary"
+                              data-testid="proceso-mover"
+                              title="Move"
+                              [attr.aria-label]="etiqueta.mover(proceso.nombre)"
+                              (click)="moviendo = proceso"
+                            >
+                              <i class="fa-solid fa-folder-tree" aria-hidden="true"></i
+                              ><span i18n class="d-none d-xxl-inline ms-1">Move</span>
+                            </button>
                             @if (proceso.estado === 'BORRADOR') {
                               <button
                                 i18n-title
@@ -283,7 +330,7 @@
             </div>
 
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
-              <span i18n class="small text-body-secondary" id="procesos-total">
+              <span i18n class="small text-body-secondary" id="procesos-total" aria-live="polite">
                 {pagina.totalElements, plural, =1 {1 process} other {{{ pagina.totalElements }} processes}}
               </span>
               @if (pagina.totalPages > 1) {
@@ -349,6 +396,10 @@
   i18n-mensaje
   (confirmar)="confirmarEliminacion()"
 />
+
+@if (moviendo) {
+  <app-mover-proceso [proceso]="moviendo" (movido)="alMover($event)" (cerrar)="moviendo = null" />
+}
 
 @if (recibidos.length) {
   <div class="container pb-5" id="procesos-recibidos">

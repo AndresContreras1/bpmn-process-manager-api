@@ -30,6 +30,10 @@ describe('contraste de los tokens', () => {
     ['un enlace en oscuro', 'color.marca.enlace-oscuro', 'color.oscuro.fondo', AA_TEXTO],
     ['un enlace en oscuro sobre una superficie', 'color.marca.enlace-oscuro', 'color.oscuro.superficie', AA_TEXTO],
     ['el borde de un control en oscuro', 'color.oscuro.texto-secundario', 'color.oscuro.superficie', AA_CONTROL],
+    // F19: el boton de la busqueda en el encabezado (gray-700 sobre btn-light) y lo resaltado de sus resultados
+    ['el boton de buscar del encabezado', '#495057', '#f8f9fa', AA_TEXTO],
+    ['lo resaltado de la busqueda', 'color.fondo.texto', '#fff3cd', AA_TEXTO],
+    ['lo resaltado de la busqueda en oscuro', 'color.oscuro.texto', '#332701', AA_TEXTO],
   ];
 
   it.each(pares)('%s llega al nivel AA', (_descripcion, texto, fondo, minimo) => {

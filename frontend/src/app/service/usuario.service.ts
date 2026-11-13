@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { PageResponse } from '../models/page-response.model';
@@ -40,6 +40,16 @@ export class UsuarioService {
       params['incluirInactivos'] = true;
     }
     return this.http.get<PageResponse<Usuario>>(this.url, { params });
+  }
+
+  /**
+   * Los activos en una sola pagina, por nombre, para los desplegables que eligen a alguien: el dueno de un proceso y
+   * a quien se le concede algo. Cincuenta es el maximo que la API acepta por pagina.
+   */
+  paraElegir(): Observable<Usuario[]> {
+    return this.http
+      .get<PageResponse<Usuario>>(this.url, { params: { pagina: 0, tamano: 50, orden: 'nombre,asc' } })
+      .pipe(map((pagina: PageResponse<Usuario>) => pagina.content));
   }
 
   /** La respuesta trae la clave temporal cuando la API la invento: es la unica vez que se puede leer. */

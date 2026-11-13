@@ -107,6 +107,55 @@
                   {{ procesoForm.value.descripcion?.length ?? 0 }} / 4000
                 </div>
 
+                @if (!isEdit) {
+                  <!-- Plegada salvo que la lista ya trajera una carpeta: lo de siempre es crear sin archivar -->
+                  <details
+                    class="mb-4"
+                    id="proceso-form-archivo"
+                    [open]="archivoForm.controls.carpetaId.value !== null"
+                  >
+                    <summary i18n class="fw-semibold">Filing</summary>
+                    <fieldset class="row g-2 mt-1" [formGroup]="archivoForm">
+                      <legend i18n class="visually-hidden">Filing</legend>
+                      <p i18n class="form-text mt-0 mb-1">
+                        Optional. The owner and the next review are set later, on the process page.
+                      </p>
+                      <div class="col-md-6">
+                        <label i18n class="form-label small mb-0" for="proceso-form-carpeta">Folder</label>
+                        <select class="form-select" id="proceso-form-carpeta" formControlName="carpetaId">
+                          <option i18n [ngValue]="null">No folder</option>
+                          @for (fila of filas; track fila.carpeta.id) {
+                            <option [ngValue]="fila.carpeta.id">
+                              {{ '— '.repeat(fila.nivel) }}{{ fila.carpeta.nombre }}
+                            </option>
+                          }
+                        </select>
+                      </div>
+                      <div class="col-md-6">
+                        <label i18n class="form-label small mb-0" for="proceso-form-clasificacion"
+                          >Classification</label
+                        >
+                        <select class="form-select" id="proceso-form-clasificacion" formControlName="clasificacion">
+                          @for (uno of clasificaciones; track uno) {
+                            <option [ngValue]="uno">{{ nombreClasificacion[uno] }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="col-12">
+                        <label i18n class="form-label small mb-0" for="proceso-form-etiquetas"
+                          >Tags, separated by commas</label
+                        >
+                        <input
+                          class="form-control"
+                          id="proceso-form-etiquetas"
+                          formControlName="etiquetas"
+                          autocomplete="off"
+                        />
+                      </div>
+                    </fieldset>
+                  </details>
+                }
+
                 <div class="d-flex flex-wrap justify-content-end gap-2">
                   <a
                     i18n

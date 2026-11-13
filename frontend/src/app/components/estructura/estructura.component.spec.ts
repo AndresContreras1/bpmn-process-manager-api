@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 import { Preferencias } from '../../models/preferencias.model';
 import { AuthService } from '../../service/auth.service';
 import { AvisosService } from '../../service/avisos.service';
+import { BusquedaGlobalService } from '../../service/busqueda-global.service';
 import { IdiomaService } from '../../service/idioma.service';
 import { PreferenciasService } from '../../service/preferencias.service';
 import { EstructuraComponent } from './estructura.component';
@@ -56,5 +57,50 @@ describe('EstructuraComponent: cambiar el idioma', () => {
     expect(avisos.avisos()).toEqual([
       expect.objectContaining({ tipo: 'error', texto: expect.stringContaining('could not be saved') }),
     ]);
+  });
+});
+
+describe('EstructuraComponent: Ctrl+K', () => {
+  let usuario: { id: number } | null;
+  let busqueda: BusquedaGlobalService;
+  let estructura: EstructuraComponent;
+
+  beforeEach(() => {
+    usuario = { id: 1 };
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: { usuario$: of(null), usuarioActual: () => usuario } },
+      ],
+    });
+    busqueda = TestBed.inject(BusquedaGlobalService);
+    estructura = TestBed.runInInjectionContext(() => new EstructuraComponent());
+  });
+
+  function pulsar(cambios: Partial<KeyboardEventInit>): KeyboardEvent {
+    const evento = new KeyboardEvent('keydown', { key: 'k', cancelable: true, ...cambios });
+    estructura.atajo(evento);
+    return evento;
+  }
+
+  it('con sesion abre la busqueda global y le quita el atajo al navegador', () => {
+    const evento = pulsar({ ctrlKey: true });
+
+    expect(busqueda.abierta()).toBe(true);
+    expect(evento.defaultPrevented).toBe(true);
+  });
+
+  it('sin sesion no abre nada y el navegador conserva su atajo', () => {
+    usuario = null;
+    const evento = pulsar({ metaKey: true });
+
+    expect(busqueda.abierta()).toBe(false);
+    expect(evento.defaultPrevented).toBe(false);
+  });
+
+  it('otra tecla no la abre', () => {
+    pulsar({ key: 'j', ctrlKey: true });
+
+    expect(busqueda.abierta()).toBe(false);
   });
 });

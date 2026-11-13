@@ -35,6 +35,7 @@
     @if (error) {
       <div class="alert alert-danger py-1 small" role="alert" id="carpetas-error">{{ error }}</div>
     }
+    <div class="small text-success mb-1" role="status" id="carpetas-aviso">{{ aviso }}</div>
     @if (puedeEditar()) {
       <label i18n class="form-label small mb-0" for="carpetas-nombre">Folder name</label>
       <input
@@ -77,6 +78,34 @@
           Delete
         </button>
       </div>
+      @if (actual) {
+        <label i18n class="form-label small mb-0 mt-2" for="carpetas-destino">Move “{{ actual.nombre }}” into</label>
+        <div class="d-flex gap-1">
+          <select class="form-select form-select-sm" id="carpetas-destino" name="destino" [(ngModel)]="destino">
+            <option i18n [ngValue]="null">The top level</option>
+            @for (fila of destinos; track fila.carpeta.id) {
+              <option [ngValue]="fila.carpeta.id">{{ '— '.repeat(fila.nivel) }}{{ fila.carpeta.nombre }}</option>
+            }
+          </select>
+          <button
+            i18n
+            type="button"
+            class="btn btn-sm btn-outline-secondary flex-shrink-0"
+            id="carpetas-mover"
+            [disabled]="destino === actual.padreId"
+            (click)="mover()"
+          >
+            Move
+          </button>
+        </div>
+        <a
+          i18n
+          class="btn btn-sm btn-link px-0 mt-1"
+          id="carpetas-permisos"
+          [routerLink]="['/carpetas', actual.id, 'permisos']"
+          ><i class="fa-solid fa-user-lock" aria-hidden="true"></i> Who can do what here</a
+        >
+      }
     }
   </div>
 </nav>
