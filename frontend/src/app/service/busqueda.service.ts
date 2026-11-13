@@ -15,15 +15,20 @@ export class BusquedaService {
   private readonly http: HttpClient = inject(HttpClient);
   private readonly url: string = `${environment.apiUrl}/api/v1/busqueda`;
 
+  /** Con publicado (F22, el portal), solo lo de la version vigente de cada proceso, y sin comentarios. */
   buscar(
     texto: string,
     tipo: TipoDeResultado | null = null,
     pagina: number = 0,
+    publicado: boolean = false,
   ): Observable<PageResponse<ResultadoDeBusqueda>> {
     // Con el objeto params Angular codifica el texto: las comillas de una frase y el menos de excluir viajan tal cual
     const params: Record<string, string | number> = { q: texto, pagina, tamano: RESULTADOS_POR_BUSQUEDA };
     if (tipo) {
       params['tipo'] = tipo;
+    }
+    if (publicado) {
+      params['publicado'] = 'true';
     }
     return this.http.get<PageResponse<ResultadoDeBusqueda>>(this.url, { params });
   }

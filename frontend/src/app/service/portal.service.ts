@@ -40,10 +40,13 @@ export class PortalService {
     });
   }
 
-  /** La busqueda del PR 65, la misma del Ctrl+K, sin lo que no es del portal (resultadosDelPortal). */
+  /**
+   * La busqueda del PR 65, la misma del Ctrl+K, pero solo de lo publicado: la API deja fuera los procesos sin version
+   * vigente, lo que solo esta en el borrador y los comentarios (resultadosDelPortal lo vuelve a asegurar).
+   */
   buscar(texto: string): Observable<ResultadoDeBusqueda[]> {
     return this.busqueda
-      .buscar(texto)
+      .buscar(texto, null, 0, true)
       .pipe(map((pagina: PageResponse<ResultadoDeBusqueda>) => resultadosDelPortal(pagina.content)));
   }
 

@@ -122,6 +122,7 @@ class PortalDeLecturaIntegracionTest {
     private Long empresaId;
     private Long carpeta;
     private Long proceso;
+    private Long lane;
     private String tarea;
 
     private static Path carpeta() {
@@ -152,7 +153,7 @@ class PortalDeLecturaIntegracionTest {
         proceso = procesoService.crear(empresaId, admin, "Despacho", "Del pago a la entrega", "Fulfillment").id();
         Long tienda = poolService.listarPorProceso(empresaId, proceso).getFirst().id();
         Long rol = rolProcesoService.crear(empresaId, admin, "Empaque", null).id();
-        Long lane = laneService.crear(empresaId, admin, tienda, "Empaque", rol).id();
+        lane = laneService.crear(empresaId, admin, tienda, "Empaque", rol).id();
         Long inicio = eventoService.crear(empresaId, admin, lane, "Pedido pagado", TipoEvento.INICIO, 20, 80).id();
         Long empacar = actividadService.crear(empresaId, admin, lane, "Empacar", "Con cinta", TipoActividad.USUARIO,
                 160, 80).id();
@@ -275,6 +276,30 @@ class PortalDeLecturaIntegracionTest {
     }
 
     @Test
+    @DisplayName("la busqueda de lo publicado deja fuera los borradores, lo que solo esta en el borrador y los "
+            + "comentarios, y de un paso publicado trae la version vigente")
+    void buscarSoloLoPublicado() throws Exception {
+        publicar();
+        actividadService.crear(empresaId, ana.usuarioId(), lane, "Sellar la caja", null, TipoActividad.USUARIO, 160,
+                200);
+        procesoService.crear(empresaId, ana.usuarioId(), "Sellar devoluciones", "Nunca publicado", "Ventas");
+        mvc.perform(post("/api/v1/procesos/{id}/comentarios", proceso).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"markdown\":\"Sellar con cuidado\"}").with(principal(beto)))
+                .andExpect(status().isCreated());
+
+        mvc.perform(get("/api/v1/busqueda").param("q", "sellar").with(principal(carla))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].tipo", containsInAnyOrder("PROCESO", "ELEMENTO", "COMENTARIO")));
+        mvc.perform(get("/api/v1/busqueda").param("q", "sellar").param("publicado", "true").with(principal(carla)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get("/api/v1/busqueda").param("q", "empacar").param("publicado", "true")
+                .with(principal(carla))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].bpmnId").value(tarea))
+                .andExpect(jsonPath("$.content[0].version").value(1));
+    }
+
+    @Test
     @DisplayName("quien solo lee no cambia ni pide nada, aunque los permisos digan que exporta")
     void quienSoloLeeNoCambiaNada() throws Exception {
         publicar();
@@ -304,10 +329,19 @@ class PortalDeLecturaIntegracionTest {
     }
 
     @Test
-    @DisplayName("otra tienda no encuentra nada del portal: ni el proceso, ni su version, ni sus documentos")
+    @DisplayName("otra tienda no encuentra nada del portal: ni el proceso, ni su version, ni sus permisos, ni sus "
+            + "documentos y manuales, ni en la busqueda")
     void otraTiendaNoVeNada() throws Exception {
         archivar();
+        long documento = leer(mvc.perform(post("/api/v1/procesos/{id}/documentos", proceso)
+                .param("nombre", "empaque.txt").param("elemento", tarea)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .content(INSTRUCCIONES.getBytes(StandardCharsets.UTF_8)).with(principal(beto)))
+                .andExpect(status().isCreated())).get("id").asLong();
         publicar();
+        long manual = leer(mvc.perform(post("/api/v1/procesos/{id}/manuales", proceso).with(principal(beto)))
+                .andExpect(status().isAccepted())).get("id").asLong();
+        vaciarLaCola();
 
         como(ajeno, "/api/v1/procesos/{id}", proceso).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/procesos/{id}/versiones/1/modelo", proceso).param("para", "dibujar")
@@ -316,5 +350,10 @@ class PortalDeLecturaIntegracionTest {
         como(ajeno, "/api/v1/procesos/{id}/caracterizacion", proceso).andExpect(status().isNotFound());
         como(ajeno, "/api/v1/procesos/{id}/documentos", proceso).andExpect(status().isNotFound());
         como(ajeno, "/api/v1/procesos/{id}/manuales", proceso).andExpect(status().isNotFound());
+        como(ajeno, "/api/v1/procesos/{id}/permisos", proceso).andExpect(status().isNotFound());
+        como(ajeno, "/api/v1/documentos/{id}/enlace", documento).andExpect(status().isNotFound());
+        como(ajeno, "/api/v1/manuales/{id}/enlace", manual).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/busqueda").param("q", "empacar").with(principal(ajeno))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0));
     }
 }

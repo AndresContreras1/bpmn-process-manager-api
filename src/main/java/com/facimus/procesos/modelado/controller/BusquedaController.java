@@ -56,6 +56,9 @@ public class BusquedaController {
                     message = "La búsqueda no puede pasar de 200 caracteres.") String q,
             @Parameter(description = "Only hits of this kind: PROCESO, ELEMENTO, DOCUMENTO or COMENTARIO")
             @RequestParam(required = false) TipoDeResultado tipo,
+            @Parameter(description = "Only what is published: processes with a version in force, the elements of "
+                    + "that version and the documents of those processes; no comments")
+            @RequestParam(defaultValue = "false") boolean publicado,
             @Parameter(description = "Page number, starting at 0")
             @RequestParam(defaultValue = "0") @Min(value = 0, message = Paginacion.PAGINA_INVALIDA) int pagina,
             @Parameter(description = "Hits per page, from 1 to 50")
@@ -63,7 +66,7 @@ public class BusquedaController {
             @Max(value = Paginacion.TAMANO_MAXIMO, message = Paginacion.TAMANO_INVALIDO) int tamano,
             @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(busquedaService.buscar(
-                new Actor(principal.usuarioId(), principal.empresaId(), principal.rol()), q, tipo,
+                new Actor(principal.usuarioId(), principal.empresaId(), principal.rol()), q, tipo, publicado,
                 Paginacion.de(pagina, tamano)));
     }
 }

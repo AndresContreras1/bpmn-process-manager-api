@@ -30,8 +30,19 @@ describe('BusquedaService', () => {
     // Veinte, dentro del tope de la API: un numero escrito, para que cambiar la constante no pase sin verse
     expect(peticion.request.params.get('tamano')).toBe('20');
     expect(peticion.request.params.has('tipo')).toBe(false);
+    expect(peticion.request.params.has('publicado')).toBe(false);
     peticion.flush(vacia);
     await expect(pagina).resolves.toEqual(vacia);
+  });
+
+  it('solo lo publicado, si se pide', async () => {
+    const pagina = firstValueFrom(busqueda.buscar('pack', null, 0, true));
+
+    const peticion = http.expectOne((req) => req.url === url);
+    expect(peticion.request.params.get('publicado')).toBe('true');
+    expect(peticion.request.params.has('tipo')).toBe(false);
+    peticion.flush(vacia);
+    await pagina;
   });
 
   it('con un tipo, solo ese tipo, y la pagina pedida', async () => {

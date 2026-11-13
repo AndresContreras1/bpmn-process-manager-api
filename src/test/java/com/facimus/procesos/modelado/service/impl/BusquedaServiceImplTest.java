@@ -78,7 +78,7 @@ class BusquedaServiceImplTest {
     void vacio() {
         for (String texto : new String[] {null, "", "   "}) {
             PageResponse<ResultadoDeBusquedaResponse> pagina = servicio.buscar(CARLA, texto, null,
-                    PageRequest.of(2, 15));
+                    false, PageRequest.of(2, 15));
 
             assertThat(pagina.content()).isEmpty();
             assertThat(pagina.totalElements()).isZero();
@@ -94,7 +94,7 @@ class BusquedaServiceImplTest {
         when(permisos.visibilidad(CARLA)).thenReturn(new Visibilidad(false, Set.of(5L, 3L), Set.of(), Set.of(9L)));
         aciertos(List.of());
 
-        servicio.buscar(CARLA, "  crédito  ", null, PageRequest.of(2, 20));
+        servicio.buscar(CARLA, "  crédito  ", null, false, PageRequest.of(2, 20));
 
         MapSqlParameterSource parametros = parametrosDe(BusquedaServiceImpl.PAGINA);
         assertThat(parametros.getValue("empresa")).isEqualTo(EMPRESA);
@@ -106,6 +106,19 @@ class BusquedaServiceImplTest {
         assertThat(parametros.getValue("procesosOcultos")).isEqualTo("{}");
         assertThat(parametros.getValue("tamano")).isEqualTo(20);
         assertThat(parametros.getValue("desde")).isEqualTo(40L);
+        assertThat(parametros.getValue("publicado")).isEqualTo(false);
+        assertThat(parametros.getSqlType("publicado")).isEqualTo(Types.BOOLEAN);
+    }
+
+    @Test
+    @DisplayName("solo lo publicado: la consulta lo recibe, para quedarse con la version vigente sin comentarios")
+    void soloPublicado() {
+        when(permisos.visibilidad(CARLA)).thenReturn(Visibilidad.TODO);
+        aciertos(List.of());
+
+        servicio.buscar(CARLA, "credito", null, true, PageRequest.of(0, 20));
+
+        assertThat(parametrosDe(BusquedaServiceImpl.PAGINA).getValue("publicado")).isEqualTo(true);
     }
 
     @Test
@@ -114,7 +127,7 @@ class BusquedaServiceImplTest {
         when(permisos.visibilidad(CARLA)).thenReturn(Visibilidad.TODO);
         aciertos(List.of());
 
-        servicio.buscar(CARLA, "credito", TipoDeResultado.ELEMENTO, PageRequest.of(0, 20));
+        servicio.buscar(CARLA, "credito", TipoDeResultado.ELEMENTO, false, PageRequest.of(0, 20));
 
         assertThat(parametrosDe(BusquedaServiceImpl.PAGINA).getValue("tipo")).isEqualTo("ELEMENTO");
     }
@@ -129,7 +142,7 @@ class BusquedaServiceImplTest {
                 fila(TipoDeResultado.ELEMENTO, 5), fila(TipoDeResultado.COMENTARIO, 7)));
 
         PageResponse<ResultadoDeBusquedaResponse> pagina = servicio.buscar(CARLA, "credito", null,
-                PageRequest.of(0, 4));
+                false, PageRequest.of(0, 4));
 
         assertThat(pagina.content()).extracting(ResultadoDeBusquedaResponse::tipo, ResultadoDeBusquedaResponse::titulo)
                 .containsExactly(tuple(TipoDeResultado.COMENTARIO, "Titulo 7"),
@@ -159,7 +172,7 @@ class BusquedaServiceImplTest {
         aciertos(List.of(new Acierto("DOCUMENTO", 8L, 2L), new Acierto("PROCESO", 2L, 2L)));
         filas(List.of(fila(TipoDeResultado.PROCESO, 2)));
 
-        assertThat(servicio.buscar(CARLA, "credito", null, PageRequest.of(0, 20)).content())
+        assertThat(servicio.buscar(CARLA, "credito", null, false, PageRequest.of(0, 20)).content())
                 .extracting(ResultadoDeBusquedaResponse::tipo).containsExactly(TipoDeResultado.PROCESO);
     }
 
@@ -170,7 +183,7 @@ class BusquedaServiceImplTest {
         aciertos(List.of());
 
         PageResponse<ResultadoDeBusquedaResponse> pagina = servicio.buscar(CARLA, "credito", null,
-                PageRequest.of(0, 20));
+                false, PageRequest.of(0, 20));
 
         assertThat(pagina.content()).isEmpty();
         assertThat(pagina.totalElements()).isZero();
@@ -190,9 +203,9 @@ class BusquedaServiceImplTest {
                 .thenReturn(7L, (Long) null);
 
         PageResponse<ResultadoDeBusquedaResponse> pagina = servicio.buscar(CARLA, "credito", null,
-                PageRequest.of(3, 5));
+                false, PageRequest.of(3, 5));
         PageResponse<ResultadoDeBusquedaResponse> sinConteo = servicio.buscar(CARLA, "credito", null,
-                PageRequest.of(3, 5));
+                false, PageRequest.of(3, 5));
 
         assertThat(pagina.content()).isEmpty();
         assertThat(pagina.totalElements()).isEqualTo(7);

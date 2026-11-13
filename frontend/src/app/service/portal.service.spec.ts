@@ -57,11 +57,12 @@ describe('PortalService', () => {
     peticion.flush({ content: [], page: 0, size: 10, totalElements: 0, totalPages: 0 });
   });
 
-  it('busca con la API del PR 65 y quita lo que no es del portal', async () => {
+  it('busca solo lo publicado con la API del PR 65 y quita lo que no es del portal', async () => {
     const encontrados = firstValueFrom(portal.buscar('packing'));
 
     const peticion = http.expectOne((req) => req.url === `${api}/busqueda`);
     expect(peticion.request.params.get('q')).toBe('packing');
+    expect(peticion.request.params.get('publicado')).toBe('true');
     expect(peticion.request.params.has('tipo')).toBe(false);
     peticion.flush({
       content: [
