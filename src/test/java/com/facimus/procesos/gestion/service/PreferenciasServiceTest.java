@@ -17,12 +17,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.PreferenciasResponse;
+import com.facimus.procesos.gestion.event.IdiomaDeTiendaCambiado;
 import com.facimus.procesos.gestion.model.ConfiguracionTienda;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
@@ -47,6 +49,8 @@ class PreferenciasServiceTest {
     private HistorialCambioService historialCambioService;
     @Mock
     private Auditoria auditoria;
+    @Mock
+    private ApplicationEventPublisher eventos;
 
     @InjectMocks
     private PreferenciasServiceImpl service;
@@ -123,6 +127,19 @@ class PreferenciasServiceTest {
                 "Idioma en-AU y zona horaria Australia/Sydney de la organización.");
         verify(auditoria).registrar(EMPRESA, USUARIO, "PREFERENCIAS_CAMBIADAS", "EMPRESA", EMPRESA,
                 Map.of("idioma", "en-AU", "zonaHoraria", "Australia/Sydney"));
+        verify(eventos).publishEvent(new IdiomaDeTiendaCambiado(EMPRESA, "en-AU"));
+    }
+
+    @Test
+    @DisplayName("Cambiar solo la zona de la organizacion no avisa un cambio de idioma")
+    void mismoIdiomaNoAvisa() {
+        ConfiguracionTienda configuracion = conConfiguracion();
+        when(usuarioRepository.findByIdAndEmpresaId(USUARIO, EMPRESA)).thenReturn(Optional.of(usuario()));
+
+        service.cambiarLasDeLaOrganizacion(EMPRESA, USUARIO, "es-CO", "America/Lima");
+
+        assertThat(configuracion.getZonaHoraria()).isEqualTo("America/Lima");
+        verify(eventos, never()).publishEvent(any(Object.class));
     }
 
     @Test

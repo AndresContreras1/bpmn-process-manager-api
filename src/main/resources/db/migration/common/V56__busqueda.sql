@@ -345,31 +345,51 @@ create trigger busqueda_al_leer_archivo before update on versiones_documento
 
 -- Idioma --------------------------------------------------------------------------------------------------------------
 
--- Cada vector de una tienda, otra vez: cuando cambia su idioma, y para lo que ya existe al migrar.
-create function rehacer_busqueda(la_empresa bigint) returns void language plpgsql as $$
+-- Un tramo de los vectores de una tienda, otra vez, con la configuracion que tiene ahora: las filas de esa tabla con id
+-- mayor que desde, hasta cuantos. Devuelve el ultimo id que rehizo, de donde sigue el tramo siguiente; vacio, si ya no
+-- quedan. Cuando cambia el idioma, la API encola un trabajo que la recorre tabla por tabla, cada tramo en su propia
+-- transaccion: rehacer de una vez la tienda entera, con el texto de sus documentos, puede pasar del tope por sentencia.
+create function rehacer_busqueda(la_empresa bigint, la_tabla text, desde bigint, cuantos integer) returns bigint
+    language plpgsql as $$
 declare
     configuracion regconfig := configuracion_de_busqueda(la_empresa);
+    hasta bigint;
 begin
-    update procesos p set busqueda = vector_de_proceso(p) where p.empresa_id = la_empresa;
-    update elementos_buscables i
-    set busqueda = vector_de_elemento(i.empresa_id, i.proceso_id, i.bpmn_id, i.nombre, i.detalle)
-    where i.empresa_id = la_empresa;
-    update comentarios c set busqueda = vector_de_comentario(configuracion, c.markdown, c.eliminado_en)
-    where c.empresa_id = la_empresa;
-    update versiones_documento v set busqueda = vector_de_archivo(configuracion, v.nombre, v.texto)
-    where v.empresa_id = la_empresa;
+    case la_tabla
+        when 'procesos' then
+            select max(t.id) into hasta from (
+                select p.id from procesos p where p.empresa_id = la_empresa and p.id > desde order by p.id limit cuantos
+            ) t;
+            update procesos p set busqueda = vector_de_proceso(p)
+            where p.empresa_id = la_empresa and p.id > desde and p.id <= hasta;
+        when 'elementos_buscables' then
+            select max(t.id) into hasta from (
+                select i.id from elementos_buscables i where i.empresa_id = la_empresa and i.id > desde order by i.id
+                limit cuantos
+            ) t;
+            update elementos_buscables i
+            set busqueda = vector_de_elemento(i.empresa_id, i.proceso_id, i.bpmn_id, i.nombre, i.detalle)
+            where i.empresa_id = la_empresa and i.id > desde and i.id <= hasta;
+        when 'comentarios' then
+            select max(t.id) into hasta from (
+                select c.id from comentarios c where c.empresa_id = la_empresa and c.id > desde order by c.id
+                limit cuantos
+            ) t;
+            update comentarios c set busqueda = vector_de_comentario(configuracion, c.markdown, c.eliminado_en)
+            where c.empresa_id = la_empresa and c.id > desde and c.id <= hasta;
+        when 'versiones_documento' then
+            select max(t.id) into hasta from (
+                select v.id from versiones_documento v where v.empresa_id = la_empresa and v.id > desde order by v.id
+                limit cuantos
+            ) t;
+            update versiones_documento v set busqueda = vector_de_archivo(configuracion, v.nombre, v.texto)
+            where v.empresa_id = la_empresa and v.id > desde and v.id <= hasta;
+        else
+            raise exception 'La tabla % no tiene vectores de busqueda', la_tabla;
+    end case;
+    return hasta;
 end
 $$;
-
-create function busqueda_del_idioma() returns trigger language plpgsql as $$
-begin
-    perform rehacer_busqueda(new.empresa_id);
-    return null;
-end
-$$;
-create trigger busqueda_al_cambiar_idioma after update on configuracion_tienda
-    for each row when (old.idioma is distinct from new.idioma)
-    execute function busqueda_del_idioma();
 
 -- Lo que ya existe ----------------------------------------------------------------------------------------------------
 
@@ -380,10 +400,12 @@ select indexar_elemento('arcos', to_jsonb(t)) from arcos t where t.activo;
 select indexar_elemento('mensajes', to_jsonb(t)) from mensajes t where t.activo;
 select indexar_elemento('artefactos', to_jsonb(t)) from artefactos t where t.activo;
 select indexar_version_publicada(p.id, p.version_publicada) from procesos p where p.version_publicada is not null;
-select rehacer_busqueda(e.id) from empresas e;
+select rehacer_busqueda(e.id, t.tabla, 0, 2147483647)
+from empresas e
+cross join (values ('procesos'), ('elementos_buscables'), ('comentarios'), ('versiones_documento')) as t(tabla);
 
 -- El texto de los documentos que ya estaban disponibles lo saca la cola, como el de los que se suban desde ahora. La
--- API anota las horas de la cola en UTC.
+-- API anota las horas de la cola en UTC, y sus cinco intentos son los de trabajos.maximo-intentos de fabrica.
 insert into trabajos (empresa_id, tipo, datos, estado, intentos, maximo_intentos, disponible_desde, creado_en)
 select v.empresa_id, 'documentos.leer-texto', v.id::text, 'PENDIENTE', 0, 5, now() at time zone 'UTC',
        now() at time zone 'UTC'

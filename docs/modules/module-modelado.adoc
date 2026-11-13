@@ -56,4 +56,5 @@
 * `c.f.p.g.event.ProcesoModificado` 
 * `c.f.p.g.event.ProcesoEliminado` 
 * `c.f.p.g.event.ProcesoCreado` 
+* `c.f.p.g.event.IdiomaDeTiendaCambiado` 
 |===

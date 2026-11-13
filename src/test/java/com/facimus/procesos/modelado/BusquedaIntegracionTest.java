@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -242,6 +244,11 @@ class BusquedaIntegracionTest {
         return laneService.crear(empresaId, ana.usuarioId(), tienda, "Bodega", rol).id();
     }
 
+    private int trabajosDeReconstruccion() {
+        return jdbc.queryForObject("select count(*) from trabajos where empresa_id = ? and tipo = ? "
+                + "and estado = 'PENDIENTE'", Integer.class, empresaId, "busqueda.rehacer");
+    }
+
     private String bpmnIdDeNodo(Long nodo) {
         return jdbc.queryForObject("select bpmn_id from nodos_flujo where id = ?", String.class, nodo);
     }
@@ -284,18 +291,53 @@ class BusquedaIntegracionTest {
     }
 
     @Test
-    @DisplayName("al cambiar el idioma de la tienda, cada vector se rehace con el nuevo")
+    @DisplayName("al cambiar el idioma de la tienda, un trabajo de la cola rehace cada vector con el nuevo")
     void cambioDeIdioma() throws Exception {
         Long envios = proceso("Shipping orders", "Pack the boxes");
         Long elemento = actividadService.crear(empresaId, ana.usuarioId(), lane(envios), "Ship the boxes", null,
                 TipoActividad.USUARIO, 160, 80).id();
+        Long comentario = comentar(envios, "Shipping tomorrow");
+        Long documento = subir(envios, "Labels.txt", "Shipping labels".getBytes(StandardCharsets.UTF_8));
+        vaciarLaCola();
         assertThat(resultados(beto, "shipped")).isEmpty();
 
         preferenciasService.cambiarLasDeLaOrganizacion(empresaId, ana.usuarioId(), "en-US", "America/New_York");
+        assertThat(trabajosDeReconstruccion()).isEqualTo(1);
+        vaciarLaCola();
 
         JsonNode encontrados = resultados(beto, "shipped");
-        assertThat(tipos(encontrados)).containsExactlyInAnyOrder("PROCESO", "ELEMENTO");
+        assertThat(tipos(encontrados)).containsExactlyInAnyOrder("PROCESO", "ELEMENTO", "COMENTARIO", "DOCUMENTO");
         assertThat(encontrados.findValuesAsString("bpmnId")).contains(bpmnIdDeNodo(elemento));
+        assertThat(encontrados.findValues("comentarioId")).extracting(JsonNode::asLong).contains(comentario);
+        assertThat(encontrados.findValues("documentoId")).extracting(JsonNode::asLong).contains(documento);
+        // Cambiar solo la zona no rehace nada
+        preferenciasService.cambiarLasDeLaOrganizacion(empresaId, ana.usuarioId(), "en-US", "America/Chicago");
+        assertThat(trabajosDeReconstruccion()).isZero();
+    }
+
+    @Test
+    @DisplayName("los vectores se rehacen por tramos de ids hasta que no queda nada; una tabla sin vectores es un error")
+    void rehacerPorTramos() {
+        proceso("Inventario norte", "Bodega");
+        proceso("Inventario sur", "Bodega");
+        List<Long> ids = jdbc.queryForList("select id from procesos where empresa_id = ? order by id", Long.class,
+                empresaId);
+        jdbc.update("update procesos set busqueda = null where empresa_id = ?", empresaId);
+        String tramo = "select rehacer_busqueda(?, 'procesos', ?, 1)";
+        String sinVector = "select count(*) from procesos where empresa_id = ? and busqueda is null";
+
+        assertThat(jdbc.queryForObject(tramo, Long.class, empresaId, 0L)).isEqualTo(ids.getFirst());
+        assertThat(jdbc.queryForObject(sinVector, Integer.class, empresaId)).isEqualTo(ids.size() - 1);
+        Long desde = ids.getFirst();
+        for (Long siguiente : ids.subList(1, ids.size())) {
+            assertThat(jdbc.queryForObject(tramo, Long.class, empresaId, desde)).isEqualTo(siguiente);
+            desde = siguiente;
+        }
+        assertThat(jdbc.queryForObject(tramo, Long.class, empresaId, desde)).isNull();
+        assertThat(jdbc.queryForObject(sinVector, Integer.class, empresaId)).isZero();
+        String otra = "select rehacer_busqueda(?, 'usuarios', 0, 1)";
+        assertThatThrownBy(() -> jdbc.queryForObject(otra, Long.class, empresaId))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("no tiene vectores de busqueda");
     }
 
     @Test
@@ -316,7 +358,7 @@ class BusquedaIntegracionTest {
     void fragmentoSeguro() throws Exception {
         Long despacho = proceso("Despacho", "Del pago a la entrega");
         Long comentario = comentar(despacho, "Ojo: el crédito <script>alert(1)</script> <img src=x onerror=alert(1)> "
-                + "& falso sigue pendiente");
+                + "& \uE000falso\uE001 sigue pendiente");
 
         JsonNode encontrado = resultados(beto, "credito").get(0);
 
@@ -327,7 +369,7 @@ class BusquedaIntegracionTest {
         assertThat(resaltados(encontrado)).containsExactly("crédito");
         // ts_headline quita las etiquetas que reconoce y deja lo demas tal cual: por eso no se devuelve como HTML
         assertThat(fragmento(encontrado)).contains("alert(1)").contains("<img src=x onerror=alert(1)> &")
-                .contains("falso").doesNotContain("&amp;").doesNotContain("").doesNotContain("");
+                .contains("falso").doesNotContain("&amp;").doesNotContain("\uE000").doesNotContain("\uE001");
     }
 
     @Test

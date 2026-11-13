@@ -2,6 +2,7 @@ package com.facimus.procesos.gestion.service.impl;
 
 import java.util.Map;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,6 +10,7 @@ import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.gestion.dto.response.PreferenciasResponse;
+import com.facimus.procesos.gestion.event.IdiomaDeTiendaCambiado;
 import com.facimus.procesos.gestion.model.ConfiguracionTienda;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
@@ -26,13 +28,16 @@ public class PreferenciasServiceImpl implements PreferenciasService {
     private final UsuarioRepository usuarioRepository;
     private final HistorialCambioService historialCambioService;
     private final Auditoria auditoria;
+    private final ApplicationEventPublisher eventos;
 
     public PreferenciasServiceImpl(ConfiguracionTiendaRepository configuracionRepository,
-            UsuarioRepository usuarioRepository, HistorialCambioService historialCambioService, Auditoria auditoria) {
+            UsuarioRepository usuarioRepository, HistorialCambioService historialCambioService, Auditoria auditoria,
+            ApplicationEventPublisher eventos) {
         this.configuracionRepository = configuracionRepository;
         this.usuarioRepository = usuarioRepository;
         this.historialCambioService = historialCambioService;
         this.auditoria = auditoria;
+        this.eventos = eventos;
     }
 
     @Override
@@ -57,8 +62,13 @@ public class PreferenciasServiceImpl implements PreferenciasService {
             throw new SolicitudInvalidaException("La organización necesita su idioma y su zona horaria.");
         }
         ConfiguracionTienda configuracion = configuracion(empresaId);
+        String anterior = configuracion.getIdioma();
         configuracion.setIdioma(Idiomas.validar(idioma));
         configuracion.setZonaHoraria(Idiomas.validarZona(zonaHoraria));
+        if (!configuracion.getIdioma().equals(anterior)) {
+            // PR 65: la busqueda rehace sus vectores con las raices del idioma nuevo
+            eventos.publishEvent(new IdiomaDeTiendaCambiado(empresaId, configuracion.getIdioma()));
+        }
         historialCambioService.registrarDeTienda(empresaId, autorId, RecursoDeHistorial.EMPRESA, empresaId,
                 "Idioma " + configuracion.getIdioma() + " y zona horaria " + configuracion.getZonaHoraria()
                         + " de la organización.");
