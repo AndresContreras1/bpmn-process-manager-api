@@ -20,8 +20,13 @@ record ReglaDeRecurso(Accion accion, Clase clase, String tipo) {
     private static final String RAIZ = "/api/v1/";
     /** PR 63: escribir en los comentarios no es modelar: lo puede hacer quien solo lee. */
     private static final String COMENTARIOS = "comentarios";
+    /**
+     * PR 64: pedir una revision es el primer paso de publicar; decidir sobre ella es aprobar, y retirarla lo decide su
+     * servicio (quien la pidio, o quien administra el proceso).
+     */
+    private static final String SOLICITUDES = "solicitudes";
     private static final Set<String> ELEMENTOS = Set.of("pools", "lanes", "actividades", "gateways", "eventos", "nodos",
-            "arcos", "mensajes", "artefactos", "asociaciones", "documentos", "manuales", COMENTARIOS);
+            "arcos", "mensajes", "artefactos", "asociaciones", "documentos", "manuales", COMENTARIOS, SOLICITUDES);
     /** Operar un proceso no es modelarlo: abrir un caso o recibir un mensaje solo necesita verlo. */
     private static final Set<String> DE_OPERACION = Set.of("casos", "mensajes-entrantes", "comparar");
     private static final String DIBUJAR = "dibujar";
@@ -42,10 +47,19 @@ record ReglaDeRecurso(Accion accion, Clase clase, String tipo) {
                     null));
         }
         if (ELEMENTOS.contains(tramos[0]) && tramos.length > 1 && tramos[1].startsWith("{")) {
-            Accion escribir = COMENTARIOS.equals(tramos[0]) ? Accion.COMENTAR : Accion.MODELAR;
-            return Optional.of(new ReglaDeRecurso(lee ? Accion.VER : escribir, Clase.ELEMENTO, tramos[0]));
+            return Optional.of(new ReglaDeRecurso(lee ? Accion.VER : escribirEn(tramos), Clase.ELEMENTO, tramos[0]));
         }
         return Optional.empty();
+    }
+
+    private static Accion escribirEn(String[] tramos) {
+        if (COMENTARIOS.equals(tramos[0])) {
+            return Accion.COMENTAR;
+        }
+        if (SOLICITUDES.equals(tramos[0])) {
+            return "retirar".equals(tramos[tramos.length - 1]) ? Accion.VER : Accion.APROBAR;
+        }
+        return Accion.MODELAR;
     }
 
     private static Accion deProceso(String metodo, String[] tramos, String para) {
@@ -73,8 +87,12 @@ record ReglaDeRecurso(Accion accion, Clase clase, String tipo) {
         if (COMENTARIOS.equals(tramo)) {
             return Accion.COMENTAR;
         }
-        if ("versiones".equals(tramo)) {
+        if ("versiones".equals(tramo) || SOLICITUDES.equals(tramo)) {
             return Accion.PUBLICAR;
+        }
+        // PR 64: confirmar que sigue vigente lo decide su servicio: su dueno, o quien administra el proceso
+        if ("recertificacion".equals(tramo)) {
+            return Accion.VER;
         }
         // PR 62: armar un manual es exportar el proceso
         if ("manuales".equals(tramo)) {

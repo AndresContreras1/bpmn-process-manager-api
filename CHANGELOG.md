@@ -26,6 +26,18 @@ tagged. Each pull request adds its line under *Unreleased*.
   a cap of 1,000,000 characters and 30 seconds per file, and searches the rest by name. Changing the store's language
   rebuilds the vectors in a queued job, in short transactions; searching spends from its own bucket, 60 a minute per
   person.
+- Review and approval: each store publishes directly, as before, or with approval by N people of a list or a process
+  role. Asking for review (needs PUBLICAR) freezes the draft in a revision and in the snapshot to publish, answers
+  the semantic difference against the version in force, and notifies the approvers; each one approves, asks for
+  changes or rejects with a reason, never the requester, and the last approval publishes the frozen snapshot through
+  the usual path, or says why it no longer can (the version in force changed, or the diagnosis is not clean). With
+  approval on, publishing directly answers 409 for everyone. Recertification: a daily job tells each process owner
+  when its review date arrives and once more when it passes, "still valid" moves the date by the process's months
+  between reviews, and process answers say when a review is overdue. Everything is audited.
+  Publishing through a request and recertifying leave the process's version and last editor alone, so the separation
+  of duties never blocks the next round; the approvers are evaluated in one pass; read-only people never count as
+  approvers; turning the policy off never fails over stale approvers; a role the policy names cannot be deleted;
+  deleting a process withdraws its open request.
 - Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
   like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
   can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads

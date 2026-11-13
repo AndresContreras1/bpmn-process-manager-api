@@ -119,8 +119,7 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
             linea.put("tipo", notificacion.getTipo().name());
             linea.put("autor", autores.getOrDefault(notificacion.getAutorId(), ""));
             linea.put("proceso", procesos.getOrDefault(notificacion.getProcesoId(), ""));
-            linea.put("enlace", web + "/" + idioma + "/procesos/" + notificacion.getProcesoId() + "?comentario="
-                    + notificacion.getReferenciaId());
+            linea.put("enlace", enlace(idioma, notificacion));
             lineas.add(linea);
         }
         Map<String, Object> datos = new HashMap<>();
@@ -136,6 +135,14 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
         datos.putAll(una);
         return redactor.redactar(NOTIFICACION, NOTIFICACION + "." + una.get("tipo") + ".asunto",
                 List.of(una.get("autor"), una.get("proceso")), locale, usuario.getEmail(), datos);
+    }
+
+    /** PR 64: el proceso, y dentro de el lo que la notificacion senala: un comentario, una solicitud o nada. */
+    private String enlace(String idioma, Notificacion notificacion) {
+        String enlace = web + "/" + idioma + "/procesos/" + notificacion.getProcesoId();
+        String parametro = notificacion.getTipo().referencia().parametro();
+        return parametro == null || notificacion.getReferenciaId() == null ? enlace
+                : enlace + "?" + parametro + "=" + notificacion.getReferenciaId();
     }
 
     private static Set<Long> ids(List<Notificacion> notificaciones, Function<Notificacion, Long> campo) {

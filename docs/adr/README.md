@@ -59,5 +59,6 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0065 | [Object storage, documents and the daily anchor](0065-object-storage-and-documents.md) | Accepted |
 | 0066 | [Documentation in Markdown and the process manual](0066-documentation-and-process-manual.md) | Accepted |
 | 0067 | [Comments, mentions and notifications](0067-comments-mentions-and-notifications.md) | Accepted |
+| 0069 | [Review and approval before publishing, and recertification](0069-review-and-approval.md) | Accepted |
 | 0070 | [Full-text search in PostgreSQL](0070-full-text-search.md) | Accepted |
 | 0073 | [The repository, the search and the permissions in the web](0073-repository-and-permissions-ui.md) | Accepted |

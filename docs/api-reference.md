@@ -22,6 +22,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Manuals | `GET, POST /api/v1/procesos/{id}/manuales[?version=]` · `GET /api/v1/manuales/{id}` · `GET /api/v1/manuales/{id}/enlace?formato=pdf\|html` · `GET /api/v1/descargas/manuales/{id}/{formato}` · `PUT /api/v1/procesos/{id}/versiones/{numero}/dibujo` |
 | Comments | `GET, POST /api/v1/procesos/{id}/comentarios[?bpmnId=&version=&estado=]` · `POST /api/v1/comentarios/{id}/respuestas` · `PUT, DELETE /api/v1/comentarios/{id}` · `POST /api/v1/comentarios/{id}/resolver` · `POST /api/v1/comentarios/{id}/reabrir` |
 | Search | `GET /api/v1/busqueda?q=&tipo=&pagina=&tamano=` |
+| Review and approval | `GET, PUT /api/v1/empresas/actual/politica-de-publicacion` · `GET, POST /api/v1/procesos/{id}/solicitudes[?estado=]` · `GET /api/v1/solicitudes[?pendientesDeMi=true&estado=]` · `GET /api/v1/solicitudes/{id}` · `POST /api/v1/solicitudes/{id}/aprobar`, `/pedir-cambios`, `/rechazar`, `/retirar` · `POST /api/v1/procesos/{id}/recertificacion` |
 | Notifications | `GET /api/v1/notificaciones[?noLeidas=true]` · `GET /api/v1/notificaciones/conteo` · `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` · `GET /api/v1/notificaciones/flujo` · `GET, PUT /api/v1/notificaciones/preferencias` |
 | Permissions | `GET /api/v1/procesos/{id}/permisos` · `GET, POST /api/v1/procesos/{id}/concesiones` · `GET, POST /api/v1/carpetas/{id}/concesiones` · `DELETE /api/v1/concesiones/{id}` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
@@ -120,7 +121,9 @@ the tree has at most eight levels, and only an empty folder is deleted: `409` sa
 
 `PUT /api/v1/procesos/{id}/ficha` files a process: its `carpetaId`, its owner (`duenoId`, a user of the store), the
 date of its `proximaRevision`, its `clasificacion` (`INTERNA`, `CONFIDENCIAL` or `RESTRINGIDA`) and up to ten
-`etiquetas`, kept in lowercase, with the `version` read. It does not touch the model, so it neither changes the
+`etiquetas`, kept in lowercase, with the `version` read. Since PR 64 it also takes `mesesEntreRevisiones`, 1 to 60:
+how far confirming that the process is still valid moves its next review; left out, it keeps the current value (12
+by default). It does not touch the model, so it neither changes the
 fingerprint of the draft nor counts as a change waiting to be published ([ADR-0062](adr/0062-process-repository.md)).
 `GET /api/v1/procesos/etiquetas` lists the tags in use, to suggest them.
 
@@ -252,6 +255,78 @@ its text. `fragmento` is plain text in segments: show each one as text and mark 
 ```bash
 curl -s "http://localhost:8080/api/v1/busqueda?q=%22reinforced%20tape%22%20-pallet&tipo=ELEMENTO" -b sesion.txt
 ```
+
+## Review and approval
+
+A store publishes directly, as always, or with approval ([ADR-0069](adr/0069-review-and-approval.md)).
+`GET /api/v1/empresas/actual/politica-de-publicacion` answers its policy to any role: `modo` (`DIRECTA` or
+`CON_APROBACION`), `aprobacionesNecesarias`, `rolProcesoId` and `rolProceso`, the `aprobadores` with their name and
+whether they are still active, and the `version` (empty while the store never saved one). The administrator changes it
+with `PUT` and the `version` read:
+
+```json
+{ "modo": "CON_APROBACION", "aprobacionesNecesarias": 2, "aprobadores": [4, 5], "version": 0 }
+```
+
+`aprobacionesNecesarias` goes from 1 to 10 (1 when left out). The approvers come from `aprobadores` (up to 50 people)
+or from `rolProcesoId` (the people of that process role), never both (`400`); with approval there have to be at least
+as many people who can approve as approvals (`400`): active, and not read-only. An id that is not an active person of
+the store answers `400` naming its position (`"aprobadores[1]"`), the same for every case, and a read-only person too,
+saying so; of a role, only its active people who are not read-only count; a role that does not exist, `404`; a stale
+`version`, `409`. Turning the policy off with `DIRECTA` never fails over who approved: people who could not approve
+any more and a role that was deleted are dropped, and the rest is kept for turning it on again. A process role that
+the policy names cannot be deleted (`409`) until the policy names another source.
+
+With `CON_APROBACION`, `PATCH /api/v1/procesos/{id}` with `"estado": "PUBLICADO"` answers `409` for everyone, the
+administrator included, with a problem whose `detail` says that a review has to be asked for. Its request and its
+answer do not change.
+
+`POST /api/v1/procesos/{id}/solicitudes` asks for the review, with an optional `{ "markdown": "What changed and why" }`
+(up to 10 000 characters, cleaned like comments). It needs `PUBLICAR` on the process. It freezes the draft in a draft
+revision (`revisionId`) and in the snapshot the last approval will publish, so editing the draft afterwards does not
+change what is reviewed. It answers `201` with `Location` and the request: `estado` `ABIERTA`, `solicitante`,
+`numero` (the version it publishes), `versionBase` (the one in force, or empty), `aprobacionesNecesarias`,
+`aprobaciones`, the `aprobadores` fixed now (the people of the list or role who are active and can view and approve
+the process, never the requester nor whoever changed the process last) and `diferencia`, the comparison of
+`GET .../comparar` between the version in force and the frozen snapshot (against an empty diagram if there is none).
+It answers `409` when the store publishes directly, when the process already has an open request, when fewer people
+can approve than the policy asks, when more than 200 could (a request keeps up to 200 approvers: a role that large
+has to be replaced by a smaller one or a list), and with the same reasons as publishing: diagnosis errors or no
+change since the version in force. Deleting the process withdraws its open request, with the reason.
+
+Publishing through a request does not count as a change of the process by its last approver: the process keeps its
+`version` and its `modificadoPor`, so whoever approved can approve the next request too. The same holds for
+recertifying.
+
+| Route | What it does |
+|---|---|
+| `GET /api/v1/solicitudes/{id}` | The request with its `decisiones` (approver, `decision`, Markdown and HTML, date) and its `diferencia` |
+| `GET /api/v1/procesos/{id}/solicitudes?estado=` | Those of a process, newest first, up to 50 a page, without the difference |
+| `GET /api/v1/solicitudes?pendientesDeMi=true` | The store's requests on processes the person can view; with `pendientesDeMi`, only the open ones waiting for their decision |
+| `POST /api/v1/solicitudes/{id}/aprobar` | `{ "markdown" }` optional. The approval that completes `aprobacionesNecesarias` publishes the frozen snapshot (`PUBLICADA`, `versionPublicada`); if the version in force changed since it was asked for, or the diagnosis of the frozen diagram is no longer clean, it ends `APROBADA_SIN_PUBLICAR` with the `motivo` |
+| `POST /api/v1/solicitudes/{id}/pedir-cambios` · `.../rechazar` | `{ "markdown" }` required (`400` without it); closes it as `CAMBIOS_PEDIDOS` or `RECHAZADA` |
+| `POST /api/v1/solicitudes/{id}/retirar` | Closes it as `RETIRADA`: by its requester, or by whoever can administer the process |
+
+Deciding needs `APROBAR` on the process and being one of the request's approvers: the requester answers `403`, and so
+does anyone else who is not one of them; a second decision by the same person, or any on a closed request, `409`.
+The approvers are notified when it is asked for (`APROBACION_PEDIDA`), and the requester of each approval
+(`SOLICITUD_APROBADA`), of the result (`SOLICITUD_PUBLICADA`, `SOLICITUD_SIN_PUBLICAR`) and of changes asked or a
+rejection (`CAMBIOS_PEDIDOS`, `SOLICITUD_RECHAZADA`); their `referenciaId` is the request.
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/solicitudes -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"markdown":"Adds the fraud check before packing."}'
+curl -s -X POST http://localhost:8080/api/v1/solicitudes/4/aprobar -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+```
+
+**Recertification.** `POST /api/v1/procesos/{id}/recertificacion`, with an optional `{ "nota": "What was checked" }`
+(up to 2000 characters), confirms the process is still valid: its owner does it, whatever their role, or whoever can
+administer the process (`403` otherwise). It answers the process with `proximaRevision` moved to today plus its
+`mesesEntreRevisiones` (its `version` stays the same), and records who, when, the note and whether it was overdue in
+the audit trail and the history.
+The owner is notified once when the review date arrives (`RECERTIFICACION_PENDIENTE`) and once more when it has passed
+(`RECERTIFICACION_VENCIDA`). Every process answer carries `mesesEntreRevisiones` and `revisionVencida`, true once the
+date has passed with nobody confirming it. Days are UTC days of the API clock, for every store.
 
 ## Permissions
 

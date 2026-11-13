@@ -9,7 +9,7 @@ entries in Spanish.
 |---|---|---|---|
 | `Empresa` | Store (tenant) | — | Name, NIT and contact email |
 | `Usuario` | User | Store | Email (the login), access role (`ADMINISTRADOR`, `EDITOR` or `SOLO_LECTURA`) and status |
-| `Proceso` | Process | Store | Name, description, category, state (`BORRADOR` or `PUBLICADO`), mode (`EJECUTABLE` or `DOCUMENTAL`), and its filing: folder, owner, next review, classification (`INTERNA`, `CONFIDENCIAL` or `RESTRINGIDA`) and tags |
+| `Proceso` | Process | Store | Name, description, category, state (`BORRADOR` or `PUBLICADO`), mode (`EJECUTABLE` or `DOCUMENTAL`), and its filing: folder, owner, next review, classification (`INTERNA`, `CONFIDENCIAL` or `RESTRINGIDA`) and tags; how many months confirming it is still valid moves the next review (12 by default), and the review dates its owner was already told about |
 | `Carpeta` | Folder | Store | Name and parent folder; sisters do not share a name, and the tree has at most eight levels |
 | `Documento` | Document | Process | The element it is attached to (`bpmnId`, or none for the whole process), the name of its latest version and which one it is |
 | `VersionDocumento` | Document version | Document | Number, cleaned name, type detected from the content, size, SHA-256, storage key, state (`PENDIENTE`, `DISPONIBLE` or `BLOQUEADO`) with its reason, whether an antivirus reviewed it, and when its text was read for the search |
@@ -17,8 +17,11 @@ entries in Spanish.
 | `Caracterizacion` | Characterization sheet | Process | Objective, scope, inputs, outputs, suppliers, customers, indicators, risks and regulation |
 | `Manual` | Process manual | Process | The published version it describes, its language, state (`PENDIENTE`, `DISPONIBLE` or `FALLIDO`) with its reason, and where its HTML and PDF are |
 | `Comentario` | Comment | Process | Its author, Markdown and cleaned HTML, the people it mentions, and its thread: none for the first comment, which carries the anchor (an element's `bpmnId`, a published version) and the state (open, or resolved with who and when); a deleted one keeps its place with no text |
-| `Notificacion` | Notification | User | Its type (`MENCION`, `RESPUESTA` or `HILO_RESUELTO`), who caused it, the process and what it points to there, when it was read, and how its e-mail went (`INMEDIATO`, `RESUMEN_DIARIO` or `NUNCA`) and when |
+| `Notificacion` | Notification | User | Its type (`TipoDeNotificacion`: a comment's `MENCION`, `RESPUESTA` or `HILO_RESUELTO`; a review request's `APROBACION_PEDIDA`, `SOLICITUD_APROBADA`, `SOLICITUD_PUBLICADA`, `SOLICITUD_SIN_PUBLICAR`, `CAMBIOS_PEDIDOS` or `SOLICITUD_RECHAZADA`; a review date's `RECERTIFICACION_PENDIENTE` or `RECERTIFICACION_VENCIDA`), who caused it, the process and what it points to there (a comment, a review request, or nothing), when it was read, and how its e-mail went (`INMEDIATO`, `RESUMEN_DIARIO` or `NUNCA`) and when |
 | `PreferenciaNotificacion` | Notification preference | User | For one type, how it arrives by e-mail; without one, the type's default |
+| `PoliticaPublicacion` | Publishing policy | Store | `DIRECTA` or `CON_APROBACION`, how many approvals a request needs, and who approves: a list of people or a process role; without one, the store publishes directly |
+| `SolicitudPublicacion` | Review request | Process | Who asked and why, the draft revision and the snapshot it froze (definition, fingerprint and BPMN) with the number it will publish and the version in force it was compared with, the approvers and approvals fixed when it was asked for, and its state (`ABIERTA`, `PUBLICADA`, `APROBADA_SIN_PUBLICAR` with the reason, `CAMBIOS_PEDIDOS`, `RECHAZADA` or `RETIRADA`) with who closed it and when |
+| `Aprobacion` | Decision | Review request | One approver's decision (`APROBADA`, `CAMBIOS_PEDIDOS` or `RECHAZADA`) with its Markdown and cleaned HTML; one per person and request |
 | `Concesion` | Grant | Store | An action (`VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` or `ADMINISTRAR`) on a folder or a process, for a person, a process role or the whole store (`PERSONA`, `ROL` or `ORGANIZACION`) |
 | `RolProceso` | Process role | Store | Name and description |
 | `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag, order and the kind of partner behind it (`integracion`) |
@@ -62,6 +65,10 @@ What is searched keeps a `tsvector` in the store's language with a GIN index: `p
 version with its name, its detail and its documentation. Triggers write them in the transaction of each change; a
 change of the store's language is the exception, rebuilt by a queued job in short id ranges. Nothing else writes
 `elementos_buscables` ([ADR-0070](adr/0070-full-text-search.md)).
+Publishing with approval lives in `politicas_publicacion`, `solicitudes_publicacion` (at most one open per process,
+by a partial unique index) and `aprobaciones` (one per person and request); a request keeps its own copy of the
+snapshot it will publish, so pruning old draft revisions does not touch it
+([ADR-0069](adr/0069-review-and-approval.md)).
 
 ## Modeling rules
 

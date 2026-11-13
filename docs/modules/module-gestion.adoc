@@ -21,9 +21,11 @@
 * `c.f.p.g.service.NotificacionService` (via `c.f.p.g.service.impl.NotificacionServiceImpl`)
 * `c.f.p.g.service.PasskeyService` (via `c.f.p.g.service.impl.PasskeyServiceImpl`)
 * `c.f.p.g.service.Permisos` (via `c.f.p.g.service.impl.PermisosImpl`)
+* `c.f.p.g.service.PoliticaDePublicacionService` (via `c.f.p.g.service.impl.PoliticaDePublicacionServiceImpl`)
 * `c.f.p.g.service.PreferenciasService` (via `c.f.p.g.service.impl.PreferenciasServiceImpl`)
 * `c.f.p.g.service.ProcesoCompartidoService` (via `c.f.p.g.service.impl.ProcesoCompartidoServiceImpl`)
 * `c.f.p.g.service.ProcesoService` (via `c.f.p.g.service.impl.ProcesoServiceImpl`)
+* `c.f.p.g.service.RecertificacionService` (via `c.f.p.g.service.impl.RecertificacionServiceImpl`)
 * `c.f.p.g.service.RolProcesoService` (via `c.f.p.g.service.impl.RolProcesoServiceImpl`)
 * `c.f.p.g.service.SegundoFactorService` (via `c.f.p.g.service.impl.SegundoFactorServiceImpl`)
 * `c.f.p.g.service.SesionService` (via `c.f.p.g.service.impl.SesionServiceImpl`)
@@ -45,6 +47,7 @@ _Repositories_
 * `c.f.p.g.repository.MembresiaRolRepository`
 * `c.f.p.g.repository.NotificacionRepository`
 * `c.f.p.g.repository.PasskeyRepository`
+* `c.f.p.g.repository.PoliticaPublicacionRepository`
 * `c.f.p.g.repository.PreferenciaNotificacionRepository`
 * `c.f.p.g.repository.ProcesoCompartidoRepository`
 * `c.f.p.g.repository.ProcesoRepository`
@@ -79,6 +82,7 @@ _Others_
 * `c.f.p.g.model.MembresiaRol`
 * `c.f.p.g.model.Notificacion`
 * `c.f.p.g.model.Passkey`
+* `c.f.p.g.model.PoliticaPublicacion`
 * `c.f.p.g.model.PreferenciaNotificacion`
 * `c.f.p.g.model.Proceso`
 * `c.f.p.g.model.ProcesoCompartido`
@@ -92,4 +96,5 @@ _Others_
 |Events listened to
 |* `c.f.p.c.auditoria.SucesoAuditable` (async) 
 * `c.f.p.c.notificaciones.NotificacionPedida` (async) 
+* `c.f.p.g.event.UsuarioAnonimizado` 
 |===
