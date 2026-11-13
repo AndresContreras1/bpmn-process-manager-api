@@ -30,8 +30,8 @@ from them why something is refused, and without growing the bundle every visit d
   and the shell no longer needs the forms package: the initial bundle went from 789 kB to 732 kB.
 - **Buttons follow `GET /procesos/{id}/permisos` and the route matrix.** Edit and Model need `MODELAR`, Publish
   `PUBLICAR`, the BPMN file `EXPORTAR`, Permissions `ADMINISTRAR`, and Share and Delete `ADMINISTRAR` and an
-  administrator, because the route matrix keeps them for one. Without that answer the buttons follow the role, as
-  before the grants. The API stays the authority: a refusal still answers `403`, and the screens of grants show its
+  administrator, because the route matrix keeps them for one. The rows of the process list ask the same for the
+  page on screen, in parallel. Without that answer the buttons follow the role, as before the grants. The API stays the authority: a refusal still answers `403`, and the screens of grants show its
   own message, separation of duties included.
 - **Inherited grants are read from each folder above.** The grants of a process are the ones written on it; the
   screen also lists, as inherited and read-only, the ones of every folder that contains it. A folder the person does
@@ -41,7 +41,11 @@ from them why something is refused, and without growing the bundle every visit d
 
 - A list that the API filters differently because the grants changed still shows the address that was shared; it is
   the API that decides what is in it.
-- The list keeps showing row buttons by role: asking for the permissions of every row would be one request per row.
-  The detail page is where the buttons are exact.
+- A page of the process list costs one extra request per row, at most 50, sent in parallel after the page shows;
+  until each answer arrives its row keeps the role's buttons. A field with the actions in the list response would
+  save them, and would be a change of the API.
 - Granting to a person needs the list of users, which only an administrator can read; an editor who administers a
-  process grants to a role or to everyone.
+  process grants to a role or to everyone. The list is read page by page, 50 at a time, so in a large store the
+  pickers wait for every page.
+- A search hit on an element opens its process with the element chosen; a hit on a document or a comment opens the
+  process, since the web has no screen of its own for them yet.

@@ -76,8 +76,8 @@ people of a process role or the whole store ([API](api-reference.md#permissions)
   needs `VER`: whoever can see a drawing has its content.
 - Running cases and tasks stays under the access role. Grants govern the repository and the model.
 
-**In the web** ([ADR-0073](adr/0073-repository-and-permissions-ui.md)), the process page asks
-`GET /procesos/{id}/permisos` and offers only the buttons that will work, also minding the route matrix (sharing
+**In the web** ([ADR-0073](adr/0073-repository-and-permissions-ui.md)), the process page and each row of the list
+ask `GET /procesos/{id}/permisos` and offer only the buttons that will work, also minding the route matrix (sharing
 with another store and deleting stay with administrators). It is a courtesy, not a check: the API decides, and a
 `403` is still shown with its message. The screen of grants shows the ones of the folders above as inherited, and
 says when a folder cannot be read because the person does not administer it.

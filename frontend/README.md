@@ -176,8 +176,10 @@ EUR). English (en-US) is the language of the source.
   saves the filing card with only the folder changed. The list has a Move button on each row, and the process page
   has one too.
 - **A new process can be filed as it is created:** the form takes its folder (the one the list was showing, to start
-  with), classification and tags, and saves them with the filing card right after creating it. If that second call
-  fails the process exists anyway, and its page says the filing is still to be done.
+  with), its owner (for an administrator), the date of its next review, its classification and its tags, and saves
+  them with the filing card right after creating it. The tags are checked before sending by the API's own rule, at
+  most 10 of at most 40 characters each. If that second call fails the process exists anyway, and its page says the
+  filing is still to be done.
 - **The filing card** sits under the diagram of a process: its folder, owner, next review, classification and tags,
   saved on their own with `PUT /procesos/{id}/ficha`, so filing a process is not a change waiting to be published.
 - The API records the change history in Spanish, so the detail page shows each known entry in English and falls back
@@ -196,8 +198,9 @@ EUR). English (en-US) is the language of the source.
   Edit, Model, Move and the filing card need `MODELAR`, Publish `PUBLICAR`, the BPMN file `EXPORTAR`, Permissions
   `ADMINISTRAR`, and Share and Delete `ADMINISTRAR` and an administrator, as the route matrix says. If that answer does
   not arrive they follow the role, as before: administrators and editors create, edit and publish, only
-  administrators delete, and read-only users browse. The list keeps its row buttons by role, since asking per row
-  would be one request per process. The API decides either way and answers `403` otherwise.
+  administrators delete, and read-only users browse. The rows of the list ask the same, in parallel for the page on
+  screen (at most 50), and keep the role's buttons until each answer arrives. The API decides either way and answers
+  `403` otherwise, and a refusal that comes from a grant shows the API's own reason.
 
 ## Search
 
@@ -205,7 +208,9 @@ The header button and Ctrl+K, or Cmd+K, open the search of the whole organizatio
 elements, documents and comments, only what the person can view. The dialog arrives the first time it opens.
 
 - It is a WAI-ARIA combobox: the focus stays in the field, the arrows move the active result across the groups,
-  Enter opens its process, Escape closes, and the focus goes back where it was. The number of results and the errors
+  Enter opens its process (an element opens with that element chosen, `?elemento=`), Escape closes, and the focus
+  goes back where it was. Enter does nothing while the results on screen belong to a text that has changed since.
+  Ctrl+K does not open it over another modal dialog, and the header shows the shortcut as Cmd K on a Mac. The number of results and the errors
   are read out in an `aria-live` region.
 - It asks 250 ms after the last key, never twice for the same text, and throws away the answer to a text that has
   changed since (`buscarMientrasSeEscribe`, tested with fake timers).
@@ -221,7 +226,7 @@ granted there, grant an action to a person, a process role or the whole organiza
   the person does not administer cannot be read, and the screen says so.
 - The form says what is missing before sending, by the same rule as the API: a person with `PERSONA`, a role with
   `ROL`, and nothing more. The list of people is the administrator's, so an editor who administers a process grants
-  to a role or to everyone.
+  to a role or to everyone. It is read page by page, so a store with more than 50 people can pick any of them.
 - What the API refuses is shown with its own message, separation of duties included.
 
 ## Diagram viewer
