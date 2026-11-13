@@ -25,12 +25,31 @@ services:
       retries: 12
     restart: unless-stopped
 
+  # PR 61: los documentos y el ancla diaria de la bitacora, en un almacen compatible con S3 que no sale de la red del
+  # compose. El bucket de anclas se crea con Object Lock: lo que se guarda ahi no se puede borrar antes de su fecha.
+  almacen:
+    image: chrislusf/seaweedfs:4.50@sha256:c2658820e763294a9e9de7b36c81e59b879e3459148351aee4e31a126ca64860
+    command: ["server", "-s3", "-dir=/data", "-master.volumeSizeLimitMB=1024", "-volume.max=100"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${ALMACEN_S3_USUARIO:-procesos}
+      AWS_SECRET_ACCESS_KEY: ${ALMACEN_S3_CLAVE:?set ALMACEN_S3_CLAVE in .env, at least 32 characters}
+    volumes:
+      - almacen-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+    restart: unless-stopped
+
   api:
     build: .
     # A fixed tag so a build somewhere else, like the CI, can be reused instead of building again.
     image: bpmn-process-manager-api:latest
     depends_on:
       db:
+        condition: service_healthy
+      almacen:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -76,6 +95,16 @@ services:
       # el navegador escribe el origen sin puerto, asi que van las dos formas, como en CORS.
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
       WEBAUTHN_ORIGINS: ${WEBAUTHN_ORIGINS:-http://localhost,http://localhost:${WEB_PORT:-80}}
+      # PR 61: el almacen de arriba. Con otro S3, como el de AWS, se cambian estas lineas y CREAR_BUCKETS va en false.
+      ALMACEN_S3_ENDPOINT: ${ALMACEN_S3_ENDPOINT:-http://almacen:8333}
+      ALMACEN_S3_BUCKET: ${ALMACEN_S3_BUCKET:-documentos}
+      ALMACEN_S3_BUCKET_ANCLAS: ${ALMACEN_S3_BUCKET_ANCLAS:-anclas-bitacora}
+      ALMACEN_S3_USUARIO: ${ALMACEN_S3_USUARIO:-procesos}
+      ALMACEN_S3_CLAVE: ${ALMACEN_S3_CLAVE:?set ALMACEN_S3_CLAVE in .env, at least 32 characters}
+      ALMACEN_S3_CREAR_BUCKETS: ${ALMACEN_S3_CREAR_BUCKETS:-true}
+      # ClamAV (clamd) en el puerto 3310; sin el, los documentos quedan disponibles con la marca de no revisados
+      ANTIVIRUS_HOST: ${ANTIVIRUS_HOST:-}
+      DOCUMENTOS_EXIGIR_ANTIVIRUS: ${DOCUMENTOS_EXIGIR_ANTIVIRUS:-false}
     # Solo en 127.0.0.1, para quien trabaja en esta maquina: la API cree las cabeceras X-Forwarded-* que le llegan
     # de la red interna, y publicada en todas las interfaces cualquiera de la red local podria inventarse su IP.
     # Desde fuera se entra por la web.
@@ -132,3 +161,4 @@ services:
 
 volumes:
   postgres-data:
+  almacen-data:
