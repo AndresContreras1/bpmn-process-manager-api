@@ -27,7 +27,7 @@ class RepositorioYPermisosTest extends PruebaE2E {
 
     private static final By FILAS = By.cssSelector("#procesos tbody tr");
     private static final By RESULTADO = By.cssSelector("[data-testid='busqueda-resultado']");
-    private static final List<String> REGLAS = List.of("wcag2a", "wcag2aa", "wcag21a", "wcag21aa");
+    private static final List<String> REGLAS = List.of("wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa");
     private static final List<String> GRAVES = List.of("serious", "critical");
 
     @Test
@@ -123,20 +123,24 @@ class RepositorioYPermisosTest extends PruebaE2E {
     }
 
     @Test
-    @DisplayName("ver concedido a una persona deja que ella lo vea y nadie mas; quien solo lee no ve botones")
+    @DisplayName("ver concedido a una persona deja que ella lo vea y nadie mas; los botones siguen a las concesiones")
     void concederVerYSoloLectura() {
         ApiDeDatos.Tienda tienda = api.registrarTienda("Tienda Permisos", nitDe("f19-permisos"),
                 correoDe("f19-permisos"),
                 "faros-de-la-costa-norte");
         long proceso = api.crearProceso("Payroll", "Pay the people of the store.", "People");
         long abierto = api.crearProceso("Opening hours", "When the store opens.", "Store");
+        long inventario = api.crearProceso("Inventory count", "Count what is on the shelves.", "Store");
         long carpeta = api.post("/carpetas", "{\"nombre\":\"Human resources\"}").get("id").asLong();
         String correoAna = correoDe("f19-ana");
         String correoBeto = correoDe("f19-beto");
         String correoLuz = correoDe("f19-luz");
-        api.crearUsuario("Ana Editora", correoAna, "montanas-de-niebla-azul", "EDITOR");
-        api.crearUsuario("Beto Editor", correoBeto, "rios-de-agua-mansa", "EDITOR");
+        long idDeAna = api.crearUsuario("Ana Editora", correoAna, "montanas-de-niebla-azul", "EDITOR");
+        long idDeBeto = api.crearUsuario("Beto Editor", correoBeto, "rios-de-agua-mansa", "EDITOR");
         api.crearUsuario("Luz Lectora", correoLuz, "bosques-de-pino-alto", "SOLO_LECTURA");
+        // Modelar Inventory count queda solo para Beto: a Ana, editora, se lo quita aunque su rol se lo daria
+        api.post("/procesos/" + inventario + "/concesiones",
+                "{\"accion\":\"MODELAR\",\"sujeto\":\"PERSONA\",\"usuarioId\":" + idDeBeto + "}");
         entrar(tienda);
 
         // El administrador le concede ver Payroll a Ana desde la pantalla de permisos del proceso
@@ -173,6 +177,30 @@ class RepositorioYPermisosTest extends PruebaE2E {
         espera.until(navegador -> navegador.findElements(FILAS).stream()
                 .anyMatch(una -> una.getText().contains("Payroll")));
 
+        // En la lista, cada fila sigue lo que la API dice de su proceso: Inventory count no le deja mover ni editar
+        espera.until(navegador -> botonesDeLaFila("Inventory count", "proceso-mover").isEmpty());
+        assertTrue(botonesDeLaFila("Inventory count", "proceso-editar").isEmpty(), "ni editar desde la lista");
+        assertEquals(1, botonesDeLaFila("Inventory count", "proceso-publicar").size(), "publicar si: nadie lo quito");
+        assertEquals(1, botonesDeLaFila("Payroll", "proceso-mover").size(), "Payroll lo modela como cualquier editor");
+
+        // Y el detalle tambien: el rol le daria editar, modelar y mover, y la concesion de Beto se los quita
+        ir("/procesos/" + inventario);
+        esperarTexto(Paginas.Detalle.NOMBRE, "Inventory count");
+        visible(By.id("proceso-detalle-publicar"));
+        for (String boton : List.of("editar", "modelar", "mover", "permisos")) {
+            assertTrue(navegador.findElements(By.id("proceso-detalle-" + boton)).isEmpty(),
+                    "sin modelar Inventory count no tiene el boton " + boton);
+        }
+
+        // Administrar Opening hours le abre sus permisos, que su rol no le daria; los de la carpeta no los lee
+        api.post("/procesos/" + abierto + "/concesiones",
+                "{\"accion\":\"ADMINISTRAR\",\"sujeto\":\"PERSONA\",\"usuarioId\":" + idDeAna + "}");
+        ir("/procesos/" + abierto);
+        pulsable(By.id("proceso-detalle-permisos")).click();
+        esperarUrl("/procesos/" + abierto + "/permisos");
+        visible(By.cssSelector("[data-testid='heredada-sin-leer']"));
+        visible(By.cssSelector("[data-carpeta='Human resources']"));
+
         // Luz solo lee: el detalle no le ofrece editar, modelar, publicar, mover, permisos ni borrar
         salir();
         entrarCon(correoLuz, "bosques-de-pino-alto");
@@ -185,9 +213,17 @@ class RepositorioYPermisosTest extends PruebaE2E {
         }
         // Payroll no esta: la concesion de ver es solo de Ana
         ir("/procesos");
-        esperarFilas(FILAS, 1);
+        esperarFilas(FILAS, 2);
+        assertTrue(navegador.findElements(FILAS).stream().noneMatch(una -> una.getText().contains("Payroll")),
+                "Payroll es solo de Ana");
         assertTrue(navegador.findElements(By.cssSelector("[data-testid='proceso-mover']")).isEmpty(),
                 "ni mover desde la lista");
+    }
+
+    /** Los botones con ese data-testid en la fila del proceso con ese nombre, buscada de nuevo cada vez. */
+    private List<WebElement> botonesDeLaFila(String nombre, String boton) {
+        return navegador.findElements(FILAS).stream().filter(una -> una.getText().contains(nombre)).findFirst()
+                .map(fila -> fila.findElements(By.cssSelector("[data-testid='" + boton + "']"))).orElse(List.of());
     }
 
     /** axe sobre lo que hay en pantalla, en el tema de ahora y en el otro, y vuelta al de antes. */

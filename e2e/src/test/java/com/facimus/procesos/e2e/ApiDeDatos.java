@@ -87,12 +87,12 @@ class ApiDeDatos {
 
     /**
      * Da de alta a alguien con su propia clave. Con una clave puesta no hay temporal, y por lo tanto tampoco el
-     * cambio obligatorio: la prueba puede entrar con ella y trabajar.
+     * cambio obligatorio: la prueba puede entrar con ella y trabajar. Devuelve su id, para concederle algo.
      */
-    void crearUsuario(String nombre, String correo, String clave, String rol) {
-        post("/usuarios", """
+    long crearUsuario(String nombre, String correo, String clave, String rol) {
+        return post("/usuarios", """
                 {"nombre":"%s","email":"%s","password":"%s","rolAcceso":"%s"}
-                """.formatted(nombre, correo, clave, rol));
+                """.formatted(nombre, correo, clave, rol)).get("id").asLong();
     }
 
     long crearRol(String nombre) {
