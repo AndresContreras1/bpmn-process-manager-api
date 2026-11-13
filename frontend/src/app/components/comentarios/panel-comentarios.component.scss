@@ -1,0 +1,31 @@
+// Sin encapsulacion: el HTML del comentario llega por [innerHTML] y estos estilos tienen que alcanzarlo.
+.panel-comentarios {
+  .hilo:focus-visible,
+  .hilo-destacado {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+  }
+
+  .hilo-resuelto {
+    background: var(--bs-tertiary-bg);
+  }
+
+  .comentario-html {
+    overflow-wrap: anywhere;
+
+    p:last-child,
+    ul:last-child,
+    ol:last-child {
+      margin-bottom: 0;
+    }
+
+    pre {
+      white-space: pre-wrap;
+    }
+  }
+
+  // WCAG 2.5.8: los enlaces de accion miden 24 px aunque se vean pequenos
+  .btn-link.btn-sm {
+    min-height: 24px;
+  }
+}

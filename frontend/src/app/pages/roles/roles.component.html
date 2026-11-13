@@ -100,6 +100,19 @@
                       <div class="small text-body-secondary">{{ rol.descripcion }}</div>
                     </div>
                     <div class="btn-group btn-group-sm">
+                      @if (rol.enUso) {
+                        <button
+                          i18n
+                          type="button"
+                          class="btn btn-outline-secondary"
+                          data-testid="rol-procesos"
+                          [attr.aria-expanded]="abierto === rol.id"
+                          [attr.aria-controls]="'rol-procesos-' + rol.id"
+                          (click)="verProcesos(rol)"
+                        >
+                          Used by
+                        </button>
+                      }
                       <button
                         i18n
                         type="button"
@@ -122,6 +135,28 @@
                         Delete
                       </button>
                     </div>
+                    @if (abierto === rol.id) {
+                      <div class="w-100 small" [id]="'rol-procesos-' + rol.id" aria-live="polite">
+                        @if (errorDeProcesos) {
+                          <div class="alert alert-danger py-1 mb-0" role="alert">{{ errorDeProcesos }}</div>
+                        } @else if (procesosDelRol === null) {
+                          <span i18n class="text-body-secondary">Loading the processes…</span>
+                        } @else if (procesosDelRol.length === 0) {
+                          <span i18n class="text-body-secondary">No active process uses it any more.</span>
+                        } @else {
+                          <span i18n class="text-body-secondary">Processes with a lane for this role:</span>
+                          <ul class="mb-0">
+                            @for (proceso of procesosDelRol; track proceso.id) {
+                              <li>
+                                <a [routerLink]="['/procesos', proceso.id]" data-testid="rol-proceso">{{
+                                  proceso.nombre
+                                }}</a>
+                              </li>
+                            }
+                          </ul>
+                        }
+                      </div>
+                    }
                   </li>
                 }
               </ul>
@@ -146,6 +181,7 @@
 </div>
 
 <app-modal-confirmar
+  i18n-textoBoton
   i18n-titulo
   i18n-mensaje
   idModal="modal-borrar-rol"

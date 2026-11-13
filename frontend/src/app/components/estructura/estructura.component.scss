@@ -45,6 +45,12 @@
 
 .busqueda {
   max-width: 28rem;
+
+  // Dentro del encabezado manda el tema oscuro: el gris de Bootstrap sobre el boton claro no llegaria a 4,5
+  .btn-light {
+    --bs-btn-color: var(--bs-gray-700);
+    --bs-btn-hover-color: var(--bs-gray-900);
+  }
 }
 
 .min-w-0 {

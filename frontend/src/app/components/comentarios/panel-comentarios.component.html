@@ -1,0 +1,230 @@
+<section class="panel-comentarios" id="comentarios" aria-labelledby="comentarios-titulo">
+  <h2 class="h6" id="comentarios-titulo">{{ titulo }}</h2>
+  <div class="visually-hidden" aria-live="polite" id="comentarios-estado">{{ estado }}</div>
+
+  @if (error) {
+    <div class="alert alert-danger py-2 small" role="alert" id="comentarios-error">{{ error }}</div>
+  }
+
+  @if (cargando && hilos.length === 0) {
+    <p i18n class="small text-body-secondary" role="status">Loading the comments…</p>
+  } @else if (hilos.length === 0) {
+    <p i18n class="small text-body-secondary" id="comentarios-vacio">No comments here yet.</p>
+  } @else {
+    <ol class="list-unstyled mb-3" id="comentarios-hilos">
+      @for (hilo of hilos; track hilo.comentario.id) {
+        <li
+          class="hilo border rounded-2 p-2 mb-2"
+          tabindex="-1"
+          data-testid="hilo"
+          [id]="'hilo-' + hilo.comentario.id"
+          [class.hilo-destacado]="hilo.comentario.id === destacado"
+          [class.hilo-resuelto]="hilo.comentario.estado === 'RESUELTO'"
+          [attr.data-estado]="hilo.comentario.estado"
+        >
+          <ng-container [ngTemplateOutlet]="unComentario" [ngTemplateOutletContext]="{ $implicit: hilo.comentario }" />
+          @if (hilo.respuestas.length) {
+            <ol class="list-unstyled ms-3 mt-2 mb-0 border-start ps-2" i18n-aria-label aria-label="Replies">
+              @for (respuesta of hilo.respuestas; track respuesta.id) {
+                <li class="mb-2" data-testid="respuesta">
+                  <ng-container
+                    [ngTemplateOutlet]="unComentario"
+                    [ngTemplateOutletContext]="{ $implicit: respuesta }"
+                  />
+                </li>
+              }
+            </ol>
+          }
+          @if (respondiendo === hilo.comentario.id) {
+            <form class="mt-2" (ngSubmit)="responder(hilo.comentario)">
+              <label i18n class="form-label small mb-1" [for]="'respuesta-' + hilo.comentario.id">Your reply</label>
+              <textarea
+                class="form-control form-control-sm mb-2"
+                rows="2"
+                name="respuesta"
+                data-testid="respuesta-texto"
+                [id]="'respuesta-' + hilo.comentario.id"
+                [maxlength]="largoMaximo"
+                [(ngModel)]="textoAparte"
+              ></textarea>
+              <app-selector-de-menciones [procesoId]="procesoId()" (cambio)="mencionesAparte = $event" />
+              <div class="d-flex gap-2 mt-2">
+                <button
+                  i18n
+                  type="submit"
+                  class="btn btn-primary btn-sm"
+                  data-testid="respuesta-enviar"
+                  [disabled]="enviando || !textoAparte.trim()"
+                >
+                  Reply
+                </button>
+                <button i18n type="button" class="btn btn-outline-secondary btn-sm" (click)="cerrarAparte()">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          } @else if (!hilo.comentario.eliminado || hilo.respuestas.length) {
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button
+                i18n
+                type="button"
+                class="btn btn-link btn-sm p-0"
+                data-testid="hilo-responder"
+                (click)="abrirRespuesta(hilo.comentario)"
+              >
+                Reply
+              </button>
+              @if (hilo.comentario.estado === 'ABIERTO') {
+                <button
+                  i18n
+                  type="button"
+                  class="btn btn-link btn-sm p-0"
+                  data-testid="hilo-resolver"
+                  [disabled]="enviando"
+                  (click)="resolver(hilo)"
+                >
+                  Resolve
+                </button>
+              } @else if (hilo.comentario.estado === 'RESUELTO') {
+                <button
+                  i18n
+                  type="button"
+                  class="btn btn-link btn-sm p-0"
+                  data-testid="hilo-reabrir"
+                  [disabled]="enviando"
+                  (click)="reabrir(hilo)"
+                >
+                  Reopen
+                </button>
+              }
+            </div>
+          }
+        </li>
+      }
+    </ol>
+  }
+
+  <form class="border-top pt-2" id="comentarios-nuevo" (ngSubmit)="comentar()">
+    <label i18n class="form-label small mb-1" for="comentarios-texto">New comment, in Markdown</label>
+    <textarea
+      class="form-control form-control-sm mb-2"
+      rows="3"
+      id="comentarios-texto"
+      name="texto"
+      [maxlength]="largoMaximo"
+      [(ngModel)]="texto"
+    ></textarea>
+    <app-selector-de-menciones #selectorNuevo [procesoId]="procesoId()" (cambio)="mencionesNuevas = $event" />
+    <button
+      i18n
+      type="submit"
+      class="btn btn-primary btn-sm mt-2"
+      id="comentarios-enviar"
+      [disabled]="enviando || !texto.trim()"
+    >
+      Comment
+    </button>
+  </form>
+</section>
+
+<ng-template #unComentario let-comentario>
+  <article class="comentario" [attr.data-comentario]="comentario.id">
+    <header class="d-flex flex-wrap align-items-baseline gap-1 small">
+      <strong>{{ comentario.autor?.nombre }}</strong>
+      <span class="text-body-secondary">{{ comentario.fechaCreacion | fecha: 'fechaHora' }}</span>
+      @if (comentario.editadoEn) {
+        <span i18n class="text-body-secondary">(edited)</span>
+      }
+      @if (comentario.estado === 'RESUELTO') {
+        <span i18n class="badge text-bg-success ms-auto" data-testid="hilo-resuelto">
+          <i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>Resolved
+        </span>
+      }
+    </header>
+    @if (editando === comentario.id) {
+      <form class="mt-1" (ngSubmit)="guardarEdicion(comentario)">
+        <label i18n class="form-label small mb-1" [for]="'edicion-' + comentario.id">Edit your comment</label>
+        <textarea
+          class="form-control form-control-sm mb-2"
+          rows="3"
+          name="edicion"
+          data-testid="edicion-texto"
+          [id]="'edicion-' + comentario.id"
+          [maxlength]="largoMaximo"
+          [(ngModel)]="textoAparte"
+        ></textarea>
+        <app-selector-de-menciones
+          [procesoId]="procesoId()"
+          [iniciales]="comentario.menciones"
+          (cambio)="mencionesAparte = $event"
+        />
+        <div class="d-flex gap-2 mt-2">
+          <button
+            i18n
+            type="submit"
+            class="btn btn-primary btn-sm"
+            data-testid="edicion-guardar"
+            [disabled]="enviando || !textoAparte.trim()"
+          >
+            Save
+          </button>
+          <button i18n type="button" class="btn btn-outline-secondary btn-sm" (click)="cerrarAparte()">Cancel</button>
+        </div>
+      </form>
+    } @else if (comentario.eliminado) {
+      <p i18n class="small fst-italic text-body-secondary mb-0">This comment was deleted.</p>
+    } @else {
+      <div class="comentario-html small" [innerHTML]="comentario.html"></div>
+      @if (comentario.menciones.length) {
+        <p class="small text-body-secondary mb-0">
+          <ng-container i18n>Mentions:</ng-container>
+          @for (persona of comentario.menciones; track persona.id; let ultima = $last) {
+            <span data-testid="comentario-mencion">{{ persona.nombre }}</span
+            >{{ ultima ? '' : ', ' }}
+          }
+        </p>
+      }
+      @if (puedeEditar(comentario) || puedeEliminar(comentario)) {
+        <div class="d-flex flex-wrap gap-2 mt-1">
+          @if (puedeEditar(comentario)) {
+            <button
+              i18n
+              type="button"
+              class="btn btn-link btn-sm p-0"
+              data-testid="comentario-editar"
+              (click)="abrirEdicion(comentario)"
+            >
+              Edit
+            </button>
+          }
+          @if (puedeEliminar(comentario)) {
+            @if (borrando === comentario.id) {
+              <span i18n class="small">Delete this comment?</span>
+              <button
+                i18n
+                type="button"
+                class="btn btn-link btn-sm p-0 text-danger"
+                data-testid="comentario-confirmar-borrado"
+                [disabled]="enviando"
+                (click)="eliminar(comentario)"
+              >
+                Yes, delete it
+              </button>
+              <button i18n type="button" class="btn btn-link btn-sm p-0" (click)="borrando = null">Keep it</button>
+            } @else {
+              <button
+                i18n
+                type="button"
+                class="btn btn-link btn-sm p-0 text-danger"
+                data-testid="comentario-borrar"
+                (click)="borrando = comentario.id"
+              >
+                Delete
+              </button>
+            }
+          }
+        </div>
+      }
+    }
+  </article>
+</ng-template>

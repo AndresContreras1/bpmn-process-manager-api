@@ -1,5 +1,7 @@
 package com.facimus.procesos.gestion.dto.response;
 
+import java.time.LocalDate;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "The result of recomputing the store's chain from its first entry")
@@ -10,5 +12,7 @@ public record VerificacionDeBitacoraResponse(
         @Schema(description = "The first entry where the chain breaks; empty when it does not", example = "57")
         Long rotaEn,
         @Schema(description = "Why it breaks there", example = "El hash no coincide con lo que dice el registro.")
-        String motivo) {
+        String motivo,
+        @Schema(description = "Day of the latest anchor the chain was checked against, kept where nobody can change "
+                + "it; empty while there is none", example = "2026-11-11") LocalDate anclaVerificada) {
 }

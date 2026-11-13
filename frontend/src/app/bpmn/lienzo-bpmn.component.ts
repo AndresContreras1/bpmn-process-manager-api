@@ -18,6 +18,7 @@ import { BPM_MODDLE } from './modulos/bpm.moddle';
 import { ModoDelLienzo, moduloDeModoYReglas, moduloDelModo } from './modulos/modulos-del-lienzo';
 import { ModoProceso } from './modulos/reglas';
 import { traduccion } from './modulos/traduccion';
+import { esEleccion } from './seleccion';
 
 /** Para que se abre el lienzo: ver un proceso, editarlo, seguir un caso o comparar. */
 export type ModoLienzo = 'ver' | 'editar' | 'caso' | 'comparar';
@@ -61,6 +62,8 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
   readonly marcas = input<Record<string, string[]>>({});
   /** Numeros superpuestos, como los tokens de un caso: por bpmnId. Se ven si son mas de uno. */
   readonly contadores = input<Record<string, number>>({});
+  /** F21: cuantos hilos de comentarios abiertos tiene cada elemento, por bpmnId: una insignia desde uno. */
+  readonly comentarios = input<Record<string, number>>({});
 
   readonly listo = output<void>();
   readonly cambio = output<void>();
@@ -108,7 +111,7 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
     }
     if (cambios['xml'] && this.xml() !== this.xmlCargado) {
       await this.cargar(this.xml());
-    } else if (cambios['marcas'] || cambios['contadores']) {
+    } else if (cambios['marcas'] || cambios['contadores'] || cambios['comentarios']) {
       this.pintar();
     }
   }
@@ -294,7 +297,11 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
   private escuchar(): void {
     const eventos = this.bpmn.get('eventBus');
     eventos.on('commandStack.changed', () => this.cambio.emit());
-    eventos.on('selection.changed', ({ newSelection }: Cualquiera) => {
+    eventos.on('selection.changed', ({ oldSelection, newSelection }: Cualquiera) => {
+      // F21: al importar, bpmn-js vacia una seleccion que ya estaba vacia, y eso no es elegir nada
+      if (!esEleccion(oldSelection, newSelection)) {
+        return;
+      }
       const elemento = newSelection.length === 1 ? newSelection[0] : null;
       this.elegir.emit(
         elemento ? { id: elemento.id, tipo: elemento.type, nombre: elemento.businessObject?.name ?? '' } : null,
@@ -320,6 +327,7 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
     });
     this.marcasPuestas = puestas;
     this.contar();
+    this.contarComentarios();
   }
 
   private contar(): void {
@@ -335,6 +343,40 @@ export class LienzoBpmnComponent implements AfterViewInit, OnChanges, OnDestroy 
       }
     });
   }
+
+  private contarComentarios(): void {
+    const superpuestos = this.bpmn.get('overlays');
+    const registro = this.bpmn.get('elementRegistry');
+    superpuestos.remove({ type: 'comentarios' });
+    Object.entries(this.comentarios()).forEach(([id, cuantos]) => {
+      if (cuantos > 0 && registro.get(id)) {
+        const insignia = insigniaDeComentarios(cuantos, () => this.mostrar(id));
+        insignia.dataset['elemento'] = id;
+        superpuestos.add(id, 'comentarios', { position: { top: -10, left: -6 }, html: insignia });
+      }
+    });
+  }
+}
+
+/**
+ * F21: la insignia de los comentarios de un elemento, arriba a la izquierda, lejos de la de los tokens. Es un boton:
+ * pulsarla elige el elemento, y el panel muestra sus hilos. El numero va tambien en palabras para quien no lo ve.
+ */
+function insigniaDeComentarios(cuantos: number, elegir: () => void): HTMLButtonElement {
+  const insignia = document.createElement('button');
+  insignia.type = 'button';
+  insignia.className = 'comentarios-bpmn';
+  insignia.dataset['testid'] = 'insignia-comentarios';
+  insignia.setAttribute('aria-label', $localize`${cuantos}:cuantos: open comment threads`);
+  const icono = document.createElement('i');
+  icono.className = 'fa-solid fa-comment';
+  icono.setAttribute('aria-hidden', 'true');
+  insignia.append(icono, ` ${cuantos}`);
+  insignia.addEventListener('click', (evento) => {
+    evento.stopPropagation();
+    elegir();
+  });
+  return insignia;
 }
 
 function esNodoDeFlujo(elemento: Cualquiera): boolean {

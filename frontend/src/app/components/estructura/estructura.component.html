@@ -33,17 +33,20 @@
       </a>
 
       @if (usuario) {
-        <form class="d-none d-md-flex flex-grow-1 mx-lg-4 busqueda" role="search" (ngSubmit)="buscar()" id="busqueda">
-          <label i18n class="visually-hidden" for="busqueda-global">Search processes by name</label>
-          <input
-            i18n-placeholder
-            class="form-control form-control-sm"
-            type="search"
-            id="busqueda-global"
-            placeholder="Search processes"
-            [formControl]="busqueda"
-          />
-        </form>
+        <!-- F19: la busqueda del encabezado es la global, la misma que abre Ctrl+K desde cualquier pantalla -->
+        <div class="flex-grow-1 mx-lg-4 busqueda" role="search">
+          <button
+            type="button"
+            class="btn btn-sm btn-light w-100 d-flex align-items-center gap-2 text-start"
+            id="navbar-buscar"
+            aria-keyshortcuts="Control+K Meta+K"
+            (click)="busquedaGlobal.abrir()"
+          >
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <span i18n class="flex-grow-1 text-truncate">Search everything</span>
+            <kbd class="d-none d-md-inline small" aria-hidden="true">{{ atajoVisible }}</kbd>
+          </button>
+        </div>
       }
 
       <ul class="navbar-nav ms-auto align-items-center gap-1">
@@ -98,6 +101,14 @@
         </li>
 
         @if (usuario) {
+          <!-- F21: la campana llega aparte, cuando el navegador queda libre, con su flujo en vivo -->
+          <li class="nav-item">
+            @defer (on idle) {
+              <app-campana />
+            } @placeholder {
+              <span class="nav-link px-2" aria-hidden="true"><i class="fa-solid fa-bell"></i></span>
+            }
+          </li>
           <li class="nav-item dropdown">
             <button
               class="nav-link dropdown-toggle"
@@ -123,6 +134,11 @@
               <li>
                 <a i18n class="dropdown-item" routerLink="/cuenta/seguridad" id="navbar-seguridad">
                   <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Security
+                </a>
+              </li>
+              <li>
+                <a i18n class="dropdown-item" routerLink="/cuenta/notificaciones" id="navbar-notificaciones">
+                  <i class="fa-solid fa-bell" aria-hidden="true"></i> Notifications
                 </a>
               </li>
               <li><hr class="dropdown-divider" /></li>
@@ -191,6 +207,11 @@
                 <i class="fa-solid fa-clipboard-list fa-fw" aria-hidden="true"></i> Cases
               </a>
             </li>
+            <li class="nav-item">
+              <a i18n class="nav-link" routerLink="/solicitudes" routerLinkActive="active" id="navbar-solicitudes">
+                <i class="fa-solid fa-file-signature fa-fw" aria-hidden="true"></i> To approve
+              </a>
+            </li>
           </ul>
 
           <p i18n class="barra-titulo" id="seccion-tablero">Dashboard</p>
@@ -231,6 +252,17 @@
                   id="navbar-configuracion"
                 >
                   <i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> Organization settings
+                </a>
+              </li>
+              <li class="nav-item">
+                <a
+                  i18n
+                  class="nav-link"
+                  routerLink="/politica-de-publicacion"
+                  routerLinkActive="active"
+                  id="navbar-politica"
+                >
+                  <i class="fa-solid fa-stamp fa-fw" aria-hidden="true"></i> Publishing policy
                 </a>
               </li>
               <li class="nav-item">
@@ -290,5 +322,11 @@
   }
   @defer (when verificacion.pidiendo()) {
     <app-dialogo-de-verificacion />
+  }
+  <!-- F19: la busqueda global llega la primera vez que alguien la abre -->
+  @defer (when busquedaGlobal.abierta()) {
+    @if (busquedaGlobal.abierta()) {
+      <app-busqueda-global />
+    }
   }
 }

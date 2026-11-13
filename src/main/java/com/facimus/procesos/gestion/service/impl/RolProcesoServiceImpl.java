@@ -18,6 +18,7 @@ import com.facimus.procesos.gestion.mapper.RolProcesoMapper;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.repository.PoliticaPublicacionRepository;
 import com.facimus.procesos.gestion.repository.RolProcesoRepository;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
@@ -31,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 public class RolProcesoServiceImpl implements RolProcesoService {
 
     private final RolProcesoRepository rolProcesoRepository;
+    private final PoliticaPublicacionRepository politicaRepository;
     private final EmpresaRepository empresaRepository;
     private final UsoDeRoles usoDeRoles;
     private final HistorialCambioService historialCambioService;
@@ -99,6 +101,11 @@ public class RolProcesoServiceImpl implements RolProcesoService {
             throw new ReglaNegocioException(
                     "El rol \"" + rol.getNombre() + "\" esta en uso en los procesos: " + String.join(", ", procesos)
                             + ". No se puede eliminar.");
+        }
+        // PR 64: sin el rol, la politica que lo nombra se quedaria sin quien apruebe y la tienda sin poder publicar
+        if (politicaRepository.existsByEmpresaIdAndRolProcesoId(empresaId, rolId)) {
+            throw new ReglaNegocioException("El rol \"" + rol.getNombre() + "\" es el de quienes aprueban en la "
+                    + "política de publicación: cámbiala antes de eliminarlo.");
         }
         rol.setActivo(false);
         rolProcesoRepository.save(rol);

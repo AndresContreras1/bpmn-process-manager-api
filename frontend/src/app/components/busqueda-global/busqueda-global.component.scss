@@ -1,0 +1,15 @@
+// La opcion activa se ve sin depender del color: lleva un borde a la izquierda ademas del fondo.
+.resultado {
+  border-inline-start: 3px solid transparent;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--bs-secondary-bg);
+  }
+
+  &.activa {
+    background-color: var(--bs-primary-bg-subtle);
+    border-inline-start-color: var(--bs-primary);
+    color: var(--bs-primary-text-emphasis);
+  }
+}

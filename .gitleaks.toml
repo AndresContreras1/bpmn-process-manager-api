@@ -16,3 +16,8 @@ regexes = ['''api:8081/actuator/prometheus''']
 description = "The names of the Flyway migrations, which the migrations test lists: a version and some words, not a key"
 regexTarget = "match"
 regexes = ['''V\d+__[a-z0-9_]+\.sql''']
+
+[[allowlists]]
+description = "The address where NGINX forwards the signed downloads inside the compose network: a host, a port and a path"
+regexTarget = "match"
+regexes = ['''api:8080/api/v1/descargas/''']

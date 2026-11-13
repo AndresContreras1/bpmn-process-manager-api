@@ -54,6 +54,15 @@ export class ModeloService {
     return this.http.post<Revision>(`${this.api}/${procesoId}/revisiones`, null);
   }
 
+  /** F21: el XML de una revision del borrador, como la que congela una solicitud de revision. */
+  modeloDeRevision(procesoId: number, revisionId: number): Observable<string> {
+    // para=dibujar: quien aprueba solo necesita verlo; sin el, la ruta pide poder exportar el proceso
+    return this.http.get(`${this.api}/${procesoId}/revisiones/${revisionId}/modelo`, {
+      responseType: 'text',
+      params: { para: 'dibujar' },
+    });
+  }
+
   restaurar(procesoId: number, revisionId: number): Observable<ModeloGuardado> {
     return this.http.post<ModeloGuardado>(`${this.api}/${procesoId}/revisiones/${revisionId}/restaurar`, null);
   }

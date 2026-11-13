@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Carpeta, aplanarCarpetas } from './carpeta.model';
+import { Carpeta, aplanarCarpetas, destinosDeCarpeta } from './carpeta.model';
 
 function carpeta(id: number, nombre: string, padreId: number | null): Carpeta {
   return { id, nombre, padreId, procesos: 0, version: 0 };
@@ -29,5 +29,30 @@ describe('aplanarCarpetas', () => {
 
   it('sin carpetas no hay filas', () => {
     expect(aplanarCarpetas([])).toEqual([]);
+  });
+});
+
+describe('destinosDeCarpeta', () => {
+  const carpetas = [
+    carpeta(1, 'Alfa', null),
+    carpeta(2, 'Hija de alfa', 1),
+    carpeta(3, 'Nieta', 2),
+    carpeta(4, 'Beta', null),
+    carpeta(5, 'Hija de beta', 4),
+  ];
+
+  it('una carpeta no se mueve a si misma ni a nada que tenga dentro', () => {
+    expect(destinosDeCarpeta(carpetas, 2).map((fila) => fila.carpeta.id)).toEqual([1, 4, 5]);
+  });
+
+  it('una raiz puede ir dentro de cualquier otra rama', () => {
+    expect(destinosDeCarpeta(carpetas, 1).map((fila) => [fila.carpeta.id, fila.nivel])).toEqual([
+      [4, 0],
+      [5, 1],
+    ]);
+  });
+
+  it('una hoja puede ir a cualquier otra carpeta, la suya incluida', () => {
+    expect(destinosDeCarpeta(carpetas, 3).map((fila) => fila.carpeta.id)).toEqual([1, 2, 4, 5]);
   });
 });

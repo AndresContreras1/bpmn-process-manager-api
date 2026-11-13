@@ -1,0 +1,77 @@
+<div class="modal-backdrop fade show"></div>
+<div class="modal d-block" tabindex="-1">
+  <div
+    #dialogo
+    class="modal-dialog modal-dialog-centered modal-dialog-scrollable"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="mover-titulo"
+    id="mover-dialogo"
+    (keydown)="teclear($event)"
+  >
+    <form class="modal-content" (ngSubmit)="mover()">
+      <div class="modal-header">
+        <h2 i18n class="modal-title h5" id="mover-titulo">Move “{{ proceso().nombre }}”</h2>
+        <button i18n-aria-label type="button" class="btn-close" aria-label="Close" (click)="cerrar.emit()"></button>
+      </div>
+      <div class="modal-body">
+        @if (error) {
+          <div class="alert alert-danger py-2 small" role="alert" id="mover-error">{{ error }}</div>
+        }
+        @if (cargando) {
+          <p i18n class="text-body-secondary mb-0" role="status">Loading the folders…</p>
+        } @else {
+          <fieldset>
+            <legend i18n class="small text-body-secondary mb-2">
+              Choose its new folder. The arrows move between them.
+            </legend>
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="destino"
+                id="mover-ninguna"
+                [value]="null"
+                [(ngModel)]="destino"
+              />
+              <label i18n class="form-check-label" for="mover-ninguna">No folder</label>
+            </div>
+            @for (fila of filas; track fila.carpeta.id) {
+              <div class="form-check" [style.margin-inline-start]="sangria(fila.nivel)">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="destino"
+                  [id]="'mover-carpeta-' + fila.carpeta.id"
+                  [attr.data-carpeta]="fila.carpeta.nombre"
+                  [value]="fila.carpeta.id"
+                  [(ngModel)]="destino"
+                />
+                <label class="form-check-label" [for]="'mover-carpeta-' + fila.carpeta.id">
+                  {{ fila.carpeta.nombre }}
+                  @if (fila.nivel > 0) {
+                    <span i18n class="visually-hidden">, level {{ fila.nivel + 1 }}</span>
+                  }
+                </label>
+              </div>
+            }
+          </fieldset>
+        }
+      </div>
+      <div class="modal-footer">
+        <button i18n type="button" class="btn btn-outline-secondary" id="mover-cancelar" (click)="cerrar.emit()">
+          Cancel
+        </button>
+        <button
+          i18n
+          type="submit"
+          class="btn btn-primary"
+          id="mover-confirmar"
+          [disabled]="cargando || enviando || sinCambio"
+        >
+          Move
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

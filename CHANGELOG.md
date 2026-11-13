@@ -8,6 +8,65 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Review, comments and notifications in the web: with a publishing policy that asks for approval, the process page
+  and the modeler offer *Ask for review* instead of Publish, or a link to the open request; an inbox lists what waits
+  for the person's decision and every request of the store by state; a request page draws the frozen draft with its
+  difference marked like the compare page and lists it in words, and lets an approver approve, ask for changes or
+  reject, and the requester or whoever administers the process withdraw it after confirming; the administrator sets the policy on its
+  own screen. Comment threads sit in a panel beside the canvas in the modeler and the viewer, for the selected element
+  or the whole process, with a count of open threads drawn over each element, replies, resolve and reopen, edit and
+  delete, the HTML the API cleaned and mentions chosen from a picker that sends ids. The header has a bell with the
+  unread count, live over the notification stream with its own reconnection, the latest notifications, mark one or
+  all read, and a settings page per type. `GET /api/v1/procesos/{id}/mencionables` answers who can be mentioned in a
+  process. The initial bundle stays at 738 kB.
+- The repository and the permissions in the web: the filters of the process list (folder, owner, tag,
+  classification, review date, state, category, name, order and page) live in the address; folders move inside
+  others and processes move between folders from a dialog driven by the keyboard; a new process can be filed as it
+  is created, with its folder, owner, next review, classification and tags; a global search opens from the header or
+  with Ctrl+K or Cmd+K, grouped by kind, with the matching words marked and never read as HTML; a screen lists,
+  grants and takes back what a person, a process role or the whole organization can do with a folder or a process,
+  with what comes from the folders above as inherited; the process page and each row of the list only offer the
+  buttons that `GET /procesos/{id}/permisos` allows; and the roles page lists the processes that use each role. The
+  header search by name became the global search, and the initial bundle went from 789 kB to 732 kB.
+- Full-text search: `GET /api/v1/busqueda` finds a text in processes, elements of the draft and of the published
+  version, documents and comments, with web search syntax (quotes, `-`, `or`), in the store's language (Spanish,
+  English or French) and without minding accents. It finds only what the person can view, filtered in the same query,
+  ranks names above descriptions and bodies, and answers each hit with the ids to open it and a fragment in plain-text
+  segments with the matches highlighted. PostgreSQL keeps the vectors with triggers and GIN indexes; the job queue
+  reads the text of PDF, Office, OpenOffice and plain-text files once the antivirus clears them, with Tika's parsers,
+  a cap of 1,000,000 characters and 30 seconds per file, replacing a reading thread that a file leaves stuck, and
+  searches the rest by name. A job that finds no free reading slot is postponed without spending an attempt.
+  Changing the store's language rebuilds the vectors in a queued job, in short transactions; searching spends from its
+  own bucket, 60 a minute per person.
+- Review and approval: each store publishes directly, as before, or with approval by N people of a list or a process
+  role. Asking for review (needs PUBLICAR) freezes the draft in a revision and in the snapshot to publish, answers
+  the semantic difference against the version in force, and notifies the approvers; each one approves, asks for
+  changes or rejects with a reason, never the requester, and the last approval publishes the frozen snapshot through
+  the usual path, or says why it no longer can (the version in force changed, or the diagnosis is not clean). With
+  approval on, publishing directly answers 409 for everyone. Recertification: a daily job tells each process owner
+  when its review date arrives and once more when it passes, "still valid" moves the date by the process's months
+  between reviews, and process answers say when a review is overdue. Everything is audited.
+  Publishing through a request and recertifying leave the process's version and last editor alone, so the separation
+  of duties never blocks the next round; the approvers are evaluated in one pass; read-only people never count as
+  approvers; turning the policy off never fails over stale approvers; a role the policy names cannot be deleted;
+  deleting a process withdraws its open request.
+- Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
+  like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
+  can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads
+  reach a notification center that only its recipient sees, a server-sent event stream shared by every replica, and
+  e-mail in the person's language, immediate or in a daily digest as each person chooses per type. Resolving,
+  reopening and deleting are audited; read notifications are purged after 90 days.
+- Documentation in Markdown for a process and each of its elements, converted on the server and cleaned against a
+  whitelist, with a preview; a characterization sheet per process; the drawing of each version, which the modeler
+  sends right after publishing and the server cleans; and the manual of a published version in HTML and PDF, built in
+  the job queue in the language of whoever asks it and downloaded through a signed link.
+- Documents attached to a process or one of its elements, with versions: the type comes from the content against a
+  whitelist (415), the name is cleaned, uploads stream up to 25 MB within a quota per store (413), and the job queue
+  reviews each version with ClamAV and, for Office and OpenOffice files, a ZIP bomb check before it can be downloaded.
+  Downloads are five-minute signed links served by the API as attachments. The storage is S3 or compatible, with
+  SeaweedFS in `compose.yaml`, or a disk folder in development.
+- The daily anchor of the audit trail: each store's last link goes to a bucket with Object Lock in compliance mode,
+  and verifying the trail checks the latest anchor.
 - Granular permissions: actions granted on folders and processes to a person, a process role or the whole organization,
   inherited from the folder, on top of the access role and with separation of duties. Lists only show what can be seen.
 - The process repository: a tree of folders, and for each process its folder, owner, next review date, classification
@@ -18,14 +77,6 @@ tagged. Each pull request adds its line under *Unreleased*.
 - A structure view in the modeler: the diagram as a keyboard-navigable tree (pools, lanes, nodes and their outgoing
   flows) that can create, connect, move between lanes, rename and delete without dragging, with live announcements.
   Targets of at least 24 × 24 px in the canvas and a visible, unobscured focus.
-
-### Changed
-
-- The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
-  old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
-  which can publish.
-
-### Added
 
 - The BPMN modeler in the web, on bpmn-js: `/procesos/{id}/modelar` draws and edits the process, limited to what the
   model has and to its mode, with undo, search, minimap, import and export to `.bpmn`, SVG and PNG, a properties panel,
@@ -136,6 +187,14 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- The README and the guides cover BPMN files, the bpmn-js modeler, editing together, the process repository and
+  permissions, with the numbers of today's build.
+- The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
+  old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
+  which can publish.
+- Unit tests for the services that only the integration suites checked (second factor, external sign-in, sessions,
+  accounts, settings, the audit log, permissions, folders, BPMN import, autosave and live editing among them): the
+  nightly mutation run is back above its 75 % floor, with 2984 of 3274 mutations caught (91 %).
 - The web app has a design system: tokens in the DTCG format turned into Bootstrap's Sass variables and CSS
   variables, a green scale checked against WCAG AA, a dark mode, a shell with a sidebar, breadcrumbs and a search,
   shared components for loading, empty, errors, notices and statuses, and axe-core over every screen in the
@@ -173,6 +232,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   and NGINX 1.30 for the ones in the web image.
 - The error handler writes the request path, the database's message and an external service's answer to the log
   on one line: a line break inside them turns into an underscore and can no longer fake a log line of its own.
+- The CSRF token lasts the session: signing in, by any way, and signing out set a new one, and no other request
+  changes it. Before, every request with the session cookies answered a new token, and a change sent alongside other
+  requests could get a `403`; the web now stays in its language, with a notice, when saving it fails.
 
 ## Before this file
 
