@@ -3,6 +3,7 @@ package com.facimus.procesos.modelado.bpmn;
 import java.util.List;
 import java.util.Map;
 
+import com.facimus.procesos.common.formularios.Formulario;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
@@ -48,12 +49,21 @@ public record PlanBpmn(String nombre, String descripcion, String categoria, List
     public record Nodo(String bpmnId, String lane, Clase clase, TipoActividad tipoActividad, TipoGateway tipoGateway,
             TipoEvento tipoEvento, String nombre, String descripcion, int x, int y, String adjuntoA,
             Boolean interrumpe, TipoTemporizador tipoTemporizador, String temporizador, String padre,
-            Long procesoLlamado) {
+            Long procesoLlamado, Formulario formulario) {
+
+        /** El de antes del PR 69, sin formulario. */
+        public Nodo(String bpmnId, String lane, Clase clase, TipoActividad tipoActividad, TipoGateway tipoGateway,
+                TipoEvento tipoEvento, String nombre, String descripcion, int x, int y, String adjuntoA,
+                Boolean interrumpe, TipoTemporizador tipoTemporizador, String temporizador, String padre,
+                Long procesoLlamado) {
+            this(bpmnId, lane, clase, tipoActividad, tipoGateway, tipoEvento, nombre, descripcion, x, y, adjuntoA,
+                    interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado, null);
+        }
 
         /** El mismo nodo en otro sitio. */
         Nodo en(String otraLane, int otraX, int otraY) {
             return new Nodo(bpmnId, otraLane, clase, tipoActividad, tipoGateway, tipoEvento, nombre, descripcion, otraX,
-                    otraY, adjuntoA, interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado);
+                    otraY, adjuntoA, interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado, formulario);
         }
     }
 

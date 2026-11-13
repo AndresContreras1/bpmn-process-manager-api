@@ -35,6 +35,8 @@
 		<owasp-html-sanitizer.version>20261011.1</owasp-html-sanitizer.version>
 		<openhtmltopdf.version>1.1.103</openhtmltopdf.version>
 		<jsoup.version>1.23.2</jsoup.version>
+		<!-- PR 69: los patrones de los formularios, con RE2/J: tiempo lineal, sin vuelta atras -->
+		<re2j.version>1.8</re2j.version>
 		<!-- SonarCloud: organizacion y proyecto que crea la importacion automatica del repositorio -->
 		<sonar.organization>andrescontreras1</sonar.organization>
 		<sonar.projectKey>AndresContreras1_bpmn-process-manager-api</sonar.projectKey>
@@ -170,6 +172,12 @@
 			<groupId>org.jsoup</groupId>
 			<artifactId>jsoup</artifactId>
 			<version>${jsoup.version}</version>
+		</dependency>
+		<!-- PR 69: el patron de un campo lo escribe un usuario; RE2/J lo evalua en tiempo lineal -->
+		<dependency>
+			<groupId>com.google.re2j</groupId>
+			<artifactId>re2j</artifactId>
+			<version>${re2j.version}</version>
 		</dependency>
 		<!-- Actuator: estado, datos de la version y metricas para quien opera la API -->
 		<dependency>
@@ -472,6 +480,8 @@
 						<param>com.facimus.procesos.common.tiempo.*</param>
 						<param>com.facimus.procesos.gestion.service.CalendarioLaboral*</param>
 						<param>com.facimus.procesos.gestion.service.FestivosPorPais*</param>
+						<!-- PR 69: el esquema, las respuestas y los patrones de los formularios -->
+						<param>com.facimus.procesos.common.formularios.*</param>
 					</targetClasses>
 					<!-- Las pruebas de esos mismos paquetes: las unitarias de cada service, las del motor sobre JPA y las
 					     de las condiciones. Las de integracion ya cubren lo mismo desde fuera y multiplicarian el tiempo. -->
@@ -479,6 +489,7 @@
 						<param>com.facimus.procesos.*.service.*</param>
 						<param>com.facimus.procesos.common.condiciones.*</param>
 						<param>com.facimus.procesos.common.tiempo.*</param>
+						<param>com.facimus.procesos.common.formularios.*</param>
 					</targetTests>
 					<threads>4</threads>
 					<!-- Medido el 2026-11-11: 3274 mutaciones, 2984 detectadas (91 %) y 95 % de las que las pruebas

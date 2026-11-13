@@ -269,7 +269,7 @@ public final class LectorBpmn {
                     Dom.referencia(Dom.atributo(hijo, "attachedToRef")),
                     !"false".equals(Dom.atributo(hijo, "cancelActivity")),
                     tiempo == null ? null : claseDeTiempo(tiempo), Dom.texto(tiempo), padre,
-                    Dom.atributo(hijo, "calledElement")));
+                    Dom.atributo(hijo, "calledElement"), FormularioBpmn.leer(hijo)));
             extension(suId, hijo);
             asociacionesDeDatos(hijo, suId, TAREAS.contains(elemento));
             if ("subProcess".equals(elemento)) {

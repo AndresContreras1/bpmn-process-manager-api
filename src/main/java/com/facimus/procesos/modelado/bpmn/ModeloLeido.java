@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.facimus.procesos.common.formularios.Formulario;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Limites;
 
@@ -46,10 +47,11 @@ public record ModeloLeido(String nombre, String descripcion, String categoria, L
      * @param temporizador la expresion de cuando salta
      * @param padre el {@code subProcess} donde esta, o nulo si esta en el proceso
      * @param llamado el {@code calledElement} de una {@code callActivity}
+     * @param formulario PR 69: el {@code bpm:formulario} que trae, o nulo
      */
     public record Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
             List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
-            String temporizador, String padre, String llamado) {
+            String temporizador, String padre, String llamado, Formulario formulario) {
 
         /** PR 68: un {@code timeDuration} que se cuenta en tiempo habil, con el calendario de la tienda. */
         public static final String DURACION_HABIL = "timeDuration+habil";

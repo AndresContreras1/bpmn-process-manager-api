@@ -366,14 +366,15 @@ class AplicacionDelModelo {
                     case ACTIVIDAD -> actividadRepository.save(Actividad.builder().empresa(empresa)
                             .bpmnId(deseado.bpmnId()).nombre(deseado.nombre()).descripcion(deseado.descripcion())
                             .tipoActividad(deseado.tipoActividad()).posicionX(x).posicionY(y).lane(lane)
-                            .procesoLlamado(procesoLlamado(deseado)).build());
+                            .procesoLlamado(procesoLlamado(deseado)).formulario(deseado.formulario()).build());
                     case GATEWAY -> gatewayRepository.save(Gateway.builder().empresa(empresa).bpmnId(deseado.bpmnId())
                             .nombre(deseado.nombre()).tipoGateway(deseado.tipoGateway()).posicionX(x).posicionY(y)
                             .lane(lane).build());
                     case EVENTO -> eventoRepository.save(Evento.builder().empresa(empresa).bpmnId(deseado.bpmnId())
                             .nombre(deseado.nombre()).tipoEvento(deseado.tipoEvento()).posicionX(x).posicionY(y)
                             .lane(lane).tipoTemporizador(deseado.tipoTemporizador())
-                            .temporizador(deseado.temporizador()).interrumpe(deseado.interrumpe()).build());
+                            .temporizador(deseado.temporizador()).interrumpe(deseado.interrumpe())
+                            .formulario(deseado.formulario()).build());
                 };
                 nodos.put(deseado.bpmnId(), nuevo);
                 nodosNuevos.add(deseado.bpmnId());
@@ -387,7 +388,10 @@ class AplicacionDelModelo {
                 y = actual.getPosicionY();
             }
             boolean cambia = !Objects.equals(actual.getNombre(), deseado.nombre()) || actual.getPosicionX() != x
-                    || actual.getPosicionY() != y || !actual.getLane().getBpmnId().equals(deseado.lane());
+                    || actual.getPosicionY() != y || !actual.getLane().getBpmnId().equals(deseado.lane())
+                    || !Objects.equals(actual.getFormulario(), deseado.formulario());
+            // PR 69: el formulario va con el tipo del nodo; el check de la base no admite uno sin el otro
+            actual.setFormulario(deseado.formulario());
             switch (actual) {
                 case Actividad actividad -> {
                     Proceso llamado = procesoLlamado(deseado);

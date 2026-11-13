@@ -29,6 +29,7 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.facimus.procesos.common.ArchivoDemasiadoGrandeException;
+import com.facimus.procesos.common.CamposInvalidosException;
 import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.DemasiadosIntentosException;
 import com.facimus.procesos.common.EnlaceNoValidoException;
@@ -63,6 +64,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(SolicitudInvalidaException.class)
     public ProblemDetail manejarSolicitudInvalida(SolicitudInvalidaException ex, WebRequest req) {
         return construir(HttpStatus.BAD_REQUEST, "Solicitud inválida", ex.getMessage(), req);
+    }
+
+    /** PR 69: campos que el servicio rechaza, como las respuestas de un formulario; cada uno con su mensaje. */
+    @ExceptionHandler(CamposInvalidosException.class)
+    public ProblemDetail manejarCamposInvalidos(CamposInvalidosException ex, WebRequest req) {
+        ProblemDetail problema = construir(HttpStatus.BAD_REQUEST, "Validación fallida", ex.getMessage(), req);
+        problema.setProperty(ERRORES, ex.errores());
+        return problema;
     }
 
     /** Un enlace del correo usado, vencido o inventado: los tres responden lo mismo. */

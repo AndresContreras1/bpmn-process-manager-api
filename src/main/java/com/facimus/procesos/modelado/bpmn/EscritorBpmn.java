@@ -63,7 +63,7 @@ import com.facimus.procesos.modelado.model.TipoTemporizador;
  * <li>un {@code BPMNDiagram} con la geometria que el modelo ya tiene (PR 52);</li>
  * <li>lo que BPMN no tiene, en el espacio {@code bpm:} ({@link EspaciosBpmn#BPM}): tipo, integracion y orden del
  * participante, rol de la lane, orden de los flujos, y el contenido, los campos, el destino, el fallo, la respuesta y
- * la correlacion de cada mensaje.</li>
+ * la correlacion de cada mensaje; PR 69: el formulario de cada tarea de usuario y de cada inicio simple.</li>
  * </ul>
  *
  * <p>PR 55: lo descriptivo. Los eventos de temporizador (de inicio, de espera y de borde) con su
@@ -599,7 +599,9 @@ public final class EscritorBpmn {
             }
             ajenos.atributos(id, salida);
             documentacion(actividad.descripcion());
-            extensiones(id, false, null);
+            // PR 69: el formulario de la tarea, que BPMN no tiene
+            extensiones(id, actividad.formulario() != null,
+                    () -> FormularioBpmn.escribir(salida, actividad.formulario()));
             entradasYSalidas(actividad.id());
             datosDeLaActividad(id);
             if (tipo != null && tipo.esSubproceso()) {
@@ -641,7 +643,7 @@ public final class EscritorBpmn {
                 salida.atributo("attachedToRef", actividad);
             }
             ajenos.atributos(id, salida);
-            extensiones(id, false, null);
+            extensiones(id, evento.formulario() != null, () -> FormularioBpmn.escribir(salida, evento.formulario()));
             entradasYSalidas(evento.id());
             if (tipo == TipoEvento.MENSAJE_INICIO || tipo == TipoEvento.MENSAJE_INTERMEDIO
                     || tipo == TipoEvento.MENSAJE_FIN) {

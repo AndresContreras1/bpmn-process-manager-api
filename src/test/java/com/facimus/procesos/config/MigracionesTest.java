@@ -118,7 +118,7 @@ class MigracionesTest {
                         "V50__repositorio_de_procesos.sql",
                         "V51__concesiones.sql", "V52__documentos.sql",
                         "V53__documentacion_y_manual.sql",
-                        "V58__calendario_y_temporizadores.sql");
+                        "V58__calendario_y_temporizadores.sql", "V59__formularios.sql");
     }
 
     @Test
