@@ -15,8 +15,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   tray and the case timeline says why.
 - Claiming, releasing, reassigning and delegating a task with a reason: `POST /tareas/{id}/reclamar`, `/soltar`,
   `/reasignar` and `/delegar`, each one in the case timeline and the audit trail. A delegated task goes back to whoever
-  delegated it when the delegate releases it. Two people claiming the same task at once: one gets it, the other a
-  `409`.
+  delegated it when the delegate releases it, if that person can still hold tasks, and only the delegator or an
+  administrator reassigns it. A delegation ends as `ANULADA` when the case cancels, fails or interrupts its task. Every
+  action locks the case first; two people claiming the same task at once: one gets it, the other a `409`.
 - Inboxes: `GET /tareas?bandeja=MIAS|DE_MIS_ROLES|SIN_ASIGNAR|TODAS`, oldest first, and the workload per person,
   `GET /tareas/carga`.
 - The store policy `administradorCompletaPorOtro`, off by default: an administrator completes a task another person
@@ -192,7 +193,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 - Only whoever holds a task completes it. A task nobody holds is taken by completing it, by a member of its process role
   or an administrator; anybody else gets `403`, and a task another person holds answers `409`. `POST
-  /tareas/{id}/asignar` is replaced by `reclamar` and `soltar`, which the tasks screen now calls.
+  /tareas/{id}/asignar` is replaced by `reclamar` and `soltar`, which the tasks screen now calls; taking a task by
+  completing it is recorded as a claim. The tasks screen offers "Complete" only on a task the viewer holds or nobody
+  holds, and the case timeline names the assignment events.
 - Free key-value data, when completing a task or opening a case without a form, is taken only in `PRUEBA` mode; a
   `PRODUCCION` case answers `400` for each key, and its variables are corrected with `PATCH /casos/{id}/variables`.
 - `E-18` no longer stops an executable process from publishing a timer: it now flags a cycle on a timer that fires only

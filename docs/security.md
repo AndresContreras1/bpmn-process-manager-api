@@ -401,16 +401,25 @@ What PR 70 adds, against the checklist every resource goes through ([ADR-0074](a
   `UsuarioService.obtener` looks up inside the caller's store.
 - **Who.** The four actions and completing are administrators' and editors' (the route matrix), and then a rule of the
   task: a member of its process role or an administrator claims one nobody holds; only the holder completes, delegates
-  and, with administrators, releases and reassigns it (`403` otherwise). Completing another person's task is an
+  and, with administrators, releases and reassigns it (`403` otherwise). A delegated task is reassigned by whoever
+  delegated it or an administrator, never by the delegate, so a delegate cannot keep it from coming back by passing it
+  on; a delegate who releases it gives it back only if the delegator can still hold tasks. Completing another person's
+  task is an
   administrator's only when the store turns on `administradorCompletaPorOtro`, which only an administrator edits.
   Whoever receives a task must be an active administrator or editor (`409`): a read-only user could never complete it.
   Saving the rule is `MODELAR` on the element. The inboxes and the workload are operations routes read by any role,
   scoped to the store.
-- **Race safety.** A claim is one conditional `UPDATE` that bumps the task's version: two at once, one wins and the
-  other gets `409`. The other actions lock the case first and save with the optimistic lock, so none overwrites a claim.
+- **Race safety.** Every action, a claim included, locks the case first, as completing, cancelling and a firing timer
+  do. A claim is also one conditional `UPDATE` that bumps the task's version: two at once, one wins and the other gets
+  `409`. The other actions save with the optimistic lock, so none overwrites a claim.
 - **Audit trail.** Each action and each completion on someone's behalf (`TAREA_COMPLETADA_POR_OTRO`), with the case and
   the user ids. The free-text reason stays in the case timeline and the delegation, not in the trail, which keeps no
-  free text; the timeline names people by id. Changing the policy is `CONFIGURACION_CAMBIADA` with its value.
+  free text; the timeline names people by id. Taking a task by completing it is a `TAREA_RECLAMADA` too. Changing the
+  policy is `CONFIGURACION_CAMBIADA` with its value.
+- **Personal data in a reason.** The reason of a release, a reassignment or a delegation is free text kept in the
+  case timeline and in `delegaciones.motivo`, and anonymizing a person does not rewrite it, as it does not rewrite
+  the timeline. The API asks for the why, not for who; a store that writes names there keeps them after an
+  anonymization, the way a comment would.
 - **Rate limit and quota.** The general limit on changes. A reason has up to 500 characters and a variable path up to
   200.
 - **What arrives from a file.** A BPMN file can name any user id as the fixed person. It is never trusted: when the

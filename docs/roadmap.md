@@ -111,7 +111,8 @@
 - [x] Assignment of user tasks (role tray, fixed person, initiator or the person of a form field), frozen in the
       version; claim, release, reassign and delegate with a reason; inboxes and the workload per person; only the
       holder completes a task, and an administrator on someone's behalf only by store policy (PR 70)
-- [ ] The inboxes, the actions and the assignment panel in the web (F23)
+- [ ] The inboxes, the workload, reassigning and delegating in the web's work portal (F24), and the assignment panel
+      in the modeler beside the form designer (F23)
 
 **Beyond the model**
 - [x] Deterministic diagnosis of a diagram, with its own catalogue of errors and warnings and a what-if for a deletion

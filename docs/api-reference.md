@@ -305,21 +305,26 @@ Every task has a holder (`asignadoA`) or waits in its role tray. Only the holder
 
 - `POST /api/v1/tareas/{id}/completar` on a task nobody holds takes it for the caller, if the caller belongs to its
   process role or is an administrator (`403` otherwise); on a task another person holds it answers `409`, unless the
-  caller is an administrator and the store turned on `administradorCompletaPorOtro`.
+  caller is an administrator and the store turned on `administradorCompletaPorOtro`. Taking a task by completing it
+  leaves the same `TAREA_RECLAMADA` line and audit event as claiming it first.
 - `POST /api/v1/tareas/{id}/reclamar`, no body: a member of its role, or an administrator, takes a task nobody holds.
   If somebody took it first, even an instant before, `409`.
 - `POST /api/v1/tareas/{id}/soltar`, with an optional `{ "motivo": "…" }`: the holder, or an administrator, lets it go.
-  It goes back to the role tray, or, when the holder is a delegate, back to whoever delegated it.
-- `POST /api/v1/tareas/{id}/reasignar` with `{ "usuarioId": 5, "motivo": "Ana is on leave" }`: the holder, or an
-  administrator, hands it to another active administrator or editor; an administrator can also give a task nobody
-  holds. An open delegation ends.
+  It goes back to the role tray, or, when the holder is a delegate, back to whoever delegated it, if that person can
+  still hold tasks (the role tray otherwise, and the timeline says why).
+- `POST /api/v1/tareas/{id}/reasignar` with `{ "usuarioId": 5, "motivo": "Covering the weekend shift" }`: the holder,
+  or an administrator, hands it to another active administrator or editor; an administrator can also give a task
+  nobody holds. A delegated task is reassigned by whoever delegated it, or an administrator, never by the delegate
+  (`403`). An open delegation ends.
 - `POST /api/v1/tareas/{id}/delegar` with the same body: only the holder lends it to another person, who completes it
   or releases it back. The answer carries `delegadaPor`. A delegated task is not delegated again (`409`).
 
-A task that no longer waits answers `409`; a task of another store, `404`; a person of another store, `404`; one who
-cannot complete tasks, `409`. Each action goes to the case timeline (`TAREA_RECLAMADA`, `TAREA_LIBERADA`,
-`TAREA_REASIGNADA`, `TAREA_DELEGADA`, with the reason) and to the audit trail. The web's tray calls `reclamar` and
-`soltar` for its "Take" and "Release" buttons.
+A task that no longer waits, or whose case is in error or closed, answers `409`; a task of another store, `404`; a
+person of another store, `404`; one who cannot complete tasks, `409`. Each action goes to the case timeline
+(`TAREA_RECLAMADA`, `TAREA_LIBERADA`, `TAREA_REASIGNADA`, `TAREA_DELEGADA`, with the reason) and to the audit trail.
+The reason is free text that anonymizing a person does not rewrite: it is for the why, not for names. The web's tray
+calls `reclamar` and `soltar` for its "Take" and "Release" buttons, and shows "Complete" only on a task the viewer
+holds or nobody holds.
 
 `GET /api/v1/tareas?bandeja=` picks the inbox, oldest first, with the filters `rolProcesoId`, `procesoId` and `estado`
 as before:
