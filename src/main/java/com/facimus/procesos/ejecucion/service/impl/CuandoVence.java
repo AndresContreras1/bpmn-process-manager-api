@@ -102,7 +102,7 @@ final class CuandoVence {
         if (largo.compareTo(UN_TICK.multipliedBy(horas)) > 0) {
             horas++;
         }
-        return (int) Math.clamp(horas, 1, Integer.MAX_VALUE);
+        return Math.clamp(horas, 1, Integer.MAX_VALUE);
     }
 
     private static Instant sumar(Duracion duracion, Instant desde, ZoneId zona) {

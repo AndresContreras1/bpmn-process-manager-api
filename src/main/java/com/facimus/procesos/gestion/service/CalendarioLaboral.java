@@ -140,15 +140,17 @@ public final class CalendarioLaboral {
 
     /** El tiempo habil entre dos momentos; negativo si el segundo es anterior. */
     public Duration entre(Instant desde, Instant hasta) {
-        if (hasta.isBefore(desde)) {
-            return entre(hasta, desde).negated();
-        }
+        return hasta.isBefore(desde) ? habilEntre(hasta, desde).negated() : habilEntre(desde, hasta);
+    }
+
+    /** El tiempo habil entre dos momentos ya en orden. */
+    private Duration habilEntre(Instant antes, Instant despues) {
         Duration total = Duration.ZERO;
-        LocalDate ultimo = LocalDate.ofInstant(hasta, zona);
-        for (LocalDate dia = LocalDate.ofInstant(desde, zona); !dia.isAfter(ultimo); dia = dia.plusDays(1)) {
+        LocalDate ultimo = LocalDate.ofInstant(despues, zona);
+        for (LocalDate dia = LocalDate.ofInstant(antes, zona); !dia.isAfter(ultimo); dia = dia.plusDays(1)) {
             if (esDiaHabil(dia)) {
-                Instant de = desde.isAfter(abre(dia)) ? desde : abre(dia);
-                Instant a = hasta.isBefore(cierra(dia)) ? hasta : cierra(dia);
+                Instant de = antes.isAfter(abre(dia)) ? antes : abre(dia);
+                Instant a = despues.isBefore(cierra(dia)) ? despues : cierra(dia);
                 if (de.isBefore(a)) {
                     total = total.plus(Duration.between(de, a));
                 }
