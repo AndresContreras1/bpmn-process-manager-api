@@ -51,6 +51,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Sign in with a provider | `GET /api/v1/auth/proveedores` · `GET /api/v1/auth/oidc/{proveedor}` · `POST /api/v1/auth/identidades/vinculo` · `GET /api/v1/auth/identidades` · `DELETE /api/v1/auth/identidades/{id}` |
 | Store domains | `GET, POST /api/v1/empresas/actual/dominios` · `POST /api/v1/empresas/actual/dominios/{id}/verificacion` · `DELETE /api/v1/empresas/actual/dominios/{id}` |
 | Audit trail | `GET /api/v1/auditoria` · `GET /api/v1/auditoria/exportacion?formato=csv\|json` · `GET /api/v1/auditoria/verificacion` |
+| Organization export | `GET, POST /api/v1/organizacion/exportaciones` · `GET /api/v1/organizacion/exportaciones/{id}` · `GET /api/v1/descargas/exportaciones/{id}` |
 | Account by e-mail | `POST /api/v1/auth/verificacion` · `POST /api/v1/auth/verificacion/confirmar` · `POST /api/v1/auth/invitacion/aceptar` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 | Cases | `POST /api/v1/procesos/{procesoId}/casos` · `GET /api/v1/casos` · `GET /api/v1/casos/{id}` · `GET /api/v1/casos/{id}/eventos` · `POST /api/v1/casos/{id}/cancelar` · `PATCH /api/v1/casos/{id}/variables` · `POST /api/v1/casos/{id}/reintentar` |
@@ -240,12 +241,43 @@ curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -b ses
   -H "Content-Type: application/json" -d '{"politicaEstructura":"SOLO_ADMINISTRADOR","version":0}'
 ```
 
+## Exporting the organization
+
+`POST /api/v1/organizacion/exportaciones`, without a body, asks for a full export of the caller's store. It answers
+`202` with the export `PENDIENTE` and its `Location`; the job queue builds one ZIP with every process (each version as
+BPMN and as JSON, the draft, the documentation, the characterization sheet and the manuals), the documents with every
+version, the comments, the history, the audit trail with its chain hashes and anchors, the people without any secret,
+and the cases as JSON and as CSV, plus a `manifest.json` with the size and SHA-256 of every file. Its layout, and how
+to check it without the API, is in [Export format](export-format.md).
+
+When it is ready, an e-mail in the language of whoever asked brings a link to `GET
+/api/v1/descargas/exportaciones/{id}?empresa=&vence=&firma=`, which downloads the ZIP without a session for 24 hours;
+a changed or expired link answers `404`. The link is only in the e-mail. Then the ZIP is deleted.
+
+| Route | Answers |
+|---|---|
+| `POST /api/v1/organizacion/exportaciones` | `202` with the export; `409` while another one of the store is being built; `403` "Verificación requerida" when the identity was not confirmed in the last ten minutes (`POST /api/v1/auth/reautenticacion` fixes it); `429` after ten in a day |
+| `GET /api/v1/organizacion/exportaciones` | The store's exports, newest first |
+| `GET /api/v1/organizacion/exportaciones/{id}` | One export: `estado` (`PENDIENTE`, `LISTA`, `FALLIDA` with a `motivo`, or `VENCIDA`), `pedidaPor`, `pedidaEn`, `listaEn`, `venceEn`, `tamano`, `archivos` and the `sha256` of the ZIP; another store's id answers `404` |
+
+Administrators only. Asking, ready, failed, downloaded and expired go to the audit trail
+([Security](security.md#organization-export)).
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/organizacion/exportaciones -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+curl -s http://localhost:8080/api/v1/organizacion/exportaciones/4 -b sesion.txt
+```
+
 ## Closing the store
 
 `POST /api/v1/empresas/actual/baja` with `{"confirmacion": "<the store's name>"}` closes the caller's store and
 answers it with `bajaSolicitadaEn` and `borradoProgramadoPara`, 30 days later. Until then the store is read-only,
 every change answers `409` with the title "Tienda dada de baja", and `DELETE /api/v1/empresas/actual/baja` cancels
 the closing; then everything of the store is deleted ([The life of the data](security.md#the-life-of-the-data)).
+With `"exportar": true` the closing also asks for a full export, in the same transaction (`409`, and nothing changes,
+if one is already being built), and while the 30 days last an administrator can ask for more: besides cancelling the
+closing, it is the only change a closing store accepts. The purge leaves a deletion certificate
+([Export format](export-format.md#the-deletion-certificate)).
 Administrators only, like `POST /api/v1/usuarios/{id}/anonimizar`, which deletes the personal data of a user on
 request.
 

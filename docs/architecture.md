@@ -77,7 +77,7 @@ nothing of the engine beyond the port.
 |---|---|
 | `common` | What every module needs: the store and the access role, the authenticated identity (`ApiPrincipal`), the tenant base entity and the tenant-aware repository contract, business exceptions, Problem Details, pagination, the queue of jobs, and the e-mail and its templates |
 | `security` | Filter chain, the authentication endpoints, login and its rate limit, JWT issuing and validation, the session cookies and the CSRF check, closed sessions, `401` and `403` handlers, CORS |
-| `gestion` | Management: stores, users and their sessions, processes, process roles and change history |
+| `gestion` | Management: stores, users and their sessions, processes, process roles and change history, and the full export of a store, whose ZIP each module fills through the port `ParteDeLaExportacion` |
 | `modelado` | BPMN modeling: pools, lanes, activities, gateways, sequence flows, message flows and correlation keys |
 | `ejecucion` | Running a published version: cases, the steps they go through, the tray of tasks, the timeline, the two message trays, the store's clock and the engine that moves them. It publishes the port the partner on the other side of a message is asked through |
 | `integracion` | The simulated partners behind that port: the payment gateway, the carrier, the notifications provider, the customer, and the echo that stands in for a participant with no partner of its own. They receive a message and answer; they know nothing about cases, trays or who called them, and they open no connections |
@@ -264,6 +264,10 @@ default):
 - **Links of the e-mails** that expired more than a week ago. An expired one opens nothing.
 - **Stores whose closing is 30 days old**: every row of the store, table by table in the order of their foreign
   keys, and of its own row everything but the id and the dates ([The life of the data](security.md#the-life-of-the-data)).
+  A job then deletes its files and issues the deletion certificate.
+
+Expired full exports do not wait for the night: an hourly job (`EXPORTACIONES_LIMPIEZA_CRON`) deletes each ZIP whose
+link expired and keeps the row with its fingerprint ([ADR-0071](adr/0071-organization-export-and-exit.md)).
 
 The outbox needs no sweeping: an event leaves it when its listener finishes, and what stays is what still has to be
 delivered.

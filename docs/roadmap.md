@@ -29,7 +29,9 @@
       confirms it, verified e-mail domains that join a store, and a store that signs in only with a provider
 - [x] Closing a store with 30 days of read-only grace and then deleting everything it had, and anonymizing a
       person on request
-- [ ] Exporting a store's data during the 30 days of its closing
+- [x] Exporting the whole store, also during the 30 days of its closing: one ZIP built in the queue with a
+      manifest of SHA-256 fingerprints, its audit trail verifiable outside the API and no secret of anyone, by a
+      signed link of 24 hours sent by e-mail, and a deletion certificate when the store is purged
 - [x] The browser's session in `HttpOnly` cookies with a CSRF token, and a JWT as RFC 8725 asks, with a signing key
       that rotates without closing sessions
 - [x] Rate limiting on login (`429` with `Retry-After`)

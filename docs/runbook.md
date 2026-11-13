@@ -163,6 +163,19 @@ anchored hash (`anclas/<store>/<day>` in the anchors' bucket) with the entry of 
 backup of before that day to see what changed. An anchor that "is no longer in the storage" means the bucket was not
 created with Object Lock, or its retention passed.
 
+**An export stays `PENDIENTE` or ends `FALLIDA`.** It is a job of the queue (`exportaciones.generar`): `select
+estado, intentos, ultimo_error from trabajos where tipo = 'exportaciones.generar' order by id desc limit 5`. A failed
+export says why in its `motivo` (`GET /api/v1/organizacion/exportaciones/{id}`), usually a file the storage could not
+give back; the administrator asks for another one. One that stays pending more than `EXPORTACIONES_PENDIENTE_MAXIMA`
+(six hours) is marked failed by the hourly cleanup, so the store is never stuck with one in course. The e-mail with
+the link is another job (`exportaciones.correo`), and an expired export sends nothing.
+
+**A former customer asks for the deletion certificate.** Their store is gone and nobody can sign in to it. Read
+`certificados/<store id>/borrado` from the anchors' bucket (or the storage folder without S3), and check that its
+SHA-256 is the one the store's audit trail kept: `select detalle from bitacora where empresa_id = <store id> and
+accion = 'TIENDA_BORRADA'`. Send them the file; it names nobody
+([Export format](export-format.md#the-deletion-certificate)).
+
 **Someone gets `429` while working.** The rate limits count changes per person and signing in per address
 ([Rate limiting](security.md#rate-limiting)). An office behind one address shares the bucket of signing in: raise
 `LIMITE_AUTENTICACION_POR_MINUTO` in `.env` and recreate the API. A bucket fills again on its own; to empty one at
@@ -242,7 +255,7 @@ kills the container 30 seconds after asking. `docker compose down` keeps the dat
 | Every Monday | Read the Dependabot pull requests: each one runs the whole pipeline, and a green one can be merged |
 | Every September | Renew `Expires` in `frontend/public/.well-known/security.txt`; the pipeline starts failing a month before it passes |
 | When a person leaves | Deactivate their user: their sessions close at once. If they ask for their data to be deleted, anonymize them instead (`POST /api/v1/usuarios/{id}/anonimizar`), which cannot be undone |
-| When a store asks to leave | Its administrator closes it (`POST /api/v1/empresas/actual/baja`): for 30 days it can still read everything and cancel. The purge of the night after deletes it, and the log says `Tienda N borrada al cumplir la gracia de su baja` |
+| When a store asks to leave | Its administrator exports everything and closes it (`POST /api/v1/empresas/actual/baja` with `"exportar": true`): for 30 days it can still read everything, export again and cancel. The purge of the night after deletes it, the log says `Tienda N borrada al cumplir la gracia de su baja`, and its deletion certificate is in the anchors' bucket |
 | Raising the cost of BCrypt | Set `CLAVES_COSTO_BCRYPT` higher and recreate the API: each login rehashes its password, and nobody has to change it. Each step doubles what a login costs, so measure one first |
 | Before the first e-mail in production | Publish in the DNS of the domain of `MAIL_FROM` the SPF and DKIM records the provider gives, and a DMARC policy (`p=quarantine` to begin with). Without them most receivers take the e-mails for spam |
 | Rotating the signing key | Move the key in use to `JWT_PREVIOUS_SECRET`, put a new one in `JWT_SECRET` and recreate the API: nobody is signed out. Fifteen minutes later, when no token of the old key is still alive, empty `JWT_PREVIOUS_SECRET` and recreate it again |
