@@ -207,14 +207,14 @@ public class DiagramaArmado {
     public void formulario(String nodo, Formulario formulario) {
         Long id = id(nodo);
         FormularioResponse respuesta = FormularioResponse.de(formulario);
-        actividades.replaceAll(a -> !a.id().equals(id) ? a : new ActividadResponse(a.id(), a.bpmnId(), a.nombre(),
+        actividades.replaceAll(a -> a.id().equals(id) ? new ActividadResponse(a.id(), a.bpmnId(), a.nombre(),
                 a.descripcion(), a.tipoActividad(), a.posicionX(), a.posicionY(), a.laneId(), a.version(),
                 a.creadoPor(), a.fechaCreacion(), a.modificadoPor(), a.fechaModificacion(), a.padreId(),
-                a.procesoLlamadoId(), respuesta));
-        eventos.replaceAll(e -> !e.id().equals(id) ? e : new EventoResponse(e.id(), e.bpmnId(), e.nombre(),
+                a.procesoLlamadoId(), respuesta) : a);
+        eventos.replaceAll(e -> e.id().equals(id) ? new EventoResponse(e.id(), e.bpmnId(), e.nombre(),
                 e.tipoEvento(), e.posicionX(), e.posicionY(), e.laneId(), e.version(), e.creadoPor(),
                 e.fechaCreacion(), e.modificadoPor(), e.fechaModificacion(), e.tipoTemporizador(), e.temporizador(),
-                e.adjuntoAId(), e.interrumpe(), e.padreId(), respuesta));
+                e.adjuntoAId(), e.interrumpe(), e.padreId(), respuesta) : e);
     }
 
     public void modo(ModoProceso nuevo) {

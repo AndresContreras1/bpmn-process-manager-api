@@ -413,7 +413,8 @@ class FormulariosIntegracionTest {
         mvc.perform(get("/api/v1/procesos/" + proceso + "/diagnostico").with(como(carla)))
                 .andExpect(jsonPath("$.hallazgos[?(@.codigo == 'E-22')].elementoId").value(
                         contains(inicio.intValue())));
-        assertThatThrownBy(() -> publicar(empresaId, ana.usuarioId(), proceso))
+        Long autora = ana.usuarioId();
+        assertThatThrownBy(() -> publicar(empresaId, autora, proceso))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("1 error");
     }
 
