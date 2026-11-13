@@ -127,6 +127,11 @@ by default). It does not touch the model, so it neither changes the
 fingerprint of the draft nor counts as a change waiting to be published ([ADR-0062](adr/0062-process-repository.md)).
 `GET /api/v1/procesos/etiquetas` lists the tags in use, to suggest them.
 
+`GET /api/v1/procesos/{id}` also answers `duenoNombre`, the owner's name, beside the process and its history: the
+list of people is the administrator's, so for anyone else the owner's id names nobody. It is empty when the process
+has no owner, or when the owner is no longer found in the store. The read-only portal of the web shows it in the
+process sheet ([ADR-0075](adr/0075-read-only-portal.md)).
+
 `GET /api/v1/procesos` filters by all of it: `carpetaId` (that folder and everything inside it), `etiqueta`,
 `duenoId`, `clasificacion` and `revisionAntesDe`, and sorts by `proximaRevision` and `clasificacion` too.
 `GET /api/v1/roles/{id}` lists the processes whose lanes use the role.

@@ -8,6 +8,14 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- A read-only portal of what is published, in the web: `/portal` lists the published processes of a folder beside
+  the folder tree, or what the search finds among processes, elements and documents, without comments, with
+  the folder, the text and the page in the address; `/portal/procesos/{id}` shows the process sheet (owner,
+  classification, next review and characterization), the diagram of the version in force with the documented
+  elements marked, where a click or Enter in the read-only structure tree shows an element's documentation and its
+  documents to download, and the manual of that version, which only someone who may export can ask to build. Overdue
+  reviews carry a badge in the list and on the page, and nothing in the portal changes anything.
+  `GET /api/v1/procesos/{id}` adds `duenoNombre`, the owner's name. The initial bundle is 739 kB.
 - Review, comments and notifications in the web: with a publishing policy that asks for approval, the process page
   and the modeler offer *Ask for review* instead of Publish, or a link to the open request; an inbox lists what waits
   for the person's decision and every request of the store by state; a request page draws the frozen draft with its

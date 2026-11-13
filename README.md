@@ -80,7 +80,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **E-mail** | Verifying the e-mail, recovering the password and inviting by e-mail, in Spanish, English and French, with links that work once. Sent over any SMTP server from a queue of jobs that retries. | [Links sent by e-mail](docs/api-reference.md#links-sent-by-e-mail) |
 | **API contract** | OpenAPI for every operation, Problem Details errors, optimistic locking, idempotency keys and stable pagination. | [API reference](docs/api-reference.md) |
 | **AI review** | An optional second opinion from a language model, answered in a validated schema and limited per store. It only advises. | [AI review](docs/diagnosis-and-versions.md#ai-review) |
-| **Web app** | Angular client for all of it, in Spanish, English and French, light or dark: the bpmn-js modeler with live diagnosis and a structure view that edits without a mouse, who else is editing, the comparison of two states, viewers for versions and cases, the repository with its folders and filters, the global search, the grants, review requests, comments and the notification bell, account security, administration, cases, tasks, clock and dashboard. | [frontend/](frontend/README.md) |
+| **Web app** | Angular client for all of it, in Spanish, English and French, light or dark: the bpmn-js modeler with live diagnosis and a structure view that edits without a mouse, who else is editing, the comparison of two states, viewers for versions and cases, the repository with its folders and filters, the global search, the grants, review requests, comments and the notification bell, a read-only portal of what is published, account security, administration, cases, tasks, clock and dashboard. | [frontend/](frontend/README.md) |
 
 ## Architecture
 
@@ -196,9 +196,10 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 - **Mutation testing** with PIT over the services, the engine and the conditions: 91 % of 3274 mutations caught,
   run every night with a floor of 75 %, and a **fuzzer** that feeds the BPMN importer broken files every night after
   it. Spotless keeps the imports and the whitespace of every changed file in order.
-- **The web app** has 337 Vitest tests over its logic — the rules of the modeler, the tree of the structure view, the
+- **The web app** has 389 Vitest tests over its logic — the rules of the modeler, the tree of the structure view, the
   autosave, the live connection, the filters in the address, the search and the permissions, the comments, the
-  review and the bell — and 32 Selenium scenarios, with axe-core over every screen.
+  review and the bell, and what the read-only portal shows and offers — and 33 Selenium scenarios, with axe-core
+  over every screen.
 - **Every pull request** runs nine jobs: build and test on Ubuntu and Windows, architecture rules, Docker image
   with k6 load tests, SonarCloud quality gate, frontend build, web image with the whole stack, Selenium end-to-end
   tests against it, the format check and the supply chain checks; CodeQL runs beside them.

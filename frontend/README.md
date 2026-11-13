@@ -349,6 +349,29 @@ review and approval:
   daily digest or never. A new notification is read out in an `aria-live` region, and the button says the number in
   words.
 
+## The read-only portal
+
+[ADR-0075](../docs/adr/0075-read-only-portal.md): what is published, for the people who read processes, with nothing
+that changes anything.
+
+- **`/portal`** lists the published processes of a folder (that folder and the ones inside it, by name) beside the
+  folder tree, which here has no controls to change it, or what the search finds. The search is the API of the global
+  search through `PortalService`, without comments, which are not what is published; an element only in the draft
+  opens its process without choosing it. The folder, the text and the page live in the
+  address. Each process says its classification and its next review, or *Review overdue* when the API says so.
+- **`/portal/procesos/:id`** opens one process with every read at once (`PortalService.abrir`): the detail, which
+  names the owner (`duenoNombre`), the permissions, the characterization sheet, the documentation, the documents, the
+  manuals and the BPMN file of the version in force, read with `para=dibujar`. If one of the extras fails the page
+  shows the rest; without the permissions it offers nothing.
+- **The diagram** is the bpmn-js viewer with the elements that have something to read marked with a thicker line. A
+  click on an element shows beside it its documentation, only as the HTML the API cleaned, and its documents, each
+  downloaded from a signed link asked for at the click; nothing chosen is the whole process. The structure view walks
+  the same elements with the keyboard in read-only mode, where Enter chooses, and the choice is announced. A link
+  with `?elemento=`, which the search uses, opens the process with that element chosen.
+- **The manual** of the version in force: the newest one ready, in the reader's language if there is one, as PDF or as
+  a web page. Asking to build one is offered only when the permissions say `EXPORTAR` and the role may send changes
+  (`controlesDelPortal`), and the page asks again every two seconds until the queue finishes it.
+
 ## Administration
 
 Six screens that used to need Postman. The navbar shows the administration ones only to an administrator, taking

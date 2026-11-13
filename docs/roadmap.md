@@ -106,6 +106,9 @@
       approve, each request drawn with its difference and listed in words, comment threads beside the canvas with a
       count over each element and mentions chosen from who can view the process, and the bell, live over
       server-sent events, with its settings per type
+- [x] A read-only portal of what is published: folders, search and the process sheet with its owner, the diagram of
+      the version in force where a click or the keyboard shows each element's documentation and documents, the
+      manual, and overdue reviews in sight, without a single control that changes anything
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline
