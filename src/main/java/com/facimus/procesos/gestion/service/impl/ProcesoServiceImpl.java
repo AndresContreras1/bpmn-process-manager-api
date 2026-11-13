@@ -31,6 +31,7 @@ import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.model.VersionProceso;
 import com.facimus.procesos.gestion.repository.CarpetaRepository;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
@@ -250,11 +251,7 @@ public class ProcesoServiceImpl implements ProcesoService {
     /** R-44 y R-45: no se publica lo que no se puede ejecutar, ni se publica dos veces lo mismo. */
     private ProcesoResponse publicar(Proceso proceso, Usuario autor) {
         Long empresaId = proceso.getEmpresa().getId();
-        List<String> errores = diagnosticoDelModelo.errores(empresaId, procesoMapper.toResponse(proceso));
-        if (!errores.isEmpty()) {
-            throw new ReglaNegocioException("El proceso no se puede publicar: " + errores.size()
-                    + (errores.size() == 1 ? " error de diagnóstico." : " errores de diagnóstico."), errores);
-        }
+        exigirSinErrores(proceso, "El proceso no se puede publicar: ");
         int numero = versionService.siguienteNumero(empresaId, proceso.getId());
         Instantanea instantanea = instantaneaDelModelo.tomar(empresaId,
                 procesoMapper.toResponse(proceso).publicadoComo(numero));
@@ -273,6 +270,26 @@ public class ProcesoServiceImpl implements ProcesoService {
         auditoria.registrar(empresaId, autor.getId(), "PROCESO_PUBLICADO", "PROCESO", proceso.getId(),
                 Map.of("version", numero));
         return procesoMapper.toResponse(proceso).conBorradorPendiente(false);
+    }
+
+    /** PR 68: lo que corre un caso de prueba es lo mismo que se publicaria, asi que pasa el mismo diagnostico. */
+    @Override
+    @Transactional
+    public VersionProceso versionDePrueba(Long empresaId, Long procesoId, Long usuarioId) {
+        Proceso proceso = buscarActivo(empresaId, procesoId);
+        exigirSinErrores(proceso, "El borrador no se puede probar: ");
+        Instantanea instantanea = instantaneaDelModelo.tomar(empresaId, procesoMapper.toResponse(proceso)
+                .publicadoComo(0));
+        return versionService.guardarPrueba(proceso, usuarioId, instantanea);
+    }
+
+    private void exigirSinErrores(Proceso proceso, String porQue) {
+        List<String> errores = diagnosticoDelModelo.errores(proceso.getEmpresa().getId(),
+                procesoMapper.toResponse(proceso));
+        if (!errores.isEmpty()) {
+            throw new ReglaNegocioException(porQue + errores.size()
+                    + (errores.size() == 1 ? " error de diagnóstico." : " errores de diagnóstico."), errores);
+        }
     }
 
     @Override

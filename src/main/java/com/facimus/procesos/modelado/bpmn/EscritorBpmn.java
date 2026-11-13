@@ -46,6 +46,7 @@ import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 
 /**
  * PR 53: un diagrama y su geometria, en BPMN 2.0.2. Es una funcion pura: lo usan el borrador, la publicacion de una
@@ -62,7 +63,7 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
  * <li>un {@code BPMNDiagram} con la geometria que el modelo ya tiene (PR 52);</li>
  * <li>lo que BPMN no tiene, en el espacio {@code bpm:} ({@link EspaciosBpmn#BPM}): tipo, integracion y orden del
  * participante, rol de la lane, orden de los flujos, y el contenido, los campos, el destino, el fallo, la respuesta y
- * la correlacion de cada mensaje.</li>
+ * la correlacion de cada mensaje; PR 69: el formulario de cada tarea de usuario y de cada inicio simple.</li>
  * </ul>
  *
  * <p>PR 55: lo descriptivo. Los eventos de temporizador (de inicio, de espera y de borde) con su
@@ -80,6 +81,7 @@ public final class EscritorBpmn {
     private static final String PARTICIPANT = "Participant";
     private static final String EXTENSION_ELEMENTS = "extensionElements";
     private static final String ORDEN = "orden";
+    private static final String HABIL = "habil";
     private static final String MESSAGE_REF = "messageRef";
     private static final String BPMNDI = "bpmndi";
     private static final String BPMN_ELEMENT = "bpmnElement";
@@ -597,7 +599,9 @@ public final class EscritorBpmn {
             }
             ajenos.atributos(id, salida);
             documentacion(actividad.descripcion());
-            extensiones(id, false, null);
+            // PR 69: el formulario de la tarea, que BPMN no tiene
+            extensiones(id, actividad.formulario() != null,
+                    () -> FormularioBpmn.escribir(salida, actividad.formulario()));
             entradasYSalidas(actividad.id());
             datosDeLaActividad(id);
             if (tipo != null && tipo.esSubproceso()) {
@@ -639,7 +643,7 @@ public final class EscritorBpmn {
                 salida.atributo("attachedToRef", actividad);
             }
             ajenos.atributos(id, salida);
-            extensiones(id, false, null);
+            extensiones(id, evento.formulario() != null, () -> FormularioBpmn.escribir(salida, evento.formulario()));
             entradasYSalidas(evento.id());
             if (tipo == TipoEvento.MENSAJE_INICIO || tipo == TipoEvento.MENSAJE_INTERMEDIO
                     || tipo == TipoEvento.MENSAJE_FIN) {
@@ -667,11 +671,13 @@ public final class EscritorBpmn {
             salida.abrir("bpmn", "timerEventDefinition");
             salida.atributo("id", definicion);
             salida.abrir("bpmn", switch (evento.tipoTemporizador()) {
-                case DURACION -> "timeDuration";
+                case DURACION, DURACION_HABIL -> "timeDuration";
                 case FECHA -> "timeDate";
                 case CICLO -> "timeCycle";
             });
             salida.atributo("xsi", "type", "bpmn:tFormalExpression");
+            // PR 68: BPMN no tiene tiempo habil; otra herramienta lee la duracion de calendario y esta lo recupera
+            salida.atributo("bpm", HABIL, evento.tipoTemporizador() == TipoTemporizador.DURACION_HABIL ? "true" : null);
             salida.texto(evento.temporizador());
             salida.cerrar();
             salida.cerrar();

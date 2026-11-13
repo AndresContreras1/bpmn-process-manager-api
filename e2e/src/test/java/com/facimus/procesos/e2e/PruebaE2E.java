@@ -169,6 +169,22 @@ abstract class PruebaE2E {
         ((JavascriptExecutor) navegador).executeScript("localStorage.clear()");
     }
 
+    /**
+     * La pagina sin transiciones ni animaciones, y con dos cuadros ya pintados: axe mide el color que hay en el momento,
+     * y un boton a mitad de su transicion de color tiene un contraste que no es el suyo. Sin esto, la medida dependia
+     * de cuanto tardara el navegador en terminar de pintar.
+     */
+    protected void quieta() {
+        JavascriptExecutor js = (JavascriptExecutor) navegador;
+        js.executeScript("""
+                const quieta = document.createElement('style');
+                quieta.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+                document.head.appendChild(quieta);
+                """);
+        js.executeAsyncScript("const listo = arguments[arguments.length - 1];"
+                + "requestAnimationFrame(() => requestAnimationFrame(() => listo()));");
+    }
+
     /** Elige una opcion de un desplegable por el texto que se lee, que es lo unico estable de un option. */
     protected void elegir(By donde, String texto) {
         new Select(visible(donde)).selectByVisibleText(texto);

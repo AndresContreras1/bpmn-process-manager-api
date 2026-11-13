@@ -16,6 +16,16 @@ export function mensajeDeError(error: HttpErrorResponse): string {
 }
 
 /**
+ * El mensaje general y, detras, el de cada campo que la API rechazo en el mapa errors de un 400: sirve donde la
+ * pantalla no tiene un control por campo, como los datos libres de una tarea que la API revisa contra su formulario.
+ */
+export function mensajeConLosCampos(error: HttpErrorResponse): string {
+  const errores: Record<string, string> = (error.error as ProblemDetail | null)?.errors ?? {};
+  const porCampo: string[] = Object.entries(errores).map(([campo, mensaje]) => `${campo}: ${mensaje}`);
+  return [mensajeDeError(error), ...porCampo].join(' ');
+}
+
+/**
  * Un 409 tiene varios motivos —un nombre repetido, una regla de negocio, un dato unico— y el titulo del
  * ProblemDetail es lo que los separa. Este es el de editar sobre una version que ya cambio.
  */

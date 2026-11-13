@@ -29,6 +29,7 @@ import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
 import com.facimus.procesos.ejecucion.model.MensajeEntrante;
 import com.facimus.procesos.ejecucion.model.MensajeSaliente;
+import com.facimus.procesos.ejecucion.model.ModoCaso;
 import com.facimus.procesos.ejecucion.model.OrigenMensajeEntrante;
 import com.facimus.procesos.ejecucion.model.ResultadoCorrelacion;
 import com.facimus.procesos.gestion.model.EstadoProceso;
@@ -93,6 +94,25 @@ class MensajeriaRepositoryTest {
             assertThat(mensajeSalienteRepository.vencidos(tienda.getId(), 5))
                     .extracting(MensajeSaliente::getId)
                     .containsExactly(tarde.getId(), justo.getId());
+        }
+
+        @Test
+        @DisplayName("PR 68: el reloj solo entrega lo de los casos de prueba; lo de produccion espera a la integracion")
+        void vencidos_soloDeCasosDePrueba() {
+            MensajeSaliente dePrueba = salienteRepositorio("Payment authorization request", 1, 2,
+                    EstadoMensajeSaliente.PENDIENTE);
+            Proceso real = proceso(tienda, "Real orders");
+            VersionProceso version = em.persistFlushFind(VersionProceso.builder().empresa(tienda).proceso(real)
+                    .numero(1).estado(EstadoVersion.VIGENTE).fechaPublicacion(LocalDateTime.now()).huella(HUELLA)
+                    .definicion("{}").modeloBpmn("<bpmn:definitions/>").build());
+            Caso deProduccion = em.persistFlushFind(Caso.builder().empresa(tienda).proceso(real)
+                    .versionProceso(version).referencia("ORD-REAL").estado(EstadoCaso.ABIERTO)
+                    .modo(ModoCaso.PRODUCCION).variables("{}").build());
+            em.persistAndFlush(saliente(deProduccion, "Shipment request", 1, 2, EstadoMensajeSaliente.PENDIENTE));
+
+            assertThat(mensajeSalienteRepository.vencidos(tienda.getId(), 5))
+                    .extracting(MensajeSaliente::getId)
+                    .containsExactly(dePrueba.getId());
         }
 
         @Test

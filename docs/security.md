@@ -30,6 +30,50 @@ A store always keeps at least one active administrator, and nobody can deactivat
 user's access level or deactivating them takes effect at once: their open sessions are closed. Changing a password,
 or having it reset, closes them too.
 
+## Permissions on folders and processes
+
+The table above is what an access role allows in general. A store can also say that a folder is only for finance, or
+that only one person publishes a given process, with **grants**: an action on a folder or a process for a person, the
+people of a process role or the whole store ([API](api-reference.md#permissions)). One evaluator,
+`Permisos.puede(actor, accion, recurso)`, decides every case in three layers
+([ADR-0063](adr/0063-granular-permissions.md)):
+
+1. **The access role is the ceiling.** A read-only user views, comments and exports, whatever is granted to them.
+   An administrator can do everything, except what the third layer refuses.
+2. **Grants decide.** A process inherits the grants of its folder and of every folder above it. An action that no
+   grant in that chain names keeps its default, below. Once one names it, it is only for whoever has it, and for
+   administrators. Any grant brings `VER` with it, and `ADMINISTRAR` brings every action.
+3. **Separation of duties goes last.** Whoever made the last change to a process cannot approve it, not even an
+   administrator.
+
+| Action | Default, while no grant names it |
+|---|---|
+| `VER`, `COMENTAR`, `EXPORTAR` | Everyone in the store |
+| `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR` | Administrators and editors |
+| `ADMINISTRAR` | Administrators |
+
+- **One place checks it.** A Spring MVC interceptor turns the method and route of each request into an action on a
+  resource, from a table that is a pure function and is tested whole: reading is `VER`, saving the model or any of
+  its elements is `MODELAR`, publishing and retiring versions is `PUBLICAR`, the AI review is `REVISAR`, deleting the
+  process, sharing it and granting on it is `ADMINISTRAR`, and downloading its BPMN file is `EXPORTAR`. Opening a
+  case or sending a message only needs `VER`: running a process is not modeling it. The routes with no resource in
+  the path, such as creating a process, check in their service.
+- **A process someone cannot see does not exist for them.** Refusing `VER` answers `404`, the same as a process of
+  another store, so it does not reveal that it is there.
+- **Lists filter in their own query.** What a person cannot see is worked out once from the grants, the folders and
+  their process roles, and added to the query, so the number of statements does not grow with the number of
+  processes. A test counts them.
+- **Moving something between folders that carry grants needs `ADMINISTRAR`,** because it changes what it inherits.
+- **The structure policy of the store is a default too:** a grant to model a process lets that person change its
+  participants and lanes even when the store keeps them for administrators.
+- **Exporting is a speed bump, not a wall.** The web reads the same file to draw it with `?para=dibujar`, which only
+  needs `VER`: whoever can see a drawing has its content.
+- Running cases and tasks stays under the access role. Grants govern the repository and the model.
+
+`PermisosIntegracionTest` walks the whole matrix — six people, eight actions and five resources — and then the
+`404` of what is hidden, the lists without N+1, the default of the structure policy, moving between folders and
+the same checks through every route of the API.
+
 ## Authentication
 
 1. `POST /api/v1/empresas` registers a store together with its first administrator.
@@ -68,6 +112,11 @@ header `X-XSRF-TOKEN`. Only pages of the app's own origin can read that cookie, 
 The web app gets the cookie from `GET /api/v1/auth/csrf` when it starts, and Angular's `HttpClient` copies it into
 every change. Without it the answer is `403` with the title "Sin token CSRF". A request without session cookies
 has no session to borrow, and does not need it: the registration of a store, and API keys when they arrive.
+
+The token lasts the session ([ADR-0064](adr/0064-csrf-token-per-session.md)). Every way in, and logging out, set a
+new one, so a token planted in the browser before the login is worth nothing after it. Nothing in between changes
+it, renewing included: the web sends several requests at once, and a change must not leave with the header of one
+token and the cookie of the next.
 
 Rotating the signing key does not close sessions: `JWT_PREVIOUS_SECRET` keeps accepting the tokens of the old key,
 which nobody signs with any more, for the fifteen minutes they live ([runbook](runbook.md)).
@@ -213,6 +262,8 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `CONFIGURACION_CAMBIADA` | The settings change, with the policies that resulted |
 | `PROCESO_PUBLICADO` | A version is published |
 | `TIENDA_DADA_DE_BAJA` · `BAJA_CANCELADA` | The store is closed or the closing is cancelled |
+| `DOCUMENTO_SUBIDO` · `DOCUMENTO_ELIMINADO` · `DOCUMENTO_BLOQUEADO` | A document or a new version is uploaded, a document is deleted, or the review retains a version |
+| `CALENDARIO_EDITADO` · `FESTIVO_NOMBRADO` · `FESTIVO_QUITADO` · `FESTIVO_RESTAURADO` | The business calendar changes, or a holiday is added or renamed, removed, or put back as the law says |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
 the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
@@ -228,12 +279,112 @@ What makes it hard to touch:
 - A trigger turns down `UPDATE`, `DELETE` and `TRUNCATE`, for the API too.
 - `GET /api/v1/auditoria/verificacion` recomputes the chain from its first entry and names the first one that was
   changed, deleted or put out of order.
+- **The daily anchor** (PR 61). Once a day one instance copies the last link of each store's trail to a bucket with
+  Object Lock in compliance mode, where nobody, the API's credentials included, can change or delete it before its
+  retention ends (`BITACORA_ANCLA_RETENCION`, 400 days). Verifying also checks the latest anchor, read from that
+  bucket and not from the database: a trail rewritten from the start, every hash recomputed, no longer matches the
+  hash its anchor kept, and an anchor that is gone breaks the verification too. The answer says which day it was
+  checked against (`anclaVerificada`). Without a bucket for anchors they are written to the documents' storage and
+  marked as not locked.
 
 The administrator reads it newest first, 50 at a time, with filters (`GET /api/v1/auditoria`), and exports it as CSV
 or JSON (`/exportacion`); in the CSV, a cell a spreadsheet would run as a formula starts with an apostrophe. The trail
-outlives its store, which stays as a tombstone. Anchoring the last hash of each day outside the database comes with
-object storage (PR 61), and the role the API connects with gets only `INSERT` and `SELECT` on it with row-level
-security (PR 51).
+outlives its store, which stays as a tombstone, and so do its anchors. The role the API connects with gets only
+`INSERT` and `SELECT` on it with row-level security (PR 51).
+
+## Documents
+
+A file from outside is treated as hostile until it has been checked ([ADR-0065](adr/0065-object-storage-and-documents.md)):
+
+- **Its type comes from its bytes**, with Tika's signatures, against a whitelist: PDF, PNG, JPEG, GIF, WebP, SVG,
+  plain text, CSV, Markdown, BPMN, Word, Excel and PowerPoint, and OpenDocument text and spreadsheets. An executable
+  named `informe.pdf` is an executable, and the answer is `415`. A ZIP that is not one of those documents is refused.
+- **Its name is cleaned**: only the last part of a path, no control or direction characters, no characters a file
+  system refuses, no leading dots, Windows' reserved names replaced, and the extension of the type that was detected.
+  The name is only shown and sent on download: it never becomes part of a storage key.
+- **Size and quota.** At most 25 MB, cut while reading, so a body without `Content-Length` does not arrive whole
+  either; NGINX cuts at the same size. Each store has a quota (`DOCUMENTOS_CUOTA_POR_TIENDA`, 1 GB), counting every
+  version. Both answer `413` and save nothing.
+- **Reviewed before anyone can download it.** A new version waits `PENDIENTE` while the job queue sends it to ClamAV
+  (`ANTIVIRUS_HOST`, clamd's `INSTREAM` protocol) and, if it is an Office or OpenOffice document, opens it for real
+  with limits — 200 MB, a hundred times its size, ten thousand parts, and no path that leaves its folder — so a ZIP
+  bomb is retained before it reaches anything. It ends `DISPONIBLE` or `BLOQUEADO` with the reason, in the audit
+  trail. An antivirus that does not answer leaves it pending and the queue tries again.
+- **Downloaded only through a signed link** of five minutes, which the API serves itself: the storage is never
+  reachable from a browser. The link signs the store, the document, the version and its expiry with HMAC-SHA256 and a
+  key derived from the API secret; a changed or expired link answers `404`. The file always goes as an attachment,
+  with `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox` and `no-store`; an
+  SVG or an HTML goes as `application/octet-stream`, so a browser never runs it. NGINX logs the link without its
+  signature.
+- **Permissions** are those of the process: reading needs `VER`, uploading and deleting need `MODELAR`. Another
+  store's document does not exist (`404`).
+- Closing a store deletes its files too, through the job queue, which retries until the storage confirms it.
+
+What people write and draw is cleaned the same way ([ADR-0066](adr/0066-documentation-and-process-manual.md)):
+
+- **Documentation in Markdown** becomes HTML on the server and goes through a whitelist before it is saved: HTML
+  inside the Markdown is escaped, links are only http, https or mailto with `rel="nofollow noopener noreferrer"`, and
+  there are no images (a tracking pixel is an image), styles or scripts. Only that HTML is ever shown.
+- **The drawing of a version** that the web app sends is read with `SecureXml` and its limits and rebuilt with a
+  whitelist of SVG elements and attributes: no scripts, event handlers, `foreignObject`, images, `use`, links, or
+  styles that load something from outside.
+- **The manual** is printed from a template that loads nothing; the PDF renderer is told not to fetch any resource.
+
+## Business calendar and timers
+
+What PR 68 adds, against the checklist every resource goes through ([ADR-0072](adr/0072-business-calendar-and-timers.md)):
+
+- **Row-level security** on `calendarios`, `festivos` and `temporizadores`, with the same policy as every table of a
+  store; a test reads and updates them as another store and sees nothing.
+- **IDOR.** The calendar is the store's own, with no id in the path: each store reads and changes only its own. The
+  timers of another store's case, the timer starts of its process and a test run of its draft answer `404`.
+- **Who.** Anyone reads the calendar, because every deadline is counted with it; changing it, or its holidays, is the
+  administrator's (the route matrix). The timer starts of a process need `VER` on the process; the timers of a case
+  follow the other reads of a case (any role of the store, no resource rule). Trying a draft needs `MODELAR`, like
+  editing it.
+- **What a timer tells.** A timer that fails keeps a fixed reason with the exception's class, never its message: the
+  message can carry SQL, constraint names or case data, and every role of the store reads the timers of a case. The
+  whole error goes to the server log.
+- **Audit trail.** Every change to the calendar and to its holidays (see above).
+- **Rate limit.** The general limit on changes; there is no upload.
+- **Quota.** One calendar per store, and holiday changes only from 1900 to 2199, one per day and at most 500 per
+  store (`409` past that), which keeps the unpaged list of changes and every calendar the engine loads small. Timer
+  expressions have caps the diagnosis checks (`E-16`): a duration up to a hundred years, a business duration up to 366
+  working days, dates from 1900 to 9999, and a cycle no more often than once a minute, so a published timer start
+  cannot open a case on every pass of the scheduler. A test version and its case are deleted by the nightly purge
+  after a day; every delete of that purge checks again that the version is a test one.
+- **Background work.** The timer scheduler finds due timers in every store, and the purge deletes old test versions
+  in every store; each timer then fires with its own store's scope.
+- **Test runs stay apart from real orders.** An incoming message never correlates with a test-run case, and the
+  dashboard and the open-cases gauge do not count them.
+
+## Typed forms
+
+What PR 69 adds, against the checklist every resource goes through ([ADR-0073](adr/0073-typed-forms.md)):
+
+- **Row-level security.** A form is a column of `nodos_flujo` (V59), which already has the store's policy; the answers
+  are case variables. A test reads and updates the forms as another store and sees nothing.
+- **IDOR.** Saving the form of another store's activity or event, reading the start form of its process, and reading
+  the form of its task or completing that task answer `404`.
+- **Who.** Saving a form is modeling the element (`MODELAR`, administrators and editors, the route matrix). The start
+  form of a process is read with `VER` on that process, like the diagram. The form of a task is an operations route,
+  like the rest of the tray and `/casos`: it is scoped to the store, with no per-process permission, and it carries the
+  case variables that `GET /casos/{id}` already shows to any role of the store. Completing a task or opening a case
+  keeps its rules.
+- **Audit trail.** Saving or removing a form is an edit of the draft: it goes to the process history, like every other
+  edit of the model, not to the audit trail.
+- **Rate limit and quota.** The general limit on changes. A form has up to 100 fields and a list up to 200 options, a
+  condition up to 1,000 characters and a pattern up to 200.
+- **What a user writes cannot hang the server.** A pattern is evaluated with RE2/J, in time linear in the text, and the
+  one costly part left, compiling nested counted repetitions, is refused before compiling. That count reads `\Q...\E`
+  as plain text and knows that `(?i)` or an empty `\Q\E` leaves the next repetition on the group before it, so neither
+  hides a nesting level. A condition longer than 1,000 characters, which only a BPMN file can bring, is never compiled:
+  the diagnosis refuses it by its length. Conditions are the gateway
+  grammar, which runs no code. A number is read within fifteen integer digits and six decimals, so a limit such as
+  `1E+999999999` is refused instead of written out. The server is the one that decides on every answer: a key the form
+  does not ask for, or one of a hidden field, never reaches the case variables.
+- **References.** A person field takes only an active user of the store; a file field, only a document of the same
+  process whose latest version passed the antivirus.
 
 ## Rate limiting
 
@@ -329,7 +480,8 @@ reach another store:
 - What has no store yet looks a person up by e-mail or by token, and is named one by one as system scope: login,
   renewal, logout, registration, the e-mail links, confirming a provider link and the way back from a provider. What
   crosses stores on purpose says so where it starts: the purge, the job queue, the simulation clock (which then ticks
-  each store in its own scope), the sessions closed in another instance and the demo data.
+  each store in its own scope), the timer scheduler (which fires each timer in its store's scope), the sessions
+  closed in another instance and the demo data.
 - A thread that does not say what store it is sees no row at all.
 - A store invited to a process (HU-23) reads its published version and its diagram through policies of their own,
   over a `SECURITY DEFINER` function that returns only what was shared with it.
@@ -407,6 +559,25 @@ process roles and no links; the store's history names them by the pseudonym too,
 again. Nobody can anonymize their own account, and an anonymized user can no longer be edited, reactivated or
 given a password.
 
+## Backups
+
+A copy of the database is as sensitive as the database, and a copy that someone can delete protects from nothing
+but a broken disk ([Backup and recovery](runbook.md#backup-and-recovery), [ADR-0068](adr/0068-backup-and-restore.md)):
+
+| Control | What it prevents |
+|---|---|
+| Every file of the backups encrypted with AES-256-CBC by pgBackRest before it leaves the database's container, with `RESPALDO_CLAVE`, a required secret that is not kept in the repository | Reading a store's data from a copy of the bucket, a leaked storage key or a lost disk of the storage |
+| The backups' bucket created with Object Lock in compliance mode and a default retention of 21 days | Deleting or overwriting the backups with the keys that write them, from a compromised database or by ransomware: a deletion only adds a marker, and the versions underneath stay until their date |
+| In production the bucket lives in another AWS account, with keys that can write and read it and nothing else | A compromise of the production account, or its closing, taking the backups along |
+| pgBackRest reaches the storage only over TLS, and trusts only the storage's own certificate | Someone on the network reading or changing what goes to the bucket |
+| The documents' bucket keeps every version for 35 days, and is replicated to the other account without replicating deletions | A replaced or deleted document, also by mistake or by a compromised API, is still there to restore |
+| A monthly drill restores into an empty container and checks the rows, every audit trail against its anchor and every version against its fingerprint, with the API's own code | A backup that does not restore, or restores something else, found the day it is needed |
+| The database and the backup services run as `postgres`, without capabilities, read-only; the backup service mounts the data read-only | A compromised backup process changing the data it copies |
+
+Closing a store deletes its files, which stay 35 days as earlier versions and then go; its rows stay in the backups
+for three weeks at most, until the retention and the lock pass. A restore made after a closing has to be followed by
+the purge again.
+
 ## Supply chain
 
 What the product is built from is checked as carefully as what it does. Each control answers a way a dependency,
@@ -420,7 +591,7 @@ a build step or a leaked key has compromised other projects:
 | Base images pinned by digest as well as by tag | The same tag is rebuilt over time; a digest changes only through a pull request |
 | CodeQL over the Java, the TypeScript and the workflows | Injection, unsafe deserialization and similar bugs in the code, and script injection in the workflows |
 | gitleaks over every commit | A key that reaches a commit stays in the history even after the file is fixed |
-| Trivy over the API and the web images | Known vulnerabilities in the operating system of each image and in every library inside the jar. A critical one that already has a fix fails the pipeline; every high and critical finding goes to the Security tab |
+| Trivy over the API, the web and the database images | Known vulnerabilities in the operating system of each image and in every library inside the jar. A critical one that already has a fix fails the pipeline; every high and critical finding goes to the Security tab |
 | A CycloneDX SBOM of the API and of the web app | Answering "are we affected?" the day a new vulnerability is published. The API's travels inside the jar (`META-INF/sbom/application.cdx.json`); both are kept as artifacts of each run |
 
 Values that look like secrets and are not, such as the signing key of the unit tests, are allowed by value in

@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormControl, FormGroup } from '@angular/forms';
 
-import { esConflictoDeVersion, marcarErroresDelServidor, mensajeDeError } from './errores-api';
+import { esConflictoDeVersion, marcarErroresDelServidor, mensajeConLosCampos, mensajeDeError } from './errores-api';
 
 function error(status: number, cuerpo: unknown = null): HttpErrorResponse {
   return new HttpErrorResponse({ status, error: cuerpo });
@@ -18,6 +18,19 @@ describe('errores de la API', () => {
       'El proceso ya esta publicado.',
     );
     expect(mensajeDeError(error(500))).toBe('Something went wrong. Please try again.');
+  });
+
+  it('suma al detalle el mensaje de cada campo rechazado, y sin campos es el detalle solo', () => {
+    const cuerpo = {
+      detail: 'Las respuestas no cumplen el formulario.',
+      errors: { 'datos.monto': 'Es obligatorio.', 'datos.pedido': 'No cumple el patron.' },
+    };
+
+    expect(mensajeConLosCampos(error(400, cuerpo))).toBe(
+      'Las respuestas no cumplen el formulario. datos.monto: Es obligatorio. datos.pedido: No cumple el patron.',
+    );
+    expect(mensajeConLosCampos(error(409, { detail: 'La tarea ya no espera.' }))).toBe('La tarea ya no espera.');
+    expect(mensajeConLosCampos(error(0))).toContain('cannot be reached');
   });
 
   it('reconoce el conflicto de version por el titulo, no por el 409 solo', () => {

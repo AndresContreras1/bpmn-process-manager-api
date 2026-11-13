@@ -26,14 +26,23 @@ public record ActividadResponse(
         @Schema(description = "Id of the user who saved the last change", example = "5") Long modificadoPor,
         @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,
         @Schema(description = "Sub-process that contains it; empty in the main flow", example = "12") Long padreId,
-        @Schema(description = "Process a call activity runs", example = "7") Long procesoLlamadoId) {
+        @Schema(description = "Process a call activity runs", example = "7") Long procesoLlamadoId,
+        @Schema(description = "Typed form of a user task; empty when it has none") FormularioResponse formulario) {
+
+    /** El de antes del PR 69, sin formulario. */
+    public ActividadResponse(Long id, String bpmnId, String nombre, String descripcion, TipoActividad tipoActividad,
+            int posicionX, int posicionY, Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion,
+            Long modificadoPor, LocalDateTime fechaModificacion, Long padreId, Long procesoLlamadoId) {
+        this(id, bpmnId, nombre, descripcion, tipoActividad, posicionX, posicionY, laneId, version, creadoPor,
+                fechaCreacion, modificadoPor, fechaModificacion, padreId, procesoLlamadoId, null);
+    }
 
     /** El de antes del PR 56, en el flujo principal. */
     public ActividadResponse(Long id, String bpmnId, String nombre, String descripcion, TipoActividad tipoActividad,
             int posicionX, int posicionY, Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion,
             Long modificadoPor, LocalDateTime fechaModificacion) {
         this(id, bpmnId, nombre, descripcion, tipoActividad, posicionX, posicionY, laneId, version, creadoPor,
-                fechaCreacion, modificadoPor, fechaModificacion, null, null);
+                fechaCreacion, modificadoPor, fechaModificacion, null, null, null);
     }
 
     @Default

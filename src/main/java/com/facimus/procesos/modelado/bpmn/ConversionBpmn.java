@@ -17,6 +17,9 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.formularios.CampoDeFormulario;
+import com.facimus.procesos.common.formularios.EsquemaDelFormulario;
+import com.facimus.procesos.common.formularios.Formulario;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.DatosDelMensaje;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.Flujo;
@@ -454,7 +457,8 @@ public final class ConversionBpmn {
                     deBorde ? Boolean.valueOf(leidoNodo.interrumpe()) : null,
                     conTiempo ? tipoDeTiempo(leidoNodo) : null, conTiempo ? expresion(leidoNodo) : null,
                     leidoNodo.padre() == null ? null : ids.get(leidoNodo.padre()),
-                    actividad == TipoActividad.LLAMADA ? procesoLlamado(leidoNodo) : null);
+                    actividad == TipoActividad.LLAMADA ? procesoLlamado(leidoNodo) : null,
+                    formulario(leidoNodo, actividad == TipoActividad.USUARIO || evento == TipoEvento.INICIO));
             nodos.add(nodo);
             nodoPorId.put(id, nodo);
             poolDelNodo.put(id, pool);
@@ -463,6 +467,37 @@ public final class ConversionBpmn {
                 case GATEWAY -> "gateways";
                 case EVENTO -> "eventos";
             });
+        }
+
+        /**
+         * PR 69: el formulario que trae el nodo, si es de los que llena una persona. Un campo sin un tipo que exista no
+         * se puede llenar, y se deja fuera; lo demas pasa como viene, y lo que este mal armado lo dice el diagnostico
+         * (E-22) antes de publicar, no la importacion.
+         */
+        private Formulario formulario(ModeloLeido.Nodo nodo, boolean loLlenaUnaPersona) {
+            if (nodo.formulario() == null) {
+                return null;
+            }
+            if (!loLlenaUnaPersona) {
+                notas.convertido(nodo.id(), "Trae un formulario, pero solo lo llevan las tareas de usuario y los "
+                        + "inicios simples: se deja fuera.");
+                return null;
+            }
+            nodo.limitesIlegibles().forEach(ilegible -> notas.convertido(nodo.id(), ilegible));
+            List<CampoDeFormulario> campos = new ArrayList<>();
+            for (CampoDeFormulario campo : nodo.formulario().campos()) {
+                if (campo.tipo() == null) {
+                    notas.convertido(nodo.id(), "El campo \"" + campo.nombre() + "\" del formulario no tiene un tipo "
+                            + "que exista: se deja fuera.");
+                } else if (campos.size() == EsquemaDelFormulario.TOPE_DE_CAMPOS) {
+                    notas.convertido(nodo.id(), "El formulario trae mas de " + EsquemaDelFormulario.TOPE_DE_CAMPOS
+                            + " campos: se quedan los primeros.");
+                    break;
+                } else {
+                    campos.add(campo);
+                }
+            }
+            return Formulario.siTieneCampos(new Formulario(campos)).orElse(null);
         }
 
         private TipoActividad tipoDeTarea(String elemento, String id) {
@@ -585,6 +620,7 @@ public final class ConversionBpmn {
             return switch (nodo.tipoTemporizador()) {
                 case "timeDate" -> TipoTemporizador.FECHA;
                 case "timeCycle" -> TipoTemporizador.CICLO;
+                case ModeloLeido.Nodo.DURACION_HABIL -> TipoTemporizador.DURACION_HABIL;
                 default -> TipoTemporizador.DURACION;
             };
         }

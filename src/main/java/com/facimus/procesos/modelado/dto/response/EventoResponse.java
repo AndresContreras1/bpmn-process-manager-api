@@ -31,7 +31,19 @@ public record EventoResponse(
         @Schema(description = "Activity a boundary event is attached to", example = "10") Long adjuntoAId,
         @Schema(description = "Whether a boundary event interrupts the activity when it fires", example = "true")
         Boolean interrumpe,
-        @Schema(description = "Sub-process that contains it; empty in the main flow", example = "12") Long padreId) {
+        @Schema(description = "Sub-process that contains it; empty in the main flow", example = "12") Long padreId,
+        @Schema(description = "Typed form of a start event opened by hand; empty when it has none")
+        FormularioResponse formulario) {
+
+    /** El de antes del PR 69, sin formulario. */
+    public EventoResponse(Long id, String bpmnId, String nombre, TipoEvento tipoEvento, int posicionX, int posicionY,
+            Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion, Long modificadoPor,
+            LocalDateTime fechaModificacion, TipoTemporizador tipoTemporizador, String temporizador, Long adjuntoAId,
+            Boolean interrumpe, Long padreId) {
+        this(id, bpmnId, nombre, tipoEvento, posicionX, posicionY, laneId, version, creadoPor, fechaCreacion,
+                modificadoPor, fechaModificacion, tipoTemporizador, temporizador, adjuntoAId, interrumpe, padreId,
+                null);
+    }
 
     /** El de antes del PR 56, en el flujo principal. */
     public EventoResponse(Long id, String bpmnId, String nombre, TipoEvento tipoEvento, int posicionX, int posicionY,
@@ -39,7 +51,7 @@ public record EventoResponse(
             LocalDateTime fechaModificacion, TipoTemporizador tipoTemporizador, String temporizador, Long adjuntoAId,
             Boolean interrumpe) {
         this(id, bpmnId, nombre, tipoEvento, posicionX, posicionY, laneId, version, creadoPor, fechaCreacion,
-                modificadoPor, fechaModificacion, tipoTemporizador, temporizador, adjuntoAId, interrumpe, null);
+                modificadoPor, fechaModificacion, tipoTemporizador, temporizador, adjuntoAId, interrumpe, null, null);
     }
 
     /** El de antes del PR 55, sin temporizador. */
@@ -47,7 +59,7 @@ public record EventoResponse(
             Long laneId, Long version, Long creadoPor, LocalDateTime fechaCreacion, Long modificadoPor,
             LocalDateTime fechaModificacion) {
         this(id, bpmnId, nombre, tipoEvento, posicionX, posicionY, laneId, version, creadoPor, fechaCreacion,
-                modificadoPor, fechaModificacion, null, null, null, null, null);
+                modificadoPor, fechaModificacion, null, null, null, null, null, null);
     }
 
     @Default

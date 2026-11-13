@@ -22,6 +22,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
@@ -141,6 +143,28 @@ class EventoServiceTest {
                 .hasMessage("Un evento de inicio no puede tener arcos entrantes.");
         assertThat(evento.getTipoEvento()).isEqualTo(TipoEvento.MENSAJE_INTERMEDIO);
         verify(eventoRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("PR 69: un inicio con formulario no deja de ser un inicio simple")
+    void editar_inicioConFormulario_noCambiaDeTipo() {
+        evento.setTipoEvento(TipoEvento.INICIO);
+        evento.setFormulario(CampoArmado.formulario(CampoArmado.campo("pedido", TipoDeCampo.TEXTO)));
+        when(eventoRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(evento));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(
+                "Payment result received", 100L, EMPRESA, 40L)).thenReturn(false);
+        when(eventoRepository.saveAndFlush(any(Evento.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Payment result received",
+                TipoEvento.MENSAJE_INICIO, null, 0, 0, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("El evento tiene formulario, y solo un inicio simple lo lleva: quítalo antes de "
+                        + "cambiarle el tipo.");
+        assertThat(evento.getTipoEvento()).isEqualTo(TipoEvento.INICIO);
+
+        EventoResponse respuesta = eventoService.editar(EMPRESA, AUTOR, 40L, "Payment result received",
+                TipoEvento.INICIO, null, 5, 5, null);
+        assertThat(respuesta.formulario().campos()).hasSize(1);
     }
 
     @Test

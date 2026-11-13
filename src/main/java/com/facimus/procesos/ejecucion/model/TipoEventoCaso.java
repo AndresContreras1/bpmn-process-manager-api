@@ -21,5 +21,9 @@ public enum TipoEventoCaso {
     /** Una condicion pregunto por una variable que el caso no tiene. */
     VARIABLE_AUSENTE,
     CASO_TERMINADO,
-    CASO_CANCELADO
+    CASO_CANCELADO,
+    /** PR 68: un temporizador se armo, y dice cuando vence. */
+    TEMPORIZADOR_PROGRAMADO,
+    /** PR 68: un temporizador salto. */
+    TEMPORIZADOR_DISPARADO
 }

@@ -46,6 +46,7 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
               and a.subtipo = 'USUARIO'
               and a.estado = com.facimus.procesos.ejecucion.model.EstadoActividadCaso.EN_ESPERA
               and (:procesoId is null or a.caso.proceso.id = :procesoId)
+              and a.caso.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
             group by a.rolProcesoId, r.nombre
             order by r.nombre
             """)

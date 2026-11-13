@@ -3,6 +3,7 @@ package com.facimus.procesos.ejecucion.service.impl;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -14,11 +15,13 @@ import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.ejecucion.dto.response.CasoDetalleResponse;
 import com.facimus.procesos.ejecucion.dto.response.CasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.EventoCasoResponse;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeInicioResponse;
 import com.facimus.procesos.ejecucion.mapper.CasoMapper;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.ModoCaso;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
@@ -27,6 +30,7 @@ import com.facimus.procesos.ejecucion.repository.CasoSpecifications;
 import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.ejecucion.service.CasoService;
 import com.facimus.procesos.gestion.model.VersionProceso;
+import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.VersionService;
 
 import lombok.RequiredArgsConstructor;
@@ -49,37 +53,117 @@ public class CasoServiceImpl implements CasoService {
     private final RelojDeLaTienda reloj;
     private final Bitacora bitacora;
     private final CasoMapper casoMapper;
+    private final ProcesoService procesoService;
+    private final BorradoDePruebas borradoDePruebas;
+    private final FormulariosDelCaso formularios;
 
     /**
      * R-47 y R-48: solo se abre sobre la version vigente de un proceso propio, y solo si esa version empieza por un
-     * evento de inicio. Un proceso que empieza por mensaje se abre mandando el mensaje, no desde aqui.
+     * evento de inicio. Un proceso que empieza por mensaje se abre mandando el mensaje, no desde aqui; PR 68: uno que
+     * empieza por un temporizador abre sus casos solo.
      */
     @Override
     @Transactional
     public CasoResponse abrir(Long empresaId, Long usuarioId, Long procesoId, String referencia,
-            Map<String, Object> variables) {
+            Map<String, Object> variables, ModoCaso modo) {
         VersionProceso version = versionService.vigente(empresaId, procesoId)
                 .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada vigente."));
         GrafoDeVersion grafo = grafos.del(empresaId, version).queSeEjecute();
         NodoDeLaVersion inicio = grafo.inicioAMano().orElseThrow(() -> new ReglaNegocioException(porDondeEmpieza(
                 grafo)));
+        return arrancar(empresaId, new Arranque(version, grafo, inicio), new Momento(reloj.ahora(empresaId),
+                usuarioId), referencia, variables, modo);
+    }
 
-        Momento momento = new Momento(reloj.ahora(empresaId), usuarioId);
+    /**
+     * PR 68: lo que corre es lo que se publicaria hoy, asi que pasa el mismo diagnostico; corre siempre en PRUEBA, en
+     * ticks y con los socios simulados, que es lo que se puede mover a mano para ver cada camino.
+     */
+    @Override
+    @Transactional
+    public CasoResponse probar(Long empresaId, Long usuarioId, Long procesoId, String referencia,
+            Map<String, Object> variables) {
+        VersionProceso version = procesoService.versionDePrueba(empresaId, procesoId, usuarioId);
+        GrafoDeVersion grafo = grafos.del(empresaId, version);
+        if (!grafo.ejecutable()) {
+            throw new ReglaNegocioException("El borrador es documental: se publica y se documenta, pero no corre. "
+                    + "Páselo a ejecutable para probarlo.");
+        }
+        NodoDeLaVersion inicio = grafo.inicioDeUnaPrueba()
+                .orElseThrow(() -> new ReglaNegocioException("El borrador no tiene ningún evento de inicio."));
+        return arrancar(empresaId, new Arranque(version, grafo, inicio), new Momento(reloj.ahora(empresaId),
+                usuarioId), referencia, variables, ModoCaso.PRUEBA);
+    }
+
+    /** PR 69: el formulario del inicio de la version vigente; sin version vigente no hay con que abrir un caso. */
+    @Override
+    public FormularioDeInicioResponse formularioDeInicio(Long empresaId, Long procesoId) {
+        VersionProceso version = versionService.vigente(empresaId, procesoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("El proceso no tiene una versión publicada "
+                        + "vigente."));
+        GrafoDeVersion grafo = grafos.del(empresaId, version);
+        Optional<NodoDeLaVersion> inicio = grafo.inicioAMano();
+        return new FormularioDeInicioResponse(procesoId, version.getNumero(),
+                inicio.map(NodoDeLaVersion::nombre).orElse(null),
+                inicio.flatMap(evento -> grafo.formularioDe(evento.id())).orElse(null));
+    }
+
+    /**
+     * PR 68: cuales son viejas lo dice gestion, que las fecha; lo que hicieron sus casos lo borra la ejecucion, que es
+     * de quien son, y la version al final otra vez gestion. Corre como sistema, en la purga: cruza tiendas a proposito.
+     */
+    @Override
+    @Transactional
+    public int olvidarPruebasAntesDe(LocalDateTime limite) {
+        int olvidadas = 0;
+        for (Long version : versionService.pruebasAntesDe(limite)) {
+            borradoDePruebas.borrar(version);
+            if (versionService.borrarPrueba(version)) {
+                olvidadas++;
+            }
+        }
+        return olvidadas;
+    }
+
+    /**
+     * PR 69: lo que se le pasa al abrir entra por el formulario del inicio, si la version le congelo uno, y con el tipo
+     * de cada campo; sin formulario, las variables libres solo valen en PRUEBA.
+     */
+    private CasoResponse arrancar(Long empresaId, Arranque desde, Momento momento, String referencia,
+            Map<String, Object> variables, ModoCaso modo) {
+        VersionProceso version = desde.version();
+        GrafoDeVersion grafo = desde.grafo();
+        NodoDeLaVersion inicio = desde.inicio();
+        Map<String, Object> conTipo = formularios.alAbrir(empresaId, version.getProceso().getId(), grafo, inicio,
+                modo, variables);
         Caso caso = casoRepository.save(Caso.builder()
                 .empresa(version.getEmpresa())
                 .proceso(version.getProceso())
                 .versionProceso(version)
                 .referencia(referencia)
                 .estado(EstadoCaso.ABIERTO)
-                .variables(casoMapper.aJson(variables))
+                .modo(modo)
+                .variables(casoMapper.aJson(conTipo))
                 .tickInicio(momento.tick())
                 .build());
         motor.arrancar(caso, grafo, inicio, momento);
         return casoMapper.toResponse(caso);
     }
 
-    /** Por que no se puede abrir a mano: porque lo abre un mensaje, o porque la version no empieza en ningun lado. */
+    /** Por donde arranca un caso: la version que corre, su grafo y el evento de inicio por el que entra. */
+    private record Arranque(VersionProceso version, GrafoDeVersion grafo, NodoDeLaVersion inicio) {
+    }
+
+    /**
+     * Por que no se puede abrir a mano: porque lo abre un mensaje o un temporizador, o porque la version no empieza en
+     * ningun lado.
+     */
     private static String porDondeEmpieza(GrafoDeVersion grafo) {
+        List<TemporizadorDeLaVersion> temporizados = grafo.iniciosTemporizados();
+        if (!temporizados.isEmpty()) {
+            return "Este proceso se inicia con el temporizador \"" + temporizados.getFirst().nombre()
+                    + "\": sus casos se abren solos cuando salta.";
+        }
         return grafo.inicioPorMensaje()
                 .map(inicio -> "Este proceso se inicia con el mensaje \""
                         + grafo.mensajeQueEspera(inicio.id()).map(MensajeDeLaVersion::nombre)

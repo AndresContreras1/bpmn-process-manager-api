@@ -29,6 +29,7 @@ Rel(ProcesosApplication.ProcesosApplication.Modelado, ProcesosApplication.Proces
 Rel(ProcesosApplication.ProcesosApplication.Modelado, ProcesosApplication.ProcesosApplication.Common, "uses", $techn="", $tags="", $link="")
 Rel(ProcesosApplication.ProcesosApplication.Gestion, ProcesosApplication.ProcesosApplication.Common, "listens to", $techn="", $tags="", $link="")
 Rel(ProcesosApplication.ProcesosApplication.Gestion, ProcesosApplication.ProcesosApplication.Common, "uses", $techn="", $tags="", $link="")
+Rel(ProcesosApplication.ProcesosApplication.Ejecucion, ProcesosApplication.ProcesosApplication.Gestion, "listens to", $techn="", $tags="", $link="")
 Rel(ProcesosApplication.ProcesosApplication.Ejecucion, ProcesosApplication.ProcesosApplication.Modelado, "depends on", $techn="", $tags="", $link="")
 Rel(ProcesosApplication.ProcesosApplication.Ejecucion, ProcesosApplication.ProcesosApplication.Common, "uses", $techn="", $tags="", $link="")
 Rel(ProcesosApplication.ProcesosApplication.Ejecucion, ProcesosApplication.ProcesosApplication.Gestion, "uses", $techn="", $tags="", $link="")

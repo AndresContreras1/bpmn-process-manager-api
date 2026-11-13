@@ -89,6 +89,11 @@ public class EventoServiceImpl implements EventoService {
             Long laneId, int posX, int posY, Long version, DatosDeTemporizador temporizador) {
         Evento evento = buscar(empresaId, eventoId);
         evento.verificarVersion(version);
+        if (evento.getFormulario() != null && tipoEvento != TipoEvento.INICIO) {
+            // PR 69: el formulario es de quien abre el caso a mano; un inicio de mensaje o de temporizador se abre solo
+            throw new ReglaNegocioException("El evento tiene formulario, y solo un inicio simple lo lleva: quítalo "
+                    + "antes de cambiarle el tipo.");
+        }
         Long procesoId = evento.getLane().getPool().getProceso().getId();
         if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
                 empresaId, eventoId)) {

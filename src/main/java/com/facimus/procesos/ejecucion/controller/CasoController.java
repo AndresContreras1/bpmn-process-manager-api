@@ -19,10 +19,12 @@ import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.ejecucion.dto.request.AbrirCasoRequest;
+import com.facimus.procesos.ejecucion.dto.request.PruebaRequest;
 import com.facimus.procesos.ejecucion.dto.request.VariablesRequest;
 import com.facimus.procesos.ejecucion.dto.response.CasoDetalleResponse;
 import com.facimus.procesos.ejecucion.dto.response.CasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.EventoCasoResponse;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeInicioResponse;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.service.CasoService;
 
@@ -50,7 +52,11 @@ public class CasoController {
     @Operation(summary = "Open a case on a process",
             description = "Opens it on the version in force and runs it until it stops, normally at the first task "
                     + "of a tray. The process has to start with a plain start event: one that starts with a message "
-                    + "is opened by sending that message. Administrators and editors.")
+                    + "is opened by sending that message, and one that starts with a timer opens its own cases. "
+                    + "Without a mode the case runs in PRUEBA, on the store clock ticks; PRODUCCION runs its timers "
+                    + "on the wall clock and the business calendar. When the start has a form, the variables are "
+                    + "its answers, checked against it (400 with each field under variables); without one, free "
+                    + "variables are taken only in PRUEBA mode. Administrators and editors.")
     @ApiResponse(responseCode = "201", description = "Case opened",
             headers = @Header(name = HttpHeaders.LOCATION, description = "URL of the new case"))
     @ApiResponse(responseCode = "400", ref = "BadRequest")
@@ -62,6 +68,42 @@ public class CasoController {
     public ResponseEntity<CasoResponse> abrir(@PathVariable Long procesoId,
             @Validated @RequestBody AbrirCasoRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         CasoResponse caso = casoService.abrir(principal.empresaId(), principal.usuarioId(), procesoId,
+                request.referencia(), request.variables(), request.modoDelCaso());
+        return ResponseEntity.created(URI.create("/api/v1/casos/" + caso.id())).body(caso);
+    }
+
+    @Operation(summary = "Get the form a case opens with",
+            description = "The form of the plain start event of the version in force, with its conditions compiled "
+                    + "for the web to evaluate. When it has one, the variables of a new case are its answers: they "
+                    + "are checked against it and stored with the type of each field, and a wrong answer is a 400 "
+                    + "with each field under variables. Without one, free variables are taken only in PRUEBA mode. "
+                    + "Any role.")
+    @ApiResponse(responseCode = "200", description = "The start form; empty when the start has none")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @GetMapping("/api/v1/procesos/{procesoId}/formulario-de-inicio")
+    public ResponseEntity<FormularioDeInicioResponse> formularioDeInicio(@PathVariable Long procesoId,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(casoService.formularioDeInicio(principal.empresaId(), procesoId));
+    }
+
+    @Operation(summary = "Try the draft of a process without publishing it",
+            description = "Freezes today's draft in a throwaway test version and opens a case on it, in PRUEBA "
+                    + "mode, starting at its plain start, its timer start or its message start (the variables play "
+                    + "the message's body). The draft has to pass the same diagnosis as publishing. The test "
+                    + "version is never listed nor in force, its case shows version 0, and both go away with the "
+                    + "nightly purge. Whoever can model the process.")
+    @ApiResponse(responseCode = "201", description = "Test case opened",
+            headers = @Header(name = HttpHeaders.LOCATION, description = "URL of the new case"))
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PostMapping("/api/v1/procesos/{procesoId}/pruebas")
+    public ResponseEntity<CasoResponse> probar(@PathVariable Long procesoId,
+            @Validated @RequestBody PruebaRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
+        CasoResponse caso = casoService.probar(principal.empresaId(), principal.usuarioId(), procesoId,
                 request.referencia(), request.variables());
         return ResponseEntity.created(URI.create("/api/v1/casos/" + caso.id())).body(caso);
     }

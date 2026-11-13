@@ -31,6 +31,16 @@ export class VersionService {
   }
 
   /**
+   * PR 62: el dibujo de una version, el SVG que bpmn-js hace al publicar. El servidor lo sanea y lo guarda para el
+   * manual; una version guarda el primero que recibe.
+   */
+  guardarDibujo(procesoId: number, numero: number, svg: string): Observable<void> {
+    return this.http.put<void>(`${this.url}/${procesoId}/versiones/${numero}/dibujo`, svg, {
+      headers: { 'Content-Type': 'image/svg+xml' },
+    });
+  }
+
+  /**
    * Retira una version: deja de ser la vigente y el proceso vuelve a la anterior que siga en pie. No borra nada
    * -los casos que se abrieron con ella siguen corriendo con ella- y es lo unico que la API deja cambiarle a una
    * version publicada, asi que el cuerpo solo puede decir RETIRADA.

@@ -43,7 +43,21 @@ class ReglaDeRecursoTest {
                 Arguments.of("GET", P + "/concesiones", null, Accion.ADMINISTRAR),
                 Arguments.of("POST", P + "/concesiones", null, Accion.ADMINISTRAR),
                 Arguments.of("POST", P + "/bloqueo/tomar-control", null, Accion.MODELAR),
-                Arguments.of("GET", P + "/en-vivo", null, Accion.VER));
+                Arguments.of("GET", P + "/en-vivo", null, Accion.VER),
+                Arguments.of("GET", P + "/documentos", null, Accion.VER),
+                Arguments.of("POST", P + "/documentos", null, Accion.MODELAR),
+                Arguments.of("GET", P + "/documentacion", null, Accion.VER),
+                Arguments.of("PUT", P + "/documentacion", null, Accion.MODELAR),
+                Arguments.of("GET", P + "/caracterizacion", null, Accion.VER),
+                Arguments.of("PUT", P + "/caracterizacion", null, Accion.MODELAR),
+                Arguments.of("PUT", P + "/versiones/{numero}/dibujo", null, Accion.PUBLICAR),
+                Arguments.of("GET", P + "/manuales", null, Accion.VER),
+                Arguments.of("POST", P + "/manuales", null, Accion.EXPORTAR),
+                // PR 68: probar el borrador es modelarlo; mirar los inicios temporizados, verlo
+                Arguments.of("POST", P + "/pruebas", null, Accion.MODELAR),
+                Arguments.of("GET", P + "/temporizadores", null, Accion.VER),
+                // PR 69: el formulario de inicio de la version vigente se lee como el proceso
+                Arguments.of("GET", P + "/formulario-de-inicio", null, Accion.VER));
     }
 
     @ParameterizedTest(name = "{0} {1} {2} pide {3}")
@@ -57,7 +71,7 @@ class ReglaDeRecursoTest {
 
     static Stream<Arguments> rutasDeElementos() {
         return Stream.of("pools", "lanes", "actividades", "gateways", "eventos", "arcos", "mensajes", "artefactos",
-                "asociaciones", "nodos").flatMap(tipo -> Stream.of(
+                "asociaciones", "nodos", "documentos", "manuales").flatMap(tipo -> Stream.of(
                         Arguments.of("GET", "/api/v1/" + tipo + "/{id}", Accion.VER, tipo),
                         Arguments.of("PUT", "/api/v1/" + tipo + "/{id}", Accion.MODELAR, tipo),
                         Arguments.of("DELETE", "/api/v1/" + tipo + "/{id}", Accion.MODELAR, tipo)));
@@ -81,6 +95,18 @@ class ReglaDeRecursoTest {
     }
 
     @Test
+    @DisplayName("PR 69: guardar el formulario de una tarea o de un inicio es modelar ese elemento")
+    void formularios() {
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/actividades/{id}/formulario", null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "actividades"));
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/eventos/{id}/formulario", null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "eventos"));
+        // El de una tarea es una ruta de operacion, como el resto de la bandeja y /casos: la acota la tienda, sin
+        // permiso por proceso
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/tareas/{id}/formulario", null)).isEmpty();
+    }
+
+    @Test
     @DisplayName("en una carpeta, editarla es modelar y conceder es administrar")
     void carpetas() {
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/carpetas/{id}", null).orElseThrow().accion())
@@ -99,5 +125,13 @@ class ReglaDeRecursoTest {
         assertThat(ReglaDeRecurso.de("POST", "/api/v1/arcos", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/usuarios/{id}", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", null, null)).isEmpty();
+        // PR 61: bajar con un enlace firmado no tiene sesion: la firma es el permiso
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/documentos/{documentoId}/{numero}", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/manuales/{manualId}/{formato}", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("POST", "/api/v1/documentacion/vista-previa", null)).isEmpty();
+        // PR 68: el calendario es de la tienda entera, y un caso se comprueba en su service
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/organizacion/calendario", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("DELETE", "/api/v1/organizacion/calendario/festivos/{fecha}", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/casos/{id}/temporizadores", null)).isEmpty();
     }
 }

@@ -15,6 +15,7 @@ import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 
 import io.micrometer.observation.Observation;
@@ -55,6 +56,7 @@ class MotorDeProcesos {
     private final Bitacora bitacora;
     private final JsonMapper json;
     private final ObservationRegistry observaciones;
+    private final Temporizadores temporizadores;
 
     /** Abre el caso por el nodo que empieza el proceso y lo avanza hasta donde llegue. */
     void arrancar(Caso caso, GrafoDeVersion grafo, NodoDeLaVersion inicio, Momento momento) {
@@ -79,6 +81,8 @@ class MotorDeProcesos {
                 .start();
         try (Observation.Scope alcance = vuelta.openScope()) {
             recorrer(caso, grafo, momento);
+            // PR 68: lo que la vuelta dejo sin esperar ya no necesita su temporizador
+            temporizadores.soltarLosQueSobran(caso);
         } catch (RuntimeException error) {
             vuelta.error(error);
             throw error;
@@ -148,13 +152,48 @@ class MotorDeProcesos {
                 .build());
     }
 
-    /** Cierra los tokens vivos de un caso que deja de correr, por cancelacion o por un envio que no se pudo salvar. */
+    /**
+     * Cierra los tokens vivos de un caso que deja de correr, por cancelacion o por un envio que no se pudo salvar. PR
+     * 68: con ellos se van sus temporizadores.
+     */
     void apagarTokens(Caso caso, Momento momento) {
         for (ActividadCaso token : vivosDe(caso)) {
             token.setEstado(EstadoActividadCaso.OMITIDA);
             token.setTickFin(momento.tick());
             actividadCasoRepository.save(token);
         }
+        temporizadores.soltarLosQueSobran(caso);
+    }
+
+    /**
+     * PR 68: salto el temporizador de una espera. El token sigue igual que cuando llega el mensaje que esperaba un
+     * nodo: se completa y el caso sale por las salidas del evento. Lo llama quien dispara, con el caso bloqueado.
+     */
+    void esperaCumplida(Caso caso, GrafoDeVersion grafo, ActividadCaso token, Momento momento) {
+        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TEMPORIZADOR_DISPARADO,
+                comillas(token.getNodoNombre()) + " salto: termino la espera.");
+        completar(caso, token, momento);
+        seguirDesde(caso, grafo, token.getNodoId(), momento);
+    }
+
+    /**
+     * PR 68: salto un temporizador de borde de una actividad que esperaba. Uno que interrumpe saca a la actividad (su
+     * tarea deja la bandeja, o deja de esperar su mensaje) y el caso sigue por el borde; uno que no interrumpe deja la
+     * actividad donde estaba y abre otro camino desde el borde, como un aviso.
+     */
+    void saltarBorde(Caso caso, GrafoDeVersion grafo, ActividadCaso actividad, NodoDeLaVersion borde,
+            boolean interrumpe, Momento momento) {
+        if (interrumpe) {
+            actividad.setEstado(EstadoActividadCaso.OMITIDA);
+            actividad.setTickFin(momento.tick());
+            actividadCasoRepository.save(actividad);
+        }
+        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TEMPORIZADOR_DISPARADO, comillas(borde.nombre())
+                + " salto sobre " + comillas(actividad.getNodoNombre()) + (interrumpe
+                        ? ", que se interrumpe: el caso sigue por el borde."
+                        : ", que sigue esperando: el borde abre otro camino."));
+        activar(caso, grafo, borde, momento);
+        avanzar(caso, grafo, momento);
     }
 
     private void procesar(Caso caso, GrafoDeVersion grafo, ActividadCaso token, VariablesDelCaso variables,
@@ -177,7 +216,8 @@ class MotorDeProcesos {
 
     private void procesarEvento(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
             VariablesDelCaso variables, Momento momento) {
-        if (quedarseEsperando(caso, grafo, token, nodo, momento)) {
+        if (esperarAlTemporizador(caso, grafo, token, nodo, momento)
+                || quedarseEsperando(caso, grafo, token, nodo, momento)) {
             return;
         }
         mandarLoQueTenga(caso, grafo, nodo, variables, momento);
@@ -207,6 +247,7 @@ class MotorDeProcesos {
             bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA,
                     comillas(nodo.nombre()) + " queda en la bandeja a la espera de que alguien la complete.",
                     momento.autorId());
+            temporizadores.armarBordes(caso, grafo, token, momento);
             return;
         }
         if (quedarseEsperando(caso, grafo, token, nodo, momento)) {
@@ -239,6 +280,28 @@ class MotorDeProcesos {
         actividadCasoRepository.save(token);
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO, comillas(nodo.nombre())
                 + " espera el mensaje " + comillas(esperado.orElseThrow().nombre()) + ".");
+        if (nodo.esActividad()) {
+            temporizadores.armarBordes(caso, grafo, token, momento);
+        }
+        return true;
+    }
+
+    /**
+     * PR 68: una espera temporizada deja el token esperando hasta que su temporizador salte. Si no dice cuando, o lo
+     * que dice no se puede armar, sigue de largo: el diagnostico no deja publicar eso (E-16), y un caso parado para
+     * siempre seria peor que uno que sigue, igual que una espera de mensaje sin mensaje.
+     */
+    private boolean esperarAlTemporizador(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
+            Momento momento) {
+        if (!nodo.esEventoDe(TipoEvento.TEMPORIZADOR_INTERMEDIO)) {
+            return false;
+        }
+        Optional<TemporizadorDeLaVersion> espera = grafo.temporizador(nodo.id());
+        if (espera.isEmpty() || !temporizadores.armar(caso, token, espera.orElseThrow(), momento)) {
+            return false;
+        }
+        token.setEstado(EstadoActividadCaso.EN_ESPERA);
+        actividadCasoRepository.save(token);
         return true;
     }
 
