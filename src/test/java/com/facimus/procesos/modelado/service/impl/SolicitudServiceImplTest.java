@@ -217,19 +217,14 @@ class SolicitudServiceImplTest {
         verify(solicitudRepository).saveAndFlush(guardada.capture());
         SolicitudPublicacion solicitud = guardada.getValue();
         assertThat(solicitud.getEmpresa()).isSameAs(empresa);
-        assertThat(solicitud.getProcesoId()).isEqualTo(PROCESO);
-        assertThat(solicitud.getRevisionId()).isEqualTo(31L);
-        assertThat(solicitud.getSolicitanteId()).isEqualTo(ANA);
-        assertThat(solicitud.getMarkdown()).isEqualTo("Agrega el **fraude**");
-        assertThat(solicitud.getHtml()).isEqualTo("<p>Agrega el <strong>fraude</strong></p>");
-        assertThat(solicitud.getNumero()).isEqualTo(3);
-        assertThat(solicitud.getVersionBase()).isEqualTo(2);
-        assertThat(solicitud.getHuella()).isEqualTo(HUELLA);
-        assertThat(solicitud.getDefinicion()).isEqualTo(definicionDemo);
-        assertThat(solicitud.getModeloBpmn()).isEqualTo(BPMN);
-        assertThat(solicitud.getAprobacionesNecesarias()).isEqualTo(2);
-        assertThat(solicitud.getAprobadores()).containsExactly(BETO, CARLA);
-        assertThat(solicitud.getEstado()).isEqualTo(EstadoSolicitud.ABIERTA);
+        assertThat(solicitud).extracting(SolicitudPublicacion::getProcesoId, SolicitudPublicacion::getRevisionId,
+                SolicitudPublicacion::getSolicitanteId, SolicitudPublicacion::getMarkdown, SolicitudPublicacion::getHtml,
+                SolicitudPublicacion::getNumero, SolicitudPublicacion::getVersionBase, SolicitudPublicacion::getHuella,
+                SolicitudPublicacion::getDefinicion, SolicitudPublicacion::getModeloBpmn,
+                SolicitudPublicacion::getAprobacionesNecesarias, SolicitudPublicacion::getAprobadores,
+                SolicitudPublicacion::getEstado)
+                .containsExactly(PROCESO, 31L, ANA, "Agrega el **fraude**", "<p>Agrega el <strong>fraude</strong></p>",
+                        3, 2, HUELLA, definicionDemo, BPMN, 2, List.of(BETO, CARLA), EstadoSolicitud.ABIERTA);
         verify(permisos).exigir(EMPRESA, ANA, Accion.PUBLICAR, Recurso.proceso(PROCESO));
 
         Map<String, Object> detalle = new LinkedHashMap<>();
