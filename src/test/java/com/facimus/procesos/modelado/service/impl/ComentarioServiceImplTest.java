@@ -3,6 +3,7 @@ package com.facimus.procesos.modelado.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -517,9 +518,8 @@ class ComentarioServiceImplTest {
 
         // Quien pregunta no se menciona a si mismo, y quien no ve el proceso no sale
         assertThat(personas).containsExactly(new PersonaResponse(BETO, "Beto"), new PersonaResponse(CARLA, "Carla"));
-        assertThat(actores.getValue()).extracting(Actor::usuarioId).containsExactly(BETO, CARLA, DORA);
-        assertThat(actores.getValue()).extracting(Actor::rol).containsExactly(RolAcceso.EDITOR,
-                RolAcceso.SOLO_LECTURA, RolAcceso.EDITOR);
+        assertThat(actores.getValue()).extracting(Actor::usuarioId, Actor::rol).containsExactly(
+                tuple(BETO, RolAcceso.EDITOR), tuple(CARLA, RolAcceso.SOLO_LECTURA), tuple(DORA, RolAcceso.EDITOR));
         assertThat(pagina.getValue().getPageNumber()).isZero();
         assertThat(pagina.getValue().getPageSize()).isEqualTo(ComentarioServiceImpl.CANDIDATOS_A_MENCION);
         assertThat(pagina.getValue().getSort()).isEqualTo(Sort.by("nombre", "id"));

@@ -300,7 +300,8 @@ class ComentariosIntegracionTest {
     }
 
     @Test
-    @DisplayName("F21: a quien mencionar son quienes ven el proceso, por nombre y sin quien pregunta; lo ajeno es un 404")
+    @DisplayName("F21: a quien mencionar son las personas activas que ven el proceso, por nombre y sin quien pregunta; "
+            + "lo ajeno es un 404")
     void mencionables() throws Exception {
         String ruta = "/api/v1/procesos/{id}/mencionables";
         mvc.perform(get(ruta, proceso).with(principal(beto))).andExpect(status().isOk())
@@ -315,6 +316,10 @@ class ComentariosIntegracionTest {
                 .andExpect(status().isBadRequest());
         mvc.perform(get(ruta, proceso).with(principal(dora))).andExpect(status().isNotFound());
         mvc.perform(get(ruta, proceso).with(principal(ajeno))).andExpect(status().isNotFound());
+        // Una persona desactivada no se ofrece, aunque su concesion siga viva: un aviso no le llegaria
+        usuarioService.desactivar(ana.empresaId(), ana.usuarioId(), carla.usuarioId());
+        mvc.perform(get(ruta, proceso).with(principal(beto))).andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].nombre").value(contains("Ana")));
     }
 
     @Test
