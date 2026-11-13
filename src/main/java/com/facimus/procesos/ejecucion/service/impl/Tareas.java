@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 class Tareas {
 
     static final String NO_ENCONTRADA = "Tarea no encontrada.";
+    static final String CASO_CERRADO = "El caso ya está cerrado.";
 
     private final ActividadCasoRepository actividadCasoRepository;
     private final CasoRepository casoRepository;

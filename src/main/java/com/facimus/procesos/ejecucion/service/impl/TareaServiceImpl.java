@@ -124,8 +124,9 @@ public class TareaServiceImpl implements TareaService {
             throw new ReglaNegocioException(YA_COMPLETADA);
         }
         if (caso.getEstado() != EstadoCaso.ABIERTO) {
-            throw new ReglaNegocioException("El caso ya está cerrado.");
+            throw new ReglaNegocioException(Tareas.CASO_CERRADO);
         }
+        boolean laToma = tarea.getAsignadoA() == null;
         Long porQuien = quienLaTiene(empresaId, usuarioId, tarea);
 
         GrafoDeVersion grafo = grafos.del(empresaId, caso.getVersionProceso());
@@ -143,6 +144,13 @@ public class TareaServiceImpl implements TareaService {
         tarea.setEstado(EstadoActividadCaso.COMPLETADA);
         tarea.setTickFin(momento.tick());
         actividadCasoRepository.save(tarea);
+        if (laToma) {
+            // La que no tenia nadie la toma quien la completa: queda igual que si la hubiera reclamado antes
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_RECLAMADA,
+                    "\"" + tarea.getNodoNombre() + "\" la tomo el usuario " + usuarioId + " al completarla.", usuarioId);
+            auditoria.registrar(empresaId, usuarioId, AsignacionDeTareaServiceImpl.RECLAMADA, RECURSO, tareaId,
+                    Map.of(AsignacionDeTareaServiceImpl.CASO_ID, caso.getId()));
+        }
         if (porQuien.equals(usuarioId)) {
             bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_COMPLETADA,
                     "\"" + tarea.getNodoNombre() + "\" se completo.", usuarioId);
@@ -151,7 +159,7 @@ public class TareaServiceImpl implements TareaService {
                     + "\" se completo: la completo un administrador por el usuario " + porQuien + ", que la tenia.",
                     usuarioId);
             auditoria.registrar(empresaId, usuarioId, COMPLETADA_POR_OTRO, RECURSO, tareaId,
-                    Map.of("casoId", caso.getId(), "laTenia", porQuien));
+                    Map.of(AsignacionDeTareaServiceImpl.CASO_ID, caso.getId(), "laTenia", porQuien));
         }
 
         motor.seguirDesde(caso, grafo, tarea.getNodoId(), momento);

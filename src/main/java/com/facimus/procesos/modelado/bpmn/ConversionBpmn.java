@@ -483,8 +483,8 @@ public final class ConversionBpmn {
                 return null;
             }
             if (!esperaAUnaPersona) {
-                notas.convertido(nodo.id(), "Trae una asignacion, pero solo se asignan las tareas de usuario: se deja "
-                        + "fuera.");
+                notas.convertido(nodo.id(), "Trae una asignacion, pero solo se asignan las tareas de "
+                        + "usuario: se deja fuera.");
                 return null;
             }
             if (asignacion.tipo() == null) {

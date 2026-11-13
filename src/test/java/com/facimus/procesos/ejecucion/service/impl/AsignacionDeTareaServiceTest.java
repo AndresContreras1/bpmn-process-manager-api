@@ -216,6 +216,19 @@ class AsignacionDeTareaServiceTest {
         }
 
         @Test
+        @DisplayName("D3: bloquea el caso antes de leer la tarea, asi no se cruza con una cancelacion ni un temporizador")
+        void bloqueaAntes() {
+            given(actividadCasoRepository.reclamar(any(), any(), any(), any())).willReturn(1);
+
+            servicio.reclamar(TIENDA_ID, ANA, TAREA_ID);
+
+            InOrder enOrden = inOrder(casoRepository, actividadCasoRepository);
+            enOrden.verify(casoRepository).bloquear(CASO_ID, TIENDA_ID);
+            enOrden.verify(actividadCasoRepository).findByIdAndEmpresaId(TAREA_ID, TIENDA_ID);
+            enOrden.verify(actividadCasoRepository).reclamar(eq(TAREA_ID), eq(TIENDA_ID), eq(ANA), any());
+        }
+
+        @Test
         @DisplayName("Un paso que no es tarea, o de otra tienda, no existe (404)")
         void noEsTarea_noExiste() {
             tarea.setSubtipo("SERVICIO");
@@ -279,6 +292,26 @@ class AsignacionDeTareaServiceTest {
                     + LUIS + " y vuelve al usuario " + ANA + ", que la habia delegado.", LUIS);
             verify(auditoria).registrar(TIENDA_ID, LUIS, "TAREA_LIBERADA", "TAREA", TAREA_ID,
                     Map.of("casoId", CASO_ID, "de", LUIS, "a", ANA));
+        }
+
+        @Test
+        @DisplayName("Si quien la delego ya no puede tener tareas, vuelve a la bandeja del rol, la delegacion se anula "
+                + "y el caso dice por que")
+        void delegado_quienLaDelegoYaNoPuede() {
+            tarea.setAsignadoA(LUIS);
+            tarea.setDelegadaPor(IDO);
+            Delegacion abierta = delegacion(IDO, LUIS);
+
+            servicio.soltar(TIENDA_ID, LUIS, TAREA_ID, null);
+
+            assertThat(tarea.getAsignadoA()).isNull();
+            assertThat(tarea.getDelegadaPor()).isNull();
+            assertThat(abierta.getEstado()).isEqualTo(EstadoDelegacion.ANULADA);
+            verify(bitacora).anotar(caso, TICK, TipoEventoCaso.TAREA_LIBERADA, NOMBRE + " deja de tenerla el usuario "
+                    + LUIS + " y vuelve a la bandeja de su rol, porque el usuario " + IDO + ", que la habia delegado, "
+                    + "ya no puede tener tareas.", LUIS);
+            verify(auditoria).registrar(TIENDA_ID, LUIS, "TAREA_LIBERADA", "TAREA", TAREA_ID,
+                    Map.of("casoId", CASO_ID, "de", LUIS));
         }
 
         @Test
@@ -382,6 +415,39 @@ class AsignacionDeTareaServiceTest {
             assertThat(tarea.getAsignadoA()).isEqualTo(ADMIN);
             assertThat(tarea.getDelegadaPor()).isNull();
             assertThat(abierta.getEstado()).isEqualTo(EstadoDelegacion.ANULADA);
+        }
+
+        @Test
+        @DisplayName("El delegado no reasigna la tarea delegada (403): la completa o la devuelve, y no se mueve nada")
+        void delegado_noReasigna() {
+            tarea.setAsignadoA(LUIS);
+            tarea.setDelegadaPor(ANA);
+            Delegacion abierta = delegacion(ANA, LUIS);
+
+            assertThatThrownBy(() -> servicio.reasignar(TIENDA_ID, LUIS, TAREA_ID, ADMIN, "Se la paso"))
+                    .isInstanceOf(SinPermisoException.class)
+                    .hasMessage(AsignacionDeTareaServiceImpl.REASIGNAR_DELEGADA);
+            assertThat(tarea.getAsignadoA()).isEqualTo(LUIS);
+            assertThat(tarea.getDelegadaPor()).isEqualTo(ANA);
+            assertThat(abierta.getEstado()).isEqualTo(EstadoDelegacion.ACTIVA);
+            verify(actividadCasoRepository, never()).save(any());
+            verifyNoInteractions(bitacora, auditoria);
+        }
+
+        @Test
+        @DisplayName("Quien la delego si la reasigna, tambien a si mismo: la recupera y la delegacion se anula")
+        void quienLaDelego_laRecupera() {
+            tarea.setAsignadoA(LUIS);
+            tarea.setDelegadaPor(ANA);
+            Delegacion abierta = delegacion(ANA, LUIS);
+
+            servicio.reasignar(TIENDA_ID, ANA, TAREA_ID, ANA, "Ya volvi");
+
+            assertThat(tarea.getAsignadoA()).isEqualTo(ANA);
+            assertThat(tarea.getDelegadaPor()).isNull();
+            assertThat(abierta.getEstado()).isEqualTo(EstadoDelegacion.ANULADA);
+            verify(bitacora).anotar(caso, TICK, TipoEventoCaso.TAREA_REASIGNADA, NOMBRE + " pasa del usuario " + LUIS
+                    + " al usuario " + ANA + ": Ya volvi", ANA);
         }
 
         @Test
@@ -512,6 +578,32 @@ class AsignacionDeTareaServiceTest {
             assertThatThrownBy(() -> servicio.delegar(TIENDA_ID, ANA, TAREA_ID, LUIS, "x"))
                     .isInstanceOf(ReglaNegocioException.class)
                     .hasMessage(AsignacionDeTareaServiceImpl.YA_NO_ESPERA);
+        }
+    }
+
+    @Nested
+    @DisplayName("Un caso que ya no corre")
+    class CasoQueNoCorre {
+
+        @Test
+        @DisplayName("Con el caso en error o cerrado ninguna accion toca la tarea que sigue en espera (409)")
+        void ningunaAccion() {
+            caso.setEstado(EstadoCaso.ERROR);
+            tarea.setAsignadoA(ANA);
+
+            assertThatThrownBy(() -> servicio.soltar(TIENDA_ID, ANA, TAREA_ID, null))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessage(Tareas.CASO_CERRADO);
+            assertThatThrownBy(() -> servicio.reasignar(TIENDA_ID, ANA, TAREA_ID, LUIS, "x"))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessage(Tareas.CASO_CERRADO);
+            assertThatThrownBy(() -> servicio.delegar(TIENDA_ID, ANA, TAREA_ID, LUIS, "x"))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessage(Tareas.CASO_CERRADO);
+            tarea.setAsignadoA(null);
+            caso.setEstado(EstadoCaso.CANCELADO);
+            assertThatThrownBy(() -> servicio.reclamar(TIENDA_ID, ANA, TAREA_ID))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessage(Tareas.CASO_CERRADO);
+            verify(actividadCasoRepository, never()).reclamar(any(), any(), any(), any());
+            verify(actividadCasoRepository, never()).save(any());
+            verifyNoInteractions(bitacora, auditoria, delegacionRepository);
         }
     }
 

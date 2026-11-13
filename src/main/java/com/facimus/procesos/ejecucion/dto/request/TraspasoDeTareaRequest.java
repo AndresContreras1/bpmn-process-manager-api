@@ -10,7 +10,8 @@ import jakarta.validation.constraints.Size;
 public record TraspasoDeTareaRequest(
         @Schema(description = "An active administrator or editor of the organization", example = "5")
         @NotNull(message = "La persona es obligatoria.") Long usuarioId,
-        @Schema(description = "Why; it goes to the case timeline", example = "Ana is on leave this week")
+        @Schema(description = "Why; it goes to the case timeline and is kept as written, so it names no one",
+                example = "On leave this week")
         @NotBlank(message = "El motivo es obligatorio.")
         @Size(max = 500, message = "El motivo admite hasta 500 caracteres.") String motivo) {
 }

@@ -270,7 +270,8 @@ class TareaServiceTest {
     }
 
     @Test
-    @DisplayName("PR 70: la que no tiene nadie la toma al completarla quien es de su rol")
+    @DisplayName("PR 70: la que no tiene nadie la toma al completarla quien es de su rol, y la toma queda en el caso y "
+            + "en la bitacora como cualquier reclamacion")
     void completar_sinNadie_laTomaQuienEsDeSuRol() {
         ActividadCaso tarea = conTarea(EstadoActividadCaso.EN_ESPERA);
 
@@ -278,6 +279,13 @@ class TareaServiceTest {
 
         assertThat(tarea.getAsignadoA()).isEqualTo(EDITOR);
         assertThat(tarea.getEstado()).isEqualTo(EstadoActividadCaso.COMPLETADA);
+        InOrder enOrden = inOrder(bitacora);
+        enOrden.verify(bitacora).anotar(caso, TICK, TipoEventoCaso.TAREA_RECLAMADA, "\"Pick and pack items\" la tomo "
+                + "el usuario " + EDITOR + " al completarla.", EDITOR);
+        enOrden.verify(bitacora).anotar(caso, TICK, TipoEventoCaso.TAREA_COMPLETADA,
+                "\"Pick and pack items\" se completo.", EDITOR);
+        verify(auditoria).registrar(TIENDA_ID, EDITOR, "TAREA_RECLAMADA", "TAREA", TAREA_ID,
+                Map.of("casoId", CASO_ID));
     }
 
     @Test
