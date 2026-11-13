@@ -1,6 +1,7 @@
 package com.facimus.procesos.ejecucion.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.api.Paginacion;
@@ -27,8 +29,10 @@ import com.facimus.procesos.ejecucion.dto.response.MensajesPorEstadoResponse;
 import com.facimus.procesos.ejecucion.dto.response.TareasPorRolResponse;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
+import com.facimus.procesos.ejecucion.model.Delegacion;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.EstadoDelegacion;
 import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
 import com.facimus.procesos.ejecucion.model.EventoCaso;
 import com.facimus.procesos.ejecucion.model.MensajeSaliente;
@@ -73,6 +77,9 @@ class CasoRepositoryTest {
 
     @Autowired
     private MensajeSalienteRepository mensajeSalienteRepository;
+
+    @Autowired
+    private DelegacionRepository delegacionRepository;
 
     private Empresa tienda;
     private Proceso proceso;
@@ -447,6 +454,33 @@ class CasoRepositoryTest {
             assertThat(actividadCasoRepository.cargaPorPersona(tienda.getId(), otro.getId())).isEmpty();
             assertThat(actividadCasoRepository.sinAsignar(tienda.getId(), otro.getId())).isZero();
             assertThat(actividadCasoRepository.cargaPorPersona(empresa("Tienda vecina").getId(), null)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("PR 70: una tarea tiene a lo sumo una delegacion abierta; las cerradas son su historia")
+        void delegaciones_unaAbiertaPorTarea() {
+            Usuario ana = usuario("Ana");
+            Usuario luis = usuario("Luis");
+            Usuario eva = usuario("Eva");
+            ActividadCaso tarea = actividadCasoRepository.saveAndFlush(tenida(paso("Pick and pack items",
+                    TipoNodoCaso.ACTIVIDAD, "USUARIO", BODEGA, EstadoActividadCaso.EN_ESPERA), luis));
+            Delegacion primera = delegacionRepository.saveAndFlush(delegacion(tarea, ana, luis));
+            primera.cerrar(EstadoDelegacion.DEVUELTA, LocalDateTime.now());
+            delegacionRepository.saveAndFlush(primera);
+            delegacionRepository.saveAndFlush(delegacion(tarea, ana, eva));
+
+            assertThat(delegacionRepository.findAllByTareaIdAndEmpresaIdOrderByIdAsc(tarea.getId(), tienda.getId()))
+                    .extracting(Delegacion::getEstado)
+                    .containsExactly(EstadoDelegacion.DEVUELTA, EstadoDelegacion.ACTIVA);
+            Delegacion otraAbierta = delegacion(tarea, eva, luis);
+            assertThatThrownBy(() -> delegacionRepository.saveAndFlush(otraAbierta))
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessageContaining("uq_delegaciones_activa");
+        }
+
+        private Delegacion delegacion(ActividadCaso tarea, Usuario de, Usuario a) {
+            return Delegacion.builder().empresa(tienda).tarea(tarea).caso(caso).delegadaPor(de.getId())
+                    .delegadaA(a.getId()).motivo("Vacaciones").estado(EstadoDelegacion.ACTIVA).build();
         }
 
         private ActividadCaso tenida(ActividadCaso tarea, Usuario quien) {

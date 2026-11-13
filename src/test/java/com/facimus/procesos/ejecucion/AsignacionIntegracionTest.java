@@ -44,6 +44,7 @@ import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.ejecucion.service.AsignacionDeTareaService;
+import com.facimus.procesos.ejecucion.service.impl.BorradoDePruebas;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
@@ -54,6 +55,7 @@ import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.gestion.service.VersionService;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.service.ActividadService;
@@ -116,6 +118,10 @@ class AsignacionIntegracionTest {
     private ArcoService arcoService;
     @Autowired
     private AsignacionDeTareaService asignacionDeTareaService;
+    @Autowired
+    private BorradoDePruebas borradoDePruebas;
+    @Autowired
+    private VersionService versionService;
 
     private Long empresaId;
     private Long otraId;
@@ -312,6 +318,14 @@ class AsignacionIntegracionTest {
 
         accion(ana, tarea, "reclamar").andExpect(status().isOk());
         completar(ana, tarea).andExpect(status().isOk());
+
+        // La siguiente no la tiene nadie: completarla es tomarla, y queda igual que una reclamacion
+        Long siguiente = tareaQueEspera(casoDe(tarea));
+        completar(ana, siguiente).andExpect(status().isOk())
+                .andExpect(jsonPath("$.asignadoA").value(ana.usuarioId()));
+        assertThat(linea(casoDe(tarea))).contains("TAREA_RECLAMADA \"Approve refund\" la tomo el usuario "
+                + ana.usuarioId() + " al completarla.");
+        await().atMost(Duration.ofSeconds(10)).until(() -> enLaBitacora("TAREA_RECLAMADA") == 2);
     }
 
     @Test
@@ -358,6 +372,8 @@ class AsignacionIntegracionTest {
                 .andExpect(jsonPath("$.asignadoA").value(beto.usuarioId()))
                 .andExpect(jsonPath("$.delegadaPor").isEmpty());
         traspaso(beto, tarea, "delegar", dora.usuarioId(), "Turno").andExpect(status().isOk());
+        traspaso(dora, tarea, "reasignar", eva.usuarioId(), "Se la paso").andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.detail").value(containsString("la reasigna quien la delego")));
         traspaso(eva, tarea, "reasignar", eva.usuarioId(), "Me la quedo").andExpect(status().isForbidden());
         traspaso(ana, tarea, "reasignar", eva.usuarioId(), "Reparto").andExpect(status().isOk())
                 .andExpect(jsonPath("$.asignadoA").value(eva.usuarioId()))
@@ -399,6 +415,43 @@ class AsignacionIntegracionTest {
         // Y a la inversa: alguien de la otra tienda no le pasa la suya a una persona de esta
         accion(ajeno, suya, "reclamar").andExpect(status().isOk());
         traspaso(ajeno, suya, "reasignar", beto.usuarioId(), "x").andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Cancelar el caso deja la tarea delegada omitida y anula su delegacion: ya no vuelve a nadie")
+    void cancelar_anulaLaDelegacion() throws Exception {
+        publicar();
+        Long caso = abrir(beto, dora.usuarioId());
+        Long tarea = tareaQueEspera(caso);
+        accion(beto, tarea, "reclamar").andExpect(status().isOk());
+        traspaso(beto, tarea, "delegar", dora.usuarioId(), "Turno").andExpect(status().isOk());
+
+        mvc.perform(post("/api/v1/casos/" + caso + "/cancelar").with(como(ana))).andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject("select estado from actividades_caso where id = ?", String.class, tarea))
+                .isEqualTo("OMITIDA");
+        assertThat(jdbc.queryForList("select estado || ' ' || (cerrada_en is not null) from delegaciones "
+                + "where actividad_caso_id = ?", String.class, tarea)).containsExactly("ANULADA true");
+        accion(dora, tarea, "soltar").andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("La prueba de un borrador con una tarea delegada se borra entera, sus delegaciones incluidas")
+    void pruebaDelBorrador_seBorraConSusDelegaciones() throws Exception {
+        Long caso = id(mvc.perform(post("/api/v1/procesos/" + proceso + "/pruebas").with(como(beto))
+                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isCreated()));
+        Long tarea = tareaQueEspera(caso);
+        accion(beto, tarea, "reclamar").andExpect(status().isOk());
+        traspaso(beto, tarea, "delegar", dora.usuarioId(), "Turno").andExpect(status().isOk());
+        Long version = jdbc.queryForObject("select version_proceso_id from casos where id = ?", Long.class, caso);
+
+        assertThat(borradoDePruebas.borrar(version)).isOne();
+        assertThat(versionService.borrarPrueba(version)).isTrue();
+
+        assertThat(jdbc.queryForObject("select count(*) from delegaciones where caso_id = ?", Integer.class, caso))
+                .isZero();
+        assertThat(jdbc.queryForObject("select count(*) from versiones_proceso where id = ?", Integer.class,
+                version)).isZero();
     }
 
     // ---------- Dos a la vez ----------
