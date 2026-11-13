@@ -79,18 +79,18 @@ class VersionServiceTest {
     @DisplayName("PR 68: una version de prueba se guarda con numero 0, retirada y de tipo PRUEBA")
     void guardarPrueba() {
         Empresa tienda = Empresa.builder().id(EMPRESA).build();
-        Proceso proceso = Proceso.builder().id(PROCESO).empresa(tienda).build();
+        Proceso deLaTienda = Proceso.builder().id(PROCESO).empresa(tienda).build();
         when(versionProcesoRepository.save(any(VersionProceso.class))).thenAnswer(guardar -> guardar.getArgument(0));
         when(reloj.instant()).thenReturn(Instant.parse("2026-11-11T03:30:00Z"));
         when(reloj.getZone()).thenReturn(ZoneOffset.UTC);
 
-        VersionProceso guardada = service.guardarPrueba(proceso, 3L,
+        VersionProceso guardada = service.guardarPrueba(deLaTienda, 3L,
                 new Instantanea("{}", "a".repeat(64), "<bpmn:definitions/>"));
 
         assertThat(guardada.getNumero()).isZero();
         assertThat(guardada.getEstado()).isEqualTo(EstadoVersion.RETIRADA);
         assertThat(guardada.getTipo()).isEqualTo(TipoVersion.PRUEBA);
-        assertThat(guardada.getProceso()).isSameAs(proceso);
+        assertThat(guardada.getProceso()).isSameAs(deLaTienda);
         assertThat(guardada.getEmpresa()).isSameAs(tienda);
         assertThat(guardada.getPublicadoPor()).isEqualTo(3L);
         assertThat(guardada.getHuella()).isEqualTo("a".repeat(64));
@@ -113,8 +113,6 @@ class VersionServiceTest {
     @Test
     @DisplayName("PR 68: una publicada nace de tipo PUBLICADA")
     void publicar_esDeTipoPublicada() {
-        Proceso proceso = Proceso.builder().id(PROCESO).empresa(Empresa.builder().id(EMPRESA).build()).build();
-
         service.publicar(proceso, 2, 3L, new Instantanea("{}", "a".repeat(64), "<bpmn:definitions/>"));
 
         ArgumentCaptor<VersionProceso> guardada = ArgumentCaptor.forClass(VersionProceso.class);
@@ -125,7 +123,6 @@ class VersionServiceTest {
     @Test
     @DisplayName("PR 68: retirar una version lo avisa, para que los inicios temporizados sigan a la vigente")
     void retirar_loAvisa() {
-        Proceso proceso = Proceso.builder().id(PROCESO).empresa(Empresa.builder().id(EMPRESA).build()).build();
         VersionProceso version = VersionProceso.builder().id(5L).numero(2).estado(EstadoVersion.VIGENTE).build();
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(PROCESO, EMPRESA)).thenReturn(Optional.of(proceso));
         when(versionProcesoRepository.findByProcesoIdAndNumeroAndEmpresaId(PROCESO, 2, EMPRESA))

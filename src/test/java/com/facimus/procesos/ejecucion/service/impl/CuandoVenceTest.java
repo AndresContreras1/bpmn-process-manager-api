@@ -223,7 +223,9 @@ class CuandoVenceTest {
     @Test
     @DisplayName("Una fecha fuera de los anos que se cuentan no vence nunca en produccion: es una expresion mal escrita")
     void fechaFueraDeLosTopes() {
-        assertThatThrownBy(() -> CuandoVence.primero(TipoTemporizador.FECHA, "+999999-01-01T00:00:00",
-                en(BOGOTA, "2026-01-09T15:00:00"), COLOMBIA)).isInstanceOf(ExpresionMalEscrita.class);
+        Instant desde = en(BOGOTA, "2026-01-09T15:00:00");
+
+        assertThatThrownBy(() -> CuandoVence.primero(TipoTemporizador.FECHA, "+999999-01-01T00:00:00", desde,
+                COLOMBIA)).isInstanceOf(ExpresionMalEscrita.class);
     }
 }

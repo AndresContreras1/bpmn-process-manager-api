@@ -71,8 +71,8 @@ public class CasoServiceImpl implements CasoService {
         GrafoDeVersion grafo = grafos.del(empresaId, version).queSeEjecute();
         NodoDeLaVersion inicio = grafo.inicioAMano().orElseThrow(() -> new ReglaNegocioException(porDondeEmpieza(
                 grafo)));
-        return arrancar(empresaId, version, grafo, inicio, new Momento(reloj.ahora(empresaId), usuarioId),
-                referencia, variables, modo);
+        return arrancar(empresaId, new Arranque(version, grafo, inicio), new Momento(reloj.ahora(empresaId),
+                usuarioId), referencia, variables, modo);
     }
 
     /**
@@ -91,8 +91,8 @@ public class CasoServiceImpl implements CasoService {
         }
         NodoDeLaVersion inicio = grafo.inicioDeUnaPrueba()
                 .orElseThrow(() -> new ReglaNegocioException("El borrador no tiene ningún evento de inicio."));
-        return arrancar(empresaId, version, grafo, inicio, new Momento(reloj.ahora(empresaId), usuarioId),
-                referencia, variables, ModoCaso.PRUEBA);
+        return arrancar(empresaId, new Arranque(version, grafo, inicio), new Momento(reloj.ahora(empresaId),
+                usuarioId), referencia, variables, ModoCaso.PRUEBA);
     }
 
     /** PR 69: el formulario del inicio de la version vigente; sin version vigente no hay con que abrir un caso. */
@@ -129,8 +129,11 @@ public class CasoServiceImpl implements CasoService {
      * PR 69: lo que se le pasa al abrir entra por el formulario del inicio, si la version le congelo uno, y con el tipo
      * de cada campo; sin formulario, las variables libres solo valen en PRUEBA.
      */
-    private CasoResponse arrancar(Long empresaId, VersionProceso version, GrafoDeVersion grafo, NodoDeLaVersion inicio,
-            Momento momento, String referencia, Map<String, Object> variables, ModoCaso modo) {
+    private CasoResponse arrancar(Long empresaId, Arranque desde, Momento momento, String referencia,
+            Map<String, Object> variables, ModoCaso modo) {
+        VersionProceso version = desde.version();
+        GrafoDeVersion grafo = desde.grafo();
+        NodoDeLaVersion inicio = desde.inicio();
         Map<String, Object> conTipo = formularios.alAbrir(empresaId, version.getProceso().getId(), grafo, inicio,
                 modo, variables);
         Caso caso = casoRepository.save(Caso.builder()
@@ -146,6 +149,10 @@ public class CasoServiceImpl implements CasoService {
                 .build());
         motor.arrancar(caso, grafo, inicio, momento);
         return casoMapper.toResponse(caso);
+    }
+
+    /** Por donde arranca un caso: la version que corre, su grafo y el evento de inicio por el que entra. */
+    private record Arranque(VersionProceso version, GrafoDeVersion grafo, NodoDeLaVersion inicio) {
     }
 
     /**

@@ -333,6 +333,13 @@ public final class LectorBpmn {
                 extensiones.put(clave, envoltorio);
             }
         }
+
+        /** PR 68: el {@code timeDuration} con {@code bpm:habil="true"} se cuenta en tiempo habil. */
+        private static String claseDeTiempo(Element tiempo) {
+            return "timeDuration".equals(tiempo.getLocalName()) && "true".equals(Dom.atributo(tiempo, BPM, "habil"))
+                    ? Nodo.DURACION_HABIL
+                    : tiempo.getLocalName();
+        }
     }
 
     /** Lo ajeno de un proceso del archivo, hasta que la conversion sepa de que pool es. */
@@ -349,13 +356,6 @@ public final class LectorBpmn {
         return Dom.hijos(definicion).stream()
                 .filter(hijo -> BPMN.equals(hijo.getNamespaceURI()) && TIEMPOS.contains(hijo.getLocalName()))
                 .findFirst().orElse(null);
-    }
-
-    /** PR 68: el {@code timeDuration} con {@code bpm:habil="true"} se cuenta en tiempo habil. */
-    private static String claseDeTiempo(Element tiempo) {
-        return "timeDuration".equals(tiempo.getLocalName()) && "true".equals(Dom.atributo(tiempo, BPM, "habil"))
-                ? Nodo.DURACION_HABIL
-                : tiempo.getLocalName();
     }
 
     private static List<String> definiciones(Element evento) {

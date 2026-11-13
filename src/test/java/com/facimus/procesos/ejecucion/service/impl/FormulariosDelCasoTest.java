@@ -108,13 +108,16 @@ class FormulariosDelCasoTest {
     void alCompletar_personas() {
         assertThat(completar(Map.of("aprobado", false, "responsable", 5)))
                 .containsExactly(Map.entry("aprobado", false), Map.entry("responsable", 5L));
-        assertThatThrownBy(() -> completar(Map.of("aprobado", false, "responsable", 6)))
+        Map<String, Object> inactiva = Map.of("aprobado", false, "responsable", 6);
+        Map<String, Object> deOtraTienda = Map.of("aprobado", false, "responsable", 7);
+        Map<String, Object> sinResponsable = Map.of("aprobado", false);
+        assertThatThrownBy(() -> completar(inactiva))
                 .isInstanceOfSatisfying(CamposInvalidosException.class, error -> assertThat(error.errores())
                         .containsExactly(Map.entry("datos.responsable",
                                 "No es una persona activa de la organizacion.")));
-        assertThatThrownBy(() -> completar(Map.of("aprobado", false, "responsable", 7)))
+        assertThatThrownBy(() -> completar(deOtraTienda))
                 .isInstanceOf(CamposInvalidosException.class);
-        assertThatThrownBy(() -> completar(Map.of("aprobado", false)))
+        assertThatThrownBy(() -> completar(sinResponsable))
                 .isInstanceOfSatisfying(CamposInvalidosException.class, error -> assertThat(error.errores())
                         .containsOnlyKeys("datos.responsable"));
     }

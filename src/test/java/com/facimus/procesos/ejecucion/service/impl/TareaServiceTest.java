@@ -608,8 +608,7 @@ class TareaServiceTest {
         assertThat(respuesta.formulario().campos().get(2).visibleSiArbol().operador()).isEqualTo("==");
         assertThat(respuesta.valores()).containsExactly(Map.entry("cajas", 4L));
         assertThat(respuesta.variables()).containsEntry("order", Map.of("boxes", 4))
-                .containsKey("caso");
-        assertThat(respuesta.variables().get("caso")).isEqualTo(Map.of("referencia", "ORD-1", "tick", 0));
+                .containsEntry("caso", Map.of("referencia", "ORD-1", "tick", 0));
         verify(casoRepository, never()).bloquear(any(), any());
     }
 
