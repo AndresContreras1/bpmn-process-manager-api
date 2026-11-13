@@ -264,6 +264,8 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `TIENDA_DADA_DE_BAJA` · `BAJA_CANCELADA` | The store is closed or the closing is cancelled |
 | `DOCUMENTO_SUBIDO` · `DOCUMENTO_ELIMINADO` · `DOCUMENTO_BLOQUEADO` | A document or a new version is uploaded, a document is deleted, or the review retains a version |
 | `CALENDARIO_EDITADO` · `FESTIVO_NOMBRADO` · `FESTIVO_QUITADO` · `FESTIVO_RESTAURADO` | The business calendar changes, or a holiday is added or renamed, removed, or put back as the law says |
+| `TAREA_RECLAMADA` · `TAREA_LIBERADA` · `TAREA_REASIGNADA` · `TAREA_DELEGADA` | A task is claimed, released, reassigned or delegated, with its case and who it went from and to |
+| `TAREA_COMPLETADA_POR_OTRO` | An administrator completes a task another person holds, which the store's policy allows |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
 the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
@@ -385,6 +387,35 @@ What PR 69 adds, against the checklist every resource goes through ([ADR-0073](a
   does not ask for, or one of a hidden field, never reaches the case variables.
 - **References.** A person field takes only an active user of the store; a file field, only a document of the same
   process whose latest version passed the antivirus.
+
+## Assignment and inboxes
+
+What PR 70 adds, against the checklist every resource goes through ([ADR-0074](adr/0074-assignment-and-inbox.md)):
+
+- **Row-level security.** `delegaciones` (V60) carries `empresa_id` with the store's policy, enabled and forced; the
+  assignment rule is three columns of `nodos_flujo`, the holder and the delegator two of `actividades_caso`, and the
+  initiator one of `casos`, all tables that already have it. A test reads and updates the delegations as another store
+  and sees nothing. The store deletion and the purge of test runs delete the delegations before the steps.
+- **IDOR.** Claiming, releasing, reassigning, delegating or completing another store's task, reading it, and saving
+  the assignment of another store's activity answer `404`; so does handing a task to a person of another store, which
+  `UsuarioService.obtener` looks up inside the caller's store.
+- **Who.** The four actions and completing are administrators' and editors' (the route matrix), and then a rule of the
+  task: a member of its process role or an administrator claims one nobody holds; only the holder completes, delegates
+  and, with administrators, releases and reassigns it (`403` otherwise). Completing another person's task is an
+  administrator's only when the store turns on `administradorCompletaPorOtro`, which only an administrator edits.
+  Whoever receives a task must be an active administrator or editor (`409`): a read-only user could never complete it.
+  Saving the rule is `MODELAR` on the element. The inboxes and the workload are operations routes read by any role,
+  scoped to the store.
+- **Race safety.** A claim is one conditional `UPDATE` that bumps the task's version: two at once, one wins and the
+  other gets `409`. The other actions lock the case first and save with the optimistic lock, so none overwrites a claim.
+- **Audit trail.** Each action and each completion on someone's behalf (`TAREA_COMPLETADA_POR_OTRO`), with the case and
+  the user ids. The free-text reason stays in the case timeline and the delegation, not in the trail, which keeps no
+  free text; the timeline names people by id. Changing the policy is `CONFIGURACION_CAMBIADA` with its value.
+- **Rate limit and quota.** The general limit on changes. A reason has up to 500 characters and a variable path up to
+  200.
+- **What arrives from a file.** A BPMN file can name any user id as the fixed person. It is never trusted: when the
+  task is created the engine looks the id up in the case's store, and a person who is not there, deactivated or
+  read-only leaves the task in its role tray.
 
 ## Rate limiting
 

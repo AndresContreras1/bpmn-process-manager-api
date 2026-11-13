@@ -20,13 +20,14 @@ entries in Spanish.
 | `RolProceso` | Process role | Store | Name and description |
 | `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag, order and the kind of partner behind it (`integracion`) |
 | `Lane` | Lane | Pool | Process role and order |
-| `Actividad` · `Gateway` · `Evento` | Flow nodes | Lane | Name and position on the canvas. Activities add a description and a type (`USUARIO`, `SERVICIO`, `ENVIO` or `RECEPCION`), gateways a type (`EXCLUSIVO`, `PARALELO` or `INCLUSIVO`), and events a type (`INICIO`, `FIN`, `MENSAJE_INICIO`, `MENSAJE_INTERMEDIO` or `MENSAJE_FIN`). A user activity and a plain start event can carry a typed form (`Formulario`): its fields, in the order they are filled. |
+| `Actividad` · `Gateway` · `Evento` | Flow nodes | Lane | Name and position on the canvas. Activities add a description and a type (`USUARIO`, `SERVICIO`, `ENVIO` or `RECEPCION`), gateways a type (`EXCLUSIVO`, `PARALELO` or `INCLUSIVO`), and events a type (`INICIO`, `FIN`, `MENSAJE_INICIO`, `MENSAJE_INTERMEDIO` or `MENSAJE_FIN`). A user activity and a plain start event can carry a typed form (`Formulario`): its fields, in the order they are filled. A user activity can also say who its task goes to (`TipoAsignacion`: the role tray, a fixed person, the initiator or the person of a case variable). |
 | `Arco` | Sequence flow | Pool | Source node, target node, label and condition |
 | `Mensaje` | Message flow | Process | Sending and receiving pool, content, the nodes it is anchored to, how it travels (`CORREO`, `SERVICIO_WEB`, `COLA`), what the process does if it fails (`CONTINUAR`, `MANEJAR_ERROR`, `FINALIZAR`), the fields it carries, the name its body takes among the case variables, and the message that answers it |
 | `Correlacion` | Correlation key | Message | The criterion that correlates the message, the field of the body that carries it, and what to do with a message that matches no open case |
 | `HistorialCambio` | History entry | Process | Description, author and date |
-| `Caso` | Case | Store | The process and the published version it runs on, the reference its messages are matched by, state (`ABIERTO`, `TERMINADO`, `CANCELADO`, `FALLIDO` or `ERROR`), mode (`PRODUCCION` on the wall clock and the business calendar, or `PRUEBA` on the store's ticks) and the case variables as JSON |
-| `ActividadCaso` | Step of a case | Case | The node of the version it went through, copied by id and by name, its kind, the process role of its lane, state (`PENDIENTE`, `EN_ESPERA`, `COMPLETADA`, `FALLIDA` or `OMITIDA`), how many tokens have reached it, who took it and what they handed over |
+| `Caso` | Case | Store | The process and the published version it runs on, the reference its messages are matched by, state (`ABIERTO`, `TERMINADO`, `CANCELADO`, `FALLIDO` or `ERROR`), mode (`PRODUCCION` on the wall clock and the business calendar, or `PRUEBA` on the store's ticks), the case variables as JSON and who opened it by hand, if anybody did |
+| `ActividadCaso` | Step of a case | Case | The node of the version it went through, copied by id and by name, its kind, the process role of its lane, state (`PENDIENTE`, `EN_ESPERA`, `COMPLETADA`, `FALLIDA` or `OMITIDA`), how many tokens have reached it, who holds it (the only one who completes it), who delegated it to them, and what they handed over |
+| `Delegacion` | Delegation | Step of a case | Who handed a task to whom, the reason, and how it ended (`ACTIVA`, `DEVUELTA`, `COMPLETADA` or `ANULADA`); at most one open per task |
 | `EventoCaso` | Timeline entry | Case | What happened, when, and who caused it. Only inserted |
 | `Temporizador` | Armed timer | Store | The process, version and timer event it comes from, the case and step that armed it (none for a timer start), class (`INICIO`, `INTERMEDIO` or `BORDE`), mode, expression, whether it interrupts, when it is due (an instant in `PRODUCCION`, a tick in `PRUEBA`), how many times it fired and state (`PROGRAMADO`, `DISPARADO`, `CANCELADO` or `FALLIDO`) |
 | `Calendario` | Business calendar | Store | Country (`CO`, `US`, `FR` or `AU`), IANA time zone, working hours and working days. One per store, saved the first time an administrator changes it |
@@ -66,10 +67,16 @@ diagram in the definition of each version. Its fields (`CampoDeFormulario`) have
 and the validations and conditions that type admits ([ADR-0073](adr/0073-typed-forms.md)); the answers of a case are
 not stored apart, they are its variables.
 
+Who a task goes to is a value of its activity too: three columns of `nodos_flujo` frozen with the diagram, resolved when
+a case creates the task ([ADR-0074](adr/0074-assignment-and-inbox.md)). From then on the task has a holder or waits in
+its role tray; a delegation keeps who to give it back to.
+
 ## Modeling rules
 
 - Only a person fills a form: only a user activity or a plain start event carries one, and a node with a form
-  cannot change to another type while it has it. A condition of a field reads only the fields above it.
+  cannot change to another type while it has it. The same goes for an assignment, which only a user activity carries.
+- Only whoever holds a task completes it; a member of the task's role, or an administrator, takes one nobody holds.
+  An administrator completes another person's task only if the store's policy allows it. A condition of a field reads only the fields above it.
 - A sequence flow joins two different nodes of the same pool, so it never crosses pools. There is at most one
   sequence flow from one node to another.
 - A process starts at a start event and ends at an end event: no sequence flow arrives at a start event, and none

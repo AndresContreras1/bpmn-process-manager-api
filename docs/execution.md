@@ -73,9 +73,20 @@ values offered from the case and its conditions already compiled.
 
 **Whose tray.** A task is born with the process role of its lane, and `GET /tareas?rolProcesoId=2` is the tray of
 that role. An administrator can also say which roles each person belongs to, with
-`PUT /usuarios/{id}/roles-proceso` and the whole list, and then `GET /tareas?mias=true` answers only the tasks of
-the caller's roles — someone with no roles gets an empty tray. It is a filter and not a door: completing a task
-still only asks for the access role, so a store that does not want to manage memberships simply never sets any.
+`PUT /usuarios/{id}/roles-proceso` and the whole list, and then `GET /tareas?bandeja=DE_MIS_ROLES` (or `mias=true`)
+answers only the tasks of the caller's roles — someone with no roles gets an empty tray.
+
+**Who holds it.** A user task can also reach a person when it is created: a fixed one, whoever opened the case, or the
+person a case variable names, such as the `PERSONA` field of the start form or of an earlier task
+([ADR-0074](adr/0074-assignment-and-inbox.md)). The rule is frozen in the version. When it cannot tell an active
+administrator or editor, the task waits in the role tray and the timeline says why. From then on only the holder
+completes the task: a member of its role, or an administrator, takes one nobody holds with `POST
+/tareas/{id}/reclamar` (or just by completing it), lets it go with `/soltar`, hands it over with `/reasignar`, or lends
+it for a while with `/delegar`, and each of those leaves its line in the timeline and its event in the audit trail.
+When two people claim the same task at once, the database lets one through and the other gets `409`.
+`GET /tareas?bandeja=MIAS` is what the caller holds, `SIN_ASIGNAR` what nobody holds, and `GET /tareas/carga` how the
+waiting tasks are spread. An administrator can complete someone else's task only when the store turns on
+`administradorCompletaPorOtro`.
 
 ## Messages and the clock
 

@@ -8,6 +8,19 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Assignment of user tasks: to the tray of the lane's role (the default), to a fixed person, to whoever opened the case
+  or to the person a case variable names, such as a `PERSONA` field of an earlier form. `PUT
+  /actividades/{id}/asignacion` saves the rule; it is frozen in the version, travels in BPMN as `bpm:asignacion` and
+  the diagnosis checks it as `E-23` and `A-17`. When the rule cannot tell an active person, the task waits in the role
+  tray and the case timeline says why.
+- Claiming, releasing, reassigning and delegating a task with a reason: `POST /tareas/{id}/reclamar`, `/soltar`,
+  `/reasignar` and `/delegar`, each one in the case timeline and the audit trail. A delegated task goes back to whoever
+  delegated it when the delegate releases it. Two people claiming the same task at once: one gets it, the other a
+  `409`.
+- Inboxes: `GET /tareas?bandeja=MIAS|DE_MIS_ROLES|SIN_ASIGNAR|TODAS`, oldest first, and the workload per person,
+  `GET /tareas/carga`.
+- The store policy `administradorCompletaPorOtro`, off by default: an administrator completes a task another person
+  holds, recorded in the audit trail as `TAREA_COMPLETADA_POR_OTRO`.
 - Typed forms on user tasks and plain start events: text, long text, number, money, date, date and time, yes/no,
   list, multiple list, person, file and section, with required, minimum and maximum, length and a pattern evaluated
   with RE2/J in linear time (nested counted repetitions are capped before compiling). Fields show and become required
@@ -177,6 +190,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- Only whoever holds a task completes it. A task nobody holds is taken by completing it, by a member of its process role
+  or an administrator; anybody else gets `403`, and a task another person holds answers `409`. `POST
+  /tareas/{id}/asignar` is replaced by `reclamar` and `soltar`, which the tasks screen now calls.
 - Free key-value data, when completing a task or opening a case without a form, is taken only in `PRUEBA` mode; a
   `PRODUCCION` case answers `400` for each key, and its variables are corrected with `PATCH /casos/{id}/variables`.
 - `E-18` no longer stops an executable process from publishing a timer: it now flags a cycle on a timer that fires only

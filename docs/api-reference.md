@@ -27,6 +27,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Activities | `GET, POST /api/v1/lanes/{laneId}/actividades` · `GET, PUT, DELETE /api/v1/actividades/{id}` |
 | Gateways | `GET, POST /api/v1/lanes/{laneId}/gateways` · `GET, PUT, DELETE /api/v1/gateways/{id}` |
 | Events | `GET, POST /api/v1/lanes/{laneId}/eventos` · `GET, PUT, DELETE /api/v1/eventos/{id}` |
+| Assignment | `PUT /api/v1/actividades/{id}/asignacion` |
 | Forms | `PUT /api/v1/actividades/{id}/formulario` · `PUT /api/v1/eventos/{id}/formulario` · `GET /api/v1/procesos/{procesoId}/formulario-de-inicio` · `GET /api/v1/tareas/{id}/formulario` |
 | Sequence flows | `POST /api/v1/arcos` · `GET /api/v1/pools/{poolId}/arcos` · `GET, PUT, DELETE /api/v1/arcos/{id}` |
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
@@ -56,7 +57,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Test runs of a draft | `POST /api/v1/procesos/{procesoId}/pruebas` |
 | Timers | `GET /api/v1/casos/{id}/temporizadores` · `GET /api/v1/procesos/{procesoId}/temporizadores` |
 | Business calendar | `GET, PUT /api/v1/organizacion/calendario` · `GET /api/v1/organizacion/calendario/festivos?anio=` · `PUT, DELETE /api/v1/organizacion/calendario/festivos/{fecha}` · `GET /api/v1/organizacion/calendario/ediciones` · `DELETE /api/v1/organizacion/calendario/ediciones/{fecha}` |
-| Tasks | `GET /api/v1/tareas` · `GET /api/v1/tareas/{id}` · `POST /api/v1/tareas/{id}/completar` · `POST /api/v1/tareas/{id}/asignar` |
+| Tasks | `GET /api/v1/tareas?bandeja=` · `GET /api/v1/tareas/carga` · `GET /api/v1/tareas/{id}` · `POST /api/v1/tareas/{id}/completar` · `POST /api/v1/tareas/{id}/reclamar` · `POST /api/v1/tareas/{id}/soltar` · `POST /api/v1/tareas/{id}/reasignar` · `POST /api/v1/tareas/{id}/delegar` |
 | Messaging | `POST /api/v1/procesos/{procesoId}/mensajes-entrantes` · `GET /api/v1/procesos/{procesoId}/bandeja-salida` · `GET /api/v1/procesos/{procesoId}/bandeja-entrada` · `GET /api/v1/casos/{id}/mensajes` |
 | Simulation | `GET /api/v1/simulacion` · `POST /api/v1/simulacion/tick` · `POST /api/v1/simulacion/pedidos` |
 | Dashboard | `GET /api/v1/procesos/{procesoId}/tablero` · `GET /api/v1/empresas/actual/tablero` |
@@ -277,6 +278,67 @@ the process whose latest version is available). A hidden field is dropped. Witho
 taken only by a `PRUEBA` case; a `PRODUCCION` one answers `400` for each key. The form also travels in BPMN as
 `bpm:formulario` ([ADR-0073](adr/0073-typed-forms.md)).
 
+## Assignment and inboxes
+
+A user task can say who it goes to. `PUT /api/v1/actividades/{id}/asignacion` saves the rule on the draft with the
+activity's `version`; administrators and editors, with `MODELAR` on the process:
+
+```json
+{ "tipo": "CAMPO", "campo": "tarea.reviewOrder.approver", "version": 4 }
+```
+
+| `tipo` | Who gets the task when a case reaches it | Needs |
+|---|---|---|
+| `ROL` | Nobody yet: it waits in the tray of its lane's process role, as before. Allowed on any activity | — |
+| `PERSONA` | A fixed person | `usuarioId`, an active administrator or editor of the store |
+| `INICIADOR` | Whoever opened the case by hand | — |
+| `CAMPO` | The person a case variable names, such as a `PERSONA` field of the start form (`approver`) or of an earlier task (`tarea.reviewOrder.approver`) | `campo`, written like a condition names a variable, up to 200 characters |
+
+A person who cannot complete tasks, or a `campo` that is not a variable path, is a `400` with the property in `errors`;
+anything but `ROL` on an activity that is not a user task is a `409`. The activity answers its rule in `asignacion`
+(absent for the role tray); it is frozen in the version when it is published, travels in BPMN as `bpm:asignacion`,
+and the diagnosis reports `E-23` for a rule that cannot work and `A-17` for a variable no `PERSONA` field writes. When a
+case cannot tell the person, or that person can no longer complete tasks, the task waits in its role tray and the case
+timeline says why.
+
+Every task has a holder (`asignadoA`) or waits in its role tray. Only the holder completes it:
+
+- `POST /api/v1/tareas/{id}/completar` on a task nobody holds takes it for the caller, if the caller belongs to its
+  process role or is an administrator (`403` otherwise); on a task another person holds it answers `409`, unless the
+  caller is an administrator and the store turned on `administradorCompletaPorOtro`.
+- `POST /api/v1/tareas/{id}/reclamar`, no body: a member of its role, or an administrator, takes a task nobody holds.
+  If somebody took it first, even an instant before, `409`.
+- `POST /api/v1/tareas/{id}/soltar`, with an optional `{ "motivo": "…" }`: the holder, or an administrator, lets it go.
+  It goes back to the role tray, or, when the holder is a delegate, back to whoever delegated it.
+- `POST /api/v1/tareas/{id}/reasignar` with `{ "usuarioId": 5, "motivo": "Ana is on leave" }`: the holder, or an
+  administrator, hands it to another active administrator or editor; an administrator can also give a task nobody
+  holds. An open delegation ends.
+- `POST /api/v1/tareas/{id}/delegar` with the same body: only the holder lends it to another person, who completes it
+  or releases it back. The answer carries `delegadaPor`. A delegated task is not delegated again (`409`).
+
+A task that no longer waits answers `409`; a task of another store, `404`; a person of another store, `404`; one who
+cannot complete tasks, `409`. Each action goes to the case timeline (`TAREA_RECLAMADA`, `TAREA_LIBERADA`,
+`TAREA_REASIGNADA`, `TAREA_DELEGADA`, with the reason) and to the audit trail. The web's tray calls `reclamar` and
+`soltar` for its "Take" and "Release" buttons.
+
+`GET /api/v1/tareas?bandeja=` picks the inbox, oldest first, with the filters `rolProcesoId`, `procesoId` and `estado`
+as before:
+
+| `bandeja` | Tasks |
+|---|---|
+| `TODAS` (default) | The whole store |
+| `MIAS` | The ones the caller holds |
+| `DE_MIS_ROLES` | The ones of the process roles the caller belongs to, whoever holds them; `mias=true` is the same |
+| `SIN_ASIGNAR` | The ones nobody holds |
+
+`GET /api/v1/tareas/carga` (optionally `?procesoId=`) answers the workload: how many waiting tasks nobody holds and how
+many each person holds, the busiest first; test runs of a draft do not count. Any role reads the inboxes and the
+workload:
+
+```json
+{ "sinAsignar": 3, "personas": [ { "usuarioId": 5, "nombre": "Luis Gomez", "tareas": 4 } ] }
+```
+
 ## Permissions
 
 A grant is an action on a folder or a process for a subject: `{ "accion": "MODELAR", "sujeto": "PERSONA",
@@ -297,8 +359,9 @@ store itself, and every change to a process. Each entry says who did it, when, a
 `politicaEstructura`: with `SOLO_ADMINISTRADOR`, creating and editing participants and lanes is reserved to
 administrators, and editors keep modeling steps, flows and messages inside a lane. `inactividadSesionMinutos`, from
 30 to 60, and `duracionSesionHoras`, from 1 to 24: how long a session lasts without being renewed, and how long
-after its login it ends ([Authentication](security.md#authentication)); left out, they keep their values. Every
-change is recorded in the history.
+after its login it ends ([Authentication](security.md#authentication)); left out, they keep their values.
+`administradorCompletaPorOtro`, off by default: an administrator completes a task another person holds, and the audit
+trail records it each time; left out, it keeps its value. Every change is recorded in the history.
 
 ```bash
 curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \

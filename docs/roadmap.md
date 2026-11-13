@@ -108,6 +108,10 @@
 - [x] Typed forms on user tasks and start events, frozen in the version and carried in BPMN: twelve field types,
       RE2 patterns, conditions the server compiles for the web, and every answer checked by the server (PR 69)
 - [ ] The form designer in the modeler and the form a person fills in the web (F23)
+- [x] Assignment of user tasks (role tray, fixed person, initiator or the person of a form field), frozen in the
+      version; claim, release, reassign and delegate with a reason; inboxes and the workload per person; only the
+      holder completes a task, and an administrator on someone's behalf only by store policy (PR 70)
+- [ ] The inboxes, the actions and the assignment panel in the web (F23)
 
 **Beyond the model**
 - [x] Deterministic diagnosis of a diagram, with its own catalogue of errors and warnings and a what-if for a deletion
