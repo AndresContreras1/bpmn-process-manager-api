@@ -8,6 +8,13 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Documents attached to a process or one of its elements, with versions: the type comes from the content against a
+  whitelist (415), the name is cleaned, uploads stream up to 25 MB within a quota per store (413), and the job queue
+  reviews each version with ClamAV and, for Office and OpenOffice files, a ZIP bomb check before it can be downloaded.
+  Downloads are five-minute signed links served by the API as attachments. The storage is S3 or compatible, with
+  SeaweedFS in `compose.yaml`, or a disk folder in development.
+- The daily anchor of the audit trail: each store's last link goes to a bucket with Object Lock in compliance mode,
+  and verifying the trail checks the latest anchor.
 - Granular permissions: actions granted on folders and processes to a person, a process role or the whole organization,
   inherited from the folder, on top of the access role and with separation of duties. Lists only show what can be seen.
 - The process repository: a tree of folders, and for each process its folder, owner, next review date, classification
@@ -18,14 +25,6 @@ tagged. Each pull request adds its line under *Unreleased*.
 - A structure view in the modeler: the diagram as a keyboard-navigable tree (pools, lanes, nodes and their outgoing
   flows) that can create, connect, move between lanes, rename and delete without dragging, with live announcements.
   Targets of at least 24 × 24 px in the canvas and a visible, unobscured focus.
-
-### Changed
-
-- The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
-  old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
-  which can publish.
-
-### Added
 
 - The BPMN modeler in the web, on bpmn-js: `/procesos/{id}/modelar` draws and edits the process, limited to what the
   model has and to its mode, with undo, search, minimap, import and export to `.bpmn`, SVG and PNG, a properties panel,
@@ -136,6 +135,14 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- The README and the guides cover BPMN files, the bpmn-js modeler, editing together, the process repository and
+  permissions, with the numbers of today's build.
+- The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
+  old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
+  which can publish.
+- Unit tests for the services that only the integration suites checked (second factor, external sign-in, sessions,
+  accounts, settings, the audit log, permissions, folders, BPMN import, autosave and live editing among them): the
+  nightly mutation run is back above its 75 % floor, with 2984 of 3274 mutations caught (91 %).
 - The web app has a design system: tokens in the DTCG format turned into Bootstrap's Sass variables and CSS
   variables, a green scale checked against WCAG AA, a dark mode, a shell with a sidebar, breadcrumbs and a search,
   shared components for loading, empty, errors, notices and statuses, and axe-core over every screen in the
@@ -173,6 +180,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   and NGINX 1.30 for the ones in the web image.
 - The error handler writes the request path, the database's message and an external service's answer to the log
   on one line: a line break inside them turns into an underscore and can no longer fake a log line of its own.
+- The CSRF token lasts the session: signing in, by any way, and signing out set a new one, and no other request
+  changes it. Before, every request with the session cookies answered a new token, and a change sent alongside other
+  requests could get a `403`; the web now stays in its language, with a notice, when saving it fails.
 
 ## Before this file
 

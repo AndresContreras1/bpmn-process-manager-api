@@ -43,7 +43,9 @@ class ReglaDeRecursoTest {
                 Arguments.of("GET", P + "/concesiones", null, Accion.ADMINISTRAR),
                 Arguments.of("POST", P + "/concesiones", null, Accion.ADMINISTRAR),
                 Arguments.of("POST", P + "/bloqueo/tomar-control", null, Accion.MODELAR),
-                Arguments.of("GET", P + "/en-vivo", null, Accion.VER));
+                Arguments.of("GET", P + "/en-vivo", null, Accion.VER),
+                Arguments.of("GET", P + "/documentos", null, Accion.VER),
+                Arguments.of("POST", P + "/documentos", null, Accion.MODELAR));
     }
 
     @ParameterizedTest(name = "{0} {1} {2} pide {3}")
@@ -57,7 +59,7 @@ class ReglaDeRecursoTest {
 
     static Stream<Arguments> rutasDeElementos() {
         return Stream.of("pools", "lanes", "actividades", "gateways", "eventos", "arcos", "mensajes", "artefactos",
-                "asociaciones", "nodos").flatMap(tipo -> Stream.of(
+                "asociaciones", "nodos", "documentos").flatMap(tipo -> Stream.of(
                         Arguments.of("GET", "/api/v1/" + tipo + "/{id}", Accion.VER, tipo),
                         Arguments.of("PUT", "/api/v1/" + tipo + "/{id}", Accion.MODELAR, tipo),
                         Arguments.of("DELETE", "/api/v1/" + tipo + "/{id}", Accion.MODELAR, tipo)));
@@ -99,5 +101,7 @@ class ReglaDeRecursoTest {
         assertThat(ReglaDeRecurso.de("POST", "/api/v1/arcos", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/usuarios/{id}", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", null, null)).isEmpty();
+        // PR 61: bajar con un enlace firmado no tiene sesion: la firma es el permiso
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/documentos/{documentoId}/{numero}", null)).isEmpty();
     }
 }

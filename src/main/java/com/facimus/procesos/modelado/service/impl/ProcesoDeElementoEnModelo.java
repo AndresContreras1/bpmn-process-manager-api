@@ -20,17 +20,20 @@ public class ProcesoDeElementoEnModelo implements ProcesoDeElemento {
             where n.id = ? and n.empresa_id = ?
             """;
 
-    private static final Map<String, String> CONSULTAS = Map.of(
-            "pools", "select proceso_id from pools where id = ? and empresa_id = ?",
-            "lanes", "select p.proceso_id from lanes l join pools p on p.id = l.pool_id "
-                    + "where l.id = ? and l.empresa_id = ?",
-            "actividades", DE_NODO, "gateways", DE_NODO, "eventos", DE_NODO, "nodos", DE_NODO,
-            "arcos", "select p.proceso_id from arcos a join pools p on p.id = a.pool_id "
-                    + "where a.id = ? and a.empresa_id = ?",
-            "mensajes", "select p.proceso_id from mensajes m join pools p on p.id = m.pool_origen_id "
-                    + "where m.id = ? and m.empresa_id = ?",
-            "artefactos", "select proceso_id from artefactos where id = ? and empresa_id = ?",
-            "asociaciones", "select proceso_id from asociaciones where id = ? and empresa_id = ?");
+    private static final Map<String, String> CONSULTAS = Map.ofEntries(
+            Map.entry("pools", "select proceso_id from pools where id = ? and empresa_id = ?"),
+            Map.entry("lanes", "select p.proceso_id from lanes l join pools p on p.id = l.pool_id "
+                    + "where l.id = ? and l.empresa_id = ?"),
+            Map.entry("actividades", DE_NODO), Map.entry("gateways", DE_NODO), Map.entry("eventos", DE_NODO),
+            Map.entry("nodos", DE_NODO),
+            Map.entry("arcos", "select p.proceso_id from arcos a join pools p on p.id = a.pool_id "
+                    + "where a.id = ? and a.empresa_id = ?"),
+            Map.entry("mensajes", "select p.proceso_id from mensajes m join pools p on p.id = m.pool_origen_id "
+                    + "where m.id = ? and m.empresa_id = ?"),
+            Map.entry("artefactos", "select proceso_id from artefactos where id = ? and empresa_id = ?"),
+            Map.entry("asociaciones", "select proceso_id from asociaciones where id = ? and empresa_id = ?"),
+            // PR 61: un documento borrado ya no lleva a ningun proceso
+            Map.entry("documentos", "select proceso_id from documentos where id = ? and empresa_id = ? and activo"));
 
     private final JdbcTemplate jdbc;
 

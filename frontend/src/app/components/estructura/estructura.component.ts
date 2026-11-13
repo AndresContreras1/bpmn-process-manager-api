@@ -8,6 +8,7 @@ import { Observable, filter, finalize, map, of, switchMap } from 'rxjs';
 import { Idioma, Preferencias } from '../../models/preferencias.model';
 import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
+import { AvisosService } from '../../service/avisos.service';
 import { IDIOMAS, IdiomaService, OpcionDeIdioma } from '../../service/idioma.service';
 import { PreferenciasService } from '../../service/preferencias.service';
 import { TemaService } from '../../service/tema.service';
@@ -43,6 +44,7 @@ export class EstructuraComponent implements OnInit {
   private readonly router: Router = inject(Router);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
   private readonly preferenciasService: PreferenciasService = inject(PreferenciasService);
+  private readonly avisos: AvisosService = inject(AvisosService);
   readonly temaService: TemaService = inject(TemaService);
   readonly idiomaService: IdiomaService = inject(IdiomaService);
   readonly verificacion: VerificacionService = inject(VerificacionService);
@@ -74,7 +76,8 @@ export class EstructuraComponent implements OnInit {
 
   /**
    * F12: quien entro elige su idioma, y queda guardado en su cuenta con la zona que ya tenia; quien no, solo en el
-   * navegador. Si la API no lo guarda, la web cambia igual: la eleccion es de quien la mira.
+   * navegador. Si la API no lo guarda, la web se queda en el que estaba y lo dice: la pagina del idioma nuevo leeria
+   * la preferencia guardada y volveria a este.
    */
   cambiarIdioma(idioma: Idioma): void {
     if (!this.authService.usuarioActual()) {
@@ -91,7 +94,10 @@ export class EstructuraComponent implements OnInit {
         switchMap((zonaHoraria: string | null) => this.preferenciasService.cambiarLasPropias({ idioma, zonaHoraria })),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe({ next: () => this.idiomaService.ir(idioma), error: () => this.idiomaService.ir(idioma) });
+      .subscribe({
+        next: () => this.idiomaService.ir(idioma),
+        error: () => this.avisos.error($localize`Your language could not be saved, so it did not change. Try again.`),
+      });
   }
 
   cerrarSesion(): void {
