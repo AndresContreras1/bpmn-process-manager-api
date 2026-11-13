@@ -97,6 +97,24 @@ export const routes: Routes = [
     title: $localize`Processes · BPMN Process Manager`,
     data: { migas: [{ etiqueta: $localize`Processes` }] },
   },
+  // F22: el portal de lectura de lo publicado, sin nada que cambiar
+  {
+    path: 'portal',
+    loadComponent: () => import('./pages/portal/portal.component').then((modulo) => modulo.PortalComponent),
+    canActivate: [authGuard],
+    title: $localize`Process portal · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Process portal` }] },
+  },
+  {
+    path: 'portal/procesos/:id',
+    loadComponent: () =>
+      import('./pages/portal-proceso/portal-proceso.component').then((modulo) => modulo.PortalProcesoComponent),
+    canActivate: [authGuard],
+    title: $localize`Published process · BPMN Process Manager`,
+    data: {
+      migas: [{ etiqueta: $localize`Process portal`, ruta: '/portal' }, { etiqueta: $localize`Published process` }],
+    },
+  },
   {
     path: 'casos',
     loadComponent: () => import('./pages/casos/casos.component').then((modulo) => modulo.CasosComponent),

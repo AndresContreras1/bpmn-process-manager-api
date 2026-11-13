@@ -1,8 +1,14 @@
 <section class="estructura" id="vista-estructura" aria-labelledby="estructura-titulo">
   <h2 i18n class="h6" id="estructura-titulo">Structure</h2>
-  <p i18n class="small text-body-secondary mb-1" id="estructura-ayuda">
-    Arrows move through the tree. Enter shows the element in the diagram, F2 renames it and Delete removes it.
-  </p>
+  @if (soloLectura()) {
+    <p i18n class="small text-body-secondary mb-1" id="estructura-ayuda">
+      Arrows move through the tree, and Enter shows the element in the diagram.
+    </p>
+  } @else {
+    <p i18n class="small text-body-secondary mb-1" id="estructura-ayuda">
+      Arrows move through the tree. Enter shows the element in the diagram, F2 renames it and Delete removes it.
+    </p>
+  }
   <ul
     class="list-unstyled estructura-arbol mb-2"
     role="tree"

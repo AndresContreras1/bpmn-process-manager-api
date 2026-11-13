@@ -109,6 +109,12 @@
     stroke-width: 3px !important;
     stroke-dasharray: 2 3;
   }
+
+  // F22: en el portal, un paso con documentacion o documentos que leer; el texto de arriba dice que significa
+  .djs-element.marca-documentado:not(.djs-connection) .djs-visual > :nth-child(1) {
+    stroke: $bpm-color-estado-info !important;
+    stroke-width: 4px !important;
+  }
 }
 
 @keyframes latido-bpmn {

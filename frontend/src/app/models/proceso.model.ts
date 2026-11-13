@@ -44,6 +44,10 @@ export interface Proceso {
    * costaria leer un diagrama entero por fila, y para una invitada, que solo ve lo publicado.
    */
   borradorPendiente: boolean | null;
+  /** PR 64: cada cuantos meses se revisa; confirmar que sigue vigente mueve la proxima revision esos meses. */
+  mesesEntreRevisiones?: number | null;
+  /** PR 64: la fecha de revision paso sin que nadie confirmara que sigue vigente; lo decide la API con su reloj. */
+  revisionVencida?: boolean | null;
 }
 
 /** Cuerpo para crear un proceso (ProcesoRequest de la API). */
@@ -69,6 +73,8 @@ export interface HistorialCambio {
 export interface ProcesoDetalle {
   proceso: Proceso;
   historial: HistorialCambio[];
+  /** F22: el nombre del dueno, que quien solo lee no podria buscar; vacio si no tiene. */
+  duenoNombre?: string | null;
 }
 
 /** Campos por los que la API deja ordenar la lista de procesos. */
