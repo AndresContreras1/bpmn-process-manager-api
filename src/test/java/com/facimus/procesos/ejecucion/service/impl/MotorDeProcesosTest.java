@@ -135,7 +135,7 @@ class MotorDeProcesosTest {
                 new BandejaDeSalida(mensajeSalienteRepository, new SociosSimulados(List.of(unSocioQueTardaUnTick())),
                         parametros, bitacora, json), bitacora, json, observaciones, mock(Temporizadores.class),
                 new AsignacionAlCrear(personas), new Tareas(actividadCasoRepository, casoRepository,
-                        delegacionRepository));
+                        delegacionRepository), mock(Plazos.class), mock(Escalamientos.class));
         tienda = em.persistFlushFind(Empresa.builder().nombre("Tienda del motor").nit("900123456-1")
                 .correoContacto("motor@demo.com").fechaRegistro(LocalDate.now()).build());
         proceso = em.persistFlushFind(Proceso.builder().empresa(tienda).nombre("Order fulfillment")

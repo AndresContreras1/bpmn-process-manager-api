@@ -213,8 +213,11 @@ public class AsignacionDeTareaServiceImpl implements AsignacionDeTareaService {
         return motivo == null || motivo.isBlank() ? "." : ": " + motivo.strip();
     }
 
-    /** Lo que la bitacora guarda de cada accion: el caso y entre quienes paso; el motivo se queda en el caso. */
-    private static Map<String, Object> detalle(ActividadCaso tarea, Long de, Long a) {
+    /**
+     * Lo que la bitacora guarda de cada accion: el caso y entre quienes paso; el motivo se queda en el caso. PR 71: el
+     * escalamiento que reasigna guarda lo mismo.
+     */
+    static Map<String, Object> detalle(ActividadCaso tarea, Long de, Long a) {
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put(CASO_ID, tarea.getCaso().getId());
         if (de != null) {

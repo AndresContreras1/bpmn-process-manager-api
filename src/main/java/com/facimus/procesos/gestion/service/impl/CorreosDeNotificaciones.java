@@ -40,6 +40,8 @@ import tools.jackson.databind.json.JsonMapper;
  * web en el idioma de quien lo recibe; nunca lleva el texto de un comentario, que se queda en la aplicacion. Lo que
  * entra al HTML sale escapado. Mandarlo y marcarlo resuelto van en la misma transaccion: si el servidor de correo no
  * lo acepta, la cola lo reintenta, y lo que ya se resolvio no vuelve a salir.
+ *
+ * <p>PR 71: un aviso de plazo o de escalamiento no tiene autor ni comentario: lo manda el sistema, y lleva al caso.
  */
 @Component
 public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
@@ -49,6 +51,8 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
 
     private static final String NOTIFICACION = "notificacion";
     private static final String RESUMEN = "resumen-de-notificaciones";
+    private static final String BOTON_DEL_COMENTARIO = "notificacion.boton";
+    private static final String BOTON_DEL_CASO = "notificacion.botonDelCaso";
 
     private final JsonMapper json;
     private final NotificacionRepository notificacionRepository;
@@ -119,8 +123,8 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
             linea.put("tipo", notificacion.getTipo().name());
             linea.put("autor", autores.getOrDefault(notificacion.getAutorId(), ""));
             linea.put("proceso", procesos.getOrDefault(notificacion.getProcesoId(), ""));
-            linea.put("enlace", web + "/" + idioma + "/procesos/" + notificacion.getProcesoId() + "?comentario="
-                    + notificacion.getReferenciaId());
+            linea.put("enlace", enlace(idioma, notificacion));
+            linea.put("boton", notificacion.getTipo().senalaUnCaso() ? BOTON_DEL_CASO : BOTON_DEL_COMENTARIO);
             lineas.add(linea);
         }
         Map<String, Object> datos = new HashMap<>();
@@ -136,6 +140,18 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
         datos.putAll(una);
         return redactor.redactar(NOTIFICACION, NOTIFICACION + "." + una.get("tipo") + ".asunto",
                 List.of(una.get("autor"), una.get("proceso")), locale, usuario.getEmail(), datos);
+    }
+
+    /**
+     * PR 71: a donde lleva el correo. Lo de un comentario abre el proceso en ese comentario; lo de un plazo o un
+     * escalamiento, el caso.
+     */
+    private String enlace(String idioma, Notificacion notificacion) {
+        if (notificacion.getTipo().senalaUnCaso()) {
+            return web + "/" + idioma + "/casos/" + notificacion.getReferenciaId();
+        }
+        return web + "/" + idioma + "/procesos/" + notificacion.getProcesoId() + "?comentario="
+                + notificacion.getReferenciaId();
     }
 
     private static Set<Long> ids(List<Notificacion> notificaciones, Function<Notificacion, Long> campo) {

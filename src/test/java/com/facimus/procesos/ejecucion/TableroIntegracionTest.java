@@ -191,13 +191,14 @@ class TableroIntegracionTest {
     }
 
     @Test
-    @DisplayName("El tablero cuesta seis consultas, tenga la tienda cinco pedidos o cinco mil")
-    void elTablero_cuestaSeisConsultas() {
+    @DisplayName("El tablero cuesta diez consultas, tenga la tienda cinco pedidos o cinco mil (PR 71: cuatro del "
+            + "cumplimiento)")
+    void elTablero_cuestaDiezConsultas() {
         estadisticas.clear();
 
         tableroService.de(empresaId, procesoId);
 
-        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(6);
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(10);
     }
 
     @Test

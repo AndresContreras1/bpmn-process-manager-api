@@ -64,6 +64,7 @@ public class TareaServiceImpl implements TareaService {
     private final CasoMapper casoMapper;
     private final JsonMapper json;
     private final FormulariosDelCaso formularios;
+    private final Plazos plazos;
 
     @Override
     @SuppressWarnings("java:S107") // cada filtro de la bandeja, por su nombre
@@ -143,6 +144,8 @@ public class TareaServiceImpl implements TareaService {
         tarea.setAsignadoA(porQuien);
         tarea.setEstado(EstadoActividadCaso.COMPLETADA);
         tarea.setTickFin(momento.tick());
+        // PR 71: se completo a tiempo o tarde, y asi se queda para las metricas
+        plazos.alCompletar(tarea, momento);
         actividadCasoRepository.save(tarea);
         if (laToma) {
             // La que no tenia nadie la toma quien la completa: queda igual que si la hubiera reclamado antes

@@ -60,11 +60,15 @@ class MotorDeProcesos {
     private final Temporizadores temporizadores;
     private final AsignacionAlCrear asignacion;
     private final Tareas tareas;
+    private final Plazos plazos;
+    private final Escalamientos escalamientos;
 
     /** Abre el caso por el nodo que empieza el proceso y lo avanza hasta donde llegue. */
     void arrancar(Caso caso, GrafoDeVersion grafo, NodoDeLaVersion inicio, Momento momento) {
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.CASO_ABIERTO,
                 "El caso empieza en " + comillas(inicio.nombre()) + ".", momento.autorId());
+        // PR 71: el plazo del caso cuenta desde que se abre
+        plazos.armarDelCaso(caso, grafo, inicio, momento);
         activar(caso, grafo, inicio, momento);
         avanzar(caso, grafo, momento);
     }
@@ -180,12 +184,15 @@ class MotorDeProcesos {
     /**
      * PR 68: salto un temporizador de borde de una actividad que esperaba. Uno que interrumpe saca a la actividad (su
      * tarea deja la bandeja, o deja de esperar su mensaje) y el caso sigue por el borde; uno que no interrumpe deja la
-     * actividad donde estaba y abre otro camino desde el borde, como un aviso.
+     * actividad donde estaba y abre otro camino desde el borde, como un aviso. PR 71: el que no interrumpe, ademas,
+     * escala la tarea si la version se lo pide: avisa o se la pasa a quien la supervisa.
      */
     void saltarBorde(Caso caso, GrafoDeVersion grafo, ActividadCaso actividad, NodoDeLaVersion borde,
             boolean interrumpe, Momento momento) {
         if (interrumpe) {
             omitir(actividad, momento);
+        } else {
+            escalamientos.alSaltar(caso, grafo, actividad, borde, momento);
         }
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TEMPORIZADOR_DISPARADO, comillas(borde.nombre())
                 + " salto sobre " + comillas(actividad.getNodoNombre()) + (interrumpe
@@ -453,6 +460,8 @@ class MotorDeProcesos {
         caso.setEstado(EstadoCaso.TERMINADO);
         caso.setTickFin(momento.tick());
         caso.setFechaFin(LocalDateTime.now());
+        // PR 71: termino a tiempo o tarde, y asi se queda
+        plazos.alTerminar(caso, momento);
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.CASO_TERMINADO,
                 "El ultimo camino del caso llego a un fin.");
     }
@@ -516,6 +525,8 @@ class MotorDeProcesos {
             bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_ASIGNADA, comillas(nodo.nombre())
                     + " le llega al usuario " + destino.usuarioId() + ", " + destino.como() + ".");
         }
+        // PR 71: el plazo de la tarea cuenta desde que espera a una persona
+        plazos.armarDeLaTarea(caso, grafo, token, momento);
         temporizadores.armarBordes(caso, grafo, token, momento);
     }
 

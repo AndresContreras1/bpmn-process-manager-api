@@ -44,6 +44,7 @@ import com.facimus.procesos.ejecucion.repository.MensajeEntranteRepository;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
 import com.facimus.procesos.ejecucion.service.DatosDelEntrante;
 import com.facimus.procesos.ejecucion.service.MensajeriaService;
+import com.facimus.procesos.ejecucion.service.PlazoService;
 import com.facimus.procesos.ejecucion.service.TemporizadorService;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
@@ -89,6 +90,8 @@ class SimulacionServiceTest {
     private RelojDeLaTienda reloj;
     @Mock
     private TemporizadorService temporizadorService;
+    @Mock
+    private PlazoService plazoService;
 
     @InjectMocks
     private SimulacionServiceImpl service;
@@ -133,6 +136,19 @@ class SimulacionServiceTest {
         InOrder orden = inOrder(entrega, temporizadorService);
         orden.verify(entrega).entregar(TIENDA_ID, 31L, 15);
         orden.verify(temporizadorService).dispararEnTick(TIENDA_ID, 15);
+    }
+
+    @Test
+    @DisplayName("PR 71: despues de los temporizadores, el tick mueve los plazos de prueba en el tick al que llego")
+    void tick_mueveLosPlazosDespuesDeLosTemporizadores() {
+        conLoQueHay(15);
+        when(reloj.avanzar(TIENDA_ID, 3)).thenReturn(15);
+
+        service.tick(TIENDA_ID, 3);
+
+        InOrder orden = inOrder(temporizadorService, plazoService);
+        orden.verify(temporizadorService).dispararEnTick(TIENDA_ID, 15);
+        orden.verify(plazoService).revisarEnTick(TIENDA_ID, 15);
     }
 
     @Test

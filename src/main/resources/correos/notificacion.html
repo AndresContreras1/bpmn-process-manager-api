@@ -8,7 +8,7 @@
   <p th:text="#{notificacion.saludo(${nombre})}">Hola:</p>
   <p th:text="#{${'notificacion.' + tipo + '.cuerpo'}(${autor}, ${proceso})}">Cuerpo</p>
   <p>
-    <a th:href="${enlace}" th:text="#{notificacion.boton}"
+    <a th:href="${enlace}" th:text="#{${boton}}"
        style="display: inline-block; padding: 10px 18px; background: #0f6e56; color: #ffffff; text-decoration: none; border-radius: 4px;">Boton</a>
   </p>
   <p style="font-size: 12px; color: #6c757d;">

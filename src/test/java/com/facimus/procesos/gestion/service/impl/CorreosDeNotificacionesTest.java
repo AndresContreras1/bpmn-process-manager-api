@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -136,6 +137,47 @@ class CorreosDeNotificacionesTest {
                 + "?comentario=12\"").doesNotContain("<b>Ana");
         verify(notificacionRepository).resolverCorreo(EMPRESA, BETO, List.of(40L), AHORA);
         Assertions.assertThat(correos.tipo()).isEqualTo("notificaciones.correo");
+    }
+
+    @Test
+    @DisplayName("PR 71: un aviso de plazo no tiene autor, lleva al caso y su boton dice que es un caso")
+    void unPlazo() {
+        beto.setIdioma("es-CO");
+        Notificacion vencida = notificacion(40L, TipoDeNotificacion.PLAZO_VENCIDO, null);
+        vencida.setAutorId(null);
+        vencida.setReferenciaId(42L);
+        pendientes(List.of(40L), vencida);
+
+        correos.ejecutar(trabajo("{\"usuarioId\":5,\"notificaciones\":[40],\"resumen\":false}"));
+
+        CorreoSaliente salido = enviado();
+        assertThat(salido.asunto()).isEqualTo("Se venció un plazo en Despacho");
+        assertThat(salido.texto()).contains("Una tarea o un caso del proceso Despacho que te toca pasó su plazo.",
+                "https://bpm.example.com/es-CO/casos/42").doesNotContain("comentario=");
+        assertThat(salido.html()).contains("href=\"https://bpm.example.com/es-CO/casos/42\"", ">Ver el caso<")
+                .doesNotContain("Ver el comentario");
+    }
+
+    @Test
+    @DisplayName("PR 71: los tres avisos nuevos tienen sus palabras en ingles y en frances, y van al caso en el resumen")
+    void plazosEnElResumen() {
+        Notificacion porVencer = notificacion(40L, TipoDeNotificacion.PLAZO_POR_VENCER, null);
+        Notificacion escalada = notificacion(41L, TipoDeNotificacion.TAREA_ESCALADA, null);
+        porVencer.setReferenciaId(42L);
+        escalada.setReferenciaId(43L);
+        pendientes(List.of(40L, 41L), porVencer, escalada);
+
+        correos.ejecutar(trabajo("{\"usuarioId\":5,\"notificaciones\":[40,41],\"resumen\":true}"));
+
+        assertThat(enviado().texto()).contains("Échéance proche dans Despacho", "Tâche escaladée dans Despacho",
+                "https://bpm.example.com/fr-FR/casos/42", "https://bpm.example.com/fr-FR/casos/43");
+
+        beto.setIdioma("en-AU");
+        clearInvocations(correo);
+        correos.ejecutar(trabajo("{\"usuarioId\":5,\"notificaciones\":[40,41],\"resumen\":false}"));
+        CorreoSaliente salido = enviado();
+        assertThat(salido.asunto()).isEqualTo("Due soon in Despacho");
+        assertThat(salido.html()).contains(">See the case<", "/en-AU/casos/42");
     }
 
     @Test

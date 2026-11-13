@@ -23,11 +23,13 @@ import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.FormularioResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoEvento;
@@ -57,11 +59,15 @@ final class GrafoDeVersion {
     private final Map<Long, TemporizadorDeLaVersion> temporizadores;
     private final Map<Long, FormularioResponse> formularios;
     private final Map<Long, AsignacionResponse> asignaciones;
+    private final PlazosDelPool plazos;
 
+    @SuppressWarnings("java:S107") // cada parte del grafo, ya armada, por su nombre
     private GrafoDeVersion(Long poolDeLaTienda, Map<Long, NodoDeLaVersion> nodos, ArcosDelPool arcos,
             List<MensajeDeLaVersion> mensajes, boolean ejecutable, Map<Long, TemporizadorDeLaVersion> temporizadores,
-            Map<Long, FormularioResponse> formularios, Map<Long, AsignacionResponse> asignaciones) {
+            Map<Long, FormularioResponse> formularios, Map<Long, AsignacionResponse> asignaciones,
+            PlazosDelPool plazos) {
         this.ejecutable = ejecutable;
+        this.plazos = plazos;
         this.asignaciones = Collections.unmodifiableMap(asignaciones);
         this.temporizadores = Collections.unmodifiableMap(temporizadores);
         this.formularios = Collections.unmodifiableMap(formularios);
@@ -71,6 +77,18 @@ final class GrafoDeVersion {
         this.entradas = sinPoderTocarlo(arcos.entradas());
         this.mensajes = mensajes;
         this.alcanzablesDesde = alcanzables(nodos.keySet(), arcos.salidas());
+    }
+
+    /**
+     * PR 71: los plazos de las tareas de usuario y de los inicios, y lo que escala cada temporizador de borde que no
+     * interrumpe, del pool de la tienda.
+     */
+    private record PlazosDelPool(Map<Long, PlazoResponse> plazos, Map<Long, EscalamientoResponse> escalamientos) {
+
+        PlazosDelPool {
+            plazos = Map.copyOf(plazos);
+            escalamientos = Map.copyOf(escalamientos);
+        }
     }
 
     /** Los arcos entre nodos del pool, por el nodo del que salen y por el nodo al que entran. */
@@ -98,7 +116,8 @@ final class GrafoDeVersion {
         Map<Long, NodoDeLaVersion> nodos = nodosDelPool(diagrama, lanesDelPool, rolDeLane);
         return new GrafoDeVersion(pool, nodos, arcosDelPool(diagrama, nodos), mensajesDelDiagrama(diagrama),
                 diagrama.proceso().modo().ejecuta(), temporizadoresDelPool(diagrama, nodos),
-                formulariosDelPool(diagrama, nodos), asignacionesDelPool(diagrama, nodos));
+                formulariosDelPool(diagrama, nodos), asignacionesDelPool(diagrama, nodos),
+                plazosDelPool(diagrama, nodos));
     }
 
     /** Los arcos que unen dos nodos del pool, con su condicion compilada; las salidas de cada nodo, por su orden. */
@@ -132,6 +151,44 @@ final class GrafoDeVersion {
             }
         }
         return asignaciones;
+    }
+
+    /**
+     * PR 71: lo que la version congelo de los plazos. Un plazo solo cuenta en una tarea de usuario o en un inicio, y un
+     * escalamiento solo en un temporizador de borde que no interrumpe; una instantanea de antes no trae ninguno.
+     */
+    private static PlazosDelPool plazosDelPool(DiagramaResponse diagrama, Map<Long, NodoDeLaVersion> nodos) {
+        Map<Long, PlazoResponse> plazos = new HashMap<>();
+        Map<Long, EscalamientoResponse> escalamientos = new HashMap<>();
+        for (ActividadResponse actividad : diagrama.actividades()) {
+            if (actividad.plazo() != null && nodos.containsKey(actividad.id())
+                    && nodos.get(actividad.id()).esTareaDeUsuario()) {
+                plazos.put(actividad.id(), actividad.plazo());
+            }
+        }
+        for (EventoResponse evento : diagrama.eventos()) {
+            if (!nodos.containsKey(evento.id())) {
+                continue;
+            }
+            if (evento.plazo() != null && evento.tipoEvento().empiezaElProceso()) {
+                plazos.put(evento.id(), evento.plazo());
+            }
+            if (evento.escalamiento() != null && evento.tipoEvento() == TipoEvento.TEMPORIZADOR_BORDE
+                    && Boolean.FALSE.equals(evento.interrumpe())) {
+                escalamientos.put(evento.id(), evento.escalamiento());
+            }
+        }
+        return new PlazosDelPool(plazos, escalamientos);
+    }
+
+    /** PR 71: el plazo de una tarea de usuario, o del caso en un inicio, si la version le congelo uno. */
+    Optional<PlazoResponse> plazoDe(Long nodoId) {
+        return Optional.ofNullable(plazos.plazos().get(nodoId));
+    }
+
+    /** PR 71: lo que escala un temporizador de borde que no interrumpe, si la version le congelo algo. */
+    Optional<EscalamientoResponse> escalamientoDe(Long bordeId) {
+        return Optional.ofNullable(plazos.escalamientos().get(bordeId));
     }
 
     /** PR 70: a quien le llega una tarea de usuario, si la version le dio a alguien; vacio es la bandeja del rol. */

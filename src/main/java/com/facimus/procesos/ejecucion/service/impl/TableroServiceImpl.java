@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.ejecucion.dto.response.CasosPorEstadoResponse;
+import com.facimus.procesos.ejecucion.dto.response.CumplimientoPorProcesoResponse;
+import com.facimus.procesos.ejecucion.dto.response.CumplimientoResponse;
 import com.facimus.procesos.ejecucion.dto.response.LoQueSalioMalResponse;
 import com.facimus.procesos.ejecucion.dto.response.TableroResponse;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
@@ -21,7 +23,7 @@ import com.facimus.procesos.ejecucion.service.TableroService;
 import lombok.RequiredArgsConstructor;
 
 /**
- * El tablero: seis consultas agrupadas y ninguna por caso. Es el numero que importa de esta clase, porque un
+ * El tablero: diez consultas agrupadas y ninguna por caso (PR 71: cuatro son del cumplimiento de los plazos). Es el numero que importa de esta clase, porque un
  * tablero que creciera con los pedidos dejaria de poder mirarse justo el dia que hiciera falta mirarlo.
  *
  * <p>Todo se cuenta en ticks del reloj de la tienda y no en horas: el tiempo de la simulacion es el que se puede
@@ -61,7 +63,24 @@ public class TableroServiceImpl implements TableroService {
                 mensajeEntranteRepository.entrantesPorResultado(empresaId, procesoId),
                 new LoQueSalioMalResponse(salioMal.getOrDefault(TipoEventoCaso.ENVIO_FALLIDO, 0L),
                         salioMal.getOrDefault(TipoEventoCaso.SIN_CAMINO, 0L),
-                        salioMal.getOrDefault(TipoEventoCaso.VARIABLE_AUSENTE, 0L)));
+                        salioMal.getOrDefault(TipoEventoCaso.VARIABLE_AUSENTE, 0L)),
+                cumplimiento(empresaId, procesoId));
+    }
+
+    /**
+     * PR 71: el cumplimiento de los plazos, en cuatro consultas agrupadas. El total de las tareas es la suma de lo de
+     * cada proceso: cada tarea es de un proceso, asi que no hace falta preguntarlo otra vez.
+     */
+    private CumplimientoResponse cumplimiento(Long empresaId, Long procesoId) {
+        List<CumplimientoPorProcesoResponse> porProceso = actividadCasoRepository.cumplimientoPorProceso(empresaId,
+                procesoId);
+        return new CumplimientoResponse(
+                porProceso.stream().mapToLong(CumplimientoPorProcesoResponse::aTiempo).sum(),
+                porProceso.stream().mapToLong(CumplimientoPorProcesoResponse::tarde).sum(),
+                casoRepository.cumplimientoDeCasos(empresaId, procesoId),
+                porProceso,
+                actividadCasoRepository.cumplimientoPorActividad(empresaId, procesoId),
+                actividadCasoRepository.cumplimientoPorPersona(empresaId, procesoId));
     }
 
 }

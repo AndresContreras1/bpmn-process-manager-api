@@ -70,9 +70,10 @@ class PerfilesTest {
             context.getBean(LimpiezaConfig.class).limpiar();
             context.getBean(SimulacionConfig.class).mover();
             context.getBean(TemporizadoresConfig.class).disparar();
+            context.getBean(PlazosConfig.class).repasar();
 
             assertThat(context.getBean(JdbcTemplate.class).queryForList("select name from shedlock", String.class))
-                    .containsExactlyInAnyOrder("limpieza", "reloj-de-simulacion", "temporizadores-vencidos");
+                    .containsExactlyInAnyOrder("limpieza", "reloj-de-simulacion", "temporizadores-vencidos", "plazos");
         }
 
         @Test

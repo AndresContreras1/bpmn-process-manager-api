@@ -21,7 +21,16 @@ export interface Tarea {
   datosSalida: Datos | null;
   version: number;
   fechaCreacion: string;
+  /** PR 71: cuando vence, en UTC, si su actividad tiene plazo y el caso corre en produccion. */
+  venceEn?: string | null;
+  /** PR 71: el tick en que vence, si su actividad tiene plazo y el caso corre en prueba. */
+  venceTick?: number | null;
+  /** PR 71: como va su plazo; vacio si no tiene. */
+  estadoPlazo?: EstadoPlazo | null;
 }
+
+/** PR 71: a tiempo, en el ultimo cuarto de su plazo, o pasado. */
+export type EstadoPlazo = 'A_TIEMPO' | 'POR_VENCER' | 'VENCIDA';
 
 /** Lo que entrega quien completa la tarea; va a las variables del caso bajo tarea.<nombreEnCamel>. */
 export interface CompletarTareaRequest {

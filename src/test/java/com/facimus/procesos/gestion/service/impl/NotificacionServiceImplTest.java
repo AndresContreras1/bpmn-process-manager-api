@@ -226,6 +226,21 @@ class NotificacionServiceImplTest {
     }
 
     @Test
+    @DisplayName("PR 71: un aviso del sistema, sin autor ni proceso conocido, se lista sin nombres en vez de fallar")
+    void listar_sinAutor() {
+        Notificacion delSistema = notificacion(41L, BETO);
+        delSistema.setTipo(TipoDeNotificacion.PLAZO_VENCIDO);
+        delSistema.setAutorId(null);
+        delSistema.setProcesoId(null);
+        Pageable pagina = PageRequest.of(0, 20);
+        when(notificacionRepository.findAllByEmpresaIdAndUsuarioIdOrderByCreadaEnDescIdDesc(EMPRESA, BETO, pagina))
+                .thenReturn(new PageImpl<>(List.of(delSistema), pagina, 1));
+
+        assertThat(servicio.listar(EMPRESA, BETO, false, pagina).content()).containsExactly(new NotificacionResponse(
+                41L, TipoDeNotificacion.PLAZO_VENCIDO, null, null, 12L, null, null, AHORA, null));
+    }
+
+    @Test
     @DisplayName("marcar una como leida es solo de su destinatario, y avisa del conteo una vez")
     void marcarLeida() {
         Notificacion una = notificacion(40L, BETO);
@@ -309,7 +324,12 @@ class NotificacionServiceImplTest {
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.MENCION, EnvioPorCorreo.NUNCA, false),
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.RESPUESTA, EnvioPorCorreo.INMEDIATO, true),
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.HILO_RESUELTO,
-                        EnvioPorCorreo.RESUMEN_DIARIO, true));
+                        EnvioPorCorreo.RESUMEN_DIARIO, true),
+                new PreferenciaDeNotificacionResponse(TipoDeNotificacion.PLAZO_POR_VENCER, EnvioPorCorreo.INMEDIATO,
+                        true),
+                new PreferenciaDeNotificacionResponse(TipoDeNotificacion.PLAZO_VENCIDO, EnvioPorCorreo.INMEDIATO, true),
+                new PreferenciaDeNotificacionResponse(TipoDeNotificacion.TAREA_ESCALADA, EnvioPorCorreo.INMEDIATO,
+                        true));
     }
 
     @Test
@@ -322,7 +342,7 @@ class NotificacionServiceImplTest {
         pedidas.put(TipoDeNotificacion.MENCION, EnvioPorCorreo.RESUMEN_DIARIO);
         pedidas.put(TipoDeNotificacion.HILO_RESUELTO, EnvioPorCorreo.NUNCA);
 
-        assertThat(servicio.guardarPreferencias(EMPRESA, BETO, pedidas)).hasSize(3);
+        assertThat(servicio.guardarPreferencias(EMPRESA, BETO, pedidas)).hasSize(TipoDeNotificacion.values().length);
 
         ArgumentCaptor<PreferenciaNotificacion> guardadas = ArgumentCaptor.forClass(PreferenciaNotificacion.class);
         verify(preferenciaRepository, times(2)).save(guardadas.capture());

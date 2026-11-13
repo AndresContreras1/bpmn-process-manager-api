@@ -152,8 +152,13 @@ public class NotificacionServiceImpl implements NotificacionService {
         Map<Long, String> autores = autorIds.isEmpty() ? Map.of()
                 : usuarioRepository.findAllByEmpresaIdAndIdIn(empresaId, autorIds).stream()
                         .collect(Collectors.toMap(Usuario::getId, Usuario::getNombre));
+        // PR 71: un aviso de plazo no tiene autor; sin ninguno, el mapa vacio no admite preguntar por nulo
         return PageResponse.from(encontradas.map(notificacion -> respuesta(notificacion,
-                procesos.get(notificacion.getProcesoId()), autores.get(notificacion.getAutorId()))));
+                deUno(procesos, notificacion.getProcesoId()), deUno(autores, notificacion.getAutorId()))));
+    }
+
+    private static String deUno(Map<Long, String> nombres, Long id) {
+        return id == null ? null : nombres.get(id);
     }
 
     @Override

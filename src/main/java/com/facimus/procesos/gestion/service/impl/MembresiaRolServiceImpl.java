@@ -69,6 +69,11 @@ public class MembresiaRolServiceImpl implements MembresiaRolService {
         return membresiaRolRepository.rolesDe(empresaId, usuarioId);
     }
 
+    @Override
+    public List<Long> idsDeLosMiembrosDe(Long empresaId, Long rolProcesoId) {
+        return membresiaRolRepository.miembrosDe(empresaId, rolProcesoId);
+    }
+
     /** La linea del historial dice con que roles quedo la persona, que es lo que alguien querria comprobar. */
     private static String descripcion(Usuario usuario, List<RolProceso> roles) {
         if (roles.isEmpty()) {

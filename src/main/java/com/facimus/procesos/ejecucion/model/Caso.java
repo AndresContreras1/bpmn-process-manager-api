@@ -2,6 +2,7 @@ package com.facimus.procesos.ejecucion.model;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -10,6 +11,7 @@ import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.VersionProceso;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -58,6 +60,7 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @SuperBuilder
 @Entity
+@DynamicUpdate
 @Table(name = "casos")
 public class Caso extends EntidadEditable {
 
@@ -119,4 +122,11 @@ public class Caso extends EntidadEditable {
      */
     @Column(name = "iniciado_por", updatable = false)
     private Long iniciadoPor;
+
+    /**
+     * PR 71: cuando vence el caso entero y como va, si el inicio por el que se abrio tiene plazo. Como en una tarea,
+     * cada escritura lleva solo lo que cambio, y el repaso de los plazos mueve el estado con la suya.
+     */
+    @Embedded
+    private Vencimiento vencimiento;
 }

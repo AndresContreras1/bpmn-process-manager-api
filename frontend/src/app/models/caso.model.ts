@@ -21,7 +21,10 @@ export type TipoEventoCaso =
   | 'TAREA_RECLAMADA'
   | 'TAREA_LIBERADA'
   | 'TAREA_REASIGNADA'
-  | 'TAREA_DELEGADA';
+  | 'TAREA_DELEGADA'
+  | 'PLAZO_POR_VENCER'
+  | 'PLAZO_VENCIDO'
+  | 'TAREA_ESCALADA';
 
 /** En que va un paso del caso. PENDIENTE y EN_ESPERA son los dos que tienen el token vivo. */
 export type EstadoPaso = 'PENDIENTE' | 'EN_ESPERA' | 'COMPLETADA' | 'FALLIDA' | 'OMITIDA';
@@ -160,10 +163,13 @@ export const NOMBRE_EVENTO_CASO: Record<TipoEventoCaso, string> = {
   TAREA_LIBERADA: $localize`Task released`,
   TAREA_REASIGNADA: $localize`Task reassigned`,
   TAREA_DELEGADA: $localize`Task delegated`,
+  PLAZO_POR_VENCER: $localize`Due soon`,
+  PLAZO_VENCIDO: $localize`Overdue`,
+  TAREA_ESCALADA: $localize`Task escalated`,
 };
 
 /** Los que cuentan algo que no salio bien: se pintan en rojo. */
-export const EVENTOS_MALOS: TipoEventoCaso[] = ['ENVIO_FALLIDO', 'SIN_CAMINO', 'VARIABLE_AUSENTE'];
+export const EVENTOS_MALOS: TipoEventoCaso[] = ['ENVIO_FALLIDO', 'SIN_CAMINO', 'VARIABLE_AUSENTE', 'PLAZO_VENCIDO'];
 
 /** Los dos estados en los que el token sigue vivo dentro del nodo. */
 export function pasoVivo(paso: PasoDelCaso): boolean {

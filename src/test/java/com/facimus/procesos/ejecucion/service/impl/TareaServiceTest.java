@@ -130,6 +130,9 @@ class TareaServiceTest {
     @Mock
     private Auditoria auditoria;
 
+    @Mock
+    private Plazos plazos;
+
     private final JsonMapper json = JsonMapper.builder().build();
 
     @InjectMocks
@@ -144,7 +147,7 @@ class TareaServiceTest {
         tareaService = new TareaServiceImpl(actividadCasoRepository,
                 new Tareas(actividadCasoRepository, casoRepository, delegacionRepository), membresiaRolService,
                 configuracionTiendaService, new PersonasDeLaTarea(usuarioService, membresiaRolService), grafos, motor,
-                reloj, bitacora, auditoria, casoMapper, json, new FormulariosDelCaso(usuarioService, archivos));
+                reloj, bitacora, auditoria, casoMapper, json, new FormulariosDelCaso(usuarioService, archivos), plazos);
         given(usuarioService.obtener(TIENDA_ID, EDITOR)).willReturn(persona(EDITOR, RolAcceso.EDITOR));
         given(usuarioService.obtener(TIENDA_ID, ADMIN)).willReturn(persona(ADMIN, RolAcceso.ADMINISTRADOR));
         given(membresiaRolService.idsDeLosRolesDe(TIENDA_ID, EDITOR)).willReturn(List.of(ROL));

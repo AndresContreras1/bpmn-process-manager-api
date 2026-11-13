@@ -169,7 +169,8 @@ class MotorConTemporizadoresTest {
         motor = new MotorDeProcesos(actividadCasoRepository, new BandejaDeSalida(mensajeSalienteRepository,
                 new SociosSimulados(List.of()), parametros, bitacora, json), bitacora, json,
                 TestObservationRegistry.create(), temporizadores, new AsignacionAlCrear(mock(PersonasDeLaTarea.class)),
-                new Tareas(actividadCasoRepository, casoRepository, delegacionRepository));
+                new Tareas(actividadCasoRepository, casoRepository, delegacionRepository), mock(Plazos.class),
+                mock(Escalamientos.class));
         disparo = new DisparoDeTemporizadores(temporizadorRepository, casoRepository, actividadCasoRepository,
                 versionService, grafos, motor, temporizadores, relojDeLaTienda, reloj);
         tienda = em.persistFlushFind(Empresa.builder().nombre("Tienda de los relojes").nit("900765432-1")
