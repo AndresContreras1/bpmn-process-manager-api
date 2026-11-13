@@ -10,11 +10,13 @@ import java.util.function.BooleanSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.ejecucion.dto.response.TemporizadorResponse;
@@ -133,10 +135,10 @@ public class TemporizadorServiceImpl implements TemporizadorService {
 
     /** Pasa por la version vigente a proposito: un proceso de otra tienda, o eliminado, responde 404. */
     @Override
-    public List<TemporizadorResponse> delProceso(Long empresaId, Long procesoId) {
+    public PageResponse<TemporizadorResponse> delProceso(Long empresaId, Long procesoId, Pageable pagina) {
         versionService.vigente(empresaId, procesoId);
-        return casoMapper.toTemporizadores(temporizadorRepository
-                .findAllByProcesoIdAndEmpresaIdAndClaseOrderByIdDesc(procesoId, empresaId, ClaseTemporizador.INICIO));
+        return PageResponse.from(temporizadorRepository.findAllByProcesoIdAndEmpresaIdAndClaseOrderByIdDesc(procesoId,
+                empresaId, ClaseTemporizador.INICIO, pagina).map(casoMapper::toTemporizador));
     }
 
     private List<Temporizador> iniciosArmados(Long empresaId, Long procesoId) {
@@ -149,15 +151,23 @@ public class TemporizadorServiceImpl implements TemporizadorService {
         temporizadorRepository.save(temporizador);
     }
 
-    /** Un salto que falla no frena a los demas: queda anotado en el temporizador, que lo vuelve a intentar despues. */
+    /**
+     * Un salto que falla no frena a los demas: queda anotado en el temporizador, que lo vuelve a intentar despues. Lo
+     * anotado lo lee cualquier rol de la tienda, asi que dice que fallo y no por que: el mensaje de una excepcion
+     * puede traer SQL, restricciones o datos del caso, y eso va solo al registro del servidor.
+     */
     private boolean intentar(TemporizadorVencido vencido, BooleanSupplier disparar) {
         try {
             return disparar.getAsBoolean();
         } catch (RuntimeException fallo) {
             log.warn("El temporizador {} no pudo saltar", vencido.id(), fallo);
-            disparo.anotarFallo(vencido.empresaId(), vencido.id(),
-                    fallo.getClass().getSimpleName() + ": " + fallo.getMessage());
+            disparo.anotarFallo(vencido.empresaId(), vencido.id(), sinDetalles(fallo));
             return false;
         }
+    }
+
+    static String sinDetalles(RuntimeException fallo) {
+        return "No pudo saltar (" + fallo.getClass().getSimpleName() + "); el detalle está en el registro del "
+                + "servidor.";
     }
 }

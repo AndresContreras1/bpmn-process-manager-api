@@ -13,4 +13,7 @@ public interface FestivoEditadoRepository extends RepositorioTenant<FestivoEdita
     Optional<FestivoEditado> findByEmpresaIdAndFecha(Long empresaId, LocalDate fecha);
 
     List<FestivoEditado> findAllByEmpresaIdOrderByFechaAsc(Long empresaId);
+
+    /** Cuantos dias cambio la tienda: tienen un tope. */
+    long countByEmpresaId(Long empresaId);
 }

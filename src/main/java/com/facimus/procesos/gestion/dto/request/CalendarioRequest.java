@@ -25,7 +25,8 @@ public record CalendarioRequest(
         @NotNull(message = "La hora de fin es obligatoria.") LocalTime horaFin,
         @Schema(description = "Working days of the week", example = "[\"MONDAY\", \"TUESDAY\", \"WEDNESDAY\", "
                 + "\"THURSDAY\", \"FRIDAY\"]")
-        @NotEmpty(message = "Un calendario tiene al menos un día hábil.") Set<DayOfWeek> diasHabiles,
+        @NotEmpty(message = "Un calendario tiene al menos un día hábil.")
+        Set<@NotNull(message = "Un día hábil es un día de la semana.") DayOfWeek> diasHabiles,
         @Schema(description = "Version read with the last GET; empty while the calendar was never saved. If someone "
                 + "saved a change since, the edit answers 409", example = "0") Long version) {
 }

@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.metricas.MetricasDeNegocio;
@@ -46,14 +48,17 @@ import com.facimus.procesos.ejecucion.model.EventoCaso;
 import com.facimus.procesos.ejecucion.model.ModoCaso;
 import com.facimus.procesos.ejecucion.model.Temporizador;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
+import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.puerto.ParametrosDeSimulacion;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.ejecucion.repository.CasoRepository;
 import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
 import com.facimus.procesos.ejecucion.repository.TemporizadorRepository;
+import com.facimus.procesos.ejecucion.repository.TemporizadorVencido;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
+import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.gestion.model.Pais;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.VersionProceso;
@@ -105,6 +110,7 @@ class MotorConTemporizadoresTest {
     private final VersionService versionService = mock(VersionService.class);
     private final GrafosDeVersion grafos = mock(GrafosDeVersion.class);
 
+    private CalendarioService calendarioService;
     private MotorDeProcesos motor;
     private Temporizadores temporizadores;
     private DisparoDeTemporizadores disparo;
@@ -147,7 +153,7 @@ class MotorConTemporizadoresTest {
         Bitacora bitacora = new Bitacora(eventoCasoRepository, new MetricasDeNegocio(new SimpleMeterRegistry()));
         ParametrosDeLaTienda parametros = mock(ParametrosDeLaTienda.class);
         given(parametros.de(any())).willReturn(ParametrosDeSimulacion.deFabrica());
-        CalendarioService calendarioService = mock(CalendarioService.class);
+        calendarioService = mock(CalendarioService.class);
         given(calendarioService.laboral(any())).willReturn(COLOMBIA);
         RelojDeLaTienda relojDeLaTienda = mock(RelojDeLaTienda.class);
         given(relojDeLaTienda.ahora(any())).willReturn(TICK);
@@ -242,6 +248,34 @@ class MotorConTemporizadoresTest {
             assertThat(temporizadoresDe(caso)).isEmpty();
             assertThat(caso.getEstado()).isEqualTo(EstadoCaso.TERMINADO);
             assertThat(detalles(caso)).anyMatch(detalle -> detalle.startsWith("\"Wait\" no se arma:"));
+        }
+
+        @Test
+        @DisplayName("Una espera que no vence en diez anos con el calendario de la tienda no se arma ni tumba el caso")
+        void cuentaQueSeSale_noSeArma() {
+            given(calendarioService.laboral(any())).willReturn(new CalendarioLaboral(Pais.CO, BOGOTA,
+                    LocalTime.of(8, 0), LocalTime.of(8, 1), EnumSet.of(DayOfWeek.MONDAY), Map.of(), Set.of()));
+            Caso caso = arrancar(esperaDe(TipoTemporizador.DURACION_HABIL, "PT8000H"), ModoCaso.PRODUCCION);
+
+            assertThat(temporizadoresDe(caso)).isEmpty();
+            assertThat(caso.getEstado()).isEqualTo(EstadoCaso.TERMINADO);
+            assertThat(detalles(caso)).anyMatch(detalle -> detalle.startsWith("\"Wait\" no se arma:")
+                    && detalle.contains("no vence dentro de lo que se puede contar"));
+        }
+
+        @Test
+        @DisplayName("Un salto despues de un fallo deja los intentos en cero y borra el error")
+        void saltoDespuesDeUnFallo_empiezaDeCero() {
+            Caso caso = arrancar(esperaDe(TipoTemporizador.DURACION, "PT1H"), ModoCaso.PRODUCCION);
+            Temporizador espera = unico(caso);
+            disparo.anotarFallo(tienda.getId(), espera.getId(), "fallo");
+            assertThat(espera.getIntentos()).isOne();
+            reloj.avanzar(Duration.ofHours(2));
+
+            assertThat(disparo.enProduccion(tienda.getId(), espera.getId())).isTrue();
+
+            assertThat(espera.getIntentos()).isZero();
+            assertThat(espera.getUltimoError()).isNull();
         }
 
         @Test
@@ -509,7 +543,8 @@ class MotorConTemporizadoresTest {
 
             assertThat(temporizadores.armarInicio(version, grafo.iniciosTemporizados().getFirst())).isTrue();
             Temporizador inicio = temporizadorRepository.findAllByProcesoIdAndEmpresaIdAndClaseOrderByIdDesc(
-                    proceso.getId(), tienda.getId(), ClaseTemporizador.INICIO).getFirst();
+                    proceso.getId(), tienda.getId(), ClaseTemporizador.INICIO, PageRequest.of(0, 1)).getContent()
+                    .getFirst();
             assertThat(inicio.getCasoId()).isNull();
             assertThat(inicio.getModo()).isEqualTo(ModoCaso.PRODUCCION);
             assertThat(inicio.getVenceEn()).isEqualTo(Temporizadores.utc(VIERNES.plus(Duration.ofHours(1))));
@@ -540,12 +575,63 @@ class MotorConTemporizadoresTest {
             given(versionService.vigente(tienda.getId(), proceso.getId())).willReturn(Optional.empty());
             temporizadores.armarInicio(version, grafo.iniciosTemporizados().getFirst());
             Temporizador inicio = temporizadorRepository.findAllByProcesoIdAndEmpresaIdAndClaseOrderByIdDesc(
-                    proceso.getId(), tienda.getId(), ClaseTemporizador.INICIO).getFirst();
+                    proceso.getId(), tienda.getId(), ClaseTemporizador.INICIO, PageRequest.of(0, 1)).getContent()
+                    .getFirst();
             reloj.avanzar(Duration.ofHours(7));
 
             assertThat(disparo.enProduccion(tienda.getId(), inicio.getId())).isFalse();
 
             assertThat(inicio.getEstado()).isEqualTo(EstadoTemporizador.CANCELADO);
+        }
+
+        @Test
+        @DisplayName("El de una version que otra reemplazo se cancela sin abrir un caso en la nueva")
+        void versionReemplazada() {
+            DiagramaArmado armado = DiagramaArmado.reciennacido();
+            armado.lane(TIENDA, VENTAS, VENDEDORES);
+            armado.temporizador(VENTAS, "Once", TipoEvento.TEMPORIZADOR_INICIO, TipoTemporizador.FECHA,
+                    "2026-01-09T21:00:00Z", null);
+            armado.actividad(VENTAS, "Count stock", TipoActividad.USUARIO);
+            armado.arco("Once", "Count stock");
+            GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
+            given(grafos.del(any(), any())).willReturn(grafo);
+            VersionProceso nueva = em.persistFlushFind(VersionProceso.builder().empresa(tienda).proceso(proceso)
+                    .numero(2).estado(EstadoVersion.VIGENTE).fechaPublicacion(LocalDateTime.now())
+                    .huella("2f2c4a6b8d0e1f23456789abcdef0123456789abcdef0123456789abcdef0123").definicion("{}")
+                    .modeloBpmn("<bpmn:definitions/>").build());
+            given(versionService.vigente(tienda.getId(), proceso.getId())).willReturn(Optional.of(nueva));
+            temporizadores.armarInicio(version, grafo.iniciosTemporizados().getFirst());
+            Temporizador inicio = inicioDelProceso();
+            reloj.avanzar(Duration.ofHours(7));
+
+            assertThat(disparo.enProduccion(tienda.getId(), inicio.getId())).isFalse();
+
+            assertThat(inicio.getEstado()).isEqualTo(EstadoTemporizador.CANCELADO);
+            assertThat(casosDelProceso()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Uno cuya version vigente es documental queda fallido sin abrir nada")
+        void versionDocumental() {
+            DiagramaArmado armado = DiagramaArmado.reciennacido();
+            armado.lane(TIENDA, VENTAS, VENDEDORES);
+            armado.temporizador(VENTAS, "Once", TipoEvento.TEMPORIZADOR_INICIO, TipoTemporizador.FECHA,
+                    "2026-01-09T21:00:00Z", null);
+            armado.actividad(VENTAS, "Count stock", TipoActividad.USUARIO);
+            armado.arco("Once", "Count stock");
+            GrafoDeVersion ejecutable = GrafoDeVersion.de(armado.diagrama());
+            armado.modo(ModoProceso.DOCUMENTAL);
+            given(grafos.del(any(), any())).willReturn(GrafoDeVersion.de(armado.diagrama()));
+            given(versionService.vigente(tienda.getId(), proceso.getId())).willReturn(Optional.of(version));
+            temporizadores.armarInicio(version, ejecutable.iniciosTemporizados().getFirst());
+            Temporizador inicio = inicioDelProceso();
+            reloj.avanzar(Duration.ofHours(7));
+
+            assertThat(disparo.enProduccion(tienda.getId(), inicio.getId())).isFalse();
+
+            assertThat(inicio.getEstado()).isEqualTo(EstadoTemporizador.FALLIDO);
+            assertThat(inicio.getUltimoError()).contains("ya no abre casos");
+            assertThat(casosDelProceso()).isEmpty();
         }
 
         @Test
@@ -559,6 +645,56 @@ class MotorConTemporizadoresTest {
 
             assertThat(temporizadores.armarInicio(version, grafo.iniciosTemporizados().getFirst())).isFalse();
         }
+    }
+
+    @Nested
+    @DisplayName("La busqueda de vencidos")
+    class Vencidos {
+
+        @Test
+        @DisplayName("Deja fuera los de un caso en error, aunque llenen el lote, y trae los de un caso abierto")
+        void sinLosDeCasosEnError() {
+            Caso enError = em.persistFlushFind(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(version)
+                    .referencia("ORD-ERR").estado(EstadoCaso.ERROR).modo(ModoCaso.PRODUCCION).variables("{}")
+                    .build());
+            Caso abierto = em.persistFlushFind(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(version)
+                    .referencia("ORD-OK").estado(EstadoCaso.ABIERTO).modo(ModoCaso.PRODUCCION).variables("{}")
+                    .build());
+            List<Long> deError = new ArrayList<>();
+            for (int i = 0; i <= TemporizadorServiceImpl.LOTE; i++) {
+                deError.add(vencido(enError, LocalDateTime.parse("2001-01-01T00:00:00").plusMinutes(i)).getId());
+            }
+            Long delAbierto = vencido(abierto, LocalDateTime.parse("2001-01-02T00:00:00")).getId();
+            em.flush();
+
+            assertThat(temporizadorRepository.vencidosEnProduccion(Temporizadores.utc(VIERNES),
+                    PageRequest.of(0, TemporizadorServiceImpl.LOTE)))
+                    .extracting(TemporizadorVencido::id)
+                    .contains(delAbierto)
+                    .doesNotContainAnyElementsOf(deError);
+        }
+
+        private Temporizador vencido(Caso caso, LocalDateTime venceEn) {
+            ActividadCaso espera = actividadCasoRepository.save(ActividadCaso.builder().empresa(tienda).caso(caso)
+                    .nodoId(1L).nodoNombre("Wait").tipoNodo(TipoNodoCaso.EVENTO).subtipo("TEMPORIZADOR_INTERMEDIO")
+                    .estado(EstadoActividadCaso.EN_ESPERA).build());
+            return em.persist(Temporizador.builder().empresa(tienda).procesoId(proceso.getId())
+                    .versionProcesoId(version.getId()).casoId(caso.getId()).actividadCasoId(espera.getId())
+                    .nodoId(1L).nodoNombre("Wait")
+                    .clase(ClaseTemporizador.INTERMEDIO).modo(ModoCaso.PRODUCCION)
+                    .tipoTemporizador(TipoTemporizador.DURACION).expresion("PT1H").venceEn(venceEn)
+                    .estado(EstadoTemporizador.PROGRAMADO).creadoEn(venceEn.minusHours(1)).build());
+        }
+    }
+
+    private Temporizador inicioDelProceso() {
+        return temporizadorRepository.findAllByProcesoIdAndEmpresaIdAndClaseOrderByIdDesc(proceso.getId(),
+                tienda.getId(), ClaseTemporizador.INICIO, PageRequest.of(0, 1)).getContent().getFirst();
+    }
+
+    private List<Caso> casosDelProceso() {
+        return casoRepository.findAll().stream()
+                .filter(caso -> caso.getProceso().getId().equals(proceso.getId())).toList();
     }
 
     private DiagramaArmado esperaDe(TipoTemporizador tipo, String expresion) {

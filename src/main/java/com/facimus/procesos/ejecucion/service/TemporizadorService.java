@@ -2,6 +2,9 @@ package com.facimus.procesos.ejecucion.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Pageable;
+
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.ejecucion.dto.response.TemporizadorResponse;
 
 /**
@@ -31,6 +34,6 @@ public interface TemporizadorService {
     /** Los temporizadores de un caso, en el orden en que se armaron. */
     List<TemporizadorResponse> delCaso(Long empresaId, Long casoId);
 
-    /** Los inicios temporizados de un proceso, del mas nuevo al mas viejo. */
-    List<TemporizadorResponse> delProceso(Long empresaId, Long procesoId);
+    /** Los inicios temporizados de un proceso, del mas nuevo al mas viejo, por paginas. */
+    PageResponse<TemporizadorResponse> delProceso(Long empresaId, Long procesoId, Pageable pagina);
 }

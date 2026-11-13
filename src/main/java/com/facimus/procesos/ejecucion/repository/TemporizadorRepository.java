@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,9 +27,12 @@ public interface TemporizadorRepository extends RepositorioTenant<Temporizador> 
     List<Temporizador> findAllByCasoIdAndEmpresaIdAndEstadoOrderByIdAsc(Long casoId, Long empresaId,
             EstadoTemporizador estado);
 
-    /** Los inicios temporizados de un proceso, del mas nuevo al mas viejo. */
-    List<Temporizador> findAllByProcesoIdAndEmpresaIdAndClaseOrderByIdDesc(Long procesoId, Long empresaId,
-            ClaseTemporizador clase);
+    /**
+     * Los inicios temporizados de un proceso, del mas nuevo al mas viejo y por paginas: cada publicacion arma los
+     * suyos y deja cancelados los de la anterior, asi que la lista crece con el proceso.
+     */
+    Page<Temporizador> findAllByProcesoIdAndEmpresaIdAndClaseOrderByIdDesc(Long procesoId, Long empresaId,
+            ClaseTemporizador clase, Pageable pagina);
 
     List<Temporizador> findAllByProcesoIdAndEmpresaIdAndClaseAndEstadoOrderByIdAsc(Long procesoId, Long empresaId,
             ClaseTemporizador clase, EstadoTemporizador estado);

@@ -89,7 +89,8 @@ public class CalendarioController {
     }
 
     @Operation(summary = "List the organization's changes to the holidays",
-            description = "Days it made holidays, holidays it renamed and holidays it removed, in order.")
+            description = "Days it made holidays, holidays it renamed and holidays it removed, in order. Not paged: "
+                    + "an organization changes at most 500 days.")
     @ApiResponse(responseCode = "200", description = "The changes")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @GetMapping("/ediciones")
@@ -99,11 +100,12 @@ public class CalendarioController {
 
     @Operation(summary = "Make a day a holiday, or rename its holiday",
             description = "For a state holiday of Australia or the United States, a local one, or a day the "
-                    + "organization closes. Administrators only.")
+                    + "organization closes. An organization changes at most 500 days. Administrators only.")
     @ApiResponse(responseCode = "200", description = "The holiday")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
     @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
     @PutMapping("/festivos/{fecha}")
     public ResponseEntity<FestivoResponse> nombrar(
             @Parameter(description = FECHA, example = "2026-06-08") @PathVariable

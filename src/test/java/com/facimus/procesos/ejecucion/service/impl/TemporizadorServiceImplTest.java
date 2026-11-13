@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -28,9 +29,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
@@ -118,12 +122,14 @@ class TemporizadorServiceImplTest {
     void dispararVencidos_unFalloNoFrena() {
         given(temporizadorRepository.vencidosEnProduccion(any(), any()))
                 .willReturn(List.of(new TemporizadorVencido(31L, UNA), new TemporizadorVencido(32L, OTRA)));
-        given(disparo.enProduccion(UNA, 31L)).willThrow(new IllegalStateException("la version no existe"));
+        given(disparo.enProduccion(UNA, 31L)).willThrow(new IllegalStateException("ERROR: insert into casos falla"));
         given(disparo.enProduccion(OTRA, 32L)).willReturn(true);
 
         assertThat(service.dispararVencidos()).isOne();
 
-        verify(disparo).anotarFallo(UNA, 31L, "IllegalStateException: la version no existe");
+        // Lo anotado lo lee cualquier rol: dice que fallo y con que, no el mensaje de la excepcion
+        verify(disparo).anotarFallo(UNA, 31L, "No pudo saltar (IllegalStateException); el detalle está en el "
+                + "registro del servidor.");
         verify(disparo, never()).anotarFallo(eq(OTRA), anyLong(), anyString());
     }
 
@@ -139,7 +145,8 @@ class TemporizadorServiceImplTest {
 
         assertThat(service.dispararEnTick(UNA, 7)).isOne();
 
-        verify(disparo).anotarFallo(UNA, 43L, "IllegalArgumentException: roto");
+        verify(disparo).anotarFallo(UNA, 43L, "No pudo saltar (IllegalArgumentException); el detalle está en el "
+                + "registro del servidor.");
     }
 
     @Test
@@ -225,14 +232,20 @@ class TemporizadorServiceImplTest {
     void delProceso() {
         given(versionService.vigente(OTRA, PROCESO)).willThrow(new RecursoNoEncontradoException("Proceso no "
                 + "encontrado."));
-        List<Temporizador> armados = List.of(inicio(5L, 1L));
-        List<TemporizadorResponse> respuesta = List.of();
+        Temporizador armado = inicio(5L, 1L);
+        TemporizadorResponse respuesta = mock(TemporizadorResponse.class);
+        Pageable pagina = PageRequest.of(1, 10);
         given(temporizadorRepository.findAllByProcesoIdAndEmpresaIdAndClaseOrderByIdDesc(PROCESO, UNA,
-                ClaseTemporizador.INICIO)).willReturn(armados);
-        given(casoMapper.toTemporizadores(armados)).willReturn(respuesta);
+                ClaseTemporizador.INICIO, pagina)).willReturn(new PageImpl<>(List.of(armado), pagina, 11));
+        given(casoMapper.toTemporizador(armado)).willReturn(respuesta);
 
-        assertThatThrownBy(() -> service.delProceso(OTRA, PROCESO)).isInstanceOf(RecursoNoEncontradoException.class);
-        assertThat(service.delProceso(UNA, PROCESO)).isSameAs(respuesta);
+        assertThatThrownBy(() -> service.delProceso(OTRA, PROCESO, pagina))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        PageResponse<TemporizadorResponse> leidos = service.delProceso(UNA, PROCESO, pagina);
+
+        assertThat(leidos.content()).containsExactly(respuesta);
+        assertThat(leidos.page()).isOne();
+        assertThat(leidos.totalElements()).isEqualTo(11);
         verify(versionService).vigente(UNA, PROCESO);
     }
 

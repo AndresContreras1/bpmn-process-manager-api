@@ -259,6 +259,35 @@ class CalendarioServiceImplTest {
     }
 
     @Test
+    @DisplayName("Con el tope de ediciones lleno no se cambia un dia nuevo, pero si uno que ya estaba cambiado")
+    void nombrar_topeDeEdiciones() {
+        LocalDate nuevo = LocalDate.of(2026, 9, 4);
+        FestivoEditado yaEstaba = FestivoEditado.builder().id(5L).fecha(ASUNCION).festivo(false).build();
+        given(festivoEditadoRepository.findByEmpresaIdAndFecha(TIENDA, nuevo)).willReturn(Optional.empty());
+        given(festivoEditadoRepository.findByEmpresaIdAndFecha(TIENDA, ASUNCION)).willReturn(Optional.of(yaEstaba));
+        given(festivoEditadoRepository.countByEmpresaId(TIENDA)).willReturn((long) CalendarioServiceImpl.EDICIONES_MAXIMAS);
+        given(festivoEditadoRepository.save(yaEstaba)).willReturn(yaEstaba);
+
+        assertThatThrownBy(() -> service.nombrarFestivo(TIENDA, ADMIN, nuevo, "Aniversario"))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("500 días");
+        assertThat(service.nombrarFestivo(TIENDA, ADMIN, ASUNCION, "Asunción").nombre()).isEqualTo("Asunción");
+        verify(festivoEditadoRepository).save(yaEstaba);
+    }
+
+    @Test
+    @DisplayName("Una edicion por debajo del tope se agrega")
+    void nombrar_justoDebajoDelTope() {
+        LocalDate nuevo = LocalDate.of(2026, 9, 4);
+        given(festivoEditadoRepository.findByEmpresaIdAndFecha(TIENDA, nuevo)).willReturn(Optional.empty());
+        given(festivoEditadoRepository.countByEmpresaId(TIENDA))
+                .willReturn((long) CalendarioServiceImpl.EDICIONES_MAXIMAS - 1);
+        given(empresaRepository.getReferenceById(TIENDA)).willReturn(Empresa.builder().id(TIENDA).build());
+        given(festivoEditadoRepository.save(any(FestivoEditado.class))).willAnswer(guardar -> guardar.getArgument(0));
+
+        assertThat(service.nombrarFestivo(TIENDA, ADMIN, nuevo, "Aniversario").nombre()).isEqualTo("Aniversario");
+    }
+
+    @Test
     @DisplayName("Un dia sin edicion se edita por primera vez en la tienda")
     void nombrar_nuevo() {
         Empresa tienda = Empresa.builder().id(TIENDA).build();

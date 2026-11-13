@@ -53,6 +53,12 @@ public class CalendarioServiceImpl implements CalendarioService {
     static final Set<DayOfWeek> ENTRE_SEMANA = EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.FRIDAY);
     static final int PRIMER_ANIO = 1900;
     static final int ULTIMO_ANIO = 2199;
+    /**
+     * Cuantos dias puede cambiar una tienda. Cada calendario laboral las carga enteras, cada vez que se arma un
+     * temporizador, y el listado de ediciones las devuelve sin paginar: con este tope las dos cosas siguen siendo
+     * pequenas. Quinientas son decadas de festivos locales.
+     */
+    static final int EDICIONES_MAXIMAS = 500;
 
     private static final String FESTIVO = "FESTIVO";
     private static final String FECHA = "fecha";
@@ -201,9 +207,15 @@ public class CalendarioServiceImpl implements CalendarioService {
         }
     }
 
+    /** La edicion que ya tenia ese dia, o una nueva, si la tienda no llego a su tope. */
     private FestivoEditado edicionDe(Long empresaId, LocalDate fecha) {
-        return festivoEditadoRepository.findByEmpresaIdAndFecha(empresaId, fecha)
-                .orElseGet(() -> FestivoEditado.builder().empresa(tienda(empresaId)).fecha(fecha).build());
+        return festivoEditadoRepository.findByEmpresaIdAndFecha(empresaId, fecha).orElseGet(() -> {
+            if (festivoEditadoRepository.countByEmpresaId(empresaId) >= EDICIONES_MAXIMAS) {
+                throw new ReglaNegocioException("La organización ya cambió " + EDICIONES_MAXIMAS + " días del "
+                        + "calendario, que es el tope. Restaure alguno de los que ya no hagan falta.");
+            }
+            return FestivoEditado.builder().empresa(tienda(empresaId)).fecha(fecha).build();
+        });
     }
 
     private Pais paisDe(Long empresaId) {

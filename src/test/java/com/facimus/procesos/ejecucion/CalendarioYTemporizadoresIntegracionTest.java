@@ -235,6 +235,10 @@ class CalendarioYTemporizadoresIntegracionTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.pais").exists())
                 .andExpect(jsonPath("$.errors.diasHabiles").exists());
+        mvc.perform(put(CALENDARIO).with(como(ana)).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"pais": "CO", "zonaHoraria": "America/Bogota", "horaInicio": "08:00", "horaFin": "17:00",
+                         "diasHabiles": ["MONDAY", null]}"""))
+                .andExpect(status().isBadRequest());
         mvc.perform(get(CALENDARIO + "/festivos").param("anio", "1800").with(como(ana)))
                 .andExpect(status().isBadRequest());
     }
@@ -396,9 +400,12 @@ class CalendarioYTemporizadoresIntegracionTest {
     void inicioTemporizado() throws Exception {
         Long proceso = conInicioTemporizado(empresaId, ana.usuarioId());
         mvc.perform(get("/api/v1/procesos/" + proceso + "/temporizadores").with(como(carla)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].clase").value("INICIO"))
-                .andExpect(jsonPath("$[0].venceEn").value("2026-01-09T21:00:00"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].clase").value("INICIO"))
+                .andExpect(jsonPath("$.content[0].venceEn").value("2026-01-09T21:00:00"));
+        mvc.perform(get("/api/v1/procesos/" + proceso + "/temporizadores?tamano=51").with(como(carla)))
+                .andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/procesos/" + proceso + "/casos").with(como(beto))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isConflict());
@@ -410,9 +417,9 @@ class CalendarioYTemporizadoresIntegracionTest {
         assertThat(jdbc.queryForList("select modo from casos where proceso_id = ?", String.class, proceso))
                 .containsExactly("PRODUCCION");
         mvc.perform(get("/api/v1/procesos/" + proceso + "/temporizadores").with(como(carla)))
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].disparos").value(1))
-                .andExpect(jsonPath("$[0].venceEn").value("2026-01-10T02:00:00"));
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].disparos").value(1))
+                .andExpect(jsonPath("$.content[0].venceEn").value("2026-01-10T02:00:00"));
 
         versionService.retirar(empresaId, proceso, 1, ana.usuarioId());
 
@@ -420,6 +427,19 @@ class CalendarioYTemporizadoresIntegracionTest {
                 .containsOnly("CANCELADO");
         mvc.perform(get("/api/v1/procesos/" + proceso + "/temporizadores").with(como(ajeno)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Dar de baja un proceso cancela su inicio temporizado")
+    void eliminarElProceso_cancelaSuInicio() {
+        Long proceso = conInicioTemporizado(empresaId, ana.usuarioId());
+        assertThat(jdbc.queryForList("select estado from temporizadores where proceso_id = ?", String.class, proceso))
+                .containsExactly("PROGRAMADO");
+
+        procesoService.eliminarLogico(empresaId, proceso, ana.usuarioId());
+
+        assertThat(jdbc.queryForList("select estado from temporizadores where proceso_id = ?", String.class, proceso))
+                .containsExactly("CANCELADO");
     }
 
     @Test
@@ -451,7 +471,8 @@ class CalendarioYTemporizadoresIntegracionTest {
                 .andExpect(status().isNotFound());
         assertThat(jdbc.queryForObject("select count(*) from versiones_proceso where proceso_id = ? and tipo = "
                 + "'PRUEBA' and numero = 0 and estado = 'RETIRADA'", Integer.class, proceso)).isOne();
-        assertThat(casoService.olvidarPruebasAntesDe(LocalDateTime.now().plusMinutes(1))).isPositive();
+        assertThat(casoService.olvidarPruebasAntesDe(LocalDateTime.now(reloj).minusMinutes(1))).isZero();
+        assertThat(casoService.olvidarPruebasAntesDe(LocalDateTime.now(reloj).plusMinutes(1))).isOne();
         assertThat(jdbc.queryForObject("select count(*) from casos where proceso_id = ?", Integer.class, proceso))
                 .isZero();
     }
