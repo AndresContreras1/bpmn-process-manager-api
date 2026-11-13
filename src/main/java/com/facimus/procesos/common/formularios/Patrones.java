@@ -161,50 +161,50 @@ public final class Patrones {
             }
             return mayor;
         }
-    }
 
-    /** Donde termina un grupo de solo banderas, como {@code (?i)} o {@code (?s-m)}; -1 si no es uno. */
-    private static int finDeLasBanderas(String patron, int desde) {
-        int i = desde + 1;
-        if (i >= patron.length() || patron.charAt(i) != '?') {
-            return -1;
-        }
-        i++;
-        while (i < patron.length() && (Character.isLetter(patron.charAt(i)) || patron.charAt(i) == '-')) {
+        /** Donde termina un grupo de solo banderas, como {@code (?i)} o {@code (?s-m)}; -1 si no es uno. */
+        private static int finDeLasBanderas(String patron, int desde) {
+            int i = desde + 1;
+            if (i >= patron.length() || patron.charAt(i) != '?') {
+                return -1;
+            }
             i++;
+            while (i < patron.length() && (Character.isLetter(patron.charAt(i)) || patron.charAt(i) == '-')) {
+                i++;
+            }
+            return i < patron.length() && patron.charAt(i) == ')' ? i + 1 : -1;
         }
-        return i < patron.length() && patron.charAt(i) == ')' ? i + 1 : -1;
-    }
 
-    /** Donde termina una clase entre corchetes: un {@code ]} justo al abrir, o tras {@code ^}, es parte de ella. */
-    private static int finDeLaClase(String patron, int desde) {
-        int i = desde + 1;
-        if (i < patron.length() && patron.charAt(i) == '^') {
-            i++;
+        /** Donde termina una clase entre corchetes: un {@code ]} justo al abrir, o tras {@code ^}, es parte de ella. */
+        private static int finDeLaClase(String patron, int desde) {
+            int i = desde + 1;
+            if (i < patron.length() && patron.charAt(i) == '^') {
+                i++;
+            }
+            if (i < patron.length() && patron.charAt(i) == ']') {
+                i++;
+            }
+            while (i < patron.length() && patron.charAt(i) != ']') {
+                i += patron.charAt(i) == '\\' ? 2 : 1;
+            }
+            return i + 1;
         }
-        if (i < patron.length() && patron.charAt(i) == ']') {
-            i++;
-        }
-        while (i < patron.length() && patron.charAt(i) != ']') {
-            i += patron.charAt(i) == '\\' ? 2 : 1;
-        }
-        return i + 1;
-    }
 
-    /** El mayor numero de {@code n}, {@code n,} o {@code n,m}; -1 si no es una repeticion. */
-    private static long veces(String dentro) {
-        int coma = dentro.indexOf(',');
-        String desde = coma < 0 ? dentro : dentro.substring(0, coma);
-        String hasta = coma < 0 ? "" : dentro.substring(coma + 1);
-        if (!soloDigitos(desde) || desde.isEmpty() || !soloDigitos(hasta) || desde.length() > 6
-                || hasta.length() > 6) {
-            return -1;
+        /** El mayor numero de {@code n}, {@code n,} o {@code n,m}; -1 si no es una repeticion. */
+        private static long veces(String dentro) {
+            int coma = dentro.indexOf(',');
+            String desde = coma < 0 ? dentro : dentro.substring(0, coma);
+            String hasta = coma < 0 ? "" : dentro.substring(coma + 1);
+            if (!soloDigitos(desde) || desde.isEmpty() || !soloDigitos(hasta) || desde.length() > 6
+                    || hasta.length() > 6) {
+                return -1;
+            }
+            long menor = Long.parseLong(desde);
+            return hasta.isEmpty() ? menor : Math.max(menor, Long.parseLong(hasta));
         }
-        long menor = Long.parseLong(desde);
-        return hasta.isEmpty() ? menor : Math.max(menor, Long.parseLong(hasta));
-    }
 
-    private static boolean soloDigitos(String texto) {
-        return texto.chars().allMatch(c -> c >= '0' && c <= '9');
+        private static boolean soloDigitos(String texto) {
+            return texto.chars().allMatch(c -> c >= '0' && c <= '9');
+        }
     }
 }

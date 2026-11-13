@@ -38,7 +38,7 @@ public record ArbolDeCondicion(
                     de(derecha)), null, null, null);
             case Condicion.No(Condicion negada) -> new ArbolDeCondicion(NO, List.of(de(negada)), null, null, null);
             case Condicion.Grupo(Condicion agrupada) -> de(agrupada);
-            case Condicion.Comparacion(String ruta, Operador operador, Object literal, var _) -> new ArbolDeCondicion(
+            case Condicion.Comparacion(String ruta, Operador operador, Object literal, _) -> new ArbolDeCondicion(
                     COMPARACION, List.of(), ruta, operador.simbolo(), literal);
         };
     }
@@ -62,7 +62,7 @@ public record ArbolDeCondicion(
             }
             case Condicion.No(Condicion negada) -> juntarRutas(negada, rutas);
             case Condicion.Grupo(Condicion agrupada) -> juntarRutas(agrupada, rutas);
-            case Condicion.Comparacion(String ruta, var _, var _, var _) when !rutas.contains(ruta) -> rutas.add(ruta);
+            case Condicion.Comparacion(String ruta, _, _, _) when !rutas.contains(ruta) -> rutas.add(ruta);
             case Condicion.Comparacion _ -> {
                 // La ruta ya estaba: cada una se lista una sola vez
             }
