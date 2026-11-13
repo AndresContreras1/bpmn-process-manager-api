@@ -259,36 +259,41 @@
                         {{ nombreClasificacion[proceso.clasificacion ?? 'INTERNA'] }}
                       </td>
                       @if (puedeEditar) {
+                        @let botones = botonesDe(proceso);
                         <td class="text-end text-nowrap">
                           <div
                             class="btn-group btn-group-sm"
                             role="group"
                             [attr.aria-label]="etiqueta.accionesDe(proceso.nombre)"
                           >
-                            <a
-                              i18n-title
-                              class="btn btn-outline-secondary"
-                              [routerLink]="['/procesos', proceso.id, 'editar']"
-                              data-testid="proceso-editar"
-                              title="Edit"
-                              [attr.aria-label]="etiqueta.editar(proceso.nombre)"
-                            >
-                              <i class="fa-solid fa-pen" aria-hidden="true"></i
-                              ><span i18n class="d-none d-lg-inline ms-1">Edit</span>
-                            </a>
-                            <button
-                              i18n-title
-                              type="button"
-                              class="btn btn-outline-secondary"
-                              data-testid="proceso-mover"
-                              title="Move"
-                              [attr.aria-label]="etiqueta.mover(proceso.nombre)"
-                              (click)="moviendo = proceso"
-                            >
-                              <i class="fa-solid fa-folder-tree" aria-hidden="true"></i
-                              ><span i18n class="d-none d-xxl-inline ms-1">Move</span>
-                            </button>
-                            @if (proceso.estado === 'BORRADOR') {
+                            @if (botones.editar) {
+                              <a
+                                i18n-title
+                                class="btn btn-outline-secondary"
+                                [routerLink]="['/procesos', proceso.id, 'editar']"
+                                data-testid="proceso-editar"
+                                title="Edit"
+                                [attr.aria-label]="etiqueta.editar(proceso.nombre)"
+                              >
+                                <i class="fa-solid fa-pen" aria-hidden="true"></i
+                                ><span i18n class="d-none d-lg-inline ms-1">Edit</span>
+                              </a>
+                            }
+                            @if (botones.modelar) {
+                              <button
+                                i18n-title
+                                type="button"
+                                class="btn btn-outline-secondary"
+                                data-testid="proceso-mover"
+                                title="Move"
+                                [attr.aria-label]="etiqueta.mover(proceso.nombre)"
+                                (click)="moviendo = proceso"
+                              >
+                                <i class="fa-solid fa-folder-tree" aria-hidden="true"></i
+                                ><span i18n class="d-none d-xxl-inline ms-1">Move</span>
+                              </button>
+                            }
+                            @if (proceso.estado === 'BORRADOR' && botones.publicar) {
                               <button
                                 i18n-title
                                 type="button"
@@ -304,7 +309,7 @@
                                 ><span i18n class="d-none d-lg-inline ms-1">Publish</span>
                               </button>
                             }
-                            @if (esAdministrador) {
+                            @if (botones.eliminar) {
                               <button
                                 i18n-title
                                 type="button"
@@ -377,6 +382,7 @@
 </div>
 
 <app-modal-confirmar
+  i18n-textoBoton
   i18n-titulo
   idModal="modal-publicar"
   titulo="Publish this process?"
@@ -387,6 +393,7 @@
 />
 
 <app-modal-confirmar
+  i18n-textoBoton
   i18n-titulo
   idModal="modal-eliminar"
   titulo="Delete this process?"

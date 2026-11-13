@@ -12,7 +12,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 
-import { esConflictoDeVersion, mensajeDeError } from '../../../../helpers/errores-api';
+import { esConflictoDeVersion, mensajeDeLaApi } from '../../../../helpers/errores-api';
 import { FilaDeCarpeta, aplanarCarpetas } from '../../../../models/carpeta.model';
 import {
   CLASIFICACIONES,
@@ -114,7 +114,7 @@ export class FichaRepositorioComponent implements OnInit, OnChanges {
           this.enviando = false;
           this.error = esConflictoDeVersion(error)
             ? $localize`Someone else changed this process: reload the page and try again.`
-            : mensajeDeError(error);
+            : mensajeDeLaApi(error);
         },
       });
   }

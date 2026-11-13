@@ -13,7 +13,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
-import { mensajeDeError } from '../../helpers/errores-api';
+import { mensajeDeLaApi } from '../../helpers/errores-api';
 import { Carpeta, FilaDeCarpeta, aplanarCarpetas, destinosDeCarpeta } from '../../models/carpeta.model';
 import { CarpetaService } from '../../service/carpeta.service';
 
@@ -48,7 +48,7 @@ export class CarpetasComponent implements OnInit, OnChanges {
   aviso: string | null = null;
 
   ngOnInit(): void {
-    this.cargar();
+    this.recargar();
   }
 
   ngOnChanges(): void {
@@ -93,9 +93,9 @@ export class CarpetasComponent implements OnInit, OnChanges {
         next: () => {
           this.elegirCarpeta(null);
           this.aviso = $localize`Folder deleted.`;
-          this.cargar();
+          this.recargar();
         },
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
       });
   }
 
@@ -106,9 +106,9 @@ export class CarpetasComponent implements OnInit, OnChanges {
       next: () => {
         this.nombre = '';
         this.aviso = aviso;
-        this.cargar();
+        this.recargar();
       },
-      error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+      error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
     });
   }
 
@@ -119,7 +119,8 @@ export class CarpetasComponent implements OnInit, OnChanges {
     this.destino = this.actual?.padreId ?? null;
   }
 
-  private cargar(): void {
+  /** Vuelve a leer el arbol: la lista lo pide al mover un proceso, porque cambia lo que cuenta cada carpeta. */
+  recargar(): void {
     this.carpetas
       .listar()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -129,7 +130,7 @@ export class CarpetasComponent implements OnInit, OnChanges {
           this.filas = aplanarCarpetas(carpetas);
           this.marcar(this.actual?.id ?? this.seleccionada());
         },
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
       });
   }
 }

@@ -14,7 +14,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 
-import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
+import { esConflictoDeVersion, mensajeDeError, mensajeDeLaApi } from '../../helpers/errores-api';
 import { retenerFoco } from '../../helpers/teclado';
 import { FilaDeCarpeta, aplanarCarpetas } from '../../models/carpeta.model';
 import { Proceso, fichaConCarpeta } from '../../models/proceso.model';
@@ -98,7 +98,7 @@ export class MoverProcesoComponent implements OnInit {
         error: (error: HttpErrorResponse) =>
           (this.error = esConflictoDeVersion(error)
             ? $localize`Someone else changed this process: close this, reload the page and try again.`
-            : mensajeDeError(error)),
+            : mensajeDeLaApi(error)),
       });
   }
 

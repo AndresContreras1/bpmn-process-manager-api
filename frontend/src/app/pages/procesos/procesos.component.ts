@@ -1,9 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
-import { EMPTY, Subject, catchError, debounceTime, switchMap, tap } from 'rxjs';
+import { EMPTY, Observable, Subject, catchError, debounceTime, forkJoin, map, of, switchMap, tap } from 'rxjs';
 
 import { CarpetasComponent } from '../../components/carpetas/carpetas.component';
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
@@ -11,9 +11,10 @@ import { MoverProcesoComponent } from '../../components/mover-proceso/mover-proc
 import { CargandoComponent } from '../../components/ui/cargando.component';
 import { InsigniaComponent } from '../../components/ui/insignia.component';
 import { VacioComponent } from '../../components/ui/vacio.component';
-import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
+import { esConflictoDeVersion, mensajeDeError, mensajeDeLaApi } from '../../helpers/errores-api';
 import { direccionPorDefecto, filtrosDesdeUrl, filtrosEnUrl } from '../../helpers/filtros-en-url';
 import { ProcesoRecibido } from '../../models/compartir.model';
+import { BotonesDelProceso, botonesDelProceso } from '../../models/concesion.model';
 import { PageResponse } from '../../models/page-response.model';
 import { Usuario } from '../../models/usuario.model';
 import {
@@ -28,6 +29,7 @@ import {
 } from '../../models/proceso.model';
 import { AuthService } from '../../service/auth.service';
 import { CompartirService } from '../../service/compartir.service';
+import { ConcesionService } from '../../service/concesion.service';
 import { ProcesoService } from '../../service/proceso.service';
 import { UsuarioService } from '../../service/usuario.service';
 import { FechaPipe } from '../../pipes/fecha.pipe';
@@ -70,12 +72,20 @@ export class ProcesosComponent implements OnInit {
   private readonly authService: AuthService = inject(AuthService);
   private readonly compartirService: CompartirService = inject(CompartirService);
   private readonly usuarioService: UsuarioService = inject(UsuarioService);
+  private readonly concesionService: ConcesionService = inject(ConcesionService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   // Cada cambio de filtro o de pagina emite aqui; switchMap cancela la busqueda anterior si sigue en curso
   private readonly busqueda$ = new Subject<void>();
+  // Cada pagina que llega pide lo que se puede hacer con sus filas; una pagina nueva cancela lo de la anterior
+  private readonly filas$ = new Subject<Proceso[]>();
+  private readonly arbol = viewChild(CarpetasComponent);
+  private readonly rol = this.authService.usuarioActual()?.rolAcceso ?? null;
+  /** Mientras no llega lo de una fila, sus botones siguen al rol, como antes de las concesiones. */
+  private readonly porRol: BotonesDelProceso = botonesDelProceso(null, this.rol);
+  private botonesPorFila: ReadonlyMap<number, BotonesDelProceso> = new Map();
 
   readonly nombreEstado: Record<EstadoProceso, string> = NOMBRE_ESTADO;
   readonly clasificaciones: Clasificacion[] = CLASIFICACIONES;
@@ -144,7 +154,14 @@ export class ProcesosComponent implements OnInit {
         }
         this.pagina = pagina;
         this.cargando = false;
+        this.filas$.next(pagina.content);
       });
+    this.filas$
+      .pipe(
+        switchMap((procesos: Proceso[]) => this.botonesDeLasFilas(procesos)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((botones) => (this.botonesPorFila = botones));
     this.compartirService
       .recibidos(0)
       .pipe(
@@ -170,6 +187,14 @@ export class ProcesosComponent implements OnInit {
 
   buscar(): void {
     this.busqueda$.next();
+  }
+
+  /**
+   * F19: los botones de una fila, de GET /procesos/{id}/permisos, como en el detalle: quien tiene una concesion que
+   * le quita modelar no ve Editar ni Mover. La API sigue mandando y responde 403 a lo que no toca.
+   */
+  botonesDe(proceso: Proceso): BotonesDelProceso {
+    return this.botonesPorFila.get(proceso.id) ?? this.porRol;
   }
 
   filtrar(): void {
@@ -248,6 +273,8 @@ export class ProcesosComponent implements OnInit {
     this.limpiarMensajes();
     this.aviso = $localize`"${proceso.nombre}" was moved.`;
     this.buscar();
+    // Lo que cuenta cada carpeta cambio: una tiene un proceso menos y otra uno mas
+    this.arbol()?.recargar();
   }
 
   confirmarPublicacion(): void {
@@ -273,7 +300,7 @@ export class ProcesosComponent implements OnInit {
               $localize`The list is up to date now: try again.`;
             this.buscar();
           } else {
-            this.error = mensajeDeError(error);
+            this.error = mensajeDeLaApi(error);
           }
         },
       });
@@ -293,8 +320,26 @@ export class ProcesosComponent implements OnInit {
           this.aviso = $localize`"${proceso.nombre}" was deleted.`;
           this.buscar();
         },
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
       });
+  }
+
+  /**
+   * Lo que se puede hacer con cada fila, preguntado en paralelo: una pagina trae como mucho cincuenta. Quien no edita
+   * no tiene botones en la lista, asi que no pregunta. Una fila cuya pregunta falla se queda con lo del rol.
+   */
+  private botonesDeLasFilas(procesos: Proceso[]): Observable<ReadonlyMap<number, BotonesDelProceso>> {
+    if (!this.puedeEditar || procesos.length === 0) {
+      return of(new Map());
+    }
+    return forkJoin(
+      procesos.map((proceso: Proceso) =>
+        this.concesionService.permisos(proceso.id).pipe(
+          map((acciones): [number, BotonesDelProceso] => [proceso.id, botonesDelProceso(acciones, this.rol)]),
+          catchError(() => of<[number, BotonesDelProceso]>([proceso.id, this.porRol])),
+        ),
+      ),
+    ).pipe(map((filas) => new Map(filas)));
   }
 
   private limpiarMensajes(): void {
