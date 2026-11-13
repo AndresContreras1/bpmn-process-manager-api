@@ -97,7 +97,9 @@ public class CorreoDeExportacion implements ManejadorDeTrabajo {
         datos.put("archivos", exportacion.getArchivos());
         datos.put("tamano", kilobytes(exportacion.getTamano()));
         datos.put("sha256", exportacion.getSha256());
-        datos.put("horas", Math.max(1, Duration.between(ahora, exportacion.getVenceEn()).toHours()));
+        // Las dos fechas son la hora de la pared en la zona del reloj: en esa zona, las horas reales entre ellas
+        datos.put("horas", Math.max(1, Duration.between(ahora.atZone(reloj.getZone()),
+                exportacion.getVenceEn().atZone(reloj.getZone())).toHours()));
         datos.put("enlace", web + ExportacionServiceImpl.ruta(enlaces, empresaId, exportacion.getId(),
                 exportacion.getVenceEn()));
         correo.enviar(redactor.redactar(PLANTILLA, PLANTILLA + ".asunto", List.of(

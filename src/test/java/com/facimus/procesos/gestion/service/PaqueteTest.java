@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import com.facimus.procesos.gestion.service.Paquete.Tramos;
-
 /** PR 66: como un texto libre entra en una ruta del paquete, y que tramos acepta el paquete. */
 class PaqueteTest {
 

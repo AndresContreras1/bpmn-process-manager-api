@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.zip.ZipOutputStream;
 
 import com.facimus.procesos.common.csv.CeldaCsv;
 import com.facimus.procesos.gestion.service.Paquete;
+import com.facimus.procesos.gestion.service.Tramos;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -265,18 +267,20 @@ final class PaqueteZip implements Paquete, AutoCloseable {
 
     /**
      * Lo que pasa por aqui sigue de largo y queda contado y en el SHA-256. Cerrarlo no cierra lo de abajo: las partes
-     * pueden cerrar lo que escriben sin cerrar el ZIP.
+     * pueden cerrar lo que escriben sin cerrar el ZIP. Cada medidor lleva su propio resumen, que solo usa quien escribe
+     * en el.
      */
-    static final class Medidor extends OutputStream {
+    static final class Medidor extends DigestOutputStream {
 
-        private final OutputStream destino;
-        private final MessageDigest sha;
         private long bytes;
 
         Medidor(OutputStream destino) {
-            this.destino = destino;
+            super(destino, sha256Nuevo());
+        }
+
+        private static MessageDigest sha256Nuevo() {
             try {
-                this.sha = MessageDigest.getInstance("SHA-256");
+                return MessageDigest.getInstance("SHA-256");
             } catch (NoSuchAlgorithmException e) {
                 throw new IllegalStateException("La JVM no trae SHA-256.", e);
             }
@@ -284,21 +288,14 @@ final class PaqueteZip implements Paquete, AutoCloseable {
 
         @Override
         public void write(int octeto) throws IOException {
-            destino.write(octeto);
-            sha.update((byte) octeto);
+            super.write(octeto);
             bytes++;
         }
 
         @Override
         public void write(byte[] datos, int desde, int largo) throws IOException {
-            destino.write(datos, desde, largo);
-            sha.update(datos, desde, largo);
+            super.write(datos, desde, largo);
             bytes += largo;
-        }
-
-        @Override
-        public void flush() throws IOException {
-            destino.flush();
         }
 
         @Override
@@ -311,7 +308,7 @@ final class PaqueteZip implements Paquete, AutoCloseable {
         }
 
         String sha256() {
-            return HexFormat.of().formatHex(sha.digest());
+            return HexFormat.of().formatHex(getMessageDigest().digest());
         }
     }
 }
