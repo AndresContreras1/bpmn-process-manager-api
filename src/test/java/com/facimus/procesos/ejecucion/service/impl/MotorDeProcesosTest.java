@@ -30,8 +30,10 @@ import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.config.AuditoriaConfig;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
+import com.facimus.procesos.ejecucion.model.Delegacion;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.EstadoDelegacion;
 import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
 import com.facimus.procesos.ejecucion.model.EventoCaso;
 import com.facimus.procesos.ejecucion.model.MensajeSaliente;
@@ -42,6 +44,8 @@ import com.facimus.procesos.ejecucion.puerto.ParametrosDeSimulacion;
 import com.facimus.procesos.ejecucion.puerto.RespuestaDelSocio;
 import com.facimus.procesos.ejecucion.puerto.SocioSimulado;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
+import com.facimus.procesos.ejecucion.repository.CasoRepository;
+import com.facimus.procesos.ejecucion.repository.DelegacionRepository;
 import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
 import com.facimus.procesos.gestion.model.EstadoProceso;
@@ -104,6 +108,12 @@ class MotorDeProcesosTest {
     @Autowired
     private MensajeSalienteRepository mensajeSalienteRepository;
 
+    @Autowired
+    private CasoRepository casoRepository;
+
+    @Autowired
+    private DelegacionRepository delegacionRepository;
+
     private final TestObservationRegistry observaciones = TestObservationRegistry.create();
 
     /** PR 70: quien puede tener una tarea lo dice gestion; aqui, lo que cada prueba necesite. */
@@ -124,7 +134,8 @@ class MotorDeProcesosTest {
         motor = new MotorDeProcesos(actividadCasoRepository,
                 new BandejaDeSalida(mensajeSalienteRepository, new SociosSimulados(List.of(unSocioQueTardaUnTick())),
                         parametros, bitacora, json), bitacora, json, observaciones, mock(Temporizadores.class),
-                new AsignacionAlCrear(personas));
+                new AsignacionAlCrear(personas), new Tareas(actividadCasoRepository, casoRepository,
+                        delegacionRepository));
         tienda = em.persistFlushFind(Empresa.builder().nombre("Tienda del motor").nit("900123456-1")
                 .correoContacto("motor@demo.com").fechaRegistro(LocalDate.now()).build());
         proceso = em.persistFlushFind(Proceso.builder().empresa(tienda).nombre("Order fulfillment")
@@ -616,6 +627,34 @@ class MotorDeProcesosTest {
             assertThat(pasoPor(caso, "Izquierda")).returns(EstadoActividadCaso.OMITIDA, ActividadCaso::getEstado);
             assertThat(pasoPor(caso, "Derecha")).returns(EstadoActividadCaso.OMITIDA, ActividadCaso::getEstado);
             assertThat(pasoPor(caso, "Start")).returns(EstadoActividadCaso.COMPLETADA, ActividadCaso::getEstado);
+        }
+
+        @Test
+        @DisplayName("PR 70: apagar los tokens anula la delegacion abierta de una tarea delegada")
+        void apagarTokens_anulaLaDelegacion() {
+            Usuario ana = em.persistFlushFind(Usuario.builder().empresa(tienda).nombre("Ana")
+                    .email("ana-apagar@demo.com").passwordHash("hash").rolAcceso(RolAcceso.EDITOR).build());
+            Usuario luis = em.persistFlushFind(Usuario.builder().empresa(tienda).nombre("Luis")
+                    .email("luis-apagar@demo.com").passwordHash("hash").rolAcceso(RolAcceso.EDITOR).build());
+            DiagramaArmado armado = unDiagrama();
+            armado.actividad(VENTAS, "Receive order", TipoActividad.USUARIO);
+            armado.arco("Start", "Receive order");
+            Caso caso = arrancar(armado);
+            ActividadCaso tarea = pasoPor(caso, "Receive order");
+            tarea.setAsignadoA(luis.getId());
+            tarea.setDelegadaPor(ana.getId());
+            actividadCasoRepository.save(tarea);
+            Delegacion abierta = delegacionRepository.save(Delegacion.builder().empresa(tienda).tarea(tarea)
+                    .caso(caso).delegadaPor(ana.getId()).delegadaA(luis.getId()).motivo("Vacaciones")
+                    .estado(EstadoDelegacion.ACTIVA).build());
+
+            motor.apagarTokens(caso, Momento.en(TICK));
+            em.flush();
+
+            assertThat(pasoPor(caso, "Receive order")).returns(EstadoActividadCaso.OMITIDA, ActividadCaso::getEstado);
+            Delegacion cerrada = delegacionRepository.findById(abierta.getId()).orElseThrow();
+            assertThat(cerrada.getEstado()).isEqualTo(EstadoDelegacion.ANULADA);
+            assertThat(cerrada.getCerradaEn()).isNotNull();
         }
     }
 

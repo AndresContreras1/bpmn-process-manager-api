@@ -6,8 +6,12 @@ public enum EstadoDelegacion {
     ACTIVA,
     /** El delegado la solto y volvio a quien la delego. */
     DEVUELTA,
-    /** El delegado la completo. */
+    /** La tarea se completo mientras estaba delegada: la completo el delegado, o un administrador por el. */
     COMPLETADA,
-    /** Alguien la reasigno o la solto a la bandeja del rol: ya no vuelve a quien la delego. */
+    /**
+     * Ya no vuelve a quien la delego: alguien la reasigno o la solto a la bandeja del rol, el delegado la solto cuando
+     * quien la delego ya no podia tener tareas, o el caso dejo la tarea atras (cancelado, fallido o un borde que la
+     * interrumpe).
+     */
     ANULADA
 }

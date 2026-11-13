@@ -37,12 +37,15 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.config.AuditoriaConfig;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.ClaseTemporizador;
+import com.facimus.procesos.ejecucion.model.Delegacion;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.EstadoDelegacion;
 import com.facimus.procesos.ejecucion.model.EstadoTemporizador;
 import com.facimus.procesos.ejecucion.model.EventoCaso;
 import com.facimus.procesos.ejecucion.model.ModoCaso;
@@ -52,6 +55,7 @@ import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.puerto.ParametrosDeSimulacion;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.ejecucion.repository.CasoRepository;
+import com.facimus.procesos.ejecucion.repository.DelegacionRepository;
 import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
 import com.facimus.procesos.ejecucion.repository.TemporizadorRepository;
@@ -61,6 +65,7 @@ import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.gestion.model.Pais;
 import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.model.VersionProceso;
 import com.facimus.procesos.gestion.service.CalendarioLaboral;
 import com.facimus.procesos.gestion.service.CalendarioService;
@@ -105,6 +110,8 @@ class MotorConTemporizadoresTest {
     private TemporizadorRepository temporizadorRepository;
     @Autowired
     private CasoRepository casoRepository;
+    @Autowired
+    private DelegacionRepository delegacionRepository;
 
     private final RelojMovil reloj = new RelojMovil();
     private final VersionService versionService = mock(VersionService.class);
@@ -161,7 +168,8 @@ class MotorConTemporizadoresTest {
                 bitacora, reloj);
         motor = new MotorDeProcesos(actividadCasoRepository, new BandejaDeSalida(mensajeSalienteRepository,
                 new SociosSimulados(List.of()), parametros, bitacora, json), bitacora, json,
-                TestObservationRegistry.create(), temporizadores, new AsignacionAlCrear(mock(PersonasDeLaTarea.class)));
+                TestObservationRegistry.create(), temporizadores, new AsignacionAlCrear(mock(PersonasDeLaTarea.class)),
+                new Tareas(actividadCasoRepository, casoRepository, delegacionRepository));
         disparo = new DisparoDeTemporizadores(temporizadorRepository, casoRepository, actividadCasoRepository,
                 versionService, grafos, motor, temporizadores, relojDeLaTienda, reloj);
         tienda = em.persistFlushFind(Empresa.builder().nombre("Tienda de los relojes").nit("900765432-1")
@@ -315,6 +323,35 @@ class MotorConTemporizadoresTest {
             assertThat(caso.getEstado()).isEqualTo(EstadoCaso.TERMINADO);
             assertThat(tarde.getEstado()).isEqualTo(EstadoTemporizador.DISPARADO);
             assertThat(detalles(caso)).anyMatch(detalle -> detalle.contains("que se interrumpe"));
+        }
+
+        @Test
+        @DisplayName("PR 70: el que interrumpe una tarea delegada anula su delegacion: ya no vuelve a nadie")
+        void interrumpe_anulaLaDelegacion() {
+            DiagramaArmado armado = tareaConBorde();
+            armado.temporizador(VENTAS, "Late", TipoEvento.TEMPORIZADOR_BORDE, TipoTemporizador.DURACION, "PT2H",
+                    "Pick items");
+            armado.evento(VENTAS, "Escalated", TipoEvento.FIN);
+            armado.arco("Late", "Escalated");
+            Caso caso = arrancar(armado, ModoCaso.PRODUCCION);
+            Usuario ana = persona("Ana");
+            Usuario luis = persona("Luis");
+            ActividadCaso tarea = pasoPor(caso, "Pick items");
+            tarea.setAsignadoA(luis.getId());
+            tarea.setDelegadaPor(ana.getId());
+            actividadCasoRepository.save(tarea);
+            Delegacion abierta = delegacionRepository.saveAndFlush(Delegacion.builder().empresa(tienda).tarea(tarea)
+                    .caso(caso).delegadaPor(ana.getId()).delegadaA(luis.getId()).motivo("Vacaciones")
+                    .estado(EstadoDelegacion.ACTIVA).build());
+            reloj.avanzar(Duration.ofHours(2));
+
+            assertThat(disparo.enProduccion(tienda.getId(), unico(caso).getId())).isTrue();
+            em.flush();
+
+            assertThat(pasoPor(caso, "Pick items").getEstado()).isEqualTo(EstadoActividadCaso.OMITIDA);
+            Delegacion cerrada = delegacionRepository.findById(abierta.getId()).orElseThrow();
+            assertThat(cerrada.getEstado()).isEqualTo(EstadoDelegacion.ANULADA);
+            assertThat(cerrada.getCerradaEn()).isNotNull();
         }
 
         @Test
@@ -717,6 +754,12 @@ class MotorConTemporizadoresTest {
         armado.arco("Start", "Pick items");
         armado.arco("Pick items", "Picked");
         return armado;
+    }
+
+    private Usuario persona(String nombre) {
+        return em.persistFlushFind(Usuario.builder().empresa(tienda).nombre(nombre)
+                .email(nombre.toLowerCase() + "-reloj@demo.com").passwordHash("hash").rolAcceso(RolAcceso.EDITOR)
+                .build());
     }
 
     private Caso arrancar(DiagramaArmado armado, ModoCaso modo) {

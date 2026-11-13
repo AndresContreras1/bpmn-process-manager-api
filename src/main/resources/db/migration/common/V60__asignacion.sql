@@ -25,7 +25,6 @@ create index idx_casos_iniciado_por on casos (iniciado_por);
 
 -- Quien delego la tarea que ahora tiene otra persona: a quien vuelve si el delegado la suelta.
 alter table actividades_caso add column delegada_por bigint;
-alter table actividades_caso add constraint fk_actividades_caso_asignado_a foreign key (asignado_a) references usuarios (id);
 alter table actividades_caso add constraint fk_actividades_caso_delegada_por
     foreign key (delegada_por) references usuarios (id);
 alter table actividades_caso add constraint ck_actividades_caso_delegada
