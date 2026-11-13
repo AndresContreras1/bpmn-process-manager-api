@@ -382,15 +382,21 @@ The search finds only what the person could open anyway, and never returns marku
   things like `<img src=x onerror=...>` as written, which is why it is never treated as HTML.
 - **Text of uploaded files** is read in the job queue only after the antivirus clears the version, with the parser of
   the type detected on upload, without OCR or embedded documents, up to 1,000,000 characters and 30 seconds per file
-  (counted from when a thread starts reading it), on two fixed threads; a PDF keeps at most 32 MB of what it
-  decompresses in memory. If both threads stay taken by files that never finish, the next file is not marked as read:
-  its job fails and the queue retries it later. Tika and POI read the XML inside Office and OpenOffice files with their own hardened readers (no
-  DTDs, no external entities): those parsers are the one place XML is not read through `SecureXml`. A file that cannot
-  be read is found by its name only.
+  (counted from when it takes one of two reading slots). A PDF keeps at most 32 MB of what it decompresses in memory;
+  the rest goes to PDFBox's scratch files in the JVM's temporary folder (`java.io.tmpdir`), not in
+  `ARCHIVOS_TEMPORALES`, because Tika gives no way to choose their folder. PDFBox names them at random and deletes them
+  when the document closes, and in the container that folder is the API's own in-memory `/tmp`, which nothing else
+  writes to. When time is up the reading thread is interrupted; if it has not let go of the file 5 seconds later, it is
+  counted as stuck, logged as a warning, and its slot is given back, up to 8 stuck threads at once, so a few files
+  crafted to hang a parser cannot stop every later document from being read. A file that finds no free slot is not
+  marked as read: its job is postponed without spending an attempt. Tika and POI read the XML inside Office and
+  OpenOffice files with their own hardened readers (no DTDs, no external entities): those parsers are the one place XML
+  is not read through `SecureXml`. A file that cannot be read is found by its name only.
 - **Audit, rate limit and quota.** A search changes nothing, so it is not in the audit trail. It is the only read that
   spends from a bucket, `BUSQUEDA` (60 a minute per person), since each one ranks and highlights text in the database;
-  the 30-second statement timeout of the API's role bounds a single one, and a document's fragment comes from its
-  first 20,000 characters. The extracted text counts in no quota, since the file it comes from already did.
+  the 30-second statement timeout of the API's role bounds a single one, and the fragment of a document, or of a
+  process's or element's documentation, comes from its first 20,000 characters. The extracted text counts in no
+  quota, since the file it comes from already did.
 - **Changing the store's language** queues a job that rebuilds the vectors in short transactions, so a store with a
   lot of document text never makes that request pass the statement timeout.
 
@@ -409,10 +415,11 @@ same token.
 | Changes | Every other `POST`, `PUT`, `PATCH` and `DELETE` | Person | 600 a minute |
 | Search | `GET /api/v1/busqueda` | Person | 60 a minute |
 
-Reading spends nothing, except the search.
- An empty bucket answers `429` with the title "Demasiadas peticiones" and `Retry-After` in
-seconds. The limit of failed logins per e-mail still applies on top of the one per address. The AI review keeps
-its own limit per store, which is what it costs.
+Reading spends nothing, except the search. A route is matched on its decoded path, the same one Spring MVC uses to
+pick the controller, so a percent-encoded letter (`/api/v1/busqued%61`) still spends from its bucket. An empty bucket
+answers `429` with the title "Demasiadas peticiones" and `Retry-After` in seconds. The limit of failed logins per
+e-mail still applies on top of the one per address. The AI review keeps its own limit per store, which is what it
+costs.
 
 A body over 1 MB answers `413` before it is read, and NGINX cuts at the same size in front of the API. When
 `TURNSTILE_SECRET` is set, registering a store asks for Cloudflare Turnstile: the web app sends what the widget gave
