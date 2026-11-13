@@ -172,6 +172,19 @@ in its own transaction, with its case locked, and once, even with two instances 
 fire with the store's clock: `POST /simulacion/tick` fires those due after delivering its messages, and a tick is one
 hour of a timer (`PT2H` is two ticks). A timer whose case ends, or whose activity stops waiting, is cancelled.
 
+**Deadlines** ([ADR-0075](adr/0075-deadlines-and-escalation.md)). A user task, or the whole case on its start event,
+can have a deadline in wall-clock hours or in business days of the store's calendar. It counts from the moment the task
+starts waiting, or the case opens; the timeline says when it is due. It is `A_TIEMPO`, then `POR_VENCER` in its last
+quarter, then `VENCIDA`: a scheduler moves production deadlines every minute, and the store's tick moves test ones
+(eight hours are eight ticks). Each change writes a timeline line and notifies, once, whoever holds the task (or the
+members of its role while nobody does) and the process owner; for the case, whoever opened it and the owner. A task
+completed after its deadline stays `VENCIDA`, which is what the dashboard counts as late. A deadline only tells: to make
+the case act when a task is late, draw a boundary timer.
+
+**Escalation.** A non-interrupting boundary timer can escalate the task it hangs from when it fires: notify its holder
+and a supervisor, or hand the task to the supervisor. The supervisor is a person the event names, or the process
+owner. An interrupting boundary timer takes the task out and the case follows the boundary's path, as before.
+
 ## The simulated partners
 
 Nothing on the other side of a message is real. There is no payment gateway, no carrier and no email provider:
@@ -236,7 +249,12 @@ fixed a different way, so each one is counted separately. There is no "declined 
 payment was declined is a fact of the business that lives in the diagram, and the engine would have to guess it by
 reading inside the body of a message — while these three it knows for certain, because it wrote them.
 
-**It costs six queries**, whether the store has five orders or five thousand, and a test counts the statements so
+**Compliance with deadlines** is counted per process, per activity and per person, and for whole cases: on time when a
+task with a deadline was completed before it, late when it was completed after it or still waits past it. What still
+waits on time, what was skipped and the test runs of a draft do not count; by person is whoever completed the task, or
+holds it while it waits overdue.
+
+**It costs ten queries**, whether the store has five orders or five thousand, and a test counts the statements so
 it stays that way. A dashboard that grew with the orders would stop being openable exactly on the day it mattered.
 
 For whoever runs the server rather than the store, Actuator publishes four gauges next to the memory and

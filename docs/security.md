@@ -271,6 +271,7 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `CALENDARIO_EDITADO` · `FESTIVO_NOMBRADO` · `FESTIVO_QUITADO` · `FESTIVO_RESTAURADO` | The business calendar changes, or a holiday is added or renamed, removed, or put back as the law says |
 | `TAREA_RECLAMADA` · `TAREA_LIBERADA` · `TAREA_REASIGNADA` · `TAREA_DELEGADA` | A task is claimed, released, reassigned or delegated, with its case and who it went from and to |
 | `TAREA_COMPLETADA_POR_OTRO` | An administrator completes a task another person holds, which the store's policy allows |
+| `TAREA_ESCALADA` | A non-interrupting boundary timer handed a task to its supervisor, with the case and who it went from and to; the actor is the system |
 | `COMENTARIO_RESUELTO` · `COMENTARIO_REABIERTO` · `COMENTARIO_ELIMINADO` | A comment thread is resolved or reopened, or a comment is deleted, with whether it was one's own |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
@@ -432,6 +433,35 @@ What PR 70 adds, against the checklist every resource goes through ([ADR-0074](a
   task is created the engine looks the id up in the case's store, and a person who is not there, deactivated or
   read-only leaves the task in its role tray.
 
+## Deadlines and escalation
+
+What PR 71 adds, against the checklist every resource goes through ([ADR-0075](adr/0075-deadlines-and-escalation.md)):
+
+- **Row-level security.** No new table: the deadline and the escalation are columns of `nodos_flujo`, and the due dates
+  and the state of a deadline columns of `actividades_caso` and `casos`, which already have the store's policy; the
+  notices are rows of `notificaciones`. A test reads and updates them as another store and sees nothing.
+- **IDOR.** Saving the deadline or the escalation of another store's activity or event answers `404`. A supervisor of
+  another store is a `400` with the same reason as one who does not exist, so the answer never tells which. The
+  dashboard counts only the caller's store: another store's process id answers an empty compliance, never its numbers.
+- **Who.** Saving a deadline or an escalation is modeling the element (`MODELAR`, administrators and editors, the route
+  matrix). The supervisor must be an active administrator or editor, checked when saving and again when the timer
+  fires: one who can no longer hold tasks gets a notice instead of the task. The dashboard and the due dates of tasks
+  and cases are read by any role, like the rest of operations.
+- **Notices go only to the people of the task.** Whoever holds the task, or the members of its process role while
+  nobody does, the process owner, and for a case whoever opened it. The notification center drops inactive people,
+  and a notice carries ids, not text: the e-mail says which process and links to the case.
+- **Exactly once, also with two instances.** The scheduler runs under ShedLock, and each deadline moves with an update
+  that only matches the state it read, so a second pass, or a second instance, writes nothing and notifies nobody. The
+  update does not touch the optimistic version, so nobody completing the task gets a `409` because of it.
+- **Audit trail.** A reassignment by escalation (`TAREA_ESCALADA`, the system as actor). Saving a deadline or an
+  escalation is an edit of the draft and goes to the process history. The state changes and the notices are in the case
+  timeline, not the audit trail: they are not anybody's action.
+- **Rate limit and quota.** The general limit on changes. A deadline is at most 8,784 hours or 366 business days, the
+  caps of a timer, so a deadline cannot ask the calendar for a count it cannot finish.
+- **What arrives from a file.** A BPMN file can name any user id as the supervisor; it is never trusted, and the engine
+  looks it up in the case's store when the timer fires. A deadline outside its cap or an unknown unit is left out on
+  import with a note.
+
 ## Comments and notifications
 
 What people write to each other is cleaned and kept to the store, and what they are told is theirs alone
@@ -552,7 +582,8 @@ reach another store:
 - What has no store yet looks a person up by e-mail or by token, and is named one by one as system scope: login,
   renewal, logout, registration, the e-mail links, confirming a provider link and the way back from a provider. What
   crosses stores on purpose says so where it starts: the purge, the job queue, the simulation clock (which then ticks
-  each store in its own scope), the timer scheduler (which fires each timer in its store's scope), the sessions
+  each store in its own scope), the timer scheduler (which fires each timer in its store's scope), the deadline scheduler (which moves each deadline
+  in its store's scope), the sessions
   closed in another instance and the demo data.
 - A thread that does not say what store it is sees no row at all.
 - A store invited to a process (HU-23) reads its published version and its diagram through policies of their own,

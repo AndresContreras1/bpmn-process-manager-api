@@ -17,7 +17,7 @@ entries in Spanish.
 | `Caracterizacion` | Characterization sheet | Process | Objective, scope, inputs, outputs, suppliers, customers, indicators, risks and regulation |
 | `Manual` | Process manual | Process | The published version it describes, its language, state (`PENDIENTE`, `DISPONIBLE` or `FALLIDO`) with its reason, and where its HTML and PDF are |
 | `Comentario` | Comment | Process | Its author, Markdown and cleaned HTML, the people it mentions, and its thread: none for the first comment, which carries the anchor (an element's `bpmnId`, a published version) and the state (open, or resolved with who and when); a deleted one keeps its place with no text |
-| `Notificacion` | Notification | User | Its type (`MENCION`, `RESPUESTA` or `HILO_RESUELTO`), who caused it, the process and what it points to there, when it was read, and how its e-mail went (`INMEDIATO`, `RESUMEN_DIARIO` or `NUNCA`) and when |
+| `Notificacion` | Notification | User | Its type (`MENCION`, `RESPUESTA`, `HILO_RESUELTO`, or `PLAZO_POR_VENCER`, `PLAZO_VENCIDO` and `TAREA_ESCALADA`, which point to a case and have no author), who caused it, the process and what it points to there, when it was read, and how its e-mail went (`INMEDIATO`, `RESUMEN_DIARIO` or `NUNCA`) and when |
 | `PreferenciaNotificacion` | Notification preference | User | For one type, how it arrives by e-mail; without one, the type's default |
 | `Concesion` | Grant | Store | An action (`VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` or `ADMINISTRAR`) on a folder or a process, for a person, a process role or the whole store (`PERSONA`, `ROL` or `ORGANIZACION`) |
 | `RolProceso` | Process role | Store | Name and description |
@@ -75,6 +75,13 @@ not stored apart, they are its variables.
 Who a task goes to is a value of its activity too: three columns of `nodos_flujo` frozen with the diagram, resolved when
 a case creates the task ([ADR-0074](adr/0074-assignment-and-inbox.md)). From then on the task has a holder or waits in
 its role tray; a delegation keeps who to give it back to.
+
+A deadline is a value of its node as well: `nodos_flujo.plazo_cantidad` and `plazo_unidad` (`HORAS` or `DIAS_HABILES`)
+on a user task, or on a start event for the whole case, frozen with the diagram; and a non-interrupting boundary timer
+can carry what it escalates (`escalamiento`, `AVISAR` or `REASIGNAR`, and the supervisor in `escalar_a`). A step of a
+case and a case keep their own `Vencimiento`, embedded: when it is due and when its last quarter starts (`vence_en` and
+`aviso_en` in UTC, or `vence_tick` and `aviso_tick` for a test case) and its state, `A_TIEMPO`, `POR_VENCER` or
+`VENCIDA`, which only moves forward ([ADR-0075](adr/0075-deadlines-and-escalation.md)).
 
 ## Modeling rules
 

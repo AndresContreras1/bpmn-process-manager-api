@@ -115,6 +115,11 @@
       holder completes a task, and an administrator on someone's behalf only by store policy (PR 70)
 - [ ] The inboxes, the workload, reassigning and delegating in the web's work portal (F24), and the assignment panel
       in the modeler beside the form designer (F23)
+- [x] Deadlines on user tasks and on whole cases, in hours or business days; on time, due soon and overdue, with a
+      notice once at each change to the holder (or the role) and the process owner; escalation from a non-interrupting
+      boundary timer that notifies or hands the task to a supervisor; compliance per process, activity and person in
+      the dashboard; inboxes by due date (PR 71)
+- [ ] Deadlines and escalation in the modeler's panel, and due dates in the work portal (F23, F24)
 
 **Beyond the model**
 - [x] Deterministic diagnosis of a diagram, with its own catalogue of errors and warnings and a what-if for a deletion

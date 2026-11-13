@@ -30,6 +30,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Gateways | `GET, POST /api/v1/lanes/{laneId}/gateways` · `GET, PUT, DELETE /api/v1/gateways/{id}` |
 | Events | `GET, POST /api/v1/lanes/{laneId}/eventos` · `GET, PUT, DELETE /api/v1/eventos/{id}` |
 | Assignment | `PUT /api/v1/actividades/{id}/asignacion` |
+| Deadlines and escalation | `PUT /api/v1/actividades/{id}/plazo` · `PUT /api/v1/eventos/{id}/plazo` · `PUT /api/v1/eventos/{id}/escalamiento` |
 | Forms | `PUT /api/v1/actividades/{id}/formulario` · `PUT /api/v1/eventos/{id}/formulario` · `GET /api/v1/procesos/{procesoId}/formulario-de-inicio` · `GET /api/v1/tareas/{id}/formulario` |
 | Sequence flows | `POST /api/v1/arcos` · `GET /api/v1/pools/{poolId}/arcos` · `GET, PUT, DELETE /api/v1/arcos/{id}` |
 | Message flows | `GET, POST /api/v1/procesos/{procesoId}/mensajes` · `GET, PUT, DELETE /api/v1/mensajes/{id}` |
@@ -328,8 +329,9 @@ The reason is free text that anonymizing a person does not rewrite: it is for th
 calls `reclamar` and `soltar` for its "Take" and "Release" buttons, and shows "Complete" only on a task the viewer
 holds or nobody holds.
 
-`GET /api/v1/tareas?bandeja=` picks the inbox, oldest first, with the filters `rolProcesoId`, `procesoId` and `estado`
-as before:
+`GET /api/v1/tareas?bandeja=` picks the inbox, the one due first at the top (production tasks by `venceEn`, then test
+runs by `venceTick`, then the tasks without a deadline, oldest first), with the filters `rolProcesoId`, `procesoId` and
+`estado` as before:
 
 | `bandeja` | Tasks |
 |---|---|
@@ -345,6 +347,67 @@ workload:
 ```json
 { "sinAsignar": 3, "personas": [ { "usuarioId": 5, "nombre": "Luis Gomez", "tareas": 4 } ] }
 ```
+
+## Deadlines and escalation
+
+A user task can have a deadline, and so can the whole case, on its start event. `PUT /api/v1/actividades/{id}/plazo`
+and `PUT /api/v1/eventos/{id}/plazo` save it on the draft with the node's `version`; administrators and editors, with
+`MODELAR` on the process:
+
+```json
+{ "cantidad": 2, "unidad": "DIAS_HABILES", "version": 4 }
+```
+
+`unidad` is `HORAS` (wall-clock hours, 1 to 8784) or `DIAS_HABILES` (business days of the organization's calendar, 1 to
+366: two business days from a Friday at three are the Tuesday at three, without the weekend or a holiday). Without
+`cantidad` and `unidad` the node has none. A quantity out of range, or one of the two without the other, is a `400` on
+the property; a deadline on an activity that is not a user task, or on an event that is not a start event, a `409`. The
+node answers it in `plazo` (absent without one); it is frozen in the version and travels in BPMN as `bpm:plazo`.
+
+When a case reaches the task, or opens through that start event, the deadline starts to count. Tasks and cases answer
+`venceEn` (UTC, in `PRODUCCION`) or `venceTick` (in `PRUEBA`, a tick per hour, and a business day as many ticks as the
+working day has hours) and `estadoPlazo`: `A_TIEMPO`, `POR_VENCER` from the last quarter of the deadline, and `VENCIDA`
+once it passed. A completed task keeps the state it reached: `VENCIDA` means it was completed late. A scheduler moves
+the states every `PLAZOS_REPASO` in production, and the store's tick in test mode; each change writes a line in the case
+timeline (`PLAZO_POR_VENCER`, `PLAZO_VENCIDO`) and one notification per person, once: to whoever holds the task, or the
+members of its role while nobody does, and to the process owner; for a case, to whoever opened it and the owner.
+
+A non-interrupting boundary timer can escalate the task it hangs from. `PUT /api/v1/eventos/{id}/escalamiento`:
+
+```json
+{ "accion": "REASIGNAR", "usuarioId": 5, "version": 2 }
+```
+
+When the timer fires, `AVISAR` notifies the holder and the supervisor; `REASIGNAR` hands the task to the supervisor
+(the delegation it had ends) and notifies both. The supervisor is `usuarioId`, an active administrator or editor
+(`400` otherwise), or the process owner when it is empty. Without `accion` the timer only opens its path, as before.
+Escalating from an event that is not a non-interrupting timer boundary answers `409`, and so does `REASIGNAR` on a
+boundary of something that is not a user task. An interrupting boundary timer already takes the task out and the case
+follows its path. Each escalation writes a `TAREA_ESCALADA` line; a reassignment also goes to the audit trail. It
+travels in BPMN as `bpm:escalamiento`.
+
+The three notification types `PLAZO_POR_VENCER`, `PLAZO_VENCIDO` and `TAREA_ESCALADA` reach the notification center
+and its stream, and are e-mailed at once unless the person chooses otherwise in `/notificaciones/preferencias`; their
+`referenciaId` is the case, and the e-mail links to it. `GET /api/v1/procesos/{id}/tablero` and
+`GET /api/v1/empresas/actual/tablero` answer the compliance in `cumplimiento` ([Execution](execution.md#the-dashboard)):
+
+```json
+"cumplimiento": { "tareasATiempo": 40, "tareasTarde": 5, "casos": { "aTiempo": 30, "tarde": 2 },
+  "porProceso": [ { "procesoId": 1, "procesoNombre": "Refunds", "aTiempo": 40, "tarde": 5 } ],
+  "porActividad": [ { "procesoId": 1, "procesoNombre": "Refunds", "nodoId": 12, "nodoNombre": "Review refund",
+                      "aTiempo": 18, "tarde": 3 } ],
+  "porPersona": [ { "usuarioId": 5, "nombre": "Luis Gomez", "aTiempo": 12, "tarde": 1 } ] }
+```
+
+```bash
+curl -s -X PUT http://localhost:8080/api/v1/actividades/12/plazo -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"cantidad":8,"unidad":"HORAS","version":4}'
+curl -s -X PUT http://localhost:8080/api/v1/eventos/15/escalamiento -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"accion":"AVISAR","version":2}'
+```
+
+How deadlines are counted and why they are not timers is in
+[ADR-0075](adr/0075-deadlines-and-escalation.md).
 
 ## Comments and notifications
 
@@ -378,7 +441,7 @@ notification that only they see; another's answers `404`.
 
 | Route | Answers |
 |---|---|
-| `GET /api/v1/notificaciones?noLeidas=true&pagina=0&tamano=20` | A page, newest first and up to 50: `tipo`, `procesoId` and `proceso`, `referenciaId` (the comment), `autor`, `creadaEn`, `leidaEn` |
+| `GET /api/v1/notificaciones?noLeidas=true&pagina=0&tamano=20` | A page, newest first and up to 50: `tipo`, `procesoId` and `proceso`, `referenciaId` (the comment; the case for a deadline or an escalation), `autor` (empty when the system sent it), `creadaEn`, `leidaEn` |
 | `GET /api/v1/notificaciones/conteo` | `{ "noLeidas": 3 }` |
 | `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` | The notification read · the count, now `0` |
 | `GET /api/v1/notificaciones/flujo` | Server-sent events: `conteo` when it opens and whenever it changes, `notificacion` with each new one, and a heartbeat every 25 seconds; at most five per person on each instance (`429`) |

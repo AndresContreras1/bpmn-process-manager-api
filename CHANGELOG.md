@@ -8,6 +8,18 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Deadlines on user tasks and on whole cases, in wall-clock hours or business days of the organization's calendar:
+  `PUT /actividades/{id}/plazo` and `PUT /eventos/{id}/plazo` save `{ cantidad, unidad }`, frozen in the version and
+  carried in BPMN as `bpm:plazo`. Tasks and cases answer `venceEn` (or `venceTick` in test mode) and `estadoPlazo`:
+  on time, due soon in the last quarter, or overdue. A scheduler (`PLAZOS_REPASO`, a minute) and the store's tick move
+  the states and send each notice once, through the notification center, to the holder (or the role's members) and the
+  process owner, or for a case to whoever opened it and the owner: new types `PLAZO_POR_VENCER`, `PLAZO_VENCIDO` and
+  `TAREA_ESCALADA`, e-mailed in Spanish, English and French with a link to the case.
+- Escalation from a non-interrupting boundary timer: `PUT /eventos/{id}/escalamiento` with `AVISAR` (notify the holder
+  and a supervisor) or `REASIGNAR` (hand the task to the supervisor, audited as `TAREA_ESCALADA`); the supervisor is a
+  named administrator or editor, or the process owner. Carried in BPMN as `bpm:escalamiento`.
+- Compliance with deadlines in the dashboard (`cumplimiento`): tasks on time and late in total, per process, per
+  activity and per person, and whole cases. Inboxes are ordered by due date.
 - Assignment of user tasks: to the tray of the lane's role (the default), to a fixed person, to whoever opened the case
   or to the person a case variable names, such as a `PERSONA` field of an earlier form. `PUT
   /actividades/{id}/asignacion` saves the rule; it is frozen in the version, travels in BPMN as `bpm:asignacion` and

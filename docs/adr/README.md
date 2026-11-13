@@ -63,3 +63,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0072 | [Business calendar, timers and the two modes of a case](0072-business-calendar-and-timers.md) | Accepted |
 | 0073 | [Typed forms frozen in the version](0073-typed-forms.md) | Accepted |
 | 0074 | [Assignment, inboxes and who completes a task](0074-assignment-and-inbox.md) | Accepted |
+| 0075 | [Deadlines, notices and escalation](0075-deadlines-and-escalation.md) | Accepted |
