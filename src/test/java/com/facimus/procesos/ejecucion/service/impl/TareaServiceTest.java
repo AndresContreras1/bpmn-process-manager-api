@@ -221,6 +221,10 @@ class TareaServiceTest {
         assertThat(tarea.getDatosSalida()).isNull();
         verify(motor).seguirDesde(eq(caso), any(GrafoDeVersion.class), eq(tarea.getNodoId()),
                 eq(new Momento(TICK, EDITOR)));
+        // PR 71: el plazo se cierra con el momento en que se completo, antes de guardarla: tarde si ya vencio
+        var orden = inOrder(plazos, actividadCasoRepository);
+        orden.verify(plazos).alCompletar(tarea, new Momento(TICK, EDITOR));
+        orden.verify(actividadCasoRepository).save(tarea);
     }
 
     @Test
