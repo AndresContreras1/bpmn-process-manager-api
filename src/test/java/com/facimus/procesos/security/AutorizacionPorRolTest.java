@@ -220,8 +220,9 @@ class AutorizacionPorRolTest {
             EDITOR        | POST   | /api/v1/simulacion/pedidos     | 403
             SOLO_LECTURA  | POST   | /api/v1/simulacion/pedidos     | 403
 
-            # Tablero: lo lee cualquier rol, como el resto de lo que solo mira
-            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 200
+            # Tablero: lo lee cualquier rol, como el resto de lo que solo mira; PR 71: el de un proceso que no
+            # existe es un 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 404
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual/tablero | 200
 
             # PR 61: los documentos los lee cualquier rol; subirlos y borrarlos es de administrador y editor
@@ -279,6 +280,7 @@ class AutorizacionPorRolTest {
             ADMINISTRADOR | PUT    | /api/v1/actividades/{id}/plazo             | 404
             SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/plazo             | 403
             EDITOR        | PUT    | /api/v1/eventos/{id}/plazo                 | 404
+            ADMINISTRADOR | PUT    | /api/v1/eventos/{id}/plazo                 | 404
             SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/plazo                 | 403
             EDITOR        | PUT    | /api/v1/eventos/{id}/escalamiento          | 404
             ADMINISTRADOR | PUT    | /api/v1/eventos/{id}/escalamiento          | 404

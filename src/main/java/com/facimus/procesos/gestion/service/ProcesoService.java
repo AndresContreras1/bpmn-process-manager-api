@@ -31,6 +31,9 @@ public interface ProcesoService {
 
     ProcesoResponse obtener(Long empresaId, Long procesoId, boolean incluirInactivos);
 
+    /** PR 71: si el proceso es de esta empresa, activo o no; uno de otra no existe para ella. */
+    boolean existe(Long empresaId, Long procesoId);
+
     /** La puerta de lectura (HU-23): el proceso propio o el que otra empresa le comparte a esta, nunca para cambiarlo. */
     ProcesoLectura obtenerParaLectura(Long empresaId, Long procesoId);
 

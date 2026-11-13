@@ -12,9 +12,7 @@ import org.springframework.stereotype.Component;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.ModoCaso;
-import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.model.Vencimiento;
-import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.gestion.service.CalendarioLaboral;
 import com.facimus.procesos.gestion.service.CalendarioService;
 import com.facimus.procesos.modelado.dto.response.PlazoResponse;
@@ -26,35 +24,43 @@ import lombok.RequiredArgsConstructor;
  * una tarea que se queda esperando arma el suyo, un caso que se abre por un inicio con plazo arma el del caso, y al
  * completar la tarea o terminar el caso el plazo se queda en lo que llego a ser. Lo que cambia mientras espera lo
  * mueve el repaso de los plazos, que es tambien quien avisa.
+ *
+ * <p>Armar no escribe una linea de tiempo propia: devuelve la frase con la que la linea que crea la tarea, o la que
+ * abre el caso, dice cuando vence.
  */
 @Component
 @RequiredArgsConstructor
 class Plazos {
 
     private static final DateTimeFormatter COMO_SE_LEE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final String SIN_TIEMPO_HABIL = " Su plazo no se arma: el calendario de la tienda no tiene tiempo "
+            + "habil para contarlo.";
 
     private final CalendarioService calendarioService;
-    private final ActividadCasoRepository actividadCasoRepository;
-    private final Bitacora bitacora;
     private final Clock reloj;
 
-    /** El plazo de la tarea que se queda esperando, si su actividad tiene uno en la version. */
-    void armarDeLaTarea(Caso caso, GrafoDeVersion grafo, ActividadCaso tarea, Momento momento) {
-        grafo.plazoDe(tarea.getNodoId()).flatMap(plazo -> vencimiento(caso, plazo, momento)).ifPresent(vence -> {
+    /**
+     * El plazo de la tarea que se queda esperando, si su actividad tiene uno en la version. Se guarda con la tarea.
+     *
+     * @return lo que se le suma a la linea de la tarea creada: cuando vence, por que no tiene plazo, o nada
+     */
+    String armarDeLaTarea(Caso caso, GrafoDeVersion grafo, ActividadCaso tarea, Momento momento) {
+        return grafo.plazoDe(tarea.getNodoId()).map(plazo -> vencimiento(caso, plazo, momento).map(vence -> {
             tarea.setVencimiento(vence);
-            actividadCasoRepository.save(tarea);
-            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA, "\"" + tarea.getNodoNombre()
-                    + "\" vence " + cuando(caso, vence) + ".");
-        });
+            return " Vence " + cuando(caso, vence) + ".";
+        }).orElse(SIN_TIEMPO_HABIL)).orElse("");
     }
 
-    /** El plazo del caso entero, si el inicio por el que se abre tiene uno en la version. */
-    void armarDelCaso(Caso caso, GrafoDeVersion grafo, NodoDeLaVersion inicio, Momento momento) {
-        grafo.plazoDe(inicio.id()).flatMap(plazo -> vencimiento(caso, plazo, momento)).ifPresent(vence -> {
+    /**
+     * El plazo del caso entero, si el inicio por el que se abre tiene uno en la version.
+     *
+     * @return lo que se le suma a la linea del caso abierto, como en una tarea
+     */
+    String armarDelCaso(Caso caso, GrafoDeVersion grafo, NodoDeLaVersion inicio, Momento momento) {
+        return grafo.plazoDe(inicio.id()).map(plazo -> vencimiento(caso, plazo, momento).map(vence -> {
             caso.setVencimiento(vence);
-            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.CASO_ABIERTO, "El caso vence " + cuando(caso, vence)
-                    + ".");
-        });
+            return " Vence " + cuando(caso, vence) + ".";
+        }).orElse(SIN_TIEMPO_HABIL)).orElse("");
     }
 
     /**
@@ -87,8 +93,6 @@ class Plazos {
                     ? CuandoVenceElPlazo.enPrueba(plazo, momento.tick(), calendario)
                     : CuandoVenceElPlazo.enProduccion(plazo, reloj.instant(), calendario));
         } catch (IllegalStateException | ArithmeticException _) {
-            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO, "El plazo no se arma: el calendario "
-                    + "de la tienda no tiene tiempo habil para contarlo.");
             return Optional.empty();
         }
     }

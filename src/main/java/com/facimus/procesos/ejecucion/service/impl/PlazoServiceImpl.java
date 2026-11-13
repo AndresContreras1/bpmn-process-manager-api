@@ -1,8 +1,12 @@
 package com.facimus.procesos.ejecucion.service.impl;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import java.util.function.LongFunction;
+import java.util.function.Predicate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,8 +34,14 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class PlazoServiceImpl implements PlazoService {
 
-    /** Cuantas tareas, y cuantos casos, mueve una pasada del planificador; lo que quede lo toma la siguiente. */
+    /** Cuantas tareas, o cuantos casos, se leen de una vez; una pasada sigue leyendo mientras salgan lotes llenos. */
     static final int LOTE = 100;
+
+    /**
+     * Lo que puede durar una pasada antes de dejarle el resto a la siguiente: menos que el candado del planificador
+     * (diez minutos, D34), para que otra instancia no empiece mientras esta sigue.
+     */
+    static final Duration PRESUPUESTO = Duration.ofMinutes(5);
 
     private static final Logger log = LoggerFactory.getLogger(PlazoServiceImpl.class);
 
@@ -42,21 +52,20 @@ public class PlazoServiceImpl implements PlazoService {
 
     /**
      * Se buscan entre todas las tiendas, y cada uno se mueve con el alcance de la suya (PR 51): lo que escriba, el
-     * aviso incluido, solo puede ser de esa tienda.
+     * aviso incluido, solo puede ser de esa tienda. Una pasada recorre cada lote, por id, hasta uno que no sale lleno o
+     * hasta gastar su presupuesto: despues de una caida, o cuando muchos vencen juntos, no se queda en los cien
+     * primeros, y uno que falla siempre no tapa a los de detras.
      */
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int revisarVencidos() {
-        var ahora = Temporizadores.utc(reloj.instant());
-        int cambiaron = 0;
-        for (PlazoQueCambia tarea : actividadCasoRepository.plazosQueCambianEnProduccion(ahora,
-                PageRequest.of(0, LOTE))) {
-            cambiaron += enSuTienda(tarea, () -> revision.deLaTarea(tarea.empresaId(), tarea.id(), null));
-        }
-        for (PlazoQueCambia caso : casoRepository.plazosQueCambianEnProduccion(ahora, PageRequest.of(0, LOTE))) {
-            cambiaron += enSuTienda(caso, () -> revision.delCaso(caso.empresaId(), caso.id(), null));
-        }
-        return cambiaron;
+        Instant empezo = reloj.instant();
+        var ahora = Temporizadores.utc(empezo);
+        Instant hasta = empezo.plus(PRESUPUESTO);
+        int cambiaron = recorrer(despuesDe -> actividadCasoRepository.plazosQueCambianEnProduccion(ahora, despuesDe,
+                PageRequest.of(0, LOTE)), tarea -> revision.deLaTarea(tarea.empresaId(), tarea.id(), null), hasta);
+        return cambiaron + recorrer(despuesDe -> casoRepository.plazosQueCambianEnProduccion(ahora, despuesDe,
+                PageRequest.of(0, LOTE)), caso -> revision.delCaso(caso.empresaId(), caso.id(), null), hasta);
     }
 
     @Override
@@ -70,6 +79,21 @@ public class PlazoServiceImpl implements PlazoService {
         for (PlazoQueCambia caso : casoRepository.plazosQueCambianEnPrueba(empresaId, tick)) {
             cambiaron += intentar(caso, () -> revision.delCaso(empresaId, caso.id(), tick));
         }
+        return cambiaron;
+    }
+
+    /** Lote tras lote, desde el ultimo id del anterior, hasta uno corto o hasta la hora limite. */
+    private int recorrer(LongFunction<List<PlazoQueCambia>> lote, Predicate<PlazoQueCambia> mover, Instant hasta) {
+        int cambiaron = 0;
+        long despuesDe = 0;
+        List<PlazoQueCambia> leidos;
+        do {
+            leidos = lote.apply(despuesDe);
+            for (PlazoQueCambia plazo : leidos) {
+                cambiaron += enSuTienda(plazo, () -> mover.test(plazo));
+                despuesDe = plazo.id();
+            }
+        } while (leidos.size() == LOTE && reloj.instant().isBefore(hasta));
         return cambiaron;
     }
 

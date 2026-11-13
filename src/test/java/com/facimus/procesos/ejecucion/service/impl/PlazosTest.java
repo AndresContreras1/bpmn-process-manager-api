@@ -2,12 +2,8 @@ package com.facimus.procesos.ejecucion.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Clock;
@@ -37,10 +33,8 @@ import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EstadoPlazo;
 import com.facimus.procesos.ejecucion.model.ModoCaso;
-import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.model.Vencimiento;
-import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.gestion.model.Pais;
 import com.facimus.procesos.gestion.service.CalendarioLaboral;
 import com.facimus.procesos.gestion.service.CalendarioService;
@@ -62,10 +56,6 @@ class PlazosTest {
 
     @Mock
     private CalendarioService calendarioService;
-    @Mock
-    private ActividadCasoRepository actividadCasoRepository;
-    @Mock
-    private Bitacora bitacora;
 
     private final GrafoDeVersion grafo = mock(GrafoDeVersion.class);
     private Plazos plazos;
@@ -74,8 +64,7 @@ class PlazosTest {
 
     @BeforeEach
     void unCaso() {
-        plazos = new Plazos(calendarioService, actividadCasoRepository, bitacora, Clock.fixed(VIERNES,
-                ZoneOffset.UTC));
+        plazos = new Plazos(calendarioService, Clock.fixed(VIERNES, ZoneOffset.UTC));
         given(calendarioService.laboral(TIENDA)).willReturn(COLOMBIA);
         caso = Caso.builder().id(42L).empresa(Empresa.builder().id(TIENDA).build()).modo(ModoCaso.PRODUCCION)
                 .build();
@@ -85,18 +74,16 @@ class PlazosTest {
     }
 
     @Test
-    @DisplayName("Una tarea con plazo en produccion vence con el calendario, se guarda y la linea de tiempo lo dice")
+    @DisplayName("Una tarea con plazo en produccion vence con el calendario, y la frase de su linea lo dice")
     void tarea_enProduccion() {
         given(grafo.plazoDe(12L)).willReturn(Optional.of(new PlazoResponse(2, UnidadDePlazo.DIAS_HABILES)));
 
-        plazos.armarDeLaTarea(caso, grafo, tarea, new Momento(TICK, null));
+        String vence = plazos.armarDeLaTarea(caso, grafo, tarea, new Momento(TICK, null));
 
         assertThat(tarea.getVencimiento().getVenceEn()).isEqualTo(LocalDateTime.parse("2026-01-14T20:00:00"));
         assertThat(tarea.getVencimiento().getAvisoEn()).isEqualTo(LocalDateTime.parse("2026-01-14T15:30:00"));
         assertThat(tarea.getVencimiento().getEstado()).isEqualTo(EstadoPlazo.A_TIEMPO);
-        verify(actividadCasoRepository).save(tarea);
-        verify(bitacora).anotar(caso, TICK, TipoEventoCaso.TAREA_CREADA,
-                "\"Approve the refund\" vence el 2026-01-14 15:00 (America/Bogota).");
+        assertThat(vence).isEqualTo(" Vence el 2026-01-14 15:00 (America/Bogota).");
     }
 
     @Test
@@ -105,26 +92,25 @@ class PlazosTest {
         caso.setModo(ModoCaso.PRUEBA);
         given(grafo.plazoDe(12L)).willReturn(Optional.of(new PlazoResponse(8, UnidadDePlazo.HORAS)));
 
-        plazos.armarDeLaTarea(caso, grafo, tarea, new Momento(TICK, null));
+        String vence = plazos.armarDeLaTarea(caso, grafo, tarea, new Momento(TICK, null));
 
         assertThat(tarea.getVencimiento().getVenceTick()).isEqualTo(11);
         assertThat(tarea.getVencimiento().getAvisoTick()).isEqualTo(9);
         assertThat(tarea.getVencimiento().getVenceEn()).isNull();
-        verify(bitacora).anotar(caso, TICK, TipoEventoCaso.TAREA_CREADA,
-                "\"Approve the refund\" vence en el tick 11.");
+        assertThat(vence).isEqualTo(" Vence en el tick 11.");
     }
 
     @Test
-    @DisplayName("Una tarea sin plazo en la version no arma nada ni escribe nada")
+    @DisplayName("Una tarea sin plazo en la version no arma nada ni le suma nada a su linea")
     void tarea_sinPlazo() {
-        plazos.armarDeLaTarea(caso, grafo, tarea, new Momento(TICK, null));
+        assertThat(plazos.armarDeLaTarea(caso, grafo, tarea, new Momento(TICK, null))).isEmpty();
 
         assertThat(tarea.getVencimiento()).isNull();
-        verifyNoInteractions(actividadCasoRepository, bitacora, calendarioService);
+        verifyNoInteractions(calendarioService);
     }
 
     @Test
-    @DisplayName("Un calendario que no deja contar el plazo no lo arma, y la linea de tiempo lo dice")
+    @DisplayName("Un calendario que no deja contar el plazo no lo arma, y la frase de la linea lo dice")
     void tarea_calendarioQueNoCuenta() {
         CalendarioLaboral sinTiempo = mock(CalendarioLaboral.class);
         given(sinTiempo.jornada()).willReturn(Duration.ofHours(9));
@@ -132,27 +118,30 @@ class PlazosTest {
         given(calendarioService.laboral(TIENDA)).willReturn(sinTiempo);
         given(grafo.plazoDe(12L)).willReturn(Optional.of(new PlazoResponse(2, UnidadDePlazo.DIAS_HABILES)));
 
-        plazos.armarDeLaTarea(caso, grafo, tarea, new Momento(TICK, null));
+        String vence = plazos.armarDeLaTarea(caso, grafo, tarea, new Momento(TICK, null));
 
         assertThat(tarea.getVencimiento()).isNull();
-        verify(actividadCasoRepository, never()).save(any());
-        verify(bitacora).anotar(caso, TICK, TipoEventoCaso.NODO_ACTIVADO,
-                "El plazo no se arma: el calendario de la tienda no tiene tiempo habil para contarlo.");
+        assertThat(vence).isEqualTo(" Su plazo no se arma: el calendario de la tienda no tiene tiempo habil para "
+                + "contarlo.");
+        NodoDeLaVersion inicio = new NodoDeLaVersion(40L, "Refund requested", TipoNodoCaso.EVENTO, "INICIO", 7L,
+                null);
+        given(grafo.plazoDe(40L)).willReturn(Optional.of(new PlazoResponse(1, UnidadDePlazo.DIAS_HABILES)));
+        assertThat(plazos.armarDelCaso(caso, grafo, inicio, new Momento(TICK, null))).isEqualTo(vence);
+        assertThat(caso.getVencimiento()).isNull();
     }
 
     @Test
-    @DisplayName("El caso arma el plazo de su inicio, y la linea de tiempo lo dice")
+    @DisplayName("El caso arma el plazo de su inicio, y la frase de su linea lo dice")
     void caso_conPlazo() {
         NodoDeLaVersion inicio = new NodoDeLaVersion(40L, "Refund requested", TipoNodoCaso.EVENTO, "INICIO", 7L,
                 null);
         given(grafo.plazoDe(40L)).willReturn(Optional.of(new PlazoResponse(24, UnidadDePlazo.HORAS)));
 
-        plazos.armarDelCaso(caso, grafo, inicio, new Momento(TICK, 5L));
+        String vence = plazos.armarDelCaso(caso, grafo, inicio, new Momento(TICK, 5L));
 
         assertThat(caso.getVencimiento().getVenceEn()).isEqualTo(LocalDateTime.parse("2026-01-10T20:00:00"));
         assertThat(caso.getVencimiento().getAvisoEn()).isEqualTo(LocalDateTime.parse("2026-01-10T14:00:00"));
-        verify(bitacora).anotar(caso, TICK, TipoEventoCaso.CASO_ABIERTO,
-                "El caso vence el 2026-01-10 15:00 (America/Bogota).");
+        assertThat(vence).isEqualTo(" Vence el 2026-01-10 15:00 (America/Bogota).");
     }
 
     @Test
@@ -161,10 +150,10 @@ class PlazosTest {
         NodoDeLaVersion inicio = new NodoDeLaVersion(40L, "Refund requested", TipoNodoCaso.EVENTO, "INICIO", 7L,
                 null);
 
-        plazos.armarDelCaso(caso, grafo, inicio, new Momento(TICK, 5L));
+        assertThat(plazos.armarDelCaso(caso, grafo, inicio, new Momento(TICK, 5L))).isEmpty();
 
         assertThat(caso.getVencimiento()).isNull();
-        verifyNoInteractions(bitacora);
+        verifyNoInteractions(calendarioService);
     }
 
     @Test
@@ -217,6 +206,5 @@ class PlazosTest {
         plazos.alTerminar(caso, new Momento(TICK, null));
 
         assertThat(caso.getVencimiento().getEstado()).isEqualTo(EstadoPlazo.VENCIDA);
-        verify(bitacora, never()).anotar(any(), anyInt(), any(), anyString());
     }
 }

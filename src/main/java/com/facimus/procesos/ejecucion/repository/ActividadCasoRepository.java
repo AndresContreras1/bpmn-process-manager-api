@@ -129,19 +129,22 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
     /**
      * PR 71: las tareas de produccion de todas las tiendas cuyo plazo ya tendria que haber cambiado: a tiempo pasada
      * la hora del aviso, o por vencer pasada la de vencer. Se buscan sin bloquear; cada una se mueve despues en su
-     * transaccion, con una escritura que solo pasa si sigue como estaba.
+     * transaccion, con una escritura que solo pasa si sigue como estaba. Van por id desde el ultimo del lote anterior:
+     * una que falla en cada pasada no tapa a las que vienen detras.
      */
     @Query("""
             select new com.facimus.procesos.ejecucion.repository.PlazoQueCambia(a.id, a.empresa.id)
             from ActividadCaso a
-            where a.estado = com.facimus.procesos.ejecucion.model.EstadoActividadCaso.EN_ESPERA
+            where a.id > :despuesDe
+              and a.estado = com.facimus.procesos.ejecucion.model.EstadoActividadCaso.EN_ESPERA
               and (a.vencimiento.estado = com.facimus.procesos.ejecucion.model.EstadoPlazo.A_TIEMPO
                        and a.vencimiento.avisoEn <= :ahora
                    or a.vencimiento.estado = com.facimus.procesos.ejecucion.model.EstadoPlazo.POR_VENCER
                        and a.vencimiento.venceEn <= :ahora)
             order by a.id
             """)
-    List<PlazoQueCambia> plazosQueCambianEnProduccion(@Param("ahora") LocalDateTime ahora, Pageable lote);
+    List<PlazoQueCambia> plazosQueCambianEnProduccion(@Param("ahora") LocalDateTime ahora,
+            @Param("despuesDe") Long despuesDe, Pageable lote);
 
     /** PR 71: lo mismo con las de prueba de una tienda, en ese tick. */
     @Query("""
@@ -190,11 +193,15 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
               and a.vencimiento.estado is not null
               and (:procesoId is null or p.id = :procesoId)
               and c.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
+              and (:#{#visible.todos()} = true
+                   or (p.carpetaId is null or p.carpetaId not in :#{#visible.carpetasOcultas()}
+                       or p.id in :#{#visible.procesosVisibles()})
+                      and p.id not in :#{#visible.procesosOcultos()})
             group by p.id, p.nombre, a.nodoId, a.nodoNombre
             order by p.nombre, a.nodoNombre, a.nodoId
             """)
     List<CumplimientoPorActividadResponse> cumplimientoPorActividad(@Param("empresaId") Long empresaId,
-            @Param("procesoId") Long procesoId);
+            @Param("procesoId") Long procesoId, @Param("visible") ProcesosVisibles visible);
 
     /** PR 71: lo mismo por proceso. */
     @Query("""
@@ -208,11 +215,15 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
               and a.vencimiento.estado is not null
               and (:procesoId is null or p.id = :procesoId)
               and c.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
+              and (:#{#visible.todos()} = true
+                   or (p.carpetaId is null or p.carpetaId not in :#{#visible.carpetasOcultas()}
+                       or p.id in :#{#visible.procesosVisibles()})
+                      and p.id not in :#{#visible.procesosOcultos()})
             group by p.id, p.nombre
             order by p.nombre, p.id
             """)
     List<CumplimientoPorProcesoResponse> cumplimientoPorProceso(@Param("empresaId") Long empresaId,
-            @Param("procesoId") Long procesoId);
+            @Param("procesoId") Long procesoId, @Param("visible") ProcesosVisibles visible);
 
     /**
      * PR 71: lo mismo por persona: quien la completo, o quien la tiene si sigue esperando pasado su plazo. Una vencida
@@ -229,12 +240,16 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
               and a.vencimiento.estado is not null
               and (:procesoId is null or p.id = :procesoId)
               and c.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
+              and (:#{#visible.todos()} = true
+                   or (p.carpetaId is null or p.carpetaId not in :#{#visible.carpetasOcultas()}
+                       or p.id in :#{#visible.procesosVisibles()})
+                      and p.id not in :#{#visible.procesosOcultos()})
               and u.id = a.asignadoA
             group by u.id, u.nombre
             order by u.nombre, u.id
             """)
     List<CumplimientoPorPersonaResponse> cumplimientoPorPersona(@Param("empresaId") Long empresaId,
-            @Param("procesoId") Long procesoId);
+            @Param("procesoId") Long procesoId, @Param("visible") ProcesosVisibles visible);
 
     /** Lo que el motor procesa en esta vuelta, en el orden en que se creo. */
     List<ActividadCaso> findAllByCasoIdAndEmpresaIdAndEstadoOrderByIdAsc(Long casoId, Long empresaId,

@@ -9,6 +9,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,6 +23,11 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,16 +45,21 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import com.facimus.procesos.common.model.Accion;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.ejecucion.service.PlazoService;
 import com.facimus.procesos.ejecucion.service.TemporizadorService;
 import com.facimus.procesos.gestion.model.EstadoProceso;
+import com.facimus.procesos.gestion.model.SujetoConcesion;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.Actor;
+import com.facimus.procesos.gestion.service.ConcesionService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.ProcesoService;
+import com.facimus.procesos.gestion.service.Recurso;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.model.TipoActividad;
@@ -58,6 +73,7 @@ import com.facimus.procesos.modelado.service.EventoService;
 import com.facimus.procesos.modelado.service.LaneService;
 import com.facimus.procesos.modelado.service.PoolService;
 import com.facimus.procesos.security.ApiPrincipalRequestPostProcessor;
+import com.zaxxer.hikari.HikariDataSource;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -159,6 +175,10 @@ class PlazosIntegracionTest {
     private TemporizadorService temporizadorService;
     @Autowired
     private PlazoService plazoService;
+    @Autowired
+    private ConcesionService concesionService;
+    @Autowired
+    private DataSource dataSource;
 
     private Long empresaId;
     private Long otraId;
@@ -338,11 +358,94 @@ class PlazosIntegracionTest {
         mvc.perform(get("/api/v1/empresas/actual/tablero").with(como(ajeno))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.cumplimiento.tareasTarde").value(0))
                 .andExpect(jsonPath("$.cumplimiento.porPersona.length()").value(0));
-        // El tablero cuenta solo lo de la tienda de quien pregunta: el proceso de otra no le trae nada
+        // El proceso de otra tienda no existe para quien pregunta
         mvc.perform(get("/api/v1/procesos/" + reembolso.proceso() + "/tablero").with(como(ajeno)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Completada despues de vencer, sin que el repaso alcanzara a marcarla, cuenta tarde")
+    void completadaTardeSinRepaso() throws Exception {
+        conTodo();
+        publicar();
+        Long tarea = tareaQueEspera(abrir(beto));
+        mvc.perform(post("/api/v1/tareas/" + tarea + "/reclamar").with(como(beto))).andExpect(status().isOk());
+
+        reloj.avanzar(Duration.ofHours(9));
+        mvc.perform(post("/api/v1/tareas/" + tarea + "/completar").with(como(beto))
+                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.estadoPlazo").value("VENCIDA"));
+
+        assertThat(estadoDelPlazo(tarea)).isEqualTo("VENCIDA");
+        mvc.perform(get("/api/v1/procesos/" + reembolso.proceso() + "/tablero").with(como(carla)))
+                .andExpect(jsonPath("$.cumplimiento.tareasATiempo").value(0))
+                .andExpect(jsonPath("$.cumplimiento.tareasTarde").value(1))
+                .andExpect(jsonPath("$.cumplimiento.porPersona[0].usuarioId").value(beto.usuarioId()))
+                .andExpect(jsonPath("$.cumplimiento.porPersona[0].tarde").value(1));
+    }
+
+    @Test
+    @DisplayName("Dos repasos a la vez sobre la misma tarea vencida: los dos la leen, uno la mueve y avisa, el otro no "
+            + "encuentra nada que mover")
+    void dosRepasosALaVez() throws Exception {
+        conTodo();
+        publicar();
+        Long caso = abrir(beto);
+        Long tarea = tareaQueEspera(caso);
+        mvc.perform(post("/api/v1/tareas/" + tarea + "/reclamar").with(como(beto))).andExpect(status().isOk());
+        reloj.avanzar(Duration.ofHours(9));
+
+        // Otra sesion, fuera del pool, tiene la fila: los dos repasos la leen A_TIEMPO y esperan para escribir
+        HikariDataSource pool = dataSource.unwrap(HikariDataSource.class);
+        ExecutorService hilos = Executors.newFixedThreadPool(2);
+        try (Connection candado = DriverManager.getConnection(pool.getJdbcUrl(), pool.getUsername(),
+                pool.getPassword()); Connection mirador = DriverManager.getConnection(pool.getJdbcUrl(),
+                        pool.getUsername(), pool.getPassword())) {
+            candado.setAutoCommit(false);
+            try (Statement sentencia = candado.createStatement()) {
+                sentencia.execute("select set_config('app.sistema', 'on', false)");
+                sentencia.execute("select id from actividades_caso where id = " + tarea + " for update");
+            }
+            Future<Integer> uno = hilos.submit(plazoService::revisarVencidos);
+            Future<Integer> otro = hilos.submit(plazoService::revisarVencidos);
+            await().atMost(ESPERA).until(() -> esperandoParaMoverElPlazo(mirador) == 2);
+            candado.commit();
+            uno.get(ESPERA.toSeconds(), TimeUnit.SECONDS);
+            otro.get(ESPERA.toSeconds(), TimeUnit.SECONDS);
+        } finally {
+            hilos.shutdownNow();
+        }
+
+        assertThat(estadoDelPlazo(tarea)).isEqualTo("VENCIDA");
+        assertThat(linea(caso)).filteredOn(linea -> linea.startsWith("PLAZO_")).containsExactly(
+                "PLAZO_VENCIDO \"Review refund\" paso su plazo.");
+        await().atMost(ESPERA).untilAsserted(() -> assertThat(notificaciones()).containsOnly(
+                Map.entry("PLAZO_VENCIDO " + beto.usuarioId(), 1L),
+                Map.entry("PLAZO_VENCIDO " + ana.usuarioId(), 1L)));
+    }
+
+    @Test
+    @DisplayName("El tablero de la tienda no nombra ni cuenta un proceso que una concesion le esconde a quien pregunta")
+    void elTableroEscondeLoQueNoSeVe() throws Exception {
+        conTodo();
+        publicar();
+        abrir(beto);
+        reloj.avanzar(Duration.ofHours(9));
+        plazoService.revisarVencidos();
+        // Ver el proceso queda para Beto (y para quien administra): Carla, que solo lee, deja de verlo
+        concesionService.conceder(new Actor(ana.usuarioId(), empresaId, RolAcceso.ADMINISTRADOR),
+                Recurso.proceso(reembolso.proceso()), Accion.VER, SujetoConcesion.PERSONA, beto.usuarioId(), null);
+
+        mvc.perform(get("/api/v1/empresas/actual/tablero").with(como(beto))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.cumplimiento.tareasTarde").value(1))
+                .andExpect(jsonPath("$.cumplimiento.porProceso[0].procesoNombre").value(reembolsoNombre()));
+        mvc.perform(get("/api/v1/empresas/actual/tablero").with(como(carla))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.cumplimiento.tareasTarde").value(0))
-                .andExpect(jsonPath("$.cumplimiento.casos.aTiempo").value(0))
-                .andExpect(jsonPath("$.cumplimiento.porActividad.length()").value(0));
+                .andExpect(jsonPath("$.cumplimiento.porProceso.length()").value(0))
+                .andExpect(jsonPath("$.cumplimiento.porActividad.length()").value(0))
+                .andExpect(jsonPath("$.cumplimiento.porPersona.length()").value(0));
+        mvc.perform(get("/api/v1/procesos/" + reembolso.proceso() + "/tablero").with(como(carla)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -494,6 +597,20 @@ class PlazosIntegracionTest {
                     }
                     return cuentas;
                 }, empresaId);
+    }
+
+    /** Cuantas sesiones esperan un candado para mover el plazo de una tarea; las ve quien entra sin cambiar de rol. */
+    private static int esperandoParaMoverElPlazo(Connection mirador) throws SQLException {
+        try (Statement sentencia = mirador.createStatement(); ResultSet fila = sentencia.executeQuery(
+                "select count(*) from pg_stat_activity where wait_event_type = 'Lock' "
+                        + "and query like 'update actividades_caso set estado_plazo%'")) {
+            fila.next();
+            return fila.getInt(1);
+        }
+    }
+
+    private String reembolsoNombre() {
+        return jdbc.queryForObject("select nombre from procesos where id = ?", String.class, reembolso.proceso());
     }
 
     private List<String> linea(Long caso) {

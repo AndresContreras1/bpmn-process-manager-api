@@ -26,6 +26,9 @@ export type TipoEventoCaso =
   | 'PLAZO_VENCIDO'
   | 'TAREA_ESCALADA';
 
+/** PR 71: como va un plazo: a tiempo, en el ultimo cuarto, o pasado. */
+export type EstadoPlazo = 'A_TIEMPO' | 'POR_VENCER' | 'VENCIDA';
+
 /** En que va un paso del caso. PENDIENTE y EN_ESPERA son los dos que tienen el token vivo. */
 export type EstadoPaso = 'PENDIENTE' | 'EN_ESPERA' | 'COMPLETADA' | 'FALLIDA' | 'OMITIDA';
 
@@ -54,6 +57,12 @@ export interface Caso {
   version: number;
   /** Quien lo abrio; vacio cuando lo abrio un mensaje. */
   creadoPor: number | null;
+  /** PR 71: cuando vence el caso entero, en UTC, si su inicio tiene plazo y corre en produccion. */
+  venceEn?: string | null;
+  /** PR 71: el tick en que vence, si su inicio tiene plazo y corre en prueba. */
+  venceTick?: number | null;
+  /** PR 71: como va su plazo; un caso terminado se queda con el que alcanzo. */
+  estadoPlazo?: EstadoPlazo | null;
 }
 
 /** Un paso del caso por un nodo de su version (PasoDelCasoResponse). */

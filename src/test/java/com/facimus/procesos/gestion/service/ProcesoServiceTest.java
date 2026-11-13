@@ -251,6 +251,15 @@ class ProcesoServiceTest {
     }
 
     @Test
+    @DisplayName("PR 71: existe el proceso de la empresa, activo o no; el de otra no")
+    void existe_soloElDeLaEmpresa() {
+        when(procesoRepository.existsByIdAndEmpresaId(100L, 1L)).thenReturn(true);
+
+        assertTrue(procesoService.existe(1L, 100L));
+        assertFalse(procesoService.existe(2L, 100L));
+    }
+
+    @Test
     void proceso_publicado_no_vuelve_a_borrador() {
         proceso.setEstado(EstadoProceso.PUBLICADO);
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 1L)).thenReturn(Optional.of(proceso));

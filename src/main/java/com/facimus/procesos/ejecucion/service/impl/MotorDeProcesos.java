@@ -65,10 +65,10 @@ class MotorDeProcesos {
 
     /** Abre el caso por el nodo que empieza el proceso y lo avanza hasta donde llegue. */
     void arrancar(Caso caso, GrafoDeVersion grafo, NodoDeLaVersion inicio, Momento momento) {
+        // PR 71: el plazo del caso cuenta desde que se abre, y la misma linea dice cuando vence
+        String vence = plazos.armarDelCaso(caso, grafo, inicio, momento);
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.CASO_ABIERTO,
-                "El caso empieza en " + comillas(inicio.nombre()) + ".", momento.autorId());
-        // PR 71: el plazo del caso cuenta desde que se abre
-        plazos.armarDelCaso(caso, grafo, inicio, momento);
+                "El caso empieza en " + comillas(inicio.nombre()) + "." + vence, momento.autorId());
         activar(caso, grafo, inicio, momento);
         avanzar(caso, grafo, momento);
     }
@@ -513,20 +513,21 @@ class MotorDeProcesos {
         AsignacionAlCrear.Destino destino = asignacion.decidir(caso, grafo, nodo, variables);
         token.setEstado(EstadoActividadCaso.EN_ESPERA);
         token.setAsignadoA(destino.usuarioId());
+        // PR 71: el plazo de la tarea cuenta desde que espera a una persona, y la linea que la crea dice cuando vence
+        String vence = plazos.armarDeLaTarea(caso, grafo, token, momento);
         actividadCasoRepository.save(token);
         if (destino.usuarioId() == null) {
             String porQueNo = destino.porQueNo() == null ? "" : " " + destino.porQueNo();
             bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA,
-                    comillas(nodo.nombre()) + " queda en la bandeja a la espera de que alguien la complete." + porQueNo,
+                    comillas(nodo.nombre()) + " queda en la bandeja a la espera de que alguien la complete." + porQueNo
+                            + vence,
                     momento.autorId());
         } else {
             bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA,
-                    comillas(nodo.nombre()) + " espera a que la complete quien la tiene.", momento.autorId());
+                    comillas(nodo.nombre()) + " espera a que la complete quien la tiene." + vence, momento.autorId());
             bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_ASIGNADA, comillas(nodo.nombre())
                     + " le llega al usuario " + destino.usuarioId() + ", " + destino.como() + ".");
         }
-        // PR 71: el plazo de la tarea cuenta desde que espera a una persona
-        plazos.armarDeLaTarea(caso, grafo, token, momento);
         temporizadores.armarBordes(caso, grafo, token, momento);
     }
 

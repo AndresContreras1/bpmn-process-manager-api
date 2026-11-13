@@ -67,7 +67,9 @@ import com.facimus.procesos.ejecucion.repository.CasoRepository;
 import com.facimus.procesos.ejecucion.repository.DelegacionRepository;
 import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
+import com.facimus.procesos.ejecucion.repository.ProcesosVisibles;
 import com.facimus.procesos.ejecucion.repository.TemporizadorRepository;
+import com.facimus.procesos.gestion.model.Carpeta;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.Pais;
@@ -104,6 +106,9 @@ import tools.jackson.databind.json.JsonMapper;
 class MotorConPlazosTest {
 
     private static final Long VENDEDORES = 3L;
+    private static final ProcesosVisibles TODOS = ProcesosVisibles.TODOS;
+    /** El id de nodo de cada actividad que cuentan las metricas. */
+    private static final Map<String, Long> NODOS = Map.of("Approve", 12L, "Pay", 13L, "Ship", 14L);
     private static final int TICK = 3;
     private static final ZoneId BOGOTA = ZoneId.of("America/Bogota");
     /** Viernes 9 de enero de 2026 a las tres de la tarde en Bogota; el lunes 12 es festivo (Reyes Magos). */
@@ -143,6 +148,10 @@ class MotorConPlazosTest {
     private Usuario ana;
     private Usuario luis;
     private Usuario dueno;
+
+    /** Un proceso con su version, para contar lo de uno aparte de lo de otro. */
+    private record DeOtroProceso(Proceso proceso, VersionProceso version) {
+    }
 
     /** Un reloj que solo se mueve cuando la prueba lo pide. */
     static final class RelojMovil extends Clock {
@@ -188,7 +197,7 @@ class MotorConPlazosTest {
         Tareas tareas = new Tareas(actividadCasoRepository, casoRepository, delegacionRepository);
         Temporizadores temporizadores = new Temporizadores(temporizadorRepository, actividadCasoRepository,
                 calendarioService, bitacora, reloj);
-        plazos = new Plazos(calendarioService, actividadCasoRepository, bitacora, reloj);
+        plazos = new Plazos(calendarioService, reloj);
         motor = new MotorDeProcesos(actividadCasoRepository, new BandejaDeSalida(mensajeSalienteRepository,
                 new SociosSimulados(List.of()), parametros, bitacora, json), bitacora, json,
                 TestObservationRegistry.create(), temporizadores, new AsignacionAlCrear(personas), tareas, plazos,
@@ -229,7 +238,8 @@ class MotorConPlazosTest {
             assertThat(tarea.getVencimiento().getVenceEn()).isEqualTo(LocalDateTime.parse("2026-01-14T20:00:00"));
             assertThat(tarea.getVencimiento().getAvisoEn()).isEqualTo(LocalDateTime.parse("2026-01-14T15:30:00"));
             assertThat(tarea.getVencimiento().getEstado()).isEqualTo(EstadoPlazo.A_TIEMPO);
-            assertThat(detalles(caso)).contains("\"Approve\" vence el 2026-01-14 15:00 (America/Bogota).");
+            assertThat(detalles(caso)).contains("\"Approve\" queda en la bandeja a la espera de que alguien la "
+                    + "complete. Vence el 2026-01-14 15:00 (America/Bogota).");
 
             // El martes a ultima hora sigue a tiempo: el lunes festivo no conto
             reloj.irA(Instant.parse("2026-01-13T22:00:00Z"));
@@ -294,7 +304,8 @@ class MotorConPlazosTest {
         }
 
         @Test
-        @DisplayName("En prueba se mueve con el tick de la tienda: ocho horas son ocho ticks, el aviso en el sexto")
+        @DisplayName("En prueba se mueve con el tick de la tienda: ocho horas son ocho ticks, el aviso en el sexto, y no "
+                + "se le avisa a nadie")
         void prueba_conTicks() {
             Caso caso = arrancar(conPlazo(8, UnidadDePlazo.HORAS), ModoCaso.PRUEBA);
             ActividadCaso tarea = pasoPor(caso, "Approve");
@@ -310,7 +321,10 @@ class MotorConPlazosTest {
             assertThat(repaso.revisarEnTick(tienda.getId(), TICK + 8)).isOne();
             assertThat(repaso.revisarEnTick(tienda.getId(), TICK + 40)).isZero();
             assertThat(estadoDe(tarea)).isEqualTo(EstadoPlazo.VENCIDA);
-            assertThat(avisados).hasSize(2);
+            // La linea de tiempo lo cuenta; un caso de prueba no le avisa a nadie
+            assertThat(tiposDeLaBitacora(caso)).containsSubsequence(TipoEventoCaso.PLAZO_POR_VENCER,
+                    TipoEventoCaso.PLAZO_VENCIDO);
+            assertThat(avisados).isEmpty();
             // Otra tienda no mueve lo de esta
             assertThat(repaso.revisarEnTick(tienda.getId() + 1000, TICK + 40)).isZero();
         }
@@ -358,6 +372,74 @@ class MotorConPlazosTest {
     }
 
     @Nested
+    @DisplayName("La escritura que mueve un plazo pasa una sola vez")
+    class UnaSolaVez {
+
+        @Test
+        @DisplayName("La de una tarea: solo si sigue esperando en el estado que se leyo, y en su tienda")
+        void deLaTarea() {
+            Caso caso = arrancar(conPlazo(8, UnidadDePlazo.HORAS), ModoCaso.PRODUCCION);
+            ActividadCaso tarea = pasoPor(caso, "Approve");
+            Long id = tarea.getId();
+            Long tiendaId = tienda.getId();
+
+            // Dos repasos que leyeron A_TIEMPO: el primero la mueve, el segundo ya no la encuentra asi
+            assertThat(actividadCasoRepository.moverPlazo(id, tiendaId, "A_TIEMPO", "POR_VENCER")).isOne();
+            assertThat(actividadCasoRepository.moverPlazo(id, tiendaId, "A_TIEMPO", "POR_VENCER")).isZero();
+            assertThat(actividadCasoRepository.moverPlazo(id, tiendaId + 1000, "POR_VENCER", "VENCIDA")).isZero();
+            // Quien la completo entre la lectura y la escritura gana: el repaso no la marca
+            nativo("update actividades_caso set estado = 'COMPLETADA' where id = ?", id);
+            assertThat(actividadCasoRepository.moverPlazo(id, tiendaId, "POR_VENCER", "VENCIDA")).isZero();
+
+            assertThat(estadoDe(tarea)).isEqualTo(EstadoPlazo.POR_VENCER);
+        }
+
+        @Test
+        @DisplayName("La de un caso: solo si sigue abierto o en error en el estado que se leyo, y en su tienda")
+        void delCaso() {
+            DiagramaArmado armado = tareaConBorde();
+            armado.plazo("Start", new PlazoResponse(24, UnidadDePlazo.HORAS));
+            Long id = arrancar(armado, ModoCaso.PRODUCCION).getId();
+            Long tiendaId = tienda.getId();
+
+            assertThat(casoRepository.moverPlazo(id, tiendaId, "A_TIEMPO", "POR_VENCER")).isOne();
+            assertThat(casoRepository.moverPlazo(id, tiendaId, "A_TIEMPO", "POR_VENCER")).isZero();
+            assertThat(casoRepository.moverPlazo(id, tiendaId + 1000, "POR_VENCER", "VENCIDA")).isZero();
+            // En error el tiempo sigue corriendo
+            nativo("update casos set estado = 'ERROR' where id = ?", id);
+            assertThat(casoRepository.moverPlazo(id, tiendaId, "POR_VENCER", "VENCIDA")).isOne();
+            // Terminado ya no se mueve
+            nativo("update casos set estado = 'TERMINADO' where id = ?", id);
+            assertThat(casoRepository.moverPlazo(id, tiendaId, "VENCIDA", "A_TIEMPO")).isZero();
+
+            assertThat(casoRepository.findById(id).orElseThrow().getVencimiento().getEstado())
+                    .isEqualTo(EstadoPlazo.VENCIDA);
+        }
+
+        @Test
+        @DisplayName("Quien guarda el caso que leyo antes de que el repaso lo moviera no le pisa el estado: no se "
+                + "avisa otra vez")
+        void guardarElCasoDespuesNoPisa() {
+            DiagramaArmado armado = tareaConBorde();
+            armado.plazo("Start", new PlazoResponse(24, UnidadDePlazo.HORAS));
+            Caso leido = arrancar(armado, ModoCaso.PRODUCCION, ana.getId());
+
+            // El repaso, en otra transaccion, lo mueve mientras otro camino guarda el caso que ya habia leido
+            nativo("update casos set estado_plazo = 'POR_VENCER' where id = ?", leido.getId());
+            leido.setReferencia("ORD-2");
+            casoRepository.saveAndFlush(leido);
+            em.clear();
+
+            Caso guardado = casoRepository.findById(leido.getId()).orElseThrow();
+            assertThat(guardado.getReferencia()).isEqualTo("ORD-2");
+            assertThat(guardado.getVencimiento().getEstado()).isEqualTo(EstadoPlazo.POR_VENCER);
+            reloj.avanzar(Duration.ofHours(19));
+            assertThat(repaso.revisarVencidos()).isZero();
+            assertThat(avisados).isEmpty();
+        }
+    }
+
+    @Nested
     @DisplayName("El plazo del caso")
     class DelCaso {
 
@@ -377,7 +459,8 @@ class MotorConPlazosTest {
 
             assertThat(casoRepository.findById(caso.getId()).orElseThrow().getVencimiento().getEstado())
                     .isEqualTo(EstadoPlazo.VENCIDA);
-            assertThat(detalles(caso)).contains("El caso vence el 2026-01-10 15:00 (America/Bogota).",
+            assertThat(detalles(caso)).contains("El caso empieza en \"Start\". Vence el 2026-01-10 15:00 "
+                    + "(America/Bogota).",
                     "El caso esta por vencer: entro en el ultimo cuarto de su plazo.", "El caso paso su plazo.");
             assertThat(avisados).extracting(NotificacionPedida::destinatarios).containsOnly(
                     List.of(ana.getId(), dueno.getId()));
@@ -499,25 +582,76 @@ class MotorConPlazosTest {
             tarea("Pay", EstadoActividadCaso.OMITIDA, EstadoPlazo.VENCIDA, ana);
             tarea("Pay", EstadoActividadCaso.COMPLETADA, null, ana);
             ActividadCaso deUnaPrueba = tarea("Pay", EstadoActividadCaso.COMPLETADA, EstadoPlazo.VENCIDA, ana);
-            VersionProceso prueba = em.persistFlushFind(VersionProceso.builder().empresa(tienda).proceso(proceso)
-                    .numero(0).tipo(TipoVersion.PRUEBA).estado(EstadoVersion.RETIRADA).fechaPublicacion(LocalDateTime.now())
-                    .huella("1f2c4a6b8d0e1f23456789abcdef0123456789abcdef0123456789abcdef0125").definicion("{}")
-                    .modeloBpmn("<bpmn:definitions/>").build());
-            em.getEntityManager().createNativeQuery("update casos set version_proceso_id = ? where id = ?")
-                    .setParameter(1, prueba.getId()).setParameter(2, deUnaPrueba.getCaso().getId()).executeUpdate();
+            nativo("update casos set version_proceso_id = ? where id = ?", versionDePrueba().getId(),
+                    deUnaPrueba.getCaso().getId());
+
+            // Otro proceso: Luis completa una a tiempo y Ana una tarde
+            tarea(devoluciones, "Ship", EstadoActividadCaso.COMPLETADA, EstadoPlazo.A_TIEMPO, luis);
+            tarea(devoluciones, "Ship", EstadoActividadCaso.COMPLETADA, EstadoPlazo.VENCIDA, ana);
             em.clear();
 
             Long tiendaId = tienda.getId();
-            assertThat(actividadCasoRepository.cumplimientoPorActividad(tiendaId, null)).containsExactly(
-                    new CumplimientoPorActividadResponse(proceso.getId(), "Refunds", 12L, "Approve", 2, 2),
-                    new CumplimientoPorActividadResponse(proceso.getId(), "Refunds", 13L, "Pay", 0, 2));
-            assertThat(actividadCasoRepository.cumplimientoPorProceso(tiendaId, null)).containsExactly(
-                    new CumplimientoPorProcesoResponse(proceso.getId(), "Refunds", 2, 4));
-            assertThat(actividadCasoRepository.cumplimientoPorPersona(tiendaId, null)).containsExactly(
+            Long refunds = proceso.getId();
+            Long returns = devoluciones.proceso().getId();
+            // De este proceso, sin el otro
+            assertThat(actividadCasoRepository.cumplimientoPorActividad(tiendaId, refunds, TODOS)).containsExactly(
+                    new CumplimientoPorActividadResponse(refunds, "Refunds", 12L, "Approve", 2, 2),
+                    new CumplimientoPorActividadResponse(refunds, "Refunds", 13L, "Pay", 0, 2));
+            assertThat(actividadCasoRepository.cumplimientoPorProceso(tiendaId, refunds, TODOS)).containsExactly(
+                    new CumplimientoPorProcesoResponse(refunds, "Refunds", 2, 4));
+            assertThat(actividadCasoRepository.cumplimientoPorPersona(tiendaId, refunds, TODOS)).containsExactly(
                     new CumplimientoPorPersonaResponse(ana.getId(), "Ana", 1, 2),
                     new CumplimientoPorPersonaResponse(luis.getId(), "Luis", 1, 1));
-            assertThat(actividadCasoRepository.cumplimientoPorProceso(tiendaId, proceso.getId() + 1000)).isEmpty();
-            assertThat(actividadCasoRepository.cumplimientoPorProceso(tiendaId + 1000, null)).isEmpty();
+            // De la tienda entera, con los dos
+            assertThat(actividadCasoRepository.cumplimientoPorActividad(tiendaId, null, TODOS)).containsExactly(
+                    new CumplimientoPorActividadResponse(refunds, "Refunds", 12L, "Approve", 2, 2),
+                    new CumplimientoPorActividadResponse(refunds, "Refunds", 13L, "Pay", 0, 2),
+                    new CumplimientoPorActividadResponse(returns, "Returns", 14L, "Ship", 1, 1));
+            assertThat(actividadCasoRepository.cumplimientoPorProceso(tiendaId, null, TODOS)).containsExactly(
+                    new CumplimientoPorProcesoResponse(refunds, "Refunds", 2, 4),
+                    new CumplimientoPorProcesoResponse(returns, "Returns", 1, 1));
+            assertThat(actividadCasoRepository.cumplimientoPorPersona(tiendaId, null, TODOS)).containsExactly(
+                    new CumplimientoPorPersonaResponse(ana.getId(), "Ana", 1, 3),
+                    new CumplimientoPorPersonaResponse(luis.getId(), "Luis", 2, 1));
+            assertThat(actividadCasoRepository.cumplimientoPorProceso(tiendaId, refunds + 1000, TODOS)).isEmpty();
+            assertThat(actividadCasoRepository.cumplimientoPorProceso(tiendaId + 1000, null, TODOS)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Un proceso que quien pregunta no ve no sale ni cuenta: oculto el, o su carpeta sin concesion "
+                + "propia")
+        void soloLoQueSeVe() {
+            tarea("Approve", EstadoActividadCaso.COMPLETADA, EstadoPlazo.A_TIEMPO, ana);
+            tarea(devoluciones, "Ship", EstadoActividadCaso.COMPLETADA, EstadoPlazo.VENCIDA, ana);
+            caso(EstadoCaso.TERMINADO, EstadoPlazo.A_TIEMPO);
+            caso(devoluciones, EstadoCaso.TERMINADO, EstadoPlazo.VENCIDA);
+            Carpeta oculta = em.persistFlushFind(Carpeta.builder().empresa(tienda).nombre("Private").build());
+            nativo("update procesos set carpeta_id = ? where id = ?", oculta.getId(),
+                    devoluciones.proceso().getId());
+            em.clear();
+            Long tiendaId = tienda.getId();
+            Long refunds = proceso.getId();
+            Long returns = devoluciones.proceso().getId();
+
+            ProcesosVisibles sinElOtro = new ProcesosVisibles(false, Set.of(), Set.of(returns), Set.of());
+            ProcesosVisibles sinSuCarpeta = new ProcesosVisibles(false, Set.of(oculta.getId()), Set.of(), Set.of());
+            for (ProcesosVisibles visible : List.of(sinElOtro, sinSuCarpeta)) {
+                assertThat(actividadCasoRepository.cumplimientoPorProceso(tiendaId, null, visible)).containsExactly(
+                        new CumplimientoPorProcesoResponse(refunds, "Refunds", 1, 0));
+                assertThat(actividadCasoRepository.cumplimientoPorActividad(tiendaId, null, visible))
+                        .extracting(CumplimientoPorActividadResponse::procesoId).containsExactly(refunds);
+                assertThat(actividadCasoRepository.cumplimientoPorPersona(tiendaId, null, visible)).containsExactly(
+                        new CumplimientoPorPersonaResponse(ana.getId(), "Ana", 1, 0));
+                assertThat(casoRepository.cumplimientoDeCasos(tiendaId, null, visible))
+                        .isEqualTo(new CumplimientoDeCasosResponse(1, 0));
+            }
+            // Una concesion propia lo deja ver aunque su carpeta no
+            ProcesosVisibles conConcesion = new ProcesosVisibles(false, Set.of(oculta.getId()), Set.of(),
+                    Set.of(returns));
+            assertThat(actividadCasoRepository.cumplimientoPorProceso(tiendaId, null, conConcesion))
+                    .extracting(CumplimientoPorProcesoResponse::procesoId).containsExactly(refunds, returns);
+            assertThat(casoRepository.cumplimientoDeCasos(tiendaId, null, conConcesion))
+                    .isEqualTo(new CumplimientoDeCasosResponse(1, 1));
         }
 
         @Test
@@ -534,17 +668,51 @@ class MotorConPlazosTest {
             caso(EstadoCaso.CANCELADO, EstadoPlazo.VENCIDA);
             caso(EstadoCaso.TERMINADO, null);
 
-            assertThat(casoRepository.cumplimientoDeCasos(tienda.getId(), null))
+            // Ni una prueba de un borrador, aunque haya terminado tarde
+            Caso deUnaPrueba = caso(EstadoCaso.TERMINADO, EstadoPlazo.VENCIDA);
+            nativo("update casos set version_proceso_id = ? where id = ?", versionDePrueba().getId(),
+                    deUnaPrueba.getId());
+            // Uno de otro proceso, terminado tarde
+            caso(devoluciones, EstadoCaso.TERMINADO, EstadoPlazo.VENCIDA);
+
+            assertThat(casoRepository.cumplimientoDeCasos(tienda.getId(), proceso.getId(), TODOS))
                     .isEqualTo(new CumplimientoDeCasosResponse(2, 3));
-            assertThat(casoRepository.cumplimientoDeCasos(tienda.getId(), proceso.getId()))
-                    .isEqualTo(new CumplimientoDeCasosResponse(2, 3));
-            assertThat(casoRepository.cumplimientoDeCasos(tienda.getId() + 1000, null))
+            assertThat(casoRepository.cumplimientoDeCasos(tienda.getId(), null, TODOS))
+                    .isEqualTo(new CumplimientoDeCasosResponse(2, 4));
+            assertThat(casoRepository.cumplimientoDeCasos(tienda.getId() + 1000, null, TODOS))
                     .isEqualTo(new CumplimientoDeCasosResponse(0, 0));
         }
 
+        /** Otro proceso de la misma tienda, con su version publicada. */
+        private DeOtroProceso devoluciones;
+
+        @BeforeEach
+        void otroProceso() {
+            Proceso otro = em.persistFlushFind(Proceso.builder().empresa(tienda).nombre("Returns")
+                    .descripcion("Return to stock").categoria("Support").estado(EstadoProceso.PUBLICADO).activo(true)
+                    .duenoId(dueno.getId()).build());
+            devoluciones = new DeOtroProceso(otro, em.persistFlushFind(VersionProceso.builder().empresa(tienda)
+                    .proceso(otro).numero(1).estado(EstadoVersion.VIGENTE).fechaPublicacion(LocalDateTime.now())
+                    .huella("1f2c4a6b8d0e1f23456789abcdef0123456789abcdef0123456789abcdef0126").definicion("{}")
+                    .modeloBpmn("<bpmn:definitions/>").build()));
+        }
+
+        private VersionProceso versionDePrueba() {
+            return em.persistFlushFind(VersionProceso.builder().empresa(tienda).proceso(proceso).numero(0)
+                    .tipo(TipoVersion.PRUEBA).estado(EstadoVersion.RETIRADA).fechaPublicacion(LocalDateTime.now())
+                    .huella("1f2c4a6b8d0e1f23456789abcdef0123456789abcdef0123456789abcdef0125").definicion("{}")
+                    .modeloBpmn("<bpmn:definitions/>").build());
+        }
+
         private ActividadCaso tarea(String nombre, EstadoActividadCaso estado, EstadoPlazo plazo, Usuario quien) {
-            Caso caso = em.persistFlushFind(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(version)
-                    .estado(EstadoCaso.ABIERTO).modo(ModoCaso.PRODUCCION).variables("{}").tickInicio(TICK).build());
+            return tarea(new DeOtroProceso(proceso, version), nombre, estado, plazo, quien);
+        }
+
+        private ActividadCaso tarea(DeOtroProceso de, String nombre, EstadoActividadCaso estado, EstadoPlazo plazo,
+                Usuario quien) {
+            Caso caso = em.persistFlushFind(Caso.builder().empresa(tienda).proceso(de.proceso())
+                    .versionProceso(de.version()).estado(EstadoCaso.ABIERTO).modo(ModoCaso.PRODUCCION).variables("{}")
+                    .tickInicio(TICK).build());
             Vencimiento vencimiento = null;
             if (plazo != null) {
                 vencimiento = Vencimiento.enProduccion(LocalDateTime.parse("2026-01-10T10:00:00"),
@@ -552,20 +720,25 @@ class MotorConPlazosTest {
                 vencimiento.setEstado(plazo);
             }
             return em.persistFlushFind(ActividadCaso.builder().empresa(tienda).caso(caso)
-                    .nodoId("Approve".equals(nombre) ? 12L : 13L).nodoNombre(nombre).tipoNodo(TipoNodoCaso.ACTIVIDAD)
+                    .nodoId(NODOS.get(nombre)).nodoNombre(nombre).tipoNodo(TipoNodoCaso.ACTIVIDAD)
                     .subtipo("USUARIO").rolProcesoId(VENDEDORES).estado(estado).llegadas(1).tickInicio(TICK)
                     .asignadoA(quien == null ? null : quien.getId()).vencimiento(vencimiento).build());
         }
 
-        private void caso(EstadoCaso estado, EstadoPlazo plazo) {
+        private Caso caso(EstadoCaso estado, EstadoPlazo plazo) {
+            return caso(new DeOtroProceso(proceso, version), estado, plazo);
+        }
+
+        private Caso caso(DeOtroProceso de, EstadoCaso estado, EstadoPlazo plazo) {
             Vencimiento vencimiento = null;
             if (plazo != null) {
                 vencimiento = Vencimiento.enProduccion(LocalDateTime.parse("2026-01-10T10:00:00"),
                         LocalDateTime.parse("2026-01-10T12:00:00"));
                 vencimiento.setEstado(plazo);
             }
-            em.persistAndFlush(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(version).estado(estado)
-                    .modo(ModoCaso.PRODUCCION).variables("{}").tickInicio(TICK).vencimiento(vencimiento).build());
+            return em.persistAndFlush(Caso.builder().empresa(tienda).proceso(de.proceso())
+                    .versionProceso(de.version()).estado(estado).modo(ModoCaso.PRODUCCION).variables("{}")
+                    .tickInicio(TICK).vencimiento(vencimiento).build());
         }
     }
 
@@ -642,6 +815,15 @@ class MotorConPlazosTest {
     private List<TipoEventoCaso> tiposDeLaBitacora(Caso caso) {
         return eventoCasoRepository.findAllByCasoIdAndEmpresaIdOrderByIdAsc(caso.getId(), tienda.getId()).stream()
                 .map(EventoCaso::getTipo).toList();
+    }
+
+    /** Lo que el repaso, o quien completa, escribiria desde otra transaccion. */
+    private void nativo(String sql, Object... parametros) {
+        var consulta = em.getEntityManager().createNativeQuery(sql);
+        for (int i = 0; i < parametros.length; i++) {
+            consulta.setParameter(i + 1, parametros[i]);
+        }
+        consulta.executeUpdate();
     }
 
     private List<String> detalles(Caso caso) {

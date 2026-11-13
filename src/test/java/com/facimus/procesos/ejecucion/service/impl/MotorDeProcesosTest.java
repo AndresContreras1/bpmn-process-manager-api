@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -53,6 +54,7 @@ import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.model.VersionProceso;
+import com.facimus.procesos.gestion.service.CalendarioService;
 import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
@@ -135,7 +137,7 @@ class MotorDeProcesosTest {
                 new BandejaDeSalida(mensajeSalienteRepository, new SociosSimulados(List.of(unSocioQueTardaUnTick())),
                         parametros, bitacora, json), bitacora, json, observaciones, mock(Temporizadores.class),
                 new AsignacionAlCrear(personas), new Tareas(actividadCasoRepository, casoRepository,
-                        delegacionRepository), mock(Plazos.class), mock(Escalamientos.class));
+                        delegacionRepository), sinPlazos(), mock(Escalamientos.class));
         tienda = em.persistFlushFind(Empresa.builder().nombre("Tienda del motor").nit("900123456-1")
                 .correoContacto("motor@demo.com").fechaRegistro(LocalDate.now()).build());
         proceso = em.persistFlushFind(Proceso.builder().empresa(tienda).nombre("Order fulfillment")
@@ -1093,5 +1095,10 @@ class MotorDeProcesosTest {
         return eventoCasoRepository.findAllByCasoIdAndEmpresaIdOrderByIdAsc(caso.getId(), tienda.getId()).stream()
                 .map(EventoCaso::getDetalle)
                 .toList();
+    }
+
+    /** PR 71: los plazos de verdad, que en un diagrama sin plazos no arman nada ni le suman nada a una linea. */
+    private static Plazos sinPlazos() {
+        return new Plazos(mock(CalendarioService.class), Clock.systemUTC());
     }
 }

@@ -27,6 +27,7 @@ import com.facimus.procesos.common.notificaciones.NotificacionPedida;
 import com.facimus.procesos.common.notificaciones.TipoDeNotificacion;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
+import com.facimus.procesos.ejecucion.model.ModoCaso;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.service.MembresiaRolService;
 
@@ -57,7 +58,8 @@ class AvisosDePlazoTest {
         avisos = new AvisosDePlazo(eventos, membresiaRolService);
         Empresa tienda = Empresa.builder().id(TIENDA).build();
         proceso = Proceso.builder().id(100L).empresa(tienda).nombre("Refunds").duenoId(DUENO).build();
-        caso = Caso.builder().id(42L).empresa(tienda).proceso(proceso).iniciadoPor(INICIADOR).build();
+        caso = Caso.builder().id(42L).empresa(tienda).proceso(proceso).iniciadoPor(INICIADOR)
+                .modo(ModoCaso.PRODUCCION).build();
         tarea = ActividadCaso.builder().id(77L).caso(caso).rolProcesoId(ROL).build();
         given(membresiaRolService.idsDeLosMiembrosDe(TIENDA, ROL)).willReturn(List.of(ANA, LUIS, DUENO));
     }
@@ -124,6 +126,19 @@ class AvisosDePlazoTest {
 
         assertThat(publicada()).isEqualTo(new NotificacionPedida(TIENDA, TipoDeNotificacion.TAREA_ESCALADA, null,
                 100L, 42L, List.of(LUIS)));
+    }
+
+    @Test
+    @DisplayName("Un caso de prueba no le avisa a nadie: ni de su plazo, ni del de sus tareas, ni de un escalamiento")
+    void casoDePrueba_noAvisa() {
+        caso.setModo(ModoCaso.PRUEBA);
+        tarea.setAsignadoA(ANA);
+
+        avisos.deLaTarea(caso, tarea, TipoDeNotificacion.PLAZO_VENCIDO);
+        avisos.delCaso(caso, TipoDeNotificacion.PLAZO_POR_VENCER);
+        avisos.deUnEscalamiento(caso, List.of(ANA, LUIS));
+
+        verifyNoInteractions(eventos);
     }
 
     private NotificacionPedida publicada() {

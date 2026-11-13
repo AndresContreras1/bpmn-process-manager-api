@@ -1,4 +1,4 @@
-import { Datos, EstadoPaso } from './caso.model';
+import { Datos, EstadoPaso, EstadoPlazo } from './caso.model';
 
 /** Una tarea esperando en la bandeja de un rol de proceso (TareaResponse). */
 export interface Tarea {
@@ -28,9 +28,6 @@ export interface Tarea {
   /** PR 71: como va su plazo; vacio si no tiene. */
   estadoPlazo?: EstadoPlazo | null;
 }
-
-/** PR 71: a tiempo, en el ultimo cuarto de su plazo, o pasado. */
-export type EstadoPlazo = 'A_TIEMPO' | 'POR_VENCER' | 'VENCIDA';
 
 /** Lo que entrega quien completa la tarea; va a las variables del caso bajo tarea.<nombreEnCamel>. */
 export interface CompletarTareaRequest {

@@ -165,6 +165,11 @@ public class ProcesoServiceImpl implements ProcesoService {
         return conBorrador(buscar(empresaId, procesoId, incluirInactivos));
     }
 
+    @Override
+    public boolean existe(Long empresaId, Long procesoId) {
+        return procesoRepository.existsByIdAndEmpresaId(procesoId, empresaId);
+    }
+
     /**
      * La puerta de lectura no calcula si el borrador tiene cambios: quien arma el diagrama ya tendra la huella de
      * hoy, y le basta con la de la version vigente para compararlas sin volver a leer el modelo.

@@ -36,7 +36,7 @@ final class CuandoVenceElPlazo {
                     Temporizadores.utc(desde.plus(largo)));
         }
         return Vencimiento.enProduccion(Temporizadores.utc(calendario.sumarHoras(desde, hastaElAviso)),
-                Temporizadores.utc(calendario.sumarHoras(desde, largo)));
+                Temporizadores.utc(calendario.sumarDias(desde, plazo.cantidad())));
     }
 
     /** El de prueba, contado en ticks desde el tick en que se arma. */
