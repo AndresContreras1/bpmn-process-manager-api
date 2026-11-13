@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado;
 
 import static com.facimus.procesos.security.ApiPrincipalRequestPostProcessor.principal;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.stream.Stream;
@@ -246,8 +248,11 @@ class DocumentosIntegracionTest {
                 .andExpect(jsonPath("$.documento.motivo").value("El antivirus encontró Prueba.Marca-De-Virus."));
         mvc.perform(get("/api/v1/documentos/{id}/enlace", documento).with(como(beto)))
                 .andExpect(status().isConflict());
-        assertThat(jdbc.queryForObject("select count(*) from bitacora where empresa_id = ? and recurso_id = ? "
-                + "and accion = 'DOCUMENTO_BLOQUEADO'", Integer.class, empresaId, documento)).isEqualTo(1);
+        // La bitacora se escribe despues del commit, en otro hilo: se espera a que llegue
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(jdbc.queryForObject(
+                "select count(*) from bitacora where empresa_id = ? and recurso_id = ? "
+                        + "and accion = 'DOCUMENTO_BLOQUEADO'",
+                Integer.class, empresaId, documento)).isEqualTo(1));
     }
 
     @Test
