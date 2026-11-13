@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { EMPTY, Observable, expand, reduce } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { PageResponse } from '../models/page-response.model';
@@ -17,6 +17,9 @@ export interface FiltrosUsuario {
   nombre: string;
   incluirInactivos: boolean;
 }
+
+/** El maximo de usuarios por pagina que acepta la API. */
+const USUARIOS_POR_PAGINA = 50;
 
 /** Los usuarios de la tienda. Solo un administrador los administra; la API responde 403 a los demas. */
 @Injectable({ providedIn: 'root' })
@@ -43,13 +46,19 @@ export class UsuarioService {
   }
 
   /**
-   * Los activos en una sola pagina, por nombre, para los desplegables que eligen a alguien: el dueno de un proceso y
-   * a quien se le concede algo. Cincuenta es el maximo que la API acepta por pagina.
+   * Los activos, por nombre, para los desplegables que eligen a alguien: el dueno de un proceso y a quien se le concede
+   * algo. Se leen todas las paginas, de cincuenta en cincuenta, que es el maximo que la API acepta: con una sola, la
+   * persona numero cincuenta y uno no se podria elegir y sus concesiones saldrian sin nombre.
    */
   paraElegir(): Observable<Usuario[]> {
-    return this.http
-      .get<PageResponse<Usuario>>(this.url, { params: { pagina: 0, tamano: 50, orden: 'nombre,asc' } })
-      .pipe(map((pagina: PageResponse<Usuario>) => pagina.content));
+    const leer = (pagina: number): Observable<PageResponse<Usuario>> =>
+      this.http.get<PageResponse<Usuario>>(this.url, {
+        params: { pagina, tamano: USUARIOS_POR_PAGINA, orden: 'nombre,asc' },
+      });
+    return leer(0).pipe(
+      expand((leida: PageResponse<Usuario>) => (leida.page + 1 < leida.totalPages ? leer(leida.page + 1) : EMPTY)),
+      reduce((todos: Usuario[], leida: PageResponse<Usuario>) => [...todos, ...leida.content], []),
+    );
   }
 
   /** La respuesta trae la clave temporal cuando la API la invento: es la unica vez que se puede leer. */

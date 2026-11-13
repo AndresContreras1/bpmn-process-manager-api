@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ResultadoDeBusqueda } from '../models/busqueda.model';
 import { PageResponse } from '../models/page-response.model';
-import { EstadoDeBusqueda, buscarMientrasSeEscribe } from './buscador';
+import { EstadoDeBusqueda, buscarMientrasSeEscribe, elegidoConEnter } from './buscador';
 
 function pagina(...titulos: string[]): PageResponse<ResultadoDeBusqueda> {
   const content = titulos.map((titulo): ResultadoDeBusqueda => ({
@@ -125,5 +125,31 @@ describe('buscarMientrasSeEscribe', () => {
     vi.advanceTimersByTime(250);
     expect(estados.at(-1)?.error).toBeNull();
     expect(estados.at(-1)?.total).toBe(1);
+  });
+});
+
+describe('elegidoConEnter', () => {
+  const resultados = pagina('Credit approval', 'Credit card').content;
+  const listo = (texto: string): EstadoDeBusqueda => ({
+    texto,
+    buscando: false,
+    resultados,
+    total: resultados.length,
+    error: null,
+  });
+
+  it('abre la activa, o la primera si no hay ninguna activa', () => {
+    expect(elegidoConEnter('credit', listo('credit'), resultados, 1)).toBe(resultados[1]);
+    expect(elegidoConEnter(' credit ', listo('credit'), resultados, -1)).toBe(resultados[0]);
+  });
+
+  it('no abre nada si la persona siguio escribiendo y lo que se ve es del texto anterior', () => {
+    expect(elegidoConEnter('credit c', listo('credit'), resultados, 0)).toBeNull();
+  });
+
+  it('no abre nada con la respuesta en camino, sin busqueda o sin resultados', () => {
+    expect(elegidoConEnter('credit', { ...listo('credit'), buscando: true }, resultados, 0)).toBeNull();
+    expect(elegidoConEnter('credit', null, resultados, 0)).toBeNull();
+    expect(elegidoConEnter('credit', listo('credit'), [], -1)).toBeNull();
   });
 });

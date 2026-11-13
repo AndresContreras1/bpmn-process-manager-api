@@ -100,10 +100,24 @@ describe('filtrosDesdeUrl con una direccion escrita a mano', () => {
     expect(leer({ revision: '2027-03-01' }).revisionAntesDe).toBe('2027-03-01');
   });
 
+  it('un dia con la forma de uno pero que no existe no filtra: la API lo rechazaria', () => {
+    expect(leer({ revision: '2027-02-30' }).revisionAntesDe).toBe('');
+    expect(leer({ revision: '2027-13-01' }).revisionAntesDe).toBe('');
+    expect(leer({ revision: '2027-04-31' }).revisionAntesDe).toBe('');
+    expect(leer({ revision: '2028-02-29' }).revisionAntesDe).toBe('2028-02-29');
+    expect(leer({ revision: '2027-02-29' }).revisionAntesDe).toBe('');
+  });
+
   it('una pagina que no es un numero, o cero, es la primera', () => {
     expect(leer({ pagina: 'x' }).pagina).toBe(0);
     expect(leer({ pagina: '0' }).pagina).toBe(0);
     expect(leer({ pagina: '-2' }).pagina).toBe(0);
+  });
+
+  it('una pagina que no cabe en el int de la API es la primera, y la de nueve cifras vale', () => {
+    expect(leer({ pagina: '99999999999' }).pagina).toBe(0);
+    expect(leer({ pagina: '1000000000' }).pagina).toBe(0);
+    expect(leer({ pagina: '999999999' }).pagina).toBe(999999998);
   });
 });
 

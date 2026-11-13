@@ -6,7 +6,7 @@ import { Observable, filter, finalize, map, of, switchMap } from 'rxjs';
 
 import { Idioma, Preferencias } from '../../models/preferencias.model';
 import { NOMBRE_ROL, RolAcceso, Usuario } from '../../models/usuario.model';
-import { esAtajoDeBusqueda } from '../../helpers/teclado';
+import { atajoDeBusqueda, esAtajoDeBusqueda, hayOtroDialogoAbierto } from '../../helpers/teclado';
 import { AuthService } from '../../service/auth.service';
 import { AvisosService } from '../../service/avisos.service';
 import { BusquedaGlobalService } from '../../service/busqueda-global.service';
@@ -57,6 +57,8 @@ export class EstructuraComponent implements OnInit {
   readonly usuario$: Observable<Usuario | null> = this.authService.usuario$;
   readonly nombreRol: Record<RolAcceso, string> = NOMBRE_ROL;
   readonly repositorio: string = 'https://github.com/AndresContreras1/bpmn-process-manager-api';
+  /** El atajo como se lee en el boton del encabezado: Cmd K en un Mac. */
+  readonly atajoVisible: string = atajoDeBusqueda(navigator.userAgent);
 
   migas: Miga[] = [];
 
@@ -74,10 +76,14 @@ export class EstructuraComponent implements OnInit {
   /**
    * F19: Ctrl+K, o Cmd+K, abre la busqueda global desde cualquier pantalla, tambien con el foco en un campo, que es
    * lo que hacen las aplicaciones que la tienen. Sin sesion no hay nada que buscar, y el navegador conserva su atajo.
+   * Con otro dialogo abierto no se apila encima: primero se cierra el que hay.
    */
   atajo(evento: KeyboardEvent): void {
-    if (esAtajoDeBusqueda(evento) && this.authService.usuarioActual()) {
-      evento.preventDefault();
+    if (!esAtajoDeBusqueda(evento) || !this.authService.usuarioActual()) {
+      return;
+    }
+    evento.preventDefault();
+    if (!hayOtroDialogoAbierto(document, 'busqueda-dialogo')) {
       this.busquedaGlobal.abrir();
     }
   }

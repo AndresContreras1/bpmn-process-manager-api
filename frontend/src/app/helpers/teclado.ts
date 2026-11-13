@@ -15,6 +15,19 @@ export function esAtajoDeBusqueda(tecla: Tecla): boolean {
   return (tecla.ctrlKey || tecla.metaKey) && !tecla.altKey && !tecla.shiftKey && tecla.key.toLowerCase() === 'k';
 }
 
+/** Como se escribe el atajo para quien lo lee: Cmd en un Mac, un iPhone o un iPad, y Ctrl en lo demas. */
+export function atajoDeBusqueda(agente: string): string {
+  return /Mac|iPhone|iPad/.test(agente) ? '⌘ K' : 'Ctrl K';
+}
+
+/**
+ * Si hay abierto un dialogo modal que no es el de ese id: Ctrl+K no abre la busqueda encima, que dejaria dos dialogos
+ * modales a la vez, cada uno reteniendo el foco.
+ */
+export function hayOtroDialogoAbierto(raiz: ParentNode, propio: string): boolean {
+  return Array.from(raiz.querySelectorAll('[aria-modal="true"]')).some((dialogo: Element) => dialogo.id !== propio);
+}
+
 /**
  * La opcion activa despues de una flecha, en una lista de `total` opciones: baja y sube dando la vuelta, y la primera
  * flecha entra por la punta que toca. Cualquier otra tecla la deja donde estaba; sin opciones no hay ninguna activa.

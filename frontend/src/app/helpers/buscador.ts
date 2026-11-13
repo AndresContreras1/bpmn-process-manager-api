@@ -44,6 +44,23 @@ export function buscarMientrasSeEscribe(
   );
 }
 
+/**
+ * Lo que abre Enter: la opcion activa, o la primera. Nada si lo que hay en pantalla es de otro texto, porque la
+ * persona siguio escribiendo y la pregunta nueva todavia no salio, o si la respuesta sigue en camino: abriria un
+ * resultado de lo que ya no busca.
+ */
+export function elegidoConEnter(
+  escrito: string,
+  estado: EstadoDeBusqueda | null,
+  enOrden: readonly ResultadoDeBusqueda[],
+  activa: number,
+): ResultadoDeBusqueda | null {
+  if (!estado || estado.buscando || estado.texto !== escrito.trim()) {
+    return null;
+  }
+  return enOrden[activa] ?? enOrden[0] ?? null;
+}
+
 function estado(
   texto: string,
   buscando: boolean,

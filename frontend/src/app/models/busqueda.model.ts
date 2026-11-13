@@ -65,6 +65,22 @@ export function agruparResultados(resultados: ResultadoDeBusqueda[]): GrupoDeRes
   return grupos;
 }
 
+/** Adonde lleva un resultado: la ruta y lo que se le pasa en la direccion. */
+export interface DestinoDeResultado {
+  ruta: (string | number)[];
+  consulta: Record<string, string>;
+}
+
+/**
+ * Cada resultado abre su proceso; un elemento lo abre con ese elemento ya elegido en el diagrama (?elemento=). Los
+ * documentos y los comentarios abren el proceso, que es donde se leen.
+ */
+export function destinoDe(resultado: ResultadoDeBusqueda): DestinoDeResultado {
+  const consulta: Record<string, string> =
+    resultado.tipo === 'ELEMENTO' && resultado.bpmnId ? { elemento: resultado.bpmnId } : {};
+  return { ruta: ['/procesos', resultado.procesoId], consulta };
+}
+
 /** Los resultados en el orden en que se recorren, que es el de los grupos. */
 export function enOrdenDeGrupos(grupos: GrupoDeResultados[]): ResultadoDeBusqueda[] {
   return grupos.flatMap((grupo) => grupo.resultados.map((uno) => uno.resultado));

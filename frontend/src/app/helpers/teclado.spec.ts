@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { Tecla, esAtajoDeBusqueda, retenerFoco, siguienteOpcion } from './teclado';
+import {
+  Tecla,
+  atajoDeBusqueda,
+  esAtajoDeBusqueda,
+  hayOtroDialogoAbierto,
+  retenerFoco,
+  siguienteOpcion,
+} from './teclado';
 
 function tecla(cambios: Partial<Tecla>): Tecla {
   return { key: 'k', ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...cambios };
@@ -90,5 +97,37 @@ describe('retenerFoco', () => {
   it('un dialogo sin controles no hace nada', () => {
     const vacio = document.createElement('div');
     expect(retenerFoco({ key: 'Tab', shiftKey: false }, vacio)).toBe(false);
+  });
+});
+
+describe('atajoDeBusqueda', () => {
+  it('en un Mac, un iPhone o un iPad dice Cmd, y en lo demas Ctrl', () => {
+    expect(atajoDeBusqueda('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15')).toBe('⌘ K');
+    expect(atajoDeBusqueda('Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X)')).toBe('⌘ K');
+    expect(atajoDeBusqueda('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0')).toBe('Ctrl K');
+    expect(atajoDeBusqueda('Mozilla/5.0 (X11; Linux x86_64)')).toBe('Ctrl K');
+  });
+});
+
+describe('hayOtroDialogoAbierto', () => {
+  function raiz(id: string, modal: string | null): HTMLElement {
+    const div = document.createElement('div');
+    const dialogo = document.createElement('div');
+    dialogo.id = id;
+    if (modal !== null) {
+      dialogo.setAttribute('aria-modal', modal);
+    }
+    div.appendChild(dialogo);
+    return div;
+  }
+
+  it('un dialogo modal abierto que no es el propio cuenta', () => {
+    expect(hayOtroDialogoAbierto(raiz('mover-dialogo', 'true'), 'busqueda-dialogo')).toBe(true);
+  });
+
+  it('el propio, uno que no es modal o ninguno no cuentan', () => {
+    expect(hayOtroDialogoAbierto(raiz('busqueda-dialogo', 'true'), 'busqueda-dialogo')).toBe(false);
+    expect(hayOtroDialogoAbierto(raiz('aviso', 'false'), 'busqueda-dialogo')).toBe(false);
+    expect(hayOtroDialogoAbierto(raiz('nada', null), 'busqueda-dialogo')).toBe(false);
   });
 });

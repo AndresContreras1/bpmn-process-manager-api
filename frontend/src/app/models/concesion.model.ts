@@ -1,4 +1,5 @@
 import { Carpeta } from './carpeta.model';
+import { Proceso } from './proceso.model';
 import { RolAcceso } from './usuario.model';
 
 /** PR 60: lo que se puede hacer con una carpeta o un proceso. */
@@ -135,6 +136,17 @@ export function cadenaDeCarpetas(carpetaId: number | null | undefined, carpetas:
     actual = carpeta.padreId;
   }
   return cadena;
+}
+
+/** Lo que tiene concesiones: un proceso, que esta en una carpeta o en ninguna, o una carpeta. */
+export type RecursoConConcesiones = { proceso: Pick<Proceso, 'carpetaId'> } | { carpeta: Carpeta };
+
+/**
+ * La carpeta desde la que se hereda: la del proceso, o la madre de la carpeta, porque lo de una carpeta no es heredado
+ * para ella misma sino suyo. Null si no hay ninguna arriba.
+ */
+export function inicioDeLaHerencia(recurso: RecursoConConcesiones): number | null {
+  return 'carpeta' in recurso ? recurso.carpeta.padreId : (recurso.proceso.carpetaId ?? null);
 }
 
 /** Los botones de un proceso que van a funcionar para quien lo mira. */

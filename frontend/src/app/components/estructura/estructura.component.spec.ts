@@ -103,4 +103,19 @@ describe('EstructuraComponent: Ctrl+K', () => {
 
     expect(busqueda.abierta()).toBe(false);
   });
+
+  it('con otro dialogo modal abierto no apila la busqueda encima, y el navegador no se queda el atajo', () => {
+    const otro = document.createElement('div');
+    otro.id = 'mover-dialogo';
+    otro.setAttribute('aria-modal', 'true');
+    document.body.appendChild(otro);
+    try {
+      const evento = pulsar({ ctrlKey: true });
+
+      expect(busqueda.abierta()).toBe(false);
+      expect(evento.defaultPrevented).toBe(true);
+    } finally {
+      otro.remove();
+    }
+  });
 });

@@ -9,6 +9,7 @@ import {
   botonesDelProceso,
   cadenaDeCarpetas,
   faltaEnConcesion,
+  inicioDeLaHerencia,
   solicitudDeConcesion,
 } from './concesion.model';
 
@@ -103,6 +104,28 @@ describe('cadenaDeCarpetas', () => {
 
   it('un ciclo no da vueltas para siempre', () => {
     expect(cadenaDeCarpetas(1, [carpeta(1, 2), carpeta(2, 1)]).map((una) => una.id)).toEqual([1, 2]);
+  });
+});
+
+describe('inicioDeLaHerencia', () => {
+  const arbol = [carpeta(1, null), carpeta(2, 1), carpeta(3, 2)];
+
+  it('un proceso hereda desde su carpeta, que cuenta entera hasta la raiz', () => {
+    const inicio = inicioDeLaHerencia({ proceso: { carpetaId: 3 } });
+    expect(inicio).toBe(3);
+    expect(cadenaDeCarpetas(inicio, arbol).map((una) => una.id)).toEqual([3, 2, 1]);
+  });
+
+  it('una carpeta hereda desde su madre: lo suyo no se lista como heredado', () => {
+    const inicio = inicioDeLaHerencia({ carpeta: arbol[2] });
+    expect(inicio).toBe(2);
+    expect(cadenaDeCarpetas(inicio, arbol).map((una) => una.id)).toEqual([2, 1]);
+  });
+
+  it('sin nada arriba no hereda nada', () => {
+    expect(inicioDeLaHerencia({ proceso: { carpetaId: null } })).toBeNull();
+    expect(inicioDeLaHerencia({ proceso: {} })).toBeNull();
+    expect(inicioDeLaHerencia({ carpeta: arbol[0] })).toBeNull();
   });
 });
 

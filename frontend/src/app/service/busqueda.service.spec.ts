@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../environments/environment';
-import { BusquedaService, RESULTADOS_POR_BUSQUEDA } from './busqueda.service';
+import { BusquedaService } from './busqueda.service';
 
 describe('BusquedaService', () => {
   const url = `${environment.apiUrl}/api/v1/busqueda`;
@@ -27,7 +27,8 @@ describe('BusquedaService', () => {
     expect(peticion.request.method).toBe('GET');
     expect(peticion.request.params.get('q')).toBe('"credit approval" -card');
     expect(peticion.request.params.get('pagina')).toBe('0');
-    expect(peticion.request.params.get('tamano')).toBe(String(RESULTADOS_POR_BUSQUEDA));
+    // Veinte, dentro del tope de la API: un numero escrito, para que cambiar la constante no pase sin verse
+    expect(peticion.request.params.get('tamano')).toBe('20');
     expect(peticion.request.params.has('tipo')).toBe(false);
     peticion.flush(vacia);
     await expect(pagina).resolves.toEqual(vacia);

@@ -109,7 +109,12 @@ export class RolesComponent implements OnInit {
             this.procesosDelRol = completo.procesos ?? [];
           }
         },
-        error: (error: HttpErrorResponse) => (this.errorDeProcesos = mensajeDeError(error)),
+        // Una respuesta tardia de un rol que ya se cerro o se cambio no le toca al que esta abierto ahora
+        error: (error: HttpErrorResponse) => {
+          if (this.abierto === rol.id) {
+            this.errorDeProcesos = mensajeDeError(error);
+          }
+        },
       });
   }
 

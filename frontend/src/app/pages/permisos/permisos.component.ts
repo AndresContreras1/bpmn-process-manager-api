@@ -20,6 +20,7 @@ import {
   SujetoConcesion,
   cadenaDeCarpetas,
   faltaEnConcesion,
+  inicioDeLaHerencia,
   solicitudDeConcesion,
 } from '../../models/concesion.model';
 import { RolProceso } from '../../models/rol-proceso.model';
@@ -177,6 +178,9 @@ export class PermisosComponent implements OnInit {
   }
 
   conceder(): void {
+    if (this.enviando) {
+      return;
+    }
     const valores = this.formulario.getRawValue();
     this.falta = faltaEnConcesion(valores);
     const solicitud = solicitudDeConcesion(valores);
@@ -207,14 +211,19 @@ export class PermisosComponent implements OnInit {
 
   confirmarRetirada(): void {
     const concesion = this.seleccionada;
-    if (!concesion) {
+    // Una retirada en camino no se repite: la segunda responderia 404 por una concesion que ya no esta
+    if (!concesion || this.enviando) {
       return;
     }
+    this.enviando = true;
     this.error = null;
     this.aviso = null;
     this.concesiones
       .retirar(concesion.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        finalize(() => (this.enviando = false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: () => {
           this.aviso = $localize`Taken back from ${this.sujetoDe(concesion)}.`;
@@ -267,12 +276,12 @@ export class PermisosComponent implements OnInit {
         return throwError(() => new HttpErrorResponse({ status: 404 }));
       }
       this.nombre = carpeta.nombre;
-      return of(carpeta.padreId);
+      return of(inicioDeLaHerencia({ carpeta }));
     }
     return this.procesoService.obtener(this.id).pipe(
       map((detalle) => {
         this.nombre = detalle.proceso.nombre;
-        return detalle.proceso.carpetaId ?? null;
+        return inicioDeLaHerencia({ proceso: detalle.proceso });
       }),
     );
   }

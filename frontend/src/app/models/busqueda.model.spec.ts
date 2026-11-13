@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ResultadoDeBusqueda, TipoDeResultado, agruparResultados, enOrdenDeGrupos } from './busqueda.model';
+import { ResultadoDeBusqueda, TipoDeResultado, agruparResultados, destinoDe, enOrdenDeGrupos } from './busqueda.model';
 
 function resultado(tipo: TipoDeResultado, titulo: string): ResultadoDeBusqueda {
   return {
@@ -46,5 +46,21 @@ describe('agruparResultados', () => {
   it('sin resultados no hay grupos, ni vacios', () => {
     expect(agruparResultados([])).toEqual([]);
     expect(agruparResultados([resultado('DOCUMENTO', 'a.pdf')]).map((grupo) => grupo.tipo)).toEqual(['DOCUMENTO']);
+  });
+});
+
+describe('destinoDe', () => {
+  it('un elemento abre su proceso con el elemento elegido', () => {
+    expect(destinoDe({ ...resultado('ELEMENTO', 'Pack'), procesoId: 7, bpmnId: 'Activity_pack' })).toEqual({
+      ruta: ['/procesos', 7],
+      consulta: { elemento: 'Activity_pack' },
+    });
+  });
+
+  it('un proceso, un documento, un comentario o un elemento sin bpmnId abren el proceso a secas', () => {
+    for (const tipo of ['PROCESO', 'DOCUMENTO', 'COMENTARIO', 'ELEMENTO'] as TipoDeResultado[]) {
+      expect(destinoDe({ ...resultado(tipo, 'x'), procesoId: 3 })).toEqual({ ruta: ['/procesos', 3], consulta: {} });
+    }
+    expect(destinoDe({ ...resultado('DOCUMENTO', 'policy.pdf'), bpmnId: 'Activity_pack' }).consulta).toEqual({});
   });
 });

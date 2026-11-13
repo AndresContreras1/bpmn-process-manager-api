@@ -13,13 +13,14 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 
-import { EstadoDeBusqueda, buscarMientrasSeEscribe } from '../../helpers/buscador';
+import { EstadoDeBusqueda, buscarMientrasSeEscribe, elegidoConEnter } from '../../helpers/buscador';
 import { mensajeDeError } from '../../helpers/errores-api';
 import { retenerFoco, siguienteOpcion } from '../../helpers/teclado';
 import {
   GrupoDeResultados,
   ResultadoDeBusqueda,
   agruparResultados,
+  destinoDe,
   enOrdenDeGrupos,
 } from '../../models/busqueda.model';
 import { BusquedaGlobalService } from '../../service/busqueda-global.service';
@@ -89,7 +90,7 @@ export class BusquedaGlobalComponent {
       document.getElementById(this.idDe(this.activa))?.scrollIntoView({ block: 'nearest' });
     } else if (evento.key === 'Enter') {
       evento.preventDefault();
-      const elegido = this.enOrden[this.activa] ?? this.enOrden[0];
+      const elegido = elegidoConEnter(this.texto, this.estado, this.enOrden, this.activa);
       if (elegido) {
         this.abrir(elegido);
       }
@@ -108,7 +109,8 @@ export class BusquedaGlobalComponent {
 
   abrir(resultado: ResultadoDeBusqueda): void {
     this.cerrar();
-    this.router.navigate(['/procesos', resultado.procesoId]);
+    const destino = destinoDe(resultado);
+    this.router.navigate(destino.ruta, { queryParams: destino.consulta });
   }
 
   cerrar(): void {
