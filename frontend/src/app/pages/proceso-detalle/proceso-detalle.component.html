@@ -79,7 +79,28 @@
               <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Model
             </a>
           }
-          @if (botones.publicar && detalle.proceso.estado === 'BORRADOR') {
+          <!-- F21: con aprobacion no se publica directo: se pide la revision, o se va a la que ya esta abierta -->
+          @if (solicitudAbierta) {
+            <a
+              i18n
+              class="btn btn-outline-success"
+              [routerLink]="['/solicitudes', solicitudAbierta.id]"
+              id="proceso-detalle-solicitud"
+            >
+              <i class="fa-solid fa-file-signature" aria-hidden="true"></i> Review waiting:
+              {{ solicitudAbierta.aprobaciones }} of {{ solicitudAbierta.aprobacionesNecesarias }}
+            </a>
+          } @else if (conAprobacion && botones.publicar && hayQuePublicar) {
+            <button
+              i18n
+              type="button"
+              class="btn btn-success"
+              id="proceso-detalle-pedir-revision"
+              (click)="pidiendoRevision = true"
+            >
+              <i class="fa-solid fa-file-signature" aria-hidden="true"></i> Ask for review
+            </button>
+          } @else if (!conAprobacion && botones.publicar && detalle.proceso.estado === 'BORRADOR') {
             <button
               i18n
               type="button"
@@ -282,8 +303,10 @@
                 <app-lienzo-bpmn
                   modo="ver"
                   [xml]="xml"
+                  [comentarios]="contadoresDeComentarios"
                   titulo="BPMN diagram of {{ detalle.proceso.nombre }}"
                   i18n-titulo
+                  (listo)="alDibujar()"
                   (elegir)="elegirNodo($event)"
                 />
               </div>
@@ -412,6 +435,20 @@
                 </p>
               }
 
+              <!-- F21: los hilos del elemento elegido, o del proceso entero; una invitada no comenta -->
+              @if (!soloLectura) {
+                <div class="border rounded-3 p-3 mt-3">
+                  <app-panel-comentarios
+                    [procesoId]="detalle.proceso.id"
+                    [version]="verVersion"
+                    [elemento]="elementoComentado"
+                    [enfocar]="comentarioPedido"
+                    (contadores)="contadoresDeComentarios = $event"
+                    (irAlHilo)="irAlHilo($event)"
+                  />
+                </div>
+              }
+
               @if (mensajes.length) {
                 <h3 i18n class="h6 fw-semibold mt-4 mb-2">Message flows</h3>
                 <ol class="mensajes list-unstyled mb-0" id="diagrama-mensajes">
@@ -528,6 +565,15 @@
   i18n-mensaje
   (confirmar)="eliminar()"
 />
+
+@if (pidiendoRevision && detalle) {
+  <app-pedir-revision
+    [procesoId]="detalle.proceso.id"
+    [nombre]="detalle.proceso.nombre"
+    (pedida)="alPedirRevision($event)"
+    (cerrar)="pidiendoRevision = false"
+  />
+}
 
 @if (moviendo && detalle) {
   <app-mover-proceso [proceso]="detalle.proceso" (movido)="alMover($event)" (cerrar)="moviendo = false" />

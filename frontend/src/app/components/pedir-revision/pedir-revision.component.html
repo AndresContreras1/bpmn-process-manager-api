@@ -1,0 +1,52 @@
+<div class="modal-backdrop fade show"></div>
+<div class="modal d-block" tabindex="-1">
+  <div
+    #dialogo
+    class="modal-dialog modal-dialog-centered"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="pedir-revision-titulo"
+    aria-describedby="pedir-revision-ayuda"
+    id="pedir-revision-dialogo"
+    (keydown)="teclear($event)"
+  >
+    <form class="modal-content" (ngSubmit)="pedir()">
+      <div class="modal-header">
+        <h2 i18n class="modal-title h5" id="pedir-revision-titulo">Ask for review of “{{ nombre() }}”</h2>
+        <button i18n-aria-label type="button" class="btn-close" aria-label="Close" (click)="cerrar.emit()"></button>
+      </div>
+      <div class="modal-body">
+        @if (error) {
+          <div class="alert alert-danger py-2 small" role="alert" id="pedir-revision-error">{{ error }}</div>
+        }
+        <p i18n class="small text-body-secondary" id="pedir-revision-ayuda">
+          Your organization publishes with approval. The working copy is frozen as it is saved now, so the approvers
+          review exactly that, and it is published when the last approval arrives.
+        </p>
+        <label i18n class="form-label" for="pedir-revision-texto">What changed and why (optional, Markdown)</label>
+        <textarea
+          class="form-control"
+          rows="4"
+          id="pedir-revision-texto"
+          name="texto"
+          [maxlength]="largoMaximo"
+          [(ngModel)]="texto"
+        ></textarea>
+      </div>
+      <div class="modal-footer">
+        <button
+          i18n
+          type="button"
+          class="btn btn-outline-secondary"
+          id="pedir-revision-cancelar"
+          (click)="cerrar.emit()"
+        >
+          Cancel
+        </button>
+        <button i18n type="submit" class="btn btn-primary" id="pedir-revision-enviar" [disabled]="enviando">
+          Ask for review
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

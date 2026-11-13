@@ -72,6 +72,17 @@ export const routes: Routes = [
     title: $localize`Audit log · BPMN Process Manager`,
     data: { migas: [{ etiqueta: $localize`Administration` }, { etiqueta: $localize`Audit log` }] },
   },
+  // F21: como llegan por correo los avisos de la campana
+  {
+    path: 'cuenta/notificaciones',
+    loadComponent: () =>
+      import('./pages/preferencias-notificaciones/preferencias-notificaciones.component').then(
+        (modulo) => modulo.PreferenciasNotificacionesComponent,
+      ),
+    canActivate: [authGuard],
+    title: $localize`Notifications · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`My account`, ruta: '/cuenta' }, { etiqueta: $localize`Notifications` }] },
+  },
   {
     path: 'cuenta',
     loadComponent: () => import('./pages/cuenta/cuenta.component').then((modulo) => modulo.CuentaComponent),
@@ -104,6 +115,28 @@ export const routes: Routes = [
         { etiqueta: $localize`Work` },
         { etiqueta: $localize`Cases`, ruta: '/casos' },
         { etiqueta: $localize`Case` },
+      ],
+    },
+  },
+  // F21: la bandeja por aprobar y cada solicitud de revision, con su diferencia (PR 64)
+  {
+    path: 'solicitudes',
+    loadComponent: () =>
+      import('./pages/solicitudes/solicitudes.component').then((modulo) => modulo.SolicitudesComponent),
+    canActivate: [authGuard],
+    title: $localize`To approve · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Work` }, { etiqueta: $localize`To approve` }] },
+  },
+  {
+    path: 'solicitudes/:id',
+    loadComponent: () => import('./pages/solicitud/solicitud.component').then((modulo) => modulo.SolicitudComponent),
+    canActivate: [authGuard],
+    title: $localize`Review request · BPMN Process Manager`,
+    data: {
+      migas: [
+        { etiqueta: $localize`Work` },
+        { etiqueta: $localize`To approve`, ruta: '/solicitudes' },
+        { etiqueta: $localize`Review request` },
       ],
     },
   },
@@ -149,6 +182,16 @@ export const routes: Routes = [
     canActivate: [authGuard],
     title: $localize`Organization settings · BPMN Process Manager`,
     data: { migas: [{ etiqueta: $localize`Administration` }, { etiqueta: $localize`Organization settings` }] },
+  },
+  {
+    path: 'politica-de-publicacion',
+    loadComponent: () =>
+      import('./pages/politica-publicacion/politica-publicacion.component').then(
+        (modulo) => modulo.PoliticaPublicacionComponent,
+      ),
+    canActivate: [authGuard],
+    title: $localize`Publishing policy · BPMN Process Manager`,
+    data: { migas: [{ etiqueta: $localize`Administration` }, { etiqueta: $localize`Publishing policy` }] },
   },
   {
     path: 'historial',

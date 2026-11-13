@@ -101,6 +101,14 @@
         </li>
 
         @if (usuario) {
+          <!-- F21: la campana llega aparte, cuando el navegador queda libre, con su flujo en vivo -->
+          <li class="nav-item">
+            @defer (on idle) {
+              <app-campana />
+            } @placeholder {
+              <span class="nav-link px-2" aria-hidden="true"><i class="fa-solid fa-bell"></i></span>
+            }
+          </li>
           <li class="nav-item dropdown">
             <button
               class="nav-link dropdown-toggle"
@@ -126,6 +134,11 @@
               <li>
                 <a i18n class="dropdown-item" routerLink="/cuenta/seguridad" id="navbar-seguridad">
                   <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Security
+                </a>
+              </li>
+              <li>
+                <a i18n class="dropdown-item" routerLink="/cuenta/notificaciones" id="navbar-notificaciones">
+                  <i class="fa-solid fa-bell" aria-hidden="true"></i> Notifications
                 </a>
               </li>
               <li><hr class="dropdown-divider" /></li>
@@ -194,6 +207,11 @@
                 <i class="fa-solid fa-clipboard-list fa-fw" aria-hidden="true"></i> Cases
               </a>
             </li>
+            <li class="nav-item">
+              <a i18n class="nav-link" routerLink="/solicitudes" routerLinkActive="active" id="navbar-solicitudes">
+                <i class="fa-solid fa-file-signature fa-fw" aria-hidden="true"></i> To approve
+              </a>
+            </li>
           </ul>
 
           <p i18n class="barra-titulo" id="seccion-tablero">Dashboard</p>
@@ -234,6 +252,17 @@
                   id="navbar-configuracion"
                 >
                   <i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> Organization settings
+                </a>
+              </li>
+              <li class="nav-item">
+                <a
+                  i18n
+                  class="nav-link"
+                  routerLink="/politica-de-publicacion"
+                  routerLinkActive="active"
+                  id="navbar-politica"
+                >
+                  <i class="fa-solid fa-stamp fa-fw" aria-hidden="true"></i> Publishing policy
                 </a>
               </li>
               <li class="nav-item">

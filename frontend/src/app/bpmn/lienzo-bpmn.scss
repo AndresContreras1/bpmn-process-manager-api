@@ -1,6 +1,37 @@
 // Lo propio sobre los estilos de bpmn-js: el verde del producto y las marcas que pone la pagina.
 @use '../../styles/tokens' as *;
 
+// Las muestras de la leyenda de una comparacion: el mismo trazo que la marca del dibujo, en pequeno
+.muestra {
+  display: inline-block;
+  width: 1rem;
+  height: 0.75rem;
+  margin-inline-end: 0.25rem;
+  border-width: 2px;
+  border-radius: 0.125rem;
+  vertical-align: baseline;
+}
+
+.muestra-agregado {
+  border-style: solid;
+  border-color: $bpm-color-estado-exito;
+}
+
+.muestra-cambiado {
+  border-style: dashed;
+  border-color: $bpm-color-estado-aviso;
+}
+
+.muestra-movido {
+  border-style: dotted;
+  border-color: $bpm-color-estado-info;
+}
+
+.muestra-quitado {
+  border-style: solid;
+  border-color: $bpm-color-gris-500;
+}
+
 // El marco de los visores: el dibujo llena lo que le den, y alguien tiene que darle un alto
 .visor-bpmn {
   height: 440px;
@@ -68,6 +99,28 @@
     color: #ffffff;
     font-size: 0.75rem;
     text-align: center;
+  }
+
+  // F21: los hilos abiertos de cada elemento, un boton de al menos 24 px (WCAG 2.5.8)
+  .comentarios-bpmn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0 0.35rem;
+    border: 1px solid #ffffff;
+    border-radius: 0.75rem;
+    background: $bpm-color-estado-info;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .comentarios-bpmn:focus-visible {
+    outline: 2px solid $bpm-color-gris-900;
+    outline-offset: 2px;
   }
 
   // La comparacion

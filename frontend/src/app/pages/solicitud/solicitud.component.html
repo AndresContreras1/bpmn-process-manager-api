@@ -1,0 +1,306 @@
+<div class="container-fluid py-4" id="solicitud">
+  @if (noEncontrada) {
+    <div class="alert alert-warning" role="alert" id="solicitud-no-encontrada">
+      <ng-container i18n>This request does not exist, or it is about a process you cannot view.</ng-container>
+      <a i18n routerLink="/solicitudes" class="alert-link">Back to the requests</a>
+    </div>
+  } @else if (solicitud) {
+    <header class="d-flex flex-wrap align-items-start gap-3 mb-3">
+      <div class="me-auto">
+        <h1 class="h4 fw-bold mb-1" id="solicitud-titulo">
+          <ng-container i18n>Review of {{ solicitud.proceso }}, version {{ solicitud.numero }}</ng-container>
+        </h1>
+        <p class="text-body-secondary small mb-0">
+          <ng-container i18n
+            >Asked by {{ solicitud.solicitante.nombre }} on
+            {{ solicitud.fechaCreacion | fecha: 'fechaHora' }}</ng-container
+          >
+          ·
+          @if (solicitud.versionBase === null) {
+            <ng-container i18n>compared with an empty diagram: nothing is published yet</ng-container>
+          } @else {
+            <ng-container i18n>compared with version {{ solicitud.versionBase }}, the one in force then</ng-container>
+          }
+        </p>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <span id="solicitud-estado" [attr.data-estado]="solicitud.estado">
+          <app-insignia [tono]="tono[solicitud.estado]" [texto]="nombreEstado[solicitud.estado]" />
+        </span>
+        <a
+          i18n
+          class="btn btn-outline-secondary btn-sm"
+          [routerLink]="['/procesos', solicitud.procesoId]"
+          id="solicitud-proceso"
+          >Open the process</a
+        >
+        <a i18n class="btn btn-outline-secondary btn-sm" routerLink="/solicitudes" id="solicitud-volver">Back</a>
+      </div>
+    </header>
+
+    @if (aviso) {
+      <div class="alert alert-success" role="status" id="solicitud-aviso">{{ aviso }}</div>
+    }
+    @if (error) {
+      <div class="alert alert-danger" role="alert" id="solicitud-error">{{ error }}</div>
+    }
+    @if (solicitud.motivo) {
+      <div class="alert alert-warning" role="alert" id="solicitud-motivo">{{ solicitud.motivo }}</div>
+    }
+
+    <div class="row g-3">
+      <div class="col-xl-8">
+        @if (dibujo === 'borrador' && xml) {
+          <p i18n class="small alert alert-info py-2 mb-2" id="solicitud-dibujo-borrador">
+            The frozen drawing of this request is no longer kept, so this is today's working copy: it may have changed
+            since the request was made. The list says exactly what the request changes.
+          </p>
+        }
+        @if (xml) {
+          <div class="visor-bpmn border rounded-3" id="solicitud-diagrama">
+            <app-lienzo-bpmn
+              modo="comparar"
+              [xml]="xml"
+              [marcas]="marcas"
+              titulo="Diagram of the request, with its changes marked"
+              i18n-titulo
+            />
+          </div>
+        } @else if (cargando) {
+          <p i18n class="text-body-secondary small" role="status">Loading the diagram…</p>
+        } @else {
+          <div i18n class="alert alert-warning small" role="alert" id="solicitud-sin-dibujo">
+            The diagram could not be loaded. The list of changes is still complete.
+          </div>
+        }
+      </div>
+
+      <div class="col-xl-4">
+        <section class="card border-0 shadow-sm mb-3" aria-labelledby="solicitud-diferencia-titulo">
+          <div class="card-body">
+            <h2 i18n class="h6" id="solicitud-diferencia-titulo">What it changes</h2>
+            @if (sinCambios) {
+              <p i18n class="small text-body-secondary mb-0" id="solicitud-sin-cambios">There are no differences.</p>
+            } @else {
+              <p i18n class="small text-body-secondary" id="solicitud-resumen">
+                {{ resumen.agregado }} added, {{ resumen.cambiado }} changed, {{ resumen.movido }} moved,
+                {{ resumen.quitado }} removed
+              </p>
+              <ul class="list-unstyled small mb-0" id="solicitud-cambios">
+                @for (fila of filas; track fila.tipo + fila.bpmnId) {
+                  <li class="d-flex gap-2 mb-2" data-testid="solicitud-cambio" [attr.data-tipo]="fila.tipo">
+                    <span class="muestra flex-shrink-0" [class]="'muestra-' + fila.tipo" aria-hidden="true"></span>
+                    <div>
+                      @switch (fila.tipo) {
+                        @case ('agregado') {
+                          <span i18n class="visually-hidden">Added:</span>
+                        }
+                        @case ('cambiado') {
+                          <span i18n class="visually-hidden">Changed:</span>
+                        }
+                        @case ('movido') {
+                          <span i18n class="visually-hidden">Only moved:</span>
+                        }
+                        @case ('quitado') {
+                          <span i18n class="visually-hidden">Removed:</span>
+                        }
+                      }
+                      @if (fila.enElDibujo) {
+                        <button
+                          type="button"
+                          class="btn btn-link btn-sm p-0 text-start align-baseline"
+                          (click)="mostrarElemento(fila)"
+                        >
+                          {{ fila.nombre }}
+                        </button>
+                      } @else {
+                        <span class="text-decoration-line-through">{{ fila.nombre }}</span>
+                      }
+                      @if (fila.campos.length) {
+                        <ul class="list-unstyled ms-2 mb-0 text-body-secondary">
+                          @for (campo of fila.campos; track campo.campo) {
+                            <li>{{ campo.campo }}: {{ campo.antes ?? '—' }} → {{ campo.despues ?? '—' }}</li>
+                          }
+                        </ul>
+                      }
+                    </div>
+                  </li>
+                }
+              </ul>
+              <p i18n class="small text-body-secondary mt-2 mb-0">
+                On the diagram: green outline added, dashed orange changed, dotted blue only moved. What was removed is
+                only in this list.
+              </p>
+            }
+          </div>
+        </section>
+
+        <section class="card border-0 shadow-sm mb-3" aria-labelledby="solicitud-pedido-titulo">
+          <div class="card-body">
+            <h2 i18n class="h6" id="solicitud-pedido-titulo">The request</h2>
+            @if (solicitud.html) {
+              <div class="small texto-de-solicitud" id="solicitud-html" [innerHTML]="solicitud.html"></div>
+            } @else {
+              <p i18n class="small text-body-secondary">No explanation was given.</p>
+            }
+            <p class="small mb-1" id="solicitud-aprobaciones">
+              <ng-container i18n
+                >{{ solicitud.aprobaciones }} of {{ solicitud.aprobacionesNecesarias }} approvals</ng-container
+              >
+            </p>
+            <div
+              class="progress mb-2"
+              role="progressbar"
+              i18n-aria-label
+              aria-label="Approvals"
+              [attr.aria-valuenow]="solicitud.aprobaciones"
+              aria-valuemin="0"
+              [attr.aria-valuemax]="solicitud.aprobacionesNecesarias"
+            >
+              <div
+                class="progress-bar bg-success"
+                [style.width.%]="(100 * solicitud.aprobaciones) / solicitud.aprobacionesNecesarias"
+              ></div>
+            </div>
+            <h3 i18n class="h6 small mb-1">Who can approve it</h3>
+            <ul class="list-unstyled small mb-0" id="solicitud-aprobadores">
+              @for (aprobador of solicitud.aprobadores; track aprobador.id) {
+                <li>{{ aprobador.nombre }}</li>
+              }
+            </ul>
+          </div>
+        </section>
+
+        @if (decide) {
+          <section
+            class="card border-0 shadow-sm mb-3"
+            aria-labelledby="solicitud-decidir-titulo"
+            id="solicitud-decidir"
+          >
+            <div class="card-body">
+              <h2 i18n class="h6" id="solicitud-decidir-titulo">Your decision</h2>
+              @if (decision === null) {
+                <div class="d-flex flex-wrap gap-2">
+                  <button
+                    i18n
+                    type="button"
+                    class="btn btn-success btn-sm"
+                    id="solicitud-aprobar"
+                    (click)="elegirDecision('APROBADA')"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    i18n
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    id="solicitud-pedir-cambios"
+                    (click)="elegirDecision('CAMBIOS_PEDIDOS')"
+                  >
+                    Ask for changes
+                  </button>
+                  <button
+                    i18n
+                    type="button"
+                    class="btn btn-outline-danger btn-sm"
+                    id="solicitud-rechazar"
+                    (click)="elegirDecision('RECHAZADA')"
+                  >
+                    Reject
+                  </button>
+                </div>
+              } @else {
+                <form (ngSubmit)="decidir()">
+                  <label class="form-label small" for="solicitud-texto">
+                    @if (textoObligatorio) {
+                      <ng-container i18n>Why (required, Markdown)</ng-container>
+                    } @else {
+                      <ng-container i18n>A comment (optional, Markdown)</ng-container>
+                    }
+                  </label>
+                  <textarea
+                    class="form-control form-control-sm mb-2"
+                    rows="3"
+                    id="solicitud-texto"
+                    name="texto"
+                    [required]="textoObligatorio"
+                    [attr.aria-required]="textoObligatorio"
+                    [maxlength]="largoMaximo"
+                    [(ngModel)]="texto"
+                  ></textarea>
+                  <div class="d-flex gap-2">
+                    <button
+                      type="submit"
+                      class="btn btn-primary btn-sm"
+                      id="solicitud-confirmar"
+                      [disabled]="enviando || (textoObligatorio && !texto.trim())"
+                    >
+                      @switch (decision) {
+                        @case ('APROBADA') {
+                          <ng-container i18n>Approve</ng-container>
+                        }
+                        @case ('CAMBIOS_PEDIDOS') {
+                          <ng-container i18n>Ask for changes</ng-container>
+                        }
+                        @case ('RECHAZADA') {
+                          <ng-container i18n>Reject</ng-container>
+                        }
+                      }
+                    </button>
+                    <button i18n type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelarDecision()">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              }
+            </div>
+          </section>
+        }
+
+        @if (retira) {
+          <button
+            i18n
+            type="button"
+            class="btn btn-outline-danger btn-sm mb-3"
+            id="solicitud-retirar"
+            [disabled]="enviando"
+            (click)="retirar()"
+          >
+            Withdraw the request
+          </button>
+        }
+
+        <section class="card border-0 shadow-sm" aria-labelledby="solicitud-decisiones-titulo">
+          <div class="card-body">
+            <h2 i18n class="h6" id="solicitud-decisiones-titulo">Decisions</h2>
+            @if (solicitud.decisiones.length === 0) {
+              <p i18n class="small text-body-secondary mb-0">Nobody has decided yet.</p>
+            } @else {
+              <ol class="list-unstyled small mb-0" id="solicitud-decisiones">
+                @for (decidida of solicitud.decisiones; track decidida.id) {
+                  <li class="mb-2" data-testid="solicitud-decision" [attr.data-decision]="decidida.decision">
+                    <strong>{{ decidida.aprobador.nombre }}</strong>
+                    · {{ nombreDecision[decidida.decision] }} ·
+                    <span class="text-body-secondary">{{ decidida.fecha | fecha: 'fechaHora' }}</span>
+                    @if (decidida.html) {
+                      <div class="texto-de-solicitud" [innerHTML]="decidida.html"></div>
+                    }
+                  </li>
+                }
+              </ol>
+            }
+            @if (solicitud.cerradaPor && solicitud.estado === 'RETIRADA') {
+              <p i18n class="small text-body-secondary mt-2 mb-0">
+                Withdrawn by {{ solicitud.cerradaPor.nombre }} on {{ solicitud.cerradaEn | fecha: 'fechaHora' }}.
+              </p>
+            }
+          </div>
+        </section>
+      </div>
+    </div>
+  } @else if (cargando) {
+    <p i18n class="text-body-secondary py-5 text-center" role="status">Loading the request…</p>
+  } @else if (error) {
+    <div class="alert alert-danger" role="alert" id="solicitud-error">{{ error }}</div>
+  }
+</div>
