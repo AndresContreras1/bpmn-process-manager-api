@@ -11,6 +11,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -68,6 +72,8 @@ class VersionServiceTest {
     private MetricasDeNegocio metricas;
     @Mock
     private ApplicationEventPublisher eventos;
+    @Mock
+    private Clock reloj;
 
     @Test
     @DisplayName("PR 68: una version de prueba se guarda con numero 0, retirada y de tipo PRUEBA")
@@ -75,6 +81,8 @@ class VersionServiceTest {
         Empresa tienda = Empresa.builder().id(EMPRESA).build();
         Proceso proceso = Proceso.builder().id(PROCESO).empresa(tienda).build();
         when(versionProcesoRepository.save(any(VersionProceso.class))).thenAnswer(guardar -> guardar.getArgument(0));
+        when(reloj.instant()).thenReturn(Instant.parse("2026-11-11T03:30:00Z"));
+        when(reloj.getZone()).thenReturn(ZoneOffset.UTC);
 
         VersionProceso guardada = service.guardarPrueba(proceso, 3L,
                 new Instantanea("{}", "a".repeat(64), "<bpmn:definitions/>"));
@@ -88,8 +96,18 @@ class VersionServiceTest {
         assertThat(guardada.getHuella()).isEqualTo("a".repeat(64));
         assertThat(guardada.getDefinicion()).isEqualTo("{}");
         assertThat(guardada.getModeloBpmn()).isEqualTo("<bpmn:definitions/>");
-        assertThat(guardada.getFechaPublicacion()).isNotNull();
+        assertThat(guardada.getFechaPublicacion()).isEqualTo(LocalDateTime.parse("2026-11-11T03:30:00"));
         verify(metricas, never()).versionPublicada();
+    }
+
+    @Test
+    @DisplayName("PR 68: borrar una prueba dice si borro algo; la condicion de tipo la pone el repositorio")
+    void borrarPrueba() {
+        when(versionProcesoRepository.borrarPrueba(8L)).thenReturn(1);
+        when(versionProcesoRepository.borrarPrueba(9L)).thenReturn(0);
+
+        assertThat(service.borrarPrueba(8L)).isTrue();
+        assertThat(service.borrarPrueba(9L)).isFalse();
     }
 
     @Test

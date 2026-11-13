@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.domain.Pageable;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,21 +42,6 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class CasoServiceImpl implements CasoService {
 
-    private static final String SUS_CASOS = "select id from casos where version_proceso_id = ?";
-
-    /**
-     * Una version de prueba y lo que colgo de ella, de las hojas a la raiz, como el borrado de una tienda. La ultima
-     * vuelve a pedir que sea de prueba: una publicada no se borra nunca.
-     */
-    private static final List<String> BORRADO_DE_UNA_PRUEBA = List.of(
-            "delete from temporizadores where version_proceso_id = ?",
-            "delete from eventos_caso where caso_id in (" + SUS_CASOS + ")",
-            "delete from actividades_caso where caso_id in (" + SUS_CASOS + ")",
-            "delete from mensajes_salientes where caso_id in (" + SUS_CASOS + ")",
-            "delete from mensajes_entrantes where caso_id in (" + SUS_CASOS + ")",
-            "delete from casos where version_proceso_id = ?",
-            "delete from versiones_proceso where id = ? and tipo = 'PRUEBA'");
-
     private final CasoRepository casoRepository;
     private final ActividadCasoRepository actividadCasoRepository;
     private final EventoCasoRepository eventoCasoRepository;
@@ -68,7 +52,7 @@ public class CasoServiceImpl implements CasoService {
     private final Bitacora bitacora;
     private final CasoMapper casoMapper;
     private final ProcesoService procesoService;
-    private final JdbcTemplate jdbc;
+    private final BorradoDePruebas borradoDePruebas;
 
     /**
      * R-47 y R-48: solo se abre sobre la version vigente de un proceso propio, y solo si esa version empieza por un
@@ -110,18 +94,19 @@ public class CasoServiceImpl implements CasoService {
 
     /**
      * PR 68: cuales son viejas lo dice gestion, que las fecha; lo que hicieron sus casos lo borra la ejecucion, que es
-     * de quien son. Corre como sistema, en la purga: cruza tiendas a proposito.
+     * de quien son, y la version al final otra vez gestion. Corre como sistema, en la purga: cruza tiendas a proposito.
      */
     @Override
     @Transactional
     public int olvidarPruebasAntesDe(LocalDateTime limite) {
-        List<Long> viejas = versionService.pruebasAntesDe(limite);
-        for (Long version : viejas) {
-            for (String borrado : BORRADO_DE_UNA_PRUEBA) {
-                jdbc.update(borrado, version);
+        int olvidadas = 0;
+        for (Long version : versionService.pruebasAntesDe(limite)) {
+            borradoDePruebas.borrar(version);
+            if (versionService.borrarPrueba(version)) {
+                olvidadas++;
             }
         }
-        return viejas.size();
+        return olvidadas;
     }
 
     private CasoResponse arrancar(VersionProceso version, GrafoDeVersion grafo, NodoDeLaVersion inicio,

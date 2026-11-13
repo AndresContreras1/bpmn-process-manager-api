@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,7 +13,8 @@ import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.VersionProceso;
 
 /**
- * Las versiones publicadas de un proceso. Solo se agregan y se retiran: ninguna consulta las modifica.
+ * Las versiones publicadas de un proceso. Solo se agregan y se retiran: ninguna consulta las modifica, salvo el
+ * borrado de una de prueba.
  *
  * <p>PR 68: cada consulta pide las de tipo PUBLICADA. Las de PRUEBA, con las que se prueba un borrador, comparten la
  * tabla pero no son versiones del proceso para nadie: ni se listan, ni se leen por numero, ni pueden ser la vigente.
@@ -83,8 +85,8 @@ public interface VersionProcesoRepository extends RepositorioTenant<VersionProce
     Optional<String> modeloBpmnDe(@Param("id") Long id, @Param("empresaId") Long empresaId);
 
     /**
-     * PR 68: las versiones de prueba armadas antes de ese momento, de todas las tiendas. Es lo unico que la purga
-     * necesita saber de ellas; borrarlas, con sus casos, es de la ejecucion.
+     * PR 68: las versiones de prueba armadas antes de ese momento, de todas las tiendas: las que la purga se lleva. Lo
+     * que colgo de ellas lo borra la ejecucion, y cada borrado vuelve a pedir que sean de prueba.
      */
     @Query("""
             select v.id from VersionProceso v
@@ -92,6 +94,14 @@ public interface VersionProcesoRepository extends RepositorioTenant<VersionProce
             order by v.id
             """)
     List<Long> pruebasAntesDe(@Param("limite") LocalDateTime limite);
+
+    /** PR 68: borra una version de prueba. La condicion del tipo va en el borrado mismo: una publicada no se toca. */
+    @Modifying
+    @Query("""
+            delete from VersionProceso v
+            where v.id = :id and v.tipo = com.facimus.procesos.gestion.model.TipoVersion.PRUEBA
+            """)
+    int borrarPrueba(@Param("id") Long id);
 
     /** El numero de la ultima publicada, retirada o no: los numeros no se reusan. */
     @Query("select max(v.numero) from VersionProceso v where v.proceso.id = :procesoId and v.empresa.id = :empresaId")

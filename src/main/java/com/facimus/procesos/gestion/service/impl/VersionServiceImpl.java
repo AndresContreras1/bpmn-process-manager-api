@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.service.impl;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -45,7 +46,6 @@ public class VersionServiceImpl implements VersionService {
 
     private static final String VERSION_NO_ENCONTRADA = "Versión no encontrada.";
 
-
     private final VersionProcesoRepository versionProcesoRepository;
     private final DefinicionesDeVersion definiciones;
     private final ProcesoRepository procesoRepository;
@@ -54,6 +54,7 @@ public class VersionServiceImpl implements VersionService {
     private final VersionProcesoMapper versionProcesoMapper;
     private final MetricasDeNegocio metricas;
     private final ApplicationEventPublisher eventos;
+    private final Clock reloj;
 
     /** Los numeros no se reusan: si la ultima version se retiro, la siguiente sigue contando desde ella. */
     @Override
@@ -87,7 +88,7 @@ public class VersionServiceImpl implements VersionService {
                 .numero(0)
                 .estado(EstadoVersion.RETIRADA)
                 .tipo(TipoVersion.PRUEBA)
-                .fechaPublicacion(LocalDateTime.now())
+                .fechaPublicacion(LocalDateTime.now(reloj))
                 .publicadoPor(usuarioId)
                 .huella(instantanea.huella())
                 .definicion(instantanea.definicion())
@@ -98,6 +99,12 @@ public class VersionServiceImpl implements VersionService {
     @Override
     public List<Long> pruebasAntesDe(LocalDateTime limite) {
         return versionProcesoRepository.pruebasAntesDe(limite);
+    }
+
+    @Override
+    @Transactional
+    public boolean borrarPrueba(Long versionId) {
+        return versionProcesoRepository.borrarPrueba(versionId) > 0;
     }
 
     @Override

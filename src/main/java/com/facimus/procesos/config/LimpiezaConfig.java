@@ -1,5 +1,6 @@
 package com.facimus.procesos.config;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
@@ -50,12 +51,13 @@ public class LimpiezaConfig {
     private final CasoService casoService;
     /** PR 68: cuanto se guarda una prueba del borrador antes de que la purga se la lleve con su caso. */
     private final Duration retencionDePruebas;
+    private final Clock reloj;
 
     @SuppressWarnings("java:S107") // Cada pieza que se purga es una dependencia: la purga es la lista entera
     public LimpiezaConfig(LimpiezaService limpiezaService, RevisionService revisionService,
             IntentosDeLogin intentosDeLogin, ColaDeTrabajos colaDeTrabajos, CuentaService cuentaService,
             EmpresaService empresaService, LimitesDePeticiones limitesDePeticiones, DesafiosWebAuthn desafiosWebAuthn,
-            CasoService casoService, @Value("${pruebas.retencion}") Duration retencionDePruebas) {
+            CasoService casoService, @Value("${pruebas.retencion}") Duration retencionDePruebas, Clock reloj) {
         this.limpiezaService = limpiezaService;
         this.revisionService = revisionService;
         this.intentosDeLogin = intentosDeLogin;
@@ -66,6 +68,7 @@ public class LimpiezaConfig {
         this.desafiosWebAuthn = desafiosWebAuthn;
         this.casoService = casoService;
         this.retencionDePruebas = retencionDePruebas;
+        this.reloj = reloj;
     }
 
     @Scheduled(cron = "${limpieza.cron}")
@@ -105,7 +108,7 @@ public class LimpiezaConfig {
         if (desafios > 0) {
             log.info("Limpieza: {} desafios de passkeys que vencieron sin usarse.", desafios);
         }
-        int pruebas = casoService.olvidarPruebasAntesDe(LocalDateTime.now().minus(retencionDePruebas));
+        int pruebas = casoService.olvidarPruebasAntesDe(LocalDateTime.now(reloj).minus(retencionDePruebas));
         if (pruebas > 0) {
             log.info("Limpieza: {} versiones de prueba del borrador, con sus casos.", pruebas);
         }

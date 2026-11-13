@@ -35,6 +35,12 @@ public interface VersionService {
     /** PR 68: las versiones de prueba armadas antes de ese momento, de todas las tiendas: las que la purga se lleva. */
     List<Long> pruebasAntesDe(LocalDateTime limite);
 
+    /**
+     * PR 68: borra esa version si es de prueba; una publicada no se borra nunca. Lo que colgo de ella lo borra antes la
+     * ejecucion. Dice si la borro.
+     */
+    boolean borrarPrueba(Long versionId);
+
     List<VersionResponse> listar(Long empresaId, Long procesoId);
 
     VersionResponse obtener(Long empresaId, Long procesoId, int numero);

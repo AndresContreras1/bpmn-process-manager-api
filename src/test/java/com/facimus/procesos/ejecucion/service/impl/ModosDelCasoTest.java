@@ -5,8 +5,6 @@ import static com.facimus.procesos.modelado.service.DiagramaArmado.VENTAS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -27,7 +25,6 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.model.Empresa;
@@ -84,7 +81,7 @@ class ModosDelCasoTest {
     @Mock
     private ProcesoService procesoService;
     @Mock
-    private JdbcTemplate jdbc;
+    private BorradoDePruebas borradoDePruebas;
 
     @InjectMocks
     private CasoServiceImpl casoService;
@@ -214,21 +211,21 @@ class ModosDelCasoTest {
     }
 
     @Test
-    @DisplayName("Olvidar las pruebas viejas borra cada una de las hojas a la version, y dice cuantas")
+    @DisplayName("Olvidar las pruebas viejas borra lo de sus casos antes que cada version, y cuenta las que borro")
     void olvidarPruebas() {
         LocalDateTime limite = LocalDateTime.parse("2026-11-11T03:30:00");
-        given(versionService.pruebasAntesDe(limite)).willReturn(List.of(8L, 9L));
+        given(versionService.pruebasAntesDe(limite)).willReturn(List.of(8L, 9L, 10L));
+        given(versionService.borrarPrueba(8L)).willReturn(true);
+        given(versionService.borrarPrueba(9L)).willReturn(false);
+        given(versionService.borrarPrueba(10L)).willReturn(true);
 
         assertThat(casoService.olvidarPruebasAntesDe(limite)).isEqualTo(2);
 
-        InOrder orden = inOrder(jdbc);
-        for (Long version : List.of(8L, 9L)) {
-            for (String tabla : List.of("temporizadores", "eventos_caso", "actividades_caso", "mensajes_salientes",
-                    "mensajes_entrantes", "casos", "versiones_proceso")) {
-                orden.verify(jdbc).update(startsWith("delete from " + tabla + " where"), eq(version));
-            }
+        InOrder orden = inOrder(borradoDePruebas, versionService);
+        for (Long prueba : List.of(8L, 9L, 10L)) {
+            orden.verify(borradoDePruebas).borrar(prueba);
+            orden.verify(versionService).borrarPrueba(prueba);
         }
-        verify(jdbc).update("delete from versiones_proceso where id = ? and tipo = 'PRUEBA'", 9L);
     }
 
     @Test
@@ -238,7 +235,8 @@ class ModosDelCasoTest {
 
         assertThat(casoService.olvidarPruebasAntesDe(LocalDateTime.MAX)).isZero();
 
-        verifyNoInteractions(jdbc);
+        verifyNoInteractions(borradoDePruebas);
+        verify(versionService, never()).borrarPrueba(any());
     }
 
     private static DiagramaArmado conInicioAMano() {

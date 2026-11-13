@@ -24,6 +24,7 @@ import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
 import com.facimus.procesos.ejecucion.service.CasoService;
 import com.facimus.procesos.ejecucion.service.SimulacionService;
 import com.facimus.procesos.ejecucion.service.TemporizadorService;
+import com.facimus.procesos.ejecucion.service.impl.BorradoDePruebas;
 import com.facimus.procesos.gestion.service.BitacoraService;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.CuentaService;
@@ -31,6 +32,7 @@ import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.LimpiezaService;
 import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.SesionService;
+import com.facimus.procesos.gestion.service.VersionService;
 import com.facimus.procesos.modelado.service.RevisionService;
 import com.facimus.procesos.security.DesafiosWebAuthn;
 import com.facimus.procesos.security.IntentosDeLogin;
@@ -65,6 +67,9 @@ class FueraDeLaPeticionIntegracionTest {
     @Autowired private CasoService casoService;
     @Autowired private TemporizadorService temporizadorService;
     @Autowired private ProcesoService procesoService;
+    @Autowired private VersionService versionService;
+    @Autowired private BorradoDePruebas borradoDePruebas;
+    @Autowired private Clock reloj;
 
     private Long empresaId;
     private Long adminId;
@@ -114,11 +119,12 @@ class FueraDeLaPeticionIntegracionTest {
         // PR 49b: un desafio de passkey que nadie uso.
         jdbc.update("insert into desafios_webauthn (id_hash, proposito, opciones, creado_en) values (?, 'ENTRADA', "
                 + "'{}', ?)", "vencido-" + empresaId, LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
-        // PR 68: una prueba del borrador de hace dos dias, con su caso.
-        Long version = versionDePrueba(LocalDateTime.now().minusDays(2));
+        // PR 68: una prueba del borrador de hace dos dias, con su caso, y una version publicada tan vieja como ella.
+        Long version = versionConUnCaso("PRUEBA", 0, LocalDateTime.now().minusDays(2));
+        Long publicada = versionConUnCaso("PUBLICADA", 1, LocalDateTime.now().minusDays(2));
         LimpiezaConfig limpieza = new LimpiezaConfig(limpiezaService, revisionService, intentosDeLogin,
                 colaDeTrabajos, cuentaService, empresaService, limitesDePeticiones, desafiosWebAuthn, casoService,
-                Duration.ofDays(1));
+                Duration.ofDays(1), reloj);
 
         comoEnProduccion(() -> {
             limpieza.limpiar();
@@ -132,6 +138,35 @@ class FueraDeLaPeticionIntegracionTest {
                 version)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from versiones_proceso where id = ?", Integer.class,
                 version)).isZero();
+        // Lo publicado no es una prueba por viejo que sea: la version y su caso siguen ahi
+        assertThat(jdbc.queryForObject("select count(*) from casos where version_proceso_id = ?", Integer.class,
+                publicada)).isOne();
+        assertThat(jdbc.queryForObject("select count(*) from versiones_proceso where id = ?", Integer.class,
+                publicada)).isOne();
+    }
+
+    @Test
+    @DisplayName("PR 68: lo publicado nunca es una prueba vieja, y cada borrado de una prueba lo vuelve a comprobar")
+    void purga_noTocaLoPublicado() {
+        Long publicada = versionConUnCaso("PUBLICADA", 1, LocalDateTime.now().minusDays(30));
+        Long prueba = versionConUnCaso("PRUEBA", 0, LocalDateTime.now().minusDays(30));
+        jdbc.update("""
+                insert into actividades_caso (empresa_id, caso_id, nodo_id, nodo_nombre, tipo_nodo, subtipo, estado,
+                                              tick_inicio, version, fecha_creacion, fecha_modificacion)
+                select empresa_id, id, 1, 'Pick items', 'ACTIVIDAD', 'USUARIO', 'EN_ESPERA', 0, 0, now(), now()
+                from casos where version_proceso_id = ?
+                """, publicada);
+
+        assertThat(versionService.pruebasAntesDe(LocalDateTime.now())).contains(prueba).doesNotContain(publicada);
+        // Aunque alguien le pasara el id de una publicada, el borrado no toca nada de ella
+        assertThat(borradoDePruebas.borrar(publicada)).isZero();
+        assertThat(versionService.borrarPrueba(publicada)).isFalse();
+        assertThat(jdbc.queryForObject("select count(*) from actividades_caso a join casos c on c.id = a.caso_id "
+                + "where c.version_proceso_id = ?", Integer.class, publicada)).isOne();
+        assertThat(jdbc.queryForObject("select count(*) from versiones_proceso where id = ?", Integer.class,
+                publicada)).isOne();
+        assertThat(borradoDePruebas.borrar(prueba)).isOne();
+        assertThat(versionService.borrarPrueba(prueba)).isTrue();
     }
 
     @Test
@@ -162,15 +197,15 @@ class FueraDeLaPeticionIntegracionTest {
                 .isEqualTo("CANCELADO");
     }
 
-    /** Una version de prueba armada en ese momento, con un caso abierto sobre ella. */
-    private Long versionDePrueba(LocalDateTime cuando) {
-        Long proceso = procesoService.crear(empresaId, adminId, "Borrador " + cuando, "Lo que hace", "Ops").id();
+    /** Una version de ese tipo armada en ese momento, con un caso abierto sobre ella. */
+    private Long versionConUnCaso(String tipo, int numero, LocalDateTime cuando) {
+        Long proceso = procesoService.crear(empresaId, adminId, tipo + " " + cuando, "Lo que hace", "Ops").id();
         Long version = jdbc.queryForObject("""
                 insert into versiones_proceso (empresa_id, proceso_id, numero, estado, tipo, fecha_publicacion,
                                                huella, definicion, modelo_bpmn)
-                values (?, ?, 0, 'RETIRADA', 'PRUEBA', ?, ?, '{}', '<bpmn:definitions/>')
+                values (?, ?, ?, 'RETIRADA', ?, ?, ?, '{}', '<bpmn:definitions/>')
                 returning id
-                """, Long.class, empresaId, proceso, cuando, "b".repeat(64));
+                """, Long.class, empresaId, proceso, numero, tipo, cuando, "b".repeat(64));
         jdbc.update("""
                 insert into casos (empresa_id, proceso_id, version_proceso_id, estado, modo, variables, tick_inicio,
                                    version, fecha_creacion, fecha_modificacion)
