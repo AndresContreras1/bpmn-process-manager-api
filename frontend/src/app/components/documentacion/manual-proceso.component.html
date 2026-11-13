@@ -1,0 +1,109 @@
+<div class="manual-proceso" [attr.aria-busy]="cargando">
+  @if (error) {
+    <div class="alert alert-danger py-2 small" role="alert" id="manual-error">{{ error }}</div>
+  }
+  <!-- Cuando la cola termina un manual: la insignia cambia a la vista y esto lo dice en voz alta -->
+  <p class="visually-hidden" aria-live="polite" id="manual-anuncio">{{ anuncio }}</p>
+
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <p i18n class="small text-body-secondary mb-0 me-auto">
+      The manual gathers the characterization sheet, the drawing, the documentation of the process and of every step,
+      lane by lane, and the documents available, as PDF and HTML.
+    </p>
+    @if (puedePedir() && versionPublicada() !== null) {
+      <button
+        i18n
+        type="button"
+        class="btn btn-primary btn-sm"
+        id="manual-generar"
+        [disabled]="pidiendo"
+        (click)="pedir()"
+      >
+        @if (pidiendo) {
+          Asking for it…
+        } @else {
+          Generate the manual of version {{ versionPublicada() }}
+        }
+      </button>
+    }
+  </div>
+  @if (versionPublicada() === null) {
+    <p i18n class="small text-body-secondary" id="manual-sin-version">
+      A manual describes a published version: publish the process to generate one.
+    </p>
+  }
+
+  @if (cargando) {
+    <p i18n class="small text-body-secondary mb-0" role="status">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading the manuals…
+    </p>
+  } @else if (manuales.length === 0) {
+    <p i18n class="small text-body-secondary mb-0" id="manual-vacio">No manual has been generated yet.</p>
+  } @else {
+    <ul class="list-group" id="manual-lista">
+      @for (manual of manuales; track manual.id) {
+        <li
+          class="list-group-item d-flex flex-wrap align-items-center gap-2"
+          data-testid="manual"
+          [attr.data-manual]="manual.id"
+          [attr.data-estado]="manual.estado"
+        >
+          <div class="me-auto">
+            <div class="fw-semibold" [id]="'manual-' + manual.id + '-titulo'">
+              <ng-container i18n>Version {{ manual.version }} · {{ manual.idioma }}</ng-container>
+            </div>
+            <div class="small text-body-secondary">
+              <ng-container i18n>Requested {{ manual.pedidoEn | fecha: 'fechaHora' }}</ng-container>
+              @if (manual.listoEn) {
+                <ng-container i18n>· ready {{ manual.listoEn | fecha: 'fechaHora' }}</ng-container>
+              }
+            </div>
+            @if (manual.estado === 'FALLIDO') {
+              <div i18n class="small text-danger-emphasis" data-testid="manual-motivo">
+                It could not be built: {{ manual.motivo }}
+              </div>
+            }
+          </div>
+          <span
+            class="badge"
+            data-testid="manual-estado"
+            [class.text-bg-warning]="manual.estado === 'PENDIENTE'"
+            [class.text-bg-success]="manual.estado === 'DISPONIBLE'"
+            [class.text-bg-danger]="manual.estado === 'FALLIDO'"
+          >
+            @if (manual.estado === 'PENDIENTE') {
+              <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+            } @else if (manual.estado === 'DISPONIBLE') {
+              <i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>
+            } @else {
+              <i class="fa-solid fa-circle-xmark me-1" aria-hidden="true"></i>
+            }
+            {{ nombreEstado[manual.estado] }}
+          </span>
+          @if (manual.estado === 'DISPONIBLE') {
+            <div class="btn-group btn-group-sm" role="group" i18n-aria-label aria-label="Download the manual">
+              <button
+                type="button"
+                class="btn btn-outline-primary"
+                data-testid="manual-pdf"
+                [attr.aria-describedby]="'manual-' + manual.id + '-titulo'"
+                (click)="bajar(manual, 'pdf')"
+              >
+                PDF
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-primary"
+                data-testid="manual-html"
+                [attr.aria-describedby]="'manual-' + manual.id + '-titulo'"
+                (click)="bajar(manual, 'html')"
+              >
+                HTML
+              </button>
+            </div>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>

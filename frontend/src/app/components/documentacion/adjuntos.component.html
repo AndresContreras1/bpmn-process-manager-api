@@ -1,0 +1,222 @@
+<div class="adjuntos" [class.compacto]="compacto()" [attr.aria-busy]="cargando">
+  @if (error) {
+    <div class="alert alert-danger py-2 small" role="alert" id="adjuntos-error">{{ error }}</div>
+  }
+  @if (aviso) {
+    <div class="alert alert-success py-2 small" role="status" id="adjuntos-aviso">{{ aviso }}</div>
+  }
+  <!-- Cuando el antivirus termina con un documento: la insignia cambia a la vista y esto lo dice en voz alta -->
+  <p class="visually-hidden" aria-live="polite" id="adjuntos-anuncio">{{ anuncio }}</p>
+
+  @if (!soloLectura()) {
+    <div
+      class="zona-de-carga rounded-3 p-3 mb-3 text-center"
+      id="adjuntos-zona"
+      [class.arrastrando]="arrastrando"
+      (dragenter)="alArrastrar($event)"
+      (dragover)="alArrastrar($event)"
+      (dragleave)="alSalir($event)"
+      (drop)="alSoltar($event)"
+    >
+      <i class="fa-solid fa-cloud-arrow-up fa-lg text-body-secondary mb-2" aria-hidden="true"></i>
+      <p i18n class="small mb-2">Drop files here, or</p>
+      <button
+        i18n
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        id="adjuntos-elegir"
+        [disabled]="subiendo !== null"
+        (click)="archivo.click()"
+      >
+        Choose files
+      </button>
+      <input
+        #archivo
+        type="file"
+        class="visually-hidden"
+        id="adjuntos-archivo"
+        tabindex="-1"
+        multiple
+        i18n-aria-label
+        aria-label="Files to attach"
+        (change)="alElegir($event)"
+      />
+      <input
+        #archivoVersion
+        type="file"
+        class="visually-hidden"
+        id="adjuntos-version-archivo"
+        tabindex="-1"
+        i18n-aria-label
+        aria-label="File for the new version"
+        (change)="alElegirVersion($event)"
+      />
+      <p i18n class="form-text small mb-0 mt-2">
+        Up to 25 MB each: PDF, images, text, CSV, Markdown, BPMN, Office and OpenDocument files. The type is read from
+        the content, not from the name.
+      </p>
+    </div>
+  }
+
+  @if (subiendo) {
+    <p class="small mb-2" role="status" id="adjuntos-subiendo">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+      <ng-container i18n>Uploading “{{ subiendo }}”…</ng-container>
+    </p>
+  }
+
+  @if (cargando) {
+    <p i18n class="small text-body-secondary mb-0" role="status">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading the documents…
+    </p>
+  } @else if (documentos.length === 0) {
+    <p i18n class="small text-body-secondary mb-0" id="adjuntos-vacio">No documents attached yet.</p>
+  } @else {
+    <ul class="list-group" id="adjuntos-lista">
+      @for (documento of documentos; track documento.id) {
+        <li
+          class="list-group-item"
+          data-testid="documento"
+          [attr.data-documento]="documento.id"
+          [attr.data-nombre]="documento.nombre"
+          [attr.data-estado]="documento.estado"
+        >
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="fw-semibold text-break me-auto" [id]="'documento-' + documento.id + '-nombre'">{{
+              documento.nombre
+            }}</span>
+            <span
+              class="badge"
+              data-testid="documento-estado"
+              [class.text-bg-warning]="documento.estado === 'PENDIENTE'"
+              [class.text-bg-success]="documento.estado === 'DISPONIBLE'"
+              [class.text-bg-danger]="documento.estado === 'BLOQUEADO'"
+            >
+              @if (documento.estado === 'PENDIENTE') {
+                <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              } @else if (documento.estado === 'DISPONIBLE') {
+                <i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>
+              } @else {
+                <i class="fa-solid fa-circle-xmark me-1" aria-hidden="true"></i>
+              }
+              {{ nombreEstado[documento.estado] }}
+            </span>
+          </div>
+          <div class="small text-body-secondary">
+            <ng-container i18n
+              >Version {{ documento.versionActual }} · {{ tamano(documento.tamano) }} ·
+              {{ documento.fechaModificacion | fecha: 'fechaHora' }}</ng-container
+            >
+            @if (documento.bpmnId && !elemento()) {
+              <ng-container i18n>· attached to {{ documento.bpmnId }}</ng-container>
+            }
+            @if (documento.estado === 'DISPONIBLE' && !documento.revisado) {
+              <ng-container i18n>· not checked by an antivirus</ng-container>
+            }
+          </div>
+          @if (documento.estado === 'BLOQUEADO') {
+            <div i18n class="small text-danger-emphasis" data-testid="documento-motivo">
+              Blocked by the check: {{ documento.motivo }}
+            </div>
+          }
+          <div class="d-flex flex-wrap gap-1 mt-2">
+            <button
+              i18n
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              data-testid="documento-bajar"
+              [attr.aria-describedby]="'documento-' + documento.id + '-nombre'"
+              [disabled]="documento.estado !== 'DISPONIBLE'"
+              (click)="bajar(documento)"
+            >
+              Download
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              data-testid="documento-versiones"
+              [attr.aria-describedby]="'documento-' + documento.id + '-nombre'"
+              [attr.aria-expanded]="estaAbierto(documento)"
+              [attr.aria-controls]="'documento-' + documento.id + '-versiones'"
+              [disabled]="abriendo === documento.id"
+              (click)="alternarVersiones(documento)"
+            >
+              <ng-container i18n>Versions ({{ documento.versionActual }})</ng-container>
+            </button>
+            @if (!soloLectura()) {
+              <button
+                i18n
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                data-testid="documento-nueva-version"
+                [attr.aria-describedby]="'documento-' + documento.id + '-nombre'"
+                [disabled]="subiendo !== null"
+                (click)="elegirVersion(documento)"
+              >
+                New version
+              </button>
+              <button
+                i18n
+                type="button"
+                class="btn btn-outline-danger btn-sm"
+                data-testid="documento-borrar"
+                data-bs-toggle="modal"
+                data-bs-target="#modal-borrar-documento"
+                [attr.aria-describedby]="'documento-' + documento.id + '-nombre'"
+                (click)="pedirBorrado(documento)"
+              >
+                Delete
+              </button>
+            }
+          </div>
+          @if (abierto && abierto.documento.id === documento.id) {
+            <ol class="list-unstyled small border-top mt-2 pt-2 mb-0" [id]="'documento-' + documento.id + '-versiones'">
+              @for (version of abierto.versiones; track version.numero) {
+                <li
+                  class="d-flex flex-wrap align-items-center gap-2 mb-1"
+                  data-testid="version-documento"
+                  [attr.data-version]="version.numero"
+                  [attr.data-estado]="version.estado"
+                >
+                  <span class="me-auto text-break">
+                    <ng-container i18n
+                      >Version {{ version.numero }}: {{ version.nombre }} · {{ tamano(version.tamano) }} ·
+                      {{ version.fecha | fecha: 'fechaHora' }} · {{ nombreEstado[version.estado] }}</ng-container
+                    >
+                    @if (version.estado === 'BLOQUEADO') {
+                      <span class="text-danger-emphasis">· {{ version.motivo }}</span>
+                    }
+                  </span>
+                  @if (version.estado === 'DISPONIBLE') {
+                    <button
+                      i18n
+                      type="button"
+                      class="btn btn-link btn-sm p-0"
+                      data-testid="version-bajar"
+                      (click)="bajar(documento, version.numero)"
+                    >
+                      Download version {{ version.numero }}
+                    </button>
+                  }
+                </li>
+              }
+            </ol>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>
+
+@if (!soloLectura()) {
+  <app-modal-confirmar
+    i18n-titulo
+    idModal="modal-borrar-documento"
+    titulo="Delete this document?"
+    textoBoton="Delete"
+    [peligro]="true"
+    mensaje="“{{ porBorrar?.nombre ?? '' }}” will leave the process with every one of its versions."
+    i18n-mensaje
+    (confirmar)="borrar()"
+  />
+}

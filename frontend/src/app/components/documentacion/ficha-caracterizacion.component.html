@@ -1,0 +1,94 @@
+<div class="ficha-caracterizacion" [attr.aria-busy]="cargando">
+  @if (error) {
+    <div class="alert alert-danger py-2 small" role="alert" id="caracterizacion-error">{{ error }}</div>
+  }
+  @if (conflicto) {
+    <div
+      class="alert alert-warning py-2 small d-flex flex-wrap align-items-center gap-2"
+      role="alert"
+      id="caracterizacion-conflicto"
+    >
+      <span i18n class="me-auto"
+        >Someone else saved this sheet while you were editing it. Reloading shows theirs and replaces what you typed
+        here.</span
+      >
+      <button
+        i18n
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        id="caracterizacion-recargar"
+        (click)="cargar()"
+      >
+        Reload
+      </button>
+    </div>
+  }
+  @if (aviso) {
+    <div class="alert alert-success py-2 small" role="status" id="caracterizacion-aviso">{{ aviso }}</div>
+  }
+
+  @if (cargando) {
+    <p i18n class="small text-body-secondary mb-0" role="status">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading the sheet…
+    </p>
+  } @else if (soloLectura()) {
+    @if (vacia) {
+      <p i18n class="small text-body-secondary mb-0" id="caracterizacion-vacia">Nobody has filled in this sheet yet.</p>
+    } @else {
+      <dl class="row small mb-0" id="caracterizacion-lectura">
+        @for (campo of campos; track campo) {
+          <dt class="col-sm-3 fw-semibold">{{ nombreCampo[campo] }}</dt>
+          <dd class="col-sm-9 descripcion" [id]="'caracterizacion-ver-' + campo">
+            @if (ficha?.[campo]) {
+              {{ ficha?.[campo] }}
+            } @else {
+              <span i18n class="text-body-secondary">Not written</span>
+            }
+          </dd>
+        }
+      </dl>
+    }
+  } @else {
+    <form [formGroup]="formulario" (ngSubmit)="guardar()" id="caracterizacion-formulario">
+      <div class="row g-3">
+        @for (campo of campos; track campo) {
+          <div class="col-md-6">
+            <label class="form-label small mb-1" [for]="'caracterizacion-' + campo">{{ nombreCampo[campo] }}</label>
+            <textarea
+              class="form-control form-control-sm"
+              rows="3"
+              [id]="'caracterizacion-' + campo"
+              [formControlName]="campo"
+              [class.is-invalid]="formulario.controls[campo].invalid"
+            ></textarea>
+            @if (formulario.controls[campo].hasError('maxlength')) {
+              <div i18n class="invalid-feedback">This field cannot be longer than 4,000 characters.</div>
+            } @else if (formulario.controls[campo].hasError('servidor')) {
+              <div class="invalid-feedback">{{ formulario.controls[campo].getError('servidor') }}</div>
+            }
+          </div>
+        }
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+        @if (ficha?.fechaModificacion) {
+          <span i18n class="small text-body-secondary me-auto" id="caracterizacion-modificada">
+            Last changed {{ ficha?.fechaModificacion | fecha: 'fechaHora' }}
+          </span>
+        }
+        <button
+          i18n
+          type="submit"
+          class="btn btn-primary btn-sm ms-auto"
+          id="caracterizacion-guardar"
+          [disabled]="guardando || formulario.invalid || conflicto"
+        >
+          @if (guardando) {
+            Saving…
+          } @else {
+            Save the sheet
+          }
+        </button>
+      </div>
+    </form>
+  }
+</div>
