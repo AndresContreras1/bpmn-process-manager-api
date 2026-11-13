@@ -195,7 +195,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 - **Mutation testing** with PIT over the services, the engine and the conditions: 91 % of 3274 mutations caught,
   run every night with a floor of 75 %, and a **fuzzer** that feeds the BPMN importer broken files every night after
   it. Spotless keeps the imports and the whitespace of every changed file in order.
-- **The web app** has 197 Vitest tests over its logic — the rules of the modeler, the tree of the structure view, the
+- **The web app** has 229 Vitest tests over its logic — the rules of the modeler, the tree of the structure view, the
   autosave, the live connection, the filters in the address, the search and the permissions — and 30 Selenium
   scenarios, with axe-core over every screen.
 - **Every pull request** runs nine jobs: build and test on Ubuntu and Windows, architecture rules, Docker image
