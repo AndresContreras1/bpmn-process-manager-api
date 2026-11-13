@@ -55,15 +55,25 @@ import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.Recurso;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.modelado.dto.response.ComentarioResponse;
+import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoArtefacto;
 import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.model.TipoGateway;
+import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.service.ActividadService;
 import com.facimus.procesos.modelado.service.ArcoService;
+import com.facimus.procesos.modelado.service.ArtefactoService;
 import com.facimus.procesos.modelado.service.ComentarioService;
 import com.facimus.procesos.modelado.service.DatosDeArco;
+import com.facimus.procesos.modelado.service.DatosDeArtefacto;
+import com.facimus.procesos.modelado.service.DatosDeMensaje;
 import com.facimus.procesos.modelado.service.DocumentacionService;
 import com.facimus.procesos.modelado.service.EventoService;
+import com.facimus.procesos.modelado.service.GatewayService;
 import com.facimus.procesos.modelado.service.LaneService;
+import com.facimus.procesos.modelado.service.MensajeService;
 import com.facimus.procesos.modelado.service.PoolService;
 import com.facimus.procesos.security.ApiPrincipalRequestPostProcessor;
 
@@ -124,6 +134,12 @@ class BusquedaIntegracionTest {
     private EventoService eventoService;
     @Autowired
     private ArcoService arcoService;
+    @Autowired
+    private GatewayService gatewayService;
+    @Autowired
+    private MensajeService mensajeService;
+    @Autowired
+    private ArtefactoService artefactoService;
     @Autowired
     private DocumentacionService documentacionService;
     @Autowired
@@ -242,6 +258,34 @@ class BusquedaIntegracionTest {
         Long tienda = poolService.listarPorProceso(empresaId, proceso).getFirst().id();
         Long rol = rolProcesoService.crear(empresaId, ana.usuarioId(), "Bodega " + proceso, null).id();
         return laneService.crear(empresaId, ana.usuarioId(), tienda, "Bodega", rol).id();
+    }
+
+    /** Lo que se encontro de ese proceso, por tipo. */
+    private static List<String> tiposDe(JsonNode resultados, Long proceso) {
+        List<String> tipos = new ArrayList<>();
+        resultados.forEach(resultado -> {
+            if (resultado.get("procesoId").asLong() == proceso) {
+                tipos.add(resultado.get("tipo").asString());
+            }
+        });
+        return tipos;
+    }
+
+    /** De que tipo es cada elemento encontrado. */
+    private List<String> elementos(String texto) throws Exception {
+        List<String> tipos = new ArrayList<>();
+        resultados(beto, texto, "tipo", "ELEMENTO")
+                .forEach(resultado -> tipos.add(resultado.get("tipoDeElemento").asString()));
+        return tipos;
+    }
+
+    private void aCarpeta(Long proceso, Long carpeta) {
+        procesoService.editarFicha(empresaId, proceso, ana.usuarioId(), new DatosDeFicha(carpeta, null, null,
+                Clasificacion.CONFIDENCIAL, List.of(), procesoService.obtener(empresaId, proceso, false).version()));
+    }
+
+    private Actor administradora() {
+        return new Actor(ana.usuarioId(), empresaId, RolAcceso.ADMINISTRADOR);
     }
 
     private int trabajosDeReconstruccion() {
@@ -396,6 +440,51 @@ class BusquedaIntegracionTest {
     }
 
     @Test
+    @DisplayName("de un documento se busca solo su version actual, y sale una vez")
+    void versionActualDelDocumento() throws Exception {
+        Long despacho = proceso("Despacho", "Del pago a la entrega");
+        Long documento = subir(despacho, "Garantia.txt", "Cubre defectos de fabrica".getBytes(StandardCharsets.UTF_8));
+        vaciarLaCola();
+        mvc.perform(post("/api/v1/documentos/{id}/versiones", documento).param("nombre", "Garantia.txt")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .content("Cubre golpes del transporte".getBytes(StandardCharsets.UTF_8)).with(principal(beto)))
+                .andExpect(status().isCreated());
+        vaciarLaCola();
+
+        assertThat(resultados(beto, "defectos")).isEmpty();
+        assertThat(resultados(beto, "golpes").findValues("documentoId")).extracting(JsonNode::asLong)
+                .containsExactly(documento);
+        assertThat(resultados(beto, "garantia", "tipo", "DOCUMENTO")).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("un texto cuyo vector pasaria del megabyte se guarda igual, y cuentan sus primeros cien mil caracteres")
+    void vectorDemasiadoGrande() throws Exception {
+        Long despacho = proceso("Despacho", "Del pago a la entrega");
+        Long documento = subir(despacho, "Inventario.txt", "Existencias".getBytes(StandardCharsets.UTF_8));
+        vaciarLaCola();
+        // Palabras de consonantes, todas distintas: ningun lematizador las junta, y cada una ocupa su lugar
+        String consonantes = "bcdfghjklmnpqrstvwxz";
+        StringBuilder texto = new StringBuilder("faroleras");
+        for (int palabra = 0; texto.length() < 1_000_000; palabra++) {
+            texto.append(" q");
+            int resto = palabra;
+            for (int letra = 0; letra < 6; letra++) {
+                texto.append(consonantes.charAt(resto % consonantes.length()));
+                resto /= consonantes.length();
+            }
+        }
+        texto.append(" zarandajas");
+
+        assertThat(jdbc.update("update versiones_documento set texto = ? where documento_id = ?", texto.toString(),
+                documento)).isEqualTo(1);
+
+        assertThat(resultados(beto, "faroleras").findValues("documentoId")).extracting(JsonNode::asLong)
+                .containsExactly(documento);
+        assertThat(resultados(beto, "zarandajas")).isEmpty();
+    }
+
+    @Test
     @DisplayName("un documento borrado ya no se encuentra")
     void documentoBorrado() throws Exception {
         Long despacho = proceso("Despacho", "Del pago a la entrega");
@@ -434,6 +523,59 @@ class BusquedaIntegracionTest {
                 .containsExactlyInAnyOrder(hilo, respuesta);
         assertThat(encontrados.findValues("hiloId")).extracting(JsonNode::asLong).containsOnly(hilo);
         assertThat(encontrados.findValuesAsString("bpmnId")).containsOnly(tarea);
+    }
+
+    @Test
+    @DisplayName("un comentario editado se encuentra por su texto nuevo, y ya no por el viejo")
+    void comentarioEditado() throws Exception {
+        Long despacho = proceso("Despacho", "Del pago a la entrega");
+        ComentarioResponse comentario = comentarioService.comentar(empresaId, ana.usuarioId(), despacho,
+                new ComentarioService.Nuevo("Falta la guía de envío", null, null, List.of()));
+
+        comentarioService.editar(empresaId, ana.usuarioId(), comentario.id(), "Falta el rótulo de la caja", List.of(),
+                comentario.version());
+
+        assertThat(resultados(beto, "rotulo").findValues("comentarioId")).extracting(JsonNode::asLong)
+                .containsExactly(comentario.id());
+        assertThat(resultados(beto, "guia")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("un pool, una lane, un gateway, un arco con condicion, un mensaje y una anotacion salen con su tipo")
+    void cadaElemento() throws Exception {
+        Long despacho = proceso("Despacho", "Del pago a la entrega");
+        Long lane = lane(despacho);
+        Long tienda = poolService.listarPorProceso(empresaId, despacho).getFirst().id();
+        Long cliente = poolService.crear(empresaId, ana.usuarioId(), despacho, "Mayorista externo",
+                TipoParticipante.CLIENTE, true, Integracion.NINGUNA).id();
+        Long decidir = gatewayService.crear(empresaId, ana.usuarioId(), lane, "¿Facturado?", TipoGateway.EXCLUSIVO, 20,
+                80).id();
+        Long empacar = actividadService.crear(empresaId, ana.usuarioId(), lane, "Empacar", null, TipoActividad.USUARIO,
+                160, 80).id();
+        arcoService.crear(empresaId, ana.usuarioId(), new DatosDeArco(decidir, empacar, "Aprobado",
+                "pago.estado == CONFIRMADO", false, 0));
+        mensajeService.crear(empresaId, ana.usuarioId(), despacho, DatosDeMensaje.basico("Orden de reposición",
+                "Referencias y cantidades", cliente, tienda));
+        Long nota = artefactoService.crear(empresaId, ana.usuarioId(), despacho, new DatosDeArtefacto(
+                TipoArtefacto.ANOTACION, "Revisar sellos", null, lane, 200, 60, null, null)).id();
+
+        assertThat(elementos("mayorista")).containsExactly("POOL");
+        assertThat(elementos("bodega")).containsExactly("LANE");
+        assertThat(elementos("facturado")).containsExactly("GATEWAY");
+        assertThat(elementos("aprobado")).containsExactly("ARCO");
+        assertThat(elementos("confirmado")).containsExactly("ARCO");
+        assertThat(elementos("reposicion")).containsExactly("MENSAJE");
+        assertThat(elementos("cantidades")).containsExactly("MENSAJE");
+        assertThat(elementos("sellos")).containsExactly("ARTEFACTO");
+
+        // Dar de baja una tarea se lleva sus arcos; borrar la fila de la anotacion tambien la saca del indice
+        actividadService.eliminar(empresaId, ana.usuarioId(), empacar);
+        jdbc.update("delete from artefactos where id = ?", nota);
+
+        assertThat(elementos("empacar")).isEmpty();
+        assertThat(elementos("aprobado")).isEmpty();
+        assertThat(elementos("sellos")).isEmpty();
+        assertThat(elementos("bodega")).containsExactly("LANE");
     }
 
     @Test
@@ -519,7 +661,64 @@ class BusquedaIntegracionTest {
     }
 
     @Test
+    @DisplayName("un proceso con su propia concesion de ver se oculta a los demas, con lo que tiene adentro")
+    void permisosDeUnProceso() throws Exception {
+        Long reservado = proceso("Nómina reservada", "Pagos del personal");
+        Long publico = proceso("Nómina pública", "Calendario de pagos");
+        actividadService.crear(empresaId, ana.usuarioId(), lane(reservado), "Liquidar nómina", null,
+                TipoActividad.USUARIO, 160, 80);
+        comentar(reservado, "La nómina sale el viernes");
+        subir(reservado, "Nomina.txt", "Planilla de nómina".getBytes(StandardCharsets.UTF_8));
+        vaciarLaCola();
+        concesionService.conceder(administradora(), Recurso.proceso(reservado), Accion.VER, SujetoConcesion.PERSONA,
+                beto.usuarioId(), null);
+
+        assertThat(procesos(resultados(carla, "nomina"))).containsOnly(publico);
+        assertThat(tiposDe(resultados(beto, "nomina"), reservado)).containsExactlyInAnyOrder("PROCESO", "ELEMENTO",
+                "COMENTARIO", "DOCUMENTO");
+    }
+
+    @Test
+    @DisplayName("quien tiene concesion de ver un proceso lo encuentra, aunque no pueda ver su carpeta")
+    void procesoVisibleEnCarpetaOculta() throws Exception {
+        Long concedido = proceso("Nómina de bodega", "Pagos del turno");
+        Long oculto = proceso("Nómina de gerencia", "Bonos del trimestre");
+        Long carpeta = carpetaService.crear(empresaId, "Finanzas", null).id();
+        aCarpeta(concedido, carpeta);
+        aCarpeta(oculto, carpeta);
+        concesionService.conceder(administradora(), Recurso.carpeta(carpeta), Accion.VER, SujetoConcesion.PERSONA,
+                beto.usuarioId(), null);
+        concesionService.conceder(administradora(), Recurso.proceso(concedido), Accion.VER, SujetoConcesion.PERSONA,
+                carla.usuarioId(), null);
+
+        assertThat(procesos(resultados(carla, "nomina"))).containsExactly(concedido);
+        assertThat(procesos(resultados(beto, "nomina"))).containsExactlyInAnyOrder(concedido, oculto);
+    }
+
+    @Test
+    @DisplayName("la categoria y las etiquetas encuentran al proceso; con otro nombre y descripcion, se busca lo nuevo")
+    void fichaYCambios() throws Exception {
+        Long despacho = procesoService.crear(empresaId, ana.usuarioId(), "Despacho", "Del pago a la entrega",
+                "Logística inversa").id();
+        procesoService.editarFicha(empresaId, despacho, ana.usuarioId(), new DatosDeFicha(null, null, null,
+                Clasificacion.INTERNA, List.of("perecederos", "temporada alta"),
+                procesoService.obtener(empresaId, despacho, false).version()));
+
+        assertThat(procesos(resultados(beto, "inversa"))).containsExactly(despacho);
+        assertThat(procesos(resultados(beto, "perecederos"))).containsExactly(despacho);
+        assertThat(procesos(resultados(beto, "temporada"))).containsExactly(despacho);
+
+        procesoService.editarDatos(empresaId, despacho, ana.usuarioId(), "Reparto refrigerado", "Cadena de frío",
+                "Logística inversa", procesoService.obtener(empresaId, despacho, false).version());
+
+        assertThat(procesos(resultados(beto, "refrigerado frio"))).containsExactly(despacho);
+        assertThat(resultados(beto, "despacho", "tipo", "PROCESO")).isEmpty();
+        assertThat(resultados(beto, "entrega", "tipo", "PROCESO")).isEmpty();
+    }
+
+    @Test
     @DisplayName("un proceso eliminado ya no se encuentra, ni lo que tiene adentro")
+
     void procesoEliminado() throws Exception {
         Long despacho = proceso("Despacho urgente", "Del pago a la entrega");
         comentar(despacho, "Despacho urgente por la tarde");
