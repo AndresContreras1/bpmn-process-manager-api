@@ -270,7 +270,8 @@ public final class LectorBpmn {
                     !"false".equals(Dom.atributo(hijo, "cancelActivity")),
                     tiempo == null ? null : claseDeTiempo(tiempo), Dom.texto(tiempo), padre,
                     Dom.atributo(hijo, "calledElement"), FormularioBpmn.leer(hijo),
-                    FormularioBpmn.limitesIlegibles(hijo), AsignacionBpmn.leer(hijo)));
+                    FormularioBpmn.limitesIlegibles(hijo), AsignacionBpmn.leer(hijo), PlazoBpmn.leerPlazo(hijo),
+                    PlazoBpmn.leerEscalamiento(hijo)));
             extension(suId, hijo);
             asociacionesDeDatos(hijo, suId, TAREAS.contains(elemento));
             if ("subProcess".equals(elemento)) {

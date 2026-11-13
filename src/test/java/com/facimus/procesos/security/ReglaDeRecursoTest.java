@@ -137,6 +137,21 @@ class ReglaDeRecursoTest {
     }
 
     @Test
+    @DisplayName("PR 71: el plazo de una tarea o de un caso y lo que escala un borde es modelar el elemento; el tablero "
+            + "se lee con ver el proceso")
+    void plazos() {
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/actividades/{id}/plazo", null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "actividades"));
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/eventos/{id}/plazo", null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "eventos"));
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/eventos/{id}/escalamiento", null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "eventos"));
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/procesos/{id}/tablero", null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.VER, ReglaDeRecurso.Clase.PROCESO, null));
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/empresas/actual/tablero", null)).isEmpty();
+    }
+
+    @Test
     @DisplayName("en una carpeta, editarla es modelar y conceder es administrar")
     void carpetas() {
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/carpetas/{id}", null).orElseThrow().accion())

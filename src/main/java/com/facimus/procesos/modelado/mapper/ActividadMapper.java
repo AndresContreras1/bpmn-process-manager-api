@@ -10,6 +10,7 @@ import com.facimus.procesos.common.formularios.Formulario;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.FormularioResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.TipoAsignacion;
 
@@ -20,6 +21,7 @@ public interface ActividadMapper {
     @Mapping(target = "padreId", source = "padre.id")
     @Mapping(target = "procesoLlamadoId", source = "procesoLlamado.id")
     @Mapping(target = "asignacion", source = ".")
+    @Mapping(target = "plazo", source = ".")
     ActividadResponse toResponse(Actividad actividad);
 
     List<ActividadResponse> toResponses(List<Actividad> actividades);
@@ -27,6 +29,11 @@ public interface ActividadMapper {
     /** PR 69: el formulario con sus condiciones compiladas (D36). */
     default FormularioResponse toFormulario(Formulario formulario) {
         return FormularioResponse.de(formulario);
+    }
+
+    /** PR 71: el plazo de la tarea; ninguno si no lo tiene. */
+    default PlazoResponse toPlazo(Actividad actividad) {
+        return PlazosDelModelo.plazo(actividad);
     }
 
     /** PR 70: a quien le llega la tarea; ninguna cuando espera en la bandeja de su rol, que es lo de siempre. */

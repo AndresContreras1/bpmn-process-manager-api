@@ -64,7 +64,8 @@ import com.facimus.procesos.modelado.model.TipoTemporizador;
  * <li>lo que BPMN no tiene, en el espacio {@code bpm:} ({@link EspaciosBpmn#BPM}): tipo, integracion y orden del
  * participante, rol de la lane, orden de los flujos, y el contenido, los campos, el destino, el fallo, la respuesta y
  * la correlacion de cada mensaje; PR 69: el formulario de cada tarea de usuario y de cada inicio simple; PR 70: a
- * quien le llega cada tarea de usuario.</li>
+ * quien le llega cada tarea de usuario; PR 71: el plazo de cada tarea de usuario y de cada inicio, y lo que
+ * escala cada temporizador de borde que no interrumpe.</li>
  * </ul>
  *
  * <p>PR 55: lo descriptivo. Los eventos de temporizador (de inicio, de espera y de borde) con su
@@ -600,15 +601,19 @@ public final class EscritorBpmn {
             }
             ajenos.atributos(id, salida);
             documentacion(actividad.descripcion());
-            // PR 69 y PR 70: el formulario de la tarea y a quien le llega, que BPMN no tiene
-            extensiones(id, actividad.formulario() != null || actividad.asignacion() != null, () -> {
-                if (actividad.formulario() != null) {
-                    FormularioBpmn.escribir(salida, actividad.formulario());
-                }
-                if (actividad.asignacion() != null) {
-                    AsignacionBpmn.escribir(salida, actividad.asignacion());
-                }
-            });
+            // PR 69, 70 y 71: el formulario de la tarea, a quien le llega y su plazo, que BPMN no tiene
+            extensiones(id, actividad.formulario() != null || actividad.asignacion() != null
+                    || actividad.plazo() != null, () -> {
+                        if (actividad.formulario() != null) {
+                            FormularioBpmn.escribir(salida, actividad.formulario());
+                        }
+                        if (actividad.asignacion() != null) {
+                            AsignacionBpmn.escribir(salida, actividad.asignacion());
+                        }
+                        if (actividad.plazo() != null) {
+                            PlazoBpmn.escribir(salida, actividad.plazo());
+                        }
+                    });
             entradasYSalidas(actividad.id());
             datosDeLaActividad(id);
             if (tipo != null && tipo.esSubproceso()) {
@@ -650,7 +655,19 @@ public final class EscritorBpmn {
                 salida.atributo("attachedToRef", actividad);
             }
             ajenos.atributos(id, salida);
-            extensiones(id, evento.formulario() != null, () -> FormularioBpmn.escribir(salida, evento.formulario()));
+            // PR 69 y 71: el formulario del inicio, el plazo del caso y lo que escala un borde
+            extensiones(id, evento.formulario() != null || evento.plazo() != null || evento.escalamiento() != null,
+                    () -> {
+                        if (evento.formulario() != null) {
+                            FormularioBpmn.escribir(salida, evento.formulario());
+                        }
+                        if (evento.plazo() != null) {
+                            PlazoBpmn.escribir(salida, evento.plazo());
+                        }
+                        if (evento.escalamiento() != null) {
+                            PlazoBpmn.escribir(salida, evento.escalamiento());
+                        }
+                    });
             entradasYSalidas(evento.id());
             if (tipo == TipoEvento.MENSAJE_INICIO || tipo == TipoEvento.MENSAJE_INTERMEDIO
                     || tipo == TipoEvento.MENSAJE_FIN) {

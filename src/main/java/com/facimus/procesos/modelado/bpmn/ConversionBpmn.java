@@ -34,6 +34,8 @@ import com.facimus.procesos.modelado.bpmn.PlanBpmn.Mensaje;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Nodo;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Pool;
 import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.Artefacto;
 import com.facimus.procesos.modelado.model.BpmnId;
@@ -461,7 +463,9 @@ public final class ConversionBpmn {
                     leidoNodo.padre() == null ? null : ids.get(leidoNodo.padre()),
                     actividad == TipoActividad.LLAMADA ? procesoLlamado(leidoNodo) : null,
                     formulario(leidoNodo, actividad == TipoActividad.USUARIO || evento == TipoEvento.INICIO),
-                    asignacion(leidoNodo, actividad == TipoActividad.USUARIO));
+                    asignacion(leidoNodo, actividad == TipoActividad.USUARIO),
+                    plazo(leidoNodo, actividad == TipoActividad.USUARIO || evento != null && evento.empiezaElProceso()),
+                    escalamiento(leidoNodo, evento == TipoEvento.TEMPORIZADOR_BORDE && !leidoNodo.interrumpe()));
             nodos.add(nodo);
             nodoPorId.put(id, nodo);
             poolDelNodo.put(id, pool);
@@ -470,6 +474,50 @@ public final class ConversionBpmn {
                 case GATEWAY -> "gateways";
                 case EVENTO -> "eventos";
             });
+        }
+
+        /**
+         * PR 71: el plazo de una tarea de usuario o del caso, en un inicio. Uno que no se entiende, o en otro nodo, se
+         * deja fuera con su nota: un plazo sin unidad o fuera de su tope no se puede contar.
+         */
+        private PlazoResponse plazo(ModeloLeido.Nodo nodo, boolean loLleva) {
+            PlazoResponse plazo = nodo.plazo();
+            if (plazo == null) {
+                return null;
+            }
+            if (!loLleva) {
+                notas.convertido(nodo.id(), "Trae un plazo, pero solo lo llevan las tareas de usuario y los eventos de "
+                        + "inicio: se deja fuera.");
+                return null;
+            }
+            if (plazo.unidad() == null) {
+                notas.convertido(nodo.id(), "El plazo no dice una unidad que exista (HORAS o DIAS_HABILES) con una "
+                        + "cantidad dentro de su tope: se deja fuera.");
+                return null;
+            }
+            return plazo;
+        }
+
+        /**
+         * PR 71: lo que escala un temporizador de borde que no interrumpe. En otro evento, o sin una accion que exista,
+         * se deja fuera con su nota: el borde solo abre su camino, como antes.
+         */
+        private EscalamientoResponse escalamiento(ModeloLeido.Nodo nodo, boolean loLleva) {
+            EscalamientoResponse escalamiento = nodo.escalamiento();
+            if (escalamiento == null) {
+                return null;
+            }
+            if (!loLleva) {
+                notas.convertido(nodo.id(), "Trae un escalamiento, pero solo lo lleva un temporizador de borde que no "
+                        + "interrumpe: se deja fuera.");
+                return null;
+            }
+            if (escalamiento.accion() == null) {
+                notas.convertido(nodo.id(), "El escalamiento no dice una accion que exista (AVISAR o REASIGNAR): el "
+                        + "borde solo abre su camino.");
+                return null;
+            }
+            return escalamiento;
         }
 
         /**
@@ -701,9 +749,11 @@ public final class ConversionBpmn {
                             + "modelo: se deja fuera.");
                     continue;
                 }
+                // PR 71: el borde se pega con lo que escala, que es suyo
                 Nodo pegado = new Nodo(borde.bpmnId(), actividad.lane(), borde.clase(), null, null, borde.tipoEvento(),
                         borde.nombre(), borde.descripcion(), 0, 0, actividad.bpmnId(), borde.interrumpe(),
-                        borde.tipoTemporizador(), borde.temporizador(), actividad.padre(), null);
+                        borde.tipoTemporizador(), borde.temporizador(), actividad.padre(), null, null, null, null,
+                        borde.escalamiento());
                 pegados.add(pegado);
                 nodoPorId.put(pegado.bpmnId(), pegado);
             }

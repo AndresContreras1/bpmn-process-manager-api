@@ -115,6 +115,38 @@
     </xsd:complexType>
   </xsd:element>
 
+  <!-- PR 71: el plazo de una userTask, o del caso entero en un startEvent: horas de reloj o dias habiles del
+       calendario de la organizacion. Va en el nodo. -->
+  <xsd:element name="plazo">
+    <xsd:complexType>
+      <xsd:attribute name="cantidad" type="xsd:positiveInteger" use="required"/>
+      <xsd:attribute name="unidad" type="tUnidadDePlazo" use="required"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <xsd:simpleType name="tUnidadDePlazo">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="HORAS"/>
+      <xsd:enumeration value="DIAS_HABILES"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <!-- PR 71: lo que hace un boundaryEvent de temporizador que no interrumpe con su tarea al saltar, ademas de abrir su
+       camino: avisar o reasignar al supervisor (el usuario, o el dueno del proceso si no lo dice). Va en el evento. -->
+  <xsd:element name="escalamiento">
+    <xsd:complexType>
+      <xsd:attribute name="accion" type="tAccionDeEscalamiento" use="required"/>
+      <xsd:attribute name="usuario" type="xsd:long"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <xsd:simpleType name="tAccionDeEscalamiento">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="AVISAR"/>
+      <xsd:enumeration value="REASIGNAR"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
   <xsd:simpleType name="tTipoAsignacion">
     <xsd:restriction base="xsd:string">
       <xsd:enumeration value="ROL"/>

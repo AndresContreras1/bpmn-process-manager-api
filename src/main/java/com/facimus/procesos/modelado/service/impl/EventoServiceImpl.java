@@ -94,6 +94,16 @@ public class EventoServiceImpl implements EventoService {
             throw new ReglaNegocioException("El evento tiene formulario, y solo un inicio simple lo lleva: quítalo "
                     + "antes de cambiarle el tipo.");
         }
+        if (evento.getPlazoUnidad() != null && !tipoEvento.empiezaElProceso()) {
+            // PR 71: el plazo del caso cuenta desde que el caso empieza, y solo un inicio lo empieza
+            throw new ReglaNegocioException("El evento tiene el plazo del caso, y solo un inicio lo lleva: quítalo "
+                    + "antes de cambiarle el tipo.");
+        }
+        if (evento.getEscalamiento() != null && (!tipoEvento.esDeBorde() || interrumpe(temporizador))) {
+            // PR 71: solo escala un borde que deja seguir a su tarea
+            throw new ReglaNegocioException("El evento escala su tarea, y solo lo hace un temporizador de borde que "
+                    + "no interrumpe: quita el escalamiento antes de cambiarlo.");
+        }
         Long procesoId = evento.getLane().getPool().getProceso().getId();
         if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
                 empresaId, eventoId)) {
@@ -158,8 +168,12 @@ public class EventoServiceImpl implements EventoService {
         evento.setTemporizador(esTemporizador && temporizador.expresion() != null
                 ? temporizador.expresion().strip() : null);
         evento.setAdjuntoA(adjuntoA);
-        evento.setInterrumpe(tipoEvento.esDeBorde()
-                ? Boolean.valueOf(temporizador == null || !Boolean.FALSE.equals(temporizador.interrumpe())) : null);
+        evento.setInterrumpe(tipoEvento.esDeBorde() ? Boolean.valueOf(interrumpe(temporizador)) : null);
+    }
+
+    /** Un borde interrumpe salvo que se diga lo contrario. */
+    private static boolean interrumpe(DatosDeTemporizador temporizador) {
+        return temporizador == null || !Boolean.FALSE.equals(temporizador.interrumpe());
     }
 
     @Override

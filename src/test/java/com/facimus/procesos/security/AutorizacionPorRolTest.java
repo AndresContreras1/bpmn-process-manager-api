@@ -274,6 +274,15 @@ class AutorizacionPorRolTest {
             EDITOR        | PUT    | /api/v1/actividades/{id}/asignacion        | 404
             ADMINISTRADOR | PUT    | /api/v1/actividades/{id}/asignacion        | 404
             SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/asignacion        | 403
+            # PR 71: el plazo de una tarea o de un caso y lo que escala un borde lo decide quien modela
+            EDITOR        | PUT    | /api/v1/actividades/{id}/plazo             | 404
+            ADMINISTRADOR | PUT    | /api/v1/actividades/{id}/plazo             | 404
+            SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/plazo             | 403
+            EDITOR        | PUT    | /api/v1/eventos/{id}/plazo                 | 404
+            SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/plazo                 | 403
+            EDITOR        | PUT    | /api/v1/eventos/{id}/escalamiento          | 404
+            ADMINISTRADOR | PUT    | /api/v1/eventos/{id}/escalamiento          | 404
+            SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/escalamiento          | 403
             # PR 63: comentar es de cualquier rol, tambien de quien solo lee; las notificaciones son de cada persona
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/comentarios     | 404
             SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/comentarios     | 404
@@ -319,6 +328,9 @@ class AutorizacionPorRolTest {
         } else if (ruta.endsWith("/reasignar") || ruta.endsWith("/delegar")) {
             // PR 70: con persona y motivo, para que quien opera pase y choque con que la tarea no existe
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"usuarioId\":1,\"motivo\":\"x\"}");
+        } else if (ruta.endsWith("/plazo") || ruta.endsWith("/escalamiento")) {
+            // PR 71: sin plazo ni accion y con su version, para que quien modela pase y choque con que no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}");
         } else if (ruta.endsWith("/asignacion")) {
             // PR 70: la bandeja del rol y su version, para que quien modela pase y choque con que el nodo no existe
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"tipo\":\"ROL\",\"version\":0}");

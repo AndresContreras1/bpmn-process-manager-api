@@ -55,6 +55,9 @@ import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.bpmn.InformeBpmn;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn;
 import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Arco;
@@ -82,6 +85,7 @@ import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
 import com.facimus.procesos.modelado.model.TipoTemporizador;
+import com.facimus.procesos.modelado.model.UnidadDePlazo;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.ArtefactoRepository;
@@ -853,6 +857,91 @@ class AplicacionDelModeloTest {
     }
 
     @Test
+    @DisplayName("PR 71: un plazo que llega, cambia de cantidad o de unidad, o se va, es una edicion; igual que hoy no")
+    void plazos_cadaCambioEsUnaEdicion() {
+        preparar();
+        planNodos.get(VERIFICAR).plazo = new PlazoResponse(8, UnidadDePlazo.HORAS);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(verificar.getPlazoCantidad()).isEqualTo(8);
+        assertThat(verificar.getPlazoUnidad()).isEqualTo(UnidadDePlazo.HORAS);
+
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 0, 0));
+
+        planNodos.get(VERIFICAR).plazo = new PlazoResponse(9, UnidadDePlazo.HORAS);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(verificar.getPlazoCantidad()).isEqualTo(9);
+
+        planNodos.get(VERIFICAR).plazo = new PlazoResponse(9, UnidadDePlazo.DIAS_HABILES);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(verificar.getPlazoUnidad()).isEqualTo(UnidadDePlazo.DIAS_HABILES);
+
+        planNodos.get(INICIO).plazo = new PlazoResponse(3, UnidadDePlazo.DIAS_HABILES);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(inicio.getPlazoCantidad()).isEqualTo(3);
+
+        planNodos.get(VERIFICAR).plazo = null;
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(verificar.getPlazoCantidad()).isNull();
+        assertThat(verificar.getPlazoUnidad()).isNull();
+    }
+
+    @Test
+    @DisplayName("PR 71: un escalamiento que llega, cambia de accion o de supervisor, o se va, es una edicion")
+    void escalamientos_cadaCambioEsUnaEdicion() {
+        preparar();
+        plazo.setInterrumpe(false);
+        planNodos.get(PLAZO).interrumpe = false;
+        planNodos.get(PLAZO).escalamiento = new EscalamientoResponse(AccionDeEscalamiento.AVISAR, null);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(plazo.getEscalamiento()).isEqualTo(AccionDeEscalamiento.AVISAR);
+        assertThat(plazo.getEscalarA()).isNull();
+
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 0, 0));
+
+        planNodos.get(PLAZO).escalamiento = new EscalamientoResponse(AccionDeEscalamiento.AVISAR, 5L);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(plazo.getEscalarA()).isEqualTo(5L);
+
+        planNodos.get(PLAZO).escalamiento = new EscalamientoResponse(AccionDeEscalamiento.REASIGNAR, 5L);
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(plazo.getEscalamiento()).isEqualTo(AccionDeEscalamiento.REASIGNAR);
+
+        planNodos.get(PLAZO).escalamiento = null;
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(plazo.getEscalamiento()).isNull();
+        assertThat(plazo.getEscalarA()).isNull();
+    }
+
+    @Test
+    @DisplayName("PR 71: los nodos nuevos se crean con el plazo y el escalamiento del archivo")
+    void plazos_nodosNuevos() {
+        preparar();
+        guardaConId(actividadRepository, Actividad.class, Actividad::setId);
+        guardaConId(eventoRepository, Evento.class, Evento::setId);
+        nodoPlan(NodoPlan.actividad("Activity_Aprobar", VENTAS, TipoActividad.USUARIO, "Approve", 150, 60))
+                .plazo = new PlazoResponse(8, UnidadDePlazo.HORAS);
+        NodoPlan borde = nodoPlan(NodoPlan.evento("Event_Seis", VENTAS, TipoEvento.TEMPORIZADOR_BORDE, "Six hours",
+                0, 0));
+        borde.adjuntoA = "Activity_Aprobar";
+        borde.interrumpe = false;
+        borde.tipoTemporizador = TipoTemporizador.DURACION;
+        borde.temporizador = "PT6H";
+        borde.escalamiento = new EscalamientoResponse(AccionDeEscalamiento.REASIGNAR, 5L);
+
+        aplicar(RolAcceso.EDITOR);
+
+        ArgumentCaptor<Actividad> actividad = ArgumentCaptor.forClass(Actividad.class);
+        verify(actividadRepository).save(actividad.capture());
+        assertThat(actividad.getValue().getPlazoCantidad()).isEqualTo(8);
+        assertThat(actividad.getValue().getPlazoUnidad()).isEqualTo(UnidadDePlazo.HORAS);
+        ArgumentCaptor<Evento> evento = ArgumentCaptor.forClass(Evento.class);
+        verify(eventoRepository).save(evento.capture());
+        assertThat(evento.getValue().getEscalamiento()).isEqualTo(AccionDeEscalamiento.REASIGNAR);
+        assertThat(evento.getValue().getEscalarA()).isEqualTo(5L);
+        assertThat(evento.getValue().getPlazoUnidad()).isNull();
+    }
+
+    @Test
     @DisplayName("Un gateway que cambia de tipo es una edicion")
     void gateway_cambiaDeTipo() {
         preparar();
@@ -1547,6 +1636,8 @@ class AplicacionDelModeloTest {
         private Long procesoLlamado;
         private Formulario formulario;
         private AsignacionResponse asignacion;
+        private PlazoResponse plazo;
+        private EscalamientoResponse escalamiento;
 
         private NodoPlan(String bpmnId, PlanBpmn.Clase clase, String lane, String nombre, int x, int y) {
             this.bpmnId = bpmnId;
@@ -1578,7 +1669,7 @@ class AplicacionDelModeloTest {
         PlanBpmn.Nodo armar() {
             return new PlanBpmn.Nodo(bpmnId, lane, clase, tipoActividad, tipoGateway, tipoEvento, nombre, descripcion,
                     x, y, adjuntoA, interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado, formulario,
-                    asignacion);
+                    asignacion, plazo, escalamiento);
         }
     }
 

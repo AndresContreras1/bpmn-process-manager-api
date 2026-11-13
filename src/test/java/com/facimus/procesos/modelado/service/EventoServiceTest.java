@@ -29,12 +29,16 @@ import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
 import com.facimus.procesos.modelado.mapper.EventoMapper;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.Arco;
 import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
+import com.facimus.procesos.modelado.model.UnidadDePlazo;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
@@ -143,6 +147,55 @@ class EventoServiceTest {
                 .hasMessage("Un evento de inicio no puede tener arcos entrantes.");
         assertThat(evento.getTipoEvento()).isEqualTo(TipoEvento.MENSAJE_INTERMEDIO);
         verify(eventoRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("PR 71: un inicio con el plazo del caso puede pasar a otro inicio, pero no dejar de serlo")
+    void editar_inicioConPlazo_sigueSiendoUnInicio() {
+        evento.setTipoEvento(TipoEvento.INICIO);
+        evento.setPlazoCantidad(5);
+        evento.setPlazoUnidad(UnidadDePlazo.DIAS_HABILES);
+        when(eventoRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(evento));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(
+                "Payment result received", 100L, EMPRESA, 40L)).thenReturn(false);
+        when(eventoRepository.saveAndFlush(any(Evento.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Payment result received",
+                TipoEvento.MENSAJE_INTERMEDIO, null, 0, 0, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("El evento tiene el plazo del caso, y solo un inicio lo lleva: quítalo antes de "
+                        + "cambiarle el tipo.");
+        assertThat(evento.getTipoEvento()).isEqualTo(TipoEvento.INICIO);
+
+        EventoResponse respuesta = eventoService.editar(EMPRESA, AUTOR, 40L, "Payment result received",
+                TipoEvento.MENSAJE_INICIO, null, 5, 5, null);
+        assertThat(respuesta.plazo()).isEqualTo(new PlazoResponse(5, UnidadDePlazo.DIAS_HABILES));
+    }
+
+    @Test
+    @DisplayName("PR 71: un borde que escala no pasa a interrumpir ni deja de ser de borde")
+    void editar_bordeQueEscala_noInterrumpe() {
+        evento.setTipoEvento(TipoEvento.TEMPORIZADOR_BORDE);
+        evento.setInterrumpe(false);
+        evento.setEscalamiento(AccionDeEscalamiento.AVISAR);
+        when(eventoRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(evento));
+        String mensaje = "El evento escala su tarea, y solo lo hace un temporizador de borde que no interrumpe: "
+                + "quita el escalamiento antes de cambiarlo.";
+
+        assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Six hours",
+                TipoEvento.TEMPORIZADOR_BORDE, null, 0, 0, null,
+                new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", 30L, true)))
+                .isInstanceOf(ReglaNegocioException.class).hasMessage(mensaje);
+        assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Six hours",
+                TipoEvento.TEMPORIZADOR_BORDE, null, 0, 0, null,
+                new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", 30L, null)))
+                .isInstanceOf(ReglaNegocioException.class).hasMessage(mensaje);
+        assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Six hours",
+                TipoEvento.TEMPORIZADOR_INTERMEDIO, null, 0, 0, null,
+                new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", null, false)))
+                .isInstanceOf(ReglaNegocioException.class).hasMessage(mensaje);
+        assertThat(evento.getTipoEvento()).isEqualTo(TipoEvento.TEMPORIZADOR_BORDE);
+        assertThat(evento.getInterrumpe()).isFalse();
     }
 
     @Test

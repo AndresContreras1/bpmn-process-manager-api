@@ -27,6 +27,7 @@ import com.facimus.procesos.gestion.repository.RolProcesoRepository;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.RolProcesoService;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Arco;
 import com.facimus.procesos.modelado.model.Artefacto;
@@ -41,6 +42,7 @@ import com.facimus.procesos.modelado.model.NodoFlujo;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.model.UnidadDePlazo;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.ArtefactoRepository;
@@ -369,7 +371,8 @@ class AplicacionDelModelo {
                             .tipoActividad(deseado.tipoActividad()).posicionX(x).posicionY(y).lane(lane)
                             .procesoLlamado(procesoLlamado(deseado)).formulario(deseado.formulario())
                             .tipoAsignacion(tipoDeAsignacion(deseado)).asignacionUsuarioId(usuarioAsignado(deseado))
-                            .asignacionCampo(campoAsignado(deseado)).build());
+                            .asignacionCampo(campoAsignado(deseado)).plazoCantidad(cantidadDelPlazo(deseado))
+                            .plazoUnidad(unidadDelPlazo(deseado)).build());
                     case GATEWAY -> gatewayRepository.save(Gateway.builder().empresa(empresa).bpmnId(deseado.bpmnId())
                             .nombre(deseado.nombre()).tipoGateway(deseado.tipoGateway()).posicionX(x).posicionY(y)
                             .lane(lane).build());
@@ -377,7 +380,9 @@ class AplicacionDelModelo {
                             .nombre(deseado.nombre()).tipoEvento(deseado.tipoEvento()).posicionX(x).posicionY(y)
                             .lane(lane).tipoTemporizador(deseado.tipoTemporizador())
                             .temporizador(deseado.temporizador()).interrumpe(deseado.interrumpe())
-                            .formulario(deseado.formulario()).build());
+                            .formulario(deseado.formulario()).plazoCantidad(cantidadDelPlazo(deseado))
+                            .plazoUnidad(unidadDelPlazo(deseado)).escalamiento(accionDeEscalamiento(deseado))
+                            .escalarA(supervisor(deseado)).build());
                 };
                 nodos.put(deseado.bpmnId(), nuevo);
                 nodosNuevos.add(deseado.bpmnId());
@@ -392,9 +397,14 @@ class AplicacionDelModelo {
             }
             boolean cambia = !Objects.equals(actual.getNombre(), deseado.nombre()) || actual.getPosicionX() != x
                     || actual.getPosicionY() != y || !actual.getLane().getBpmnId().equals(deseado.lane())
-                    || !Objects.equals(actual.getFormulario(), deseado.formulario());
+                    || !Objects.equals(actual.getFormulario(), deseado.formulario())
+                    || !Objects.equals(actual.getPlazoCantidad(), cantidadDelPlazo(deseado))
+                    || actual.getPlazoUnidad() != unidadDelPlazo(deseado);
             // PR 69: el formulario va con el tipo del nodo; el check de la base no admite uno sin el otro
             actual.setFormulario(deseado.formulario());
+            // PR 71: el plazo tambien, por lo mismo
+            actual.setPlazoCantidad(cantidadDelPlazo(deseado));
+            actual.setPlazoUnidad(unidadDelPlazo(deseado));
             switch (actual) {
                 case Actividad actividad -> {
                     Proceso llamado = procesoLlamado(deseado);
@@ -422,8 +432,13 @@ class AplicacionDelModelo {
                     cambia |= evento.getTipoEvento() != deseado.tipoEvento()
                             || evento.getTipoTemporizador() != deseado.tipoTemporizador()
                             || !Objects.equals(evento.getTemporizador(), deseado.temporizador())
-                            || !Objects.equals(evento.getInterrumpe(), deseado.interrumpe());
+                            || !Objects.equals(evento.getInterrumpe(), deseado.interrumpe())
+                            || evento.getEscalamiento() != accionDeEscalamiento(deseado)
+                            || !Objects.equals(evento.getEscalarA(), supervisor(deseado));
                     evento.setTipoEvento(deseado.tipoEvento());
+                    // PR 71: el escalamiento va con el borde que no interrumpe, como lo pide el check de la base
+                    evento.setEscalamiento(accionDeEscalamiento(deseado));
+                    evento.setEscalarA(supervisor(deseado));
                     evento.setTipoTemporizador(deseado.tipoTemporizador());
                     evento.setTemporizador(deseado.temporizador());
                     evento.setInterrumpe(deseado.interrumpe());
@@ -447,6 +462,24 @@ class AplicacionDelModelo {
 
         private static Long idDe(Proceso uno) {
             return uno == null ? null : uno.getId();
+        }
+
+        /** PR 71: el plazo de la tarea o del caso; nulo si no tiene. */
+        private static Integer cantidadDelPlazo(PlanBpmn.Nodo deseado) {
+            return deseado.plazo() == null ? null : deseado.plazo().cantidad();
+        }
+
+        private static UnidadDePlazo unidadDelPlazo(PlanBpmn.Nodo deseado) {
+            return deseado.plazo() == null ? null : deseado.plazo().unidad();
+        }
+
+        /** PR 71: lo que escala un borde que no interrumpe; nulo si solo abre su camino. */
+        private static AccionDeEscalamiento accionDeEscalamiento(PlanBpmn.Nodo deseado) {
+            return deseado.escalamiento() == null ? null : deseado.escalamiento().accion();
+        }
+
+        private static Long supervisor(PlanBpmn.Nodo deseado) {
+            return deseado.escalamiento() == null ? null : deseado.escalamiento().usuarioId();
         }
 
         /** PR 70: a quien le llega la tarea; nula es la bandeja de su rol, que es lo de siempre. */

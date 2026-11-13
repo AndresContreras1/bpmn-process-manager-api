@@ -6,6 +6,8 @@ import java.util.Map;
 import com.facimus.procesos.common.formularios.Formulario;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.DireccionAsociacion;
@@ -50,7 +52,19 @@ public record PlanBpmn(String nombre, String descripcion, String categoria, List
     public record Nodo(String bpmnId, String lane, Clase clase, TipoActividad tipoActividad, TipoGateway tipoGateway,
             TipoEvento tipoEvento, String nombre, String descripcion, int x, int y, String adjuntoA,
             Boolean interrumpe, TipoTemporizador tipoTemporizador, String temporizador, String padre,
-            Long procesoLlamado, Formulario formulario, AsignacionResponse asignacion) {
+            Long procesoLlamado, Formulario formulario, AsignacionResponse asignacion, PlazoResponse plazo,
+            EscalamientoResponse escalamiento) {
+
+        /** El de antes del PR 71, sin plazo ni escalamiento. */
+        @SuppressWarnings("java:S107") // lo que el modelo guarda de un nodo, por su nombre
+        public Nodo(String bpmnId, String lane, Clase clase, TipoActividad tipoActividad, TipoGateway tipoGateway,
+                TipoEvento tipoEvento, String nombre, String descripcion, int x, int y, String adjuntoA,
+                Boolean interrumpe, TipoTemporizador tipoTemporizador, String temporizador, String padre,
+                Long procesoLlamado, Formulario formulario, AsignacionResponse asignacion) {
+            this(bpmnId, lane, clase, tipoActividad, tipoGateway, tipoEvento, nombre, descripcion, x, y, adjuntoA,
+                    interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado, formulario, asignacion, null,
+                    null);
+        }
 
         /** El de antes del PR 70, sin asignacion: la tarea espera en la bandeja de su rol. */
         @SuppressWarnings("java:S107") // lo que el modelo guarda de un nodo, por su nombre
@@ -75,7 +89,7 @@ public record PlanBpmn(String nombre, String descripcion, String categoria, List
         Nodo en(String otraLane, int otraX, int otraY) {
             return new Nodo(bpmnId, otraLane, clase, tipoActividad, tipoGateway, tipoEvento, nombre, descripcion, otraX,
                     otraY, adjuntoA, interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado, formulario,
-                    asignacion);
+                    asignacion, plazo, escalamiento);
         }
     }
 
