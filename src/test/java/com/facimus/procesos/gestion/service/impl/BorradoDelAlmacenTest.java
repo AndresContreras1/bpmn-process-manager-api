@@ -1,12 +1,15 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -21,6 +24,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +40,9 @@ import com.facimus.procesos.common.almacen.ArchivoNoEncontradoException;
 import com.facimus.procesos.common.almacen.ClaveDeAlmacen;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.trabajos.Trabajo;
+import com.facimus.procesos.gestion.dto.response.PaginaDeBitacoraResponse;
+import com.facimus.procesos.gestion.dto.response.RegistroDeBitacoraResponse;
+import com.facimus.procesos.gestion.service.BitacoraService;
 import com.facimus.procesos.gestion.service.impl.BorradoDeTiendas.TiendaBorrada;
 import com.facimus.procesos.gestion.service.impl.BorradoDeTiendas.UltimaExportacion;
 
@@ -57,16 +64,18 @@ class BorradoDelAlmacenTest {
     private final JsonMapper json = JsonMapper.builder().build();
     private final Clock reloj = Clock.fixed(AHORA, ZoneOffset.UTC);
     private final Auditoria auditoria = mock(Auditoria.class);
+    private final BitacoraService bitacora = mock(BitacoraService.class);
     private AlmacenEnDisco almacen;
     private BorradoDelAlmacen borrado;
 
     @BeforeEach
     void preparar() throws IOException {
         almacen = new AlmacenEnDisco(raiz);
-        borrado = new BorradoDelAlmacen(almacen, auditoria, json, reloj, RETENCION);
+        borrado = new BorradoDelAlmacen(almacen, auditoria, bitacora, json, reloj, RETENCION);
+        when(bitacora.buscar(eq(12L), any(), isNull(), eq(1))).thenReturn(new PaginaDeBitacoraResponse(List.of(), null));
         Path archivo = Files.writeString(raiz.resolve("x.txt"), "contenido");
         almacen.guardar(ClaveDeAlmacen.deDocumento(12, 1, 1, "a"), archivo, "text/plain");
-        almacen.guardar(ClaveDeAlmacen.deExportacion(12, 4), archivo, "application/zip");
+        almacen.guardar(ClaveDeAlmacen.deExportacion(12, 4, "intento-1"), archivo, "application/zip");
         almacen.guardar(ClaveDeAlmacen.deDocumento(13, 2, 1, "b"), archivo, "text/plain");
     }
 
@@ -111,6 +120,7 @@ class BorradoDelAlmacenTest {
         assertThat(certificado.get("totalDeFilas").asInt()).isEqualTo(4);
         assertThat(certificado.get("almacen").get("prefijo").asString()).isEqualTo("empresas/12/");
         assertThat(certificado.get("almacen").get("objetosBorrados").asInt()).isEqualTo(2);
+        assertThat(certificado.get("almacen").get("intento").asInt()).isEqualTo(1);
         assertThat(certificado.get("ultimaExportacion").get("id").asLong()).isEqualTo(4);
         assertThat(certificado.get("ultimaExportacion").get("sha256").asString()).isEqualTo("e".repeat(64));
         assertThat(certificado.get("ultimaExportacion").get("listaEn").asString()).isEqualTo("2026-11-20T08:00");
@@ -139,11 +149,16 @@ class BorradoDelAlmacenTest {
     }
 
     @Test
-    @DisplayName("un certificado ya emitido no se emite otra vez: el reintento de la cola no borra ni anota nada")
+    @DisplayName("un certificado ya emitido y anotado no se emite otra vez: el reintento de la cola no borra ni anota "
+            + "nada")
     void yaEmitido() {
         Almacen conCertificado = mock(Almacen.class);
         when(conCertificado.abrirInmutable("certificados/12/borrado")).thenReturn(InputStream.nullInputStream());
-        BorradoDelAlmacen reintento = new BorradoDelAlmacen(conCertificado, auditoria, json, reloj, RETENCION);
+        when(bitacora.buscar(eq(12L), any(), isNull(), eq(1))).thenReturn(new PaginaDeBitacoraResponse(List.of(
+                new RegistroDeBitacoraResponse(9, null, "SISTEMA", null, "TIENDA_BORRADA", "EMPRESA", 12L, true, null,
+                        null, null, null, "{}", "h")), null));
+        BorradoDelAlmacen reintento = new BorradoDelAlmacen(conCertificado, auditoria, bitacora, json, reloj,
+                RETENCION);
 
         reintento.ejecutar(new Trabajo(1, null, BorradoDeTiendas.BORRAR_ARCHIVOS, json.writeValueAsString(tienda(null)),
                 2, 5));
@@ -161,7 +176,7 @@ class BorradoDelAlmacenTest {
         when(s3.abrirInmutable(anyString())).thenThrow(new ArchivoNoEncontradoException("certificados/12/borrado"));
         when(s3.borrarPrefijo("empresas/12/")).thenReturn(7);
         when(s3.guardarInmutable(eq("certificados/12/borrado"), any(), any())).thenReturn(true);
-        BorradoDelAlmacen conS3 = new BorradoDelAlmacen(s3, auditoria, json, reloj, RETENCION);
+        BorradoDelAlmacen conS3 = new BorradoDelAlmacen(s3, auditoria, bitacora, json, reloj, RETENCION);
 
         conS3.ejecutar(new Trabajo(1, null, BorradoDeTiendas.BORRAR_ARCHIVOS, json.writeValueAsString(tienda(null)),
                 1, 5));
@@ -171,5 +186,83 @@ class BorradoDelAlmacenTest {
         ArgumentCaptor<Map<String, Object>> detalle = ArgumentCaptor.forClass(Map.class);
         verify(auditoria).registrar(eq(12L), isNull(), eq("TIENDA_BORRADA"), eq("EMPRESA"), eq(12L), detalle.capture());
         assertThat(detalle.getValue()).containsEntry("inmutable", true).containsEntry("objetos", 7);
+    }
+
+    @Test
+    @DisplayName("si el certificado quedo guardado y la bitacora fallo, el reintento anota la huella del guardado, "
+            + "sin borrar ni emitir otro")
+    void reintentoSinAnotar() throws IOException {
+        doThrow(new IllegalStateException("base caida")).doNothing().when(auditoria).registrar(any(), any(),
+                anyString(), anyString(), any(), any());
+        TiendaBorrada tienda = tienda(null);
+        assertThatThrownBy(() -> ejecutar(tienda)).isInstanceOf(IllegalStateException.class);
+        byte[] guardado;
+        try (InputStream emitido = almacen.abrirInmutable("certificados/12/borrado")) {
+            guardado = emitido.readAllBytes();
+        }
+
+        borrado.ejecutar(new Trabajo(1, null, BorradoDeTiendas.BORRAR_ARCHIVOS, json.writeValueAsString(tienda), 2,
+                5));
+
+        try (InputStream emitido = almacen.abrirInmutable("certificados/12/borrado")) {
+            assertThat(emitido.readAllBytes()).as("el mismo certificado, no otro").isEqualTo(guardado);
+        }
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> detalle = ArgumentCaptor.forClass(Map.class);
+        verify(auditoria, times(2)).registrar(eq(12L), isNull(), eq("TIENDA_BORRADA"), eq("EMPRESA"), eq(12L),
+                detalle.capture());
+        assertThat(detalle.getValue()).containsEntry("certificado", Huella.de(guardado))
+                .containsEntry("clave", "certificados/12/borrado").containsEntry("filas", 4)
+                .containsEntry("objetos", 2).containsEntry("reanotado", true).doesNotContainKey("inmutable");
+    }
+
+    @Test
+    @DisplayName("un certificado que sale en un reintento dice en que intento: los objetos que conto son los de ese "
+            + "intento")
+    void enUnReintento() throws IOException {
+        borrado.ejecutar(new Trabajo(1, null, BorradoDeTiendas.BORRAR_ARCHIVOS, json.writeValueAsString(tienda(null)),
+                3, 5));
+
+        try (InputStream emitido = almacen.abrirInmutable("certificados/12/borrado")) {
+            assertThat(json.readTree(emitido.readAllBytes()).get("almacen").get("intento").asInt()).isEqualTo(3);
+        }
+    }
+
+    @Test
+    @DisplayName("un trabajo encolado antes del certificado, con solo el id de la tienda, borra igual y emite un "
+            + "certificado sin conteo de filas")
+    void trabajoDeAntes() throws IOException {
+        borrado.ejecutar(new Trabajo(1, null, BorradoDeTiendas.BORRAR_ARCHIVOS, "12", 1, 5));
+
+        assertThat(raiz.resolve("empresas/12")).doesNotExist();
+        assertThat(raiz.resolve("empresas/13/documentos/2/1-b")).exists();
+        byte[] bytes;
+        try (InputStream emitido = almacen.abrirInmutable("certificados/12/borrado")) {
+            bytes = emitido.readAllBytes();
+        }
+        JsonNode certificado = json.readTree(bytes);
+        assertThat(certificado.get("tienda").asLong()).isEqualTo(12);
+        assertThat(certificado.get("filas").isNull()).isTrue();
+        assertThat(certificado.get("totalDeFilas").isNull()).isTrue();
+        assertThat(certificado.get("borradaEn").isNull()).isTrue();
+        assertThat(certificado.get("almacen").get("objetosBorrados").asInt()).isEqualTo(2);
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("certificado", Huella.de(bytes));
+        detalle.put("clave", "certificados/12/borrado");
+        detalle.put("objetos", 2);
+        detalle.put("inmutable", false);
+        verify(auditoria).registrar(12L, null, "TIENDA_BORRADA", "EMPRESA", 12L, detalle);
+    }
+
+    @Test
+    @DisplayName("solo un id entero de digitos es un trabajo de antes; lo demas se lee como JSON")
+    void soloDigitos() {
+        Trabajo conSigno = new Trabajo(1, null, BorradoDeTiendas.BORRAR_ARCHIVOS, "-12", 1, 5);
+        Trabajo vacio = new Trabajo(1, null, BorradoDeTiendas.BORRAR_ARCHIVOS, " ", 1, 5);
+
+        assertThatThrownBy(() -> borrado.ejecutar(conSigno)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> borrado.ejecutar(vacio)).isInstanceOf(RuntimeException.class);
+        assertThat(raiz.resolve("empresas/12")).exists();
+        verifyNoInteractions(auditoria);
     }
 }
