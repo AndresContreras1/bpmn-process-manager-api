@@ -654,6 +654,12 @@ class ExportacionIntegracionTest {
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.title").value("Tienda dada de baja"));
         vaciarLaCola();
         String ultima = jdbc.queryForObject("select sha256 from exportaciones where id = ?", String.class, otra);
+        // Una mas nueva que no se llego a armar no tiene huella: el certificado nombra la ultima que si la tiene
+        long fallida = ContextoDeTienda.comoSistema(() -> jdbc.queryForObject("""
+                insert into exportaciones (empresa_id, estado, pedida_por, pedida_en, motivo)
+                values (?, 'FALLIDA', ?, ?, 'No se pudo armar la exportación: pide otra.') returning id
+                """, Long.class, empresaId, ana.usuarioId(), LocalDateTime.now(ZoneOffset.UTC)));
+        assertThat(fallida).isGreaterThan(otra);
 
         jdbc.update("update empresas set baja_solicitada_en = ? where id = ?",
                 LocalDateTime.now(ZoneOffset.UTC).minusDays(31), empresaId);
@@ -666,7 +672,7 @@ class ExportacionIntegracionTest {
         byte[] bytes = Files.readAllBytes(archivo);
         JsonNode certificado = json.readTree(bytes);
         assertThat(certificado.get("tienda").asLong()).isEqualTo(empresaId);
-        assertThat(certificado.get("filas").get("exportaciones").asInt()).isEqualTo(2);
+        assertThat(certificado.get("filas").get("exportaciones").asInt()).isEqualTo(3);
         assertThat(certificado.get("filas").get("usuarios").asInt()).isEqualTo(3);
         assertThat(certificado.get("almacen").get("objetosBorrados").asInt()).isGreaterThanOrEqualTo(2);
         assertThat(certificado.get("ultimaExportacion").get("id").asLong()).isEqualTo(otra);
