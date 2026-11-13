@@ -10,6 +10,7 @@ import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.ejecucion.dto.response.CasoDetalleResponse;
 import com.facimus.procesos.ejecucion.dto.response.CasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.EventoCasoResponse;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeInicioResponse;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.model.ModoCaso;
 
@@ -21,7 +22,8 @@ public interface CasoService {
 
     /**
      * Abre un caso sobre la version vigente del proceso y lo avanza hasta donde llegue: normalmente, hasta la
-     * primera tarea de la bandeja. PR 68: corre en PRUEBA, como todos los casos de antes.
+     * primera tarea de la bandeja. PR 68: corre en PRUEBA, como todos los casos de antes. PR 69: si el inicio tiene
+     * formulario, las variables son sus respuestas y se validan contra el.
      */
     default CasoResponse abrir(Long empresaId, Long usuarioId, Long procesoId, String referencia,
             Map<String, Object> variables) {
@@ -42,6 +44,9 @@ public interface CasoService {
 
     /** PR 68: borra las versiones de prueba armadas antes de ese momento, con sus casos. Devuelve cuantas. */
     int olvidarPruebasAntesDe(LocalDateTime limite);
+
+    /** PR 69: el formulario con que se abre un caso de la version vigente, o ninguno si su inicio no lleva. */
+    FormularioDeInicioResponse formularioDeInicio(Long empresaId, Long procesoId);
 
     PageResponse<CasoResponse> listar(Long empresaId, Long procesoId, EstadoCaso estado, String referencia,
             Pageable pagina);

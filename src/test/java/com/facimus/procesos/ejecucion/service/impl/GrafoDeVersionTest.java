@@ -9,14 +9,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.facimus.procesos.common.condiciones.Condicion;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.Formulario;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
+import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoDeDato;
 import com.facimus.procesos.modelado.model.TipoDestino;
-import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
@@ -378,5 +381,30 @@ class GrafoDeVersionTest {
         armado.lane(TIENDA, VENTAS, 1L);
         armado.evento(VENTAS, "Start", TipoEvento.INICIO);
         return armado;
+    }
+
+    @Test
+    @DisplayName("PR 69: el grafo da el formulario de las tareas de usuario y del inicio simple de la tienda, y de nada mas")
+    void formularios() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.evento(VENTAS, "Started by hand", TipoEvento.INICIO);
+        armado.lane("Carrier", "Dispatch");
+        armado.dejaDeSerCajaNegra("Carrier");
+        armado.actividad("Dispatch", "Their own task", TipoActividad.USUARIO);
+        Formulario uno = CampoArmado.formulario(CampoArmado.campo("cajas", TipoDeCampo.NUMERO));
+        for (String nodo : new String[] {"Pick and pack items", "Started by hand", "Cancel order", "Order received",
+            "Their own task"}) {
+            armado.formulario(nodo, uno);
+        }
+
+        GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
+
+        assertThat(grafo.formularioDe(armado.id("Pick and pack items"))).hasValueSatisfying(
+                formulario -> assertThat(formulario.formulario()).isEqualTo(uno));
+        assertThat(grafo.formularioDe(armado.id("Started by hand"))).isPresent();
+        assertThat(grafo.formularioDe(armado.id("Receive order"))).isEmpty();
+        assertThat(grafo.formularioDe(armado.id("Cancel order"))).isEmpty();
+        assertThat(grafo.formularioDe(armado.id("Order received"))).isEmpty();
+        assertThat(grafo.formularioDe(armado.id("Their own task"))).isEmpty();
     }
 }

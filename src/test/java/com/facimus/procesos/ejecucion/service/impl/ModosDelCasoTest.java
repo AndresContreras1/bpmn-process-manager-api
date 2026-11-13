@@ -24,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.ReglaNegocioException;
@@ -82,6 +83,10 @@ class ModosDelCasoTest {
     private ProcesoService procesoService;
     @Mock
     private BorradoDePruebas borradoDePruebas;
+
+    /** PR 69: los procesos de estas pruebas no tienen formularios; el que valida es el de verdad. */
+    @Spy
+    private FormulariosDelCaso formularios = new FormulariosDelCaso(null, null);
 
     @InjectMocks
     private CasoServiceImpl casoService;

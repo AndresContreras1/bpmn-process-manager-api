@@ -23,6 +23,7 @@ import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
+import com.facimus.procesos.modelado.dto.response.FormularioResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
@@ -53,12 +54,15 @@ final class GrafoDeVersion {
     private final Map<Long, Set<Long>> alcanzablesDesde;
     private final boolean ejecutable;
     private final Map<Long, TemporizadorDeLaVersion> temporizadores;
+    private final Map<Long, FormularioResponse> formularios;
 
     private GrafoDeVersion(Long poolDeLaTienda, Map<Long, NodoDeLaVersion> nodos,
             Map<Long, List<ArcoDeLaVersion>> salidas, Map<Long, List<ArcoDeLaVersion>> entradas,
-            List<MensajeDeLaVersion> mensajes, boolean ejecutable, Map<Long, TemporizadorDeLaVersion> temporizadores) {
+            List<MensajeDeLaVersion> mensajes, boolean ejecutable, Map<Long, TemporizadorDeLaVersion> temporizadores,
+            Map<Long, FormularioResponse> formularios) {
         this.ejecutable = ejecutable;
         this.temporizadores = Collections.unmodifiableMap(temporizadores);
+        this.formularios = Collections.unmodifiableMap(formularios);
         this.poolDeLaTienda = poolDeLaTienda;
         this.nodos = Collections.unmodifiableMap(nodos);
         this.salidas = sinPoderTocarlo(salidas);
@@ -99,7 +103,35 @@ final class GrafoDeVersion {
         }
         salidas.values().forEach(lista -> lista.sort(POR_ORDEN));
         return new GrafoDeVersion(pool, nodos, salidas, entradas, mensajesDelDiagrama(diagrama),
-                diagrama.proceso().modo().ejecuta(), temporizadoresDelPool(diagrama, nodos));
+                diagrama.proceso().modo().ejecuta(), temporizadoresDelPool(diagrama, nodos),
+                formulariosDelPool(diagrama, nodos));
+    }
+
+    /**
+     * PR 69: los formularios congelados en la version, de las tareas de usuario y de los inicios del pool de la tienda.
+     * Un nodo de otro tipo no deberia traer uno (la base no lo deja); si una instantanea lo trajera, no se pide.
+     */
+    private static Map<Long, FormularioResponse> formulariosDelPool(DiagramaResponse diagrama,
+            Map<Long, NodoDeLaVersion> nodos) {
+        Map<Long, FormularioResponse> formularios = new HashMap<>();
+        for (ActividadResponse actividad : diagrama.actividades()) {
+            if (actividad.formulario() != null && nodos.containsKey(actividad.id())
+                    && nodos.get(actividad.id()).esTareaDeUsuario()) {
+                formularios.put(actividad.id(), actividad.formulario());
+            }
+        }
+        for (EventoResponse evento : diagrama.eventos()) {
+            if (evento.formulario() != null && nodos.containsKey(evento.id())
+                    && nodos.get(evento.id()).esEventoDe(TipoEvento.INICIO)) {
+                formularios.put(evento.id(), evento.formulario());
+            }
+        }
+        return formularios;
+    }
+
+    /** PR 69: el formulario de una tarea de usuario o del inicio, si la version le congelo uno. */
+    Optional<FormularioResponse> formularioDe(Long nodoId) {
+        return Optional.ofNullable(formularios.get(nodoId));
     }
 
     /** PR 68: los eventos de temporizador del pool de la tienda, con lo que dicen de cuando saltan. */

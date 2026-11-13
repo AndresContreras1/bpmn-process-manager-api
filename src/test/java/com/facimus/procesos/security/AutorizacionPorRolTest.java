@@ -253,6 +253,14 @@ class AutorizacionPorRolTest {
             EDITOR        | POST   | /api/v1/procesos/{id}/pruebas                        | 404
             SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/pruebas                        | 403
 
+            # PR 69: el formulario de una tarea o de un inicio lo guarda quien modela; los lee cualquier rol
+            EDITOR        | PUT    | /api/v1/actividades/{id}/formulario        | 404
+            SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/formulario        | 403
+            ADMINISTRADOR | PUT    | /api/v1/eventos/{id}/formulario            | 404
+            SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/formulario            | 403
+            SOLO_LECTURA  | GET    | /api/v1/tareas/{id}/formulario             | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/formulario-de-inicio | 404
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)
@@ -280,6 +288,9 @@ class AutorizacionPorRolTest {
         } else if (ruta.equals("/api/v1/procesos/{id}/documentacion")) {
             // PR 62: con texto, para que el editor pase la autorizacion y choque con que el proceso no existe
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"markdown\":\"x\"}");
+        } else if (metodo == HttpMethod.PUT && ruta.endsWith("/formulario")) {
+            // PR 69: un formulario vacio y su version, para que quien modela pase y choque con que el nodo no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"campos\":[],\"version\":0}");
         } else if (ruta.equals("/api/v1/simulacion/tick")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"ticks\":1}");
         } else if (ruta.equals("/api/v1/simulacion/pedidos")) {

@@ -55,7 +55,9 @@ class ReglaDeRecursoTest {
                 Arguments.of("POST", P + "/manuales", null, Accion.EXPORTAR),
                 // PR 68: probar el borrador es modelarlo; mirar los inicios temporizados, verlo
                 Arguments.of("POST", P + "/pruebas", null, Accion.MODELAR),
-                Arguments.of("GET", P + "/temporizadores", null, Accion.VER));
+                Arguments.of("GET", P + "/temporizadores", null, Accion.VER),
+                // PR 69: el formulario de inicio de la version vigente se lee como el proceso
+                Arguments.of("GET", P + "/formulario-de-inicio", null, Accion.VER));
     }
 
     @ParameterizedTest(name = "{0} {1} {2} pide {3}")
@@ -90,6 +92,17 @@ class ReglaDeRecursoTest {
     void anidado() {
         assertThat(ReglaDeRecurso.de("POST", "/api/v1/lanes/{laneId}/actividades", null).orElseThrow())
                 .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "lanes"));
+    }
+
+    @Test
+    @DisplayName("PR 69: guardar el formulario de una tarea o de un inicio es modelar ese elemento")
+    void formularios() {
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/actividades/{id}/formulario", null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "actividades"));
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/eventos/{id}/formulario", null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.MODELAR, ReglaDeRecurso.Clase.ELEMENTO, "eventos"));
+        // El de una tarea se comprueba en su service, como el resto de la bandeja
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/tareas/{id}/formulario", null)).isEmpty();
     }
 
     @Test

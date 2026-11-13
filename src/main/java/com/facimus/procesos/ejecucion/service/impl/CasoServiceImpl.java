@@ -3,6 +3,7 @@ package com.facimus.procesos.ejecucion.service.impl;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.ejecucion.dto.response.CasoDetalleResponse;
 import com.facimus.procesos.ejecucion.dto.response.CasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.EventoCasoResponse;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeInicioResponse;
 import com.facimus.procesos.ejecucion.mapper.CasoMapper;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
@@ -53,6 +55,7 @@ public class CasoServiceImpl implements CasoService {
     private final CasoMapper casoMapper;
     private final ProcesoService procesoService;
     private final BorradoDePruebas borradoDePruebas;
+    private final FormulariosDelCaso formularios;
 
     /**
      * R-47 y R-48: solo se abre sobre la version vigente de un proceso propio, y solo si esa version empieza por un
@@ -68,8 +71,8 @@ public class CasoServiceImpl implements CasoService {
         GrafoDeVersion grafo = grafos.del(empresaId, version).queSeEjecute();
         NodoDeLaVersion inicio = grafo.inicioAMano().orElseThrow(() -> new ReglaNegocioException(porDondeEmpieza(
                 grafo)));
-        return arrancar(version, grafo, inicio, new Momento(reloj.ahora(empresaId), usuarioId), referencia,
-                variables, modo);
+        return arrancar(empresaId, version, grafo, inicio, new Momento(reloj.ahora(empresaId), usuarioId),
+                referencia, variables, modo);
     }
 
     /**
@@ -88,8 +91,21 @@ public class CasoServiceImpl implements CasoService {
         }
         NodoDeLaVersion inicio = grafo.inicioDeUnaPrueba()
                 .orElseThrow(() -> new ReglaNegocioException("El borrador no tiene ningún evento de inicio."));
-        return arrancar(version, grafo, inicio, new Momento(reloj.ahora(empresaId), usuarioId), referencia,
-                variables, ModoCaso.PRUEBA);
+        return arrancar(empresaId, version, grafo, inicio, new Momento(reloj.ahora(empresaId), usuarioId),
+                referencia, variables, ModoCaso.PRUEBA);
+    }
+
+    /** PR 69: el formulario del inicio de la version vigente; sin version vigente no hay con que abrir un caso. */
+    @Override
+    public FormularioDeInicioResponse formularioDeInicio(Long empresaId, Long procesoId) {
+        VersionProceso version = versionService.vigente(empresaId, procesoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("El proceso no tiene una versión publicada "
+                        + "vigente."));
+        GrafoDeVersion grafo = grafos.del(empresaId, version);
+        Optional<NodoDeLaVersion> inicio = grafo.inicioAMano();
+        return new FormularioDeInicioResponse(procesoId, version.getNumero(),
+                inicio.map(NodoDeLaVersion::nombre).orElse(null),
+                inicio.flatMap(evento -> grafo.formularioDe(evento.id())).orElse(null));
     }
 
     /**
@@ -109,8 +125,14 @@ public class CasoServiceImpl implements CasoService {
         return olvidadas;
     }
 
-    private CasoResponse arrancar(VersionProceso version, GrafoDeVersion grafo, NodoDeLaVersion inicio,
+    /**
+     * PR 69: lo que se le pasa al abrir entra por el formulario del inicio, si la version le congelo uno, y con el tipo
+     * de cada campo; sin formulario, las variables libres solo valen en PRUEBA.
+     */
+    private CasoResponse arrancar(Long empresaId, VersionProceso version, GrafoDeVersion grafo, NodoDeLaVersion inicio,
             Momento momento, String referencia, Map<String, Object> variables, ModoCaso modo) {
+        Map<String, Object> conTipo = formularios.alAbrir(empresaId, version.getProceso().getId(), grafo, inicio,
+                modo, variables);
         Caso caso = casoRepository.save(Caso.builder()
                 .empresa(version.getEmpresa())
                 .proceso(version.getProceso())
@@ -118,7 +140,7 @@ public class CasoServiceImpl implements CasoService {
                 .referencia(referencia)
                 .estado(EstadoCaso.ABIERTO)
                 .modo(modo)
-                .variables(casoMapper.aJson(variables))
+                .variables(casoMapper.aJson(conTipo))
                 .tickInicio(momento.tick())
                 .build());
         motor.arrancar(caso, grafo, inicio, momento);
