@@ -36,6 +36,7 @@ import com.facimus.procesos.modelado.bpmn.PlanBpmn.Pool;
 import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
 import com.facimus.procesos.modelado.dto.response.PlazoResponse;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.Artefacto;
 import com.facimus.procesos.modelado.model.BpmnId;
@@ -753,12 +754,28 @@ public final class ConversionBpmn {
                 Nodo pegado = new Nodo(borde.bpmnId(), actividad.lane(), borde.clase(), null, null, borde.tipoEvento(),
                         borde.nombre(), borde.descripcion(), 0, 0, actividad.bpmnId(), borde.interrumpe(),
                         borde.tipoTemporizador(), borde.temporizador(), actividad.padre(), null, null, null, null,
-                        borde.escalamiento());
+                        escalamientoAlPegarse(borde, actividad, originales));
                 pegados.add(pegado);
                 nodoPorId.put(pegado.bpmnId(), pegado);
             }
             nodos.clear();
             nodos.addAll(pegados);
+        }
+
+        /**
+         * PR 71: lo que escala un borde, ya sabiendo a que va pegado. Solo se le pasa a otra persona una tarea de
+         * usuario, como lo pide la API: pegado a otra actividad, reasignar queda en avisar al mismo supervisor, con su
+         * nota.
+         */
+        private EscalamientoResponse escalamientoAlPegarse(Nodo borde, Nodo actividad, Map<String, String> originales) {
+            EscalamientoResponse escalamiento = borde.escalamiento();
+            if (escalamiento == null || escalamiento.accion() != AccionDeEscalamiento.REASIGNAR
+                    || actividad.tipoActividad() == TipoActividad.USUARIO) {
+                return escalamiento;
+            }
+            notas.convertido(originales.getOrDefault(borde.bpmnId(), borde.bpmnId()), "Reasigna su tarea, pero va "
+                    + "pegado a una actividad que no es de usuario: avisa al supervisor en vez de pasarsela.");
+            return new EscalamientoResponse(AccionDeEscalamiento.AVISAR, escalamiento.usuarioId());
         }
 
         /** El id en el archivo de cada elemento que se quedo. */

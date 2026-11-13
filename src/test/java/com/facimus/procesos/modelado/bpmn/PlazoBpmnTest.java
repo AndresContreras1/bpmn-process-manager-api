@@ -157,6 +157,28 @@ class PlazoBpmnTest {
                         + "camino."));
     }
 
+    @Test
+    @DisplayName("Reasignar pegado a una actividad que no es de usuario queda en avisar al mismo supervisor, con su "
+            + "nota, como lo pide la API; pegado a una tarea de usuario pasa como viene")
+    void reasignarSoloUnaTareaDeUsuario() {
+        PlanBpmn plan = importar(proceso("<bpmn:serviceTask id=\"S\"/><bpmn:userTask id=\"U\"/>"
+                + "<bpmn:boundaryEvent id=\"R\" cancelActivity=\"false\" attachedToRef=\"S\">"
+                + extension("<bpm:escalamiento accion=\"REASIGNAR\" usuario=\"5\"/>")
+                + "<bpmn:timerEventDefinition><bpmn:timeDuration>PT1H</bpmn:timeDuration>"
+                + "</bpmn:timerEventDefinition></bpmn:boundaryEvent>"
+                + "<bpmn:boundaryEvent id=\"Q\" cancelActivity=\"false\" attachedToRef=\"U\">"
+                + extension("<bpm:escalamiento accion=\"REASIGNAR\" usuario=\"5\"/>")
+                + "<bpmn:timerEventDefinition><bpmn:timeDuration>PT1H</bpmn:timeDuration>"
+                + "</bpmn:timerEventDefinition></bpmn:boundaryEvent>"));
+
+        assertThat(nodo(plan, "R").escalamiento()).isEqualTo(new EscalamientoResponse(AccionDeEscalamiento.AVISAR, 5L));
+        assertThat(nodo(plan, "Q").escalamiento())
+                .isEqualTo(new EscalamientoResponse(AccionDeEscalamiento.REASIGNAR, 5L));
+        assertThat(plan.informe().convertidos()).filteredOn(h -> h.detalle().startsWith("Reasigna"))
+                .extracting(Hallazgo::elemento, Hallazgo::detalle).containsExactly(tuple("R", "Reasigna su tarea, "
+                        + "pero va pegado a una actividad que no es de usuario: avisa al supervisor en vez de pasarsela."));
+    }
+
     /** La demo con un inicio simple de cinco dias habiles, una tarea de ocho horas y un borde que la escala. */
     private static DiagramaArmado conPlazos() {
         DiagramaArmado armado = DiagramaArmado.demo();

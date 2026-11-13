@@ -11,10 +11,12 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.mapper.EventoMapper;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.NodoFlujo;
+import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
@@ -122,6 +124,12 @@ public class EventoServiceImpl implements EventoService {
         Lane destino = ReglasDeNodos.mudanza(empresaId, evento, laneId, laneRepository, arcoRepository,
                 mensajeRepository);
         NodoFlujo adjuntoA = adjuntoA(empresaId, tipoEvento, temporizador, destino);
+        if (evento.getEscalamiento() == AccionDeEscalamiento.REASIGNAR && !(adjuntoA instanceof Actividad actividad
+                && actividad.getTipoActividad() == TipoActividad.USUARIO)) {
+            // PR 71: solo se le pasa al supervisor una tarea de usuario, como lo pide el escalamiento al guardarse
+            throw new ReglaNegocioException("El evento reasigna su tarea, y solo se reasigna una de usuario: cámbialo "
+                    + "a avisar antes de pegarlo a otra actividad.");
+        }
         evento.setLane(adjuntoA != null ? adjuntoA.getLane() : destino);
         evento.setNombre(nombre);
         evento.setTipoEvento(tipoEvento);

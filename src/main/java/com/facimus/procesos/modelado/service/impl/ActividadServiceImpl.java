@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.service.impl;
 
 import java.util.List;
 
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,7 +11,9 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.Actividad;
+import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.NodoFlujo;
 import com.facimus.procesos.modelado.model.TipoActividad;
@@ -91,6 +94,13 @@ public class ActividadServiceImpl implements ActividadService {
         }
         // Se consulta antes de tocar la entidad: una consulta despues la escribiria y gastaria una version de mas
         List<NodoFlujo> conElla = pegados.pegadosA(empresaId, actividadId);
+        if (deUsuarioSiFalta(tipoActividad) != TipoActividad.USUARIO && conElla.stream().map(Hibernate::unproxy)
+                .anyMatch(pegado -> pegado instanceof Evento borde
+                        && borde.getEscalamiento() == AccionDeEscalamiento.REASIGNAR)) {
+            // PR 71: un borde que le pasa la tarea al supervisor necesita una tarea de usuario que pasarle
+            throw new ReglaNegocioException("Un borde de la actividad se la reasigna al supervisor, y solo se reasigna "
+                    + "una de usuario: cámbialo a avisar antes de cambiarle el tipo.");
+        }
         Lane destino = ReglasDeNodos.mudanza(empresaId, actividad, laneId, laneRepository, arcoRepository,
                 mensajeRepository);
         if (!conElla.isEmpty() && !destino.getPool().getId().equals(actividad.getLane().getPool().getId())) {

@@ -32,10 +32,12 @@ import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.PlazoResponse;
 import com.facimus.procesos.modelado.mapper.EventoMapper;
 import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
+import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Arco;
 import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Pool;
+import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoTemporizador;
 import com.facimus.procesos.modelado.model.UnidadDePlazo;
@@ -196,6 +198,38 @@ class EventoServiceTest {
                 .isInstanceOf(ReglaNegocioException.class).hasMessage(mensaje);
         assertThat(evento.getTipoEvento()).isEqualTo(TipoEvento.TEMPORIZADOR_BORDE);
         assertThat(evento.getInterrumpe()).isFalse();
+    }
+
+    @Test
+    @DisplayName("PR 71: un borde que reasigna su tarea solo se pega a una actividad de usuario")
+    void editar_bordeQueReasigna_soloAUnaTareaDeUsuario() {
+        evento.setTipoEvento(TipoEvento.TEMPORIZADOR_BORDE);
+        evento.setInterrumpe(false);
+        evento.setEscalamiento(AccionDeEscalamiento.REASIGNAR);
+        Actividad servicio = Actividad.builder().id(31L).empresa(empresa).lane(lane).nombre("Charge card")
+                .tipoActividad(TipoActividad.SERVICIO).build();
+        Actividad deUsuario = Actividad.builder().id(30L).empresa(empresa).lane(lane).nombre("Pick items")
+                .tipoActividad(TipoActividad.USUARIO).build();
+        when(eventoRepository.findByIdAndEmpresaId(40L, EMPRESA)).thenReturn(Optional.of(evento));
+        when(nodoFlujoRepository.findByIdAndEmpresaId(31L, EMPRESA)).thenReturn(Optional.of(servicio));
+        when(nodoFlujoRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(deUsuario));
+        when(eventoRepository.saveAndFlush(any(Evento.class))).thenAnswer(inv -> inv.getArgument(0));
+        DatosDeTemporizador alServicio = new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", 31L, false);
+
+        assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Six hours", TipoEvento.TEMPORIZADOR_BORDE,
+                null, 0, 0, null, alServicio))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("El evento reasigna su tarea, y solo se reasigna una de usuario: cámbialo a avisar antes "
+                        + "de pegarlo a otra actividad.");
+        assertThat(evento.getAdjuntoA()).isNull();
+
+        EventoResponse respuesta = eventoService.editar(EMPRESA, AUTOR, 40L, "Six hours",
+                TipoEvento.TEMPORIZADOR_BORDE, null, 0, 0, null,
+                new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", 30L, false));
+        assertThat(respuesta.adjuntoAId()).isEqualTo(30L);
+        evento.setEscalamiento(AccionDeEscalamiento.AVISAR);
+        assertThat(eventoService.editar(EMPRESA, AUTOR, 40L, "Six hours", TipoEvento.TEMPORIZADOR_BORDE, null, 0, 0,
+                null, alServicio).adjuntoAId()).isEqualTo(31L);
     }
 
     @Test
