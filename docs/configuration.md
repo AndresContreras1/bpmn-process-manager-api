@@ -31,7 +31,7 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `WEBAUTHN_RP_NAME` | The name the device shows when it creates a passkey | `BPMN Process Manager` |
 | `MICROSOFT_TENANT` | `organizations` for any work or school account, or the id of one organization to accept only it | `organizations` |
 | `ALMACEN_S3_BUCKET` | The S3 bucket of the documents. Without it they go to `ALMACEN_DIRECTORIO` on disk, which suits development and a single instance | Empty |
-| `ALMACEN_S3_BUCKET_ANCLAS` | A bucket created with Object Lock, for the daily anchor of the audit trail and the deletion certificates of purged stores. Without it they go to the documents' bucket, unlocked | Empty |
+| `ALMACEN_S3_BUCKET_ANCLAS` | A bucket created with Object Lock, for the daily anchor of the audit trail and the deletion certificates of purged stores. Without it they go to the documents' bucket, unlocked; those written before it was set are still read from there | Empty |
 | `ALMACEN_S3_ENDPOINT` | The address of an S3-compatible service, such as the SeaweedFS of `compose.yaml`; empty for AWS | Empty |
 | `ALMACEN_S3_REGION` · `ALMACEN_S3_USUARIO` · `ALMACEN_S3_CLAVE` | Region and credentials; without a user, the AWS default chain (environment, profile, role) | `us-east-1` · empty |
 | `ALMACEN_S3_CREAR_BUCKETS` | Create the missing buckets when starting, the anchors' one with Object Lock. For `compose.yaml`; in AWS they are created beforehand | `false` |

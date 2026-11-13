@@ -392,8 +392,10 @@ The full export of a store carries everything in it, so who gets it and how is n
   any row of another store. `exportaciones` has row-level security; another store's export answers `404`.
 - **Audit.** Asking, ready, failed, downloaded and expired are in the audit trail.
 - **Rate limit and quota.** Ten a day per person, counted before the authorization so nobody spends another's
-  bucket, and one export at a time per store. The ZIP does not count against the documents' quota: it is deleted
-  within the hour after its link expires.
+  bucket, and one export at a time per store. The export asked for with the closing (`exportar: true` on
+  `POST /api/v1/empresas/actual/baja`) does not spend that bucket: closing asks for step-up and the store keeps one
+  export at a time. The ZIP does not count against the documents' quota: it is deleted within the hour after its link
+  expires, or as soon as the export fails.
 
 ## Rate limiting
 

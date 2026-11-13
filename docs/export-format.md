@@ -49,7 +49,9 @@ casos/mensajes-salientes.json      messages sent, with their body
 
 `<id>-<name>` is the process id and its name in lowercase ASCII with dashes: `procesos/7-order-fulfillment`. A file
 listed in `documentos.json` carries its path in `archivo`; one blocked by the antivirus, or not checked yet, has no
-file. Documents deleted in the app are not exported.
+file. Documents deleted in the app are not exported. A version that passed the checks but whose file the storage no
+longer has carries `"faltante": true` instead of `archivo`, and a built manual missing its HTML or PDF lists them in
+`faltantes` (`["pdf"]`): the export goes on without that file, and the manifest does not list it.
 
 ## What is not in it
 

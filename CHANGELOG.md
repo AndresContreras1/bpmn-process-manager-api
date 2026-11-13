@@ -14,8 +14,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   it can be verified outside, the people without any secret, and the cases as JSON and as CSV safe from formulas, with
   a manifest of sizes and SHA-256 fingerprints. Its link, signed for 24 hours, goes by e-mail in the asker's language
   and works only while they are an active administrator; every step is audited, one export runs per store at a time,
-  and an hourly job deletes expired ones. Closing a store can ask for an export, the grace period accepts more, and
-  the purge issues a deletion certificate with no personal data whose hash goes to the store's audit trail.
+  and an hourly job deletes expired ones; a failed export leaves no file behind, and a file the storage lost is
+  listed as missing instead of stopping the export. Closing a store can ask for an export, the grace period accepts
+  more, and the purge issues a deletion certificate with no personal data whose hash goes to the store's audit trail.
 - Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
   like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
   can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads

@@ -22,7 +22,9 @@ read-only grace, but gave nothing to take away and left no record of what went.
   (15 minutes), and a big store can take longer, so two attempts may build the same export at once. Each one uploads
   to `exportaciones/<id>/<attempt>/organizacion`, and noting the result locks the export's row: the first to arrive
   marks it ready with its key and hash, and a late one finds it no longer pending and deletes only its own folder.
-  The hourly cleanup locks the row the same way before expiring or failing it.
+  The hourly cleanup locks the row the same way before expiring or failing it. Whatever marks an export `FALLIDA`
+  deletes its whole folder while it holds the lock: an earlier attempt may have uploaded a ZIP and died before noting
+  it, and nothing else would delete that file before the store is purged.
 - **Each module writes its own part.** `gestion` owns the export, its ZIP and its manifest, and declares the port
   `ParteDeLaExportacion`; `gestion`, `modelado` and `ejecucion` implement it with their own tables, as with
   `InstantaneaDelModelo`. The job pins the store in `ContextoDeTienda`, so row-level security refuses any row of
@@ -79,9 +81,11 @@ read-only grace, but gave nothing to take away and left no record of what went.
 - An export is not a single database snapshot: rows written while it builds may or may not be in it. Each row is as
   it was when it was read, and the audit trail's chain verifies whatever part of it the export holds.
 - Documents blocked by the antivirus or still unchecked are listed but their files do not leave; deleted documents
-  do not leave at all.
+  do not leave at all. A document version or manual whose file the storage lost is listed as missing (`faltante`,
+  `faltantes`) and the export goes on: a store that lost one object can still take the rest with it.
 - Reading anchors needed `Almacen.abrirInmutable`: in S3 they live in the Object Lock bucket, which `abrir` does not
-  read. The audit trail's verification now reads them from there too.
+  read. The audit trail's verification now reads them from there too. An anchor stored before the Object Lock bucket
+  was configured is still in the documents' bucket, so a key missing from the lock bucket is read from there.
 - A certificate counts the objects its own attempt deleted. If an earlier attempt deleted the files and failed before
   storing the certificate, the count is lower than what went; the certificate says which attempt issued it.
 - Two attempts that build the same export both do the work; only one result is kept.
