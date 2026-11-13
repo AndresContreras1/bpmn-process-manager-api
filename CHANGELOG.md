@@ -14,7 +14,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   ranks names above descriptions and bodies, and answers each hit with the ids to open it and a fragment in plain-text
   segments with the matches highlighted. PostgreSQL keeps the vectors with triggers and GIN indexes; the job queue
   reads the text of PDF, Office, OpenOffice and plain-text files once the antivirus clears them, with Tika's parsers,
-  a cap of 1 MB of text and 30 seconds per file, and searches the rest by name.
+  a cap of 1,000,000 characters and 30 seconds per file, and searches the rest by name. Changing the store's language
+  rebuilds the vectors in a queued job, in short transactions; searching spends from its own bucket, 60 a minute per
+  person.
 - Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
   like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
   can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads

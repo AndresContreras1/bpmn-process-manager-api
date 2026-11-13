@@ -244,8 +244,10 @@ published version, or for a thread on one; an element that is the same in the dr
 one hit, the draft's. A document carries its `documentoId` and the `bpmnId` of the element it is attached to; a
 comment its `comentarioId`, its thread (`hiloId`) and the thread's `bpmnId` and `version`. The text of a file is
 searchable once the antivirus clears it and the job queue reads it, a few seconds after the upload; until then, and
-for a file that cannot be read, only its name is. `fragmento` is plain text in segments: show each one as text and
-mark the highlighted ones, never as HTML ([ADR-0070](adr/0070-full-text-search.md)).
+for a file that cannot be read, only its name is; a document's fragment comes from the first 20,000 characters of
+its text. `fragmento` is plain text in segments: show each one as text and mark the highlighted ones, never as HTML
+([ADR-0070](adr/0070-full-text-search.md)). Each person searches up to 60 times a minute; beyond that, `429` with
+`Retry-After`. After a store changes its language, its content is re-indexed in the background within moments.
 
 ```bash
 curl -s "http://localhost:8080/api/v1/busqueda?q=%22reinforced%20tape%22%20-pallet&tipo=ELEMENTO" -b sesion.txt

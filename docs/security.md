@@ -381,13 +381,18 @@ The search finds only what the person could open anyway, and never returns marku
   beforehand, and the answer splits the fragment by them into `{texto, resaltado}` segments. Its own output keeps
   things like `<img src=x onerror=...>` as written, which is why it is never treated as HTML.
 - **Text of uploaded files** is read in the job queue only after the antivirus clears the version, with the parser of
-  the type detected on upload, without OCR or embedded documents, up to 1 MB of text and 30 seconds per file, on two
-  fixed threads. Tika and POI read the XML inside Office and OpenOffice files with their own hardened readers (no
+  the type detected on upload, without OCR or embedded documents, up to 1,000,000 characters and 30 seconds per file
+  (counted from when a thread starts reading it), on two fixed threads; a PDF keeps at most 32 MB of what it
+  decompresses in memory. If both threads stay taken by files that never finish, the next file is not marked as read:
+  its job fails and the queue retries it later. Tika and POI read the XML inside Office and OpenOffice files with their own hardened readers (no
   DTDs, no external entities): those parsers are the one place XML is not read through `SecureXml`. A file that cannot
   be read is found by its name only.
-- **Audit, rate limit and quota.** A search changes nothing, so it is not in the audit trail; reads spend from no
-  bucket, so it has no rate limit of its own beyond the 30-second statement timeout of the API's role; the extracted
-  text counts in no quota, since the file it comes from already did.
+- **Audit, rate limit and quota.** A search changes nothing, so it is not in the audit trail. It is the only read that
+  spends from a bucket, `BUSQUEDA` (60 a minute per person), since each one ranks and highlights text in the database;
+  the 30-second statement timeout of the API's role bounds a single one, and a document's fragment comes from its
+  first 20,000 characters. The extracted text counts in no quota, since the file it comes from already did.
+- **Changing the store's language** queues a job that rebuilds the vectors in short transactions, so a store with a
+  lot of document text never makes that request pass the statement timeout.
 
 ## Rate limiting
 
@@ -402,8 +407,10 @@ same token.
 | Registration | Registering a store | Address | 10 an hour |
 | E-mail | Verifying the e-mail, recovering the password and inviting | Address | 20 an hour |
 | Changes | Every other `POST`, `PUT`, `PATCH` and `DELETE` | Person | 600 a minute |
+| Search | `GET /api/v1/busqueda` | Person | 60 a minute |
 
-Reading spends nothing. An empty bucket answers `429` with the title "Demasiadas peticiones" and `Retry-After` in
+Reading spends nothing, except the search.
+ An empty bucket answers `429` with the title "Demasiadas peticiones" and `Retry-After` in
 seconds. The limit of failed logins per e-mail still applies on top of the one per address. The AI review keeps
 its own limit per store, which is what it costs.
 

@@ -163,9 +163,10 @@ anchored hash (`anclas/<store>/<day>` in the anchors' bucket) with the entry of 
 backup of before that day to see what changed. An anchor that "is no longer in the storage" means the bucket was not
 created with Object Lock, or its retention passed.
 
-**Someone gets `429` while working.** The rate limits count changes per person and signing in per address
-([Rate limiting](security.md#rate-limiting)). An office behind one address shares the bucket of signing in: raise
-`LIMITE_AUTENTICACION_POR_MINUTO` in `.env` and recreate the API. A bucket fills again on its own; to empty one at
+**Someone gets `429` while working.** The rate limits count changes and searches per person and signing in per
+address ([Rate limiting](security.md#rate-limiting)). An office behind one address shares the bucket of signing in:
+raise `LIMITE_AUTENTICACION_POR_MINUTO` in `.env` and recreate the API; someone who searches a lot needs
+`LIMITE_BUSQUEDA_POR_MINUTO`. A bucket fills again on its own; to empty one at
 once, `DELETE FROM cubos_de_peticiones WHERE id LIKE 'autenticacion:ip:<address>'`.
 
 **The database password leaked.** Change it in PostgreSQL (`ALTER ROLE procesos PASSWORD '...'`), then in `.env`, and

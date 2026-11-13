@@ -59,8 +59,9 @@ stores a name, so they show whatever name the person has now ([ADR-0067](adr/006
 What is searched keeps a `tsvector` in the store's language with a GIN index: `procesos.busqueda`,
 `comentarios.busqueda`, `versiones_documento.busqueda` (with the text the job queue read from the file in
 `versiones_documento.texto`) and `elementos_buscables`, one row per element of the draft and of the published
-version with its name, its detail and its documentation. Triggers write them in the transaction of each change, and
-nothing else writes `elementos_buscables` ([ADR-0070](adr/0070-full-text-search.md)).
+version with its name, its detail and its documentation. Triggers write them in the transaction of each change; a
+change of the store's language is the exception, rebuilt by a queued job in short id ranges. Nothing else writes
+`elementos_buscables` ([ADR-0070](adr/0070-full-text-search.md)).
 
 ## Modeling rules
 

@@ -41,7 +41,12 @@ and to secure, and it stays out of 1.0.
     whenever `procesos.version_publicada` changes: on publishing and on retiring.
   - `documentacion` refreshes what it documents: the process with an empty `bpmn_id`, otherwise its elements in the
     draft and in the published version.
-  - Changing the store's language rebuilds every vector of the store in that transaction.
+  - Changing the store's language does not rebuild anything in the request that changes it: a store with a lot of
+    document text would pass the 30-second statement timeout, and the change would fail every time. `gestion`
+    publishes `IdiomaDeTiendaCambiado` inside that transaction (only when the language really changed), and `modelado`
+    queues a `busqueda.rehacer` job. The job walks each table by id ranges with `rehacer_busqueda(empresa, tabla,
+    desde, cuantos)`, each range in its own short transaction: 500 processes, elements or comments at a time, 10
+    document versions. It is idempotent, so a retry after a failure starts over.
   The migration indexes what already exists, and queues reading the text of the documents already available.
 - **The text of a file is read in the job queue, after the antivirus.** When a version becomes `DISPONIBLE` and its
   type has text (PDF, plain text, CSV, Markdown, DOCX, XLSX, PPTX, ODT, ODS), the queue reads it, never before. Only
@@ -50,11 +55,17 @@ and to secure, and it stays out of 1.0.
   refuses, and PDFBox's command-line tools. The input is untrusted:
   - each type goes to its own parser, chosen by the type detected on upload, not by what Tika would guess;
   - embedded documents are never opened, and a PDF never goes through OCR;
-  - the text stops at `DOCUMENTOS_TEXTO_MAXIMO` characters (1 MB), whitespace and control characters collapsed;
-  - each file gets `DOCUMENTOS_TEXTO_ESPERA` (30 s). The thread that reads it is interrupted when time is up; a parser
-    that ignores the interruption keeps that thread busy until it finishes, so the threads are few and fixed
-    (`DOCUMENTOS_TEXTO_HILOS`, 2): a file crafted to hang a parser takes one thread, not the machine. Running the
-    parser in another process, like Tika's own server does, is the stronger fence and is left for later;
+  - the text stops at `DOCUMENTOS_TEXTO_CARACTERES` characters (1,000,000; up to about 4 MB of UTF-8), whitespace and
+    control characters collapsed;
+  - a PDF keeps at most 32 MB of what it decompresses in memory; the rest goes to PDFBox's scratch files in the JVM's
+    temporary folder, which it deletes when the document closes;
+  - each file gets `DOCUMENTOS_TEXTO_ESPERA` (30 s), counted from the moment a thread starts reading it, not while it
+    waits for one. The thread that reads it is interrupted when time is up; a parser that ignores the interruption
+    keeps that thread busy until it finishes, so the threads are few and fixed (`DOCUMENTOS_TEXTO_HILOS`, 2): a file
+    crafted to hang a parser takes one thread, not the machine. If no thread becomes free within the same time, the
+    file is not marked as read: the job fails and the queue retries it later, so a busy pool never turns a valid file
+    into one searchable by name only. Running the parser in another process, like Tika's own server does, is the
+    stronger fence and is left for later;
   - XML inside OOXML and ODF goes through Tika's and POI's hardened readers (no DTDs, no external entities), and the
     ZIP inside was already checked for bombs before the antivirus (ADR-0065);
   - PDFBox reads with the fixed fonts of the manual (ADR-0066), so a font the PDF does not embed never makes it scan
@@ -65,11 +76,13 @@ and to secure, and it stays out of 1.0.
   would pass PostgreSQL's 1 MB limit for a `tsvector` indexes its first hundred thousand characters.
 - **One endpoint, filtered by store and by permission in the same query.**
   `GET /api/v1/busqueda?q=&tipo=&pagina=&tamano=` is open to every role, like any read; it has no resource in its
-  path, so the route filter does not decide it. The service asks `Permisos.visibilidad` once, the same answer the
+  path, so the route filter does not decide it. It is the only read with a rate-limit bucket (`BUSQUEDA`, 60 a minute
+  per person): every search ranks and highlights text in the database, and repeating one costs nothing to the caller. The service asks `Permisos.visibilidad` once, the same answer the
   process list uses, and the query keeps only active processes the person can `VER` and what hangs from them.
   Row-level security still filters the store; another store's content is simply not there.
 - **Two queries, both read-only.** The first ranks what matches among what is visible and keeps one page, with the
-  total; the second brings what to show for that page. Ranking is `ts_rank_cd` normalized by length: a name beats a
+  total; the second brings what to show for that page. Each builds the `tsquery` once, in a materialized CTE with the
+  store's configuration, and every branch reuses it. Ranking is `ts_rank_cd` normalized by length: a name beats a
   description, a description beats a body, and a long file does not win by being long. An element in both the draft
   and the published version is one hit, the draft's when they tie.
 - **`websearch_to_tsquery`, never `to_tsquery`.** It understands quotes, `-` and `or`, and never fails on syntax. An
@@ -82,12 +95,16 @@ and to secure, and it stays out of 1.0.
 
 ## Consequences
 
-- Words are matched by their stem in the store's language: a store in English does not stem Spanish words. A store
-  that changes its language waits for its vectors to be rebuilt in that transaction, which grows with its content.
-- The fragment of a document comes from its first hundred thousand characters; a match further in still finds the
-  document, with a fragment from its beginning.
-- An abandoned parser thread still runs until its parser returns. Enough crafted files at once can keep the other
-  files waiting for a thread past their time: those are searchable by name only, as if they could not be read.
-- Searching has no rate-limit bucket: reads are not counted by the filter. A search is bounded by its 200 characters,
-  the page of 50 and the 30-second statement timeout of the API's role.
+- Words are matched by their stem in the store's language: a store in English does not stem Spanish words. Right
+  after a store changes its language, until its job finishes, the search already uses the new language while part of
+  the vectors still has the old one's stems: those rows are found only by the words both languages stem the same way.
+- The fragment of a document comes from its first 20,000 characters, so a page of 50 documents never makes
+  `ts_headline` re-read millions of characters; a match further in still finds the document, with a fragment from its
+  beginning.
+- An abandoned parser thread still runs until its parser returns. Enough crafted files at once can keep every thread
+  busy: the other files wait in the queue, retried with its back-off, and end `FALLIDO` after the maximum attempts if
+  the threads never free up; their text is not lost for good, a new job can read them.
+- A search is bounded by its 200 characters, the page of 50, the per-person bucket and the 30-second statement
+  timeout of the API's role.
+
 - The global search box with Ctrl+K and the read-only portal (F19, F22) use this endpoint.

@@ -41,14 +41,14 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `ANTIVIRUS_HOST` · `ANTIVIRUS_PUERTO` | Where clamd listens. Without a host, documents are not reviewed and say so | Empty · `3310` |
 | `DOCUMENTOS_EXIGIR_ANTIVIRUS` | Without an antivirus, keep documents pending instead of making them available unreviewed | `false` |
 | `DOCUMENTOS_TAMANO_MAXIMO` · `DOCUMENTOS_CUOTA_POR_TIENDA` | Largest document, and space per store counting every version | `25MB` · `1GB` |
-| `DOCUMENTOS_TEXTO_MAXIMO` · `DOCUMENTOS_TEXTO_ESPERA` · `DOCUMENTOS_TEXTO_HILOS` | For the search: how much text is kept from a file (in characters), how long reading one may take before it is searched by its name only, and how many files are read at once | `1MB` · `30s` · `2` |
+| `DOCUMENTOS_TEXTO_CARACTERES` · `DOCUMENTOS_TEXTO_ESPERA` · `DOCUMENTOS_TEXTO_HILOS` | For the search: how many characters are kept from a file, how long reading one may take once a thread starts it before it is searched by its name only, and how many files are read at once. A file that finds no free thread in that time is retried by the queue | `1000000` · `30s` · `2` |
 | `BITACORA_ANCLA_RETENCION` | How long nobody can delete an anchor of the audit trail | `400d` |
 | `NOTIFICACIONES_RESUMEN_CRON` | When the daily digest of notifications is put in the queue, in UTC, the same hour for everyone. `-` turns it off | `0 0 7 * * *` |
 | `NOTIFICACIONES_RETENCION` | How long a read notification is kept before the nightly purge deletes it; unread ones stay | `90d` |
 | `JWT_PREVIOUS_SECRET` | The signing key before the last rotation: its tokens are still accepted, and nobody signs with it. Empty outside a rotation | Empty |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime. Keep it under 30 minutes, the shortest idle timeout a store can choose: the refresh token and the session last what each store decides in its settings | `900` |
 | `CLAVES_COSTO_BCRYPT` | Cost of BCrypt, from 4 to 31: each step doubles the time of a hash. Raising it invalidates no password, because each login rehashes with the new one | `10` |
-| `LIMITE_AUTENTICACION_POR_MINUTO` · `LIMITE_REGISTRO_POR_HORA` · `LIMITE_CORREO_POR_HORA` · `LIMITE_ESCRITURA_POR_MINUTO` | The [rate limits](security.md#rate-limiting): signing in, registering and e-mail per address, every other change per person | `30` · `10` · `20` · `600` |
+| `LIMITE_AUTENTICACION_POR_MINUTO` · `LIMITE_REGISTRO_POR_HORA` · `LIMITE_CORREO_POR_HORA` · `LIMITE_ESCRITURA_POR_MINUTO` · `LIMITE_BUSQUEDA_POR_MINUTO` | The [rate limits](security.md#rate-limiting): signing in, registering and e-mail per address, every other change and the search per person | `30` · `10` · `20` · `600` · `60` |
 | `LIMITES_ACTIVOS` | `false` turns every rate limit off | `true` |
 | `LIMITE_CUERPO` | The largest body a request can bring; more answers `413` | `1MB` |
 | `TURNSTILE_SECRET` | The secret of Cloudflare Turnstile. Set, registering a store asks for its verification | Empty |
