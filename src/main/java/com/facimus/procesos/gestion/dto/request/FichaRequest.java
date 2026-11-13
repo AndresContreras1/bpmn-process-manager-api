@@ -6,6 +6,8 @@ import java.util.List;
 import com.facimus.procesos.gestion.model.Clasificacion;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -23,5 +25,15 @@ public record FichaRequest(
         List<@NotBlank(message = "Una etiqueta no puede estar vacía.")
                 @Size(max = 40, message = "Una etiqueta no puede superar 40 caracteres.") String> etiquetas,
         @Schema(description = "Version read with the last GET", example = "0")
-        @NotNull(message = "La versión es obligatoria.") Long version) {
+        @NotNull(message = "La versión es obligatoria.") Long version,
+        @Schema(description = "Months that confirming it is still valid moves the next review, from 1 to 60; leave "
+                + "it out to keep the current ones (12 by default)", example = "12")
+        @Min(value = 1, message = "Entre dos revisiones van de 1 a 60 meses.")
+        @Max(value = 60, message = "Entre dos revisiones van de 1 a 60 meses.") Integer mesesEntreRevisiones) {
+
+    /** La de antes del PR 64, sin los meses entre revisiones. */
+    public FichaRequest(Long carpetaId, Long duenoId, LocalDate proximaRevision, Clasificacion clasificacion,
+            List<String> etiquetas, Long version) {
+        this(carpetaId, duenoId, proximaRevision, clasificacion, etiquetas, version, null);
+    }
 }

@@ -116,7 +116,9 @@ class MigracionesTest {
                         "V48__revisiones_del_borrador.sql",
                         "V49__presencia_y_bloqueo_suave.sql",
                         "V50__repositorio_de_procesos.sql",
-                        "V51__concesiones.sql");
+                        "V51__concesiones.sql", "V52__documentos.sql",
+                        "V53__documentacion_y_manual.sql", "V54__comentarios_y_notificaciones.sql",
+                        "V55__revision_y_aprobacion.sql");
     }
 
     @Test

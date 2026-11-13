@@ -28,6 +28,7 @@ import com.facimus.procesos.gestion.dto.request.CambiarEstadoProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.EditarProcesoRequest;
 import com.facimus.procesos.gestion.dto.request.FichaRequest;
 import com.facimus.procesos.gestion.dto.request.ProcesoRequest;
+import com.facimus.procesos.gestion.dto.request.RecertificacionRequest;
 import com.facimus.procesos.gestion.dto.response.HistorialCambioResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoDetalleResponse;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
@@ -115,7 +116,7 @@ public class ProcesoController {
     }
 
     @Operation(summary = "File a process",
-            description = "Its folder, owner, next review date, classification and tags.")
+            description = "Its folder, owner, next review date, months between reviews, classification and tags.")
     @ApiResponse(responseCode = "200", description = "The process")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -127,7 +128,27 @@ public class ProcesoController {
             @Validated @RequestBody FichaRequest request, @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(procesoService.editarFicha(principal.empresaId(), id, principal.usuarioId(),
                 new DatosDeFicha(request.carpetaId(), request.duenoId(), request.proximaRevision(),
-                        request.clasificacion(), request.etiquetas(), request.version())));
+                        request.clasificacion(), request.etiquetas(), request.version(),
+                        request.mesesEntreRevisiones())));
+    }
+
+    @Operation(summary = "Confirm a process is still valid",
+            description = "Recertification: records the review (who, when and the note) in the audit trail and the "
+                    + "change history, and moves the next review to today plus the process's months between reviews "
+                    + "(12 unless its file says otherwise). Its owner does it, or whoever can administer the process. "
+                    + "The owner is notified when the date arrives and once more when it is overdue.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(required = false))
+    @ApiResponse(responseCode = "200", description = "The process, with its next review date")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @PostMapping("/{id}/recertificacion")
+    public ResponseEntity<ProcesoResponse> recertificar(@PathVariable Long id,
+            @Validated @RequestBody(required = false) RecertificacionRequest request,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(procesoService.recertificar(principal.empresaId(), id, principal.usuarioId(),
+                request == null ? null : request.nota()));
     }
 
     @Operation(summary = "Create a process",
@@ -190,7 +211,9 @@ public class ProcesoController {
     }
 
     @Operation(summary = "Change the state of a process",
-            description = "Publishes a draft. A published process cannot go back to draft.")
+            description = "Publishes a draft. A published process cannot go back to draft. When the store publishes "
+                    + "with approval, this answers 409 for everyone: the process is published by asking for a review "
+                    + "(POST /procesos/{id}/solicitudes) that others approve.")
     @ApiResponse(responseCode = "200", description = "Process in its new state")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
