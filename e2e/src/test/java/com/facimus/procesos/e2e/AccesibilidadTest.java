@@ -26,8 +26,8 @@ class AccesibilidadTest extends PruebaE2E {
     private static final List<String> PUBLICAS = List.of("/", "/login", "/registro");
 
     /** Cada pantalla de la barra lateral, y crear un proceso, con un administrador. */
-    private static final List<String> CON_SESION = List.of("/procesos", "/procesos/nuevo", "/tareas", "/casos",
-            "/solicitudes", "/tablero", "/simulacion", "/usuarios", "/roles", "/configuracion",
+    private static final List<String> CON_SESION = List.of("/procesos", "/portal", "/procesos/nuevo", "/tareas",
+            "/casos", "/solicitudes", "/tablero", "/simulacion", "/usuarios", "/roles", "/configuracion",
             "/politica-de-publicacion", "/historial", "/cuenta", "/cuenta/notificaciones");
 
     @Test
