@@ -26,7 +26,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * PR 35: una tienda dada de baja pasa sus 30 dias de gracia en solo lectura. Su gente entra y lo mira todo, y un
- * administrador puede cancelar la baja; cualquier otro cambio responde 409. Va detras de la autorizacion, y solo
+ * administrador puede cancelar la baja o pedir la exportacion completa (PR 66) para llevarse lo suyo; cualquier otro
+ * cambio responde 409. Va detras de la autorizacion, y solo
  * pregunta a la base por una peticion que cambia algo y que el rol de quien la hace permite.
  */
 public class TiendaEnBajaFilter extends OncePerRequestFilter {
@@ -39,6 +40,9 @@ public class TiendaEnBajaFilter extends OncePerRequestFilter {
     private static final String AUTENTICACION = "/api/v1/auth/";
 
     private static final String BAJA = "/api/v1/empresas/actual/baja";
+
+    /** PR 66: la gracia es de solo lectura y exportacion: pedir la exportacion no cambia nada de la tienda. */
+    private static final String EXPORTACIONES = "/api/v1/organizacion/exportaciones";
 
     private final EmpresaService empresaService;
     private final JsonMapper jsonMapper;
@@ -61,11 +65,13 @@ public class TiendaEnBajaFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    /** Todo lo que no es una lectura, salvo la autenticacion y cancelar la baja. */
+    /** Lo que no es una lectura, salvo la autenticacion, cancelar la baja y pedir la exportacion. */
     private static boolean cambiaAlgo(HttpServletRequest request) {
         String ruta = request.getRequestURI();
         boolean cancelaLaBaja = HttpMethod.DELETE.matches(request.getMethod()) && BAJA.equals(ruta);
-        return !DE_LECTURA.contains(request.getMethod()) && !ruta.startsWith(AUTENTICACION) && !cancelaLaBaja;
+        boolean exporta = HttpMethod.POST.matches(request.getMethod()) && EXPORTACIONES.equals(ruta);
+        return !DE_LECTURA.contains(request.getMethod()) && !ruta.startsWith(AUTENTICACION) && !cancelaLaBaja
+                && !exporta;
     }
 
     private static Optional<ApiPrincipal> principal() {

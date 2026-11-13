@@ -52,18 +52,24 @@ public class AlmacenEnDisco implements Almacen {
     }
 
     @Override
-    public void borrarPrefijo(String prefijo) {
+    public int borrarPrefijo(String prefijo) {
         Path carpeta = ruta(prefijo.endsWith("/") ? prefijo.substring(0, prefijo.length() - 1) : prefijo);
         if (!Files.exists(carpeta)) {
-            return;
+            return 0;
         }
+        int archivos = 0;
         try (Stream<Path> dentro = Files.walk(carpeta)) {
             for (Path ruta : dentro.sorted(Comparator.reverseOrder()).toList()) {
+                // Las carpetas no son objetos: en S3 no existen, y aqui solo ordenan los archivos
+                if (Files.isRegularFile(ruta)) {
+                    archivos++;
+                }
                 Files.deleteIfExists(ruta);
             }
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo borrar " + prefijo, e);
         }
+        return archivos;
     }
 
     @Override
@@ -79,6 +85,12 @@ public class AlmacenEnDisco implements Almacen {
             throw new UncheckedIOException("No se pudo guardar " + clave, e);
         }
         return false;
+    }
+
+    /** En el disco, lo inmutable esta junto a lo demas. */
+    @Override
+    public InputStream abrirInmutable(String clave) {
+        return abrir(clave);
     }
 
     @Override

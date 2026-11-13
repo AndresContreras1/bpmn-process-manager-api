@@ -251,6 +251,19 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/notificaciones/preferencias   | 200
             EDITOR        | PUT    | /api/v1/notificaciones/preferencias   | 200
 
+            # PR 66: la exportacion completa es del administrador, y pedirla pide ademas una verificacion reciente
+            # (el login de esta prueba lo es: el pedido de verdad se prueba en ExportacionIntegracionTest). Bajarla
+            # con el enlace no pide sesion: un enlace inventado no existe.
+            ADMINISTRADOR | GET    | /api/v1/organizacion/exportaciones      | 200
+            EDITOR        | GET    | /api/v1/organizacion/exportaciones      | 403
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/exportaciones      | 403
+            ADMINISTRADOR | GET    | /api/v1/organizacion/exportaciones/{id} | 404
+            EDITOR        | GET    | /api/v1/organizacion/exportaciones/{id} | 403
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/exportaciones/{id} | 403
+            EDITOR        | POST   | /api/v1/organizacion/exportaciones      | 403
+            SOLO_LECTURA  | POST   | /api/v1/organizacion/exportaciones      | 403
+            SOLO_LECTURA  | GET    | /api/v1/descargas/exportaciones/{id}?empresa=1&vence=1&firma=x | 404
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)

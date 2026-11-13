@@ -70,6 +70,15 @@ class BorradoDeTiendasTest {
         });
     }
 
+    @Test
+    @DisplayName("PR 66: la tabla de cada sentencia, que es como el certificado de borrado cuenta sus filas")
+    void tablaDeCadaSentencia() {
+        assertThat(BorradoDeTiendas.BORRADOS).allSatisfy(sentencia -> assertThat(BorradoDeTiendas.tabla(sentencia))
+                .isEqualTo(partes(sentencia).group(1)));
+        assertThat(BorradoDeTiendas.tabla("delete from procesos_compartidos where empresa_invitada_id = ?"))
+                .isEqualTo("procesos_compartidos");
+    }
+
     private static Matcher partes(String sentencia) {
         Matcher partes = TABLA.matcher(sentencia);
         assertThat(partes.matches()).as(sentencia).isTrue();

@@ -1,0 +1,15 @@
+[(#{exportacion-lista.saludo(${nombre})})]
+
+[(#{exportacion-lista.cuerpo(${organizacion}, ${archivos}, ${tamano})})]
+
+[(${enlace})]
+
+[(#{exportacion-lista.vence(${horas})})]
+
+[(#{exportacion-lista.huella})]
+[(${sha256})]
+
+[(#{exportacion-lista.ignorar})]
+
+--
+[(#{comun.firma})]

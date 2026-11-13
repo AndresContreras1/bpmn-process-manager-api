@@ -17,8 +17,12 @@ public interface Almacen {
     /** El contenido de una clave. Quien lo abre lo cierra. */
     InputStream abrir(String clave);
 
-    /** Borra cada objeto que empieza por ese prefijo; no falla si no habia ninguno. */
-    void borrarPrefijo(String prefijo);
+    /**
+     * Borra cada objeto que empieza por ese prefijo; no falla si no habia ninguno.
+     *
+     * @return cuantos objetos borro (PR 66: el certificado de borrado de una tienda lo cuenta)
+     */
+    int borrarPrefijo(String prefijo);
 
     /**
      * Guarda algo que nadie puede cambiar ni borrar hasta esa fecha, ni con las credenciales de la API: en S3, con
@@ -27,6 +31,12 @@ public interface Almacen {
      * @return {@code true} si el almacen garantiza el bloqueo; un disco no puede
      */
     boolean guardarInmutable(String clave, byte[] contenido, Instant hasta);
+
+    /**
+     * PR 66: lo que se guardo con {@link #guardarInmutable}, leido de donde quedo: en S3, el bucket con Object Lock.
+     * Quien lo abre lo cierra.
+     */
+    InputStream abrirInmutable(String clave);
 
     /** Que almacen es, para el log y el runbook. */
     String descripcion();

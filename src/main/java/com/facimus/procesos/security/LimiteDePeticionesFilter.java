@@ -51,6 +51,9 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
     private static final Set<String> CORREO = Set.of("/api/v1/auth/recuperacion", "/api/v1/auth/verificacion",
             "/api/v1/usuarios/invitaciones");
 
+    /** PR 66: pedir la exportacion completa, con su propio cubo diario. */
+    private static final String EXPORTACIONES = "/api/v1/organizacion/exportaciones";
+
     private final LimitesDePeticiones limites;
     private final VerificacionHumana verificacionHumana;
     private final JsonMapper jsonMapper;
@@ -85,7 +88,7 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         String ruta = request.getRequestURI();
         String ip = request.getRemoteAddr();
         Optional<Duration> espera = clase(request, ruta).flatMap(clase -> limites.gastar(clase,
-                clase == ClaseDeLimite.ESCRITURA ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
+                porPersona(clase) ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
         if (espera.isPresent()) {
             long segundos = Math.max(1, (espera.get().toMillis() + 999) / 1000);
             responder(request, response, HttpStatus.TOO_MANY_REQUESTS, "Demasiadas peticiones",
@@ -119,10 +122,18 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         if (esPost && CORREO.contains(ruta)) {
             return Optional.of(ClaseDeLimite.CORREO);
         }
+        if (esPost && EXPORTACIONES.equals(ruta)) {
+            return usuario().map(id -> ClaseDeLimite.EXPORTACION);
+        }
         if (ruta.startsWith("/api/v1/auth/oidc")) {
             return Optional.empty();
         }
         return usuario().map(id -> ClaseDeLimite.ESCRITURA);
+    }
+
+    /** Lo que cuenta por persona y no por direccion: lo que solo se pide con sesion. */
+    private static boolean porPersona(ClaseDeLimite clase) {
+        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.EXPORTACION;
     }
 
     private static Optional<Long> usuario() {

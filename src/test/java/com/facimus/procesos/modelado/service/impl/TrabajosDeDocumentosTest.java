@@ -15,13 +15,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import com.facimus.procesos.common.almacen.Almacen;
 import com.facimus.procesos.common.trabajos.Trabajo;
-import com.facimus.procesos.gestion.service.impl.BorradoDeTiendas;
-import com.facimus.procesos.gestion.service.impl.BorradoDelAlmacen;
 import com.facimus.procesos.modelado.service.DocumentoService;
 
-/** PR 61: los trabajos de la cola y la consulta que dice si un elemento existe. */
+/**
+ * PR 61: los trabajos de la cola y la consulta que dice si un elemento existe. El borrado del almacen de una tienda,
+ * con su certificado (PR 66), se prueba en BorradoDelAlmacenTest.
+ */
 @ExtendWith(MockitoExtension.class)
 class TrabajosDeDocumentosTest {
 
@@ -29,8 +29,6 @@ class TrabajosDeDocumentosTest {
     private DocumentoService documentos;
     @Mock
     private ObjectProvider<DocumentoService> proveedor;
-    @Mock
-    private Almacen almacen;
     @Mock
     private JdbcTemplate jdbc;
 
@@ -44,17 +42,6 @@ class TrabajosDeDocumentosTest {
 
         assertThat(revision.tipo()).isEqualTo("documentos.revisar");
         verify(documentos).revisar(7L, 42L);
-    }
-
-    @Test
-    @DisplayName("borrar los archivos de una tienda borra su prefijo, y solo el suyo")
-    void borrado() {
-        BorradoDelAlmacen borrado = new BorradoDelAlmacen(almacen);
-
-        borrado.ejecutar(new Trabajo(1, null, BorradoDeTiendas.BORRAR_ARCHIVOS, "12", 1, 5));
-
-        assertThat(borrado.tipo()).isEqualTo("almacen.borrar-tienda");
-        verify(almacen).borrarPrefijo("empresas/12/");
     }
 
     @Test

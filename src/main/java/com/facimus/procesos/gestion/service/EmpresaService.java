@@ -25,9 +25,11 @@ public interface EmpresaService {
 
     /**
      * PR 35: da de baja la tienda. Durante 30 dias queda en solo lectura y la baja se puede cancelar; despues se borra
-     * todo lo suyo. La confirmacion es el nombre de la tienda, escrito otra vez.
+     * cada cosa suya. La confirmacion es el nombre de la tienda, escrito otra vez. PR 66: con {@code exportar}, en la
+     * misma transaccion se pide tambien la exportacion completa de la tienda; si ya hay una en curso, nada cambia y
+     * responde 409.
      */
-    EmpresaResponse pedirBaja(Long empresaId, Long autorId, String confirmacion);
+    EmpresaResponse pedirBaja(Long empresaId, Long autorId, String confirmacion, boolean exportar);
 
     /** Cancela una baja mientras dura la gracia: la tienda vuelve a ser como era. */
     EmpresaResponse cancelarBaja(Long empresaId, Long autorId);

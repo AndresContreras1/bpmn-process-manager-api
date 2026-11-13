@@ -61,7 +61,8 @@ public class AlmacenS3 implements Almacen {
     }
 
     @Override
-    public void borrarPrefijo(String prefijo) {
+    public int borrarPrefijo(String prefijo) {
+        int borrados = 0;
         String token = null;
         do {
             String siguiente = token;
@@ -71,9 +72,11 @@ public class AlmacenS3 implements Almacen {
                     .map(objeto -> ObjectIdentifier.builder().key(objeto.key()).build()).toList();
             if (!claves.isEmpty()) {
                 s3.deleteObjects(peticion -> peticion.bucket(bucket).delete(borrado -> borrado.objects(claves)));
+                borrados += claves.size();
             }
             token = Boolean.TRUE.equals(pagina.isTruncated()) ? pagina.nextContinuationToken() : null;
         } while (token != null);
+        return borrados;
     }
 
     @Override
@@ -87,6 +90,17 @@ public class AlmacenS3 implements Almacen {
             }
         }, RequestBody.fromBytes(contenido));
         return bloqueado;
+    }
+
+    /** PR 66: del bucket con Object Lock si lo hay, que es donde {@link #guardarInmutable} lo dejo. */
+    @Override
+    public InputStream abrirInmutable(String clave) {
+        String donde = bucketDeAnclas.isBlank() ? bucket : bucketDeAnclas;
+        try {
+            return s3.getObject(peticion -> peticion.bucket(donde).key(ClaveDeAlmacen.comprobar(clave)));
+        } catch (NoSuchKeyException _) {
+            throw new ArchivoNoEncontradoException(clave);
+        }
     }
 
     /**
