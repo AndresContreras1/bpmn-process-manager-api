@@ -1,11 +1,13 @@
 package com.facimus.procesos.ejecucion.service.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.facimus.procesos.common.condiciones.NombreDeVariable;
 import com.facimus.procesos.common.condiciones.Variables;
 import com.facimus.procesos.ejecucion.model.Caso;
 
@@ -83,10 +85,18 @@ final class VariablesDelCaso implements Variables {
     /** Mete los datos de una tarea bajo {@code tarea.<nombre en camello>}, como dice la semantica. */
     @SuppressWarnings("unchecked")
     void ponerDeLaTarea(String nombreDelNodo, Map<String, Object> datos) {
-        Object tareas = guardadas.computeIfAbsent("tarea", sinTareas -> new LinkedHashMap<String, Object>());
+        Object tareas = guardadas.computeIfAbsent(NombreDeVariable.DE_LAS_TAREAS,
+                sinTareas -> new LinkedHashMap<String, Object>());
         if (tareas instanceof Map<?, ?> mapa) {
             ((Map<String, Object>) mapa).put(enCamello(nombreDelNodo), datos);
         }
+    }
+
+    /** PR 69: lo que una condicion puede leer, lo del caso incluido, para mandarlo a quien llena un formulario. */
+    Map<String, Object> paraLeer() {
+        Map<String, Object> todas = new LinkedHashMap<>(guardadas);
+        todas.put(DEL_CASO, Collections.unmodifiableMap(delCaso));
+        return Collections.unmodifiableMap(todas);
     }
 
     /** Lo que se guarda en la columna: sin lo del caso, que se lee de sus columnas cada vez. */
@@ -94,23 +104,8 @@ final class VariablesDelCaso implements Variables {
         return json.writeValueAsString(guardadas);
     }
 
-    /**
-     * "Pick and pack items" se convierte en "pickAndPackItems": el nombre del nodo tal cual tiene espacios y no se
-     * podria escribir en una condicion.
-     */
+    /** "Pick and pack items" se convierte en "pickAndPackItems", como lo nombra una condicion. */
     static String enCamello(String nombre) {
-        String[] palabras = nombre.trim().split("[^\\p{Alnum}]+");
-        StringBuilder camello = new StringBuilder();
-        for (String palabra : palabras) {
-            if (palabra.isEmpty()) {
-                continue;
-            }
-            if (camello.isEmpty()) {
-                camello.append(palabra.substring(0, 1).toLowerCase()).append(palabra.substring(1));
-            } else {
-                camello.append(palabra.substring(0, 1).toUpperCase()).append(palabra.substring(1));
-            }
-        }
-        return camello.toString();
+        return NombreDeVariable.enCamello(nombre);
     }
 }

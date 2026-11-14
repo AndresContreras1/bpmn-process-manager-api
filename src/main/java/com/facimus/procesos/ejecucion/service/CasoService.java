@@ -1,5 +1,6 @@
 package com.facimus.procesos.ejecucion.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -9,7 +10,9 @@ import com.facimus.procesos.common.api.PageResponse;
 import com.facimus.procesos.ejecucion.dto.response.CasoDetalleResponse;
 import com.facimus.procesos.ejecucion.dto.response.CasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.EventoCasoResponse;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeInicioResponse;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.ModoCaso;
 
 /**
  * Los casos: una ejecucion de una version publicada. Abrir, mirar y cerrar; quien los hace avanzar es el motor, y
@@ -19,10 +22,31 @@ public interface CasoService {
 
     /**
      * Abre un caso sobre la version vigente del proceso y lo avanza hasta donde llegue: normalmente, hasta la
-     * primera tarea de la bandeja.
+     * primera tarea de la bandeja. PR 68: corre en PRUEBA, como todos los casos de antes. PR 69: si el inicio tiene
+     * formulario, las variables son sus respuestas y se validan contra el.
      */
-    CasoResponse abrir(Long empresaId, Long usuarioId, Long procesoId, String referencia,
+    default CasoResponse abrir(Long empresaId, Long usuarioId, Long procesoId, String referencia,
+            Map<String, Object> variables) {
+        return abrir(empresaId, usuarioId, procesoId, referencia, variables, ModoCaso.PRUEBA);
+    }
+
+    /** PR 68: lo mismo, en el modo que se pida: PRODUCCION corre con el reloj de pared y el calendario laboral. */
+    CasoResponse abrir(Long empresaId, Long usuarioId, Long procesoId, String referencia, Map<String, Object> variables,
+            ModoCaso modo);
+
+    /**
+     * PR 68: prueba el borrador sin publicarlo. Lo congela en una version de prueba y abre sobre ella un caso en modo
+     * PRUEBA, que empieza por su inicio a mano, el temporizado o el de mensaje. La version no se lista ni puede ser la
+     * vigente, y la purga se la lleva con su caso.
+     */
+    CasoResponse probar(Long empresaId, Long usuarioId, Long procesoId, String referencia,
             Map<String, Object> variables);
+
+    /** PR 68: borra las versiones de prueba armadas antes de ese momento, con sus casos. Devuelve cuantas. */
+    int olvidarPruebasAntesDe(LocalDateTime limite);
+
+    /** PR 69: el formulario con que se abre un caso de la version vigente, o ninguno si su inicio no lleva. */
+    FormularioDeInicioResponse formularioDeInicio(Long empresaId, Long procesoId);
 
     PageResponse<CasoResponse> listar(Long empresaId, Long procesoId, EstadoCaso estado, String referencia,
             Pageable pagina);

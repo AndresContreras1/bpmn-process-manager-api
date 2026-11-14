@@ -27,6 +27,16 @@
 		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
 		<shedlock.version>7.10.1</shedlock.version>
 		<spring-modulith.version>2.1.1</spring-modulith.version>
+		<!-- PR 61: el almacen de documentos (S3 o compatible, como SeaweedFS) y el tipo de un archivo por su contenido -->
+		<aws-sdk.version>2.57.5</aws-sdk.version>
+		<tika.version>4.2.0</tika.version>
+		<!-- PR 62: la documentacion en Markdown, saneada, y el manual en PDF -->
+		<commonmark.version>0.31.0</commonmark.version>
+		<owasp-html-sanitizer.version>20261011.1</owasp-html-sanitizer.version>
+		<openhtmltopdf.version>1.1.103</openhtmltopdf.version>
+		<jsoup.version>1.23.2</jsoup.version>
+		<!-- PR 69: los patrones de los formularios, con RE2/J: tiempo lineal, sin vuelta atras -->
+		<re2j.version>1.8</re2j.version>
 		<!-- SonarCloud: organizacion y proyecto que crea la importacion automatica del repositorio -->
 		<sonar.organization>andrescontreras1</sonar.organization>
 		<sonar.projectKey>AndresContreras1_bpmn-process-manager-api</sonar.projectKey>
@@ -45,6 +55,13 @@
 				<groupId>org.springframework.modulith</groupId>
 				<artifactId>spring-modulith-bom</artifactId>
 				<version>${spring-modulith.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>${aws-sdk.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -97,6 +114,70 @@
 			<groupId>com.bucket4j</groupId>
 			<artifactId>bucket4j_jdk17-postgresql</artifactId>
 			<version>8.20.0</version>
+		</dependency>
+		<!-- PR 61: los documentos van a un almacen S3 (AWS, SeaweedFS o cualquier compatible). Con el cliente HTTP del JDK:
+		     sin Netty ni el cliente de Apache, que no hacen falta para subir y bajar archivos. -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>netty-nio-client</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>apache-client</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>url-connection-client</artifactId>
+		</dependency>
+		<!-- PR 61: el tipo de un archivo por lo que tiene adentro, no por su nombre. Solo el detector: sin parsers. -->
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-core</artifactId>
+			<version>${tika.version}</version>
+		</dependency>
+		<!-- PR 62: Markdown a HTML (con tablas), y ese HTML por una lista blanca antes de guardarlo: nunca HTML crudo -->
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark</artifactId>
+			<version>${commonmark.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark-ext-gfm-tables</artifactId>
+			<version>${commonmark.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+			<artifactId>owasp-java-html-sanitizer</artifactId>
+			<version>${owasp-html-sanitizer.version}</version>
+		</dependency>
+		<!-- PR 62: el manual en PDF, de una plantilla Thymeleaf hecha HTML; el diagrama va en el SVG de la web -->
+		<dependency>
+			<groupId>io.github.openhtmltopdf</groupId>
+			<artifactId>openhtmltopdf-pdfbox</artifactId>
+			<version>${openhtmltopdf.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.github.openhtmltopdf</groupId>
+			<artifactId>openhtmltopdf-svg-support</artifactId>
+			<version>${openhtmltopdf.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>${jsoup.version}</version>
+		</dependency>
+		<!-- PR 69: el patron de un campo lo escribe un usuario; RE2/J lo evalua en tiempo lineal -->
+		<dependency>
+			<groupId>com.google.re2j</groupId>
+			<artifactId>re2j</artifactId>
+			<version>${re2j.version}</version>
 		</dependency>
 		<!-- Actuator: estado, datos de la version y metricas para quien opera la API -->
 		<dependency>
@@ -395,15 +476,23 @@
 					<targetClasses>
 						<param>com.facimus.procesos.*.service.impl.*</param>
 						<param>com.facimus.procesos.common.condiciones.*</param>
+						<!-- PR 68: la gramatica de los temporizadores, los festivos y el tiempo habil son reglas puras -->
+						<param>com.facimus.procesos.common.tiempo.*</param>
+						<param>com.facimus.procesos.gestion.service.CalendarioLaboral*</param>
+						<param>com.facimus.procesos.gestion.service.FestivosPorPais*</param>
+						<!-- PR 69: el esquema, las respuestas y los patrones de los formularios -->
+						<param>com.facimus.procesos.common.formularios.*</param>
 					</targetClasses>
 					<!-- Las pruebas de esos mismos paquetes: las unitarias de cada service, las del motor sobre JPA y las
 					     de las condiciones. Las de integracion ya cubren lo mismo desde fuera y multiplicarian el tiempo. -->
 					<targetTests>
 						<param>com.facimus.procesos.*.service.*</param>
 						<param>com.facimus.procesos.common.condiciones.*</param>
+						<param>com.facimus.procesos.common.tiempo.*</param>
+						<param>com.facimus.procesos.common.formularios.*</param>
 					</targetTests>
 					<threads>4</threads>
-					<!-- Medido el 2026-09-30: 1660 mutaciones, 1259 detectadas (76 %) y 91 % de las que las pruebas
+					<!-- Medido el 2026-11-11: 3274 mutaciones, 2984 detectadas (91 %) y 95 % de las que las pruebas
 					     alcanzan. Por debajo del 75 % la corrida falla: una regla nueva tiene que llegar con su prueba. -->
 					<mutationThreshold>75</mutationThreshold>
 					<timestampedReports>false</timestampedReports>

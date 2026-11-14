@@ -2,7 +2,8 @@
 
 # ADR-0013: Trays by process role; memberships are optional
 
-- **Status:** Accepted
+- **Status:** Accepted; who may complete and take a task is replaced by
+  [ADR-0074](0074-assignment-and-inbox.md) (plan v5, PR 70)
 - **Decided in:** plan v3 (D13)
 
 ## Context

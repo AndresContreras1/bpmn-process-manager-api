@@ -24,6 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
@@ -35,6 +37,7 @@ import com.facimus.procesos.modelado.model.Arco;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
@@ -148,6 +151,28 @@ class ActividadServiceTest {
         assertThat(respuesta.descripcion()).isEqualTo("Otra");
         assertThat(actividad.getTipoActividad()).isEqualTo(TipoActividad.SERVICIO);
         assertThat(actividad.getPosicionY()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("PR 69: una actividad con formulario no deja de ser de usuario; sin tipo, sigue siendolo")
+    void editar_conFormulario_soloSigueDeUsuario() {
+        actividad.setFormulario(CampoArmado.formulario(CampoArmado.campo("cajas", TipoDeCampo.NUMERO)));
+        when(actividadRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(actividad));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Pick items", 100L,
+                EMPRESA, 30L)).thenReturn(false);
+        when(actividadRepository.saveAndFlush(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatThrownBy(() -> actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", null,
+                TipoActividad.SERVICIO, null, 1, 2, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("La actividad tiene formulario, y solo una de usuario lo lleva: quítalo antes de "
+                        + "cambiarle el tipo.");
+        assertThat(actividad.getTipoActividad()).isEqualTo(TipoActividad.USUARIO);
+
+        ActividadResponse respuesta = actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", null, null, null,
+                1, 2, null);
+        assertThat(respuesta.tipoActividad()).isEqualTo(TipoActividad.USUARIO);
+        assertThat(respuesta.formulario().campos()).hasSize(1);
     }
 
     @Test
@@ -269,5 +294,26 @@ class ActividadServiceTest {
 
         assertThatThrownBy(() -> actividadService.obtener(EMPRESA, 30L))
                 .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
+    @DisplayName("PR 70: una actividad asignada no deja de ser de usuario; sin tipo, sigue siendolo")
+    void editar_conAsignacion_soloSigueDeUsuario() {
+        actividad.setTipoAsignacion(TipoAsignacion.INICIADOR);
+        when(actividadRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(actividad));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Pick items", 100L,
+                EMPRESA, 30L)).thenReturn(false);
+        when(actividadRepository.saveAndFlush(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatThrownBy(() -> actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", null,
+                TipoActividad.SERVICIO, null, 1, 2, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("La actividad tiene asignación, y solo una de usuario la lleva: devuélvela a la bandeja "
+                        + "de su rol antes de cambiarle el tipo.");
+        assertThat(actividad.getTipoActividad()).isEqualTo(TipoActividad.USUARIO);
+
+        ActividadResponse respuesta = actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", null, null, null,
+                1, 2, null);
+        assertThat(respuesta.asignacion().tipo()).isEqualTo(TipoAsignacion.INICIADOR);
     }
 }

@@ -43,6 +43,22 @@ public class Actividad extends NodoFlujo {
     @JoinColumn(name = "proceso_llamado_id")
     private Proceso procesoLlamado;
 
+    /**
+     * PR 70: a quien le llega la tarea; nula es la bandeja del rol de la lane, lo de siempre. Solo la lleva una
+     * actividad de usuario, como lo exige el check ck_nodos_flujo_asignacion_de_usuario.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "asignacion", length = 20)
+    private TipoAsignacion tipoAsignacion;
+
+    /** PR 70: la persona fija de una asignacion PERSONA. */
+    @Column(name = "asignacion_usuario_id")
+    private Long asignacionUsuarioId;
+
+    /** PR 70: la variable del caso que dice la persona, en una asignacion CAMPO. */
+    @Column(name = "asignacion_campo", length = 200)
+    private String asignacionCampo;
+
     @Override
     public boolean puedeEnviarMensajes() {
         return tipoActividad.puedeEnviar();

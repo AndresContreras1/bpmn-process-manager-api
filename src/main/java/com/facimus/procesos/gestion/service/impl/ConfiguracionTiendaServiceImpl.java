@@ -78,7 +78,8 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
     @SuppressWarnings("java:S107") // cada parte de la configuracion, por su nombre
     public ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
             ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones,
-            PoliticaSegundoFactor segundoFactor, Boolean soloEntradaExterna, Long version) {
+            PoliticaSegundoFactor segundoFactor, Boolean soloEntradaExterna, Boolean administradorCompletaPorOtro,
+            Long version) {
         ConfiguracionTienda configuracion = buscar(empresaId);
         configuracion.verificarVersion(version);
         configuracion.setPoliticaEstructura(politica);
@@ -90,16 +91,9 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
             configuracion.setSimulacion(parametros);
         }
         boolean cambianLasSesiones = acotarSesiones(configuracion, sesiones);
-        boolean cambiaElSegundoFactor = segundoFactor != null
-                && segundoFactor != configuracion.getPoliticaSegundoFactor();
-        if (cambiaElSegundoFactor) {
-            configuracion.setPoliticaSegundoFactor(segundoFactor);
-        }
-        boolean cambiaLaEntrada = soloEntradaExterna != null
-                && soloEntradaExterna != configuracion.isSoloEntradaExterna();
-        if (cambiaLaEntrada) {
-            configuracion.setSoloEntradaExterna(soloEntradaExterna);
-        }
+        boolean cambiaElSegundoFactor = cambiarSegundoFactor(configuracion, segundoFactor);
+        boolean cambiaLaEntrada = cambiarEntrada(configuracion, soloEntradaExterna);
+        boolean cambiaCompletarPorOtro = cambiarCompletarPorOtro(configuracion, administradorCompletaPorOtro);
         configuracion = configuracionTiendaRepository.saveAndFlush(configuracion);
 
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
@@ -125,7 +119,14 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
                 "politicaSegundoFactor", configuracion.getPoliticaSegundoFactor().name(),
                 "soloEntradaExterna", configuracion.isSoloEntradaExterna(),
                 "inactividadSesionMinutos", configuracion.getInactividadSesionMinutos(),
-                "duracionSesionHoras", configuracion.getDuracionSesionHoras()));
+                "duracionSesionHoras", configuracion.getDuracionSesionHoras(),
+                "administradorCompletaPorOtro", configuracion.isAdministradorCompletaPorOtro()));
+        if (cambiaCompletarPorOtro) {
+            historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
+                    Boolean.TRUE.equals(administradorCompletaPorOtro)
+                            ? "Un administrador puede completar la tarea que tiene otra persona."
+                            : "Solo quien tiene una tarea la completa.");
+        }
         if (cambiaLaEntrada) {
             historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
                     Boolean.TRUE.equals(soloEntradaExterna)
@@ -137,6 +138,33 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
 
     private static String horas(int horas) {
         return horas == 1 ? "una hora" : horas + " horas";
+    }
+
+    /** Cambia la politica del segundo factor si llega una distinta; dice si cambio. */
+    private static boolean cambiarSegundoFactor(ConfiguracionTienda configuracion, PoliticaSegundoFactor nueva) {
+        if (nueva == null || nueva == configuracion.getPoliticaSegundoFactor()) {
+            return false;
+        }
+        configuracion.setPoliticaSegundoFactor(nueva);
+        return true;
+    }
+
+    /** Cambia si se entra solo por fuera, si llega un valor distinto; dice si cambio. */
+    private static boolean cambiarEntrada(ConfiguracionTienda configuracion, Boolean soloEntradaExterna) {
+        if (soloEntradaExterna == null || soloEntradaExterna == configuracion.isSoloEntradaExterna()) {
+            return false;
+        }
+        configuracion.setSoloEntradaExterna(soloEntradaExterna);
+        return true;
+    }
+
+    /** Cambia si un administrador completa la tarea de otra persona, si llega un valor distinto; dice si cambio. */
+    private static boolean cambiarCompletarPorOtro(ConfiguracionTienda configuracion, Boolean completaPorOtro) {
+        if (completaPorOtro == null || completaPorOtro == configuracion.isAdministradorCompletaPorOtro()) {
+            return false;
+        }
+        configuracion.setAdministradorCompletaPorOtro(completaPorOtro);
+        return true;
     }
 
     /** Pone los limites que llegaron y dice si alguno cambio. Las sesiones abiertas toman la duracion nueva. */
@@ -168,6 +196,11 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
             throw new ReglaNegocioException("La regla de rechazo de pagos no está bien escrita: "
                     + malEscrita.getMessage());
         }
+    }
+
+    @Override
+    public boolean administradorCompletaPorOtro(Long empresaId) {
+        return buscar(empresaId).isAdministradorCompletaPorOtro();
     }
 
     @Override

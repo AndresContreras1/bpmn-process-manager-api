@@ -9,6 +9,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -96,6 +97,27 @@ public class VersionController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         // Se devuelve el JSON guardado tal cual: leerlo para volver a escribirlo igual no anade nada.
         return ResponseEntity.ok(versionService.definicion(principal.empresaId(), procesoId, numero));
+    }
+
+    @Operation(summary = "Save the drawing of one version",
+            description = "The SVG the web app draws with bpmn-js right after publishing, used by the process manual. "
+                    + "It is cleaned against a whitelist: no scripts, event handlers, foreign objects, images or links "
+                    + "outside the drawing. A version keeps the first drawing it gets.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true,
+                    content = @Content(mediaType = "image/svg+xml",
+                            schema = @Schema(type = "string", description = "An SVG document, up to 4 MB"))))
+    @ApiResponse(responseCode = "204", description = "Drawing saved")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "403", ref = "Forbidden")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @ApiResponse(responseCode = "409", ref = "Conflict")
+    @PutMapping(value = "/{numero}/dibujo", consumes = {"image/svg+xml", MediaType.APPLICATION_XML_VALUE,
+        MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    public ResponseEntity<Void> guardarDibujo(@PathVariable Long procesoId, @PathVariable int numero,
+            @RequestBody byte[] svg, @AuthenticationPrincipal ApiPrincipal principal) {
+        versionService.guardarDibujo(principal.empresaId(), procesoId, numero, svg);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Download one version as BPMN 2.0.2",

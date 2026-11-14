@@ -36,6 +36,9 @@ import lombok.experimental.SuperBuilder;
  *
  * <p>Sin version ni auditoria de usuario: no es un documento que alguien edita, lo escribe el motor dentro del
  * bloqueo del caso y lo unico que cambia despues es si llego. Quien lo provoco ya esta en la bitacora del caso.
+ *
+ * <p>PR 68: el reloj solo entrega los de los casos de prueba. Los de un caso de produccion se quedan en la bandeja
+ * para la integracion que los lea; los socios simulados no le contestan a nadie de verdad.
  */
 @NamedQuery(name = "MensajeSaliente.bandejaDeSalida", query = """
         select m from MensajeSaliente m
@@ -55,6 +58,7 @@ import lombok.experimental.SuperBuilder;
         where m.empresa.id = :empresaId
           and m.estado = com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente.PENDIENTE
           and m.tickEntrega <= :tick
+          and m.caso.modo = com.facimus.procesos.ejecucion.model.ModoCaso.PRUEBA
         order by m.tickEntrega, m.id
         """)
 @Getter

@@ -17,6 +17,9 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.formularios.CampoDeFormulario;
+import com.facimus.procesos.common.formularios.EsquemaDelFormulario;
+import com.facimus.procesos.common.formularios.Formulario;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.DatosDelMensaje;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.Flujo;
@@ -30,6 +33,7 @@ import com.facimus.procesos.modelado.bpmn.PlanBpmn.Lane;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Mensaje;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Nodo;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Pool;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.Artefacto;
 import com.facimus.procesos.modelado.model.BpmnId;
@@ -42,6 +46,7 @@ import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoDestino;
 import com.facimus.procesos.modelado.model.TipoEvento;
@@ -454,7 +459,9 @@ public final class ConversionBpmn {
                     deBorde ? Boolean.valueOf(leidoNodo.interrumpe()) : null,
                     conTiempo ? tipoDeTiempo(leidoNodo) : null, conTiempo ? expresion(leidoNodo) : null,
                     leidoNodo.padre() == null ? null : ids.get(leidoNodo.padre()),
-                    actividad == TipoActividad.LLAMADA ? procesoLlamado(leidoNodo) : null);
+                    actividad == TipoActividad.LLAMADA ? procesoLlamado(leidoNodo) : null,
+                    formulario(leidoNodo, actividad == TipoActividad.USUARIO || evento == TipoEvento.INICIO),
+                    asignacion(leidoNodo, actividad == TipoActividad.USUARIO));
             nodos.add(nodo);
             nodoPorId.put(id, nodo);
             poolDelNodo.put(id, pool);
@@ -463,6 +470,74 @@ public final class ConversionBpmn {
                 case GATEWAY -> "gateways";
                 case EVENTO -> "eventos";
             });
+        }
+
+        /**
+         * PR 70: a quien le llega la tarea, si es de usuario. Un tipo que no existe no se puede cumplir y se deja
+         * fuera, y la de la bandeja del rol es la de siempre; lo demas pasa como viene, y lo que no se pueda cumplir lo
+         * dice el diagnostico (E-23) antes de publicar, no la importacion.
+         */
+        private AsignacionResponse asignacion(ModeloLeido.Nodo nodo, boolean esperaAUnaPersona) {
+            AsignacionResponse asignacion = nodo.asignacion();
+            if (asignacion == null) {
+                return null;
+            }
+            if (!esperaAUnaPersona) {
+                notas.convertido(nodo.id(), "Trae una asignacion, pero solo se asignan las tareas de "
+                        + "usuario: se deja fuera.");
+                return null;
+            }
+            if (asignacion.tipo() == null) {
+                notas.convertido(nodo.id(), "La asignacion no tiene un tipo que exista: la tarea espera en la bandeja "
+                        + "de su rol.");
+                return null;
+            }
+            return switch (asignacion.tipo()) {
+                case ROL -> null;
+                case INICIADOR -> new AsignacionResponse(TipoAsignacion.INICIADOR, null, null);
+                case PERSONA -> asignacion.usuarioId() == null ? sinCumplir(nodo, "no dice a que persona")
+                        : new AsignacionResponse(TipoAsignacion.PERSONA, asignacion.usuarioId(), null);
+                case CAMPO -> asignacion.campo() == null || asignacion.campo().isEmpty()
+                        || asignacion.campo().length() > TipoAsignacion.LARGO_DEL_CAMPO
+                                ? sinCumplir(nodo, "no dice la variable del caso, o la que dice es demasiado larga")
+                                : new AsignacionResponse(TipoAsignacion.CAMPO, null, asignacion.campo());
+            };
+        }
+
+        private AsignacionResponse sinCumplir(ModeloLeido.Nodo nodo, String porQue) {
+            notas.convertido(nodo.id(), "La asignacion " + porQue + ": la tarea espera en la bandeja de su rol.");
+            return null;
+        }
+
+        /**
+         * PR 69: el formulario que trae el nodo, si es de los que llena una persona. Un campo sin un tipo que exista no
+         * se puede llenar, y se deja fuera; lo demas pasa como viene, y lo que este mal armado lo dice el diagnostico
+         * (E-22) antes de publicar, no la importacion.
+         */
+        private Formulario formulario(ModeloLeido.Nodo nodo, boolean loLlenaUnaPersona) {
+            if (nodo.formulario() == null) {
+                return null;
+            }
+            if (!loLlenaUnaPersona) {
+                notas.convertido(nodo.id(), "Trae un formulario, pero solo lo llevan las tareas de usuario y los "
+                        + "inicios simples: se deja fuera.");
+                return null;
+            }
+            nodo.limitesIlegibles().forEach(ilegible -> notas.convertido(nodo.id(), ilegible));
+            List<CampoDeFormulario> campos = new ArrayList<>();
+            for (CampoDeFormulario campo : nodo.formulario().campos()) {
+                if (campo.tipo() == null) {
+                    notas.convertido(nodo.id(), "El campo \"" + campo.nombre() + "\" del formulario no tiene un tipo "
+                            + "que exista: se deja fuera.");
+                } else if (campos.size() == EsquemaDelFormulario.TOPE_DE_CAMPOS) {
+                    notas.convertido(nodo.id(), "El formulario trae mas de " + EsquemaDelFormulario.TOPE_DE_CAMPOS
+                            + " campos: se quedan los primeros.");
+                    break;
+                } else {
+                    campos.add(campo);
+                }
+            }
+            return Formulario.siTieneCampos(new Formulario(campos)).orElse(null);
         }
 
         private TipoActividad tipoDeTarea(String elemento, String id) {
@@ -585,6 +660,7 @@ public final class ConversionBpmn {
             return switch (nodo.tipoTemporizador()) {
                 case "timeDate" -> TipoTemporizador.FECHA;
                 case "timeCycle" -> TipoTemporizador.CICLO;
+                case ModeloLeido.Nodo.DURACION_HABIL -> TipoTemporizador.DURACION_HABIL;
                 default -> TipoTemporizador.DURACION;
             };
         }

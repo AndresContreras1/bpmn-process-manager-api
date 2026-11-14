@@ -126,7 +126,9 @@ public class EmpresaController {
                     + "any session that many hours after its login: open sessions take a shorter duration at their "
                     + "next renewal. Leaving them out keeps the current ones. politicaSegundoFactor says who has to "
                     + "use a second factor: whoever needs one and has none can only enroll it, and works after "
-                    + "renewing the session. Administrators only.")
+                    + "renewing the session. administradorCompletaPorOtro lets an administrator complete a task "
+                    + "another person holds, each time recorded in the audit trail; it is off by default. "
+                    + "Administrators only.")
     @ApiResponse(responseCode = "200", description = "The store settings")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")
@@ -140,7 +142,8 @@ public class EmpresaController {
                 request.politicaEstructura(), request.modoSimulacion(),
                 ParametrosSimulacionRequest.aModelo(request.simulacion()),
                 new LimitesDeSesion(request.inactividadSesionMinutos(), request.duracionSesionHoras()),
-                request.politicaSegundoFactor(), request.soloEntradaExterna(), request.version()));
+                request.politicaSegundoFactor(), request.soloEntradaExterna(), request.administradorCompletaPorOtro(),
+                request.version()));
     }
 
     @Operation(summary = "Close the store",

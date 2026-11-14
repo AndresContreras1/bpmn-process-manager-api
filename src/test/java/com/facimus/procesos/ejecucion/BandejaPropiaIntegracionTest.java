@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.SinPermisoException;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.ejecucion.dto.response.TareaResponse;
@@ -39,8 +40,8 @@ import com.facimus.procesos.modelado.service.PoolService;
 
 /**
  * D13: "mi bandeja". Un proceso con dos lanes deja una tarea en cada rol, y cada persona ve solo las de los roles a
- * los que pertenece. Quien no pertenece a ninguno no ve nada, y eso no le impide completar la tarea de otro: la
- * membresia filtra, no da permisos.
+ * los que pertenece. Quien no pertenece a ninguno no ve nada. PR 70: y la membresia es tambien lo que deja tomar la
+ * tarea que no tiene nadie; la de otro rol la toma un administrador.
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -140,13 +141,18 @@ class BandejaPropiaIntegracionTest {
     }
 
     @Test
-    @DisplayName("Pertenecer a un rol no da permisos: quien no pertenece completa la tarea igual")
+    @DisplayName("PR 70: pertenecer al rol es lo que deja tomar su tarea: quien no pertenece no la completa, quien si")
     void membresia_noDaPermisos() {
         TareaResponse deVentas = mias(vendedora).getFirst();
+        Long tarea = deVentas.id();
+        Map<String, Object> sinDatos = Map.of();
 
-        TareaResponse completada = tareaService.completar(empresaId, bodeguero, deVentas.id(), Map.of());
+        assertThatThrownBy(() -> tareaService.completar(empresaId, bodeguero, tarea, sinDatos))
+                .isInstanceOf(SinPermisoException.class);
+        TareaResponse completada = tareaService.completar(empresaId, vendedora, deVentas.id(), Map.of());
 
         assertThat(completada.estado().name()).isEqualTo("COMPLETADA");
+        assertThat(completada.asignadoA()).isEqualTo(vendedora);
     }
 
     @Test

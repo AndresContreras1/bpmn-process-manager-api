@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +25,21 @@ public interface VersionService {
      * ProcesoService, que valida el diagnostico y que haya cambios.
      */
     void publicar(Proceso proceso, int numero, Long usuarioId, Instantanea instantanea);
+
+    /**
+     * PR 68: guarda la instantanea del borrador como una version de prueba: numero 0, retirada desde que nace y de tipo
+     * PRUEBA, asi que ninguna consulta de versiones la ve. Es la que corre un caso de prueba; la purga se la lleva.
+     */
+    VersionProceso guardarPrueba(Proceso proceso, Long usuarioId, Instantanea instantanea);
+
+    /** PR 68: las versiones de prueba armadas antes de ese momento, de todas las tiendas: las que la purga se lleva. */
+    List<Long> pruebasAntesDe(LocalDateTime limite);
+
+    /**
+     * PR 68: borra esa version si es de prueba; una publicada no se borra nunca. Lo que colgo de ella lo borra antes la
+     * ejecucion. Dice si la borro.
+     */
+    boolean borrarPrueba(Long versionId);
 
     List<VersionResponse> listar(Long empresaId, Long procesoId);
 
@@ -52,4 +68,10 @@ public interface VersionService {
 
     /** Retira una version: deja de ser la vigente y el proceso pasa a la anterior que siga en pie, si queda alguna. */
     VersionResponse retirar(Long empresaId, Long procesoId, int numero, Long usuarioId);
+
+    /** PR 62: guarda el dibujo de una version, saneado. Una version que ya tiene el suyo no lo cambia. */
+    void guardarDibujo(Long empresaId, Long procesoId, int numero, byte[] svg);
+
+    /** PR 62: el dibujo saneado de una version, si la web lo mando. */
+    Optional<String> dibujo(Long empresaId, Long procesoId, int numero);
 }

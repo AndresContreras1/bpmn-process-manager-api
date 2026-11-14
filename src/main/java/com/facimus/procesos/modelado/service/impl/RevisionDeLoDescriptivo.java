@@ -5,10 +5,12 @@ import java.util.Optional;
 import com.facimus.procesos.modelado.dto.response.AsociacionResponse;
 import com.facimus.procesos.modelado.model.CodigoDeDiagnostico;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 
 /**
- * PR 55: lo que BPMN tiene para describir un proceso y el motor todavia no corre. En un proceso documental todo eso
- * es valido; en uno que va a correr, una tarea sin tipo o un temporizador dejarian al caso sin saber que hacer.
+ * PR 55: lo que BPMN tiene para describir un proceso y el motor todavia no corre. En un proceso documental eso vale;
+ * en uno que va a correr, una tarea sin tipo dejaria al caso sin saber que hacer. PR 68: los temporizadores ya corren;
+ * lo que queda es que digan bien cuando saltan.
  */
 final class RevisionDeLoDescriptivo {
 
@@ -54,15 +56,21 @@ final class RevisionDeLoDescriptivo {
                 "Dejala asi si el proceso llamado solo documenta ese paso.");
     }
 
-    /** E-16 y E-18: cuando salta, y que todavia no salta. */
+    /**
+     * E-16 y E-18: cuando salta, y si lo que dice se puede cumplir. PR 68: los temporizadores corren, asi que E-18 ya
+     * no es "todavia no saltan", sino un ciclo donde solo cabe un salto.
+     */
     private static void temporizador(NodoDelDiagrama nodo, Hallazgos hallazgos) {
         Optional<String> problema = ExpresionDeTemporizador.problema(nodo.tipoTemporizador(), nodo.temporizador());
         problema.ifPresent(detalle -> hallazgos.anotar(CodigoDeDiagnostico.E16, nodo.etiqueta(), nodo.id(),
-                detalle, "Escribe una duracion (PT2H), una fecha (2026-12-24T09:00:00Z) o un ciclo (R3/PT1H), en "
-                        + "ISO 8601."));
-        hallazgos.anotar(CodigoDeDiagnostico.E18, nodo.etiqueta(), nodo.id(),
-                "Los temporizadores todavia no corren: el caso no esperaria aqui, o no saltaria nunca.",
-                "Pasa el proceso a documental mientras tanto, o quita el temporizador.");
+                detalle, "Escribe una duracion (PT2H), una duracion habil (P2D), una fecha (2026-12-24T09:00:00Z) o "
+                        + "un ciclo (R3/PT1H o un cron), en ISO 8601."));
+        if (nodo.tipoTemporizador() == TipoTemporizador.CICLO && nodo.saltaUnaVez()) {
+            hallazgos.anotar(CodigoDeDiagnostico.E18, nodo.etiqueta(), nodo.id(),
+                    "Este temporizador salta una sola vez, asi que un ciclo no se cumpliria: una espera suelta su "
+                            + "camino al saltar, y un borde que interrumpe saca a la actividad.",
+                    "Usa una duracion o una fecha, o haz el borde de los que no interrumpen para que avise cada vez.");
+        }
     }
 
     /** A-15: una asociacion nombra sus extremos por bpmn_id, y uno pudo irse del diagrama. */

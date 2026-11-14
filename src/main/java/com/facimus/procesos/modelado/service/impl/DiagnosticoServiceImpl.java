@@ -87,6 +87,8 @@ public class DiagnosticoServiceImpl implements DiagnosticoService {
         RevisionDelFlujo.revisar(mapa, hallazgos);
         RevisionDeLosMensajes.revisar(mapa, hallazgos);
         RevisionDeLoDescriptivo.revisar(mapa, hallazgos);
+        RevisionDeLosFormularios.revisar(mapa.diagrama(), hallazgos);
+        RevisionDeLasAsignaciones.revisar(mapa.diagrama(), hallazgos);
     }
 
     /** PR 55: un proceso documental no va a correr, y su diagnostico solo cuenta lo estructural. */

@@ -4,16 +4,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
+import com.facimus.procesos.common.formularios.Formulario;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.ArtefactoResponse;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.AsociacionResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
+import com.facimus.procesos.modelado.dto.response.FormularioResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
@@ -176,6 +179,15 @@ public class DiagramaArmado {
         return id;
     }
 
+    /** PR 68: un temporizador de borde que no interrumpe a su actividad. */
+    public Long bordeQueNoInterrumpe(String lane, String nombre, TipoTemporizador tipoTemporizador, String expresion,
+            String adjuntoA) {
+        Long id = registrar(nombre);
+        eventos.add(new EventoResponse(id, "Event_" + id, nombre, TipoEvento.TEMPORIZADOR_BORDE, 0, 0, id(lane), 0L,
+                null, null, null, null, tipoTemporizador, expresion, id(adjuntoA), Boolean.FALSE));
+        return id;
+    }
+
     /** PR 56: una actividad dentro de un subproceso, o de llamada con {@code llamado}. */
     public Long actividadEn(String lane, String nombre, TipoActividad tipo, String padre, Long llamado) {
         Long id = registrar(nombre);
@@ -190,6 +202,29 @@ public class DiagramaArmado {
         eventos.add(new EventoResponse(id, "Event_" + id, nombre, tipo, 0, 0, id(lane), 0L, null, null, null, null, null,
                 null, null, null, id(padre)));
         return id;
+    }
+
+    /** PR 69: le pone un formulario a la actividad o al evento que se llama asi. */
+    public void formulario(String nodo, Formulario formulario) {
+        Long id = id(nodo);
+        FormularioResponse respuesta = FormularioResponse.de(formulario);
+        actividades.replaceAll(a -> a.id().equals(id) ? new ActividadResponse(a.id(), a.bpmnId(), a.nombre(),
+                a.descripcion(), a.tipoActividad(), a.posicionX(), a.posicionY(), a.laneId(), a.version(),
+                a.creadoPor(), a.fechaCreacion(), a.modificadoPor(), a.fechaModificacion(), a.padreId(),
+                a.procesoLlamadoId(), respuesta, a.asignacion()) : a);
+        eventos.replaceAll(e -> e.id().equals(id) ? new EventoResponse(e.id(), e.bpmnId(), e.nombre(),
+                e.tipoEvento(), e.posicionX(), e.posicionY(), e.laneId(), e.version(), e.creadoPor(),
+                e.fechaCreacion(), e.modificadoPor(), e.fechaModificacion(), e.tipoTemporizador(), e.temporizador(),
+                e.adjuntoAId(), e.interrumpe(), e.padreId(), respuesta) : e);
+    }
+
+    /** PR 70: a quien le llega una actividad; nula la deja en la bandeja de su rol. */
+    public void asignacion(String nodo, AsignacionResponse asignacion) {
+        Long id = id(nodo);
+        actividades.replaceAll(a -> a.id().equals(id) ? new ActividadResponse(a.id(), a.bpmnId(), a.nombre(),
+                a.descripcion(), a.tipoActividad(), a.posicionX(), a.posicionY(), a.laneId(), a.version(),
+                a.creadoPor(), a.fechaCreacion(), a.modificadoPor(), a.fechaModificacion(), a.padreId(),
+                a.procesoLlamadoId(), a.formulario(), asignacion) : a);
     }
 
     public void modo(ModoProceso nuevo) {

@@ -176,11 +176,11 @@ jobs:
 
       - name: Verify the API answers from the container
         run: |
-          # The image in its default profile, against a throwaway PostgreSQL of the image the stack uses. The check
-          # goes over TCP: only the final server listens there, not the one PostgreSQL runs while it initialises.
+          # The image in its default profile, against a throwaway PostgreSQL of the image the stack builds on. The
+          # check goes over TCP: only the final server listens there, not the one PostgreSQL runs while it initialises.
           docker network create humo
           docker run -d --name db --network humo -e POSTGRES_DB=procesos -e POSTGRES_USER=procesos \
-            -e POSTGRES_PASSWORD=ci-only-password "$(sed -n 's/^ *image: \(postgres:.*\)$/\1/p' compose.yaml)"
+            -e POSTGRES_PASSWORD=ci-only-password "$(sed -n 's/^FROM \(postgres:.*\)$/\1/p' ops/respaldo/Dockerfile)"
           until docker exec db pg_isready -q -h 127.0.0.1 -U procesos -d procesos; do sleep 1; done
           docker run -d --name api --network humo -p 8080:8080 \
             -e JWT_SECRET=ci-only-signing-key-with-at-least-32-characters \
@@ -206,6 +206,8 @@ jobs:
           sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ci-only-password/" .env
           sed -i "s/^JWT_SECRET=.*/JWT_SECRET=ci-only-signing-key-with-at-least-32-characters/" .env
           sed -i "s/^MFA_CLAVE_DE_CIFRADO=.*/MFA_CLAVE_DE_CIFRADO=ci-only-encryption-key-with-at-least-32-characters/" .env
+          sed -i "s/^ALMACEN_S3_CLAVE=.*/ALMACEN_S3_CLAVE=ci-only-storage-key-with-at-least-32-characters/" .env
+          sed -i "s/^RESPALDO_CLAVE=.*/RESPALDO_CLAVE=ci-only-backup-passphrase-with-at-least-32-characters/" .env
           sed -i "s/^API_PORT=.*/API_PORT=8081/" .env
           # PR 32: las cargas mueven a una sola persona tan rapido como pueden, y eso no es lo que el limite de
           # escritura vigila; el de registro se queda como esta, porque es el que comprueba k6.
@@ -367,6 +369,8 @@ jobs:
           sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ci-only-password/" .env
           sed -i "s/^JWT_SECRET=.*/JWT_SECRET=ci-only-signing-key-with-at-least-32-characters/" .env
           sed -i "s/^MFA_CLAVE_DE_CIFRADO=.*/MFA_CLAVE_DE_CIFRADO=ci-only-encryption-key-with-at-least-32-characters/" .env
+          sed -i "s/^ALMACEN_S3_CLAVE=.*/ALMACEN_S3_CLAVE=ci-only-storage-key-with-at-least-32-characters/" .env
+          sed -i "s/^RESPALDO_CLAVE=.*/RESPALDO_CLAVE=ci-only-backup-passphrase-with-at-least-32-characters/" .env
           sed -i "s/^API_PORT=.*/API_PORT=8081/" .env
           sed -i "s/^WEB_PORT=.*/WEB_PORT=8082/" .env
           # --wait returns when every service reports healthy, the web one included.
@@ -396,6 +400,36 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: bpmn-process-manager-web:latest
+          scanners: vuln
+          ignore-unfixed: true
+          severity: CRITICAL
+          exit-code: '1'
+          version: v0.74.0
+
+      # PR 67: the database image is built here too, PostgreSQL with pgBackRest, and goes through the same two checks.
+      - name: Scan the database image for known vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: bpmn-process-manager-db:latest
+          scanners: vuln
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          format: sarif
+          limit-severities-for-sarif: true
+          output: trivy-db.sarif
+          version: v0.74.0
+
+      - name: Publish the findings of the database image in the Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy-db.sarif
+          category: trivy-db-image
+
+      - name: No critical vulnerability with a fix in the database image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: bpmn-process-manager-db:latest
           scanners: vuln
           ignore-unfixed: true
           severity: CRITICAL
@@ -528,6 +562,8 @@ jobs:
           sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ci-only-password/" .env
           sed -i "s/^JWT_SECRET=.*/JWT_SECRET=ci-only-signing-key-with-at-least-32-characters/" .env
           sed -i "s/^MFA_CLAVE_DE_CIFRADO=.*/MFA_CLAVE_DE_CIFRADO=ci-only-encryption-key-with-at-least-32-characters/" .env
+          sed -i "s/^ALMACEN_S3_CLAVE=.*/ALMACEN_S3_CLAVE=ci-only-storage-key-with-at-least-32-characters/" .env
+          sed -i "s/^RESPALDO_CLAVE=.*/RESPALDO_CLAVE=ci-only-backup-passphrase-with-at-least-32-characters/" .env
           sed -i "s/^API_PORT=.*/API_PORT=8081/" .env
           # PR 32: los escenarios registran y entran muchas veces desde la misma direccion.
           sed -i "s/^LIMITE_REGISTRO_POR_HORA=.*/LIMITE_REGISTRO_POR_HORA=100000/" .env

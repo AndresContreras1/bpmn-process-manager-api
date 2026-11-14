@@ -28,6 +28,8 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.facimus.procesos.common.ArchivoDemasiadoGrandeException;
+import com.facimus.procesos.common.CamposInvalidosException;
 import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.DemasiadosIntentosException;
 import com.facimus.procesos.common.EnlaceNoValidoException;
@@ -39,6 +41,7 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.SesionInvalidaException;
 import com.facimus.procesos.common.SinPermisoException;
 import com.facimus.procesos.common.SolicitudInvalidaException;
+import com.facimus.procesos.common.TipoNoPermitidoException;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DatabindException;
@@ -61,6 +64,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(SolicitudInvalidaException.class)
     public ProblemDetail manejarSolicitudInvalida(SolicitudInvalidaException ex, WebRequest req) {
         return construir(HttpStatus.BAD_REQUEST, "Solicitud inválida", ex.getMessage(), req);
+    }
+
+    /** PR 69: campos que el servicio rechaza, como las respuestas de un formulario; cada uno con su mensaje. */
+    @ExceptionHandler(CamposInvalidosException.class)
+    public ProblemDetail manejarCamposInvalidos(CamposInvalidosException ex, WebRequest req) {
+        ProblemDetail problema = construir(HttpStatus.BAD_REQUEST, "Validación fallida", ex.getMessage(), req);
+        problema.setProperty(ERRORES, ex.errores());
+        return problema;
     }
 
     /** Un enlace del correo usado, vencido o inventado: los tres responden lo mismo. */
@@ -155,6 +166,18 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(IntegracionNoConfiguradaException.class)
     public ProblemDetail manejarIntegracionNoConfigurada(IntegracionNoConfiguradaException ex, WebRequest req) {
         return construir(HttpStatus.SERVICE_UNAVAILABLE, "Función no configurada", ex.getMessage(), req);
+    }
+
+    /** PR 61: un documento mas grande de lo que se acepta. */
+    @ExceptionHandler(ArchivoDemasiadoGrandeException.class)
+    public ProblemDetail manejarArchivoDemasiadoGrande(ArchivoDemasiadoGrandeException ex, WebRequest req) {
+        return construir(HttpStatus.CONTENT_TOO_LARGE, "Archivo demasiado grande", ex.getMessage(), req);
+    }
+
+    /** PR 61: un documento de un tipo que no esta en la lista blanca. */
+    @ExceptionHandler(TipoNoPermitidoException.class)
+    public ProblemDetail manejarTipoNoPermitido(TipoNoPermitidoException ex, WebRequest req) {
+        return construir(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Tipo de archivo no permitido", ex.getMessage(), req);
     }
 
     /** Un permiso que decide la tienda, no la matriz de roles: el motivo se le puede contar a quien pregunta. */

@@ -1,9 +1,11 @@
 package com.facimus.procesos.ejecucion.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,20 +16,37 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.config.AuditoriaConfig;
+import com.facimus.procesos.ejecucion.dto.response.CargaPorPersonaResponse;
+import com.facimus.procesos.ejecucion.dto.response.CasosPorEstadoResponse;
+import com.facimus.procesos.ejecucion.dto.response.MensajesPorEstadoResponse;
+import com.facimus.procesos.ejecucion.dto.response.TareasPorRolResponse;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
+import com.facimus.procesos.ejecucion.model.Delegacion;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.EstadoDelegacion;
+import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
+import com.facimus.procesos.ejecucion.model.EventoCaso;
+import com.facimus.procesos.ejecucion.model.MensajeSaliente;
+import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.model.RolProceso;
+import com.facimus.procesos.gestion.model.TipoVersion;
+import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.model.VersionProceso;
+import com.facimus.procesos.modelado.model.Integracion;
+import com.facimus.procesos.modelado.model.TipoDestino;
 
 /**
  * D22: las consultas con las que la operacion busca casos y tareas van como consultas con nombre en la entidad. Si
@@ -52,6 +71,15 @@ class CasoRepositoryTest {
 
     @Autowired
     private ActividadCasoRepository actividadCasoRepository;
+
+    @Autowired
+    private EventoCasoRepository eventoCasoRepository;
+
+    @Autowired
+    private MensajeSalienteRepository mensajeSalienteRepository;
+
+    @Autowired
+    private DelegacionRepository delegacionRepository;
 
     private Empresa tienda;
     private Proceso proceso;
@@ -108,6 +136,19 @@ class CasoRepositoryTest {
         }
 
         @Test
+        @DisplayName("PR 68: porReferencia no ve los casos de una prueba del borrador, aunque digan el mismo pedido")
+        void porReferencia_noVeLasPruebas() {
+            Caso real = casoRepository.save(caso("ORD-1001", EstadoCaso.ABIERTO));
+            casoRepository.save(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(prueba(proceso))
+                    .referencia("ORD-1001").estado(EstadoCaso.ABIERTO).variables(SIN_VARIABLES).build());
+            em.flush();
+
+            assertThat(casoRepository.porReferencia(tienda.getId(), proceso.getId(), "ORD-1001"))
+                    .extracting(Caso::getId)
+                    .containsExactly(real.getId());
+        }
+
+        @Test
         @DisplayName("porReferencia no cruza tiendas aunque dos pedidos se llamen igual")
         void porReferencia_noCruzaTiendas() {
             casoRepository.save(caso("ORD-1", EstadoCaso.ABIERTO));
@@ -142,6 +183,61 @@ class CasoRepositoryTest {
     }
 
     @Nested
+    @DisplayName("PR 68: el tablero y el medidor no cuentan las pruebas del borrador")
+    class SinLasPruebas {
+
+        @Test
+        @DisplayName("Casos por estado, tiempo de ciclo, tareas por rol, lo que salio mal y lo que se mando")
+        void tablero_soloLoPublicado() {
+            RolProceso bodega = em.persistFlushFind(RolProceso.builder().empresa(tienda).nombre("Warehouse")
+                    .descripcion("Hace su parte").activo(true).build());
+            conTodo(version, bodega);
+            conTodo(prueba(proceso), bodega);
+            em.flush();
+
+            assertThat(casoRepository.casosPorEstado(tienda.getId(), proceso.getId()))
+                    .containsExactly(new CasosPorEstadoResponse(EstadoCaso.TERMINADO, 1L));
+            assertThat(casoRepository.ticksDeCiclo(tienda.getId(), proceso.getId())).containsExactly(4);
+            assertThat(actividadCasoRepository.tareasPorRol(tienda.getId(), proceso.getId()))
+                    .containsExactly(new TareasPorRolResponse(bodega.getId(), "Warehouse", 1L));
+            assertThat(eventoCasoRepository.contarPorTipo(tienda.getId(), proceso.getId(),
+                    List.of(TipoEventoCaso.SIN_CAMINO)))
+                    .singleElement().satisfies(fila -> assertThat(fila[1]).isEqualTo(1L));
+            assertThat(mensajeSalienteRepository.salientesPorEstado(tienda.getId(), proceso.getId()))
+                    .containsExactly(new MensajesPorEstadoResponse(EstadoMensajeSaliente.PENDIENTE, 1L));
+        }
+
+        @Test
+        @DisplayName("El medidor de casos abiertos cuenta los de una version publicada, no los de una prueba")
+        void medidor_soloLoPublicado() {
+            long antes = casoRepository.countByEstado(EstadoCaso.ABIERTO);
+            casoRepository.save(caso("ORD-1", EstadoCaso.ABIERTO));
+            casoRepository.save(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(prueba(proceso))
+                    .referencia("TEST-1").estado(EstadoCaso.ABIERTO).variables(SIN_VARIABLES).build());
+            em.flush();
+
+            assertThat(casoRepository.countByEstado(EstadoCaso.ABIERTO)).isEqualTo(antes + 1);
+        }
+
+        /** Un caso terminado en cuatro ticks, con una tarea esperando, un camino que falto y un mensaje sin salir. */
+        private void conTodo(VersionProceso suVersion, RolProceso rol) {
+            Caso caso = casoRepository.save(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(suVersion)
+                    .referencia("ORD-" + suVersion.getId()).estado(EstadoCaso.TERMINADO).variables(SIN_VARIABLES)
+                    .tickInicio(2).tickFin(6).build());
+            actividadCasoRepository.save(ActividadCaso.builder().empresa(tienda).caso(caso).nodoId(7L)
+                    .nodoNombre("Pick items").tipoNodo(TipoNodoCaso.ACTIVIDAD).subtipo("USUARIO")
+                    .rolProcesoId(rol.getId()).estado(EstadoActividadCaso.EN_ESPERA).build());
+            eventoCasoRepository.save(EventoCaso.builder().empresa(tienda).caso(caso).tick(3)
+                    .fecha(LocalDateTime.now()).tipo(TipoEventoCaso.SIN_CAMINO).detalle("Sin camino.").build());
+            mensajeSalienteRepository.save(MensajeSaliente.builder().empresa(tienda).caso(caso).mensajeId(9L)
+                    .nombre("Payment authorization request").poolDestinoNombre("Payment gateway")
+                    .integracion(Integracion.PAGOS).tipoDestino(TipoDestino.SERVICIO_WEB).clave(caso.getReferencia())
+                    .cuerpo(SIN_VARIABLES).estado(EstadoMensajeSaliente.PENDIENTE).tickCreacion(3).tickEntrega(4)
+                    .intentos(0).fecha(LocalDateTime.now()).build());
+        }
+    }
+
+    @Nested
     @DisplayName("La bandeja de tareas")
     class Bandeja {
 
@@ -169,7 +265,7 @@ class CasoRepositoryTest {
             em.flush();
 
             assertThat(actividadCasoRepository.bandejaPorRol(tienda.getId(), null, null,
-                    EstadoActividadCaso.EN_ESPERA, Paginacion.de(0, 10)))
+                    EstadoActividadCaso.EN_ESPERA, null, false, Paginacion.de(0, 10)))
                     .extracting(ActividadCaso::getId)
                     .containsExactly(tarea.getId());
         }
@@ -184,10 +280,10 @@ class CasoRepositoryTest {
             em.flush();
 
             assertThat(actividadCasoRepository.bandejaPorRol(tienda.getId(), BODEGA, null,
-                    EstadoActividadCaso.EN_ESPERA, Paginacion.de(0, 10)))
+                    EstadoActividadCaso.EN_ESPERA, null, false, Paginacion.de(0, 10)))
                     .extracting(ActividadCaso::getId).containsExactly(deBodega.getId());
             assertThat(actividadCasoRepository.bandejaPorRol(tienda.getId(), null, null,
-                    EstadoActividadCaso.EN_ESPERA, Paginacion.de(0, 10)))
+                    EstadoActividadCaso.EN_ESPERA, null, false, Paginacion.de(0, 10)))
                     .extracting(ActividadCaso::getId).containsExactly(deVentas.getId(), deBodega.getId());
         }
 
@@ -206,7 +302,7 @@ class CasoRepositoryTest {
             em.flush();
 
             assertThat(actividadCasoRepository.bandejaPorRol(tienda.getId(), null, proceso.getId(),
-                    EstadoActividadCaso.EN_ESPERA, Paginacion.de(0, 10)))
+                    EstadoActividadCaso.EN_ESPERA, null, false, Paginacion.de(0, 10)))
                     .extracting(ActividadCaso::getId).containsExactly(deEsteProceso.getId());
         }
 
@@ -219,7 +315,7 @@ class CasoRepositoryTest {
             em.flush();
 
             assertThat(actividadCasoRepository.bandejaPorRol(otra.getId(), null, null,
-                    EstadoActividadCaso.EN_ESPERA, Paginacion.de(0, 10))).isEmpty();
+                    EstadoActividadCaso.EN_ESPERA, null, false, Paginacion.de(0, 10))).isEmpty();
         }
 
         @Test
@@ -232,7 +328,7 @@ class CasoRepositoryTest {
             em.flush();
 
             var primera = actividadCasoRepository.bandejaPorRol(tienda.getId(), BODEGA, null,
-                    EstadoActividadCaso.EN_ESPERA, Paginacion.de(0, 2));
+                    EstadoActividadCaso.EN_ESPERA, null, false, Paginacion.de(0, 2));
 
             assertThat(primera.getContent()).hasSize(2);
             assertThat(primera.getTotalElements()).isEqualTo(3);
@@ -264,9 +360,142 @@ class CasoRepositoryTest {
             em.flush();
 
             assertThat(actividadCasoRepository.findAllByCasoIdAndEmpresaIdAndEstadoInOrderByIdAsc(caso.getId(),
-                    tienda.getId(), java.util.List.of(EstadoActividadCaso.PENDIENTE, EstadoActividadCaso.EN_ESPERA)))
+                    tienda.getId(), List.of(EstadoActividadCaso.PENDIENTE, EstadoActividadCaso.EN_ESPERA)))
                     .extracting(ActividadCaso::getId)
                     .containsExactly(pendiente.getId(), enEspera.getId());
+        }
+
+        @Test
+        @DisplayName("PR 70: la bandeja de una persona trae solo las que tiene; la sin asignar, las que no tiene nadie")
+        void bandeja_dePersonaYSinAsignar() {
+            Usuario ana = usuario("Ana");
+            Usuario luis = usuario("Luis");
+            ActividadCaso deAna = actividadCasoRepository.save(tenida(paso("Receive order", TipoNodoCaso.ACTIVIDAD,
+                    "USUARIO", VENTAS, EstadoActividadCaso.EN_ESPERA), ana));
+            actividadCasoRepository.save(tenida(paso("Pick and pack items", TipoNodoCaso.ACTIVIDAD, "USUARIO", BODEGA,
+                    EstadoActividadCaso.EN_ESPERA), luis));
+            ActividadCaso libre = actividadCasoRepository.save(paso("Check stock", TipoNodoCaso.ACTIVIDAD, "USUARIO",
+                    BODEGA, EstadoActividadCaso.EN_ESPERA));
+            em.flush();
+
+            assertThat(actividadCasoRepository.bandejaPorRol(tienda.getId(), null, null,
+                    EstadoActividadCaso.EN_ESPERA, ana.getId(), false, Paginacion.de(0, 10)))
+                    .extracting(ActividadCaso::getId).containsExactly(deAna.getId());
+            assertThat(actividadCasoRepository.bandejaPorRol(tienda.getId(), null, null,
+                    EstadoActividadCaso.EN_ESPERA, null, true, Paginacion.de(0, 10)))
+                    .extracting(ActividadCaso::getId).containsExactly(libre.getId());
+            assertThat(actividadCasoRepository.bandejaPorRol(tienda.getId(), VENTAS, null,
+                    EstadoActividadCaso.EN_ESPERA, null, true, Paginacion.de(0, 10))).isEmpty();
+            assertThat(actividadCasoRepository.bandejaPorRol(tienda.getId(), null, null,
+                    EstadoActividadCaso.EN_ESPERA, ana.getId(), false, Paginacion.de(0, 10)).getTotalElements())
+                    .isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("PR 70: reclamar escribe una vez, solo si nadie la tiene y si espera, y sube la version")
+        void reclamar_unaSolaVez() {
+            Usuario ana = usuario("Ana");
+            Usuario luis = usuario("Luis");
+            ActividadCaso tarea = actividadCasoRepository.saveAndFlush(paso("Pick and pack items",
+                    TipoNodoCaso.ACTIVIDAD, "USUARIO", BODEGA, EstadoActividadCaso.EN_ESPERA));
+            ActividadCaso hecha = actividadCasoRepository.saveAndFlush(paso("Receive order", TipoNodoCaso.ACTIVIDAD,
+                    "USUARIO", VENTAS, EstadoActividadCaso.COMPLETADA));
+            Long antes = tarea.getVersion();
+
+            assertThat(actividadCasoRepository.reclamar(tarea.getId(), tienda.getId(), ana.getId(),
+                    LocalDateTime.now())).isEqualTo(1);
+            assertThat(actividadCasoRepository.reclamar(tarea.getId(), tienda.getId(), luis.getId(),
+                    LocalDateTime.now())).isZero();
+            assertThat(actividadCasoRepository.reclamar(hecha.getId(), tienda.getId(), luis.getId(),
+                    LocalDateTime.now())).isZero();
+            assertThat(actividadCasoRepository.reclamar(tarea.getId(), empresa("Tienda vecina").getId(),
+                    luis.getId(), LocalDateTime.now())).isZero();
+
+            ActividadCaso tomada = actividadCasoRepository.findById(tarea.getId()).orElseThrow();
+            assertThat(tomada.getAsignadoA()).isEqualTo(ana.getId());
+            assertThat(tomada.getVersion()).isEqualTo(antes + 1);
+            assertThat(tomada.getModificadoPor()).isEqualTo(ana.getId());
+        }
+
+        @Test
+        @DisplayName("PR 70: la carga cuenta lo que espera en manos de cada persona, de la que mas tiene a la que "
+                + "menos")
+        void carga_porPersona() {
+            Usuario ana = usuario("Ana");
+            Usuario luis = usuario("Luis");
+            actividadCasoRepository.save(tenida(paso("Receive order", TipoNodoCaso.ACTIVIDAD, "USUARIO", VENTAS,
+                    EstadoActividadCaso.EN_ESPERA), ana));
+            actividadCasoRepository.save(tenida(paso("Pick and pack items", TipoNodoCaso.ACTIVIDAD, "USUARIO",
+                    BODEGA, EstadoActividadCaso.EN_ESPERA), luis));
+            actividadCasoRepository.save(tenida(paso("Check stock", TipoNodoCaso.ACTIVIDAD, "USUARIO", BODEGA,
+                    EstadoActividadCaso.EN_ESPERA), luis));
+            actividadCasoRepository.save(tenida(paso("Ship order", TipoNodoCaso.ACTIVIDAD, "USUARIO", BODEGA,
+                    EstadoActividadCaso.COMPLETADA), ana));
+            actividadCasoRepository.save(paso("Pack gift", TipoNodoCaso.ACTIVIDAD, "USUARIO", BODEGA,
+                    EstadoActividadCaso.EN_ESPERA));
+            actividadCasoRepository.save(paso("Pack box", TipoNodoCaso.ACTIVIDAD, "USUARIO", BODEGA,
+                    EstadoActividadCaso.COMPLETADA));
+            Caso deUnaPrueba = casoRepository.save(Caso.builder().empresa(tienda).proceso(proceso)
+                    .versionProceso(prueba(proceso)).referencia("ORD-9").estado(EstadoCaso.ABIERTO)
+                    .variables(SIN_VARIABLES).build());
+            actividadCasoRepository.save(ActividadCaso.builder().empresa(tienda).caso(deUnaPrueba).nodoId(80L)
+                    .nodoNombre("Approve").tipoNodo(TipoNodoCaso.ACTIVIDAD).subtipo("USUARIO").rolProcesoId(BODEGA)
+                    .estado(EstadoActividadCaso.EN_ESPERA).asignadoA(ana.getId()).build());
+            actividadCasoRepository.save(ActividadCaso.builder().empresa(tienda).caso(deUnaPrueba).nodoId(81L)
+                    .nodoNombre("Approve again").tipoNodo(TipoNodoCaso.ACTIVIDAD).subtipo("USUARIO")
+                    .rolProcesoId(BODEGA).estado(EstadoActividadCaso.EN_ESPERA).build());
+            em.flush();
+
+            assertThat(actividadCasoRepository.cargaPorPersona(tienda.getId(), null)).containsExactly(
+                    new CargaPorPersonaResponse(luis.getId(), "Luis", 2),
+                    new CargaPorPersonaResponse(ana.getId(), "Ana", 1));
+            assertThat(actividadCasoRepository.sinAsignar(tienda.getId(), null)).isEqualTo(1);
+            Proceso otro = proceso(tienda, "Returns");
+            assertThat(actividadCasoRepository.cargaPorPersona(tienda.getId(), otro.getId())).isEmpty();
+            assertThat(actividadCasoRepository.sinAsignar(tienda.getId(), otro.getId())).isZero();
+            assertThat(actividadCasoRepository.cargaPorPersona(empresa("Tienda vecina").getId(), null)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("PR 70: una tarea tiene a lo sumo una delegacion abierta; las cerradas son su historia")
+        void delegaciones_unaAbiertaPorTarea() {
+            Usuario ana = usuario("Ana");
+            Usuario luis = usuario("Luis");
+            Usuario eva = usuario("Eva");
+            ActividadCaso tarea = actividadCasoRepository.saveAndFlush(tenida(paso("Pick and pack items",
+                    TipoNodoCaso.ACTIVIDAD, "USUARIO", BODEGA, EstadoActividadCaso.EN_ESPERA), luis));
+            Delegacion primera = delegacionRepository.saveAndFlush(delegacion(tarea, ana, luis));
+            primera.cerrar(EstadoDelegacion.DEVUELTA, LocalDateTime.now());
+            delegacionRepository.saveAndFlush(primera);
+            delegacionRepository.saveAndFlush(delegacion(tarea, ana, eva));
+
+            assertThat(delegacionRepository.findAllByTareaIdAndEmpresaIdOrderByIdAsc(tarea.getId(), tienda.getId()))
+                    .extracting(Delegacion::getEstado)
+                    .containsExactly(EstadoDelegacion.DEVUELTA, EstadoDelegacion.ACTIVA);
+            Delegacion otraAbierta = delegacion(tarea, eva, luis);
+            assertThatThrownBy(() -> delegacionRepository.saveAndFlush(otraAbierta))
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessageContaining("uq_delegaciones_activa");
+        }
+
+        private Delegacion delegacion(ActividadCaso tarea, Usuario de, Usuario a) {
+            return Delegacion.builder().empresa(tienda).tarea(tarea).caso(caso).delegadaPor(de.getId())
+                    .delegadaA(a.getId()).motivo("Vacaciones").estado(EstadoDelegacion.ACTIVA).build();
+        }
+
+        private ActividadCaso tenida(ActividadCaso tarea, Usuario quien) {
+            tarea.setAsignadoA(quien.getId());
+            return tarea;
+        }
+
+        private Usuario usuario(String nombre) {
+            return em.persistFlushFind(Usuario.builder()
+                    .empresa(tienda)
+                    .nombre(nombre)
+                    .email(nombre.toLowerCase() + "-" + System.nanoTime() + "@casos.com")
+                    .passwordHash("hash-de-la-clave")
+                    .rolAcceso(RolAcceso.EDITOR)
+                    .build());
         }
 
         private ActividadCaso paso(String nombre, TipoNodoCaso tipo, String subtipo, Long rol,
@@ -306,6 +535,21 @@ class CasoRepositoryTest {
                 .categoria("Fulfillment")
                 .estado(EstadoProceso.PUBLICADO)
                 .activo(true)
+                .build());
+    }
+
+    /** PR 68: una prueba del borrador: numero 0, retirada desde que nace y de tipo PRUEBA. */
+    private VersionProceso prueba(Proceso suyo) {
+        return em.persistFlushFind(VersionProceso.builder()
+                .empresa(suyo.getEmpresa())
+                .proceso(suyo)
+                .numero(0)
+                .estado(EstadoVersion.RETIRADA)
+                .tipo(TipoVersion.PRUEBA)
+                .fechaPublicacion(LocalDateTime.now())
+                .huella(HUELLA)
+                .definicion("{}")
+                .modeloBpmn("<bpmn:definitions/>")
                 .build());
     }
 

@@ -26,6 +26,9 @@ import lombok.RequiredArgsConstructor;
  *
  * <p>Todo se cuenta en ticks del reloj de la tienda y no en horas: el tiempo de la simulacion es el que se puede
  * repetir, y un tablero que mezclara los dos estaria contando dos cosas distintas en la misma columna.
+ *
+ * <p>PR 68: los casos de una prueba del borrador no cuentan. Se listan y sus tareas llegan a las bandejas, para que
+ * quien prueba recorra cada camino, pero no son pedidos: cada consulta del tablero pide los de una version publicada.
  */
 @Service
 @RequiredArgsConstructor
