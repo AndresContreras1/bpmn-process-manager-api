@@ -9,7 +9,17 @@ entries in Spanish.
 |---|---|---|---|
 | `Empresa` | Store (tenant) | — | Name, NIT and contact email |
 | `Usuario` | User | Store | Email (the login), access role (`ADMINISTRADOR`, `EDITOR` or `SOLO_LECTURA`) and status |
-| `Proceso` | Process | Store | Name, description, category and state (`BORRADOR` or `PUBLICADO`) |
+| `Proceso` | Process | Store | Name, description, category, state (`BORRADOR` or `PUBLICADO`), mode (`EJECUTABLE` or `DOCUMENTAL`), and its filing: folder, owner, next review, classification (`INTERNA`, `CONFIDENCIAL` or `RESTRINGIDA`) and tags |
+| `Carpeta` | Folder | Store | Name and parent folder; sisters do not share a name, and the tree has at most eight levels |
+| `Documento` | Document | Process | The element it is attached to (`bpmnId`, or none for the whole process), the name of its latest version and which one it is |
+| `VersionDocumento` | Document version | Document | Number, cleaned name, type detected from the content, size, SHA-256, storage key, state (`PENDIENTE`, `DISPONIBLE` or `BLOQUEADO`) with its reason, and whether an antivirus reviewed it |
+| `Documentacion` | Documentation | Process | The element it documents (`bpmnId`, or none for the whole process), its Markdown and the cleaned HTML |
+| `Caracterizacion` | Characterization sheet | Process | Objective, scope, inputs, outputs, suppliers, customers, indicators, risks and regulation |
+| `Manual` | Process manual | Process | The published version it describes, its language, state (`PENDIENTE`, `DISPONIBLE` or `FALLIDO`) with its reason, and where its HTML and PDF are |
+| `Comentario` | Comment | Process | Its author, Markdown and cleaned HTML, the people it mentions, and its thread: none for the first comment, which carries the anchor (an element's `bpmnId`, a published version) and the state (open, or resolved with who and when); a deleted one keeps its place with no text |
+| `Notificacion` | Notification | User | Its type (`MENCION`, `RESPUESTA` or `HILO_RESUELTO`), who caused it, the process and what it points to there, when it was read, and how its e-mail went (`INMEDIATO`, `RESUMEN_DIARIO` or `NUNCA`) and when |
+| `PreferenciaNotificacion` | Notification preference | User | For one type, how it arrives by e-mail; without one, the type's default |
+| `Concesion` | Grant | Store | An action (`VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` or `ADMINISTRAR`) on a folder or a process, for a person, a process role or the whole store (`PERSONA`, `ROL` or `ORGANIZACION`) |
 | `RolProceso` | Process role | Store | Name and description |
 | `Pool` | Participant | Process | Type (`EMPRESA`, `CLIENTE`, `PROVEEDOR` or `SISTEMA_EXTERNO`), black-box flag, order and the kind of partner behind it (`integracion`) |
 | `Lane` | Lane | Pool | Process role and order |
@@ -22,6 +32,7 @@ entries in Spanish.
 | `ActividadCaso` | Step of a case | Case | The node of the version it went through, copied by id and by name, its kind, the process role of its lane, state (`PENDIENTE`, `EN_ESPERA`, `COMPLETADA`, `FALLIDA` or `OMITIDA`), how many tokens have reached it, who took it and what they handed over |
 | `EventoCaso` | Timeline entry | Case | What happened, when, and who caused it. Only inserted |
 | `MembresiaRol` | Membership | Store | Which process roles a user belongs to; the pair is unique |
+| `Exportacion` | Full export of the store | Store | Who asked and when, state (`PENDIENTE`, `LISTA`, `FALLIDA` with its reason, or `VENCIDA`), where its ZIP is, its size, files and SHA-256, and until when its link works |
 
 Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory `empresa_id` that cannot be updated.
 Activities, gateways and events share one table through single-table inheritance, so a sequence flow can point to
@@ -39,7 +50,16 @@ documental (`procesos.modo`), and what only describes it lives in `artefactos` (
 stores) and `asociaciones`, whose ends are `bpmn_id`s ([ADR-0055](adr/0055-descriptive-bpmn-elements.md)). A node may
 sit inside a sub-process (`padre_id`), and a call activity points to another process
 ([ADR-0056](adr/0056-subprocesses-and-call-activity.md)). `revisiones_borrador` keeps compressed save points of a
-draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
+draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)). Who has a process open, and who holds the lock to edit
+it, live in `presencias` and `bloqueos_edicion` ([ADR-0058](adr/0058-presence-and-soft-lock.md)). Tags are an array
+column of the process with a GIN index, so a page of the list reads them without another query
+([ADR-0062](adr/0062-process-repository.md)), and grants live in `concesiones`, each one naming either a folder or a
+process ([ADR-0063](adr/0063-granular-permissions.md)). Comments live in `comentarios`, their mentions in an array
+column of ids, and notifications and their preferences in `notificaciones` and `preferencias_notificacion`; none
+stores a name, so they show whatever name the person has now ([ADR-0067](adr/0067-comments-mentions-and-notifications.md)).
+Each full export of a store is a row of `exportaciones`: a partial unique index keeps one `PENDIENTE` per store, and an
+expired one keeps its row and its SHA-256 after its ZIP is deleted
+([ADR-0071](adr/0071-organization-export-and-exit.md)).
 
 ## Modeling rules
 
@@ -68,7 +88,7 @@ draft ([ADR-0040](adr/0040-etag-autosave-and-revisions.md)).
 - Turning a gateway parallel retires the conditions of its outgoing flows and its default flow, because a parallel
   gateway follows all of them: the history says how many were retired.
 - Reordering the lanes of a pool, or the participants of a process, takes the complete list of their ids, so what
-  the editor shows after a drag is what gets saved.
+  a client shows after a drag is what gets saved.
 - Flow-node names are unique within a process, including when a node is renamed.
 - Process and process-role names are unique among a store's active records, ignoring case. The database enforces it
   too.

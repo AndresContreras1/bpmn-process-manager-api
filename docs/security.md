@@ -21,6 +21,11 @@
 | Send a message to a process | ✓ | ✓ | — |
 | Move the store's clock, watch its simulation and ask for a batch of orders | ✓ | — | — |
 | Decide how the store's simulated partners behave | ✓ | — | — |
+| Comment on a process, reply, mention, resolve and reopen threads | ✓ | ✓ | ✓ |
+| Edit one's own comments and delete them | ✓ | ✓ | ✓ |
+| Delete anybody's comment | ✓ | — | — |
+| Read one's own notifications and choose how they arrive | ✓ | ✓ | ✓ |
+| Export the whole store and close it | ✓ | — | — |
 
 Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
 `SOLO_ADMINISTRADOR`, only administrators create and edit them, and editors keep modeling everything inside a lane.
@@ -29,6 +34,51 @@ The default is `ADMINISTRADOR_Y_EDITOR`, which is the table above.
 A store always keeps at least one active administrator, and nobody can deactivate their own account. Changing a
 user's access level or deactivating them takes effect at once: their open sessions are closed. Changing a password,
 or having it reset, closes them too.
+
+## Permissions on folders and processes
+
+The table above is what an access role allows in general. A store can also say that a folder is only for finance, or
+that only one person publishes a given process, with **grants**: an action on a folder or a process for a person, the
+people of a process role or the whole store ([API](api-reference.md#permissions)). One evaluator,
+`Permisos.puede(actor, accion, recurso)`, decides every case in three layers
+([ADR-0063](adr/0063-granular-permissions.md)):
+
+1. **The access role is the ceiling.** A read-only user views, comments and exports, whatever is granted to them.
+   An administrator can do everything, except what the third layer refuses.
+2. **Grants decide.** A process inherits the grants of its folder and of every folder above it. An action that no
+   grant in that chain names keeps its default, below. Once one names it, it is only for whoever has it, and for
+   administrators. Any grant brings `VER` with it, and `ADMINISTRAR` brings every action.
+3. **Separation of duties goes last.** Whoever made the last change to a process cannot approve it, not even an
+   administrator.
+
+| Action | Default, while no grant names it |
+|---|---|
+| `VER`, `COMENTAR`, `EXPORTAR` | Everyone in the store |
+| `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR` | Administrators and editors |
+| `ADMINISTRAR` | Administrators |
+
+- **One place checks it.** A Spring MVC interceptor turns the method and route of each request into an action on a
+  resource, from a table that is a pure function and is tested whole: reading is `VER`, saving the model or any of
+  its elements is `MODELAR`, publishing and retiring versions is `PUBLICAR`, the AI review is `REVISAR`, deleting the
+  process, sharing it and granting on it is `ADMINISTRAR`, and downloading its BPMN file is `EXPORTAR`. Opening a
+  case or sending a message only needs `VER`: running a process is not modeling it. Writing a comment is `COMENTAR`,
+  which the read-only role has, and its service also asks `VER` (PR 63). The routes with no resource in the path,
+  such as creating a process, check in their service.
+- **A process someone cannot see does not exist for them.** Refusing `VER` answers `404`, the same as a process of
+  another store, so it does not reveal that it is there.
+- **Lists filter in their own query.** What a person cannot see is worked out once from the grants, the folders and
+  their process roles, and added to the query, so the number of statements does not grow with the number of
+  processes. A test counts them.
+- **Moving something between folders that carry grants needs `ADMINISTRAR`,** because it changes what it inherits.
+- **The structure policy of the store is a default too:** a grant to model a process lets that person change its
+  participants and lanes even when the store keeps them for administrators.
+- **Exporting is a speed bump, not a wall.** The web reads the same file to draw it with `?para=dibujar`, which only
+  needs `VER`: whoever can see a drawing has its content.
+- Running cases and tasks stays under the access role. Grants govern the repository and the model.
+
+`PermisosIntegracionTest` walks the whole matrix — six people, eight actions and five resources — and then the
+`404` of what is hidden, the lists without N+1, the default of the structure policy, moving between folders and
+the same checks through every route of the API.
 
 ## Authentication
 
@@ -68,6 +118,11 @@ header `X-XSRF-TOKEN`. Only pages of the app's own origin can read that cookie, 
 The web app gets the cookie from `GET /api/v1/auth/csrf` when it starts, and Angular's `HttpClient` copies it into
 every change. Without it the answer is `403` with the title "Sin token CSRF". A request without session cookies
 has no session to borrow, and does not need it: the registration of a store, and API keys when they arrive.
+
+The token lasts the session ([ADR-0064](adr/0064-csrf-token-per-session.md)). Every way in, and logging out, set a
+new one, so a token planted in the browser before the login is worth nothing after it. Nothing in between changes
+it, renewing included: the web sends several requests at once, and a change must not leave with the header of one
+token and the cookie of the next.
 
 Rotating the signing key does not close sessions: `JWT_PREVIOUS_SECRET` keeps accepting the tokens of the old key,
 which nobody signs with any more, for the fifteen minutes they live ([runbook](runbook.md)).
@@ -213,6 +268,10 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `CONFIGURACION_CAMBIADA` | The settings change, with the policies that resulted |
 | `PROCESO_PUBLICADO` | A version is published |
 | `TIENDA_DADA_DE_BAJA` · `BAJA_CANCELADA` | The store is closed or the closing is cancelled |
+| `DOCUMENTO_SUBIDO` · `DOCUMENTO_ELIMINADO` · `DOCUMENTO_BLOQUEADO` | A document or a new version is uploaded, a document is deleted, or the review retains a version |
+| `COMENTARIO_RESUELTO` · `COMENTARIO_REABIERTO` · `COMENTARIO_ELIMINADO` | A comment thread is resolved or reopened, or a comment is deleted, with whether it was one's own |
+| `EXPORTACION_PEDIDA` · `EXPORTACION_LISTA` · `EXPORTACION_FALLIDA` · `EXPORTACION_DESCARGADA` · `EXPORTACION_VENCIDA` | A full export is asked for, is ready with its SHA-256, size and files, fails with the reason, is downloaded with its link (from the address and browser of the download), or expires and is deleted |
+| `TIENDA_BORRADA` | The purge deleted the store: the SHA-256 and the key of its deletion certificate, the rows and the objects (`reanotado` when a retry of the job audits a certificate stored before) |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
 the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
@@ -228,12 +287,115 @@ What makes it hard to touch:
 - A trigger turns down `UPDATE`, `DELETE` and `TRUNCATE`, for the API too.
 - `GET /api/v1/auditoria/verificacion` recomputes the chain from its first entry and names the first one that was
   changed, deleted or put out of order.
+- **The daily anchor** (PR 61). Once a day one instance copies the last link of each store's trail to a bucket with
+  Object Lock in compliance mode, where nobody, the API's credentials included, can change or delete it before its
+  retention ends (`BITACORA_ANCLA_RETENCION`, 400 days). Verifying also checks the latest anchor, read from that
+  bucket and not from the database: a trail rewritten from the start, every hash recomputed, no longer matches the
+  hash its anchor kept, and an anchor that is gone breaks the verification too. The answer says which day it was
+  checked against (`anclaVerificada`). Without a bucket for anchors they are written to the documents' storage and
+  marked as not locked.
 
 The administrator reads it newest first, 50 at a time, with filters (`GET /api/v1/auditoria`), and exports it as CSV
 or JSON (`/exportacion`); in the CSV, a cell a spreadsheet would run as a formula starts with an apostrophe. The trail
-outlives its store, which stays as a tombstone. Anchoring the last hash of each day outside the database comes with
-object storage (PR 61), and the role the API connects with gets only `INSERT` and `SELECT` on it with row-level
-security (PR 51).
+outlives its store, which stays as a tombstone, and so do its anchors. The role the API connects with gets only
+`INSERT` and `SELECT` on it with row-level security (PR 51).
+
+## Documents
+
+A file from outside is treated as hostile until it has been checked ([ADR-0065](adr/0065-object-storage-and-documents.md)):
+
+- **Its type comes from its bytes**, with Tika's signatures, against a whitelist: PDF, PNG, JPEG, GIF, WebP, SVG,
+  plain text, CSV, Markdown, BPMN, Word, Excel and PowerPoint, and OpenDocument text and spreadsheets. An executable
+  named `informe.pdf` is an executable, and the answer is `415`. A ZIP that is not one of those documents is refused.
+- **Its name is cleaned**: only the last part of a path, no control or direction characters, no characters a file
+  system refuses, no leading dots, Windows' reserved names replaced, and the extension of the type that was detected.
+  The name is only shown and sent on download: it never becomes part of a storage key.
+- **Size and quota.** At most 25 MB, cut while reading, so a body without `Content-Length` does not arrive whole
+  either; NGINX cuts at the same size. Each store has a quota (`DOCUMENTOS_CUOTA_POR_TIENDA`, 1 GB), counting every
+  version. Both answer `413` and save nothing.
+- **Reviewed before anyone can download it.** A new version waits `PENDIENTE` while the job queue sends it to ClamAV
+  (`ANTIVIRUS_HOST`, clamd's `INSTREAM` protocol) and, if it is an Office or OpenOffice document, opens it for real
+  with limits — 200 MB, a hundred times its size, ten thousand parts, and no path that leaves its folder — so a ZIP
+  bomb is retained before it reaches anything. It ends `DISPONIBLE` or `BLOQUEADO` with the reason, in the audit
+  trail. An antivirus that does not answer leaves it pending and the queue tries again.
+- **Downloaded only through a signed link** of five minutes, which the API serves itself: the storage is never
+  reachable from a browser. The link signs the store, the document, the version and its expiry with HMAC-SHA256 and a
+  key derived from the API secret; a changed or expired link answers `404`. The file always goes as an attachment,
+  with `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox` and `no-store`; an
+  SVG or an HTML goes as `application/octet-stream`, so a browser never runs it. NGINX logs the link without its
+  signature.
+- **Permissions** are those of the process: reading needs `VER`, uploading and deleting need `MODELAR`. Another
+  store's document does not exist (`404`).
+- Closing a store deletes its files too, through the job queue, which retries until the storage confirms it.
+
+What people write and draw is cleaned the same way ([ADR-0066](adr/0066-documentation-and-process-manual.md)):
+
+- **Documentation in Markdown** becomes HTML on the server and goes through a whitelist before it is saved: HTML
+  inside the Markdown is escaped, links are only http, https or mailto with `rel="nofollow noopener noreferrer"`, and
+  there are no images (a tracking pixel is an image), styles or scripts. Only that HTML is ever shown.
+- **The drawing of a version** that the web app sends is read with `SecureXml` and its limits and rebuilt with a
+  whitelist of SVG elements and attributes: no scripts, event handlers, `foreignObject`, images, `use`, links, or
+  styles that load something from outside.
+- **The manual** is printed from a template that loads nothing; the PDF renderer is told not to fetch any resource.
+
+## Comments and notifications
+
+What people write to each other is cleaned and kept to the store, and what they are told is theirs alone
+([ADR-0067](adr/0067-comments-mentions-and-notifications.md)):
+
+- **The text** is Markdown cleaned like the documentation, up to 10 000 characters (the request and a check of the
+  table); only the cleaned HTML is shown.
+- **Who can write.** Every role comments, so the route matrix lets each one `POST`, `PUT` and `DELETE` the comment
+  routes; the resource rule turns them into `COMENTAR` on the process of the comment, and the service also asks
+  `VER`, so a grant that hides a process hides its comments from writing too. Editing is the author's; deleting, the
+  author's or an administrator's (`403`).
+- **Mentions** are at most 20 ids, each an active person of the store who can view the process. Anything else answers
+  `400` with the same reason, whether the person cannot view it, is inactive, is from another store or does not
+  exist: the answer never tells which.
+- **Isolation.** The three tables have row-level security; another store's comment or notification answers `404`, and
+  so does another person's notification in the same store: every query filters by store and recipient.
+- **Audit.** Resolving, reopening and deleting are in the audit trail; writing a comment is not, the comment is its own
+  record.
+- **Rate limit.** Writing a comment, and marking notifications read, spend from the bucket of changes per person; there
+  is no quota beyond the length and the mentions, since a comment is text. A notification stream is read-only and
+  counts against five streams per person on each instance.
+- **E-mail** never carries the comment's text, only who, what, which process and a link; names that enter the HTML
+  are escaped. The outbox keeps ids, not text.
+- **Anonymizing** a person deletes their notifications and preferences, shows the pseudonym wherever they wrote or
+  were mentioned, and rewrites `@Name` in the comments that mentioned them.
+
+## Organization export
+
+The full export of a store carries everything in it, so who gets it and how is narrow
+([ADR-0071](adr/0071-organization-export-and-exit.md), [Export format](export-format.md)):
+
+- **Who.** Only an administrator, by the route matrix, and asking also needs the identity confirmed in the last ten
+  minutes, the step-up of PR 49 that closing the store needs: a stolen cookie does not take the store's data.
+  Listing exports does not show the link.
+- **The link** goes only by e-mail, to whoever asked, through the job queue. It signs the store, the export and its
+  expiry, 24 hours after it is ready, with the same HMAC key as documents' links; a changed or expired link, or one
+  of an export already deleted, answers `404`. It also needs whoever asked to still be an active administrator: the
+  e-mail is not sent, and a link already sent stops working, once they are deactivated or lose the role. The ZIP goes as an attachment with `nosniff`, a sandboxed policy and
+  `no-store`, and NGINX logs the link without its signature.
+- **What leaves.** Each query names its columns. People leave without password hashes, WebAuthn handles, TOTP
+  secrets, recovery codes, passkeys, sessions, refresh tokens, e-mail links or linked identities; those tables are not
+  read. `ExportacionIntegracionTest` builds a store with passwords, a second factor and its recovery codes, sessions,
+  refresh tokens and e-mail links, and searches every file of its export for each of them, hashed and in clear.
+  Storage keys are not exported, and files the antivirus blocked or has not checked stay out.
+- **Paths** inside the ZIP are fixed by the code; a name somebody typed is cleaned before it becomes part of one, and
+  the writer refuses `..`, absolute, hidden or repeated paths.
+- **CSV** cells that a spreadsheet would run as a formula start with an apostrophe (`common/csv/CeldaCsv`, shared
+  with the audit trail's CSV).
+- **Errors.** A failed export says only that it failed; the exception, which can name tables or buckets, stays in
+  the log.
+- **Isolation.** The job pins the store in the row-level security context while it builds, so the database refuses
+  any row of another store. `exportaciones` has row-level security; another store's export answers `404`.
+- **Audit.** Asking, ready, failed, downloaded and expired are in the audit trail.
+- **Rate limit and quota.** Ten a day per person, counted before the authorization so nobody spends another's
+  bucket, and one export at a time per store. The export asked for with the closing (`exportar: true` on
+  `POST /api/v1/empresas/actual/baja`) does not spend that bucket: closing asks for step-up and the store keeps one
+  export at a time. The ZIP does not count against the documents' quota: it is deleted within the hour after its link
+  expires, or as soon as the export fails.
 
 ## Rate limiting
 
@@ -248,6 +410,7 @@ same token.
 | Registration | Registering a store | Address | 10 an hour |
 | E-mail | Verifying the e-mail, recovering the password and inviting | Address | 20 an hour |
 | Changes | Every other `POST`, `PUT`, `PATCH` and `DELETE` | Person | 600 a minute |
+| Exports | Asking for a full export of the store (`LIMITE_EXPORTACION_POR_DIA`) | Person | 10 a day |
 
 Reading spends nothing. An empty bucket answers `429` with the title "Demasiadas peticiones" and `Retry-After` in
 seconds. The limit of failed logins per e-mail still applies on top of the one per address. The AI review keeps
@@ -400,11 +563,26 @@ and e-mails are gone, so they can register again. `BorradoDeTiendasTest` checks 
 database that the deletion covers every table with `empresa_id` and respects every foreign key, so a new table
 cannot be left behind.
 
+**Leaving with the data** (PR 66). Before going, an administrator takes everything with the full export: closing
+with `"exportar": true` asks for one at once, and during the 30 days asking for more is, besides cancelling the
+closing, the one change a closing store accepts
+([Exporting the organization](api-reference.md#exporting-the-organization)).
+
+**The deletion certificate** (PR 66). After the purge, the job that deletes the store's files writes a certificate:
+the store's id and nothing that names it or anyone in it, when its closing was asked for and when it was deleted,
+how many rows of each table and how many objects of the storage went, the SHA-256 of its last export, and what
+stays (the tombstone row, the audit trail and its anchors). It goes to the immutable storage beside the anchors,
+`certificados/<id>/borrado`, locked for `CERTIFICADO_DE_BORRADO_RETENCION` (ten years), and its SHA-256 to the
+store's audit trail as `TIENDA_BORRADA`. Nobody can sign in to a store that no longer exists, so the operator keeps
+it and hands it to the former administrator who asks with the store's id, which every export manifest carries; the
+hash in the trail proves the copy. Its format is in [Export format](export-format.md#the-deletion-certificate).
+
 **Anonymizing a person.** `POST /api/v1/usuarios/{id}/anonimizar` deletes a person's personal data on request,
 and cannot be undone. Their user stays, because what they did names them, but under a pseudonym (`Persona
 anonimizada 12`) and an address that is not theirs, deactivated, with no password that works, no sessions, no
 process roles and no links; the store's history names them by the pseudonym too, and their e-mail can register
-again. Nobody can anonymize their own account, and an anonymized user can no longer be edited, reactivated or
+again. Their comments stay under the pseudonym, the comments that mentioned them as `@Name` say the pseudonym instead,
+and their notifications and preferences are deleted (PR 63). Nobody can anonymize their own account, and an anonymized user can no longer be edited, reactivated or
 given a password.
 
 ## Supply chain

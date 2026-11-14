@@ -52,4 +52,10 @@ public interface VersionService {
 
     /** Retira una version: deja de ser la vigente y el proceso pasa a la anterior que siga en pie, si queda alguna. */
     VersionResponse retirar(Long empresaId, Long procesoId, int numero, Long usuarioId);
+
+    /** PR 62: guarda el dibujo de una version, saneado. Una version que ya tiene el suyo no lo cambia. */
+    void guardarDibujo(Long empresaId, Long procesoId, int numero, byte[] svg);
+
+    /** PR 62: el dibujo saneado de una version, si la web lo mando. */
+    Optional<String> dibujo(Long empresaId, Long procesoId, int numero);
 }

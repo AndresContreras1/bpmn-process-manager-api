@@ -31,10 +31,11 @@ class BorradoDeTiendasTest {
     @Test
     @DisplayName("Hay una sentencia por cada tabla con empresa_id, y cada una borra por esa columna; la bitacora no")
     void cubreCadaTablaDeLaTienda() {
-        // La bitacora sobrevive a su tienda, que queda como lapida, y su trigger no la deja borrar (PR 31).
+        // La bitacora sobrevive a su tienda, que queda como lapida, y su trigger no la deja borrar (PR 31). Sus anclas
+        // diarias van con ella (PR 61): el almacen donde estan tampoco deja borrarlas.
         List<String> conEmpresa = jdbc.queryForList("select table_name from information_schema.columns "
                 + "where table_schema = current_schema() and column_name = 'empresa_id' and table_name <> 'empresas' "
-                + "and table_name <> 'bitacora'", String.class);
+                + "and table_name <> 'bitacora' and table_name <> 'anclas_bitacora'", String.class);
 
         List<String> porEmpresa = BorradoDeTiendas.BORRADOS.stream()
                 .map(BorradoDeTiendasTest::partes)
@@ -67,6 +68,18 @@ class BorradoDeTiendasTest {
                         .isLessThan(orden.indexOf(madre));
             }
         });
+    }
+
+    @Test
+    @DisplayName("PR 66: la tabla de cada sentencia, que es como el certificado de borrado cuenta sus filas")
+    void tablaDeCadaSentencia() {
+        List<String> tablas = BorradoDeTiendas.BORRADOS.stream().map(BorradoDeTiendas::tabla).toList();
+        List<String> esperadas = BorradoDeTiendas.BORRADOS.stream().map(sentencia -> partes(sentencia).group(1))
+                .toList();
+
+        assertThat(tablas).containsExactlyElementsOf(esperadas);
+        assertThat(BorradoDeTiendas.tabla("delete from procesos_compartidos where empresa_invitada_id = ?"))
+                .isEqualTo("procesos_compartidos");
     }
 
     private static Matcher partes(String sentencia) {

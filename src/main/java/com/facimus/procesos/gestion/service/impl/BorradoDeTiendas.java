@@ -1,11 +1,17 @@
 package com.facimus.procesos.gestion.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
+
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * PR 35: el borrado de una tienda que cumplio la gracia de su baja. Borra cada fila suya, tabla por tabla, de las que
@@ -32,7 +38,11 @@ public class BorradoDeTiendas {
             "delete from segundos_factores where empresa_id = ?",
             "delete from passkeys where empresa_id = ?",
             "delete from claves_idempotencia where empresa_id = ?",
+            "delete from exportaciones where empresa_id = ?",
             "delete from trabajos where empresa_id = ?",
+            "delete from notificaciones where empresa_id = ?",
+            "delete from preferencias_notificacion where empresa_id = ?",
+            "delete from comentarios where empresa_id = ?",
             "delete from membresias_rol where empresa_id = ?",
             "delete from eventos_caso where empresa_id = ?",
             "delete from actividades_caso where empresa_id = ?",
@@ -46,6 +56,11 @@ public class BorradoDeTiendas {
             "delete from importaciones where empresa_id = ?",
             "delete from formas_bpmn where empresa_id = ?",
             "delete from aristas_bpmn where empresa_id = ?",
+            "delete from manuales where empresa_id = ?",
+            "delete from caracterizaciones where empresa_id = ?",
+            "delete from documentacion where empresa_id = ?",
+            "delete from versiones_documento where empresa_id = ?",
+            "delete from documentos where empresa_id = ?",
             "delete from asociaciones where empresa_id = ?",
             "delete from artefactos where empresa_id = ?",
             "delete from correlaciones where empresa_id = ?",
@@ -69,21 +84,69 @@ public class BorradoDeTiendas {
     static final String LAPIDA = "update empresas set nombre = ?, nit = ?, correo_contacto = ?, borrada_en = ? "
             + "where id = ?";
 
-    private final JdbcTemplate jdbc;
+    /**
+     * PR 61: el trabajo de la cola que borra los archivos de una tienda del almacen. PR 66: y que despues emite su
+     * certificado de borrado.
+     */
+    public static final String BORRAR_ARCHIVOS = "almacen.borrar-tienda";
 
-    public BorradoDeTiendas(JdbcTemplate jdbc) {
+    /** PR 66: la ultima exportacion que quedo lista, la que el certificado nombra por su huella. */
+    static final String ULTIMA_EXPORTACION = """
+            select id, sha256, lista_en from exportaciones
+            where empresa_id = ? and sha256 is not null order by id desc limit 1
+            """;
+
+    private final JdbcTemplate jdbc;
+    private final ColaDeTrabajos cola;
+    private final JsonMapper json;
+
+    public BorradoDeTiendas(JdbcTemplate jdbc, ColaDeTrabajos cola, JsonMapper json) {
         this.jdbc = jdbc;
+        this.cola = cola;
+        this.json = json;
     }
 
     /** Todo o nada: si una sentencia falla, la tienda queda como estaba y la purga de la noche siguiente reintenta. */
     @Transactional
     public int borrar(Long empresaId, LocalDateTime ahora) {
+        // PR 66: lo que el certificado dice de antes del borrado: cuando se pidio la baja y la ultima exportacion
+        LocalDateTime bajaSolicitadaEn = jdbc.queryForObject("select baja_solicitada_en from empresas where id = ?",
+                LocalDateTime.class, empresaId);
+        UltimaExportacion ultima = jdbc.query(ULTIMA_EXPORTACION, (fila, numero) -> new UltimaExportacion(
+                fila.getLong("id"), fila.getString("sha256"), fila.getObject("lista_en", LocalDateTime.class)),
+                empresaId).stream().findFirst().orElse(null);
+        Map<String, Integer> porTabla = new LinkedHashMap<>();
         int filas = 0;
         for (String borrado : BORRADOS) {
-            filas += jdbc.update(borrado, empresaId);
+            int borradas = jdbc.update(borrado, empresaId);
+            porTabla.merge(tabla(borrado), borradas, Integer::sum);
+            filas += borradas;
         }
         String marca = "borrada-" + empresaId;
         jdbc.update(LAPIDA, "Tienda borrada", marca, marca + "@borrada.invalid", ahora, empresaId);
+        // PR 61: los archivos de sus documentos. El almacen no es transaccional, asi que va a la cola en esta misma
+        // transaccion, como trabajo del sistema (los de la tienda se acaban de borrar): se reintenta hasta que sale.
+        // PR 66: el trabajo lleva lo que el certificado de borrado cuenta, que despues de este commit ya no existe.
+        cola.encolar(null, BORRAR_ARCHIVOS, json.writeValueAsString(new TiendaBorrada(empresaId, bajaSolicitadaEn,
+                ahora, porTabla, filas, ultima)));
         return filas;
+    }
+
+    /** La tabla de una sentencia de {@link #BORRADOS}: lo que va entre {@code delete from} y {@code where}. */
+    static String tabla(String sentencia) {
+        String resto = sentencia.substring("delete from ".length());
+        return resto.substring(0, resto.indexOf(' '));
+    }
+
+    /**
+     * PR 66: lo que se sabe de una tienda recien borrada, sin nada que diga cual era ni quien la usaba: su id, las
+     * fechas, cuantas filas se borraron de cada tabla y la huella de su ultima exportacion, si la hubo.
+     */
+    public record TiendaBorrada(Long empresaId, LocalDateTime bajaSolicitadaEn, LocalDateTime borradaEn,
+            Map<String, Integer> filas, int totalDeFilas, UltimaExportacion ultimaExportacion) {
+    }
+
+    /** PR 66: la ultima exportacion lista de la tienda: cual, su huella y cuando quedo lista. */
+    public record UltimaExportacion(Long id, String sha256, LocalDateTime listaEn) {
     }
 }

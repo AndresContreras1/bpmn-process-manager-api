@@ -30,10 +30,29 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `WEBAUTHN_ORIGINS` | The exact addresses the browser signs passkeys from, separated by commas; the web app's address in production | `APP_PUBLIC_URL` |
 | `WEBAUTHN_RP_NAME` | The name the device shows when it creates a passkey | `BPMN Process Manager` |
 | `MICROSOFT_TENANT` | `organizations` for any work or school account, or the id of one organization to accept only it | `organizations` |
+| `ALMACEN_S3_BUCKET` | The S3 bucket of the documents. Without it they go to `ALMACEN_DIRECTORIO` on disk, which suits development and a single instance | Empty |
+| `ALMACEN_S3_BUCKET_ANCLAS` | A bucket created with Object Lock, for the daily anchor of the audit trail and the deletion certificates of purged stores. Without it they go to the documents' bucket, unlocked; those written before it was set are still read from there | Empty |
+| `ALMACEN_S3_ENDPOINT` | The address of an S3-compatible service, such as the SeaweedFS of `compose.yaml`; empty for AWS | Empty |
+| `ALMACEN_S3_REGION` · `ALMACEN_S3_USUARIO` · `ALMACEN_S3_CLAVE` | Region and credentials; without a user, the AWS default chain (environment, profile, role) | `us-east-1` · empty |
+| `ALMACEN_S3_CREAR_BUCKETS` | Create the missing buckets when starting, the anchors' one with Object Lock. For `compose.yaml`; in AWS they are created beforehand | `false` |
+| `ALMACEN_S3_CIFRAR` | Ask the service to encrypt every document (SSE-S3) | `false` |
+| `ALMACEN_DIRECTORIO` | The folder of the disk storage | `<tmp>/bpmn-process-manager/almacen` |
+| `ARCHIVOS_TEMPORALES` | The folder only the API enters, where an upload waits before the storage and a ZIP is opened for review; each file is deleted when it is done | `<tmp>/bpmn-process-manager/temporales` |
+| `ANTIVIRUS_HOST` · `ANTIVIRUS_PUERTO` | Where clamd listens. Without a host, documents are not reviewed and say so | Empty · `3310` |
+| `DOCUMENTOS_EXIGIR_ANTIVIRUS` | Without an antivirus, keep documents pending instead of making them available unreviewed | `false` |
+| `DOCUMENTOS_TAMANO_MAXIMO` · `DOCUMENTOS_CUOTA_POR_TIENDA` | Largest document, and space per store counting every version | `25MB` · `1GB` |
+| `BITACORA_ANCLA_RETENCION` | How long nobody can delete an anchor of the audit trail | `400d` |
+| `NOTIFICACIONES_RESUMEN_CRON` | When the daily digest of notifications is put in the queue, in UTC, the same hour for everyone. `-` turns it off | `0 0 7 * * *` |
+| `NOTIFICACIONES_RETENCION` | How long a read notification is kept before the nightly purge deletes it; unread ones stay | `90d` |
+| `EXPORTACIONES_ENLACE_VIDA` | How long the e-mailed link of a full export works; then its ZIP is deleted | `24h` |
+| `EXPORTACIONES_LIMPIEZA_CRON` | When the job that deletes expired exports runs, in UTC. `-` turns it off | `0 15 * * * *` (hourly) |
+| `EXPORTACIONES_PENDIENTE_MAXIMA` | How long an export can stay pending before it is marked failed, so another can be asked for | `6h` |
+| `CERTIFICADO_DE_BORRADO_RETENCION` | How long nobody can delete the deletion certificate of a purged store, in the anchors' storage | `3650d` |
 | `JWT_PREVIOUS_SECRET` | The signing key before the last rotation: its tokens are still accepted, and nobody signs with it. Empty outside a rotation | Empty |
 | `JWT_EXPIRATION_SECONDS` | Access token lifetime. Keep it under 30 minutes, the shortest idle timeout a store can choose: the refresh token and the session last what each store decides in its settings | `900` |
 | `CLAVES_COSTO_BCRYPT` | Cost of BCrypt, from 4 to 31: each step doubles the time of a hash. Raising it invalidates no password, because each login rehashes with the new one | `10` |
 | `LIMITE_AUTENTICACION_POR_MINUTO` · `LIMITE_REGISTRO_POR_HORA` · `LIMITE_CORREO_POR_HORA` · `LIMITE_ESCRITURA_POR_MINUTO` | The [rate limits](security.md#rate-limiting): signing in, registering and e-mail per address, every other change per person | `30` · `10` · `20` · `600` |
+| `LIMITE_EXPORTACION_POR_DIA` | How many full exports a person asks for in a day | `10` |
 | `LIMITES_ACTIVOS` | `false` turns every rate limit off | `true` |
 | `LIMITE_CUERPO` | The largest body a request can bring; more answers `413` | `1MB` |
 | `TURNSTILE_SECRET` | The secret of Cloudflare Turnstile. Set, registering a store asks for its verification | Empty |

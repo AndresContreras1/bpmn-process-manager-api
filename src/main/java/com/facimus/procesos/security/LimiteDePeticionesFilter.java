@@ -41,24 +41,34 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
     private static final String REGISTRO = "/api/v1/empresas";
 
     /** PR 54: las rutas que reciben un archivo BPMN, que tienen su propio tope, el mismo que lee SecureXml. */
-    private static final Pattern RUTAS_BPMN = Pattern.compile("/api/v1/procesos/(importar|[0-9]+/(modelo|comparar))");
+    private static final Pattern RUTAS_BPMN = Pattern
+            .compile("/api/v1/procesos/(importar|\\d+/(modelo|comparar|versiones/\\d+/dibujo))");
+
+    /** PR 61: las rutas que reciben un documento, con el tope de un documento. */
+    private static final Pattern RUTAS_DOCUMENTOS = Pattern
+            .compile("/api/v1/(procesos/\\d+/documentos|documentos/\\d+/versiones)");
 
     private static final Set<String> CORREO = Set.of("/api/v1/auth/recuperacion", "/api/v1/auth/verificacion",
             "/api/v1/usuarios/invitaciones");
+
+    /** PR 66: pedir la exportacion completa, con su propio cubo diario. */
+    private static final String EXPORTACIONES = "/api/v1/organizacion/exportaciones";
 
     private final LimitesDePeticiones limites;
     private final VerificacionHumana verificacionHumana;
     private final JsonMapper jsonMapper;
     private final long cuerpoMaximo;
     private final long cuerpoMaximoBpmn;
+    private final long cuerpoMaximoDocumento;
 
     public LimiteDePeticionesFilter(LimitesDePeticiones limites, VerificacionHumana verificacionHumana,
-            JsonMapper jsonMapper, long cuerpoMaximo, long cuerpoMaximoBpmn) {
+            JsonMapper jsonMapper, long cuerpoMaximo, long cuerpoMaximoBpmn, long cuerpoMaximoDocumento) {
         this.limites = limites;
         this.verificacionHumana = verificacionHumana;
         this.jsonMapper = jsonMapper;
         this.cuerpoMaximo = cuerpoMaximo;
         this.cuerpoMaximoBpmn = cuerpoMaximoBpmn;
+        this.cuerpoMaximoDocumento = cuerpoMaximoDocumento;
     }
 
     @Override
@@ -69,7 +79,7 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        long tope = RUTAS_BPMN.matcher(request.getRequestURI()).matches() ? cuerpoMaximoBpmn : cuerpoMaximo;
+        long tope = tope(request.getRequestURI());
         if (request.getContentLengthLong() > tope) {
             responder(request, response, HttpStatus.CONTENT_TOO_LARGE, "Cuerpo demasiado grande",
                     "La petición no puede superar " + (tope / 1024) + " KB.", null);
@@ -78,7 +88,7 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         String ruta = request.getRequestURI();
         String ip = request.getRemoteAddr();
         Optional<Duration> espera = clase(request, ruta).flatMap(clase -> limites.gastar(clase,
-                clase == ClaseDeLimite.ESCRITURA ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
+                porPersona(clase) ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
         if (espera.isPresent()) {
             long segundos = Math.max(1, (espera.get().toMillis() + 999) / 1000);
             responder(request, response, HttpStatus.TOO_MANY_REQUESTS, "Demasiadas peticiones",
@@ -93,6 +103,13 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    private long tope(String ruta) {
+        if (RUTAS_BPMN.matcher(ruta).matches()) {
+            return cuerpoMaximoBpmn;
+        }
+        return RUTAS_DOCUMENTOS.matcher(ruta).matches() ? cuerpoMaximoDocumento : cuerpoMaximo;
+    }
+
     /** De que cubo gasta. Lo que cambia algo sin sesion no cuenta por persona: la autorizacion lo va a rechazar. */
     private static Optional<ClaseDeLimite> clase(HttpServletRequest request, String ruta) {
         boolean esPost = "POST".equals(request.getMethod());
@@ -105,10 +122,18 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         if (esPost && CORREO.contains(ruta)) {
             return Optional.of(ClaseDeLimite.CORREO);
         }
+        if (esPost && EXPORTACIONES.equals(ruta)) {
+            return usuario().map(id -> ClaseDeLimite.EXPORTACION);
+        }
         if (ruta.startsWith("/api/v1/auth/oidc")) {
             return Optional.empty();
         }
         return usuario().map(id -> ClaseDeLimite.ESCRITURA);
+    }
+
+    /** Lo que cuenta por persona y no por direccion: lo que solo se pide con sesion. */
+    private static boolean porPersona(ClaseDeLimite clase) {
+        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.EXPORTACION;
     }
 
     private static Optional<Long> usuario() {

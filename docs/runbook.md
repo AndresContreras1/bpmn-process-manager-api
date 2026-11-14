@@ -12,6 +12,7 @@ this repository (`compose.yaml`); the remote environments add their own steps to
 | `db` | PostgreSQL 16, data in the `postgres-data` volume | `5432`, not published | `pg_isready` |
 | `api` | The API in the `prod` profile | `8080` for the API (`API_PORT` on the host, only on `127.0.0.1`); `8081` for Actuator, never published | `/actuator/health/readiness` on `8081` |
 | `web` | NGINX with the compiled app, and the door to the API under `/api` | `8080` (`WEB_PORT` on the host) | `/healthz` |
+| `almacen` | SeaweedFS, the S3 storage of the documents and of the audit-trail anchors, data in the `almacen-data` volume | `8333`, not published | `/healthz` on `8333` |
 
 The API and the web containers run read-only, without Linux capabilities, and write only to `/tmp`, which lives in
 memory. `docker compose ps` shows whether each one is healthy.
@@ -145,6 +146,36 @@ data by hand, `psql` connects as the owner, which is not limited; `SET ROLE proc
 matches. Nothing in the API can change it, so it was changed in the database with the trigger off: treat it as an
 incident. Keep a copy of the table as it is, and compare it with the last backup to find what changed.
 
+**A document stays `PENDIENTE`.** Its review is a job of the queue (`documentos.revisar`). Without
+`ANTIVIRUS_HOST` and with `DOCUMENTOS_EXIGIR_ANTIVIRUS=true`, it waits on purpose: its `motivo` says so. With an
+antivirus, look at the job: `select estado, intentos, ultimo_error from trabajos where tipo = 'documentos.revisar'
+order by id desc limit 5`. "ClamAV no contesto" means clamd is down or still loading its signatures, which takes a
+minute after it starts; the job tries again by itself.
+
+**A document was blocked and the person says it is clean.** The `motivo` says who blocked it: the name of the
+signature ClamAV found, or the limits of a container (it grows too much when opened, has too many parts, or a path
+that leaves it). A false positive of the antivirus is not overridden from the API: the person uploads the file again
+as a PDF or another type, or the operator updates the signatures (`freshclam`).
+
+**The audit trail does not match its anchor.** The chain closes by itself but not with the hash the anchor kept that
+day: the table was rewritten after that day. Treat it as an incident: keep the database as it is, compare the
+anchored hash (`anclas/<store>/<day>` in the anchors' bucket) with the entry of that sequence, and restore from the
+backup of before that day to see what changed. An anchor that "is no longer in the storage" means the bucket was not
+created with Object Lock, or its retention passed.
+
+**An export stays `PENDIENTE` or ends `FALLIDA`.** It is a job of the queue (`exportaciones.generar`): `select
+estado, intentos, ultimo_error from trabajos where tipo = 'exportaciones.generar' order by id desc limit 5`. A failed
+export's `motivo` only says it failed; the cause is in the log, `No se pudo armar la exportacion <id> de la tienda
+<store>`, usually a file the storage could not give back. The administrator asks for another one. One that stays pending more than `EXPORTACIONES_PENDIENTE_MAXIMA`
+(six hours) is marked failed by the hourly cleanup, so the store is never stuck with one in course. The e-mail with
+the link is another job (`exportaciones.correo`), and an expired export sends nothing.
+
+**A former customer asks for the deletion certificate.** Their store is gone and nobody can sign in to it. Read
+`certificados/<store id>/borrado` from the anchors' bucket (or the storage folder without S3), and check that its
+SHA-256 is the one the store's audit trail kept: `select detalle from bitacora where empresa_id = <store id> and
+accion = 'TIENDA_BORRADA'`. Send them the file; it names nobody
+([Export format](export-format.md#the-deletion-certificate)).
+
 **Someone gets `429` while working.** The rate limits count changes per person and signing in per address
 ([Rate limiting](security.md#rate-limiting)). An office behind one address shares the bucket of signing in: raise
 `LIMITE_AUTENTICACION_POR_MINUTO` in `.env` and recreate the API. A bucket fills again on its own; to empty one at
@@ -209,6 +240,9 @@ docker compose start api
 
 A copy that was never restored is a hope, not a backup: restore one into a scratch stack now and then.
 
+The documents live in the `almacen-data` volume (SeaweedFS), apart from the database: a copy of one without the other
+leaves rows without files or files without rows. Copy both at the same time, or stop the API while copying.
+
 ## Stopping and starting
 
 `docker compose stop api` lets the requests in progress finish, for up to `SHUTDOWN_TIMEOUT` (20 seconds); Compose
@@ -221,7 +255,7 @@ kills the container 30 seconds after asking. `docker compose down` keeps the dat
 | Every Monday | Read the Dependabot pull requests: each one runs the whole pipeline, and a green one can be merged |
 | Every September | Renew `Expires` in `frontend/public/.well-known/security.txt`; the pipeline starts failing a month before it passes |
 | When a person leaves | Deactivate their user: their sessions close at once. If they ask for their data to be deleted, anonymize them instead (`POST /api/v1/usuarios/{id}/anonimizar`), which cannot be undone |
-| When a store asks to leave | Its administrator closes it (`POST /api/v1/empresas/actual/baja`): for 30 days it can still read everything and cancel. The purge of the night after deletes it, and the log says `Tienda N borrada al cumplir la gracia de su baja` |
+| When a store asks to leave | Its administrator exports everything and closes it (`POST /api/v1/empresas/actual/baja` with `"exportar": true`): for 30 days it can still read everything, export again and cancel. The purge of the night after deletes it, the log says `Tienda N borrada al cumplir la gracia de su baja`, and its deletion certificate is in the anchors' bucket |
 | Raising the cost of BCrypt | Set `CLAVES_COSTO_BCRYPT` higher and recreate the API: each login rehashes its password, and nobody has to change it. Each step doubles what a login costs, so measure one first |
 | Before the first e-mail in production | Publish in the DNS of the domain of `MAIL_FROM` the SPF and DKIM records the provider gives, and a DMARC policy (`p=quarantine` to begin with). Without them most receivers take the e-mails for spam |
 | Rotating the signing key | Move the key in use to `JWT_PREVIOUS_SECRET`, put a new one in `JWT_SECRET` and recreate the API: nobody is signed out. Fifteen minutes later, when no token of the old key is still alive, empty `JWT_PREVIOUS_SECRET` and recreate it again |

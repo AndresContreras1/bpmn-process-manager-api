@@ -1,0 +1,11 @@
+[(#{notificacion.saludo(${nombre})})]
+
+[(#{${'notificacion.' + tipo + '.cuerpo'}(${autor}, ${proceso})})]
+
+[(${enlace})]
+
+[(#{notificacion.preferencias})]
+[(${cuenta})]
+
+--
+[(#{comun.firma})]
