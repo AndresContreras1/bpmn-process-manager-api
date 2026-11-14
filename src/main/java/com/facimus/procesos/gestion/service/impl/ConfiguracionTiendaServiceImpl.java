@@ -140,7 +140,6 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
         return horas == 1 ? "una hora" : horas + " horas";
     }
 
-    /** Pone los limites que llegaron y dice si alguno cambio. Las sesiones abiertas toman la duracion nueva. */
     /** Cambia la politica del segundo factor si llega una distinta; dice si cambio. */
     private static boolean cambiarSegundoFactor(ConfiguracionTienda configuracion, PoliticaSegundoFactor nueva) {
         if (nueva == null || nueva == configuracion.getPoliticaSegundoFactor()) {
@@ -168,6 +167,7 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
         return true;
     }
 
+    /** Pone los limites que llegaron y dice si alguno cambio. Las sesiones abiertas toman la duracion nueva. */
     private static boolean acotarSesiones(ConfiguracionTienda configuracion, LimitesDeSesion sesiones) {
         int inactividad = configuracion.getInactividadSesionMinutos();
         int duracion = configuracion.getDuracionSesionHoras();
