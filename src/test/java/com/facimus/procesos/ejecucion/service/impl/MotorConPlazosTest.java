@@ -106,7 +106,7 @@ import tools.jackson.databind.json.JsonMapper;
 class MotorConPlazosTest {
 
     private static final Long VENDEDORES = 3L;
-    private static final ProcesosVisibles TODOS = ProcesosVisibles.TODOS;
+    private static final ProcesosVisibles TODOS = ProcesosVisibles.SIN_NADA_OCULTO;
     /** El id de nodo de cada actividad que cuentan las metricas. */
     private static final Map<String, Long> NODOS = Map.of("Approve", 12L, "Pay", 13L, "Ship", 14L);
     private static final int TICK = 3;

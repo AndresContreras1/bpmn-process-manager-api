@@ -14,7 +14,7 @@ public record ProcesosVisibles(boolean todos, Set<Long> carpetasOcultas, Set<Lon
     /** Ningun id es negativo: es el que va en lugar de un conjunto vacio. */
     private static final Set<Long> NINGUNO = Set.of(-1L);
 
-    public static final ProcesosVisibles TODOS = new ProcesosVisibles(true, Set.of(), Set.of(), Set.of());
+    public static final ProcesosVisibles SIN_NADA_OCULTO = new ProcesosVisibles(true, Set.of(), Set.of(), Set.of());
 
     public ProcesosVisibles {
         carpetasOcultas = noVacio(carpetasOcultas);

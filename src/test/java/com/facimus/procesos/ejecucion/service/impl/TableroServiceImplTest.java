@@ -48,7 +48,7 @@ class TableroServiceImplTest {
 
     private static final Long TIENDA = 1L;
     private static final Actor QUIEN = new Actor(5L, TIENDA, RolAcceso.SOLO_LECTURA);
-    private static final ProcesosVisibles TODOS = ProcesosVisibles.TODOS;
+    private static final ProcesosVisibles TODOS = ProcesosVisibles.SIN_NADA_OCULTO;
 
     @Mock
     private CasoRepository casoRepository;

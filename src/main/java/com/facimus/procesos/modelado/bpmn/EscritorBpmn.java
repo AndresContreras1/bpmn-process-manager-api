@@ -655,7 +655,14 @@ public final class EscritorBpmn {
                 salida.atributo("attachedToRef", actividad);
             }
             ajenos.atributos(id, salida);
-            // PR 69 y 71: el formulario del inicio, el plazo del caso y lo que escala un borde
+            extensionesDelEvento(id, evento);
+            entradasYSalidas(evento.id());
+            definicionDelEvento(id, evento);
+            salida.cerrar();
+        }
+
+        /** PR 69 y 71: el formulario del inicio, el plazo del caso y lo que escala un borde. */
+        private void extensionesDelEvento(String id, EventoResponse evento) throws XMLStreamException {
             extensiones(id, evento.formulario() != null || evento.plazo() != null || evento.escalamiento() != null,
                     () -> {
                         if (evento.formulario() != null) {
@@ -668,7 +675,11 @@ public final class EscritorBpmn {
                             PlazoBpmn.escribir(salida, evento.escalamiento());
                         }
                     });
-            entradasYSalidas(evento.id());
+        }
+
+        /** Lo que dispara el evento: un mensaje, un temporizador o la terminacion; los demas no llevan definicion. */
+        private void definicionDelEvento(String id, EventoResponse evento) throws XMLStreamException {
+            TipoEvento tipo = evento.tipoEvento();
             if (tipo == TipoEvento.MENSAJE_INICIO || tipo == TipoEvento.MENSAJE_INTERMEDIO
                     || tipo == TipoEvento.MENSAJE_FIN) {
                 salida.vacio("bpmn", "messageEventDefinition");
@@ -681,7 +692,6 @@ public final class EscritorBpmn {
                 salida.vacio("bpmn", "terminateEventDefinition");
                 salida.atributo("id", IdsBpmn.derivado(id, "Event", "TerminateEventDefinition"));
             }
-            salida.cerrar();
         }
 
         /** PR 55: cuando salta, como una expresion formal de BPMN: una duracion, una fecha o un ciclo. */

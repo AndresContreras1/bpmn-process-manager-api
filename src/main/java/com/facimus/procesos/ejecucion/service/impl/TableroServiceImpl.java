@@ -103,7 +103,7 @@ public class TableroServiceImpl implements TableroService {
      */
     private ProcesosVisibles visibles(Actor quien) {
         Visibilidad visible = permisos.visibilidad(quien);
-        return visible.todo() ? ProcesosVisibles.TODOS
+        return visible.todo() ? ProcesosVisibles.SIN_NADA_OCULTO
                 : new ProcesosVisibles(false, visible.carpetasOcultas(), visible.procesosOcultos(),
                         visible.procesosVisibles());
     }

@@ -57,7 +57,8 @@ class PlazosTest {
     @Mock
     private CalendarioService calendarioService;
 
-    private final GrafoDeVersion grafo = mock(GrafoDeVersion.class);
+    @Mock
+    private GrafoDeVersion grafo;
     private Plazos plazos;
     private Caso caso;
     private ActividadCaso tarea;

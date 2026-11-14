@@ -68,15 +68,26 @@ public class Vencimiento {
      * ya tiene.
      */
     public EstadoPlazo estadoEn(Instant ahora, int tick) {
-        EstadoPlazo segunElReloj;
-        if (enTicks()) {
-            segunElReloj = tick >= venceTick ? EstadoPlazo.VENCIDA
-                    : tick >= avisoTick ? EstadoPlazo.POR_VENCER : EstadoPlazo.A_TIEMPO;
-        } else {
-            LocalDateTime hora = LocalDateTime.ofInstant(ahora, ZoneOffset.UTC);
-            segunElReloj = !hora.isBefore(venceEn) ? EstadoPlazo.VENCIDA
-                    : !hora.isBefore(avisoEn) ? EstadoPlazo.POR_VENCER : EstadoPlazo.A_TIEMPO;
+        return estado.yA(enTicks() ? segunElTick(tick) : segunLaHora(LocalDateTime.ofInstant(ahora, ZoneOffset.UTC)));
+    }
+
+    private EstadoPlazo segunElTick(int tick) {
+        if (tick >= venceTick) {
+            return EstadoPlazo.VENCIDA;
         }
-        return estado.yA(segunElReloj);
+        if (tick >= avisoTick) {
+            return EstadoPlazo.POR_VENCER;
+        }
+        return EstadoPlazo.A_TIEMPO;
+    }
+
+    private EstadoPlazo segunLaHora(LocalDateTime hora) {
+        if (hora.compareTo(venceEn) >= 0) {
+            return EstadoPlazo.VENCIDA;
+        }
+        if (hora.compareTo(avisoEn) >= 0) {
+            return EstadoPlazo.POR_VENCER;
+        }
+        return EstadoPlazo.A_TIEMPO;
     }
 }

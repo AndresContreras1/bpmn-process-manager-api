@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -65,7 +64,8 @@ class EscalamientosTest {
     @Mock
     private AvisosDePlazo avisos;
 
-    private final GrafoDeVersion grafo = mock(GrafoDeVersion.class);
+    @Mock
+    private GrafoDeVersion grafo;
     private final NodoDeLaVersion borde = new NodoDeLaVersion(50L, "Six hours", TipoNodoCaso.EVENTO,
             "TEMPORIZADOR_BORDE", 7L, null);
     private Escalamientos escalamientos;

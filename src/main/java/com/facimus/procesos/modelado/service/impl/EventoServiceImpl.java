@@ -91,6 +91,31 @@ public class EventoServiceImpl implements EventoService {
             Long laneId, int posX, int posY, Long version, DatosDeTemporizador temporizador) {
         Evento evento = buscar(empresaId, eventoId);
         evento.verificarVersion(version);
+        verificarLoQueLleva(evento, tipoEvento, temporizador);
+        Long procesoId = evento.getLane().getPool().getProceso().getId();
+        if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
+                empresaId, eventoId)) {
+            throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
+        }
+        verificarArcos(empresaId, eventoId, tipoEvento);
+        // Se consulta antes de tocar la entidad: una consulta despues la escribiria y gastaria una version de mas
+        Lane destino = ReglasDeNodos.mudanza(empresaId, evento, laneId, laneRepository, arcoRepository,
+                mensajeRepository);
+        NodoFlujo adjuntoA = adjuntoA(empresaId, tipoEvento, temporizador, destino);
+        verificarReasignable(evento, adjuntoA);
+        evento.setLane(adjuntoA != null ? adjuntoA.getLane() : destino);
+        evento.setNombre(nombre);
+        evento.setTipoEvento(tipoEvento);
+        evento.setPosicionX(posX);
+        evento.setPosicionY(posY);
+        temporizar(evento, tipoEvento, temporizador, adjuntoA);
+        historialCambioService.registrar(empresaId, usuarioId, evento.getLane().getPool().getProceso(),
+                "Evento \"" + nombre + "\" editado.");
+        return eventoMapper.toResponse(eventoRepository.saveAndFlush(evento));
+    }
+
+    /** Lo que el evento ya lleva tiene que seguir cabiendo en el tipo nuevo. */
+    private static void verificarLoQueLleva(Evento evento, TipoEvento tipoEvento, DatosDeTemporizador temporizador) {
         if (evento.getFormulario() != null && tipoEvento != TipoEvento.INICIO) {
             // PR 69: el formulario es de quien abre el caso a mano; un inicio de mensaje o de temporizador se abre solo
             throw new ReglaNegocioException("El evento tiene formulario, y solo un inicio simple lo lleva: quítalo "
@@ -106,12 +131,10 @@ public class EventoServiceImpl implements EventoService {
             throw new ReglaNegocioException("El evento escala su tarea, y solo lo hace un temporizador de borde que "
                     + "no interrumpe: quita el escalamiento antes de cambiarlo.");
         }
-        Long procesoId = evento.getLane().getPool().getProceso().getId();
-        if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
-                empresaId, eventoId)) {
-            throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
-        }
-        // El tipo nuevo tiene que caber en los arcos que el evento ya tiene: no se cambia primero y se rompe despues.
+    }
+
+    /** El tipo nuevo tiene que caber en los arcos que el evento ya tiene: no se cambia primero y se rompe despues. */
+    private void verificarArcos(Long empresaId, Long eventoId, TipoEvento tipoEvento) {
         if ((tipoEvento.empiezaElProceso() || tipoEvento.esDeBorde())
                 && !arcoRepository.findAllByDestinoIdAndEmpresaId(eventoId, empresaId).isEmpty()) {
             throw new ReglaNegocioException(ReglasDeEventos.SIN_ENTRANTES);
@@ -120,25 +143,15 @@ public class EventoServiceImpl implements EventoService {
                 .isEmpty()) {
             throw new ReglaNegocioException(ReglasDeEventos.SIN_SALIENTES);
         }
-        // Se consulta antes de tocar la entidad: una consulta despues la escribiria y gastaria una version de mas
-        Lane destino = ReglasDeNodos.mudanza(empresaId, evento, laneId, laneRepository, arcoRepository,
-                mensajeRepository);
-        NodoFlujo adjuntoA = adjuntoA(empresaId, tipoEvento, temporizador, destino);
+    }
+
+    /** PR 71: solo se le pasa al supervisor una tarea de usuario, como lo pide el escalamiento al guardarse. */
+    private static void verificarReasignable(Evento evento, NodoFlujo adjuntoA) {
         if (evento.getEscalamiento() == AccionDeEscalamiento.REASIGNAR && !(adjuntoA instanceof Actividad actividad
                 && actividad.getTipoActividad() == TipoActividad.USUARIO)) {
-            // PR 71: solo se le pasa al supervisor una tarea de usuario, como lo pide el escalamiento al guardarse
             throw new ReglaNegocioException("El evento reasigna su tarea, y solo se reasigna una de usuario: cámbialo "
                     + "a avisar antes de pegarlo a otra actividad.");
         }
-        evento.setLane(adjuntoA != null ? adjuntoA.getLane() : destino);
-        evento.setNombre(nombre);
-        evento.setTipoEvento(tipoEvento);
-        evento.setPosicionX(posX);
-        evento.setPosicionY(posY);
-        temporizar(evento, tipoEvento, temporizador, adjuntoA);
-        historialCambioService.registrar(empresaId, usuarioId, evento.getLane().getPool().getProceso(),
-                "Evento \"" + nombre + "\" editado.");
-        return eventoMapper.toResponse(eventoRepository.saveAndFlush(evento));
     }
 
     /**

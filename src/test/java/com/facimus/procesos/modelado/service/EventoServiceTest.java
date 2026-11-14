@@ -184,17 +184,18 @@ class EventoServiceTest {
         String mensaje = "El evento escala su tarea, y solo lo hace un temporizador de borde que no interrumpe: "
                 + "quita el escalamiento antes de cambiarlo.";
 
+        DatosDeTemporizador queInterrumpe = new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", 30L, true);
+        DatosDeTemporizador sinDecir = new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", 30L, null);
+        DatosDeTemporizador sinBorde = new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", null, false);
+
         assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Six hours",
-                TipoEvento.TEMPORIZADOR_BORDE, null, 0, 0, null,
-                new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", 30L, true)))
+                TipoEvento.TEMPORIZADOR_BORDE, null, 0, 0, null, queInterrumpe))
                 .isInstanceOf(ReglaNegocioException.class).hasMessage(mensaje);
         assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Six hours",
-                TipoEvento.TEMPORIZADOR_BORDE, null, 0, 0, null,
-                new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", 30L, null)))
+                TipoEvento.TEMPORIZADOR_BORDE, null, 0, 0, null, sinDecir))
                 .isInstanceOf(ReglaNegocioException.class).hasMessage(mensaje);
         assertThatThrownBy(() -> eventoService.editar(EMPRESA, AUTOR, 40L, "Six hours",
-                TipoEvento.TEMPORIZADOR_INTERMEDIO, null, 0, 0, null,
-                new DatosDeTemporizador(TipoTemporizador.DURACION, "PT6H", null, false)))
+                TipoEvento.TEMPORIZADOR_INTERMEDIO, null, 0, 0, null, sinBorde))
                 .isInstanceOf(ReglaNegocioException.class).hasMessage(mensaje);
         assertThat(evento.getTipoEvento()).isEqualTo(TipoEvento.TEMPORIZADOR_BORDE);
         assertThat(evento.getInterrumpe()).isFalse();
