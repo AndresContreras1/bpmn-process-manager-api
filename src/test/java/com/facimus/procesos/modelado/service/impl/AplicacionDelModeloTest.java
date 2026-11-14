@@ -844,9 +844,9 @@ class AplicacionDelModeloTest {
                 .asignacion = new AsignacionResponse(TipoAsignacion.CAMPO, null, "aprobador");
 
         assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(2, 0, 0));
-        ArgumentCaptor<Actividad> actividades = ArgumentCaptor.forClass(Actividad.class);
-        verify(actividadRepository, times(2)).save(actividades.capture());
-        assertThat(actividades.getAllValues()).extracting(Actividad::getTipoAsignacion,
+        ArgumentCaptor<Actividad> guardadas = ArgumentCaptor.forClass(Actividad.class);
+        verify(actividadRepository, times(2)).save(guardadas.capture());
+        assertThat(guardadas.getAllValues()).extracting(Actividad::getTipoAsignacion,
                 Actividad::getAsignacionUsuarioId, Actividad::getAsignacionCampo).containsExactly(
                         tuple(TipoAsignacion.PERSONA, 5L, null),
                         tuple(TipoAsignacion.CAMPO, null, "aprobador"));

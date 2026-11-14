@@ -1,5 +1,7 @@
 package com.facimus.procesos.ejecucion.controller;
 
+import java.util.Objects;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -70,7 +72,7 @@ public class TareaController {
             @RequestParam(defaultValue = "10") @Min(value = 1, message = Paginacion.TAMANO_INVALIDO)
             @Max(value = Paginacion.TAMANO_MAXIMO, message = Paginacion.TAMANO_INVALIDO) int tamano,
             @AuthenticationPrincipal ApiPrincipal principal) {
-        Bandeja cual = bandeja != null ? bandeja : mias ? Bandeja.DE_MIS_ROLES : Bandeja.TODAS;
+        Bandeja cual = Objects.requireNonNullElse(bandeja, mias ? Bandeja.DE_MIS_ROLES : Bandeja.TODAS);
         return ResponseEntity.ok(tareaService.bandeja(principal.empresaId(), principal.usuarioId(), cual,
                 rolProcesoId, procesoId, estado, Paginacion.de(pagina, tamano)));
     }

@@ -1,6 +1,7 @@
 package com.facimus.procesos.ejecucion.service.impl;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
@@ -61,7 +62,7 @@ class Tareas {
                 tarea.getEmpresa().getId(), EstadoDelegacion.ACTIVA);
         if (abierta.isPresent()) {
             Delegacion delegacion = abierta.get();
-            delegacion.cerrar(como, LocalDateTime.now());
+            delegacion.cerrar(como, LocalDateTime.now(ZoneOffset.UTC));
             delegacionRepository.save(delegacion);
         }
     }

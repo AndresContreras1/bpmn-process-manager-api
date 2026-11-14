@@ -59,12 +59,11 @@ final class GrafoDeVersion {
     private final Map<Long, AsignacionResponse> asignaciones;
 
     private GrafoDeVersion(Long poolDeLaTienda, Map<Long, NodoDeLaVersion> nodos, ArcosDelPool arcos,
-            List<MensajeDeLaVersion> mensajes, boolean ejecutable, Map<Long, TemporizadorDeLaVersion> temporizadores,
-            Map<Long, FormularioResponse> formularios, Map<Long, AsignacionResponse> asignaciones) {
+            List<MensajeDeLaVersion> mensajes, boolean ejecutable, PorNodo porNodo) {
         this.ejecutable = ejecutable;
-        this.asignaciones = Collections.unmodifiableMap(asignaciones);
-        this.temporizadores = Collections.unmodifiableMap(temporizadores);
-        this.formularios = Collections.unmodifiableMap(formularios);
+        this.asignaciones = Collections.unmodifiableMap(porNodo.asignaciones());
+        this.temporizadores = Collections.unmodifiableMap(porNodo.temporizadores());
+        this.formularios = Collections.unmodifiableMap(porNodo.formularios());
         this.poolDeLaTienda = poolDeLaTienda;
         this.nodos = Collections.unmodifiableMap(nodos);
         this.salidas = sinPoderTocarlo(arcos.salidas());
@@ -75,6 +74,11 @@ final class GrafoDeVersion {
 
     /** Los arcos entre nodos del pool, por el nodo del que salen y por el nodo al que entran. */
     private record ArcosDelPool(Map<Long, List<ArcoDeLaVersion>> salidas, Map<Long, List<ArcoDeLaVersion>> entradas) {
+    }
+
+    /** Lo que la version congela de cada nodo del pool: sus temporizadores, sus formularios y a quien va su tarea. */
+    private record PorNodo(Map<Long, TemporizadorDeLaVersion> temporizadores,
+            Map<Long, FormularioResponse> formularios, Map<Long, AsignacionResponse> asignaciones) {
     }
 
     /**
@@ -97,8 +101,8 @@ final class GrafoDeVersion {
         }
         Map<Long, NodoDeLaVersion> nodos = nodosDelPool(diagrama, lanesDelPool, rolDeLane);
         return new GrafoDeVersion(pool, nodos, arcosDelPool(diagrama, nodos), mensajesDelDiagrama(diagrama),
-                diagrama.proceso().modo().ejecuta(), temporizadoresDelPool(diagrama, nodos),
-                formulariosDelPool(diagrama, nodos), asignacionesDelPool(diagrama, nodos));
+                diagrama.proceso().modo().ejecuta(), new PorNodo(temporizadoresDelPool(diagrama, nodos),
+                        formulariosDelPool(diagrama, nodos), asignacionesDelPool(diagrama, nodos)));
     }
 
     /** Los arcos que unen dos nodos del pool, con su condicion compilada; las salidas de cada nodo, por su orden. */
