@@ -8,7 +8,8 @@ import { finalize, switchMap } from 'rxjs';
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
 import { mensajeDeError } from '../../helpers/errores-api';
 import { tokenDelEnlace } from '../../helpers/token-del-enlace';
-import { Usuario } from '../../models/usuario.model';
+import { LoginResponse } from '../../models/login.model';
+import { Usuario, inicioDe } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
 import { CuentaService } from '../../service/cuenta.service';
 
@@ -56,7 +57,7 @@ export class AceptarInvitacionComponent {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: () => this.router.navigateByUrl('/procesos'),
+        next: (respuesta: LoginResponse) => this.router.navigateByUrl(inicioDe(respuesta.usuario.rolAcceso)),
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
   }

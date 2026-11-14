@@ -66,6 +66,21 @@ class ColaDeTrabajosTest {
         }
 
         @Bean
+        ManejadorDeTrabajo siempreSeAplaza() {
+            return new ManejadorDeTrabajo() {
+                @Override
+                public String tipo() {
+                    return "siempre-se-aplaza";
+                }
+
+                @Override
+                public void ejecutar(Trabajo trabajo) {
+                    throw new TrabajoAplazadoException("no hay con que hacerlo ahora");
+                }
+            };
+        }
+
+        @Bean
         @Primary
         RelojMovil relojMovil() {
             return new RelojMovil();
@@ -139,6 +154,21 @@ class ColaDeTrabajosTest {
 
         assertThat(fila(id)).containsEntry("estado", "FALLIDO").containsEntry("intentos", 2);
         assertThat(fila(id).get("terminado_en")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Un trabajo que se aplaza espera la espera base y vuelve sin gastar un intento, sin quedar fallido")
+    void aplazado_noGastaIntentos() {
+        long id = cola.encolar(null, "siempre-se-aplaza", "{}", 1);
+
+        for (int vuelta = 0; vuelta < 3; vuelta++) {
+            assertThat(cola.procesarUno()).isTrue();
+            assertThat(fila(id)).containsEntry("estado", "PENDIENTE").containsEntry("intentos", 0)
+                    .containsEntry("ultimo_error", "TrabajoAplazadoException: no hay con que hacerlo ahora");
+            assertThat(fila(id).get("tomado_por")).isNull();
+            assertThat(cola.procesarUno()).as("espera la espera base").isFalse();
+            reloj.avanzar(Duration.ofMinutes(1));
+        }
     }
 
     @Test

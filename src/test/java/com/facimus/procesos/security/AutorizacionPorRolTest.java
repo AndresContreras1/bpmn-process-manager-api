@@ -214,6 +214,69 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 200
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual/tablero | 200
 
+            # PR 61: los documentos los lee cualquier rol; subirlos y borrarlos es de administrador y editor
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/documentos      | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/documentos?nombre=a.pdf | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/documentos?nombre=a.pdf | 403
+            SOLO_LECTURA  | GET    | /api/v1/documentos/{id}               | 404
+            SOLO_LECTURA  | GET    | /api/v1/documentos/{id}/enlace        | 404
+            EDITOR        | POST   | /api/v1/documentos/{id}/versiones?nombre=a.pdf | 404
+            SOLO_LECTURA  | POST   | /api/v1/documentos/{id}/versiones?nombre=a.pdf | 403
+            EDITOR        | DELETE | /api/v1/documentos/{id}               | 404
+            SOLO_LECTURA  | DELETE | /api/v1/documentos/{id}               | 403
+
+            # PR 62: la documentacion y los manuales los lee cualquier rol; escribirlos y pedirlos, administrador y editor
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/documentacion    | 404
+            EDITOR        | PUT    | /api/v1/procesos/{id}/documentacion    | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/documentacion    | 403
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/caracterizacion  | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/caracterizacion  | 403
+            EDITOR        | POST   | /api/v1/procesos/{id}/manuales         | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/manuales         | 403
+            SOLO_LECTURA  | GET    | /api/v1/manuales/{id}                  | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/versiones/1/dibujo | 403
+
+            # PR 63: comentar es de cualquier rol, tambien de quien solo lee; las notificaciones son de cada persona
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/comentarios     | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/comentarios     | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/mencionables    | 404
+            EDITOR        | GET    | /api/v1/procesos/{id}/mencionables    | 404
+            SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/respuestas   | 404
+            SOLO_LECTURA  | PUT    | /api/v1/comentarios/{id}              | 404
+            SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/resolver     | 404
+            SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/reabrir      | 404
+            SOLO_LECTURA  | DELETE | /api/v1/comentarios/{id}              | 404
+            SOLO_LECTURA  | GET    | /api/v1/notificaciones                | 200
+            SOLO_LECTURA  | GET    | /api/v1/notificaciones/conteo         | 200
+            SOLO_LECTURA  | POST   | /api/v1/notificaciones/{id}/leida     | 404
+            SOLO_LECTURA  | POST   | /api/v1/notificaciones/leidas         | 200
+            SOLO_LECTURA  | GET    | /api/v1/notificaciones/preferencias   | 200
+            EDITOR        | PUT    | /api/v1/notificaciones/preferencias   | 200
+
+            # PR 65: cualquier rol busca; encuentra solo lo que puede ver
+            ADMINISTRADOR | GET    | /api/v1/busqueda?q=pedido             | 200
+            EDITOR        | GET    | /api/v1/busqueda?q=pedido             | 200
+            SOLO_LECTURA  | GET    | /api/v1/busqueda?q=pedido             | 200
+            # PR 64: la politica la lee cualquier rol y la cambia el administrador; pedir una revision es de quien
+            # publica, decidir de quien aprueba, y leerlas de cualquier rol; el dueno confirma que sigue vigente
+            SOLO_LECTURA  | GET    | /api/v1/empresas/actual/politica-de-publicacion | 200
+            EDITOR        | PUT    | /api/v1/empresas/actual/politica-de-publicacion | 403
+            SOLO_LECTURA  | PUT    | /api/v1/empresas/actual/politica-de-publicacion | 403
+            ADMINISTRADOR | PUT    | /api/v1/empresas/actual/politica-de-publicacion | 400
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/solicitudes     | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/solicitudes     | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/solicitudes     | 403
+            SOLO_LECTURA  | GET    | /api/v1/solicitudes                   | 200
+            SOLO_LECTURA  | GET    | /api/v1/solicitudes?pendientesDeMi=true | 200
+            SOLO_LECTURA  | GET    | /api/v1/solicitudes/{id}              | 404
+            EDITOR        | POST   | /api/v1/solicitudes/{id}/aprobar      | 404
+            SOLO_LECTURA  | POST   | /api/v1/solicitudes/{id}/aprobar      | 403
+            EDITOR        | POST   | /api/v1/solicitudes/{id}/pedir-cambios | 404
+            SOLO_LECTURA  | POST   | /api/v1/solicitudes/{id}/rechazar     | 403
+            EDITOR        | POST   | /api/v1/solicitudes/{id}/retirar      | 404
+            SOLO_LECTURA  | POST   | /api/v1/solicitudes/{id}/retirar      | 403
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/recertificacion | 404
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)
@@ -238,6 +301,16 @@ class AutorizacionPorRolTest {
         } else if (ruta.equals("/api/v1/procesos/{id}/mensajes-entrantes")) {
             // Con nombre, para que el editor pase la autorizacion y choque con que el proceso no existe.
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"nombre\":\"Order placed\"}");
+        } else if (ruta.equals("/api/v1/procesos/{id}/documentacion")) {
+            // PR 62: con texto, para que el editor pase la autorizacion y choque con que el proceso no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"markdown\":\"x\"}");
+        } else if (ruta.equals("/api/v1/procesos/{id}/comentarios") || ruta.startsWith("/api/v1/comentarios/")) {
+            // PR 63: con texto y version, para que quien solo lee pase la autorizacion y choque con que no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content(metodo == HttpMethod.PUT
+                    ? "{\"markdown\":\"x\",\"version\":0}" : "{\"markdown\":\"x\"}");
+        } else if (ruta.equals("/api/v1/notificaciones/preferencias")) {
+            peticion.contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"preferencias\":[{\"tipo\":\"MENCION\",\"envio\":\"NUNCA\"}]}");
         } else if (ruta.equals("/api/v1/simulacion/tick")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"ticks\":1}");
         } else if (ruta.equals("/api/v1/simulacion/pedidos")) {

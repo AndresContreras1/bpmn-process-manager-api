@@ -32,16 +32,37 @@
     <span class="small" role="status" aria-live="polite" id="modelador-estado" [attr.data-estado]="estado">
       {{ textoDeEstado[estado] }}
     </span>
-    <button
-      i18n
-      type="button"
-      class="btn btn-primary btn-sm"
-      id="modelador-publicar"
-      [disabled]="soloLectura || publicando || !diagnostico || diagnostico.errores > 0 || estado !== 'guardado'"
-      (click)="publicar()"
-    >
-      Publish
-    </button>
+    @if (solicitudAbierta) {
+      <a
+        i18n
+        class="btn btn-outline-success btn-sm"
+        [routerLink]="['/solicitudes', solicitudAbierta.id]"
+        id="modelador-solicitud"
+        >Review waiting</a
+      >
+    } @else if (conAprobacion) {
+      <button
+        i18n
+        type="button"
+        class="btn btn-primary btn-sm"
+        id="modelador-pedir-revision"
+        [disabled]="soloLectura || !diagnostico || diagnostico.errores > 0 || estado !== 'guardado'"
+        (click)="pedirRevision()"
+      >
+        Ask for review
+      </button>
+    } @else {
+      <button
+        i18n
+        type="button"
+        class="btn btn-primary btn-sm"
+        id="modelador-publicar"
+        [disabled]="soloLectura || publicando || !diagnostico || diagnostico.errores > 0 || estado !== 'guardado'"
+        (click)="publicar()"
+      >
+        Publish
+      </button>
+    }
     <a i18n class="btn btn-outline-secondary btn-sm" [routerLink]="['/procesos', procesoId]" id="modelador-volver"
       >Back</a
     >
@@ -180,6 +201,7 @@
           modo="ver"
           [xml]="xml"
           [marcas]="marcas"
+          [comentarios]="contadoresDeComentarios"
           titulo="Diagram of {{ nombre }}"
           i18n-titulo
           (listo)="alEstarListo()"
@@ -192,6 +214,7 @@
           [xml]="xml"
           [modoProceso]="modoProceso"
           [marcas]="marcas"
+          [comentarios]="contadoresDeComentarios"
           titulo="Diagram of {{ nombre }}"
           i18n-titulo
           (listo)="alEstarListo()"
@@ -216,6 +239,13 @@
         <p i18n class="small text-body-secondary">Select an element to see its properties.</p>
       }
       <hr />
+      <!-- F21: los hilos del elemento elegido, o del proceso entero; comentar no pide el bloqueo -->
+      <app-panel-comentarios
+        [procesoId]="procesoId"
+        [elemento]="elegido"
+        (contadores)="contadoresDeComentarios = $event"
+      />
+      <hr />
       <h2 i18n class="h6">Diagnosis</h2>
       @if (diagnostico) {
         <p class="small mb-1" id="modelador-resumen">
@@ -234,3 +264,12 @@
     </aside>
   </div>
 </section>
+
+@if (pidiendoRevision) {
+  <app-pedir-revision
+    [procesoId]="procesoId"
+    [nombre]="nombre"
+    (pedida)="alPedirRevision($event)"
+    (cerrar)="pidiendoRevision = false"
+  />
+}

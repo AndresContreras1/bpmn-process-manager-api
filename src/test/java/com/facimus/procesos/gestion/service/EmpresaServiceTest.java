@@ -8,10 +8,16 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -19,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.SolicitudInvalidaException;
 import com.facimus.procesos.common.auditoria.Auditoria;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
@@ -27,6 +34,7 @@ import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.mapper.EmpresaMapper;
 import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
+import com.facimus.procesos.gestion.service.impl.BorradoDeTiendas;
 import com.facimus.procesos.gestion.service.impl.EmpresaServiceImpl;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,6 +56,9 @@ class EmpresaServiceTest {
 
     @Mock
     private CuentaService cuentaService;
+
+    @Mock
+    private BorradoDeTiendas borradoDeTiendas;
 
     @Mock
     private Auditoria auditoria;
@@ -91,7 +102,7 @@ class EmpresaServiceTest {
     void obtener_empresaPropia_laDevuelve() {
         Empresa acme = Empresa.builder().nombre("Acme").nit("900123456").correoContacto("info@acme.com").build();
         acme.setId(1L);
-        when(empresaRepository.findById(1L)).thenReturn(java.util.Optional.of(acme));
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(acme));
 
         assertEquals("900123456", empresaService.obtener(1L, 1L).nit());
     }
@@ -129,5 +140,94 @@ class EmpresaServiceTest {
 
         verify(empresaRepository, never()).save(any());
         verify(usuarioService, never()).crearColaborador(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Dar de baja con el nombre exacto la deja en baja, lo anota y dice cuando se borra")
+    void pedirBaja_conElNombre_laDejaEnBaja() {
+        Empresa acme = acme();
+        when(empresaRepository.bloquear(1L)).thenReturn(Optional.of(acme));
+        when(empresaRepository.saveAndFlush(acme)).thenReturn(acme);
+
+        EmpresaResponse respuesta = empresaService.pedirBaja(1L, 7L, "  Acme ");
+
+        assertNotNull(acme.getBajaSolicitadaEn());
+        assertEquals(acme.getBajaSolicitadaEn(), respuesta.bajaSolicitadaEn());
+        assertEquals(acme.getBajaSolicitadaEn().plusDays(30), respuesta.borradoProgramadoPara());
+        verify(historialCambioService).registrarDeTienda(1L, 7L, RecursoDeHistorial.EMPRESA, 1L,
+                "Tienda dada de baja: hasta el " + acme.getBajaSolicitadaEn().plusDays(30).toLocalDate()
+                        + " solo se puede consultar, y ese día se borran sus datos.");
+        verify(auditoria).registrar(1L, 7L, "TIENDA_DADA_DE_BAJA", "EMPRESA", 1L, Map.of());
+    }
+
+    @Test
+    @DisplayName("Sin el nombre exacto no se da de baja, y una tienda ya en baja no se da de baja otra vez")
+    void pedirBaja_rechazos() {
+        Empresa acme = acme();
+        when(empresaRepository.bloquear(1L)).thenReturn(Optional.of(acme));
+
+        assertThrows(SolicitudInvalidaException.class, () -> empresaService.pedirBaja(1L, 7L, "acme"));
+        assertNull(acme.getBajaSolicitadaEn());
+
+        LocalDateTime pedida = LocalDateTime.of(2026, 11, 1, 10, 0);
+        acme.setBajaSolicitadaEn(pedida);
+        ReglaNegocioException yaEnBaja = assertThrows(ReglaNegocioException.class,
+                () -> empresaService.pedirBaja(1L, 7L, "Acme"));
+        assertEquals("La tienda ya está dada de baja: sus datos se borran el 2026-12-01.", yaEnBaja.getMessage());
+        assertEquals(pedida, acme.getBajaSolicitadaEn());
+        assertThrows(RecursoNoEncontradoException.class, () -> empresaService.pedirBaja(2L, 7L, "Acme"));
+        verify(empresaRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("Cancelar la baja la quita y lo anota; sin baja pedida no hay nada que cancelar")
+    void cancelarBaja() {
+        Empresa acme = acme();
+        when(empresaRepository.bloquear(1L)).thenReturn(Optional.of(acme));
+
+        assertThrows(ReglaNegocioException.class, () -> empresaService.cancelarBaja(1L, 7L));
+
+        acme.setBajaSolicitadaEn(LocalDateTime.now());
+        when(empresaRepository.saveAndFlush(acme)).thenReturn(acme);
+        EmpresaResponse respuesta = empresaService.cancelarBaja(1L, 7L);
+
+        assertNull(acme.getBajaSolicitadaEn());
+        assertNull(respuesta.bajaSolicitadaEn());
+        assertEquals("Acme", respuesta.nombre());
+        verify(historialCambioService).registrarDeTienda(1L, 7L, RecursoDeHistorial.EMPRESA, 1L,
+                "Baja de la tienda cancelada: vuelve a funcionar como antes.");
+        verify(auditoria).registrar(1L, 7L, "BAJA_CANCELADA", "EMPRESA", 1L, Map.of());
+        assertThrows(RecursoNoEncontradoException.class, () -> empresaService.cancelarBaja(2L, 7L));
+    }
+
+    @Test
+    @DisplayName("El borrado se programa treinta dias despues de pedir la baja; sin baja no hay fecha")
+    void borradoProgramado() {
+        LocalDateTime pedida = LocalDateTime.of(2026, 11, 1, 10, 0);
+        when(empresaRepository.bajaSolicitadaEn(1L)).thenReturn(Optional.of(pedida));
+
+        assertEquals(Optional.of(LocalDateTime.of(2026, 12, 1, 10, 0)), empresaService.borradoProgramado(1L));
+        assertTrue(empresaService.borradoProgramado(2L).isEmpty());
+    }
+
+    @Test
+    @DisplayName("Se borran las tiendas que cumplieron la gracia, cada una por su lado, y se cuentan")
+    void borrarLasDadasDeBaja() {
+        ArgumentCaptor<LocalDateTime> limite = ArgumentCaptor.forClass(LocalDateTime.class);
+        when(empresaRepository.conLaBajaAntesDe(limite.capture())).thenReturn(List.of(3L, 4L));
+
+        assertEquals(2, empresaService.borrarLasDadasDeBaja());
+
+        ArgumentCaptor<LocalDateTime> ahora = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(borradoDeTiendas).borrar(eq(3L), ahora.capture());
+        verify(borradoDeTiendas).borrar(4L, ahora.getValue());
+        assertEquals(ahora.getValue().minusDays(30), limite.getValue());
+    }
+
+    private static Empresa acme() {
+        Empresa acme = Empresa.builder().nombre("Acme").nit("900123456").correoContacto("info@acme.com").build();
+        acme.setId(1L);
+        return acme;
     }
 }

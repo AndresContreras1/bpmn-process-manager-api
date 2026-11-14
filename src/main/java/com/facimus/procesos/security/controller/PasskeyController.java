@@ -186,7 +186,8 @@ public class PasskeyController {
         sesionService.cerrar(empresaId, usuarioId, principal.sesion());
         Set<Factor> factores = Factor.de(autenticacion.getAuthorities());
         factores.add(Factor.PASSKEY);
-        return ResponseEntity.ok(apertura.abrir(sesionService.iniciar(empresaId, usuarioId, factores), respuesta));
+        return ResponseEntity.ok(apertura.abrir(sesionService.iniciar(empresaId, usuarioId, factores), peticion,
+                respuesta));
     }
 
     @Operation(summary = "Confirm who you are with a passkey",
@@ -254,7 +255,7 @@ public class PasskeyController {
             throw new SinPermisoException("Tu tienda entra con Google o Microsoft: usa ese botón para entrar.");
         }
         return ResponseEntity.ok(apertura.abrir(sesionService.iniciar(usuario.empresaId(), usuario.id(),
-                EnumSet.of(Factor.PASSKEY)), respuesta));
+                EnumSet.of(Factor.PASSKEY)), peticion, respuesta));
     }
 
     /**

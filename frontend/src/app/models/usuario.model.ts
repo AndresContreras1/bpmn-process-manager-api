@@ -1,5 +1,13 @@
 export type RolAcceso = 'ADMINISTRADOR' | 'EDITOR' | 'SOLO_LECTURA';
 
+/**
+ * F22: donde empieza cada uno al entrar. Quien solo lee empieza en el portal de lo publicado, que es lo suyo; quien
+ * construye procesos, en la lista de procesos. Es solo el comienzo: nada le cierra al lector el resto de la aplicacion.
+ */
+export function inicioDe(rol: RolAcceso): string {
+  return rol === 'SOLO_LECTURA' ? '/portal' : '/procesos';
+}
+
 /** Usuario de una tienda, con los mismos campos que UsuarioResponse de la API. */
 export interface Usuario {
   id: number;

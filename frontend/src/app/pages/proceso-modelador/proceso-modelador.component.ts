@@ -10,12 +10,14 @@ import {
   inject,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable, Subscription, catchError, finalize, forkJoin, interval, of, switchMap } from 'rxjs';
 
 import { Autoguardado, EstadoGuardado } from '../../bpmn/autoguardado';
 import { CopiaLocal, CopiaLocalService } from '../../bpmn/copia-local.service';
 import { LeyendaComparacionComponent } from '../../bpmn/leyenda-comparacion.component';
+import { PanelComentariosComponent } from '../../components/comentarios/panel-comentarios.component';
+import { PedirRevisionComponent } from '../../components/pedir-revision/pedir-revision.component';
 import { ElementoElegido, LienzoBpmnComponent } from '../../bpmn/lienzo-bpmn.component';
 import { elementoDe, marcasDe, marcasDeComparacion } from '../../bpmn/marcas';
 import { ModoProceso } from '../../bpmn/modulos/reglas';
@@ -26,12 +28,15 @@ import { Diagnostico, Hallazgo } from '../../models/diagnostico.model';
 import { Diagrama } from '../../models/diagrama.model';
 import { Bloqueo, EventoEnVivo, Presente } from '../../models/en-vivo.model';
 import { Comparacion } from '../../models/modelo.model';
+import { Solicitud } from '../../models/solicitud.model';
 import { AuthService } from '../../service/auth.service';
 import { DiagnosticoService } from '../../service/diagnostico.service';
 import { DiagramaService } from '../../service/diagrama.service';
 import { EnVivoService } from '../../service/en-vivo.service';
 import { ProcesoService } from '../../service/proceso.service';
+import { SolicitudService } from '../../service/solicitud.service';
 import { ModeloService } from '../../service/modelo.service';
+import { VersionService } from '../../service/version.service';
 
 /** El modelador: dibuja con bpmn-js, guarda solo y dice en vivo lo que el diagnostico encuentra. */
 @Component({
@@ -42,6 +47,8 @@ import { ModeloService } from '../../service/modelo.service';
     PanelPropiedadesComponent,
     VistaEstructuraComponent,
     LeyendaComparacionComponent,
+    PanelComentariosComponent,
+    PedirRevisionComponent,
   ],
   templateUrl: './proceso-modelador.component.html',
   styleUrl: './proceso-modelador.component.scss',
@@ -53,7 +60,10 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   private readonly diagramas = inject(DiagramaService);
   private readonly diagnosticos = inject(DiagnosticoService);
   private readonly procesos = inject(ProcesoService);
+  private readonly versiones = inject(VersionService);
   private readonly enVivo = inject(EnVivoService);
+  private readonly solicitudes = inject(SolicitudService);
+  private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly copias = inject(CopiaLocalService);
   private readonly destroyRef = inject(DestroyRef);
@@ -89,6 +99,12 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   autoguardado: Autoguardado | null = null;
   private diagrama: Diagrama | null = null;
   private cargando = true;
+  /** F21: con aprobacion, el modelador pide la revision en vez de publicar; y no otra si ya hay una abierta. */
+  conAprobacion = false;
+  solicitudAbierta: Solicitud | null = null;
+  pidiendoRevision = false;
+  /** F21: cuantos hilos abiertos tiene cada elemento, que el panel de comentarios cuenta y el lienzo pinta. */
+  contadoresDeComentarios: Record<string, number> = {};
 
   readonly textoDeEstado: Record<EstadoGuardado, string> = {
     guardado: $localize`Saved`,
@@ -102,6 +118,7 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.procesoId = Number(this.ruta.snapshot.paramMap.get('id'));
     this.leer(this.enVivo.adquirir(this.procesoId));
+    this.leerRevision();
     this.enVivo
       .eventos(this.procesoId)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -355,6 +372,42 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
       });
   }
 
+  /**
+   * F21: como publica la organizacion y si ya hay una revision abierta. Sin la respuesta se ofrece publicar, y la API
+   * dice con un 409 que hay que pedir la revision.
+   */
+  private leerRevision(): void {
+    forkJoin({
+      politica: this.solicitudes.politica().pipe(catchError(() => of(null))),
+      abiertas: this.solicitudes.delProceso(this.procesoId, 'ABIERTA').pipe(catchError(() => of(null))),
+    })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ politica, abiertas }) => {
+        this.conAprobacion = politica?.modo === 'CON_APROBACION';
+        this.solicitudAbierta = abiertas?.content[0] ?? null;
+        this.cambios.markForCheck();
+      });
+  }
+
+  /** F21: lo que se congela es lo guardado, asi que primero se guarda lo que quede, como al publicar. */
+  async pedirRevision(): Promise<void> {
+    this.error = null;
+    await this.autoguardado?.guardarAhora();
+    // Si no se pudo guardar, lo que se ve no es lo que se congelaria: se dice por que, y no se abre el dialogo
+    const estado = this.autoguardado?.estado ?? 'guardado';
+    if (estado !== 'guardado') {
+      this.error = $localize`The diagram is not saved, so it cannot be sent for review yet: ${this.textoDeEstado[estado]}:estado:.`;
+    } else {
+      this.pidiendoRevision = true;
+    }
+    this.cambios.markForCheck();
+  }
+
+  alPedirRevision(solicitud: Solicitud): void {
+    this.pidiendoRevision = false;
+    void this.router.navigate(['/solicitudes', solicitud.id]);
+  }
+
   /** Lo que se publica es lo guardado: primero se guarda lo que quede, y la version del proceso se lee despues. */
   async publicar(): Promise<void> {
     this.publicando = true;
@@ -374,10 +427,27 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
             publicado.versionPublicada === null
               ? $localize`The process is published.`
               : $localize`Published as version ${publicado.versionPublicada}.`;
+          if (publicado.versionPublicada !== null) {
+            void this.guardarDibujo(publicado.versionPublicada);
+          }
           this.refrescarDiagnostico();
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
+  }
+
+  /**
+   * PR 62: el dibujo de la version recien publicada, para su manual. Si no llega, el manual lo dice; publicar ya
+   * salio bien y no se deshace por esto.
+   */
+  private async guardarDibujo(numero: number): Promise<void> {
+    const svg = await this.lienzo?.leerSvg();
+    if (svg) {
+      this.versiones
+        .guardarDibujo(this.procesoId, numero, svg)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({ error: () => undefined });
+    }
   }
 
   async exportarBpmn(): Promise<void> {

@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -11,11 +14,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -28,7 +37,9 @@ import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.CredencialesUsuario;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
+import com.facimus.procesos.gestion.event.UsuarioAnonimizado;
 import com.facimus.procesos.gestion.mapper.UsuarioMapper;
+import com.facimus.procesos.gestion.model.RecursoDeHistorial;
 import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.EnlaceDeUnUsoRepository;
@@ -68,7 +79,19 @@ class UsuarioServiceTest {
     private EnlaceDeUnUsoRepository enlaceDeUnUsoRepository;
 
     @Mock
+    private SegundoFactorService segundoFactorService;
+
+    @Mock
+    private IdentidadExternaService identidadExternaService;
+
+    @Mock
     private Auditoria auditoria;
+
+    @Mock
+    private NotificacionService notificacionService;
+
+    @Mock
+    private ApplicationEventPublisher eventos;
 
     @InjectMocks
     private UsuarioServiceImpl usuarioService;
@@ -383,5 +406,228 @@ class UsuarioServiceTest {
 
         assertThrows(RecursoNoEncontradoException.class,
                 () -> usuarioService.obtener(1L, 99L));
+    }
+
+    @Test
+    @DisplayName("Crear en una tienda que no existe no guarda a nadie")
+    void crearColaborador_sinEmpresa_lanzaRecursoNoEncontrado() {
+        assertThrows(RecursoNoEncontradoException.class,
+                () -> usuarioService.crearColaborador(9L, AUTOR, "Nuevo", "nuevo@acme.com", "pass", RolAcceso.EDITOR));
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Renombrar anota solo el nombre nuevo, sin cerrar sesiones; el mismo nombre no cuenta como cambio")
+    void actualizar_renombra_anotaElCambio() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, AUTOR, 10L, "Juan Perez", null, null, usuario.getVersion());
+
+        assertEquals("Juan Perez", usuario.getNombre());
+        verify(historialCambioService).registrarDeTienda(1L, AUTOR, RecursoDeHistorial.USUARIO, 10L,
+                "Usuario \"Juan Perez\" renombrado.");
+        verify(auditoria).registrar(1L, AUTOR, "USUARIO_CAMBIADO", "USUARIO", 10L,
+                Map.of("rol", "EDITOR", "activo", true));
+        verify(sesionService, never()).cerrarTodas(anyLong(), anyLong());
+        verify(empresaRepository, never()).bloquear(anyLong());
+
+        usuarioService.actualizar(1L, AUTOR, 10L, "Juan Perez", null, true, usuario.getVersion());
+        verify(historialCambioService).registrarDeTienda(1L, AUTOR, RecursoDeHistorial.USUARIO, 10L,
+                "Usuario \"Juan Perez\" reactivado.");
+    }
+
+    @Test
+    @DisplayName("Renombrar, cambiar el rol y desactivar a la vez se anota en una sola entrada, en ese orden")
+    void actualizar_variosCambios_unaEntrada() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, AUTOR, 10L, "Juana", RolAcceso.SOLO_LECTURA, false, usuario.getVersion());
+
+        verify(historialCambioService).registrarDeTienda(1L, AUTOR, RecursoDeHistorial.USUARIO, 10L,
+                "Usuario \"Juana\" renombrado, con rol SOLO_LECTURA, desactivado.");
+        verify(auditoria).registrar(1L, AUTOR, "USUARIO_CAMBIADO", "USUARIO", 10L,
+                Map.of("rol", "SOLO_LECTURA", "activo", false));
+    }
+
+    @Test
+    @DisplayName("Un cambio de rol que no desactiva se anota sin decir reactivado")
+    void actualizar_soloRol_noDiceReactivado() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
+
+        usuarioService.actualizar(1L, AUTOR, 10L, null, RolAcceso.ADMINISTRADOR, true, usuario.getVersion());
+
+        verify(historialCambioService).registrarDeTienda(1L, AUTOR, RecursoDeHistorial.USUARIO, 10L,
+                "Usuario \"Juan\" con rol ADMINISTRADOR.");
+    }
+
+    @Test
+    @DisplayName("Nadie se desactiva a si mismo, ni con PATCH ni con DELETE")
+    void desactivarse_aSiMismo_lanzaReglaNegocio() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        Long version = usuario.getVersion();
+
+        ReglaNegocioException conPatch = assertThrows(ReglaNegocioException.class,
+                () -> usuarioService.actualizar(1L, 10L, 10L, null, null, false, version));
+        assertEquals("No puede desactivar su propia cuenta.", conPatch.getMessage());
+        assertThrows(ReglaNegocioException.class, () -> usuarioService.desactivar(1L, 10L, 10L));
+
+        assertTrue(usuario.isActivo());
+        verify(usuarioRepository, never()).saveAndFlush(any());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Quitarle el rol al ultimo administrador activo no procede; darselo a otro no cuenta administradores")
+    void actualizar_quitaElRolAlUltimoAdministrador_lanzaReglaNegocio() {
+        usuario.setRolAcceso(RolAcceso.ADMINISTRADOR);
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.countByEmpresaIdAndRolAccesoAndActivoTrue(1L, RolAcceso.ADMINISTRADOR)).thenReturn(1L);
+        Long version = usuario.getVersion();
+
+        assertThrows(ReglaNegocioException.class,
+                () -> usuarioService.actualizar(1L, AUTOR, 10L, null, RolAcceso.EDITOR, null, version));
+        assertEquals(RolAcceso.ADMINISTRADOR, usuario.getRolAcceso());
+
+        when(usuarioRepository.saveAndFlush(usuario)).thenReturn(usuario);
+        usuarioService.actualizar(1L, AUTOR, 10L, "Juan", RolAcceso.ADMINISTRADOR, null, usuario.getVersion());
+        verify(empresaRepository).bloquear(1L);
+    }
+
+    @Test
+    @DisplayName("Desactivar anota el nombre y lo deja en la auditoria")
+    void desactivar_anota() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+
+        usuarioService.desactivar(1L, AUTOR, 10L);
+
+        verify(historialCambioService).registrarDeTienda(1L, AUTOR, RecursoDeHistorial.USUARIO, 10L,
+                "Usuario \"Juan\" desactivado.");
+        verify(auditoria).registrar(1L, AUTOR, "USUARIO_DESACTIVADO", "USUARIO", 10L, Map.of());
+    }
+
+    @Test
+    @DisplayName("Restablecer la clave da una temporal distinta cada vez, obliga a cambiarla y cierra las sesiones")
+    void restablecerClave_daUnaTemporal() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.encode(anyString())).thenAnswer(inv -> "hash:" + inv.getArgument(0));
+
+        UsuarioResponse primera = usuarioService.restablecerClave(1L, AUTOR, 10L);
+        UsuarioResponse segunda = usuarioService.restablecerClave(1L, AUTOR, 10L);
+
+        assertEquals(16, primera.claveTemporal().length());
+        assertNotEquals(primera.claveTemporal(), segunda.claveTemporal());
+        assertEquals("hash:" + segunda.claveTemporal(), usuario.getPasswordHash());
+        assertTrue(usuario.isDebeCambiarClave());
+        assertEquals(10L, primera.id());
+        verify(usuarioRepository, times(2)).saveAndFlush(usuario);
+        verify(historialCambioService, times(2)).registrarDeTienda(1L, AUTOR, RecursoDeHistorial.USUARIO, 10L,
+                "Contraseña de \"Juan\" restablecida.");
+        verify(auditoria, times(2)).registrar(1L, AUTOR, "CLAVE_RESTABLECIDA", "USUARIO", 10L, Map.of());
+        verify(sesionService, times(2)).cerrarTodas(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("A una persona anonimizada no se le restablece la clave ni se la edita")
+    void anonimizada_noSeEdita() {
+        usuario.setAnonimizadoEn(LocalDateTime.now());
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        Long version = usuario.getVersion();
+
+        assertThrows(ReglaNegocioException.class, () -> usuarioService.restablecerClave(1L, AUTOR, 10L));
+        assertThrows(ReglaNegocioException.class,
+                () -> usuarioService.actualizar(1L, AUTOR, 10L, "Otro", null, null, version));
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(usuarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("Anonimizar borra el nombre, el correo y todo lo que da acceso, y seudonimiza el historial")
+    void anonimizar_borraLosDatosPersonales() {
+        usuario.setCorreoVerificadoEn(LocalDateTime.now());
+        usuario.setDebeCambiarClave(true);
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        ArgumentCaptor<String> clave = ArgumentCaptor.forClass(String.class);
+        when(passwordEncoder.encode(clave.capture())).thenReturn("hash-de-nadie");
+
+        usuarioService.anonimizar(1L, AUTOR, 10L);
+
+        assertEquals("Persona anonimizada 10", usuario.getNombre());
+        assertEquals("anonimizada-10@anonimo.invalid", usuario.getEmail());
+        assertEquals("hash-de-nadie", usuario.getPasswordHash());
+        assertEquals(32, clave.getValue().length());
+        assertFalse(usuario.isActivo());
+        assertFalse(usuario.isDebeCambiarClave());
+        assertNull(usuario.getCorreoVerificadoEn());
+        assertNotNull(usuario.getAnonimizadoEn());
+        verify(usuarioRepository).saveAndFlush(usuario);
+        verify(membresiaRolRepository).borrarLasDe(1L, 10L);
+        verify(enlaceDeUnUsoRepository).borrarLosDe(1L, 10L, "juan@acme.com");
+        verify(segundoFactorService).borrarDe(1L, 10L);
+        verify(identidadExternaService).borrarDe(1L, 10L);
+        verify(sesionService).cerrarTodas(1L, 10L);
+        verify(historialCambioService).seudonimizarUsuario(1L, 10L, "Persona anonimizada 10", "juan@acme.com",
+                "anonimizada-10@anonimo.invalid");
+        verify(historialCambioService).registrarDeTienda(1L, AUTOR, RecursoDeHistorial.USUARIO, 10L,
+                "Usuario anonimizado: su nombre y su correo ya no constan en ninguna parte.");
+        verify(auditoria).registrar(1L, AUTOR, "USUARIO_ANONIMIZADO", "USUARIO", 10L, Map.of());
+        // PR 63: sus notificaciones se van, y los comentarios que la nombraban pasan a su seudonimo
+        verify(notificacionService).borrarDe(1L, 10L);
+        verify(eventos).publishEvent(new UsuarioAnonimizado(1L, 10L, "Juan", "Persona anonimizada 10"));
+    }
+
+    @Test
+    @DisplayName("Anonimizar dos veces no hace nada la segunda, y nadie se anonimiza a si mismo")
+    void anonimizar_repetidoOPropio() {
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+
+        assertThrows(ReglaNegocioException.class, () -> usuarioService.anonimizar(1L, 10L, 10L));
+        assertEquals("Juan", usuario.getNombre());
+
+        usuario.setAnonimizadoEn(LocalDateTime.now());
+        usuarioService.anonimizar(1L, AUTOR, 10L);
+        verify(usuarioRepository, never()).saveAndFlush(any());
+        verify(historialCambioService, never()).seudonimizarUsuario(any(), any(), any(), any(), any());
+        verifyNoInteractions(notificacionService, eventos);
+    }
+
+    @Test
+    @DisplayName("Cambiar la clave propia quita la obligacion de cambiarla y lo anota; la actual tiene que coincidir")
+    void cambiarClavePropia_reglas() {
+        usuario.setDebeCambiarClave(true);
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("mala", "hashed")).thenReturn(false);
+
+        assertThrows(SolicitudInvalidaException.class,
+                () -> usuarioService.cambiarClavePropia(1L, 10L, "mala", "Otra-clave-2026"));
+
+        when(passwordEncoder.matches("actual", "hashed")).thenReturn(true);
+        assertThrows(SolicitudInvalidaException.class,
+                () -> usuarioService.cambiarClavePropia(1L, 10L, "actual", "actual"));
+
+        when(passwordEncoder.matches("Otra-clave-2026", "hashed")).thenReturn(false);
+        when(passwordEncoder.encode("Otra-clave-2026")).thenReturn("hash-nuevo");
+        UsuarioResponse respuesta = usuarioService.cambiarClavePropia(1L, 10L, "actual", "Otra-clave-2026");
+
+        assertEquals(10L, respuesta.id());
+        assertFalse(respuesta.debeCambiarClave());
+        assertEquals("hash-nuevo", usuario.getPasswordHash());
+        verify(historialCambioService).registrarDeTienda(1L, 10L, RecursoDeHistorial.USUARIO, 10L,
+                "Usuario \"Juan\" cambió su contraseña.");
+    }
+
+    @Test
+    @DisplayName("Buscar pagina los usuarios de la tienda y obtener devuelve uno")
+    void buscarYObtener() {
+        PageRequest pagina = PageRequest.of(0, 10);
+        when(usuarioRepository.findAll(ArgumentMatchers.<Specification<Usuario>>any(), eq(pagina)))
+                .thenReturn(new PageImpl<>(List.of(usuario), pagina, 1));
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+
+        assertEquals(List.of(10L), usuarioService.buscar(1L, "Ju", false, pagina).content().stream()
+                .map(UsuarioResponse::id).toList());
+        assertEquals("juan@acme.com", usuarioService.obtener(1L, 10L).email());
     }
 }

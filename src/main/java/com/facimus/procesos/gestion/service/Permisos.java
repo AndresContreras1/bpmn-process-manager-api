@@ -1,5 +1,6 @@
 package com.facimus.procesos.gestion.service;
 
+import java.util.Collection;
 import java.util.Set;
 
 import com.facimus.procesos.common.model.Accion;
@@ -23,6 +24,7 @@ public interface Permisos {
     /** Lo mismo cuando solo se tiene el id de quien pide. */
     void exigir(Long empresaId, Long usuarioId, Accion accion, Recurso recurso);
 
+    /** Lo que el actor puede hacer con el recurso; uno que no es de su tienda responde 404. */
     Set<Accion> acciones(Actor actor, Recurso recurso);
 
     /** Si el actor tiene una concesion expresa de esa accion, sin contar lo que trae por defecto. */
@@ -32,4 +34,10 @@ public interface Permisos {
     boolean tieneConcesiones(Long empresaId, Recurso recurso);
 
     Visibilidad visibilidad(Actor actor);
+
+    /**
+     * PR 64: de esas personas de la tienda, las que pueden hacer cada una de esas acciones sobre el recurso. Decide lo
+     * mismo que preguntar por cada una, pero lee el recurso, las concesiones, las carpetas y los roles una sola vez.
+     */
+    Set<Long> quienesPueden(Long empresaId, Recurso recurso, Collection<Actor> actores, Set<Accion> acciones);
 }

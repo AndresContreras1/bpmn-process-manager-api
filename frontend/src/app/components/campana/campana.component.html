@@ -1,0 +1,97 @@
+<button
+  type="button"
+  class="nav-link px-2 position-relative"
+  id="navbar-campana"
+  aria-controls="campana-panel"
+  [attr.aria-expanded]="abierta"
+  [attr.aria-label]="etiqueta()"
+  [attr.data-conectada]="campana.conectada()"
+  (click)="alternar()"
+>
+  <i class="fa-solid fa-bell" aria-hidden="true"></i>
+  @if (campana.noLeidas() > 0) {
+    <span class="badge rounded-pill text-bg-danger campana-numero" id="campana-conteo" aria-hidden="true">{{
+      numero()
+    }}</span>
+  }
+</button>
+
+<!-- Fuera del panel: un aviso nuevo se anuncia tambien con el panel cerrado -->
+<div class="visually-hidden" aria-live="polite" aria-atomic="true" id="campana-anuncio">{{ campana.anuncio() }}</div>
+
+@if (abierta) {
+  <section class="campana-panel card shadow" id="campana-panel" aria-labelledby="campana-titulo">
+    <header class="card-header d-flex flex-wrap align-items-center gap-2">
+      <h2 i18n class="h6 mb-0 me-auto" id="campana-titulo">Notifications</h2>
+      <button
+        i18n
+        type="button"
+        class="btn btn-link btn-sm p-0"
+        id="campana-todas"
+        [disabled]="campana.noLeidas() === 0"
+        (click)="campana.marcarTodas()"
+      >
+        Mark all as read
+      </button>
+    </header>
+    <div class="campana-cuerpo">
+      @if (!campana.conectada()) {
+        <p i18n class="small text-body-secondary px-3 pt-2 mb-0" id="campana-reconectando">
+          Reconnecting: new notifications will show up when the connection is back.
+        </p>
+      }
+      @if (campana.error()) {
+        <p i18n class="small text-danger px-3 pt-2 mb-0" role="alert" id="campana-error">
+          The notifications could not be loaded. Try again in a moment.
+        </p>
+      }
+      @if (campana.cargando() && campana.avisos().length === 0) {
+        <p i18n class="small text-body-secondary px-3 py-3 mb-0" role="status">Loading the notifications…</p>
+      } @else if (campana.avisos().length === 0) {
+        <p i18n class="small text-body-secondary px-3 py-3 mb-0" id="campana-vacia">You have no notifications.</p>
+      } @else {
+        <ul class="list-unstyled mb-0" id="campana-lista">
+          @for (aviso of campana.avisos(); track aviso.id) {
+            @let destino = enlace(aviso);
+            <li
+              class="campana-aviso d-flex align-items-start gap-2 px-3 py-2 border-bottom"
+              [class.no-leida]="!aviso.leidaEn"
+              data-testid="campana-aviso"
+              [attr.data-tipo]="aviso.tipo"
+            >
+              <a
+                class="flex-grow-1 text-decoration-none text-body small"
+                [routerLink]="destino.ruta"
+                [queryParams]="destino.consulta"
+                (click)="abrir(aviso)"
+              >
+                @if (!aviso.leidaEn) {
+                  <span i18n class="visually-hidden">Unread:</span>
+                }
+                <span class="d-block" [class.fw-semibold]="!aviso.leidaEn">{{ texto(aviso) }}</span>
+                <span class="d-block text-body-secondary">{{ aviso.creadaEn | fecha: 'fechaHora' }}</span>
+              </a>
+              @if (!aviso.leidaEn) {
+                <button
+                  i18n-aria-label
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary campana-leer"
+                  data-testid="campana-leer"
+                  aria-label="Mark as read"
+                  (click)="campana.marcarLeida(aviso)"
+                >
+                  <i class="fa-solid fa-check" aria-hidden="true"></i>
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </div>
+    <footer class="card-footer small">
+      <a i18n routerLink="/cuenta/notificaciones" id="campana-preferencias" (click)="abierta = false"
+        >Notification settings</a
+      >
+    </footer>
+  </section>
+}

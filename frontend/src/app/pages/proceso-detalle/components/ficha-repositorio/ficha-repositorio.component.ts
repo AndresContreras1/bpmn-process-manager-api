@@ -12,9 +12,15 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 
-import { esConflictoDeVersion, mensajeDeError } from '../../../../helpers/errores-api';
+import { esConflictoDeVersion, mensajeDeLaApi } from '../../../../helpers/errores-api';
 import { FilaDeCarpeta, aplanarCarpetas } from '../../../../models/carpeta.model';
-import { CLASIFICACIONES, Clasificacion, NOMBRE_CLASIFICACION, Proceso } from '../../../../models/proceso.model';
+import {
+  CLASIFICACIONES,
+  Clasificacion,
+  NOMBRE_CLASIFICACION,
+  Proceso,
+  leerEtiquetas,
+} from '../../../../models/proceso.model';
 import { Usuario } from '../../../../models/usuario.model';
 import { AuthService } from '../../../../service/auth.service';
 import { CarpetaService } from '../../../../service/carpeta.service';
@@ -30,6 +36,8 @@ import { UsuarioService } from '../../../../service/usuario.service';
 })
 export class FichaRepositorioComponent implements OnInit, OnChanges {
   readonly proceso = input.required<Proceso>();
+  /** F19: si la ficha se puede guardar, de lo que la API dice que la persona puede hacer con el proceso. */
+  readonly puedeArchivar = input<boolean>(false);
   readonly guardado = output<Proceso>();
 
   private readonly procesos = inject(ProcesoService);
@@ -40,7 +48,6 @@ export class FichaRepositorioComponent implements OnInit, OnChanges {
 
   readonly clasificaciones = CLASIFICACIONES;
   readonly nombreClasificacion = NOMBRE_CLASIFICACION;
-  readonly puedeEditar = this.auth.puedeEditar();
   /** La lista de usuarios es del administrador: quien edita conserva el dueno que hay. */
   readonly eligeDueno = this.auth.esAdministrador();
 
@@ -67,9 +74,9 @@ export class FichaRepositorioComponent implements OnInit, OnChanges {
       .subscribe((etiquetas) => (this.etiquetasEnUso = etiquetas));
     if (this.eligeDueno) {
       this.usuariosService
-        .listar({ pagina: 0, orden: 'nombre', direccion: 'asc', nombre: '', incluirInactivos: false })
+        .paraElegir()
         .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe((pagina) => (this.usuarios = pagina.content));
+        .subscribe((usuarios) => (this.usuarios = usuarios));
     }
   }
 
@@ -93,10 +100,7 @@ export class FichaRepositorioComponent implements OnInit, OnChanges {
         duenoId: this.duenoId,
         proximaRevision: this.proximaRevision || null,
         clasificacion: this.clasificacion,
-        etiquetas: this.etiquetas
-          .split(',')
-          .map((etiqueta) => etiqueta.trim())
-          .filter((etiqueta) => etiqueta),
+        etiquetas: leerEtiquetas(this.etiquetas),
         version: proceso.version,
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -110,7 +114,7 @@ export class FichaRepositorioComponent implements OnInit, OnChanges {
           this.enviando = false;
           this.error = esConflictoDeVersion(error)
             ? $localize`Someone else changed this process: reload the page and try again.`
-            : mensajeDeError(error);
+            : mensajeDeLaApi(error);
         },
       });
   }

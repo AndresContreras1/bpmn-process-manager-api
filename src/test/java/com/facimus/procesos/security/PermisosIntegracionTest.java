@@ -475,12 +475,7 @@ class PermisosIntegracionTest {
 
         int estado = mockMvc.perform(peticion.with(como(Quien.ADMIN))).andReturn().getResponse().getStatus();
 
-        if (url.endsWith("permisos")) {
-            // No hay nada que filtrar: un recurso ajeno no se evalua, y la respuesta no dice nada de el
-            assertThat(estado).isEqualTo(200);
-        } else {
-            assertThat(estado).isEqualTo(404);
-        }
+        assertThat(estado).isEqualTo(404);
     }
 
     @Test

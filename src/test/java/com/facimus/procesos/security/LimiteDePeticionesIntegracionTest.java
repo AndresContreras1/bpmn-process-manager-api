@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,6 +49,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @SpringBootTest(properties = {"limites.activos=true", "limites.autenticacion-por-minuto=3",
         "limites.registro-por-hora=2", "limites.correo-por-hora=2", "limites.escritura-por-minuto=5",
+        "limites.busqueda-por-minuto=4",
         "limites.cuerpo-maximo=2KB", "limites.cuerpo-maximo-bpmn=4KB", "turnstile.secreto=secreto-de-pruebas"})
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
@@ -97,6 +99,11 @@ class LimiteDePeticionesIntegracionTest {
         login("nadie9@limite.test", "no-es-la-clave", desde).andExpect(status().isTooManyRequests())
                 .andExpect(header().exists(HttpHeaders.RETRY_AFTER))
                 .andExpect(jsonPath("$.title").value("Demasiadas peticiones"));
+        // Una letra codificada en la ruta llega al mismo controller, y gasta del mismo cubo
+        mockMvc.perform(post(URI.create("/api/v1/auth/logi%6E")).with(SesionEnCookies.conCsrf()).with(desde)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(new LoginRequest("nadie9@limite.test", "no-es-la-clave"))))
+                .andExpect(status().isTooManyRequests());
 
         login("nadie9@limite.test", "no-es-la-clave", direccion()).andExpect(status().isUnauthorized());
     }
@@ -141,6 +148,37 @@ class LimiteDePeticionesIntegracionTest {
     }
 
     @Test
+    @DisplayName("PR 65: buscar gasta de su propio cubo por persona; las demas lecturas y las escrituras, no de ese")
+    void busquedaPorPersona() throws Exception {
+        int numero = TIENDAS.incrementAndGet();
+        String admin = "admin" + numero + "@busqueda.test";
+        EmpresaResponse tienda = empresaService.registrar("Tienda que busca " + numero, "9052" + numero + "000-1",
+                admin, "Ana", admin, CLAVE);
+        String acceso = SesionEnCookies.acceso(login(admin, CLAVE, direccion()).andExpect(status().isOk()));
+        for (int busqueda = 0; busqueda < 4; busqueda++) {
+            buscar(acceso).andExpect(status().isOk());
+        }
+        buscar(acceso).andExpect(status().isTooManyRequests()).andExpect(header().exists(HttpHeaders.RETRY_AFTER));
+        mockMvc.perform(get(URI.create("/api/v1/busqued%61?q=pedido")).with(SesionEnCookies.conSesion(acceso)))
+                .andExpect(status().isTooManyRequests());
+        mockMvc.perform(get("/api/v1/procesos").with(SesionEnCookies.conSesion(acceso))).andExpect(status().isOk());
+        crearProceso(acceso, "Despues de buscar").andExpect(status().isCreated());
+
+        Long adminId = jdbc.queryForObject("select id from usuarios where email = ?", Long.class, admin);
+        String colega = "colega" + numero + "@busqueda.test";
+        usuarioService.crearColaborador(tienda.id(), adminId, "Luis", colega, CLAVE, RolAcceso.SOLO_LECTURA);
+        String suyo = SesionEnCookies.acceso(login(colega, CLAVE, direccion()).andExpect(status().isOk()));
+        buscar(suyo).andExpect(status().isOk());
+        // Sin sesion no gasta de ningun cubo: la autorizacion responde 401
+        mockMvc.perform(get("/api/v1/busqueda").param("q", "pedido").with(direccion()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private ResultActions buscar(String acceso) throws Exception {
+        return mockMvc.perform(get("/api/v1/busqueda").param("q", "pedido").with(SesionEnCookies.conSesion(acceso)));
+    }
+
+    @Test
     @DisplayName("Un cuerpo de mas del maximo responde 413 sin llegar a ningun controller")
     void cuerpoDemasiadoGrande() throws Exception {
         String grande = "{\"email\":\"" + "a".repeat(3000) + "@x.test\",\"password\":\"x\"}";
@@ -173,8 +211,8 @@ class LimiteDePeticionesIntegracionTest {
     @Test
     @DisplayName("Dos instancias gastan del mismo cubo: lo que una gasto, la otra ya no lo tiene")
     void dosInstanciasCompartenElCubo() {
-        LimitesDePeticiones una = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5);
-        LimitesDePeticiones otra = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5);
+        LimitesDePeticiones una = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5, 4);
+        LimitesDePeticiones otra = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5, 4);
         String clave = "compartida-" + DIRECCIONES.incrementAndGet();
 
         assertThat(una.gastar(ClaseDeLimite.AUTENTICACION, clave)).isEmpty();
@@ -186,7 +224,7 @@ class LimiteDePeticionesIntegracionTest {
     @Test
     @DisplayName("La purga se lleva los cubos que ya se llenaron y deja los que estan en uso")
     void olvidarVencidos() {
-        LimitesDePeticiones limites = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5);
+        LimitesDePeticiones limites = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5, 4);
         String enUso = "en-uso-" + DIRECCIONES.incrementAndGet();
         limites.gastar(ClaseDeLimite.CORREO, enUso);
         jdbc.update("insert into cubos_de_peticiones (id, estado, vence_en) values (?, null, 1)", "viejo-" + enUso);

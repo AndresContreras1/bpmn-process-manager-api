@@ -37,6 +37,9 @@ export class ProcesoService {
     if (filtros.carpetaId) {
       params['carpetaId'] = filtros.carpetaId;
     }
+    if (filtros.duenoId) {
+      params['duenoId'] = filtros.duenoId;
+    }
     if (filtros.etiqueta?.trim()) {
       params['etiqueta'] = filtros.etiqueta.trim();
     }
