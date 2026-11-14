@@ -1,6 +1,7 @@
 package com.facimus.procesos.ejecucion.service.impl;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -78,7 +79,7 @@ public class AsignacionDeTareaServiceImpl implements AsignacionDeTareaService {
             throw new SinPermisoException(TareaServiceImpl.NO_ES_DE_SU_ROL);
         }
         // La escritura solo pasa si la tarea sigue sin nadie: la que alguien tomo de otro modo no se toca
-        if (actividadCasoRepository.reclamar(tareaId, empresaId, usuarioId, LocalDateTime.now()) == 0) {
+        if (actividadCasoRepository.reclamar(tareaId, empresaId, usuarioId, LocalDateTime.now(ZoneOffset.UTC)) == 0) {
             throw new ReglaNegocioException(YA_LA_TIENE_ALGUIEN);
         }
         ActividadCaso tomada = tareas.exigir(empresaId, tareaId);

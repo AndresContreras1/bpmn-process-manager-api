@@ -144,8 +144,10 @@ class BandejaPropiaIntegracionTest {
     @DisplayName("PR 70: pertenecer al rol es lo que deja tomar su tarea: quien no pertenece no la completa, quien si")
     void membresia_noDaPermisos() {
         TareaResponse deVentas = mias(vendedora).getFirst();
+        Long tarea = deVentas.id();
+        Map<String, Object> sinDatos = Map.of();
 
-        assertThatThrownBy(() -> tareaService.completar(empresaId, bodeguero, deVentas.id(), Map.of()))
+        assertThatThrownBy(() -> tareaService.completar(empresaId, bodeguero, tarea, sinDatos))
                 .isInstanceOf(SinPermisoException.class);
         TareaResponse completada = tareaService.completar(empresaId, vendedora, deVentas.id(), Map.of());
 

@@ -91,21 +91,9 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
             configuracion.setSimulacion(parametros);
         }
         boolean cambianLasSesiones = acotarSesiones(configuracion, sesiones);
-        boolean cambiaElSegundoFactor = segundoFactor != null
-                && segundoFactor != configuracion.getPoliticaSegundoFactor();
-        if (cambiaElSegundoFactor) {
-            configuracion.setPoliticaSegundoFactor(segundoFactor);
-        }
-        boolean cambiaLaEntrada = soloEntradaExterna != null
-                && soloEntradaExterna != configuracion.isSoloEntradaExterna();
-        if (cambiaLaEntrada) {
-            configuracion.setSoloEntradaExterna(soloEntradaExterna);
-        }
-        boolean cambiaCompletarPorOtro = administradorCompletaPorOtro != null
-                && administradorCompletaPorOtro != configuracion.isAdministradorCompletaPorOtro();
-        if (cambiaCompletarPorOtro) {
-            configuracion.setAdministradorCompletaPorOtro(administradorCompletaPorOtro);
-        }
+        boolean cambiaElSegundoFactor = cambiarSegundoFactor(configuracion, segundoFactor);
+        boolean cambiaLaEntrada = cambiarEntrada(configuracion, soloEntradaExterna);
+        boolean cambiaCompletarPorOtro = cambiarCompletarPorOtro(configuracion, administradorCompletaPorOtro);
         configuracion = configuracionTiendaRepository.saveAndFlush(configuracion);
 
         historialCambioService.registrarDeTienda(empresaId, usuarioId, RecursoDeHistorial.EMPRESA, empresaId,
@@ -153,6 +141,33 @@ public class ConfiguracionTiendaServiceImpl implements ConfiguracionTiendaServic
     }
 
     /** Pone los limites que llegaron y dice si alguno cambio. Las sesiones abiertas toman la duracion nueva. */
+    /** Cambia la politica del segundo factor si llega una distinta; dice si cambio. */
+    private static boolean cambiarSegundoFactor(ConfiguracionTienda configuracion, PoliticaSegundoFactor nueva) {
+        if (nueva == null || nueva == configuracion.getPoliticaSegundoFactor()) {
+            return false;
+        }
+        configuracion.setPoliticaSegundoFactor(nueva);
+        return true;
+    }
+
+    /** Cambia si se entra solo por fuera, si llega un valor distinto; dice si cambio. */
+    private static boolean cambiarEntrada(ConfiguracionTienda configuracion, Boolean soloEntradaExterna) {
+        if (soloEntradaExterna == null || soloEntradaExterna == configuracion.isSoloEntradaExterna()) {
+            return false;
+        }
+        configuracion.setSoloEntradaExterna(soloEntradaExterna);
+        return true;
+    }
+
+    /** Cambia si un administrador completa la tarea de otra persona, si llega un valor distinto; dice si cambio. */
+    private static boolean cambiarCompletarPorOtro(ConfiguracionTienda configuracion, Boolean completaPorOtro) {
+        if (completaPorOtro == null || completaPorOtro == configuracion.isAdministradorCompletaPorOtro()) {
+            return false;
+        }
+        configuracion.setAdministradorCompletaPorOtro(completaPorOtro);
+        return true;
+    }
+
     private static boolean acotarSesiones(ConfiguracionTienda configuracion, LimitesDeSesion sesiones) {
         int inactividad = configuracion.getInactividadSesionMinutos();
         int duracion = configuracion.getDuracionSesionHoras();

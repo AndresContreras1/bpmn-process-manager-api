@@ -61,16 +61,13 @@ final class GrafoDeVersion {
     private final Map<Long, AsignacionResponse> asignaciones;
     private final PlazosDelPool plazos;
 
-    @SuppressWarnings("java:S107") // cada parte del grafo, ya armada, por su nombre
     private GrafoDeVersion(Long poolDeLaTienda, Map<Long, NodoDeLaVersion> nodos, ArcosDelPool arcos,
-            List<MensajeDeLaVersion> mensajes, boolean ejecutable, Map<Long, TemporizadorDeLaVersion> temporizadores,
-            Map<Long, FormularioResponse> formularios, Map<Long, AsignacionResponse> asignaciones,
-            PlazosDelPool plazos) {
+            List<MensajeDeLaVersion> mensajes, boolean ejecutable, PorNodo porNodo, PlazosDelPool plazos) {
         this.ejecutable = ejecutable;
         this.plazos = plazos;
-        this.asignaciones = Collections.unmodifiableMap(asignaciones);
-        this.temporizadores = Collections.unmodifiableMap(temporizadores);
-        this.formularios = Collections.unmodifiableMap(formularios);
+        this.asignaciones = Collections.unmodifiableMap(porNodo.asignaciones());
+        this.temporizadores = Collections.unmodifiableMap(porNodo.temporizadores());
+        this.formularios = Collections.unmodifiableMap(porNodo.formularios());
         this.poolDeLaTienda = poolDeLaTienda;
         this.nodos = Collections.unmodifiableMap(nodos);
         this.salidas = sinPoderTocarlo(arcos.salidas());
@@ -95,6 +92,11 @@ final class GrafoDeVersion {
     private record ArcosDelPool(Map<Long, List<ArcoDeLaVersion>> salidas, Map<Long, List<ArcoDeLaVersion>> entradas) {
     }
 
+    /** Lo que la version congela de cada nodo del pool: sus temporizadores, sus formularios y a quien va su tarea. */
+    private record PorNodo(Map<Long, TemporizadorDeLaVersion> temporizadores,
+            Map<Long, FormularioResponse> formularios, Map<Long, AsignacionResponse> asignaciones) {
+    }
+
     /**
      * Arma el grafo del pool de la tienda. Un diagrama sin pool de empresa da un grafo vacio: no se puede abrir un
      * caso sobre el, y quien lo intente recibe la regla, no una excepcion a medio camino.
@@ -115,8 +117,8 @@ final class GrafoDeVersion {
         }
         Map<Long, NodoDeLaVersion> nodos = nodosDelPool(diagrama, lanesDelPool, rolDeLane);
         return new GrafoDeVersion(pool, nodos, arcosDelPool(diagrama, nodos), mensajesDelDiagrama(diagrama),
-                diagrama.proceso().modo().ejecuta(), temporizadoresDelPool(diagrama, nodos),
-                formulariosDelPool(diagrama, nodos), asignacionesDelPool(diagrama, nodos),
+                diagrama.proceso().modo().ejecuta(), new PorNodo(temporizadoresDelPool(diagrama, nodos),
+                        formulariosDelPool(diagrama, nodos), asignacionesDelPool(diagrama, nodos)),
                 plazosDelPool(diagrama, nodos));
     }
 
