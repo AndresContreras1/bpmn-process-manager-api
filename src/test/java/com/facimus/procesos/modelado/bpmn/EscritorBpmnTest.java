@@ -191,6 +191,22 @@ class EscritorBpmnTest {
     }
 
     @Test
+    @DisplayName("PR 68: una duracion habil sale como timeDuration con bpm:habil; una de calendario, sin el")
+    void duracionHabil() {
+        DiagramaArmado armado = descriptivo();
+        armado.temporizador("Sales", "Two business days", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION_HABIL, "P2D", null);
+
+        List<Element> duraciones = elementos(leer(exportar(armado.diagrama())), BPMN, "timeDuration");
+
+        assertThat(duraciones).extracting(Element::getTextContent).containsExactlyInAnyOrder("PT2H", "P2D");
+        assertThat(duraciones).filteredOn(duracion -> "P2D".equals(duracion.getTextContent()))
+                .singleElement().satisfies(habil -> assertThat(habil.getAttributeNS(BPM, "habil")).isEqualTo("true"));
+        assertThat(duraciones).filteredOn(duracion -> "PT2H".equals(duracion.getTextContent()))
+                .singleElement().satisfies(calendario -> assertThat(calendario.hasAttributeNS(BPM, "habil")).isFalse());
+    }
+
+    @Test
     @DisplayName("Los datos llevan su dataObject, y lo que entra a una tarea llega a una propiedad suya")
     void datos() {
         Document documento = leer(exportar(descriptivo().diagrama()));

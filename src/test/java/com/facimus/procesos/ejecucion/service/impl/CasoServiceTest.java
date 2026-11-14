@@ -20,19 +20,25 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import com.facimus.procesos.common.CamposInvalidosException;
 import com.facimus.procesos.common.ConflictoDeVersionException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeInicioResponse;
 import com.facimus.procesos.ejecucion.mapper.CasoMapper;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.ModoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.ejecucion.repository.CasoRepository;
@@ -42,6 +48,7 @@ import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.VersionProceso;
 import com.facimus.procesos.gestion.service.VersionService;
+import com.facimus.procesos.modelado.dto.response.CampoDeFormularioResponse;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.service.DiagramaArmado;
@@ -87,6 +94,10 @@ class CasoServiceTest {
 
     @Mock
     private CasoMapper casoMapper;
+
+    /** PR 69: los procesos de estas pruebas no tienen formularios; el que valida es el de verdad. */
+    @Spy
+    private FormulariosDelCaso formularios = new FormulariosDelCaso(null, null);
 
     @InjectMocks
     private CasoServiceImpl casoService;
@@ -253,6 +264,88 @@ class CasoServiceTest {
         assertThatThrownBy(() -> casoService.obtener(TIENDA_ID, CASO_ID))
                 .isInstanceOf(RecursoNoEncontradoException.class)
                 .hasMessage("Caso no encontrado.");
+    }
+
+    // ---------- PR 69: el formulario del inicio ----------
+
+    private static DiagramaArmado conFormularioDeInicio() {
+        DiagramaArmado armado = conInicioAMano();
+        armado.formulario("Start", CampoArmado.formulario(
+                CampoArmado.campo("total", TipoDeCampo.NUMERO).requerido().minimo("1"),
+                CampoArmado.campo("canal", TipoDeCampo.LISTA).opciones("WEB", "TIENDA")));
+        return armado;
+    }
+
+    @Test
+    @DisplayName("PR 69: con formulario de inicio, las variables del caso son sus respuestas, con su tipo")
+    void abrir_conFormulario_guardaLasRespuestasConTipo() {
+        conGrafo(conFormularioDeInicio());
+
+        casoService.abrir(TIENDA_ID, ADMIN, PROCESO_ID, "ORD-1", Map.of("total", 150.0, "canal", "WEB"),
+                ModoCaso.PRODUCCION);
+
+        verify(casoMapper).aJson(Map.of("total", 150L, "canal", "WEB"));
+        verify(motor).arrancar(any(Caso.class), any(GrafoDeVersion.class), any(), any());
+    }
+
+    @Test
+    @DisplayName("PR 69: con respuestas que no cumplen el formulario no se abre nada: 400 con cada campo")
+    void abrir_conFormulario_respuestasMalas() {
+        conGrafo(conFormularioDeInicio());
+        Map<String, Object> malas = Map.of("canal", "FAX");
+
+        assertThatThrownBy(() -> casoService.abrir(TIENDA_ID, ADMIN, PROCESO_ID, "ORD-1", malas))
+                .isInstanceOfSatisfying(CamposInvalidosException.class, error -> assertThat(error.errores())
+                        .containsOnlyKeys("variables.total", "variables.canal"));
+        verify(casoRepository, never()).save(any());
+        verify(motor, never()).arrancar(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("PR 69: sin formulario de inicio, un caso de produccion no se abre con variables libres")
+    void abrir_enProduccionSinFormulario_sinVariablesLibres() {
+        conGrafo(conInicioAMano());
+        Map<String, Object> libres = Map.of("order", Map.of("total", 150));
+
+        assertThatThrownBy(() -> casoService.abrir(TIENDA_ID, ADMIN, PROCESO_ID, "ORD-1", libres,
+                ModoCaso.PRODUCCION)).isInstanceOf(CamposInvalidosException.class);
+        verify(casoRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("PR 69: el formulario de inicio es el de la version vigente, con su numero y su evento")
+    void formularioDeInicio_deLaVersionVigente() {
+        conGrafo(conFormularioDeInicio());
+
+        FormularioDeInicioResponse respuesta = casoService.formularioDeInicio(TIENDA_ID, PROCESO_ID);
+
+        assertThat(respuesta.procesoId()).isEqualTo(PROCESO_ID);
+        assertThat(respuesta.version()).isEqualTo(1);
+        assertThat(respuesta.evento()).isEqualTo("Start");
+        assertThat(respuesta.formulario().campos()).extracting(CampoDeFormularioResponse::nombre)
+                .containsExactly("total", "canal");
+    }
+
+    @Test
+    @DisplayName("PR 69: sin formulario, o sin inicio a mano, la respuesta lo dice con uno vacio")
+    void formularioDeInicio_sinFormulario() {
+        conGrafo(conInicioAMano());
+        assertThat(casoService.formularioDeInicio(TIENDA_ID, PROCESO_ID).formulario()).isNull();
+
+        conGrafo(DiagramaArmado.demo());
+        FormularioDeInicioResponse porMensaje = casoService.formularioDeInicio(TIENDA_ID, PROCESO_ID);
+        assertThat(porMensaje.evento()).isNull();
+        assertThat(porMensaje.formulario()).isNull();
+    }
+
+    @Test
+    @DisplayName("PR 69: sin version vigente no hay formulario de inicio: 404")
+    void formularioDeInicio_sinVersion() {
+        given(versionService.vigente(TIENDA_ID, PROCESO_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> casoService.formularioDeInicio(TIENDA_ID, PROCESO_ID))
+                .isInstanceOf(RecursoNoEncontradoException.class)
+                .hasMessage("El proceso no tiene una versión publicada vigente.");
     }
 
     private void conGrafo(DiagramaArmado armado) {

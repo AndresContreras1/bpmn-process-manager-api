@@ -46,6 +46,7 @@ import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
 
 /**
  * PR 53: un diagrama y su geometria, en BPMN 2.0.2. Es una funcion pura: lo usan el borrador, la publicacion de una
@@ -62,7 +63,9 @@ import com.facimus.procesos.modelado.model.TipoParticipante;
  * <li>un {@code BPMNDiagram} con la geometria que el modelo ya tiene (PR 52);</li>
  * <li>lo que BPMN no tiene, en el espacio {@code bpm:} ({@link EspaciosBpmn#BPM}): tipo, integracion y orden del
  * participante, rol de la lane, orden de los flujos, y el contenido, los campos, el destino, el fallo, la respuesta y
- * la correlacion de cada mensaje.</li>
+ * la correlacion de cada mensaje; PR 69: el formulario de cada tarea de usuario y de cada inicio simple; PR 70: a
+ * quien le llega cada tarea de usuario; PR 71: el plazo de cada tarea de usuario y de cada inicio, y lo que
+ * escala cada temporizador de borde que no interrumpe.</li>
  * </ul>
  *
  * <p>PR 55: lo descriptivo. Los eventos de temporizador (de inicio, de espera y de borde) con su
@@ -80,6 +83,7 @@ public final class EscritorBpmn {
     private static final String PARTICIPANT = "Participant";
     private static final String EXTENSION_ELEMENTS = "extensionElements";
     private static final String ORDEN = "orden";
+    private static final String HABIL = "habil";
     private static final String MESSAGE_REF = "messageRef";
     private static final String BPMNDI = "bpmndi";
     private static final String BPMN_ELEMENT = "bpmnElement";
@@ -597,7 +601,19 @@ public final class EscritorBpmn {
             }
             ajenos.atributos(id, salida);
             documentacion(actividad.descripcion());
-            extensiones(id, false, null);
+            // PR 69, 70 y 71: el formulario de la tarea, a quien le llega y su plazo, que BPMN no tiene
+            extensiones(id, actividad.formulario() != null || actividad.asignacion() != null
+                    || actividad.plazo() != null, () -> {
+                        if (actividad.formulario() != null) {
+                            FormularioBpmn.escribir(salida, actividad.formulario());
+                        }
+                        if (actividad.asignacion() != null) {
+                            AsignacionBpmn.escribir(salida, actividad.asignacion());
+                        }
+                        if (actividad.plazo() != null) {
+                            PlazoBpmn.escribir(salida, actividad.plazo());
+                        }
+                    });
             entradasYSalidas(actividad.id());
             datosDeLaActividad(id);
             if (tipo != null && tipo.esSubproceso()) {
@@ -639,8 +655,31 @@ public final class EscritorBpmn {
                 salida.atributo("attachedToRef", actividad);
             }
             ajenos.atributos(id, salida);
-            extensiones(id, false, null);
+            extensionesDelEvento(id, evento);
             entradasYSalidas(evento.id());
+            definicionDelEvento(id, evento);
+            salida.cerrar();
+        }
+
+        /** PR 69 y 71: el formulario del inicio, el plazo del caso y lo que escala un borde. */
+        private void extensionesDelEvento(String id, EventoResponse evento) throws XMLStreamException {
+            extensiones(id, evento.formulario() != null || evento.plazo() != null || evento.escalamiento() != null,
+                    () -> {
+                        if (evento.formulario() != null) {
+                            FormularioBpmn.escribir(salida, evento.formulario());
+                        }
+                        if (evento.plazo() != null) {
+                            PlazoBpmn.escribir(salida, evento.plazo());
+                        }
+                        if (evento.escalamiento() != null) {
+                            PlazoBpmn.escribir(salida, evento.escalamiento());
+                        }
+                    });
+        }
+
+        /** Lo que dispara el evento: un mensaje, un temporizador o la terminacion; los demas no llevan definicion. */
+        private void definicionDelEvento(String id, EventoResponse evento) throws XMLStreamException {
+            TipoEvento tipo = evento.tipoEvento();
             if (tipo == TipoEvento.MENSAJE_INICIO || tipo == TipoEvento.MENSAJE_INTERMEDIO
                     || tipo == TipoEvento.MENSAJE_FIN) {
                 salida.vacio("bpmn", "messageEventDefinition");
@@ -653,7 +692,6 @@ public final class EscritorBpmn {
                 salida.vacio("bpmn", "terminateEventDefinition");
                 salida.atributo("id", IdsBpmn.derivado(id, "Event", "TerminateEventDefinition"));
             }
-            salida.cerrar();
         }
 
         /** PR 55: cuando salta, como una expresion formal de BPMN: una duracion, una fecha o un ciclo. */
@@ -667,11 +705,13 @@ public final class EscritorBpmn {
             salida.abrir("bpmn", "timerEventDefinition");
             salida.atributo("id", definicion);
             salida.abrir("bpmn", switch (evento.tipoTemporizador()) {
-                case DURACION -> "timeDuration";
+                case DURACION, DURACION_HABIL -> "timeDuration";
                 case FECHA -> "timeDate";
                 case CICLO -> "timeCycle";
             });
             salida.atributo("xsi", "type", "bpmn:tFormalExpression");
+            // PR 68: BPMN no tiene tiempo habil; otra herramienta lee la duracion de calendario y esta lo recupera
+            salida.atributo("bpm", HABIL, evento.tipoTemporizador() == TipoTemporizador.DURACION_HABIL ? "true" : null);
             salida.texto(evento.temporizador());
             salida.cerrar();
             salida.cerrar();

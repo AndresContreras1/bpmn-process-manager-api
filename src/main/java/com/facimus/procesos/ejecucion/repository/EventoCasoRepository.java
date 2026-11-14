@@ -23,6 +23,7 @@ public interface EventoCasoRepository extends RepositorioTenant<EventoCaso> {
             where e.empresa.id = :empresaId
               and e.tipo in :tipos
               and (:procesoId is null or e.caso.proceso.id = :procesoId)
+              and e.caso.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
             group by e.tipo
             """)
     List<Object[]> contarPorTipo(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId,

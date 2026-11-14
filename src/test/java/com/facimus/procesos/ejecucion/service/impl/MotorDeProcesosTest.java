@@ -7,10 +7,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,11 +27,14 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.config.AuditoriaConfig;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
+import com.facimus.procesos.ejecucion.model.Delegacion;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.EstadoDelegacion;
 import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
 import com.facimus.procesos.ejecucion.model.EventoCaso;
 import com.facimus.procesos.ejecucion.model.MensajeSaliente;
@@ -40,17 +45,23 @@ import com.facimus.procesos.ejecucion.puerto.ParametrosDeSimulacion;
 import com.facimus.procesos.ejecucion.puerto.RespuestaDelSocio;
 import com.facimus.procesos.ejecucion.puerto.SocioSimulado;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
+import com.facimus.procesos.ejecucion.repository.CasoRepository;
+import com.facimus.procesos.ejecucion.repository.DelegacionRepository;
 import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.model.VersionProceso;
+import com.facimus.procesos.gestion.service.CalendarioService;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoDeDato;
 import com.facimus.procesos.modelado.model.TipoDestino;
 import com.facimus.procesos.modelado.model.TipoEvento;
@@ -99,7 +110,16 @@ class MotorDeProcesosTest {
     @Autowired
     private MensajeSalienteRepository mensajeSalienteRepository;
 
+    @Autowired
+    private CasoRepository casoRepository;
+
+    @Autowired
+    private DelegacionRepository delegacionRepository;
+
     private final TestObservationRegistry observaciones = TestObservationRegistry.create();
+
+    /** PR 70: quien puede tener una tarea lo dice gestion; aqui, lo que cada prueba necesite. */
+    private final PersonasDeLaTarea personas = mock(PersonasDeLaTarea.class);
 
     private MotorDeProcesos motor;
     private Empresa tienda;
@@ -115,7 +135,9 @@ class MotorDeProcesosTest {
         given(parametros.de(any())).willReturn(ParametrosDeSimulacion.deFabrica());
         motor = new MotorDeProcesos(actividadCasoRepository,
                 new BandejaDeSalida(mensajeSalienteRepository, new SociosSimulados(List.of(unSocioQueTardaUnTick())),
-                        parametros, bitacora, json), bitacora, json, observaciones);
+                        parametros, bitacora, json), bitacora, json, observaciones, mock(Temporizadores.class),
+                new AsignacionAlCrear(personas), new Tareas(actividadCasoRepository, casoRepository,
+                        delegacionRepository), sinPlazos(), mock(Escalamientos.class));
         tienda = em.persistFlushFind(Empresa.builder().nombre("Tienda del motor").nit("900123456-1")
                 .correoContacto("motor@demo.com").fechaRegistro(LocalDate.now()).build());
         proceso = em.persistFlushFind(Proceso.builder().empresa(tienda).nombre("Order fulfillment")
@@ -230,6 +252,47 @@ class MotorDeProcesosTest {
             assertThat(tarea.getRolProcesoId()).isEqualTo(VENDEDORES);
             assertThat(tarea.esTarea()).isTrue();
             assertThat(tiposDeLaBitacora(caso)).contains(TipoEventoCaso.TAREA_CREADA);
+        }
+
+        @Test
+        @DisplayName("PR 70: la tarea asignada a una persona nace en sus manos, y la bitacora dice como le llego")
+        void usuario_asignada_naceEnSusManos() {
+            Usuario ana = em.persistFlushFind(Usuario.builder().empresa(tienda).nombre("Ana")
+                    .email("ana-motor@demo.com").passwordHash("hash").rolAcceso(RolAcceso.EDITOR).build());
+            given(personas.siPuedeTenerla(tienda.getId(), ana.getId())).willReturn(Optional.of(ana.getId()));
+            DiagramaArmado armado = unDiagrama();
+            armado.actividad(VENTAS, "Receive order", TipoActividad.USUARIO);
+            armado.arco("Start", "Receive order");
+            armado.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.PERSONA, ana.getId(), null));
+
+            Caso caso = arrancar(armado);
+
+            ActividadCaso tarea = pasoPor(caso, "Receive order");
+            assertThat(tarea.getEstado()).isEqualTo(EstadoActividadCaso.EN_ESPERA);
+            assertThat(tarea.getAsignadoA()).isEqualTo(ana.getId());
+            assertThat(tiposDeLaBitacora(caso)).containsSubsequence(TipoEventoCaso.TAREA_CREADA,
+                    TipoEventoCaso.TAREA_ASIGNADA);
+            assertThat(detallesDeLaBitacora(caso)).contains(
+                    "\"Receive order\" espera a que la complete quien la tiene.",
+                    "\"Receive order\" le llega al usuario " + ana.getId() + ", asignada a una persona fija.");
+        }
+
+        @Test
+        @DisplayName("PR 70: si la regla no da con nadie, la tarea queda en la bandeja del rol y la bitacora dice "
+                + "por que")
+        void usuario_reglaSinNadie_quedaEnElRol() {
+            DiagramaArmado armado = unDiagrama();
+            armado.actividad(VENTAS, "Receive order", TipoActividad.USUARIO);
+            armado.arco("Start", "Receive order");
+            armado.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.INICIADOR, null, null));
+
+            Caso caso = arrancar(armado);
+
+            ActividadCaso tarea = pasoPor(caso, "Receive order");
+            assertThat(tarea.getAsignadoA()).isNull();
+            assertThat(tiposDeLaBitacora(caso)).doesNotContain(TipoEventoCaso.TAREA_ASIGNADA);
+            assertThat(detallesDeLaBitacora(caso)).contains("\"Receive order\" queda en la bandeja a la espera de "
+                    + "que alguien la complete. Iba para quien abrio el caso, y este caso no lo abrio una persona.");
         }
 
         @Test
@@ -566,6 +629,34 @@ class MotorDeProcesosTest {
             assertThat(pasoPor(caso, "Izquierda")).returns(EstadoActividadCaso.OMITIDA, ActividadCaso::getEstado);
             assertThat(pasoPor(caso, "Derecha")).returns(EstadoActividadCaso.OMITIDA, ActividadCaso::getEstado);
             assertThat(pasoPor(caso, "Start")).returns(EstadoActividadCaso.COMPLETADA, ActividadCaso::getEstado);
+        }
+
+        @Test
+        @DisplayName("PR 70: apagar los tokens anula la delegacion abierta de una tarea delegada")
+        void apagarTokens_anulaLaDelegacion() {
+            Usuario ana = em.persistFlushFind(Usuario.builder().empresa(tienda).nombre("Ana")
+                    .email("ana-apagar@demo.com").passwordHash("hash").rolAcceso(RolAcceso.EDITOR).build());
+            Usuario luis = em.persistFlushFind(Usuario.builder().empresa(tienda).nombre("Luis")
+                    .email("luis-apagar@demo.com").passwordHash("hash").rolAcceso(RolAcceso.EDITOR).build());
+            DiagramaArmado armado = unDiagrama();
+            armado.actividad(VENTAS, "Receive order", TipoActividad.USUARIO);
+            armado.arco("Start", "Receive order");
+            Caso caso = arrancar(armado);
+            ActividadCaso tarea = pasoPor(caso, "Receive order");
+            tarea.setAsignadoA(luis.getId());
+            tarea.setDelegadaPor(ana.getId());
+            actividadCasoRepository.save(tarea);
+            Delegacion abierta = delegacionRepository.save(Delegacion.builder().empresa(tienda).tarea(tarea)
+                    .caso(caso).delegadaPor(ana.getId()).delegadaA(luis.getId()).motivo("Vacaciones")
+                    .estado(EstadoDelegacion.ACTIVA).build());
+
+            motor.apagarTokens(caso, Momento.en(TICK));
+            em.flush();
+
+            assertThat(pasoPor(caso, "Receive order")).returns(EstadoActividadCaso.OMITIDA, ActividadCaso::getEstado);
+            Delegacion cerrada = delegacionRepository.findById(abierta.getId()).orElseThrow();
+            assertThat(cerrada.getEstado()).isEqualTo(EstadoDelegacion.ANULADA);
+            assertThat(cerrada.getCerradaEn()).isNotNull();
         }
     }
 
@@ -1004,5 +1095,10 @@ class MotorDeProcesosTest {
         return eventoCasoRepository.findAllByCasoIdAndEmpresaIdOrderByIdAsc(caso.getId(), tienda.getId()).stream()
                 .map(EventoCaso::getDetalle)
                 .toList();
+    }
+
+    /** PR 71: los plazos de verdad, que en un diagrama sin plazos no arman nada ni le suman nada a una linea. */
+    private static Plazos sinPlazos() {
+        return new Plazos(mock(CalendarioService.class), Clock.systemUTC());
     }
 }

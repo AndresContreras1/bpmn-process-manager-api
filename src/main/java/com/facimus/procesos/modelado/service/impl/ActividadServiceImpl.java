@@ -2,6 +2,7 @@ package com.facimus.procesos.modelado.service.impl;
 
 import java.util.List;
 
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,7 +11,9 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.Actividad;
+import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.NodoFlujo;
 import com.facimus.procesos.modelado.model.TipoActividad;
@@ -69,6 +72,21 @@ public class ActividadServiceImpl implements ActividadService {
             String descripcion, TipoActividad tipoActividad, Long laneId, int posX, int posY, Long version) {
         Actividad actividad = buscar(empresaId, actividadId);
         actividad.verificarVersion(version);
+        if (actividad.getFormulario() != null && deUsuarioSiFalta(tipoActividad) != TipoActividad.USUARIO) {
+            // PR 69: el formulario es de quien hace la tarea; con otro tipo nadie lo llenaria
+            throw new ReglaNegocioException("La actividad tiene formulario, y solo una de usuario lo lleva: quítalo "
+                    + "antes de cambiarle el tipo.");
+        }
+        if (actividad.getTipoAsignacion() != null && deUsuarioSiFalta(tipoActividad) != TipoActividad.USUARIO) {
+            // PR 70: la asignacion dice a quien espera la tarea; con otro tipo no espera a nadie
+            throw new ReglaNegocioException("La actividad tiene asignación, y solo una de usuario la lleva: "
+                    + "devuélvela a la bandeja de su rol antes de cambiarle el tipo.");
+        }
+        if (actividad.getPlazoUnidad() != null && deUsuarioSiFalta(tipoActividad) != TipoActividad.USUARIO) {
+            // PR 71: el plazo cuenta lo que tarda una persona; con otro tipo no espera a nadie
+            throw new ReglaNegocioException("La actividad tiene plazo, y solo una de usuario lo lleva: quítalo antes "
+                    + "de cambiarle el tipo.");
+        }
         Long procesoId = actividad.getLane().getPool().getProceso().getId();
         if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
                 empresaId, actividadId)) {
@@ -76,6 +94,13 @@ public class ActividadServiceImpl implements ActividadService {
         }
         // Se consulta antes de tocar la entidad: una consulta despues la escribiria y gastaria una version de mas
         List<NodoFlujo> conElla = pegados.pegadosA(empresaId, actividadId);
+        if (deUsuarioSiFalta(tipoActividad) != TipoActividad.USUARIO && conElla.stream().map(Hibernate::unproxy)
+                .anyMatch(pegado -> pegado instanceof Evento borde
+                        && borde.getEscalamiento() == AccionDeEscalamiento.REASIGNAR)) {
+            // PR 71: un borde que le pasa la tarea al supervisor necesita una tarea de usuario que pasarle
+            throw new ReglaNegocioException("Un borde de la actividad se la reasigna al supervisor, y solo se reasigna "
+                    + "una de usuario: cámbialo a avisar antes de cambiarle el tipo.");
+        }
         Lane destino = ReglasDeNodos.mudanza(empresaId, actividad, laneId, laneRepository, arcoRepository,
                 mensajeRepository);
         if (!conElla.isEmpty() && !destino.getPool().getId().equals(actividad.getLane().getPool().getId())) {

@@ -226,7 +226,8 @@ class EjecucionIntegracionTest {
         completarLaTareaDe(proceso.ventas());
 
         assertThat(tiposDeLaBitacora(caso.id())).startsWith(TipoEventoCaso.CASO_ABIERTO,
-                TipoEventoCaso.NODO_ACTIVADO, TipoEventoCaso.TAREA_CREADA, TipoEventoCaso.TAREA_COMPLETADA,
+                TipoEventoCaso.NODO_ACTIVADO, TipoEventoCaso.TAREA_CREADA, TipoEventoCaso.TAREA_RECLAMADA,
+                TipoEventoCaso.TAREA_COMPLETADA,
                 TipoEventoCaso.GATEWAY_DECIDIO, TipoEventoCaso.TAREA_CREADA);
         assertThat(casoService.eventos(empresaId, caso.id()))
                 .filteredOn(evento -> evento.tipo() == TipoEventoCaso.GATEWAY_DECIDIO)

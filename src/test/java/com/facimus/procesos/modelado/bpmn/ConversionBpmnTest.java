@@ -224,6 +224,22 @@ class ConversionBpmnTest {
     }
 
     @Test
+    @DisplayName("PR 68: un timeDuration con bpm:habil entra como duracion habil; sin el, o en otro tiempo, no")
+    void duracionHabil() {
+        String espera = "<bpmn:intermediateCatchEvent id=\"%s\" xmlns:bpm=\"urn:bpmn-process-manager:bpm:1\">"
+                + "<bpmn:timerEventDefinition><bpmn:%s bpm:habil=\"%s\">%s</bpmn:%s></bpmn:timerEventDefinition>"
+                + "</bpmn:intermediateCatchEvent>";
+        PlanBpmn plan = convertir(proceso(espera.formatted("H", "timeDuration", "true", "P2D", "timeDuration")
+                + espera.formatted("C", "timeDuration", "false", "P2D", "timeDuration")
+                + espera.formatted("F", "timeDate", "true", "2026-12-24T09:00:00Z", "timeDate")));
+
+        assertThat(nodo(plan, "H").tipoTemporizador()).isEqualTo(TipoTemporizador.DURACION_HABIL);
+        assertThat(nodo(plan, "H").temporizador()).isEqualTo("P2D");
+        assertThat(nodo(plan, "C").tipoTemporizador()).isEqualTo(TipoTemporizador.DURACION);
+        assertThat(nodo(plan, "F").tipoTemporizador()).isEqualTo(TipoTemporizador.FECHA);
+    }
+
+    @Test
     @DisplayName("Un evento de borde que no es de temporizador, o sin actividad, se deja fuera con sus flujos")
     void bordesQueNoEntran() {
         PlanBpmn plan = convertir(proceso("<bpmn:userTask id=\"T\"/><bpmn:endEvent id=\"F\"/>"

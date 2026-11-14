@@ -4,6 +4,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.facimus.procesos.common.formularios.Formulario;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.DisposicionBpmn.Limites;
 
@@ -41,14 +45,44 @@ public record ModeloLeido(String nombre, String descripcion, String categoria, L
      * @param definiciones las definiciones de evento que trae: {@code messageEventDefinition}...
      * @param adjuntoA de un {@code boundaryEvent}, la actividad a la que va pegado
      * @param interrumpe de un {@code boundaryEvent}, si interrumpe la actividad
-     * @param tipoTemporizador {@code timeDuration}, {@code timeDate} o {@code timeCycle}, si dice cuando salta
+     * @param tipoTemporizador {@code timeDuration}, {@code timeDate} o {@code timeCycle}, si dice cuando salta; PR 68:
+     *            {@link #DURACION_HABIL} si es un {@code timeDuration} con {@code bpm:habil="true"}
      * @param temporizador la expresion de cuando salta
      * @param padre el {@code subProcess} donde esta, o nulo si esta en el proceso
      * @param llamado el {@code calledElement} de una {@code callActivity}
+     * @param formulario PR 69: el {@code bpm:formulario} que trae, o nulo
+     * @param limitesIlegibles PR 69: los limites del formulario que no se leyeron como numero, ya dichos
+     * @param asignacion PR 70: la {@code bpm:asignacion} que trae, o nula
+     * @param plazo PR 71: el {@code bpm:plazo} que trae, o nulo; uno que no se entendia llega sin unidad
+     * @param escalamiento PR 71: el {@code bpm:escalamiento} que trae, o nulo
      */
     public record Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
             List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
-            String temporizador, String padre, String llamado) {
+            String temporizador, String padre, String llamado, Formulario formulario, List<String> limitesIlegibles,
+            AsignacionResponse asignacion, PlazoResponse plazo, EscalamientoResponse escalamiento) {
+
+        /** El de antes del PR 71, sin plazo ni escalamiento. */
+        @SuppressWarnings("java:S107") // lo que se lee de un nodo, por su nombre
+        public Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
+                List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
+                String temporizador, String padre, String llamado, Formulario formulario,
+                List<String> limitesIlegibles, AsignacionResponse asignacion) {
+            this(id, elemento, nombre, descripcion, porDefecto, definiciones, adjuntoA, interrumpe, tipoTemporizador,
+                    temporizador, padre, llamado, formulario, limitesIlegibles, asignacion, null, null);
+        }
+
+        /** El de antes del PR 70, sin asignacion. */
+        @SuppressWarnings("java:S107") // lo que se lee de un nodo, por su nombre
+        public Nodo(String id, String elemento, String nombre, String descripcion, String porDefecto,
+                List<String> definiciones, String adjuntoA, boolean interrumpe, String tipoTemporizador,
+                String temporizador, String padre, String llamado, Formulario formulario,
+                List<String> limitesIlegibles) {
+            this(id, elemento, nombre, descripcion, porDefecto, definiciones, adjuntoA, interrumpe, tipoTemporizador,
+                    temporizador, padre, llamado, formulario, limitesIlegibles, null);
+        }
+
+        /** PR 68: un {@code timeDuration} que se cuenta en tiempo habil, con el calendario de la tienda. */
+        public static final String DURACION_HABIL = "timeDuration+habil";
     }
 
     /**

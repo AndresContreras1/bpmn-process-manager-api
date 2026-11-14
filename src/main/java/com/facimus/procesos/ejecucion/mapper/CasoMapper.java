@@ -12,9 +12,11 @@ import com.facimus.procesos.ejecucion.dto.response.CasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.EventoCasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.PasoDelCasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.TareaResponse;
+import com.facimus.procesos.ejecucion.dto.response.TemporizadorResponse;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EventoCaso;
+import com.facimus.procesos.ejecucion.model.Temporizador;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
@@ -40,6 +42,9 @@ public abstract class CasoMapper {
     @Mapping(target = "procesoNombre", source = "proceso.nombre")
     @Mapping(target = "versionNumero", source = "versionProceso.numero")
     @Mapping(target = "fechaInicio", source = "fechaCreacion")
+    @Mapping(target = "venceEn", source = "vencimiento.venceEn")
+    @Mapping(target = "venceTick", source = "vencimiento.venceTick")
+    @Mapping(target = "estadoPlazo", source = "vencimiento.estado")
     public abstract CasoResponse toResponse(Caso caso);
 
     public abstract List<CasoResponse> toResponses(List<Caso> casos);
@@ -52,9 +57,16 @@ public abstract class CasoMapper {
     @Mapping(target = "casoReferencia", source = "caso.referencia")
     @Mapping(target = "procesoId", source = "caso.proceso.id")
     @Mapping(target = "procesoNombre", source = "caso.proceso.nombre")
+    @Mapping(target = "venceEn", source = "vencimiento.venceEn")
+    @Mapping(target = "venceTick", source = "vencimiento.venceTick")
+    @Mapping(target = "estadoPlazo", source = "vencimiento.estado")
     public abstract TareaResponse toTarea(ActividadCaso tarea);
 
     public abstract List<TareaResponse> toTareas(List<ActividadCaso> tareas);
+
+    public abstract TemporizadorResponse toTemporizador(Temporizador temporizador);
+
+    public abstract List<TemporizadorResponse> toTemporizadores(List<Temporizador> temporizadores);
 
     public abstract EventoCasoResponse toEvento(EventoCaso evento);
 

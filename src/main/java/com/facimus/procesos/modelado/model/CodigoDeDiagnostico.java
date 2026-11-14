@@ -47,7 +47,10 @@ public enum CodigoDeDiagnostico {
     E16(Severidad.ALTA),
     /** PR 55: una tarea sin tipo: en un proceso que corre, nadie sabe quien la hace. */
     E17(Severidad.ALTA),
-    /** PR 55: un evento de temporizador en un proceso que corre: los temporizadores todavia no saltan. */
+    /**
+     * PR 55: un evento de temporizador en un proceso que corre, cuando los temporizadores no saltaban. PR 68: un ciclo
+     * en un temporizador que salta una sola vez (el intermedio y el de borde que interrumpe).
+     */
     E18(Severidad.ALTA),
     /** PR 56: un subproceso en un proceso que corre: el motor no los corre. */
     E19(Severidad.ALTA),
@@ -55,6 +58,10 @@ public enum CodigoDeDiagnostico {
     E20(Severidad.ALTA),
     /** PR 56: procesos que se llaman en circulo. */
     E21(Severidad.ALTA, true),
+    /** PR 69: un formulario mal armado, o en un nodo que no llena una persona. */
+    E22(Severidad.ALTA),
+    /** PR 70: una asignacion que no se puede cumplir, o en una actividad que no es de usuario. */
+    E23(Severidad.ALTA),
 
     /** Un mensaje sin anclar hacia un pool modelado por dentro, sin ningun nodo con ese nombre que lo espere. */
     A01(Severidad.MEDIA),
@@ -88,7 +95,9 @@ public enum CodigoDeDiagnostico {
     /** PR 55: una asociacion con un extremo que ya no esta en el diagrama. */
     A15(Severidad.BAJA, true),
     /** PR 56: una actividad de llamada todavia no corre el proceso que llama: el caso sigue de largo. */
-    A16(Severidad.MEDIA);
+    A16(Severidad.MEDIA),
+    /** PR 70: una tarea asignada a una variable que ningun campo PERSONA de un formulario del diagrama escribe. */
+    A17(Severidad.MEDIA);
 
     private final Severidad severidad;
     private final boolean estructural;

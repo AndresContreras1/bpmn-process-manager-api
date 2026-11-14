@@ -11,19 +11,28 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.facimus.procesos.common.Huella;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.DireccionAsociacion;
 import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoTemporizador;
+import com.facimus.procesos.modelado.model.UnidadDePlazo;
 import com.facimus.procesos.modelado.service.DiagramaArmado;
 
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * La huella es lo que decide si un borrador tiene algo sin publicar y si una publicacion nueva vale la pena. Tiene
@@ -73,6 +82,20 @@ class HuellaDelDiagramaTest {
         conCuando.temporizador(DiagramaArmado.VENTAS, "Wait", TipoEvento.TEMPORIZADOR_INTERMEDIO,
                 TipoTemporizador.DURACION, "PT2H", null);
         assertThat(huella(conCuando.diagrama())).isNotEqualTo(sinCuando);
+    }
+
+    @Test
+    @DisplayName("PR 69: sin formularios la forma canonica es la de antes; un formulario, o un cambio en el, la cambia")
+    void formularios() {
+        DiagramaArmado conUno = DiagramaArmado.demo();
+        conUno.formulario("Receive order", CampoArmado.formulario(CampoArmado.campo("total", TipoDeCampo.NUMERO)));
+        DiagramaArmado conOtro = DiagramaArmado.demo();
+        conOtro.formulario("Receive order", CampoArmado.formulario(CampoArmado.campo("total", TipoDeCampo.NUMERO)
+                .requerido()));
+
+        assertThat(DiagramaCanonico.de(DiagramaArmado.demo().diagrama(), JSON)).doesNotContain("formulario");
+        assertThat(huella(conUno.diagrama())).isNotEqualTo(huella(DiagramaArmado.demo().diagrama()))
+                .isNotEqualTo(huella(conOtro.diagrama()));
     }
 
     @Test
@@ -229,6 +252,47 @@ class HuellaDelDiagramaTest {
                 .isEqualTo(huella(borrador));
     }
 
+    @Test
+    @DisplayName("PR 67: la definicion guardada de una version da otra vez la huella con que se publico")
+    void definicionGuardada_mismaHuella() {
+        InstantaneaDelDiagrama instantanea = new InstantaneaDelDiagrama(null, null, null, JSON);
+        DiagramaArmado completo = DiagramaArmado.demo();
+        completo.modo(ModoProceso.DOCUMENTAL);
+        String nota = completo.artefacto(null, null, "Nota", TipoArtefacto.ANOTACION, "Hello");
+        completo.asociacion(TipoAsociacion.ASOCIACION, nota, "Activity_1", DireccionAsociacion.NINGUNA);
+        completo.temporizador(DiagramaArmado.VENTAS, "Wait", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION, "PT2H", null);
+
+        for (DiagramaResponse diagrama : List.of(DiagramaArmado.demo().diagrama(), completo.diagrama())) {
+            assertThat(instantanea.huellaDe(JSON.writeValueAsString(diagrama))).isEqualTo(huella(diagrama));
+        }
+    }
+
+    @Test
+    @DisplayName("PR 67: una definicion cambiada despues de publicarse ya no da su huella")
+    void definicionCambiada_otraHuella() {
+        InstantaneaDelDiagrama instantanea = new InstantaneaDelDiagrama(null, null, null, JSON);
+        DiagramaResponse diagrama = DiagramaArmado.demo().diagrama();
+        String nombre = diagrama.actividades().getFirst().nombre();
+        String guardada = JSON.writeValueAsString(diagrama);
+
+        assertThat(instantanea.huellaDe(guardada.replace("\"" + nombre + "\"", "\"Otro nombre\"")))
+                .isNotEqualTo(huella(diagrama));
+    }
+
+    @Test
+    @DisplayName("PR 67: una instantanea de antes del PR 55, sin modo, artefactos ni asociaciones, da la de entonces")
+    void instantaneaVieja_suHuella() {
+        InstantaneaDelDiagrama instantanea = new InstantaneaDelDiagrama(null, null, null, JSON);
+        DiagramaResponse diagrama = DiagramaArmado.demo().diagrama();
+        ObjectNode vieja = (ObjectNode) JSON.valueToTree(diagrama);
+        vieja.remove("artefactos");
+        vieja.remove("asociaciones");
+        ((ObjectNode) vieja.get("proceso")).remove("modo");
+
+        assertThat(instantanea.huellaDe(JSON.writeValueAsString(vieja))).isEqualTo(huella(diagrama));
+    }
+
     private static String huella(DiagramaResponse diagrama) {
         return Huella.de(DiagramaCanonico.de(diagrama, JSON));
     }
@@ -265,5 +329,42 @@ class HuellaDelDiagramaTest {
         return new DiagramaResponse(diagrama.proceso(), diagrama.compartido(), diagrama.pools(), diagrama.lanes(),
                 diagrama.actividades(), diagrama.gateways(), diagrama.eventos(), arcos, diagrama.mensajes(),
                 diagrama.correlaciones());
+    }
+
+    @Test
+    @DisplayName("PR 70: sin asignaciones la forma canonica es la de antes; una asignacion, o un cambio en ella, la "
+            + "cambia")
+    void asignaciones() {
+        DiagramaArmado conUna = DiagramaArmado.demo();
+        conUna.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.PERSONA, 5L, null));
+        DiagramaArmado conOtra = DiagramaArmado.demo();
+        conOtra.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.PERSONA, 6L, null));
+
+        assertThat(DiagramaCanonico.de(DiagramaArmado.demo().diagrama(), JSON)).doesNotContain("asignacion");
+        assertThat(huella(conUna.diagrama())).isNotEqualTo(huella(DiagramaArmado.demo().diagrama()))
+                .isNotEqualTo(huella(conOtra.diagrama()));
+    }
+
+    @Test
+    @DisplayName("PR 71: sin plazos ni escalamientos la forma canonica es la de antes; uno, o un cambio en el, la cambia")
+    void plazosYEscalamientos() {
+        DiagramaArmado conPlazo = DiagramaArmado.demo();
+        conPlazo.plazo("Receive order", new PlazoResponse(8, UnidadDePlazo.HORAS));
+        DiagramaArmado conOtroPlazo = DiagramaArmado.demo();
+        conOtroPlazo.plazo("Receive order", new PlazoResponse(8, UnidadDePlazo.DIAS_HABILES));
+        DiagramaArmado conBorde = DiagramaArmado.demo();
+        conBorde.bordeQueNoInterrumpe(DiagramaArmado.VENTAS, "Six hours", TipoTemporizador.DURACION, "PT6H",
+                "Receive order");
+        DiagramaArmado conEscalamiento = DiagramaArmado.demo();
+        conEscalamiento.bordeQueNoInterrumpe(DiagramaArmado.VENTAS, "Six hours", TipoTemporizador.DURACION, "PT6H",
+                "Receive order");
+        conEscalamiento.escalamiento("Six hours", new EscalamientoResponse(AccionDeEscalamiento.AVISAR, null));
+
+        String canonica = DiagramaCanonico.de(DiagramaArmado.demo().diagrama(), JSON);
+        assertThat(canonica).doesNotContain("plazo").doesNotContain("escalamiento");
+        assertThat(DiagramaCanonico.de(conBorde.diagrama(), JSON)).doesNotContain("escalamiento");
+        assertThat(huella(conPlazo.diagrama())).isNotEqualTo(huella(DiagramaArmado.demo().diagrama()))
+                .isNotEqualTo(huella(conOtroPlazo.diagrama()));
+        assertThat(huella(conEscalamiento.diagrama())).isNotEqualTo(huella(conBorde.diagrama()));
     }
 }

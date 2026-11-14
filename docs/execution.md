@@ -62,11 +62,31 @@ evaluates that gateway again. A case can also be cancelled, which switches off i
 declares, the body of every message received. `caso.referencia` and `caso.tick` are always readable and come from
 the case itself.
 
+**Forms.** A user task or a plain start event can ask for its data with a typed form, frozen in the version
+([ADR-0073](adr/0073-typed-forms.md)). Then what a task hands over, or what a case opens with, are the answers to that
+form: the server walks it from the top, drops the fields a condition hides, refuses a key it does not ask for, checks
+each answer against its type and its rules, and answers `400` with an error per field when one fails. What passes lands
+with its type, so `tarea.approveRefund.aprobado == true` compares a boolean and `tarea.approveRefund.monto > 100` a
+number. Without a form, free key-value data is for test cases only: a `PRODUCCION` case refuses it, and its variables
+are corrected with `PATCH /api/v1/casos/{id}/variables`. `GET /api/v1/tareas/{id}/formulario` answers the form with the
+values offered from the case and its conditions already compiled.
+
 **Whose tray.** A task is born with the process role of its lane, and `GET /tareas?rolProcesoId=2` is the tray of
 that role. An administrator can also say which roles each person belongs to, with
-`PUT /usuarios/{id}/roles-proceso` and the whole list, and then `GET /tareas?mias=true` answers only the tasks of
-the caller's roles — someone with no roles gets an empty tray. It is a filter and not a door: completing a task
-still only asks for the access role, so a store that does not want to manage memberships simply never sets any.
+`PUT /usuarios/{id}/roles-proceso` and the whole list, and then `GET /tareas?bandeja=DE_MIS_ROLES` (or `mias=true`)
+answers only the tasks of the caller's roles — someone with no roles gets an empty tray.
+
+**Who holds it.** A user task can also reach a person when it is created: a fixed one, whoever opened the case, or the
+person a case variable names, such as the `PERSONA` field of the start form or of an earlier task
+([ADR-0074](adr/0074-assignment-and-inbox.md)). The rule is frozen in the version. When it cannot tell an active
+administrator or editor, the task waits in the role tray and the timeline says why. From then on only the holder
+completes the task: a member of its role, or an administrator, takes one nobody holds with `POST
+/tareas/{id}/reclamar` (or just by completing it), lets it go with `/soltar`, hands it over with `/reasignar`, or lends
+it for a while with `/delegar`, and each of those leaves its line in the timeline and its event in the audit trail.
+When two people claim the same task at once, the database lets one through and the other gets `409`.
+`GET /tareas?bandeja=MIAS` is what the caller holds, `SIN_ASIGNAR` what nobody holds, and `GET /tareas/carga` how the
+waiting tasks are spread. An administrator can complete someone else's task only when the store turns on
+`administradorCompletaPorOtro`.
 
 ## Messages and the clock
 
@@ -113,6 +133,58 @@ activity that handles the problem, or the order is given up and the case ends `F
 `POST /api/v1/simulacion/tick` moves it. Each due message is delivered in its own transaction with its case locked,
 so twenty orders move one after another rather than all at once. A store can also ask for its clock to run on its
 own, with `modoSimulacion` on `AUTOMATICO`; by default it is `MANUAL`, which is what makes a demo repeatable.
+
+## Time: production and test cases
+
+A case runs in one of two modes ([ADR-0072](adr/0072-business-calendar-and-timers.md)). `PRUEBA`, the one a case
+gets when it does not ask for another, is everything above: the store's ticks and the simulated partners. `PRODUCCION`
+(`{"modo": "PRODUCCION"}` when opening it) counts its timers with the wall clock and the store's business calendar,
+and the simulated partners do not answer it: what it sends waits in the outbox for an integration, and answers come
+in through `mensajes-entrantes`.
+
+```bash
+# The store's calendar: country, zone, working hours and days, and the holidays of a year
+curl -s http://localhost:8080/api/v1/organizacion/calendario -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+curl -s "http://localhost:8080/api/v1/organizacion/calendario/festivos?anio=2026" -b sesion.txt \
+  -H "X-XSRF-TOKEN: $XSRF"
+
+# A production case, and the timers it armed
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/casos -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"referencia":"ORD-1001","modo":"PRODUCCION"}'
+curl -s http://localhost:8080/api/v1/casos/42/temporizadores -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+
+# Try the draft without publishing it: a test case on a version nobody else sees
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/pruebas -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"variables":{"order":{"total":150}}}'
+```
+
+**Timers.** A wait (`TEMPORIZADOR_INTERMEDIO`) keeps its token until its timer fires. A boundary timer is armed when
+its activity starts waiting, a task in a tray or a receive waiting for its message: one that interrupts takes the
+activity out and the case follows the boundary; one that does not opens another path, every time if it is a cycle,
+while the activity keeps waiting. A timer start (`TEMPORIZADOR_INICIO`) opens production cases on its own while its
+version is in force. A timer says when with an ISO 8601 duration (`PT2H`), a business duration (`DURACION_HABIL`,
+`P2D` is two working days), a date, or a cycle (`R3/PT1H`, or a cron like `0 0 9 * * MON-FRI`), within caps the
+diagnosis checks: a hundred years, 366 working days, dates from 1900 to 9999, and a cycle at most once a minute. The
+timeline says when each one was armed, when it is due and when it fired, or why it was not armed.
+
+**When they fire.** Production timers fire from a scheduler that one instance runs every few seconds; each one fires
+in its own transaction, with its case locked, and once, even with two instances or after the API was down. Test timers
+fire with the store's clock: `POST /simulacion/tick` fires those due after delivering its messages, and a tick is one
+hour of a timer (`PT2H` is two ticks). A timer whose case ends, or whose activity stops waiting, is cancelled.
+
+**Deadlines** ([ADR-0075](adr/0075-deadlines-and-escalation.md)). A user task, or the whole case on its start event,
+can have a deadline in wall-clock hours or in business days of the store's calendar. It counts from the moment the task
+starts waiting, or the case opens; the line that creates the task, or opens the case, says when it is due. It is `A_TIEMPO`, then `POR_VENCER` in its last
+quarter, then `VENCIDA`: a scheduler moves production deadlines every minute, and the store's tick moves test ones
+(eight hours are eight ticks). Each change writes a timeline line and notifies, once, whoever holds the task (or the
+members of its role while nobody does) and the process owner; for the case, whoever opened it and the owner. A test
+case notifies nobody: its timeline is where the simulation shows it. A task completed after its deadline stays
+`VENCIDA`, even when no pass of the scheduler came first, which is what the dashboard counts as late. A deadline only tells: to make
+the case act when a task is late, draw a boundary timer.
+
+**Escalation.** A non-interrupting boundary timer can escalate the task it hangs from when it fires: notify its holder
+and a supervisor, or hand the task to the supervisor. The supervisor is a person the event names, or the process
+owner. An interrupting boundary timer takes the task out and the case follows the boundary's path, as before.
 
 ## The simulated partners
 
@@ -178,7 +250,13 @@ fixed a different way, so each one is counted separately. There is no "declined 
 payment was declined is a fact of the business that lives in the diagram, and the engine would have to guess it by
 reading inside the body of a message — while these three it knows for certain, because it wrote them.
 
-**It costs six queries**, whether the store has five orders or five thousand, and a test counts the statements so
+**Compliance with deadlines** is counted per process, per activity and per person, and for whole cases: on time when a
+task with a deadline was completed before it, late when it was completed after it or still waits past it. What still
+waits on time, what was skipped and the test runs of a draft do not count; by person is whoever completed the task, or
+holds it while it waits overdue. It only counts the processes the caller may see: a process a grant hides is neither
+named nor counted.
+
+**It costs ten queries** (eleven for one process, which first checks that it belongs to the store), whether the store has five orders or five thousand, and a test counts the statements so
 it stays that way. A dashboard that grew with the orders would stop being openable exactly on the day it mattered.
 
 For whoever runs the server rather than the store, Actuator publishes four gauges next to the memory and

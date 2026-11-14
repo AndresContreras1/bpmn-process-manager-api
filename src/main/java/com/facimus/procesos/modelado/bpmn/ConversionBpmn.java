@@ -17,6 +17,9 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.formularios.CampoDeFormulario;
+import com.facimus.procesos.common.formularios.EsquemaDelFormulario;
+import com.facimus.procesos.common.formularios.Formulario;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.DatosDelMensaje;
 import com.facimus.procesos.modelado.bpmn.ModeloLeido.Flujo;
@@ -30,6 +33,10 @@ import com.facimus.procesos.modelado.bpmn.PlanBpmn.Lane;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Mensaje;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Nodo;
 import com.facimus.procesos.modelado.bpmn.PlanBpmn.Pool;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.Artefacto;
 import com.facimus.procesos.modelado.model.BpmnId;
@@ -42,6 +49,7 @@ import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoDestino;
 import com.facimus.procesos.modelado.model.TipoEvento;
@@ -454,7 +462,11 @@ public final class ConversionBpmn {
                     deBorde ? Boolean.valueOf(leidoNodo.interrumpe()) : null,
                     conTiempo ? tipoDeTiempo(leidoNodo) : null, conTiempo ? expresion(leidoNodo) : null,
                     leidoNodo.padre() == null ? null : ids.get(leidoNodo.padre()),
-                    actividad == TipoActividad.LLAMADA ? procesoLlamado(leidoNodo) : null);
+                    actividad == TipoActividad.LLAMADA ? procesoLlamado(leidoNodo) : null,
+                    formulario(leidoNodo, actividad == TipoActividad.USUARIO || evento == TipoEvento.INICIO),
+                    asignacion(leidoNodo, actividad == TipoActividad.USUARIO),
+                    plazo(leidoNodo, actividad == TipoActividad.USUARIO || evento != null && evento.empiezaElProceso()),
+                    escalamiento(leidoNodo, evento == TipoEvento.TEMPORIZADOR_BORDE && !leidoNodo.interrumpe()));
             nodos.add(nodo);
             nodoPorId.put(id, nodo);
             poolDelNodo.put(id, pool);
@@ -463,6 +475,118 @@ public final class ConversionBpmn {
                 case GATEWAY -> "gateways";
                 case EVENTO -> "eventos";
             });
+        }
+
+        /**
+         * PR 71: el plazo de una tarea de usuario o del caso, en un inicio. Uno que no se entiende, o en otro nodo, se
+         * deja fuera con su nota: un plazo sin unidad o fuera de su tope no se puede contar.
+         */
+        private PlazoResponse plazo(ModeloLeido.Nodo nodo, boolean loLleva) {
+            PlazoResponse plazo = nodo.plazo();
+            if (plazo == null) {
+                return null;
+            }
+            if (!loLleva) {
+                notas.convertido(nodo.id(), "Trae un plazo, pero solo lo llevan las tareas de usuario y los eventos de "
+                        + "inicio: se deja fuera.");
+                return null;
+            }
+            if (plazo.unidad() == null) {
+                notas.convertido(nodo.id(), "El plazo no dice una unidad que exista (HORAS o DIAS_HABILES) con una "
+                        + "cantidad dentro de su tope: se deja fuera.");
+                return null;
+            }
+            return plazo;
+        }
+
+        /**
+         * PR 71: lo que escala un temporizador de borde que no interrumpe. En otro evento, o sin una accion que exista,
+         * se deja fuera con su nota: el borde solo abre su camino, como antes.
+         */
+        private EscalamientoResponse escalamiento(ModeloLeido.Nodo nodo, boolean loLleva) {
+            EscalamientoResponse escalamiento = nodo.escalamiento();
+            if (escalamiento == null) {
+                return null;
+            }
+            if (!loLleva) {
+                notas.convertido(nodo.id(), "Trae un escalamiento, pero solo lo lleva un temporizador de borde que no "
+                        + "interrumpe: se deja fuera.");
+                return null;
+            }
+            if (escalamiento.accion() == null) {
+                notas.convertido(nodo.id(), "El escalamiento no dice una accion que exista (AVISAR o REASIGNAR): el "
+                        + "borde solo abre su camino.");
+                return null;
+            }
+            return escalamiento;
+        }
+
+        /**
+         * PR 70: a quien le llega la tarea, si es de usuario. Un tipo que no existe no se puede cumplir y se deja
+         * fuera, y la de la bandeja del rol es la de siempre; lo demas pasa como viene, y lo que no se pueda cumplir lo
+         * dice el diagnostico (E-23) antes de publicar, no la importacion.
+         */
+        private AsignacionResponse asignacion(ModeloLeido.Nodo nodo, boolean esperaAUnaPersona) {
+            AsignacionResponse asignacion = nodo.asignacion();
+            if (asignacion == null) {
+                return null;
+            }
+            if (!esperaAUnaPersona) {
+                notas.convertido(nodo.id(), "Trae una asignacion, pero solo se asignan las tareas de "
+                        + "usuario: se deja fuera.");
+                return null;
+            }
+            if (asignacion.tipo() == null) {
+                notas.convertido(nodo.id(), "La asignacion no tiene un tipo que exista: la tarea espera en la bandeja "
+                        + "de su rol.");
+                return null;
+            }
+            return switch (asignacion.tipo()) {
+                case ROL -> null;
+                case INICIADOR -> new AsignacionResponse(TipoAsignacion.INICIADOR, null, null);
+                case PERSONA -> asignacion.usuarioId() == null ? sinCumplir(nodo, "no dice a que persona")
+                        : new AsignacionResponse(TipoAsignacion.PERSONA, asignacion.usuarioId(), null);
+                case CAMPO -> asignacion.campo() == null || asignacion.campo().isEmpty()
+                        || asignacion.campo().length() > TipoAsignacion.LARGO_DEL_CAMPO
+                                ? sinCumplir(nodo, "no dice la variable del caso, o la que dice es demasiado larga")
+                                : new AsignacionResponse(TipoAsignacion.CAMPO, null, asignacion.campo());
+            };
+        }
+
+        private AsignacionResponse sinCumplir(ModeloLeido.Nodo nodo, String porQue) {
+            notas.convertido(nodo.id(), "La asignacion " + porQue + ": la tarea espera en la bandeja de su rol.");
+            return null;
+        }
+
+        /**
+         * PR 69: el formulario que trae el nodo, si es de los que llena una persona. Un campo sin un tipo que exista no
+         * se puede llenar, y se deja fuera; lo demas pasa como viene, y lo que este mal armado lo dice el diagnostico
+         * (E-22) antes de publicar, no la importacion.
+         */
+        private Formulario formulario(ModeloLeido.Nodo nodo, boolean loLlenaUnaPersona) {
+            if (nodo.formulario() == null) {
+                return null;
+            }
+            if (!loLlenaUnaPersona) {
+                notas.convertido(nodo.id(), "Trae un formulario, pero solo lo llevan las tareas de usuario y los "
+                        + "inicios simples: se deja fuera.");
+                return null;
+            }
+            nodo.limitesIlegibles().forEach(ilegible -> notas.convertido(nodo.id(), ilegible));
+            List<CampoDeFormulario> campos = new ArrayList<>();
+            for (CampoDeFormulario campo : nodo.formulario().campos()) {
+                if (campo.tipo() == null) {
+                    notas.convertido(nodo.id(), "El campo \"" + campo.nombre() + "\" del formulario no tiene un tipo "
+                            + "que exista: se deja fuera.");
+                } else if (campos.size() == EsquemaDelFormulario.TOPE_DE_CAMPOS) {
+                    notas.convertido(nodo.id(), "El formulario trae mas de " + EsquemaDelFormulario.TOPE_DE_CAMPOS
+                            + " campos: se quedan los primeros.");
+                    break;
+                } else {
+                    campos.add(campo);
+                }
+            }
+            return Formulario.siTieneCampos(new Formulario(campos)).orElse(null);
         }
 
         private TipoActividad tipoDeTarea(String elemento, String id) {
@@ -585,6 +709,7 @@ public final class ConversionBpmn {
             return switch (nodo.tipoTemporizador()) {
                 case "timeDate" -> TipoTemporizador.FECHA;
                 case "timeCycle" -> TipoTemporizador.CICLO;
+                case ModeloLeido.Nodo.DURACION_HABIL -> TipoTemporizador.DURACION_HABIL;
                 default -> TipoTemporizador.DURACION;
             };
         }
@@ -625,14 +750,32 @@ public final class ConversionBpmn {
                             + "modelo: se deja fuera.");
                     continue;
                 }
+                // PR 71: el borde se pega con lo que escala, que es suyo
                 Nodo pegado = new Nodo(borde.bpmnId(), actividad.lane(), borde.clase(), null, null, borde.tipoEvento(),
                         borde.nombre(), borde.descripcion(), 0, 0, actividad.bpmnId(), borde.interrumpe(),
-                        borde.tipoTemporizador(), borde.temporizador(), actividad.padre(), null);
+                        borde.tipoTemporizador(), borde.temporizador(), actividad.padre(), null, null, null, null,
+                        escalamientoAlPegarse(borde, actividad, originales));
                 pegados.add(pegado);
                 nodoPorId.put(pegado.bpmnId(), pegado);
             }
             nodos.clear();
             nodos.addAll(pegados);
+        }
+
+        /**
+         * PR 71: lo que escala un borde, ya sabiendo a que va pegado. Solo se le pasa a otra persona una tarea de
+         * usuario, como lo pide la API: pegado a otra actividad, reasignar queda en avisar al mismo supervisor, con su
+         * nota.
+         */
+        private EscalamientoResponse escalamientoAlPegarse(Nodo borde, Nodo actividad, Map<String, String> originales) {
+            EscalamientoResponse escalamiento = borde.escalamiento();
+            if (escalamiento == null || escalamiento.accion() != AccionDeEscalamiento.REASIGNAR
+                    || actividad.tipoActividad() == TipoActividad.USUARIO) {
+                return escalamiento;
+            }
+            notas.convertido(originales.getOrDefault(borde.bpmnId(), borde.bpmnId()), "Reasigna su tarea, pero va "
+                    + "pegado a una actividad que no es de usuario: avisa al supervisor en vez de pasarsela.");
+            return new EscalamientoResponse(AccionDeEscalamiento.AVISAR, escalamiento.usuarioId());
         }
 
         /** El id en el archivo de cada elemento que se quedo. */

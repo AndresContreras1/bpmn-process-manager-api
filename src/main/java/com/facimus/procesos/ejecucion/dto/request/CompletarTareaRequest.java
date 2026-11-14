@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "What the person who completes the task hands over")
 public record CompletarTareaRequest(
-        @Schema(description = "Free key-value data; it lands in the case variables under tarea.<taskNameInCamel>",
+        @Schema(description = "The answers to the task's form, by field name; free key-value data only in PRUEBA "
+                + "mode when the task has no form. It lands in the case variables under tarea.<taskNameInCamel>",
                 example = "{\"packedItems\": 3}") Map<String, Object> datos) {
 }

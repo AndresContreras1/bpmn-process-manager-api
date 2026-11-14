@@ -1,6 +1,9 @@
 /**
  * El espacio {@code bpm:} para bpmn-js: lo que BPMN no tiene y el producto guarda (tipo y orden del participante, rol
- * de la lane, datos del mensaje). Es el mismo que declara {@code bpmn/xsd/bpm.xsd} en la API.
+ * de la lane, datos del mensaje, desde el PR 69 el formulario de una tarea o de un inicio, desde el PR 70 a quien le
+ * llega una tarea y, desde el PR 71, el plazo de una tarea o de un caso y lo que escala un temporizador de borde). Es
+ * el mismo que declara {@code bpmn/xsd/bpm.xsd} en la API. Un tipo que no estuviera aqui se perderia al guardar desde
+ * el editor: bpmn-js descarta lo que no reconoce de un espacio que conoce.
  */
 export const BPM_MODDLE = {
   name: 'BPM',
@@ -51,6 +54,65 @@ export const BPM_MODDLE = {
       properties: [
         { name: 'nombre', isAttr: true, type: 'String' },
         { name: 'tipo', isAttr: true, type: 'String' },
+      ],
+    },
+    {
+      name: 'Formulario',
+      superClass: ['Element'],
+      properties: [{ name: 'campos', type: 'CampoFormulario', isMany: true }],
+    },
+    {
+      name: 'Asignacion',
+      superClass: ['Element'],
+      properties: [
+        { name: 'tipo', isAttr: true, type: 'String' },
+        { name: 'usuario', isAttr: true, type: 'String' },
+        { name: 'campo', isAttr: true, type: 'String' },
+      ],
+    },
+    {
+      name: 'Plazo',
+      superClass: ['Element'],
+      properties: [
+        { name: 'cantidad', isAttr: true, type: 'Integer' },
+        { name: 'unidad', isAttr: true, type: 'String' },
+      ],
+    },
+    {
+      name: 'Escalamiento',
+      superClass: ['Element'],
+      properties: [
+        { name: 'accion', isAttr: true, type: 'String' },
+        { name: 'usuario', isAttr: true, type: 'String' },
+      ],
+    },
+    {
+      name: 'CampoFormulario',
+      properties: [
+        { name: 'nombre', isAttr: true, type: 'String' },
+        { name: 'etiqueta', isAttr: true, type: 'String' },
+        { name: 'tipo', isAttr: true, type: 'String' },
+        { name: 'ayuda', isAttr: true, type: 'String' },
+        { name: 'requerido', isAttr: true, type: 'Boolean' },
+        { name: 'minimo', isAttr: true, type: 'String' },
+        { name: 'maximo', isAttr: true, type: 'String' },
+        { name: 'largoMinimo', isAttr: true, type: 'Integer' },
+        { name: 'largoMaximo', isAttr: true, type: 'Integer' },
+        { name: 'patron', isAttr: true, type: 'String' },
+        { name: 'desde', isAttr: true, type: 'String' },
+        { name: 'hasta', isAttr: true, type: 'String' },
+        { name: 'moneda', isAttr: true, type: 'String' },
+        { name: 'porDefecto', isAttr: true, type: 'String' },
+        { name: 'visibleSi', isAttr: true, type: 'String' },
+        { name: 'requeridoSi', isAttr: true, type: 'String' },
+        { name: 'opciones', type: 'Opcion', isMany: true },
+      ],
+    },
+    {
+      name: 'Opcion',
+      properties: [
+        { name: 'valor', isAttr: true, type: 'String' },
+        { name: 'etiqueta', isAttr: true, type: 'String' },
       ],
     },
     {

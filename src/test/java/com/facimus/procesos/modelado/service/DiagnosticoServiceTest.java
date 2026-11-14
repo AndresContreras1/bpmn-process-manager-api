@@ -5,6 +5,7 @@ import static com.facimus.procesos.modelado.service.DiagramaArmado.TIENDA;
 import static com.facimus.procesos.modelado.service.DiagramaArmado.VENTAS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -19,8 +20,11 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.ReglaNegocioException;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagnosticoResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
 import com.facimus.procesos.modelado.dto.response.HallazgoDiagnosticoResponse;
@@ -31,6 +35,7 @@ import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.Severidad;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoArtefacto;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
@@ -535,13 +540,33 @@ class DiagnosticoServiceTest {
     }
 
     @Test
-    @DisplayName("E-18: un temporizador valido tampoco corre todavia en un proceso ejecutable")
-    void e18_temporizadorNoCorre() {
+    @DisplayName("E-18: un ciclo en una espera o en un borde que interrumpe, que solo pueden saltar una vez")
+    void e18_cicloQueSaltaUnaVez() {
         DiagramaArmado armado = DiagramaArmado.demo();
         Long espera = armado.temporizador(DiagramaArmado.VENTAS, "Espera", TipoEvento.TEMPORIZADOR_INTERMEDIO,
-                TipoTemporizador.DURACION, "PT2H", null);
+                TipoTemporizador.CICLO, "R3/PT1H", null);
+        Long interrumpe = armado.temporizador(DiagramaArmado.VENTAS, "Corta", TipoEvento.TEMPORIZADOR_BORDE,
+                TipoTemporizador.CICLO, "R3/PT1H", "Receive order");
+        armado.bordeQueNoInterrumpe(DiagramaArmado.VENTAS, "Avisa", TipoTemporizador.CICLO, "R3/PT1H",
+                "Receive order");
+        armado.temporizador(DiagramaArmado.VENTAS, "Cada lunes", TipoEvento.TEMPORIZADOR_INICIO,
+                TipoTemporizador.CICLO, "0 0 9 * * MON", null);
+        armado.temporizador(DiagramaArmado.VENTAS, "Dos dias", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION_HABIL, "P2D", null);
 
-        assertThat(codigos(diagnosticar(armado), "E-18")).containsExactly(espera);
+        assertThat(codigos(diagnosticar(armado), "E-18")).containsExactlyInAnyOrder(espera, interrumpe);
+    }
+
+    @Test
+    @DisplayName("E-16: una duracion habil cuenta dias y horas; un mes habil no se entiende")
+    void e16_duracionHabil() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        Long mes = armado.temporizador(DiagramaArmado.VENTAS, "Un mes", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION_HABIL, "P1M", null);
+        armado.temporizador(DiagramaArmado.VENTAS, "Dos dias", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION_HABIL, "P2DT4H", null);
+
+        assertThat(codigos(diagnosticar(armado), "E-16")).containsExactly(mes);
     }
 
     @Test
@@ -717,5 +742,172 @@ class DiagnosticoServiceTest {
 
     private List<Long> sobreQueElementos(DiagramaArmado armado, String codigo) {
         return hallazgos(armado, codigo).stream().map(HallazgoDiagnosticoResponse::elementoId).toList();
+    }
+
+    @Test
+    @DisplayName("E-22: un formulario mal armado, con la propiedad y su problema; uno bien armado no dice nada")
+    void e22_formularioMalArmado() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.formulario("Pick and pack items", CampoArmado.formulario(
+                CampoArmado.campo("cajas", TipoDeCampo.NUMERO).minimo("1").requerido()));
+        armado.formulario("Receive order", CampoArmado.formulario(
+                CampoArmado.campo("total", TipoDeCampo.NUMERO).minimo("10").maximo("1"),
+                CampoArmado.campo("nota", TipoDeCampo.TEXTO).visibleSi("total >")));
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado);
+
+        assertThat(codigos(diagnostico, "E-22")).containsExactly(armado.id("Receive order"),
+                armado.id("Receive order"));
+        assertThat(diagnostico.hallazgos()).filteredOn(hallazgo -> hallazgo.codigo().equals("E-22"))
+                .extracting(HallazgoDiagnosticoResponse::problema)
+                .containsExactlyInAnyOrder(
+                        "El formulario no esta bien armado: campos[0].minimo: El minimo no puede ser mayor que el "
+                                + "maximo.",
+                        "El formulario no esta bien armado: campos[1].visibleSi: Falta con que comparar \"total\".");
+        assertThat(diagnostico.hallazgos()).filteredOn(hallazgo -> hallazgo.codigo().equals("E-22"))
+                .allSatisfy(hallazgo -> {
+                    assertThat(hallazgo.elemento()).isEqualTo("Actividad \"Receive order\"");
+                    assertThat(hallazgo.severidad()).isEqualTo(Severidad.ALTA);
+                });
+    }
+
+    @Test
+    @DisplayName("E-22: un formulario en un nodo que no llena una persona")
+    void e22_formularioDondeNadieLoLlena() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.formulario("Cancel order", CampoArmado.formulario(CampoArmado.campo("motivo", TipoDeCampo.TEXTO)));
+        armado.formulario("Order received", CampoArmado.formulario(CampoArmado.campo("pedido", TipoDeCampo.TEXTO)));
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado);
+
+        assertThat(codigos(diagnostico, "E-22")).containsExactlyInAnyOrder(armado.id("Cancel order"),
+                armado.id("Order received"));
+        assertThat(diagnostico.hallazgos()).filteredOn(hallazgo -> hallazgo.codigo().equals("E-22"))
+                .extracting(HallazgoDiagnosticoResponse::elemento)
+                .containsExactlyInAnyOrder("Actividad \"Cancel order\"", "Evento \"Order received\"");
+    }
+
+    @Test
+    @DisplayName("E-22: un inicio simple si lleva formulario")
+    void e22_inicioSimple() {
+        DiagramaArmado armado = DiagramaArmado.reciennacido();
+        armado.lane(TIENDA, VENTAS);
+        armado.evento(VENTAS, "Start", TipoEvento.INICIO);
+        armado.actividad(VENTAS, "Work", TipoActividad.USUARIO);
+        armado.evento(VENTAS, "End", TipoEvento.FIN);
+        armado.arco("Start", "Work");
+        armado.arco("Work", "End");
+        armado.formulario("Start", CampoArmado.formulario(CampoArmado.campo("pedido", TipoDeCampo.TEXTO)));
+
+        assertThat(codigos(diagnosticar(armado), "E-22")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("E-22 no cuenta en un proceso documental, que no corre")
+    void e22_documental() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.modo(ModoProceso.DOCUMENTAL);
+        armado.formulario("Cancel order", CampoArmado.formulario(CampoArmado.campo("motivo", TipoDeCampo.TEXTO)));
+
+        assertThat(codigos(diagnosticar(armado), "E-22")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("E-23: una asignacion en una actividad que no espera a nadie, o a una persona fija sin persona")
+    void e23_asignacionQueNoSeCumple() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.asignacion("Cancel order", new AsignacionResponse(TipoAsignacion.INICIADOR, null, null));
+        armado.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.PERSONA, null, null));
+        armado.asignacion("Pick and pack items", new AsignacionResponse(TipoAsignacion.PERSONA, 5L, null));
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado);
+
+        assertThat(diagnostico.hallazgos()).filteredOn(hallazgo -> hallazgo.codigo().equals("E-23"))
+                .extracting(HallazgoDiagnosticoResponse::elementoId, HallazgoDiagnosticoResponse::elemento,
+                        HallazgoDiagnosticoResponse::problema)
+                .containsExactlyInAnyOrder(
+                        tuple(armado.id("Cancel order"), "Actividad \"Cancel order\"",
+                                "Tiene asignacion, pero no espera a nadie: solo se asignan las tareas de usuario."),
+                        tuple(armado.id("Receive order"), "Actividad \"Receive order\"",
+                                "Esta asignada a una persona fija, pero no dice a quien."));
+        assertThat(diagnostico.hallazgos()).filteredOn(hallazgo -> hallazgo.codigo().equals("E-23"))
+                .allSatisfy(hallazgo -> assertThat(hallazgo.severidad()).isEqualTo(Severidad.ALTA));
+    }
+
+    @Test
+    @DisplayName("E-23: una variable mal escrita; A-17: una bien escrita que ningun campo PERSONA escribe")
+    void e23YA17_laVariable() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.CAMPO, null, "tarea..aprobador"));
+        armado.asignacion("Pick and pack items", new AsignacionResponse(TipoAsignacion.CAMPO, null, "aprobador"));
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado);
+
+        assertThat(codigos(diagnostico, "E-23")).containsExactly(armado.id("Receive order"));
+        assertThat(codigos(diagnostico, "A-17")).containsExactly(armado.id("Pick and pack items"));
+        assertThat(diagnostico.hallazgos()).filteredOn(hallazgo -> hallazgo.codigo().equals("A-17"))
+                .singleElement().satisfies(hallazgo -> {
+                    assertThat(hallazgo.severidad()).isEqualTo(Severidad.MEDIA);
+                    assertThat(hallazgo.problema()).startsWith("Esta asignada a la persona de \"aprobador\"");
+                });
+    }
+
+    @Test
+    @DisplayName("A-17 calla cuando un campo PERSONA del inicio o de una tarea escribe esa variable")
+    void a17_campoQueLaEscribe() {
+        DiagramaArmado armado = DiagramaArmado.reciennacido();
+        armado.lane(TIENDA, VENTAS);
+        armado.evento(VENTAS, "Start", TipoEvento.INICIO);
+        armado.actividad(VENTAS, "Review order", TipoActividad.USUARIO);
+        armado.actividad(VENTAS, "Approve", TipoActividad.USUARIO);
+        armado.actividad(VENTAS, "Pay", TipoActividad.USUARIO);
+        armado.actividad(VENTAS, "Ship", TipoActividad.USUARIO);
+        armado.evento(VENTAS, "End", TipoEvento.FIN);
+        armado.arco("Start", "Review order");
+        armado.arco("Review order", "Approve");
+        armado.arco("Approve", "Pay");
+        armado.arco("Pay", "Ship");
+        armado.arco("Ship", "End");
+        armado.formulario("Start", CampoArmado.formulario(CampoArmado.campo("solicitante", TipoDeCampo.PERSONA),
+                CampoArmado.campo("nota", TipoDeCampo.TEXTO)));
+        armado.formulario("Review order", CampoArmado.formulario(CampoArmado.campo("aprobador", TipoDeCampo.PERSONA),
+                CampoArmado.campo("monto", TipoDeCampo.NUMERO)));
+        armado.asignacion("Approve", new AsignacionResponse(TipoAsignacion.CAMPO, null, "tarea.reviewOrder.aprobador"));
+        armado.asignacion("Pay", new AsignacionResponse(TipoAsignacion.CAMPO, null, "solicitante"));
+        armado.asignacion("Ship", new AsignacionResponse(TipoAsignacion.CAMPO, null, "tarea.reviewOrder.monto"));
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado);
+
+        assertThat(codigos(diagnostico, "A-17")).containsExactly(armado.id("Ship"));
+        assertThat(codigos(diagnostico, "E-23")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("A-17 no cuenta los campos PERSONA de un inicio que no es simple")
+    void a17_soloElInicioSimple() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.formulario("Order received", CampoArmado.formulario(CampoArmado.campo("aprobador",
+                TipoDeCampo.PERSONA)));
+        armado.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.CAMPO, null, "aprobador"));
+
+        assertThat(codigos(diagnosticar(armado), "A-17")).containsExactly(armado.id("Receive order"));
+    }
+
+    @Test
+    @DisplayName("E-23 y A-17 no dicen nada de las bien armadas, del rol ni de un proceso documental")
+    void e23_sinHallazgos() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.asignacion("Receive order", new AsignacionResponse(TipoAsignacion.INICIADOR, null, null));
+        armado.asignacion("Pick and pack items", new AsignacionResponse(TipoAsignacion.PERSONA, 5L, null));
+        armado.asignacion("Ship order", new AsignacionResponse(TipoAsignacion.ROL, null, null));
+        armado.asignacion("Cancel order", new AsignacionResponse(null, null, null));
+
+        DiagnosticoResponse diagnostico = diagnosticar(armado);
+        assertThat(codigos(diagnostico, "E-23")).isEmpty();
+        assertThat(codigos(diagnostico, "A-17")).isEmpty();
+
+        armado.asignacion("Pick and pack items", new AsignacionResponse(TipoAsignacion.PERSONA, null, null));
+        armado.modo(ModoProceso.DOCUMENTAL);
+        assertThat(codigos(diagnosticar(armado), "E-23")).isEmpty();
     }
 }

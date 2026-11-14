@@ -22,7 +22,9 @@ import com.facimus.procesos.ejecucion.repository.MensajeEntranteRepository;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
 import com.facimus.procesos.ejecucion.service.DatosDelEntrante;
 import com.facimus.procesos.ejecucion.service.MensajeriaService;
+import com.facimus.procesos.ejecucion.service.PlazoService;
 import com.facimus.procesos.ejecucion.service.SimulacionService;
+import com.facimus.procesos.ejecucion.service.TemporizadorService;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.VersionService;
 
@@ -56,6 +58,8 @@ public class SimulacionServiceImpl implements SimulacionService {
     private final ParametrosDeLaTienda parametros;
     private final EntregaDeMensajes entrega;
     private final RelojDeLaTienda reloj;
+    private final TemporizadorService temporizadorService;
+    private final PlazoService plazoService;
 
     @Override
     public PanelDeSimulacionResponse panel(Long empresaId) {
@@ -77,6 +81,10 @@ public class SimulacionServiceImpl implements SimulacionService {
         for (Long saliente : entrega.vencidos(empresaId, ahora)) {
             entrega.entregar(empresaId, saliente, ahora);
         }
+        // PR 68: despues de los mensajes, los temporizadores de prueba: si la respuesta llego en este tick, gana ella
+        temporizadorService.dispararEnTick(empresaId, ahora);
+        // PR 71: y despues los plazos, que ya ven lo que los temporizadores movieron
+        plazoService.revisarEnTick(empresaId, ahora);
         return contarLoQueHay(empresaId);
     }
 

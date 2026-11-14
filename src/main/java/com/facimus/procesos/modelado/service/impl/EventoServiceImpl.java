@@ -11,10 +11,12 @@ import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.mapper.EventoMapper;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.NodoFlujo;
+import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.EventoRepository;
@@ -89,24 +91,18 @@ public class EventoServiceImpl implements EventoService {
             Long laneId, int posX, int posY, Long version, DatosDeTemporizador temporizador) {
         Evento evento = buscar(empresaId, eventoId);
         evento.verificarVersion(version);
+        verificarLoQueLleva(evento, tipoEvento, temporizador);
         Long procesoId = evento.getLane().getPool().getProceso().getId();
         if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
                 empresaId, eventoId)) {
             throw new ReglaNegocioException("Ya existe un nodo con el nombre \"" + nombre + "\" en este proceso.");
         }
-        // El tipo nuevo tiene que caber en los arcos que el evento ya tiene: no se cambia primero y se rompe despues.
-        if ((tipoEvento.empiezaElProceso() || tipoEvento.esDeBorde())
-                && !arcoRepository.findAllByDestinoIdAndEmpresaId(eventoId, empresaId).isEmpty()) {
-            throw new ReglaNegocioException(ReglasDeEventos.SIN_ENTRANTES);
-        }
-        if (tipoEvento.terminaElProceso() && !arcoRepository.findAllByOrigenIdAndEmpresaId(eventoId, empresaId)
-                .isEmpty()) {
-            throw new ReglaNegocioException(ReglasDeEventos.SIN_SALIENTES);
-        }
+        verificarArcos(empresaId, eventoId, tipoEvento);
         // Se consulta antes de tocar la entidad: una consulta despues la escribiria y gastaria una version de mas
         Lane destino = ReglasDeNodos.mudanza(empresaId, evento, laneId, laneRepository, arcoRepository,
                 mensajeRepository);
         NodoFlujo adjuntoA = adjuntoA(empresaId, tipoEvento, temporizador, destino);
+        verificarReasignable(evento, adjuntoA);
         evento.setLane(adjuntoA != null ? adjuntoA.getLane() : destino);
         evento.setNombre(nombre);
         evento.setTipoEvento(tipoEvento);
@@ -116,6 +112,46 @@ public class EventoServiceImpl implements EventoService {
         historialCambioService.registrar(empresaId, usuarioId, evento.getLane().getPool().getProceso(),
                 "Evento \"" + nombre + "\" editado.");
         return eventoMapper.toResponse(eventoRepository.saveAndFlush(evento));
+    }
+
+    /** Lo que el evento ya lleva tiene que seguir cabiendo en el tipo nuevo. */
+    private static void verificarLoQueLleva(Evento evento, TipoEvento tipoEvento, DatosDeTemporizador temporizador) {
+        if (evento.getFormulario() != null && tipoEvento != TipoEvento.INICIO) {
+            // PR 69: el formulario es de quien abre el caso a mano; un inicio de mensaje o de temporizador se abre solo
+            throw new ReglaNegocioException("El evento tiene formulario, y solo un inicio simple lo lleva: quítalo "
+                    + "antes de cambiarle el tipo.");
+        }
+        if (evento.getPlazoUnidad() != null && !tipoEvento.empiezaElProceso()) {
+            // PR 71: el plazo del caso cuenta desde que el caso empieza, y solo un inicio lo empieza
+            throw new ReglaNegocioException("El evento tiene el plazo del caso, y solo un inicio lo lleva: quítalo "
+                    + "antes de cambiarle el tipo.");
+        }
+        if (evento.getEscalamiento() != null && (!tipoEvento.esDeBorde() || interrumpe(temporizador))) {
+            // PR 71: solo escala un borde que deja seguir a su tarea
+            throw new ReglaNegocioException("El evento escala su tarea, y solo lo hace un temporizador de borde que "
+                    + "no interrumpe: quita el escalamiento antes de cambiarlo.");
+        }
+    }
+
+    /** El tipo nuevo tiene que caber en los arcos que el evento ya tiene: no se cambia primero y se rompe despues. */
+    private void verificarArcos(Long empresaId, Long eventoId, TipoEvento tipoEvento) {
+        if ((tipoEvento.empiezaElProceso() || tipoEvento.esDeBorde())
+                && !arcoRepository.findAllByDestinoIdAndEmpresaId(eventoId, empresaId).isEmpty()) {
+            throw new ReglaNegocioException(ReglasDeEventos.SIN_ENTRANTES);
+        }
+        if (tipoEvento.terminaElProceso() && !arcoRepository.findAllByOrigenIdAndEmpresaId(eventoId, empresaId)
+                .isEmpty()) {
+            throw new ReglaNegocioException(ReglasDeEventos.SIN_SALIENTES);
+        }
+    }
+
+    /** PR 71: solo se le pasa al supervisor una tarea de usuario, como lo pide el escalamiento al guardarse. */
+    private static void verificarReasignable(Evento evento, NodoFlujo adjuntoA) {
+        if (evento.getEscalamiento() == AccionDeEscalamiento.REASIGNAR && !(adjuntoA instanceof Actividad actividad
+                && actividad.getTipoActividad() == TipoActividad.USUARIO)) {
+            throw new ReglaNegocioException("El evento reasigna su tarea, y solo se reasigna una de usuario: cámbialo "
+                    + "a avisar antes de pegarlo a otra actividad.");
+        }
     }
 
     /**
@@ -153,8 +189,12 @@ public class EventoServiceImpl implements EventoService {
         evento.setTemporizador(esTemporizador && temporizador.expresion() != null
                 ? temporizador.expresion().strip() : null);
         evento.setAdjuntoA(adjuntoA);
-        evento.setInterrumpe(tipoEvento.esDeBorde()
-                ? Boolean.valueOf(temporizador == null || !Boolean.FALSE.equals(temporizador.interrumpe())) : null);
+        evento.setInterrumpe(tipoEvento.esDeBorde() ? Boolean.valueOf(interrumpe(temporizador)) : null);
+    }
+
+    /** Un borde interrumpe salvo que se diga lo contrario. */
+    private static boolean interrumpe(DatosDeTemporizador temporizador) {
+        return temporizador == null || !Boolean.FALSE.equals(temporizador.interrumpe());
     }
 
     @Override

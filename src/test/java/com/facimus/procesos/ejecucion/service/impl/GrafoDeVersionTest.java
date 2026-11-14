@@ -9,17 +9,27 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.facimus.procesos.common.condiciones.Condicion;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.Formulario;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
+import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoDeDato;
 import com.facimus.procesos.modelado.model.TipoDestino;
-import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 import com.facimus.procesos.modelado.model.TipoParticipante;
+import com.facimus.procesos.modelado.model.TipoTemporizador;
+import com.facimus.procesos.modelado.model.UnidadDePlazo;
 import com.facimus.procesos.modelado.service.DiagramaArmado;
 
 /**
@@ -378,5 +388,83 @@ class GrafoDeVersionTest {
         armado.lane(TIENDA, VENTAS, 1L);
         armado.evento(VENTAS, "Start", TipoEvento.INICIO);
         return armado;
+    }
+
+    @Test
+    @DisplayName("PR 69: el grafo da el formulario de las tareas de usuario y del inicio simple de la tienda, y de nada mas")
+    void formularios() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.evento(VENTAS, "Started by hand", TipoEvento.INICIO);
+        armado.lane("Carrier", "Dispatch");
+        armado.dejaDeSerCajaNegra("Carrier");
+        armado.actividad("Dispatch", "Their own task", TipoActividad.USUARIO);
+        Formulario uno = CampoArmado.formulario(CampoArmado.campo("cajas", TipoDeCampo.NUMERO));
+        for (String nodo : new String[] {"Pick and pack items", "Started by hand", "Cancel order", "Order received",
+            "Their own task"}) {
+            armado.formulario(nodo, uno);
+        }
+
+        GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
+
+        assertThat(grafo.formularioDe(armado.id("Pick and pack items"))).hasValueSatisfying(
+                formulario -> assertThat(formulario.formulario()).isEqualTo(uno));
+        assertThat(grafo.formularioDe(armado.id("Started by hand"))).isPresent();
+        assertThat(grafo.formularioDe(armado.id("Receive order"))).isEmpty();
+        assertThat(grafo.formularioDe(armado.id("Cancel order"))).isEmpty();
+        assertThat(grafo.formularioDe(armado.id("Order received"))).isEmpty();
+        assertThat(grafo.formularioDe(armado.id("Their own task"))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("PR 70: el grafo da la asignacion de las tareas de usuario de la tienda, y de nada mas")
+    void asignaciones() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.lane("Carrier", "Dispatch");
+        armado.dejaDeSerCajaNegra("Carrier");
+        armado.actividad("Dispatch", "Their own task", TipoActividad.USUARIO);
+        AsignacionResponse alIniciador = new AsignacionResponse(TipoAsignacion.INICIADOR, null, null);
+        for (String nodo : new String[] {"Pick and pack items", "Cancel order", "Their own task"}) {
+            armado.asignacion(nodo, alIniciador);
+        }
+
+        GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
+
+        assertThat(grafo.asignacionDe(armado.id("Pick and pack items"))).contains(alIniciador);
+        assertThat(grafo.asignacionDe(armado.id("Receive order"))).isEmpty();
+        assertThat(grafo.asignacionDe(armado.id("Cancel order"))).isEmpty();
+        assertThat(grafo.asignacionDe(armado.id("Their own task"))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("PR 71: el grafo da el plazo de las tareas de usuario y de los inicios, y lo que escala un borde que "
+            + "no interrumpe; nada mas")
+    void plazosYEscalamientos() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.lane("Carrier", "Dispatch");
+        armado.dejaDeSerCajaNegra("Carrier");
+        armado.actividad("Dispatch", "Their own task", TipoActividad.USUARIO);
+        armado.bordeQueNoInterrumpe(VENTAS, "Six hours", TipoTemporizador.DURACION, "PT6H", "Receive order");
+        armado.temporizador(VENTAS, "One day", TipoEvento.TEMPORIZADOR_BORDE, TipoTemporizador.DURACION, "P1D",
+                "Receive order");
+        PlazoResponse ochoHoras = new PlazoResponse(8, UnidadDePlazo.HORAS);
+        for (String nodo : new String[] {"Pick and pack items", "Cancel order", "Their own task", "Order received",
+            "Order shipped"}) {
+            armado.plazo(nodo, ochoHoras);
+        }
+        EscalamientoResponse avisar = new EscalamientoResponse(AccionDeEscalamiento.AVISAR, null);
+        armado.escalamiento("Six hours", avisar);
+        armado.escalamiento("One day", avisar);
+
+        GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
+
+        assertThat(grafo.plazoDe(armado.id("Pick and pack items"))).contains(ochoHoras);
+        assertThat(grafo.plazoDe(armado.id("Order received"))).contains(ochoHoras);
+        assertThat(grafo.plazoDe(armado.id("Receive order"))).isEmpty();
+        assertThat(grafo.plazoDe(armado.id("Cancel order"))).isEmpty();
+        assertThat(grafo.plazoDe(armado.id("Their own task"))).isEmpty();
+        assertThat(grafo.plazoDe(armado.id("Order shipped"))).isEmpty();
+        assertThat(grafo.escalamientoDe(armado.id("Six hours"))).contains(avisar);
+        assertThat(grafo.escalamientoDe(armado.id("One day"))).isEmpty();
+        assertThat(grafo.escalamientoDe(armado.id("Receive order"))).isEmpty();
     }
 }

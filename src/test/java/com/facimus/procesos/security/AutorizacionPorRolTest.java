@@ -189,8 +189,18 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/tareas/{id}            | 404
             EDITOR        | POST   | /api/v1/tareas/{id}/completar  | 404
             SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/completar  | 403
-            EDITOR        | POST   | /api/v1/tareas/{id}/asignar    | 404
-            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/asignar    | 403
+            # PR 70: las bandejas y la carga las lee cualquiera; tomar, soltar, reasignar y delegar, quien opera
+            SOLO_LECTURA  | GET    | /api/v1/tareas?bandeja=MIAS    | 200
+            SOLO_LECTURA  | GET    | /api/v1/tareas?bandeja=SIN_ASIGNAR | 200
+            SOLO_LECTURA  | GET    | /api/v1/tareas/carga           | 200
+            EDITOR        | POST   | /api/v1/tareas/{id}/reclamar   | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/reclamar   | 403
+            ADMINISTRADOR | POST   | /api/v1/tareas/{id}/soltar     | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/soltar     | 403
+            EDITOR        | POST   | /api/v1/tareas/{id}/reasignar  | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/reasignar  | 403
+            EDITOR        | POST   | /api/v1/tareas/{id}/delegar    | 404
+            SOLO_LECTURA  | POST   | /api/v1/tareas/{id}/delegar    | 403
 
             # Mensajeria: las bandejas las lee cualquier rol; mandar un mensaje es de administrador y editor
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/bandeja-salida   | 200
@@ -210,9 +220,85 @@ class AutorizacionPorRolTest {
             EDITOR        | POST   | /api/v1/simulacion/pedidos     | 403
             SOLO_LECTURA  | POST   | /api/v1/simulacion/pedidos     | 403
 
-            # Tablero: lo lee cualquier rol, como el resto de lo que solo mira
-            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 200
+            # Tablero: lo lee cualquier rol, como el resto de lo que solo mira; PR 71: el de un proceso que no
+            # existe es un 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 404
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual/tablero | 200
+
+            # PR 61: los documentos los lee cualquier rol; subirlos y borrarlos es de administrador y editor
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/documentos      | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/documentos?nombre=a.pdf | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/documentos?nombre=a.pdf | 403
+            SOLO_LECTURA  | GET    | /api/v1/documentos/{id}               | 404
+            SOLO_LECTURA  | GET    | /api/v1/documentos/{id}/enlace        | 404
+            EDITOR        | POST   | /api/v1/documentos/{id}/versiones?nombre=a.pdf | 404
+            SOLO_LECTURA  | POST   | /api/v1/documentos/{id}/versiones?nombre=a.pdf | 403
+            EDITOR        | DELETE | /api/v1/documentos/{id}               | 404
+            SOLO_LECTURA  | DELETE | /api/v1/documentos/{id}               | 403
+
+            # PR 62: la documentacion y los manuales los lee cualquier rol; escribirlos y pedirlos, administrador y editor
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/documentacion    | 404
+            EDITOR        | PUT    | /api/v1/procesos/{id}/documentacion    | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/documentacion    | 403
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/caracterizacion  | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/caracterizacion  | 403
+            EDITOR        | POST   | /api/v1/procesos/{id}/manuales         | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/manuales         | 403
+            SOLO_LECTURA  | GET    | /api/v1/manuales/{id}                  | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/versiones/1/dibujo | 403
+
+            # PR 68: el calendario lo lee cualquier rol y lo cambia el administrador; los temporizadores se leen;
+            # probar el borrador es de quien modela
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/calendario                      | 200
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/calendario/festivos?anio=2026   | 200
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/calendario/ediciones            | 200
+            ADMINISTRADOR | PUT    | /api/v1/organizacion/calendario                      | 400
+            EDITOR        | PUT    | /api/v1/organizacion/calendario                      | 403
+            SOLO_LECTURA  | PUT    | /api/v1/organizacion/calendario                      | 403
+            EDITOR        | PUT    | /api/v1/organizacion/calendario/festivos/2026-09-04  | 403
+            ADMINISTRADOR | DELETE | /api/v1/organizacion/calendario/ediciones/2026-09-04 | 404
+            EDITOR        | DELETE | /api/v1/organizacion/calendario/festivos/2026-08-17  | 403
+            SOLO_LECTURA  | DELETE | /api/v1/organizacion/calendario/ediciones/2026-09-04 | 403
+            SOLO_LECTURA  | GET    | /api/v1/casos/{id}/temporizadores                    | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/temporizadores                 | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/pruebas                        | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/pruebas                        | 403
+
+            # PR 69: el formulario de una tarea o de un inicio lo guarda quien modela; los lee cualquier rol
+            EDITOR        | PUT    | /api/v1/actividades/{id}/formulario        | 404
+            SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/formulario        | 403
+            ADMINISTRADOR | PUT    | /api/v1/eventos/{id}/formulario            | 404
+            SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/formulario            | 403
+            SOLO_LECTURA  | GET    | /api/v1/tareas/{id}/formulario             | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/formulario-de-inicio | 404
+            # PR 70: a quien le llega una tarea lo decide quien modela
+            EDITOR        | PUT    | /api/v1/actividades/{id}/asignacion        | 404
+            ADMINISTRADOR | PUT    | /api/v1/actividades/{id}/asignacion        | 404
+            SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/asignacion        | 403
+            # PR 71: el plazo de una tarea o de un caso y lo que escala un borde lo decide quien modela
+            EDITOR        | PUT    | /api/v1/actividades/{id}/plazo             | 404
+            ADMINISTRADOR | PUT    | /api/v1/actividades/{id}/plazo             | 404
+            SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/plazo             | 403
+            EDITOR        | PUT    | /api/v1/eventos/{id}/plazo                 | 404
+            ADMINISTRADOR | PUT    | /api/v1/eventos/{id}/plazo                 | 404
+            SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/plazo                 | 403
+            EDITOR        | PUT    | /api/v1/eventos/{id}/escalamiento          | 404
+            ADMINISTRADOR | PUT    | /api/v1/eventos/{id}/escalamiento          | 404
+            SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/escalamiento          | 403
+            # PR 63: comentar es de cualquier rol, tambien de quien solo lee; las notificaciones son de cada persona
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/comentarios     | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/comentarios     | 404
+            SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/respuestas   | 404
+            SOLO_LECTURA  | PUT    | /api/v1/comentarios/{id}              | 404
+            SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/resolver     | 404
+            SOLO_LECTURA  | POST   | /api/v1/comentarios/{id}/reabrir      | 404
+            SOLO_LECTURA  | DELETE | /api/v1/comentarios/{id}              | 404
+            SOLO_LECTURA  | GET    | /api/v1/notificaciones                | 200
+            SOLO_LECTURA  | GET    | /api/v1/notificaciones/conteo         | 200
+            SOLO_LECTURA  | POST   | /api/v1/notificaciones/{id}/leida     | 404
+            SOLO_LECTURA  | POST   | /api/v1/notificaciones/leidas         | 200
+            SOLO_LECTURA  | GET    | /api/v1/notificaciones/preferencias   | 200
+            EDITOR        | PUT    | /api/v1/notificaciones/preferencias   | 200
 
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
@@ -238,6 +324,28 @@ class AutorizacionPorRolTest {
         } else if (ruta.equals("/api/v1/procesos/{id}/mensajes-entrantes")) {
             // Con nombre, para que el editor pase la autorizacion y choque con que el proceso no existe.
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"nombre\":\"Order placed\"}");
+        } else if (ruta.equals("/api/v1/procesos/{id}/documentacion")) {
+            // PR 62: con texto, para que el editor pase la autorizacion y choque con que el proceso no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"markdown\":\"x\"}");
+        } else if (ruta.endsWith("/reasignar") || ruta.endsWith("/delegar")) {
+            // PR 70: con persona y motivo, para que quien opera pase y choque con que la tarea no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"usuarioId\":1,\"motivo\":\"x\"}");
+        } else if (ruta.endsWith("/plazo") || ruta.endsWith("/escalamiento")) {
+            // PR 71: sin plazo ni accion y con su version, para que quien modela pase y choque con que no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}");
+        } else if (ruta.endsWith("/asignacion")) {
+            // PR 70: la bandeja del rol y su version, para que quien modela pase y choque con que el nodo no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"tipo\":\"ROL\",\"version\":0}");
+        } else if (metodo == HttpMethod.PUT && ruta.endsWith("/formulario")) {
+            // PR 69: un formulario vacio y su version, para que quien modela pase y choque con que el nodo no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"campos\":[],\"version\":0}");
+        } else if (ruta.equals("/api/v1/procesos/{id}/comentarios") || ruta.startsWith("/api/v1/comentarios/")) {
+            // PR 63: con texto y version, para que quien solo lee pase la autorizacion y choque con que no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content(metodo == HttpMethod.PUT
+                    ? "{\"markdown\":\"x\",\"version\":0}" : "{\"markdown\":\"x\"}");
+        } else if (ruta.equals("/api/v1/notificaciones/preferencias")) {
+            peticion.contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"preferencias\":[{\"tipo\":\"MENCION\",\"envio\":\"NUNCA\"}]}");
         } else if (ruta.equals("/api/v1/simulacion/tick")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"ticks\":1}");
         } else if (ruta.equals("/api/v1/simulacion/pedidos")) {
@@ -245,7 +353,8 @@ class AutorizacionPorRolTest {
             peticion.contentType(MediaType.APPLICATION_JSON)
                     .content("{\"procesoId\":" + ID_INEXISTENTE + ",\"cantidad\":1}");
         } else if (metodo != HttpMethod.GET && (ruta.startsWith("/api/v1/tareas/")
-                || ruta.equals("/api/v1/procesos/{id}/casos"))) {
+                || ruta.equals("/api/v1/procesos/{id}/casos") || ruta.equals("/api/v1/procesos/{id}/pruebas")
+                || ruta.equals("/api/v1/organizacion/calendario"))) {
             // Llevan cuerpo: sin el, la peticion fallaria por el cuerpo y no por la regla de roles, que es lo que
             // esta matriz comprueba.
             peticion.contentType(MediaType.APPLICATION_JSON).content("{}");

@@ -2,7 +2,10 @@ package com.facimus.procesos.ejecucion.dto.response;
 
 import java.time.LocalDateTime;
 
+import com.facimus.procesos.common.Default;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.EstadoPlazo;
+import com.facimus.procesos.ejecucion.model.ModoCaso;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -21,6 +24,37 @@ public record CasoResponse(
         @Schema(example = "2026-09-24T15:30:00") LocalDateTime fechaFin,
         @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
         Long version,
-        @Schema(description = "Id of the user who opened it; empty when a message did", example = "2")
-        Long creadoPor) {
+        @Schema(description = "Id of the user who opened it; empty when a message or a timer did", example = "2")
+        Long creadoPor,
+        @Schema(description = "PRODUCCION runs on the wall clock and the business calendar; PRUEBA on the store "
+                + "clock ticks and the simulated partners. A case runs on a test version of the draft, with "
+                + "versionNumero 0, always in PRUEBA", example = "PRUEBA") ModoCaso modo,
+        @Schema(description = "When the whole case is due, in UTC, if its start event has a deadline and it runs in "
+                + "PRODUCCION", example = "2026-01-16T20:00:00") LocalDateTime venceEn,
+        @Schema(description = "The store clock tick when the case is due, if its start event has a deadline and it "
+                + "runs in PRUEBA", example = "40") Integer venceTick,
+        @Schema(description = "A_TIEMPO, POR_VENCER or VENCIDA; empty without a deadline. A finished case keeps the one "
+                + "it reached", example = "A_TIEMPO") EstadoPlazo estadoPlazo) {
+
+    /** El de antes del PR 71, sin plazo. */
+    @SuppressWarnings("java:S107") // los campos del caso, por su nombre
+    public CasoResponse(Long id, Long procesoId, String procesoNombre, int versionNumero, String referencia,
+            EstadoCaso estado, int tickInicio, Integer tickFin, LocalDateTime fechaInicio, LocalDateTime fechaFin,
+            Long version, Long creadoPor, ModoCaso modo) {
+        this(id, procesoId, procesoNombre, versionNumero, referencia, estado, tickInicio, tickFin, fechaInicio,
+                fechaFin, version, creadoPor, modo, null, null, null);
+    }
+
+    /** El de antes del PR 68, cuando todos los casos corrian en ticks. */
+    public CasoResponse(Long id, Long procesoId, String procesoNombre, int versionNumero, String referencia,
+            EstadoCaso estado, int tickInicio, Integer tickFin, LocalDateTime fechaInicio, LocalDateTime fechaFin,
+            Long version, Long creadoPor) {
+        this(id, procesoId, procesoNombre, versionNumero, referencia, estado, tickInicio, tickFin, fechaInicio,
+                fechaFin, version, creadoPor, ModoCaso.PRUEBA, null, null, null);
+    }
+
+    @Default
+    public CasoResponse {
+        // El constructor completo es el que usan MapStruct y Jackson
+    }
 }

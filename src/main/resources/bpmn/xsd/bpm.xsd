@@ -68,6 +68,111 @@
     </xsd:complexType>
   </xsd:element>
 
+  <!-- PR 69: el formulario tipado de una userTask o de un startEvent: sus campos, en el orden en que se llenan. Las
+       condiciones (visibleSi, requeridoSi) van en la gramatica de los arcos; el patron, en RE2. Va en el nodo. -->
+  <xsd:element name="formulario">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="campoFormulario" minOccurs="0" maxOccurs="unbounded">
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="opcion" minOccurs="0" maxOccurs="unbounded">
+                <xsd:complexType>
+                  <xsd:attribute name="valor" type="xsd:string" use="required"/>
+                  <xsd:attribute name="etiqueta" type="xsd:string"/>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:sequence>
+            <xsd:attribute name="nombre" type="xsd:string" use="required"/>
+            <xsd:attribute name="etiqueta" type="xsd:string" use="required"/>
+            <xsd:attribute name="tipo" type="tTipoDeCampo" use="required"/>
+            <xsd:attribute name="ayuda" type="xsd:string"/>
+            <xsd:attribute name="requerido" type="xsd:boolean" default="false"/>
+            <xsd:attribute name="minimo" type="xsd:decimal"/>
+            <xsd:attribute name="maximo" type="xsd:decimal"/>
+            <xsd:attribute name="largoMinimo" type="xsd:nonNegativeInteger"/>
+            <xsd:attribute name="largoMaximo" type="xsd:positiveInteger"/>
+            <xsd:attribute name="patron" type="xsd:string"/>
+            <xsd:attribute name="desde" type="xsd:string"/>
+            <xsd:attribute name="hasta" type="xsd:string"/>
+            <xsd:attribute name="moneda" type="xsd:string"/>
+            <xsd:attribute name="porDefecto" type="xsd:string"/>
+            <xsd:attribute name="visibleSi" type="xsd:string"/>
+            <xsd:attribute name="requeridoSi" type="xsd:string"/>
+          </xsd:complexType>
+        </xsd:element>
+      </xsd:sequence>
+    </xsd:complexType>
+  </xsd:element>
+
+  <!-- PR 70: a quien le llega una userTask. Sin el, espera en la bandeja del rol de su lane. PERSONA lleva el usuario
+       (su id en la organizacion), CAMPO la variable del caso que tiene a la persona. Va en el nodo. -->
+  <xsd:element name="asignacion">
+    <xsd:complexType>
+      <xsd:attribute name="tipo" type="tTipoAsignacion" use="required"/>
+      <xsd:attribute name="usuario" type="xsd:long"/>
+      <xsd:attribute name="campo" type="xsd:string"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <!-- PR 71: el plazo de una userTask, o del caso entero en un startEvent: horas de reloj o dias habiles del
+       calendario de la organizacion. Va en el nodo. -->
+  <xsd:element name="plazo">
+    <xsd:complexType>
+      <xsd:attribute name="cantidad" type="xsd:positiveInteger" use="required"/>
+      <xsd:attribute name="unidad" type="tUnidadDePlazo" use="required"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <xsd:simpleType name="tUnidadDePlazo">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="HORAS"/>
+      <xsd:enumeration value="DIAS_HABILES"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <!-- PR 71: lo que hace un boundaryEvent de temporizador que no interrumpe con su tarea al saltar, ademas de abrir su
+       camino: avisar o reasignar al supervisor (el usuario, o el dueno del proceso si no lo dice). Va en el evento. -->
+  <xsd:element name="escalamiento">
+    <xsd:complexType>
+      <xsd:attribute name="accion" type="tAccionDeEscalamiento" use="required"/>
+      <xsd:attribute name="usuario" type="xsd:long"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <xsd:simpleType name="tAccionDeEscalamiento">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="AVISAR"/>
+      <xsd:enumeration value="REASIGNAR"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="tTipoAsignacion">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="ROL"/>
+      <xsd:enumeration value="PERSONA"/>
+      <xsd:enumeration value="INICIADOR"/>
+      <xsd:enumeration value="CAMPO"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="tTipoDeCampo">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="TEXTO"/>
+      <xsd:enumeration value="TEXTO_LARGO"/>
+      <xsd:enumeration value="NUMERO"/>
+      <xsd:enumeration value="MONEDA"/>
+      <xsd:enumeration value="FECHA"/>
+      <xsd:enumeration value="FECHA_HORA"/>
+      <xsd:enumeration value="SI_NO"/>
+      <xsd:enumeration value="LISTA"/>
+      <xsd:enumeration value="LISTA_MULTIPLE"/>
+      <xsd:enumeration value="PERSONA"/>
+      <xsd:enumeration value="ARCHIVO"/>
+      <xsd:enumeration value="SECCION"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
   <xsd:simpleType name="tTipoParticipante">
     <xsd:restriction base="xsd:string">
       <xsd:enumeration value="EMPRESA"/>

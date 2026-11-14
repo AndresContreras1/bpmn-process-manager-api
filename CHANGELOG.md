@@ -8,6 +8,88 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Deadlines on user tasks and on whole cases, in wall-clock hours or business days of the organization's calendar:
+  `PUT /actividades/{id}/plazo` and `PUT /eventos/{id}/plazo` save `{ cantidad, unidad }`, frozen in the version and
+  carried in BPMN as `bpm:plazo`. Tasks and cases answer `venceEn` (or `venceTick` in test mode) and `estadoPlazo`:
+  on time, due soon in the last quarter, or overdue. A scheduler (`PLAZOS_REPASO`, a minute) and the store's tick move
+  the states and send each notice once, through the notification center, to the holder (or the role's members) and the
+  process owner, or for a case to whoever opened it and the owner: new types `PLAZO_POR_VENCER`, `PLAZO_VENCIDO` and
+  `TAREA_ESCALADA`, e-mailed in Spanish, English and French with a link to the case.
+- Escalation from a non-interrupting boundary timer: `PUT /eventos/{id}/escalamiento` with `AVISAR` (notify the holder
+  and a supervisor) or `REASIGNAR` (hand the task to the supervisor, audited as `TAREA_ESCALADA`); the supervisor is a
+  named administrator or editor, or the process owner. Carried in BPMN as `bpm:escalamiento`.
+- Compliance with deadlines in the dashboard (`cumplimiento`): tasks on time and late in total, per process, per
+  activity and per person, and whole cases, over the processes the caller may see. Inboxes are ordered by due date.
+  The dashboard of another store's process answers `404`.
+- Assignment of user tasks: to the tray of the lane's role (the default), to a fixed person, to whoever opened the case
+  or to the person a case variable names, such as a `PERSONA` field of an earlier form. `PUT
+  /actividades/{id}/asignacion` saves the rule; it is frozen in the version, travels in BPMN as `bpm:asignacion` and
+  the diagnosis checks it as `E-23` and `A-17`. When the rule cannot tell an active person, the task waits in the role
+  tray and the case timeline says why.
+- Claiming, releasing, reassigning and delegating a task with a reason: `POST /tareas/{id}/reclamar`, `/soltar`,
+  `/reasignar` and `/delegar`, each one in the case timeline and the audit trail. A delegated task goes back to whoever
+  delegated it when the delegate releases it, if that person can still hold tasks, and only the delegator or an
+  administrator reassigns it. A delegation ends as `ANULADA` when the case cancels, fails or interrupts its task. Every
+  action locks the case first; two people claiming the same task at once: one gets it, the other a `409`.
+- Inboxes: `GET /tareas?bandeja=MIAS|DE_MIS_ROLES|SIN_ASIGNAR|TODAS`, oldest first, and the workload per person,
+  `GET /tareas/carga`.
+- The store policy `administradorCompletaPorOtro`, off by default: an administrator completes a task another person
+  holds, recorded in the audit trail as `TAREA_COMPLETADA_POR_OTRO`.
+- Typed forms on user tasks and plain start events: text, long text, number, money, date, date and time, yes/no,
+  list, multiple list, person, file and section, with required, minimum and maximum, length and a pattern evaluated
+  with RE2/J in linear time (nested counted repetitions are capped before compiling). Fields show and become required
+  by conditions in the gateway grammar, which the server compiles into a JSON tree for the web to walk, and take a
+  default from a case variable. `PUT /actividades/{id}/formulario` and `PUT /eventos/{id}/formulario` save a form;
+  `GET /tareas/{id}/formulario` and `GET /procesos/{id}/formulario-de-inicio` read it. The form is frozen in the
+  version, travels in BPMN as `bpm:formulario` and comes back on import, and the diagnosis checks it as `E-22`.
+  Completing a task or opening a case validates the answers against the version's form (`400` with `errors` per
+  field) and stores them with their types under `tarea.<name>`; the tasks screen shows each rejected key next to the
+  message.
+- A business calendar per organization: country (Colombia, United States, France or Australia), time zone, working
+  hours and working days, with each country's public holidays computed (Ley 51 de 1983 and Easter for Colombia, the
+  federal ones with their observed day, the French jours feries, the Australian national ones with their additional
+  day) and editable day by day by an administrator, audited. Business time is counted with it, across weekends,
+  holidays and clock changes.
+- Timers that run: a wait, a boundary timer that interrupts its activity or only warns (a cycle warns every time), and
+  a timer start that opens cases on its own, with ISO 8601 durations, dates and cycles, cron cycles, and a new business
+  duration (`DURACION_HABIL`, `bpm:habil` in BPMN). Production timers fire from a scheduler, once, also with two
+  instances or after the API was down; test timers fire with the store's tick. A timer whose case ends, or whose
+  activity stops waiting, is cancelled. `GET /casos/{id}/temporizadores` lists them, and `GET
+  /procesos/{id}/temporizadores` pages the timer starts. Timer expressions have caps the diagnosis checks: a hundred
+  years for a duration, 366 working days for a business one, dates from 1900 to 9999 and a cycle at most once a
+  minute.
+- Two modes for a case: `PRODUCCION` on the wall clock and the business calendar, and `PRUEBA`, the default, on the
+  ticks and simulated partners as before. The simulated partners only answer test cases.
+- Trying a draft without publishing it: `POST /procesos/{id}/pruebas` runs it as a test case on a throwaway test
+  version that no list shows and the nightly purge deletes after `PRUEBAS_RETENCION`. Incoming messages never
+  correlate with a test run, and the dashboard and the open-cases gauge leave test runs out.
+- Backups with pgBackRest: PostgreSQL archives every WAL segment within a minute, and a `respaldo` service takes a
+  full backup every Sunday and a differential every other day, into a bucket with Object Lock in compliance mode, every
+  file encrypted with `RESPALDO_CLAVE`. After each backup the rows of every table are counted and a restore point is
+  left at that instant. The database runs as `postgres`, read-only and without capabilities, from an image of its own
+  that Trivy scans.
+- The restore drill, `ops/respaldo/simulacro.sh`, and a monthly workflow that runs it: the last backup is restored
+  into an empty container, its rows are compared with the count, and the API, started with `RESPALDO_VERIFICAR=true`,
+  verifies every audit trail against its anchor and every published version against its fingerprint. It prints the
+  RPO and the RTO it measured.
+- The documents' bucket keeps every version for 35 days (`ALMACEN_S3_DIAS_DE_VERSIONES`) when the API prepares it.
+- Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
+  like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
+  can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads
+  reach a notification center that only its recipient sees, a server-sent event stream shared by every replica, and
+  e-mail in the person's language, immediate or in a daily digest as each person chooses per type. Resolving,
+  reopening and deleting are audited; read notifications are purged after 90 days.
+- Documentation in Markdown for a process and each of its elements, converted on the server and cleaned against a
+  whitelist, with a preview; a characterization sheet per process; the drawing of each version, which the modeler
+  sends right after publishing and the server cleans; and the manual of a published version in HTML and PDF, built in
+  the job queue in the language of whoever asks it and downloaded through a signed link.
+- Documents attached to a process or one of its elements, with versions: the type comes from the content against a
+  whitelist (415), the name is cleaned, uploads stream up to 25 MB within a quota per store (413), and the job queue
+  reviews each version with ClamAV and, for Office and OpenOffice files, a ZIP bomb check before it can be downloaded.
+  Downloads are five-minute signed links served by the API as attachments. The storage is S3 or compatible, with
+  SeaweedFS in `compose.yaml`, or a disk folder in development.
+- The daily anchor of the audit trail: each store's last link goes to a bucket with Object Lock in compliance mode,
+  and verifying the trail checks the latest anchor.
 - Granular permissions: actions granted on folders and processes to a person, a process role or the whole organization,
   inherited from the folder, on top of the access role and with separation of duties. Lists only show what can be seen.
 - The process repository: a tree of folders, and for each process its folder, owner, next review date, classification
@@ -18,14 +100,6 @@ tagged. Each pull request adds its line under *Unreleased*.
 - A structure view in the modeler: the diagram as a keyboard-navigable tree (pools, lanes, nodes and their outgoing
   flows) that can create, connect, move between lanes, rename and delete without dragging, with live announcements.
   Targets of at least 24 × 24 px in the canvas and a visible, unobscured focus.
-
-### Changed
-
-- The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
-  old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
-  which can publish.
-
-### Added
 
 - The BPMN modeler in the web, on bpmn-js: `/procesos/{id}/modelar` draws and edits the process, limited to what the
   model has and to its mode, with undo, search, minimap, import and export to `.bpmn`, SVG and PNG, a properties panel,
@@ -136,6 +210,23 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- Only whoever holds a task completes it. A task nobody holds is taken by completing it, by a member of its process role
+  or an administrator; anybody else gets `403`, and a task another person holds answers `409`. `POST
+  /tareas/{id}/asignar` is replaced by `reclamar` and `soltar`, which the tasks screen now calls; taking a task by
+  completing it is recorded as a claim. The tasks screen offers "Complete" only on a task the viewer holds or nobody
+  holds, and the case timeline names the assignment events.
+- Free key-value data, when completing a task or opening a case without a form, is taken only in `PRUEBA` mode; a
+  `PRODUCCION` case answers `400` for each key, and its variables are corrected with `PATCH /casos/{id}/variables`.
+- `E-18` no longer stops an executable process from publishing a timer: it now flags a cycle on a timer that fires only
+  once. A case step keeps a subtype of up to 30 characters, so `TEMPORIZADOR_INTERMEDIO` fits.
+- The README and the guides cover BPMN files, the bpmn-js modeler, editing together, the process repository and
+  permissions, with the numbers of today's build.
+- The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
+  old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
+  which can publish.
+- Unit tests for the services that only the integration suites checked (second factor, external sign-in, sessions,
+  accounts, settings, the audit log, permissions, folders, BPMN import, autosave and live editing among them): the
+  nightly mutation run is back above its 75 % floor, with 2984 of 3274 mutations caught (91 %).
 - The web app has a design system: tokens in the DTCG format turned into Bootstrap's Sass variables and CSS
   variables, a green scale checked against WCAG AA, a dark mode, a shell with a sidebar, breadcrumbs and a search,
   shared components for loading, empty, errors, notices and statuses, and axe-core over every screen in the
@@ -173,6 +264,9 @@ tagged. Each pull request adds its line under *Unreleased*.
   and NGINX 1.30 for the ones in the web image.
 - The error handler writes the request path, the database's message and an external service's answer to the log
   on one line: a line break inside them turns into an underscore and can no longer fake a log line of its own.
+- The CSRF token lasts the session: signing in, by any way, and signing out set a new one, and no other request
+  changes it. Before, every request with the session cookies answered a new token, and a change sent alongside other
+  requests could get a `403`; the web now stays in its language, with a notice, when saving it fails.
 
 ## Before this file
 

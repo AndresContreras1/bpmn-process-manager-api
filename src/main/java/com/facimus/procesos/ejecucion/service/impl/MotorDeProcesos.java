@@ -12,9 +12,11 @@ import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.EstadoDelegacion;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoGateway;
 
 import io.micrometer.observation.Observation;
@@ -55,11 +57,18 @@ class MotorDeProcesos {
     private final Bitacora bitacora;
     private final JsonMapper json;
     private final ObservationRegistry observaciones;
+    private final Temporizadores temporizadores;
+    private final AsignacionAlCrear asignacion;
+    private final Tareas tareas;
+    private final Plazos plazos;
+    private final Escalamientos escalamientos;
 
     /** Abre el caso por el nodo que empieza el proceso y lo avanza hasta donde llegue. */
     void arrancar(Caso caso, GrafoDeVersion grafo, NodoDeLaVersion inicio, Momento momento) {
+        // PR 71: el plazo del caso cuenta desde que se abre, y la misma linea dice cuando vence
+        String vence = plazos.armarDelCaso(caso, grafo, inicio, momento);
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.CASO_ABIERTO,
-                "El caso empieza en " + comillas(inicio.nombre()) + ".", momento.autorId());
+                "El caso empieza en " + comillas(inicio.nombre()) + "." + vence, momento.autorId());
         activar(caso, grafo, inicio, momento);
         avanzar(caso, grafo, momento);
     }
@@ -79,6 +88,8 @@ class MotorDeProcesos {
                 .start();
         try (Observation.Scope alcance = vuelta.openScope()) {
             recorrer(caso, grafo, momento);
+            // PR 68: lo que la vuelta dejo sin esperar ya no necesita su temporizador
+            temporizadores.soltarLosQueSobran(caso);
         } catch (RuntimeException error) {
             vuelta.error(error);
             throw error;
@@ -148,13 +159,47 @@ class MotorDeProcesos {
                 .build());
     }
 
-    /** Cierra los tokens vivos de un caso que deja de correr, por cancelacion o por un envio que no se pudo salvar. */
+    /**
+     * Cierra los tokens vivos de un caso que deja de correr, por cancelacion o por un envio que no se pudo salvar. PR
+     * 68: con ellos se van sus temporizadores.
+     */
     void apagarTokens(Caso caso, Momento momento) {
         for (ActividadCaso token : vivosDe(caso)) {
-            token.setEstado(EstadoActividadCaso.OMITIDA);
-            token.setTickFin(momento.tick());
-            actividadCasoRepository.save(token);
+            omitir(token, momento);
         }
+        temporizadores.soltarLosQueSobran(caso);
+    }
+
+    /**
+     * PR 68: salto el temporizador de una espera. El token sigue igual que cuando llega el mensaje que esperaba un
+     * nodo: se completa y el caso sale por las salidas del evento. Lo llama quien dispara, con el caso bloqueado.
+     */
+    void esperaCumplida(Caso caso, GrafoDeVersion grafo, ActividadCaso token, Momento momento) {
+        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TEMPORIZADOR_DISPARADO,
+                comillas(token.getNodoNombre()) + " salto: termino la espera.");
+        completar(caso, token, momento);
+        seguirDesde(caso, grafo, token.getNodoId(), momento);
+    }
+
+    /**
+     * PR 68: salto un temporizador de borde de una actividad que esperaba. Uno que interrumpe saca a la actividad (su
+     * tarea deja la bandeja, o deja de esperar su mensaje) y el caso sigue por el borde; uno que no interrumpe deja la
+     * actividad donde estaba y abre otro camino desde el borde, como un aviso. PR 71: el que no interrumpe, ademas,
+     * escala la tarea si la version se lo pide: avisa o se la pasa a quien la supervisa.
+     */
+    void saltarBorde(Caso caso, GrafoDeVersion grafo, ActividadCaso actividad, NodoDeLaVersion borde,
+            boolean interrumpe, Momento momento) {
+        if (interrumpe) {
+            omitir(actividad, momento);
+        } else {
+            escalamientos.alSaltar(caso, grafo, actividad, borde, momento);
+        }
+        bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TEMPORIZADOR_DISPARADO, comillas(borde.nombre())
+                + " salto sobre " + comillas(actividad.getNodoNombre()) + (interrumpe
+                        ? ", que se interrumpe: el caso sigue por el borde."
+                        : ", que sigue esperando: el borde abre otro camino."));
+        activar(caso, grafo, borde, momento);
+        avanzar(caso, grafo, momento);
     }
 
     private void procesar(Caso caso, GrafoDeVersion grafo, ActividadCaso token, VariablesDelCaso variables,
@@ -177,7 +222,8 @@ class MotorDeProcesos {
 
     private void procesarEvento(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
             VariablesDelCaso variables, Momento momento) {
-        if (quedarseEsperando(caso, grafo, token, nodo, momento)) {
+        if (esperarAlTemporizador(caso, grafo, token, nodo, momento)
+                || quedarseEsperando(caso, grafo, token, nodo, momento)) {
             return;
         }
         mandarLoQueTenga(caso, grafo, nodo, variables, momento);
@@ -202,11 +248,7 @@ class MotorDeProcesos {
     private void procesarActividad(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
             VariablesDelCaso variables, Momento momento) {
         if (nodo.esTareaDeUsuario()) {
-            token.setEstado(EstadoActividadCaso.EN_ESPERA);
-            actividadCasoRepository.save(token);
-            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA,
-                    comillas(nodo.nombre()) + " queda en la bandeja a la espera de que alguien la complete.",
-                    momento.autorId());
+            esperarAUnaPersona(caso, grafo, token, nodo, variables, momento);
             return;
         }
         if (quedarseEsperando(caso, grafo, token, nodo, momento)) {
@@ -239,6 +281,28 @@ class MotorDeProcesos {
         actividadCasoRepository.save(token);
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.NODO_ACTIVADO, comillas(nodo.nombre())
                 + " espera el mensaje " + comillas(esperado.orElseThrow().nombre()) + ".");
+        if (nodo.esActividad()) {
+            temporizadores.armarBordes(caso, grafo, token, momento);
+        }
+        return true;
+    }
+
+    /**
+     * PR 68: una espera temporizada deja el token esperando hasta que su temporizador salte. Si no dice cuando, o lo
+     * que dice no se puede armar, sigue de largo: el diagnostico no deja publicar eso (E-16), y un caso parado para
+     * siempre seria peor que uno que sigue, igual que una espera de mensaje sin mensaje.
+     */
+    private boolean esperarAlTemporizador(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
+            Momento momento) {
+        if (!nodo.esEventoDe(TipoEvento.TEMPORIZADOR_INTERMEDIO)) {
+            return false;
+        }
+        Optional<TemporizadorDeLaVersion> espera = grafo.temporizador(nodo.id());
+        if (espera.isEmpty() || !temporizadores.armar(caso, token, espera.orElseThrow(), momento)) {
+            return false;
+        }
+        token.setEstado(EstadoActividadCaso.EN_ESPERA);
+        actividadCasoRepository.save(token);
         return true;
     }
 
@@ -396,6 +460,8 @@ class MotorDeProcesos {
         caso.setEstado(EstadoCaso.TERMINADO);
         caso.setTickFin(momento.tick());
         caso.setFechaFin(LocalDateTime.now());
+        // PR 71: termino a tiempo o tarde, y asi se queda
+        plazos.alTerminar(caso, momento);
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.CASO_TERMINADO,
                 "El ultimo camino del caso llego a un fin.");
     }
@@ -403,6 +469,17 @@ class MotorDeProcesos {
     private void enError(Caso caso, Momento momento, String detalle) {
         caso.setEstado(EstadoCaso.ERROR);
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.SIN_CAMINO, detalle);
+    }
+
+    /**
+     * Un token que el caso deja atras sin completarlo. PR 70: si era una tarea delegada, su delegacion se anula; si no,
+     * se quedaria abierta para siempre en una tarea con la que ya nadie puede hacer nada.
+     */
+    private void omitir(ActividadCaso token, Momento momento) {
+        token.setEstado(EstadoActividadCaso.OMITIDA);
+        token.setTickFin(momento.tick());
+        actividadCasoRepository.save(token);
+        tareas.cerrarDelegacion(token, EstadoDelegacion.ANULADA);
     }
 
     private void completar(Caso caso, ActividadCaso token, Momento momento) {
@@ -425,6 +502,33 @@ class MotorDeProcesos {
     private List<ActividadCaso> vivosDe(Caso caso) {
         return actividadCasoRepository.findAllByCasoIdAndEmpresaIdAndEstadoInOrderByIdAsc(caso.getId(),
                 caso.getEmpresa().getId(), VIVOS);
+    }
+
+    /**
+     * Una tarea de usuario espera a una persona. PR 70: la que dice su regla de asignacion, si dice una que la pueda
+     * completar; si no, la bandeja del rol de su lane, y la linea de tiempo cuenta por que.
+     */
+    private void esperarAUnaPersona(Caso caso, GrafoDeVersion grafo, ActividadCaso token, NodoDeLaVersion nodo,
+            VariablesDelCaso variables, Momento momento) {
+        AsignacionAlCrear.Destino destino = asignacion.decidir(caso, grafo, nodo, variables);
+        token.setEstado(EstadoActividadCaso.EN_ESPERA);
+        token.setAsignadoA(destino.usuarioId());
+        // PR 71: el plazo de la tarea cuenta desde que espera a una persona, y la linea que la crea dice cuando vence
+        String vence = plazos.armarDeLaTarea(caso, grafo, token, momento);
+        actividadCasoRepository.save(token);
+        if (destino.usuarioId() == null) {
+            String porQueNo = destino.porQueNo() == null ? "" : " " + destino.porQueNo();
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA,
+                    comillas(nodo.nombre()) + " queda en la bandeja a la espera de que alguien la complete." + porQueNo
+                            + vence,
+                    momento.autorId());
+        } else {
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_CREADA,
+                    comillas(nodo.nombre()) + " espera a que la complete quien la tiene." + vence, momento.autorId());
+            bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_ASIGNADA, comillas(nodo.nombre())
+                    + " le llega al usuario " + destino.usuarioId() + ", " + destino.como() + ".");
+        }
+        temporizadores.armarBordes(caso, grafo, token, momento);
     }
 
     private static String comillas(String texto) {

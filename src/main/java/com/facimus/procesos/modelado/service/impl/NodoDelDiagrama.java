@@ -14,23 +14,32 @@ import com.facimus.procesos.modelado.model.TipoTemporizador;
  */
 record NodoDelDiagrama(Long id, String bpmnId, String nombre, Long laneId, TipoActividad tipoActividad,
         TipoGateway tipoGateway, TipoEvento tipoEvento, Long adjuntoAId, TipoTemporizador tipoTemporizador,
-        String temporizador, Long padreId, Long procesoLlamadoId) {
+        String temporizador, Long padreId, Long procesoLlamadoId, boolean interrumpe) {
 
     static NodoDelDiagrama de(ActividadResponse actividad) {
         return new NodoDelDiagrama(actividad.id(), actividad.bpmnId(), actividad.nombre(), actividad.laneId(),
                 actividad.tipoActividad(), null, null, null, null, null, actividad.padreId(),
-                actividad.procesoLlamadoId());
+                actividad.procesoLlamadoId(), false);
     }
 
     static NodoDelDiagrama de(GatewayResponse gateway) {
         return new NodoDelDiagrama(gateway.id(), gateway.bpmnId(), gateway.nombre(), gateway.laneId(), null,
-                gateway.tipoGateway(), null, null, null, null, gateway.padreId(), null);
+                gateway.tipoGateway(), null, null, null, null, gateway.padreId(), null, false);
     }
 
     static NodoDelDiagrama de(EventoResponse evento) {
         return new NodoDelDiagrama(evento.id(), evento.bpmnId(), evento.nombre(), evento.laneId(), null, null,
                 evento.tipoEvento(), evento.adjuntoAId(), evento.tipoTemporizador(), evento.temporizador(),
-                evento.padreId(), null);
+                evento.padreId(), null, !Boolean.FALSE.equals(evento.interrumpe()));
+    }
+
+    /**
+     * PR 68: un temporizador que salta una sola vez aunque diga un ciclo: el intermedio, que suelta su token al
+     * saltar, y el de borde que interrumpe, que saca a la actividad.
+     */
+    boolean saltaUnaVez() {
+        return esEvento() && (tipoEvento == TipoEvento.TEMPORIZADOR_INTERMEDIO
+                || tipoEvento == TipoEvento.TEMPORIZADOR_BORDE && interrumpe);
     }
 
     /** PR 55: un evento de borde: no esta en el flujo, sale de la actividad a la que va pegado. */

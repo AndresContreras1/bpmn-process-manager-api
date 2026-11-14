@@ -22,6 +22,14 @@ public interface MembresiaRolRepository extends RepositorioTenant<MembresiaRol> 
             """)
     List<Long> rolesDe(@Param("empresaId") Long empresaId, @Param("usuarioId") Long usuarioId);
 
+    /** PR 71: quienes pertenecen a un rol de proceso: a quienes avisa el plazo de una tarea que nadie tiene. */
+    @Query("""
+            select m.usuario.id from MembresiaRol m
+            where m.empresa.id = :empresaId and m.rolProceso.id = :rolProcesoId
+            order by m.usuario.id
+            """)
+    List<Long> miembrosDe(@Param("empresaId") Long empresaId, @Param("rolProcesoId") Long rolProcesoId);
+
     /** Deja a una persona sin ninguno, que es el primer paso de reemplazar su lista entera. */
     @Modifying
     @Query("delete from MembresiaRol m where m.empresa.id = :empresaId and m.usuario.id = :usuarioId")
