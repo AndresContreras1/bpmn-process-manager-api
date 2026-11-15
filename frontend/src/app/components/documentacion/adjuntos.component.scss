@@ -1,0 +1,20 @@
+// La zona donde se sueltan los archivos: un borde punteado que se vuelve del color de marca mientras algo pasa encima.
+// El boton de adentro es el camino del teclado; soltar es solo un atajo para quien usa el raton.
+.zona-de-carga {
+  border: 2px dashed var(--bs-border-color);
+  background-color: var(--bs-tertiary-bg);
+}
+
+.zona-de-carga.arrastrando {
+  border-color: var(--bs-primary);
+  background-color: var(--bs-primary-bg-subtle);
+}
+
+.compacto .list-group-item {
+  padding: 0.5rem;
+}
+
+// WCAG 2.5.8: nada que se pulse mide menos de 24 px, tampoco en el panel angosto del modelador
+.adjuntos .btn {
+  min-height: 24px;
+}

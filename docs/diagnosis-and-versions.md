@@ -57,6 +57,11 @@ process with `versionPublicada`. The version also keeps the same diagram as a BP
 never again: `GET /procesos/{id}/versiones/{n}/modelo` downloads the same bytes today and in a year, whatever changes
 in the exporter ([ADR-0053](adr/0053-bpmn-export.md)).
 
+A store can publish with approval instead ([Review and approval](api-reference.md#review-and-approval)). Then this
+`PATCH` answers `409` for everyone: a review request freezes the draft under the same conditions, and its last approval
+publishes that frozen diagram through this same path, if the version in force has not moved since and its diagnosis is
+still clean ([ADR-0069](adr/0069-review-and-approval.md)).
+
 The model keeps being editable: what is edited is the draft. A process read one by one says `borradorPendiente`,
 which is true when the diagram of today is not the one in force, and the diagnosis says the same with `A-13`. It is
 worked out by comparing fingerprints, so moving a step and moving it back leaves nothing pending. It does not come

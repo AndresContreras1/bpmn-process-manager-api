@@ -15,7 +15,8 @@ export interface PuertosDeConexion {
   azar(): number;
 }
 
-const TIPOS = ['presencia', 'bloqueo', 'control-tomado', 'guardado', 'publicado'] as const;
+/** Los eventos de un proceso en vivo; F21: el flujo de avisos de cada persona lee los suyos. */
+export const TIPOS_EN_VIVO: readonly string[] = ['presencia', 'bloqueo', 'control-tomado', 'guardado', 'publicado'];
 export const ESPERA_INICIAL_MS = 1000;
 export const ESPERA_MAXIMA_MS = 30000;
 
@@ -28,11 +29,15 @@ export function esperaDeReconexion(intentos: number, azar: () => number): number
   return Math.round(tope / 2 + (azar() * tope) / 2);
 }
 
+/** Lo que avisa una conexion: que se abrio, que se corto, o un evento de los que lee con sus datos. */
+export type EventoDeConexion = { tipo: 'conectado' } | { tipo: 'desconectado' } | { tipo: string; datos: unknown };
+
 /**
  * Una conexion en vivo que se repone sola. Se cierra la del navegador y se abre otra aqui: la reconexion propia de
- * EventSource reintenta a ritmo fijo y se rinde ante cualquier respuesta que no sea un corte.
+ * EventSource reintenta a ritmo fijo y se rinde ante cualquier respuesta que no sea un corte, como el 429 de quien
+ * tiene demasiadas abiertas. Lee los tipos de evento que se le digan; por defecto, los de un proceso en vivo.
  */
-export class ConexionEnVivo {
+export class ConexionEnVivo<E extends EventoDeConexion = EventoEnVivo> {
   private fuente: FuenteDeEventos | null = null;
   private marca: unknown = null;
   private intentos = 0;
@@ -40,7 +45,8 @@ export class ConexionEnVivo {
 
   constructor(
     private readonly puertos: PuertosDeConexion,
-    private readonly avisar: (evento: EventoEnVivo) => void,
+    private readonly avisar: (evento: E) => void,
+    private readonly tipos: readonly string[] = TIPOS_EN_VIVO,
   ) {}
 
   iniciar(): void {
@@ -63,11 +69,11 @@ export class ConexionEnVivo {
     this.fuente = fuente;
     fuente.onopen = () => {
       this.intentos = 0;
-      this.avisar({ tipo: 'conectado' });
+      this.avisar({ tipo: 'conectado' } as E);
     };
     fuente.onerror = () => this.cortada(fuente);
-    TIPOS.forEach((tipo) =>
-      fuente.addEventListener(tipo, (evento) => this.avisar({ tipo, datos: JSON.parse(evento.data) } as EventoEnVivo)),
+    this.tipos.forEach((tipo) =>
+      fuente.addEventListener(tipo, (evento) => this.avisar({ tipo, datos: JSON.parse(evento.data) } as E)),
     );
   }
 
@@ -76,7 +82,7 @@ export class ConexionEnVivo {
     if (this.detenida || fuente !== this.fuente) {
       return;
     }
-    this.avisar({ tipo: 'desconectado' });
+    this.avisar({ tipo: 'desconectado' } as E);
     const espera = esperaDeReconexion(this.intentos, () => this.puertos.azar());
     this.intentos++;
     this.marca = this.puertos.esperar(() => {

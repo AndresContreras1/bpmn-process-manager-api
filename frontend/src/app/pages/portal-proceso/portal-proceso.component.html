@@ -1,0 +1,157 @@
+<div class="container-fluid py-4 px-lg-4" id="portal-proceso">
+  @if (cargando() && !leido()) {
+    <p i18n class="text-body-secondary" role="status">Loading the process…</p>
+  } @else if (noEncontrado()) {
+    <app-vacio
+      icono="fa-regular fa-circle-question"
+      i18n-titulo
+      titulo="This process is not here"
+      i18n-texto
+      texto="It may belong to another organization, it may have been deleted, or you may not be allowed to see it."
+    >
+      <a i18n class="btn btn-outline-primary btn-sm" routerLink="/portal">Back to the portal</a>
+    </app-vacio>
+  } @else if (error() && !leido()) {
+    <div class="alert alert-danger d-flex align-items-center justify-content-between gap-3" role="alert">
+      <span id="portal-proceso-error">{{ error() }}</span>
+      <button i18n type="button" class="btn btn-sm btn-outline-danger" (click)="reintentar()">Try again</button>
+    </div>
+  } @else if (leido(); as datos) {
+    @let proceso = datos.detalle.proceso;
+    <header class="mb-4">
+      <h1 class="h3 fw-bold mb-2" id="portal-proceso-nombre">{{ proceso.nombre }}</h1>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        @if (proceso.versionPublicada) {
+          <app-insignia tono="exito" i18n-texto texto="Version {{ proceso.versionPublicada }} in force" />
+        } @else {
+          <app-insignia tono="neutro" i18n-texto texto="Not published yet" />
+        }
+        @if (vencida()) {
+          <span id="portal-proceso-vencida">
+            <app-insignia tono="peligro" i18n-texto texto="Review overdue" />
+          </span>
+        }
+      </div>
+      @if (proceso.descripcion) {
+        <p class="text-body-secondary mb-0 descripcion">{{ proceso.descripcion }}</p>
+      }
+    </header>
+
+    <section class="card border-0 shadow-sm mb-4" id="portal-ficha" aria-labelledby="portal-ficha-titulo">
+      <div class="card-body p-3 p-md-4">
+        <h2 i18n class="h5 mb-3" id="portal-ficha-titulo">Process sheet</h2>
+        <dl class="row mb-0 small">
+          <dt i18n class="col-sm-4 col-lg-2">Owner</dt>
+          <dd class="col-sm-8 col-lg-4" id="portal-ficha-dueno">
+            @if (datos.detalle.duenoNombre) {
+              {{ datos.detalle.duenoNombre }}
+            } @else {
+              <span i18n class="text-body-secondary">Nobody</span>
+            }
+          </dd>
+          <dt i18n class="col-sm-4 col-lg-2">Classification</dt>
+          <dd class="col-sm-8 col-lg-4" id="portal-ficha-clasificacion">
+            {{ nombreClasificacion[proceso.clasificacion ?? 'INTERNA'] }}
+          </dd>
+          <dt i18n class="col-sm-4 col-lg-2">Next review</dt>
+          <dd class="col-sm-8 col-lg-4" id="portal-ficha-revision">
+            @if (proceso.proximaRevision) {
+              {{ proceso.proximaRevision | fecha: 'fechaLarga' }}
+              @if (vencida()) {
+                <span i18n class="text-danger-emphasis fw-semibold"> · overdue</span>
+              }
+            } @else {
+              <span i18n class="text-body-secondary">Not scheduled</span>
+            }
+          </dd>
+          <dt i18n class="col-sm-4 col-lg-2">Category</dt>
+          <dd class="col-sm-8 col-lg-4">{{ proceso.categoria }}</dd>
+          @if (proceso.etiquetas?.length) {
+            <dt i18n class="col-sm-4 col-lg-2">Tags</dt>
+            <dd class="col-sm-8 col-lg-10">
+              @for (etiqueta of proceso.etiquetas; track etiqueta) {
+                <span class="badge text-bg-light border me-1">{{ etiqueta }}</span>
+              }
+            </dd>
+          }
+        </dl>
+
+        @if (ficha().length > 0) {
+          <h3 i18n class="h6 mt-3 text-uppercase text-body-secondary fw-semibold">Characterization</h3>
+          <dl class="row mb-0 small" id="portal-caracterizacion">
+            @for (leido of ficha(); track leido.campo) {
+              <dt class="col-sm-4 col-lg-2" [attr.data-campo]="leido.campo">{{ nombreCampo[leido.campo] }}</dt>
+              <dd class="col-sm-8 col-lg-10 descripcion" [attr.data-campo]="leido.campo">{{ leido.texto }}</dd>
+            }
+          </dl>
+        }
+      </div>
+    </section>
+
+    @if (datos.xml; as xml) {
+      <div class="row g-4 mb-4">
+        <div class="col-xl-8">
+          <section class="card border-0 shadow-sm" aria-labelledby="portal-diagrama-titulo">
+            <div class="card-body p-3">
+              <h2 i18n class="h5 mb-1" id="portal-diagrama-titulo">Diagram of the version in force</h2>
+              <p i18n class="small text-body-secondary mb-2" id="portal-diagrama-ayuda">
+                Click a step to read its documentation and its documents. The marked steps have something to read.
+              </p>
+              <div class="portal-diagrama" id="portal-diagrama">
+                <app-lienzo-bpmn
+                  #dibujo
+                  modo="ver"
+                  i18n-titulo
+                  titulo="Diagram of the process"
+                  [xml]="xml"
+                  [modoProceso]="proceso.modo ?? 'EJECUTABLE'"
+                  [marcas]="marcas()"
+                  (listo)="alDibujar()"
+                  (elegir)="elegir($event)"
+                />
+              </div>
+              <div class="mt-3">
+                <app-vista-estructura
+                  [lienzo]="dibujo"
+                  [revision]="revision()"
+                  [elegido]="elegidoEnElLienzo()"
+                  [soloLectura]="true"
+                />
+                <button
+                  i18n
+                  type="button"
+                  class="btn btn-sm btn-link px-0"
+                  id="portal-ir-al-panel"
+                  (click)="leerPanel()"
+                >
+                  Read about the chosen step
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="col-xl-4">
+          <app-panel-elemento [elemento]="elemento()" [textos]="datos.textos" [documentos]="datos.documentos" />
+        </div>
+      </div>
+      <p class="visually-hidden" aria-live="polite" id="portal-anuncio">{{ anuncio() }}</p>
+
+      <app-manual-del-portal
+        [procesoId]="proceso.id"
+        [version]="proceso.versionPublicada ?? 0"
+        [manualesLeidos]="datos.manuales"
+        [puedePedir]="controles().pedirManual"
+      />
+    } @else {
+      <section class="card border-0 shadow-sm" id="portal-sin-version">
+        <app-vacio
+          icono="fa-regular fa-file"
+          i18n-titulo
+          titulo="Nothing of this process is published yet"
+          i18n-texto
+          texto="Its diagram, documentation and manual show up here once a version is published."
+        />
+      </section>
+    }
+  }
+</div>

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.facimus.procesos.common.SolicitudInvalidaException;
+import com.facimus.procesos.common.csv.CeldaCsv;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.gestion.dto.response.PaginaDeBitacoraResponse;
 import com.facimus.procesos.gestion.dto.response.RegistroDeBitacoraResponse;
@@ -115,27 +116,9 @@ public class AuditoriaController {
                         registro.accion(), registro.recurso(), registro.recursoId(), registro.exito(), registro.ip(),
                         registro.userAgent(), registro.requestId(), registro.traceId(), registro.detalle(),
                         registro.hash())
-                        .map(AuditoriaController::celda)
+                        .map(CeldaCsv::de)
                         .collect(Collectors.joining(","))))
                 .collect(Collectors.joining("\r\n", "", "\r\n"));
     }
 
-    /**
-     * Una celda de CSV (RFC 4180) que una hoja de calculo no ejecuta: lo que empieza por =, +, -, @, tabulador o
-     * retorno se antepone con un apostrofo (la recomendacion de OWASP), y lo que lleva comas, comillas o saltos va
-     * entre comillas.
-     */
-    static String celda(Object valor) {
-        if (valor == null) {
-            return "";
-        }
-        String texto = valor.toString();
-        if (!texto.isEmpty() && "=+-@\t\r".indexOf(texto.charAt(0)) >= 0) {
-            texto = "'" + texto;
-        }
-        if (texto.contains(",") || texto.contains("\"") || texto.contains("\n") || texto.contains("\r")) {
-            texto = "\"" + texto.replace("\"", "\"\"") + "\"";
-        }
-        return texto;
-    }
 }

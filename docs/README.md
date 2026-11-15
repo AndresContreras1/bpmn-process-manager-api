@@ -24,8 +24,9 @@ The [root README](../README.md) is the summary. These pages hold the detail, one
 | [Domain model and rules](domain-model.md) | The resources, folders and grants among them, and the modeling, user and lifecycle rules |
 | [Diagnosis, versions and AI review](diagnosis-and-versions.md) | What a diagram gets wrong, publishing into immutable versions, and the second opinion of a model |
 | [Execution and simulation](execution.md) | Cases, tasks, conditions, messages, the store's clock, the simulated partners and the dashboard |
-| [Security](security.md) | Roles, permissions on folders and processes, authentication, login protection, security headers and HTTPS, tenant isolation, sharing, passwords and reading XML |
+| [Security](security.md) | Roles, permissions on folders and processes, authentication, login protection, the organization export, security headers and HTTPS, tenant isolation, sharing, passwords, the life of the data and reading XML |
 | [API reference](api-reference.md) | Every endpoint, BPMN files, the process repository, permissions, pagination, concurrent edits and who is editing, idempotency, auditing and errors |
+| [Export format](export-format.md) | What the full export of a store holds, file by file, how to check its fingerprints and its audit trail without the API, and the deletion certificate |
 
 **Engineering**
 

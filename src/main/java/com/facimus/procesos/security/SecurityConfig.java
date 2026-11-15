@@ -86,6 +86,9 @@ public class SecurityConfig {
     /** PR 49b: la entrada sin clave, con una passkey. */
     static final String ENTRADA_CON_PASSKEY = "/api/v1/auth/passkeys";
 
+    /** PR 66: las exportaciones completas de la tienda. */
+    static final String EXPORTACIONES = "/api/v1/organizacion/exportaciones";
+
     private static final RequestMatcher DOCUMENTACION = new OrRequestMatcher(
             PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui/**"),
             PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui.html"));
@@ -172,6 +175,8 @@ public class SecurityConfig {
                         // PR 61: bajar un documento con su enlace firmado: la firma es el permiso, y vence en minutos
                         .requestMatchers(HttpMethod.GET, "/api/v1/descargas/documentos/*/*",
                                 "/api/v1/descargas/manuales/*/*").permitAll()
+                        // PR 66: bajar una exportacion con el enlace del correo: la firma es el permiso, por 24 horas
+                        .requestMatchers(HttpMethod.GET, "/api/v1/descargas/exportaciones/*").permitAll()
                         // PR 50: la ida al proveedor, su vuelta, los proveedores que hay y confirmar un vinculo:
                         // quien los usa todavia no tiene sesion.
                         .requestMatchers(HttpMethod.GET, OIDC + "/**", "/api/v1/auth/proveedores").permitAll()
@@ -226,8 +231,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/empresas/actual/baja")
                         .access(AuthorizationManagers.allOf(AuthorityAuthorizationManager.hasAuthority(ADMINISTRADOR),
                                 VerificacionReciente.requerida()))
+                        // PR 66: la exportacion completa es del administrador, y pedirla tambien pide haber
+                        // confirmado la identidad hace poco: se lleva cada dato de la tienda.
+                        .requestMatchers(HttpMethod.POST, EXPORTACIONES)
+                        .access(AuthorizationManagers.allOf(AuthorityAuthorizationManager.hasAuthority(ADMINISTRADOR),
+                                VerificacionReciente.requerida()))
+                        .requestMatchers(EXPORTACIONES, EXPORTACIONES + "/*").hasAuthority(ADMINISTRADOR)
                         .requestMatchers("/api/v1/empresas/actual/historial",
                                 "/api/v1/empresas/actual/configuracion", "/api/v1/empresas/actual/preferencias")
+                        .hasAuthority(ADMINISTRADOR)
+                        // PR 64: como publica la tienda lo lee cualquier rol, y lo cambia su administrador
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/empresas/actual/politica-de-publicacion")
                         .hasAuthority(ADMINISTRADOR)
                         // F12: el idioma y la zona horaria de cada persona son suyos, sea cual sea su rol.
                         .requestMatchers("/api/v1/auth/preferencias").authenticated()
@@ -240,6 +254,18 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/simulacion", "/api/v1/simulacion/**")
                         .hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").authenticated()
+                        // PR 63: comentar es de cualquier rol, tambien de quien solo lee: lo decide COMENTAR sobre el
+                        // proceso, y editar o borrar un comentario lo decide su servicio. Las notificaciones son de
+                        // cada persona, sea cual sea su rol.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/comentarios",
+                                "/api/v1/comentarios/*/respuestas", "/api/v1/comentarios/*/resolver",
+                                "/api/v1/comentarios/*/reabrir").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/comentarios/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/comentarios/*").authenticated()
+                        .requestMatchers("/api/v1/notificaciones", "/api/v1/notificaciones/**").authenticated()
+                        // PR 64: el dueno de un proceso confirma que sigue vigente sea cual sea su rol: lo decide su
+                        // servicio (el dueno, o quien administra el proceso)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/recertificacion").authenticated()
                         .requestMatchers("/api/v1/roles/**").hasAuthority(ADMINISTRADOR)
                         .requestMatchers(HttpMethod.POST, "/api/v1/procesos/*/compartidos").hasAuthority(ADMINISTRADOR)
                         // Retirar una version cambia lo que la tienda da por bueno: es del administrador (D2).

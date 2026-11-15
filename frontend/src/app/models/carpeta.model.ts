@@ -33,3 +33,19 @@ export function aplanarCarpetas(carpetas: Carpeta[]): FilaDeCarpeta[] {
   recorrer(null, 0);
   return filas;
 }
+
+/**
+ * Adonde se puede mover una carpeta: cualquier otra que no sea ella ni este dentro de ella, porque una carpeta no
+ * puede acabar dentro de si misma. Salen en el orden del arbol, con su nivel, para dibujarlas igual que el arbol.
+ */
+export function destinosDeCarpeta(carpetas: Carpeta[], id: number): FilaDeCarpeta[] {
+  const fuera = new Set<number>([id]);
+  const filas = aplanarCarpetas(carpetas);
+  // aplanarCarpetas pone cada carpeta antes que las suyas: al llegar a una hija, su padre ya se sabe si esta fuera
+  filas.forEach((fila) => {
+    if (fila.carpeta.padreId !== null && fuera.has(fila.carpeta.padreId)) {
+      fuera.add(fila.carpeta.id);
+    }
+  });
+  return filas.filter((fila) => !fuera.has(fila.carpeta.id));
+}
