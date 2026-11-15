@@ -69,11 +69,11 @@ business calendar (`calendarios`, with its changes to the holidays in `festivos`
 
 A form is a value of its node, not an entity: the JSON column `nodos_flujo.formulario`, frozen with the rest of the
 diagram in the definition of each version. Its fields (`CampoDeFormulario`) have a name, a label, one of twelve types
-and the validations and conditions that type admits ([ADR-0073](adr/0073-typed-forms.md)); the answers of a case are
+and the validations and conditions that type admits ([ADR-0076](adr/0076-typed-forms.md)); the answers of a case are
 not stored apart, they are its variables.
 
 Who a task goes to is a value of its activity too: three columns of `nodos_flujo` frozen with the diagram, resolved when
-a case creates the task ([ADR-0074](adr/0074-assignment-and-inbox.md)). From then on the task has a holder or waits in
+a case creates the task ([ADR-0077](adr/0077-assignment-and-inbox.md)). From then on the task has a holder or waits in
 its role tray; a delegation keeps who to give it back to.
 
 A deadline is a value of its node as well: `nodos_flujo.plazo_cantidad` and `plazo_unidad` (`HORAS` or `DIAS_HABILES`)
@@ -81,7 +81,7 @@ on a user task, or on a start event for the whole case, frozen with the diagram;
 can carry what it escalates (`escalamiento`, `AVISAR` or `REASIGNAR`, and the supervisor in `escalar_a`). A step of a
 case and a case keep their own `Vencimiento`, embedded: when it is due and when its last quarter starts (`vence_en` and
 `aviso_en` in UTC, or `vence_tick` and `aviso_tick` for a test case) and its state, `A_TIEMPO`, `POR_VENCER` or
-`VENCIDA`, which only moves forward ([ADR-0075](adr/0075-deadlines-and-escalation.md)).
+`VENCIDA`, which only moves forward ([ADR-0078](adr/0078-deadlines-and-escalation.md)).
 
 ## Modeling rules
 

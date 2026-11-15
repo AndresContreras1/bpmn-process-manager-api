@@ -279,7 +279,7 @@ What passes is stored with its type under `tarea.<taskNameInCamel>`: numbers as 
 ISO 8601 text, a multiple list as a list, a person or a file as its id (an active person of the store; a document of
 the process whose latest version is available). A hidden field is dropped. Without a form, free key-value data is
 taken only by a `PRUEBA` case; a `PRODUCCION` one answers `400` for each key. The form also travels in BPMN as
-`bpm:formulario` ([ADR-0073](adr/0073-typed-forms.md)).
+`bpm:formulario` ([ADR-0076](adr/0076-typed-forms.md)).
 
 ## Assignment and inboxes
 
@@ -411,7 +411,7 @@ curl -s -X PUT http://localhost:8080/api/v1/eventos/15/escalamiento -b sesion.tx
 ```
 
 How deadlines are counted and why they are not timers is in
-[ADR-0075](adr/0075-deadlines-and-escalation.md).
+[ADR-0078](adr/0078-deadlines-and-escalation.md).
 
 ## Comments and notifications
 

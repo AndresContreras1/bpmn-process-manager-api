@@ -63,7 +63,7 @@ declares, the body of every message received. `caso.referencia` and `caso.tick` 
 the case itself.
 
 **Forms.** A user task or a plain start event can ask for its data with a typed form, frozen in the version
-([ADR-0073](adr/0073-typed-forms.md)). Then what a task hands over, or what a case opens with, are the answers to that
+([ADR-0076](adr/0076-typed-forms.md)). Then what a task hands over, or what a case opens with, are the answers to that
 form: the server walks it from the top, drops the fields a condition hides, refuses a key it does not ask for, checks
 each answer against its type and its rules, and answers `400` with an error per field when one fails. What passes lands
 with its type, so `tarea.approveRefund.aprobado == true` compares a boolean and `tarea.approveRefund.monto > 100` a
@@ -78,7 +78,7 @@ answers only the tasks of the caller's roles — someone with no roles gets an e
 
 **Who holds it.** A user task can also reach a person when it is created: a fixed one, whoever opened the case, or the
 person a case variable names, such as the `PERSONA` field of the start form or of an earlier task
-([ADR-0074](adr/0074-assignment-and-inbox.md)). The rule is frozen in the version. When it cannot tell an active
+([ADR-0077](adr/0077-assignment-and-inbox.md)). The rule is frozen in the version. When it cannot tell an active
 administrator or editor, the task waits in the role tray and the timeline says why. From then on only the holder
 completes the task: a member of its role, or an administrator, takes one nobody holds with `POST
 /tareas/{id}/reclamar` (or just by completing it), lets it go with `/soltar`, hands it over with `/reasignar`, or lends
@@ -172,7 +172,7 @@ in its own transaction, with its case locked, and once, even with two instances 
 fire with the store's clock: `POST /simulacion/tick` fires those due after delivering its messages, and a tick is one
 hour of a timer (`PT2H` is two ticks). A timer whose case ends, or whose activity stops waiting, is cancelled.
 
-**Deadlines** ([ADR-0075](adr/0075-deadlines-and-escalation.md)). A user task, or the whole case on its start event,
+**Deadlines** ([ADR-0078](adr/0078-deadlines-and-escalation.md)). A user task, or the whole case on its start event,
 can have a deadline in wall-clock hours or in business days of the store's calendar. It counts from the moment the task
 starts waiting, or the case opens; the line that creates the task, or opens the case, says when it is due. It is `A_TIEMPO`, then `POR_VENCER` in its last
 quarter, then `VENCIDA`: a scheduler moves production deadlines every minute, and the store's tick moves test ones

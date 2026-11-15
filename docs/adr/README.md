@@ -61,6 +61,14 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0067 | [Comments, mentions and notifications](0067-comments-mentions-and-notifications.md) | Accepted |
 | 0068 | [Backups with pgBackRest and a monthly restore drill](0068-backup-and-restore.md) | Accepted |
 | 0072 | [Business calendar, timers and the two modes of a case](0072-business-calendar-and-timers.md) | Accepted |
+<<<<<<< HEAD
 | 0073 | [Typed forms frozen in the version](0073-typed-forms.md) | Accepted |
+<<<<<<< HEAD
 | 0074 | [Assignment, inboxes and who completes a task](0074-assignment-and-inbox.md) | Accepted |
-| 0075 | [Deadlines, notices and escalation](0075-deadlines-and-escalation.md) | Accepted |
+| 0078 | [Deadlines, notices and escalation](0078-deadlines-and-escalation.md) | Accepted |
+=======
+| 0077 | [Assignment, inboxes and who completes a task](0077-assignment-and-inbox.md) | Accepted |
+=======
+| 0076 | [Typed forms frozen in the version](0076-typed-forms.md) | Accepted |
+>>>>>>> origin/feat/typed-forms
+>>>>>>> origin/feat/assignment-and-inbox

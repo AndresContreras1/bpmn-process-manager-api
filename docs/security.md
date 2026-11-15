@@ -369,7 +369,7 @@ What PR 68 adds, against the checklist every resource goes through ([ADR-0072](a
 
 ## Typed forms
 
-What PR 69 adds, against the checklist every resource goes through ([ADR-0073](adr/0073-typed-forms.md)):
+What PR 69 adds, against the checklist every resource goes through ([ADR-0076](adr/0076-typed-forms.md)):
 
 - **Row-level security.** A form is a column of `nodos_flujo` (V59), which already has the store's policy; the answers
   are case variables. A test reads and updates the forms as another store and sees nothing.
@@ -397,7 +397,7 @@ What PR 69 adds, against the checklist every resource goes through ([ADR-0073](a
 
 ## Assignment and inboxes
 
-What PR 70 adds, against the checklist every resource goes through ([ADR-0074](adr/0074-assignment-and-inbox.md)):
+What PR 70 adds, against the checklist every resource goes through ([ADR-0077](adr/0077-assignment-and-inbox.md)):
 
 - **Row-level security.** `delegaciones` (V60) carries `empresa_id` with the store's policy, enabled and forced; the
   assignment rule is three columns of `nodos_flujo`, the holder and the delegator two of `actividades_caso`, and the
@@ -435,7 +435,7 @@ What PR 70 adds, against the checklist every resource goes through ([ADR-0074](a
 
 ## Deadlines and escalation
 
-What PR 71 adds, against the checklist every resource goes through ([ADR-0075](adr/0075-deadlines-and-escalation.md)):
+What PR 71 adds, against the checklist every resource goes through ([ADR-0078](adr/0078-deadlines-and-escalation.md)):
 
 - **Row-level security.** No new table: the deadline and the escalation are columns of `nodos_flujo`, and the due dates
   and the state of a deadline columns of `actividades_caso` and `casos`, which already have the store's policy; the
