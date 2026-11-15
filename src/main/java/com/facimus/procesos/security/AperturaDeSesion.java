@@ -15,6 +15,7 @@ import com.facimus.procesos.gestion.dto.response.SesionVerificada;
 import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.SegundoFactorService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
@@ -38,16 +39,22 @@ public class AperturaDeSesion {
     }
 
     /**
-     * Las cookies de la sesion, con su access token recien firmado. El acceso no pasa del fin de la sesion: a las 24
-     * horas se vuelve a entrar, no a las 24 y cuarto.
+     * Las cookies de una sesion nueva, con su access token recien firmado, y un token CSRF nuevo (ADR-0064). El acceso
+     * no pasa del fin de la sesion: a las 24 horas se vuelve a entrar, no a las 24 y cuarto.
      */
-    public SesionResponse abrir(SesionIniciada sesion, HttpServletResponse respuesta) {
+    public SesionResponse abrir(SesionIniciada sesion, HttpServletRequest peticion, HttpServletResponse respuesta) {
         Duration vidaDelAcceso = vidaDelAcceso(sesion.vidaRestante());
-        String accessToken = jwtService.generarToken(principal(sesion.usuario(), sesion.sesion()),
-                sesion.factores(), sesion.verificadaEn(), vidaDelAcceso);
-        cookies.abrir(respuesta, accessToken, vidaDelAcceso, sesion.refreshToken(), sesion.vidaDelRefresco());
-        return new SesionResponse(vidaDelAcceso.toSeconds(), sesion.usuario(), false,
-                sesion.vidaDelRefresco().toSeconds(), sesion.vidaRestante().toSeconds());
+        cookies.abrir(peticion, respuesta, accessToken(sesion, vidaDelAcceso), vidaDelAcceso, sesion.refreshToken(),
+                sesion.vidaDelRefresco());
+        return respuesta(sesion, vidaDelAcceso);
+    }
+
+    /** Las cookies de la misma sesion, renovada: el token CSRF no cambia. */
+    public SesionResponse renovar(SesionIniciada sesion, HttpServletResponse respuesta) {
+        Duration vidaDelAcceso = vidaDelAcceso(sesion.vidaRestante());
+        cookies.renovar(respuesta, accessToken(sesion, vidaDelAcceso), vidaDelAcceso, sesion.refreshToken(),
+                sesion.vidaDelRefresco());
+        return respuesta(sesion, vidaDelAcceso);
     }
 
     /**
@@ -55,10 +62,11 @@ public class AperturaDeSesion {
      * que solo sirve para dar el codigo y que lleva el factor con que se empezo; la de refresco se borra, porque
      * todavia no hay una sesion que renovar.
      */
-    public SesionResponse pendiente(UsuarioResponse usuario, Set<Factor> factores, HttpServletResponse respuesta) {
+    public SesionResponse pendiente(UsuarioResponse usuario, Set<Factor> factores, HttpServletRequest peticion,
+            HttpServletResponse respuesta) {
         ApiPrincipal principal = usuario.comoPrincipal(UUID.randomUUID().toString()).pendienteDelSegundoFactor();
         String accessToken = jwtService.generarToken(principal, factores, Instant.now(), VIDA_DEL_LOGIN_PENDIENTE);
-        cookies.abrirPendiente(respuesta, accessToken, VIDA_DEL_LOGIN_PENDIENTE);
+        cookies.abrirPendiente(peticion, respuesta, accessToken, VIDA_DEL_LOGIN_PENDIENTE);
         return new SesionResponse(VIDA_DEL_LOGIN_PENDIENTE.toSeconds(), usuario, true);
     }
 
@@ -80,6 +88,16 @@ public class AperturaDeSesion {
         ApiPrincipal principal = usuario.comoPrincipal(sesion);
         return segundoFactorService.faltaInscribir(usuario.empresaId(), usuario.id(), usuario.rolAcceso())
                 ? principal.conInscripcionObligatoria() : principal;
+    }
+
+    private String accessToken(SesionIniciada sesion, Duration vidaDelAcceso) {
+        return jwtService.generarToken(principal(sesion.usuario(), sesion.sesion()), sesion.factores(),
+                sesion.verificadaEn(), vidaDelAcceso);
+    }
+
+    private static SesionResponse respuesta(SesionIniciada sesion, Duration vidaDelAcceso) {
+        return new SesionResponse(vidaDelAcceso.toSeconds(), sesion.usuario(), false,
+                sesion.vidaDelRefresco().toSeconds(), sesion.vidaRestante().toSeconds());
     }
 
     private Duration vidaDelAcceso(Duration vidaRestante) {

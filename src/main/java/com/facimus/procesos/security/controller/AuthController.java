@@ -81,7 +81,8 @@ public class AuthController {
 
     @Operation(summary = "Get the CSRF token", description = "Sets the XSRF-TOKEN cookie, whose value every request "
             + "that changes something with the session cookies sends back in the X-XSRF-TOKEN header. The web app "
-            + "calls it when it starts; the login asks for the header too.")
+            + "calls it when it starts; the login asks for the header too. The token lasts the session: every way "
+            + "in, and logging out, set a new one, so a client reads the cookie again after signing in.")
     @ApiResponse(responseCode = "204", description = "The XSRF-TOKEN cookie is set")
     @SecurityRequirements()
     @GetMapping("/csrf")
@@ -128,12 +129,12 @@ public class AuthController {
     @ApiResponse(responseCode = "404", ref = "NotFound")
     @DeleteMapping("/sesiones/{id}")
     public ResponseEntity<Void> cerrarSesion(@PathVariable Long id, @AuthenticationPrincipal ApiPrincipal principal,
-            HttpServletResponse respuesta) {
+            HttpServletRequest peticion, HttpServletResponse respuesta) {
         boolean esLaActual = sesionService.abiertas(principal.empresaId(), principal.usuarioId(), principal.sesion())
                 .stream().anyMatch(sesion -> sesion.actual() && sesion.id().equals(id));
         sesionService.cerrarPorId(principal.empresaId(), principal.usuarioId(), id);
         if (esLaActual) {
-            cookies.cerrar(respuesta);
+            cookies.cerrar(peticion, respuesta);
         }
         return ResponseEntity.noContent().build();
     }
@@ -174,9 +175,9 @@ public class AuthController {
             throw new SinPermisoException("Tu tienda entra con Google o Microsoft: usa ese botón para entrar.");
         }
         if (segundoFactorService.loPide(usuario.empresaId(), usuario.id())) {
-            return ResponseEntity.ok(apertura.pendiente(usuario, EnumSet.of(Factor.PASSWORD), respuesta));
+            return ResponseEntity.ok(apertura.pendiente(usuario, EnumSet.of(Factor.PASSWORD), peticion, respuesta));
         }
-        return ResponseEntity.ok(apertura.abrir(sesionService.iniciar(usuario.empresaId(), usuario.id()),
+        return ResponseEntity.ok(apertura.abrir(sesionService.iniciar(usuario.empresaId(), usuario.id()), peticion,
                 respuesta));
     }
 
@@ -206,7 +207,8 @@ public class AuthController {
         // El primer factor es el que dejo el login a medias: la clave o, desde el PR 50, un proveedor.
         Set<Factor> factores = Factor.de(autenticacion.getAuthorities());
         factores.add(factor);
-        return ResponseEntity.ok(apertura.abrir(sesionService.iniciar(empresaId, usuarioId, factores), respuesta));
+        return ResponseEntity.ok(apertura.abrir(sesionService.iniciar(empresaId, usuarioId, factores), peticion,
+                respuesta));
     }
 
     @Operation(summary = "Renew the session", description = "Trades the refresh cookie for a new access cookie and a "
@@ -221,10 +223,10 @@ public class AuthController {
         try {
             String refreshToken = CookiesDeSesion.leer(peticion, CookiesDeSesion.REFRESCO)
                     .orElseThrow(SesionInvalidaException::new);
-            return ResponseEntity.ok(apertura.abrir(sesionService.renovar(refreshToken), respuesta));
+            return ResponseEntity.ok(apertura.renovar(sesionService.renovar(refreshToken), respuesta));
         } catch (SesionInvalidaException e) {
             // Una cookie que ya no renueva nada no tiene que seguir viajando en cada peticion.
-            cookies.cerrar(respuesta);
+            cookies.cerrar(peticion, respuesta);
             throw e;
         }
     }
@@ -241,7 +243,7 @@ public class AuthController {
             sesionService.cerrar(principal.empresaId(), principal.usuarioId(), principal.sesion());
         }
         CookiesDeSesion.leer(peticion, CookiesDeSesion.REFRESCO).ifPresent(sesionService::cerrarConToken);
-        cookies.cerrar(respuesta);
+        cookies.cerrar(peticion, respuesta);
         return ResponseEntity.noContent().build();
     }
 
@@ -255,7 +257,7 @@ public class AuthController {
     @PostMapping("/password")
     public ResponseEntity<SesionResponse> cambiarClave(@Validated @RequestBody CambiarClaveRequest request,
             @AuthenticationPrincipal ApiPrincipal principal, Authentication autenticacion,
-            HttpServletResponse respuesta) {
+            HttpServletRequest peticion, HttpServletResponse respuesta) {
         Long empresaId = principal.empresaId();
         Long usuarioId = principal.usuarioId();
         usuarioService.cambiarClavePropia(empresaId, usuarioId, request.actual(), request.nueva());
@@ -264,7 +266,8 @@ public class AuthController {
         sesionService.cerrarTodas(empresaId, usuarioId);
         Set<Factor> factores = Factor.de(autenticacion.getAuthorities());
         factores.add(Factor.PASSWORD);
-        return ResponseEntity.ok(apertura.abrir(sesionService.iniciar(empresaId, usuarioId, factores), respuesta));
+        return ResponseEntity.ok(apertura.abrir(sesionService.iniciar(empresaId, usuarioId, factores), peticion,
+                respuesta));
     }
 
     @Operation(summary = "Confirm who you are again",

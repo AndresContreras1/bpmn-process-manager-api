@@ -55,13 +55,14 @@ public class EntradaExterna implements AuthenticationSuccessHandler, Authenticat
         // PR 51: quien vuelve del proveedor todavia no tiene tienda; se busca entre todas.
         Alcance anterior = ContextoDeTienda.fijar(Alcance.SISTEMA);
         try {
-            alVolver(autenticacion, respuesta);
+            alVolver(autenticacion, peticion, respuesta);
         } finally {
             ContextoDeTienda.restaurar(anterior);
         }
     }
 
-    private void alVolver(Authentication autenticacion, HttpServletResponse respuesta) throws IOException {
+    private void alVolver(Authentication autenticacion, HttpServletRequest peticion, HttpServletResponse respuesta)
+            throws IOException {
         OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) autenticacion;
         OidcUser persona = (OidcUser) token.getPrincipal();
         // Microsoft no manda email_verified: dice con xms_edov si el dominio del correo es de la organizacion.
@@ -70,7 +71,7 @@ public class EntradaExterna implements AuthenticationSuccessHandler, Authenticat
         ResultadoEntradaExterna resultado = identidades.entrar(token.getAuthorizedClientRegistrationId(),
                 persona.getSubject(), persona.getEmail(), verificado, persona.getFullName());
         switch (resultado.tipo()) {
-            case ENTRA -> entrar(resultado.usuario(), respuesta);
+            case ENTRA -> entrar(resultado.usuario(), peticion, respuesta);
             case VINCULAR -> respuesta.sendRedirect(web + "/vincular#token=" + resultado.token());
             case RECHAZADA -> respuesta.sendRedirect(web + "/login?error=" + resultado.motivo());
         }
@@ -84,14 +85,15 @@ public class EntradaExterna implements AuthenticationSuccessHandler, Authenticat
     }
 
     /** Con segundo factor, el proveedor es solo el primero: queda el login a medias, como con la clave. */
-    private void entrar(UsuarioResponse usuario, HttpServletResponse respuesta) throws IOException {
+    private void entrar(UsuarioResponse usuario, HttpServletRequest peticion, HttpServletResponse respuesta)
+            throws IOException {
         if (segundoFactor.loPide(usuario.empresaId(), usuario.id())) {
-            apertura.pendiente(usuario, EnumSet.of(Factor.PROVEEDOR_EXTERNO), respuesta);
+            apertura.pendiente(usuario, EnumSet.of(Factor.PROVEEDOR_EXTERNO), peticion, respuesta);
             respuesta.sendRedirect(web + "/login?paso=segundo-factor");
             return;
         }
         apertura.abrir(sesiones.iniciar(usuario.empresaId(), usuario.id(), EnumSet.of(Factor.PROVEEDOR_EXTERNO)),
-                respuesta);
+                peticion, respuesta);
         respuesta.sendRedirect(web + "/");
     }
 }

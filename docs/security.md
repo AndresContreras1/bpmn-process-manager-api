@@ -113,6 +113,11 @@ The web app gets the cookie from `GET /api/v1/auth/csrf` when it starts, and Ang
 every change. Without it the answer is `403` with the title "Sin token CSRF". A request without session cookies
 has no session to borrow, and does not need it: the registration of a store, and API keys when they arrive.
 
+The token lasts the session ([ADR-0064](adr/0064-csrf-token-per-session.md)). Every way in, and logging out, set a
+new one, so a token planted in the browser before the login is worth nothing after it. Nothing in between changes
+it, renewing included: the web sends several requests at once, and a change must not leave with the header of one
+token and the cookie of the next.
+
 Rotating the signing key does not close sessions: `JWT_PREVIOUS_SECRET` keeps accepting the tokens of the old key,
 which nobody signs with any more, for the fifteen minutes they live ([runbook](runbook.md)).
 

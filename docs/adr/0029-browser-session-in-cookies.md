@@ -50,6 +50,11 @@ Keeping the JWT in `localStorage` is what the course teaches; this decision goes
 - Every session answer says how long the session survives without being renewed and how long it has left, and the
   web warns two minutes before it closes for being idle.
 
+## Refined in ADR-0064
+
+- The CSRF token lasts the session: opening and closing one set a new token, and no other request changes it
+  ([ADR-0064](0064-csrf-token-per-session.md)).
+
 ## Verification
 
 - `AuthControllerTest`: the attributes of both cookies, a body without tokens, the `403` without the CSRF token, a

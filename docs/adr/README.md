@@ -55,3 +55,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0061 | [Presence and comparison in the web](0061-presence-and-compare-ui.md) | Accepted |
 | 0062 | [The process repository](0062-process-repository.md) | Accepted |
 | 0063 | [Authorization in three layers](0063-granular-permissions.md) | Accepted |
+| 0064 | [The CSRF token lasts the session](0064-csrf-token-per-session.md) | Accepted |
