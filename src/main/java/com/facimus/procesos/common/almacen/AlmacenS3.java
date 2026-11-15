@@ -63,7 +63,8 @@ public class AlmacenS3 implements Almacen {
     }
 
     @Override
-    public void borrarPrefijo(String prefijo) {
+    public int borrarPrefijo(String prefijo) {
+        int borrados = 0;
         String token = null;
         do {
             String siguiente = token;
@@ -73,9 +74,11 @@ public class AlmacenS3 implements Almacen {
                     .map(objeto -> ObjectIdentifier.builder().key(objeto.key()).build()).toList();
             if (!claves.isEmpty()) {
                 s3.deleteObjects(peticion -> peticion.bucket(bucket).delete(borrado -> borrado.objects(claves)));
+                borrados += claves.size();
             }
             token = Boolean.TRUE.equals(pagina.isTruncated()) ? pagina.nextContinuationToken() : null;
         } while (token != null);
+        return borrados;
     }
 
     @Override
@@ -89,6 +92,23 @@ public class AlmacenS3 implements Almacen {
             }
         }, RequestBody.fromBytes(contenido));
         return bloqueado;
+    }
+
+    /**
+     * PR 66: del bucket con Object Lock si lo hay, que es donde {@link #guardarInmutable} lo dejo. Si no esta ahi, del
+     * de los documentos: un ancla guardada antes de configurar el bucket con Object Lock quedo en ese, sin bloqueo (su
+     * fila lo dice), y se sigue leyendo de donde quedo.
+     */
+    @Override
+    public InputStream abrirInmutable(String clave) {
+        if (bucketDeAnclas.isBlank()) {
+            return abrir(clave);
+        }
+        try {
+            return s3.getObject(peticion -> peticion.bucket(bucketDeAnclas).key(ClaveDeAlmacen.comprobar(clave)));
+        } catch (NoSuchKeyException _) {
+            return abrir(clave);
+        }
     }
 
     /**

@@ -71,7 +71,7 @@ public class MembresiaRolServiceImpl implements MembresiaRolService {
 
     @Override
     public List<Long> idsDeLosMiembrosDe(Long empresaId, Long rolProcesoId) {
-        return membresiaRolRepository.miembrosDe(empresaId, rolProcesoId);
+        return membresiaRolRepository.personasDe(empresaId, rolProcesoId);
     }
 
     /** La linea del historial dice con que roles quedo la persona, que es lo que alguien querria comprobar. */

@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.correo.Correo;
 import com.facimus.procesos.common.correo.CorreoSaliente;
 import com.facimus.procesos.common.correo.Redactor;
+import com.facimus.procesos.common.notificaciones.TipoDeNotificacion.Referencia;
 import com.facimus.procesos.common.trabajos.ManejadorDeTrabajo;
 import com.facimus.procesos.common.trabajos.Trabajo;
 import com.facimus.procesos.gestion.model.ConfiguracionTienda;
@@ -51,8 +52,6 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
 
     private static final String NOTIFICACION = "notificacion";
     private static final String RESUMEN = "resumen-de-notificaciones";
-    private static final String BOTON_DEL_COMENTARIO = "notificacion.boton";
-    private static final String BOTON_DEL_CASO = "notificacion.botonDelCaso";
 
     private final JsonMapper json;
     private final NotificacionRepository notificacionRepository;
@@ -124,7 +123,6 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
             linea.put("autor", autores.getOrDefault(notificacion.getAutorId(), ""));
             linea.put("proceso", procesos.getOrDefault(notificacion.getProcesoId(), ""));
             linea.put("enlace", enlace(idioma, notificacion));
-            linea.put("boton", notificacion.getTipo().senalaUnCaso() ? BOTON_DEL_CASO : BOTON_DEL_COMENTARIO);
             lineas.add(linea);
         }
         Map<String, Object> datos = new HashMap<>();
@@ -143,15 +141,17 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
     }
 
     /**
-     * PR 71: a donde lleva el correo. Lo de un comentario abre el proceso en ese comentario; lo de un plazo o un
-     * escalamiento, el caso.
+     * PR 64: el proceso, y dentro de el lo que la notificacion senala: un comentario, una solicitud o nada. PR 71: un
+     * caso no va dentro del proceso, tiene su pagina.
      */
     private String enlace(String idioma, Notificacion notificacion) {
-        if (notificacion.getTipo().senalaUnCaso()) {
+        if (notificacion.getTipo().referencia() == Referencia.CASO) {
             return web + "/" + idioma + "/casos/" + notificacion.getReferenciaId();
         }
-        return web + "/" + idioma + "/procesos/" + notificacion.getProcesoId() + "?comentario="
-                + notificacion.getReferenciaId();
+        String enlace = web + "/" + idioma + "/procesos/" + notificacion.getProcesoId();
+        String parametro = notificacion.getTipo().referencia().parametro();
+        return parametro == null || notificacion.getReferenciaId() == null ? enlace
+                : enlace + "?" + parametro + "=" + notificacion.getReferenciaId();
     }
 
     private static Set<Long> ids(List<Notificacion> notificaciones, Function<Notificacion, Long> campo) {

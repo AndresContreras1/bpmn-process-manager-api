@@ -1,15 +1,56 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Observable, finalize } from 'rxjs';
+import { Observable, catchError, finalize, map, of, switchMap } from 'rxjs';
 
 import { ErrorCampoComponent } from '../../components/error-campo/error-campo.component';
 import { esConflictoDeVersion, marcarErroresDelServidor, mensajeDeError } from '../../helpers/errores-api';
-import { Proceso, ProcesoDetalle, ProcesoRequest } from '../../models/proceso.model';
+import { FilaDeCarpeta, aplanarCarpetas } from '../../models/carpeta.model';
+import {
+  CLASIFICACIONES,
+  Clasificacion,
+  FaltaEnEtiquetas,
+  LARGO_MAXIMO_DE_ETIQUETA,
+  MAXIMO_DE_ETIQUETAS,
+  NOMBRE_CLASIFICACION,
+  Proceso,
+  ProcesoDetalle,
+  ProcesoRequest,
+  faltaEnEtiquetas,
+  fichaInicial,
+} from '../../models/proceso.model';
+import { Usuario } from '../../models/usuario.model';
 import { AuthService } from '../../service/auth.service';
+import { CarpetaService } from '../../service/carpeta.service';
 import { ProcesoService } from '../../service/proceso.service';
+import { UsuarioService } from '../../service/usuario.service';
+
+/** Lo que vuelve de guardar: el proceso, y si su ficha no se pudo guardar despues de crearlo. */
+interface Guardado {
+  proceso: Proceso;
+  sinArchivar: boolean;
+}
+
+/** Lo que se dice junto a las etiquetas cuando la API no las aceptaria. */
+const AVISO_DE_ETIQUETAS: Record<FaltaEnEtiquetas, string> = {
+  demasiadas: $localize`A process can have at most ${MAXIMO_DE_ETIQUETAS}:maximo: tags.`,
+  larga: $localize`Each tag can have at most ${LARGO_MAXIMO_DE_ETIQUETA}:largo: characters.`,
+};
+
+/** Las etiquetas como las valida la API, para que la ficha del alta no responda 400 con el proceso ya creado. */
+function etiquetasAceptables(control: AbstractControl<string>): ValidationErrors | null {
+  const falta = faltaEnEtiquetas(control.value ?? '');
+  return falta === null ? null : { etiquetas: falta };
+}
 
 /** Crear y editar un proceso con el mismo formulario: si la ruta trae un id, edita ese proceso. */
 @Component({
@@ -21,6 +62,8 @@ import { ProcesoService } from '../../service/proceso.service';
 })
 export class ProcesoFormComponent implements OnInit {
   private readonly procesoService: ProcesoService = inject(ProcesoService);
+  private readonly carpetaService: CarpetaService = inject(CarpetaService);
+  private readonly usuarioService: UsuarioService = inject(UsuarioService);
   private readonly router: Router = inject(Router);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
@@ -32,7 +75,25 @@ export class ProcesoFormComponent implements OnInit {
     descripcion: new FormControl('', [Validators.required, Validators.maxLength(4000)]),
   });
 
-  readonly puedeEditar: boolean = inject(AuthService).puedeEditar();
+  /** F19: al crear, la ficha entera: carpeta, dueno, proxima revision, clasificacion y etiquetas. */
+  readonly archivoForm = new FormGroup({
+    carpetaId: new FormControl<number | null>(null),
+    duenoId: new FormControl<number | null>(null),
+    proximaRevision: new FormControl('', { nonNullable: true }),
+    clasificacion: new FormControl<Clasificacion>('INTERNA', { nonNullable: true }),
+    etiquetas: new FormControl('', { nonNullable: true, validators: etiquetasAceptables }),
+  });
+  readonly clasificaciones: Clasificacion[] = CLASIFICACIONES;
+  readonly nombreClasificacion: Record<Clasificacion, string> = NOMBRE_CLASIFICACION;
+  filas: FilaDeCarpeta[] = [];
+  /** La lista de usuarios es del administrador: quien edita deja el dueno para la ficha del proceso. */
+  usuarios: Usuario[] = [];
+  /** La ficha se abre sola cuando la lista ya traia una carpeta; despues la abre y la cierra la persona. */
+  archivoAbierto: boolean = false;
+
+  private readonly authService: AuthService = inject(AuthService);
+  readonly puedeEditar: boolean = this.authService.puedeEditar();
+  readonly eligeDueno: boolean = this.authService.esAdministrador();
   isEdit: boolean = false;
   procesoId: number | null = null;
   cargando: boolean = false;
@@ -47,6 +108,7 @@ export class ProcesoFormComponent implements OnInit {
   ngOnInit(): void {
     const id: string | null = this.route.snapshot.paramMap.get('id');
     if (id === null) {
+      this.prepararArchivo();
       return;
     }
     this.isEdit = true;
@@ -61,7 +123,22 @@ export class ProcesoFormComponent implements OnInit {
     this.cargar();
   }
 
+  /** La persona abre y cierra la ficha; la pagina solo la abre sola una vez, o cuando algo de dentro no vale. */
+  alPlegar(evento: Event): void {
+    this.archivoAbierto = (evento.target as HTMLDetailsElement).open;
+  }
+
+  /** El aviso de las etiquetas, o null mientras la API las vaya a aceptar. */
+  get avisoDeEtiquetas(): string | null {
+    const falta = this.archivoForm.controls.etiquetas.errors?.['etiquetas'] as FaltaEnEtiquetas | undefined;
+    return falta ? AVISO_DE_ETIQUETAS[falta] : null;
+  }
+
   guardar(): void {
+    if (!this.isEdit && this.archivoForm.invalid) {
+      this.archivoAbierto = true;
+      return;
+    }
     this.enviando = true;
     this.error = null;
     this.conflicto = false;
@@ -77,22 +154,66 @@ export class ProcesoFormComponent implements OnInit {
       this.error = $localize`The process could not be loaded, so the change cannot be saved. Reload the page.`;
       return;
     }
-    const guardado$: Observable<Proceso> =
+    const guardado$: Observable<Guardado> =
       this.procesoId === null
-        ? this.procesoService.crear(solicitud)
-        : this.procesoService.editar(this.procesoId, { ...solicitud, version: this.version as number });
+        ? this.procesoService.crear(solicitud).pipe(switchMap((proceso: Proceso) => this.archivar(proceso)))
+        : this.procesoService
+            .editar(this.procesoId, { ...solicitud, version: this.version as number })
+            .pipe(map((proceso: Proceso) => ({ proceso, sinArchivar: false })));
     guardado$
       .pipe(
         finalize(() => (this.enviando = false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (proceso: Proceso) =>
+        next: ({ proceso, sinArchivar }: Guardado) =>
           this.router.navigate(['/procesos', proceso.id], {
-            queryParams: this.isEdit ? { editado: 1 } : { creado: 1 },
+            queryParams: this.isEdit ? { editado: 1 } : { creado: 1, ...(sinArchivar ? { sinArchivar: 1 } : {}) },
           }),
         error: (error: HttpErrorResponse) => this.mostrarError(error),
       });
+  }
+
+  /** Un proceso nuevo nace en la carpeta que tenia la lista (?carpeta=), y llegan las carpetas para elegir otra. */
+  private prepararArchivo(): void {
+    const carpeta = Number(this.route.snapshot.queryParamMap.get('carpeta'));
+    this.carpetaService
+      .listar()
+      .pipe(
+        catchError(() => of([])),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((carpetas) => {
+        this.filas = aplanarCarpetas(carpetas);
+        if (carpetas.some((una) => una.id === carpeta)) {
+          this.archivoForm.controls.carpetaId.setValue(carpeta);
+          this.archivoAbierto = true;
+        }
+      });
+    if (this.eligeDueno) {
+      this.usuarioService
+        .paraElegir()
+        .pipe(
+          catchError(() => of([] as Usuario[])),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe((usuarios: Usuario[]) => (this.usuarios = usuarios));
+    }
+  }
+
+  /**
+   * Archivar es una segunda peticion, la ficha, con la version que devolvio el alta. El proceso ya existe aunque esa
+   * falle: se abre igual y la pagina dice que la ficha quedo por hacer, en vez de dar el alta por fallida.
+   */
+  private archivar(proceso: Proceso): Observable<Guardado> {
+    const ficha = fichaInicial(this.archivoForm.getRawValue(), proceso);
+    if (ficha === null) {
+      return of({ proceso, sinArchivar: false });
+    }
+    return this.procesoService.editarFicha(proceso.id, ficha).pipe(
+      map((archivado: Proceso) => ({ proceso: archivado, sinArchivar: false })),
+      catchError(() => of({ proceso, sinArchivar: true })),
+    );
   }
 
   /** Pide el proceso y deja el formulario con sus valores y su version. */

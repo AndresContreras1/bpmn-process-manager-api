@@ -320,11 +320,18 @@ class NotificacionServiceImplTest {
                 PreferenciaNotificacion.builder().usuarioId(BETO).tipo(TipoDeNotificacion.MENCION)
                         .envio(EnvioPorCorreo.NUNCA).build()));
 
-        assertThat(servicio.preferencias(EMPRESA, BETO)).containsExactly(
+        assertThat(servicio.preferencias(EMPRESA, BETO)).hasSize(TipoDeNotificacion.values().length).startsWith(
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.MENCION, EnvioPorCorreo.NUNCA, false),
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.RESPUESTA, EnvioPorCorreo.INMEDIATO, true),
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.HILO_RESUELTO,
-                        EnvioPorCorreo.RESUMEN_DIARIO, true),
+                        EnvioPorCorreo.RESUMEN_DIARIO, true))
+                // PR 64: una aprobacion parcial espera al resumen; lo que cierra o avisa la recertificacion, no
+                .contains(new PreferenciaDeNotificacionResponse(TipoDeNotificacion.APROBACION_PEDIDA,
+                        EnvioPorCorreo.INMEDIATO, true), new PreferenciaDeNotificacionResponse(
+                                TipoDeNotificacion.SOLICITUD_APROBADA, EnvioPorCorreo.RESUMEN_DIARIO, true),
+                        new PreferenciaDeNotificacionResponse(TipoDeNotificacion.RECERTIFICACION_VENCIDA,
+                                EnvioPorCorreo.INMEDIATO, true),
+                // PR 71: los avisos de un plazo y del escalamiento llegan enseguida
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.PLAZO_POR_VENCER, EnvioPorCorreo.INMEDIATO,
                         true),
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.PLAZO_VENCIDO, EnvioPorCorreo.INMEDIATO, true),

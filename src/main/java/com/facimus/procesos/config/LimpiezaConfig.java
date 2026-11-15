@@ -49,8 +49,8 @@ public class LimpiezaConfig {
     private final EmpresaService empresaService;
     private final LimitesDePeticiones limitesDePeticiones;
     private final DesafiosWebAuthn desafiosWebAuthn;
-    private final CasoService casoService;
     private final NotificacionService notificacionService;
+    private final CasoService casoService;
     /** PR 68: cuanto se guarda una prueba del borrador antes de que la purga se la lleve con su caso. */
     private final Duration retencionDePruebas;
     private final Clock reloj;
@@ -59,7 +59,7 @@ public class LimpiezaConfig {
     public LimpiezaConfig(LimpiezaService limpiezaService, RevisionService revisionService,
             IntentosDeLogin intentosDeLogin, ColaDeTrabajos colaDeTrabajos, CuentaService cuentaService,
             EmpresaService empresaService, LimitesDePeticiones limitesDePeticiones, DesafiosWebAuthn desafiosWebAuthn,
-            CasoService casoService, NotificacionService notificacionService,
+            NotificacionService notificacionService, CasoService casoService,
             @Value("${pruebas.retencion}") Duration retencionDePruebas, Clock reloj) {
         this.limpiezaService = limpiezaService;
         this.revisionService = revisionService;
@@ -69,8 +69,8 @@ public class LimpiezaConfig {
         this.empresaService = empresaService;
         this.limitesDePeticiones = limitesDePeticiones;
         this.desafiosWebAuthn = desafiosWebAuthn;
-        this.casoService = casoService;
         this.notificacionService = notificacionService;
+        this.casoService = casoService;
         this.retencionDePruebas = retencionDePruebas;
         this.reloj = reloj;
     }
@@ -112,13 +112,13 @@ public class LimpiezaConfig {
         if (desafios > 0) {
             log.info("Limpieza: {} desafios de passkeys que vencieron sin usarse.", desafios);
         }
-        int pruebas = casoService.olvidarPruebasAntesDe(LocalDateTime.now(reloj).minus(retencionDePruebas));
-        if (pruebas > 0) {
-            log.info("Limpieza: {} versiones de prueba del borrador, con sus casos.", pruebas);
-        }
         int notificaciones = notificacionService.olvidarLeidas();
         if (notificaciones > 0) {
             log.info("Limpieza: {} notificaciones leidas que pasaron su retencion.", notificaciones);
+        }
+        int pruebas = casoService.olvidarPruebasAntesDe(LocalDateTime.now(reloj).minus(retencionDePruebas));
+        if (pruebas > 0) {
+            log.info("Limpieza: {} versiones de prueba del borrador, con sus casos.", pruebas);
         }
         int tiendas = empresaService.borrarLasDadasDeBaja();
         if (tiendas > 0) {

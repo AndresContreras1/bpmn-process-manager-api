@@ -29,7 +29,9 @@
       confirms it, verified e-mail domains that join a store, and a store that signs in only with a provider
 - [x] Closing a store with 30 days of read-only grace and then deleting everything it had, and anonymizing a
       person on request
-- [ ] Exporting a store's data during the 30 days of its closing
+- [x] Exporting the whole store, also during the 30 days of its closing: one ZIP built in the queue with a
+      manifest of SHA-256 fingerprints, its audit trail verifiable outside the API and no secret of anyone, by a
+      signed link of 24 hours sent by e-mail, and a deletion certificate when the store is purged
 - [x] The browser's session in `HttpOnly` cookies with a CSRF token, and a JWT as RFC 8725 asks, with a signing key
       that rotates without closing sessions
 - [x] Rate limiting on login (`429` with `Retry-After`)
@@ -46,7 +48,8 @@
 - [x] Grants on folders and processes, to a person, a process role or the whole store, inherited down the folders,
       decided by one evaluator in three layers: the access role, the grants and separation of duties
 - [x] Lists that only show what each person can see, filtered in the same query
-- [ ] A screen to grant and revoke, and the web hiding what a person cannot do
+- [x] A screen to grant and revoke, with what is inherited from the folders, and the web hiding what a person
+      cannot do
 
 **Data and auditability**
 - [x] Row-level security in PostgreSQL on every table of a store, with a role that cannot bypass it
@@ -87,14 +90,30 @@
 
 **Process repository**
 - [x] A tree of folders, and for each process its owner, next review, classification and tags, with their filters
+- [x] The repository in the web: filters in the address, folders and processes moved from the keyboard, and the
+      global search on Ctrl+K
 - [x] Documents attached to a process or an element, with versions, a type from the content, an antivirus and ZIP
       bomb check in the queue, a quota per store and downloads by signed link, on S3 or compatible storage
 - [x] Documentation in Markdown per process and element, cleaned on the server, and a characterization sheet
 - [x] The process manual in HTML and PDF, built in the queue from the published version and the drawing the web
       app sends when publishing
+- [x] Web screens for the documentation, the characterization sheet, the documents and the manual of a process, and
+      for the documentation and documents of an element in the modeler
 - [x] Comment threads on a process, an element or a version, with mentions of who can view it, resolve and reopen,
       and a notification center in the app, over server-sent events and by e-mail, immediate or in a daily digest
-- [ ] Review and approval, and full-text search
+- [x] Publishing with approval as an option per store: a request freezes the draft, shows the difference against the
+      version in force and is approved, sent back or rejected by N people of a list or a role, never the requester;
+      the last approval publishes the frozen version if it still can. Recertification of each process by its owner
+- [x] Full-text search over processes, elements of the draft and of the published version, documents with the text
+      read from the file, and comments, in the store's language and filtered by what each person can view
+- [x] Review, comments and notifications in the web: asking for a review instead of publishing, the inbox to
+      approve, each request drawn with its difference and listed in words, comment threads beside the canvas with a
+      count over each element and mentions chosen from who can view the process, and the bell, live over
+      server-sent events, with its settings per type
+- [x] A read-only portal of what is published: folders, search and the process sheet with its owner, the diagram of
+      the version in force where a click or the keyboard shows each element's documentation and documents, the
+      manual, and overdue reviews in sight, without a single control that changes anything; the read-only role
+      starts there
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline

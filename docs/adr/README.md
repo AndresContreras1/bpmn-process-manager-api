@@ -60,7 +60,13 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0066 | [Documentation in Markdown and the process manual](0066-documentation-and-process-manual.md) | Accepted |
 | 0067 | [Comments, mentions and notifications](0067-comments-mentions-and-notifications.md) | Accepted |
 | 0068 | [Backups with pgBackRest and a monthly restore drill](0068-backup-and-restore.md) | Accepted |
+| 0069 | [Review and approval before publishing, and recertification](0069-review-and-approval.md) | Accepted |
+| 0070 | [Full-text search in PostgreSQL](0070-full-text-search.md) | Accepted |
+| 0071 | [Organization export and exit](0071-organization-export-and-exit.md) | Accepted |
 | 0072 | [Business calendar, timers and the two modes of a case](0072-business-calendar-and-timers.md) | Accepted |
+| 0073 | [The repository, the search and the permissions in the web](0073-repository-and-permissions-ui.md) | Accepted |
+| 0074 | [Review, comments and notifications in the web](0074-review-comments-and-notifications-ui.md) | Accepted |
+| 0075 | [A read-only portal of what is published](0075-read-only-portal.md) | Accepted |
 | 0076 | [Typed forms frozen in the version](0076-typed-forms.md) | Accepted |
 | 0077 | [Assignment, inboxes and who completes a task](0077-assignment-and-inbox.md) | Accepted |
 | 0078 | [Deadlines, notices and escalation](0078-deadlines-and-escalation.md) | Accepted |

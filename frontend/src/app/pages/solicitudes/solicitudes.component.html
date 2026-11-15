@@ -1,0 +1,159 @@
+<div class="container py-5" id="solicitudes">
+  <div class="mb-4">
+    <h1 i18n class="h3 fw-bold mb-1" id="solicitudes-titulo">To approve</h1>
+    <p i18n class="text-body-secondary mb-0">
+      Changes to processes that wait for a review before they are published. Open one to see what it changes and decide.
+    </p>
+  </div>
+
+  <ul class="nav nav-tabs mb-3" i18n-aria-label aria-label="Which requests">
+    <li class="nav-item">
+      <button
+        i18n
+        type="button"
+        class="nav-link"
+        id="solicitudes-pendientes"
+        [class.active]="bandeja === 'pendientes'"
+        [attr.aria-current]="bandeja === 'pendientes' ? 'page' : null"
+        (click)="cambiarBandeja('pendientes')"
+      >
+        Waiting for me
+      </button>
+    </li>
+    <li class="nav-item">
+      <button
+        i18n
+        type="button"
+        class="nav-link"
+        id="solicitudes-todas"
+        [class.active]="bandeja === 'todas'"
+        [attr.aria-current]="bandeja === 'todas' ? 'page' : null"
+        (click)="cambiarBandeja('todas')"
+      >
+        All requests
+      </button>
+    </li>
+  </ul>
+
+  @if (error) {
+    <div class="alert alert-danger" role="alert" id="solicitudes-error">{{ error }}</div>
+  }
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-3 p-md-4">
+      @if (bandeja === 'todas') {
+        <form class="row g-2 mb-3" (ngSubmit)="filtrar()">
+          <div class="col-sm-6 col-md-4">
+            <label i18n class="form-label small mb-1" for="solicitudes-estado">State</label>
+            <select
+              class="form-select form-select-sm"
+              id="solicitudes-estado"
+              name="estado"
+              [(ngModel)]="estado"
+              (change)="filtrar()"
+            >
+              <option i18n value="">Any state</option>
+              @for (uno of estados; track uno) {
+                <option [value]="uno">{{ nombreEstado[uno] }}</option>
+              }
+            </select>
+          </div>
+        </form>
+      }
+
+      @if (cargando && !pagina) {
+        <p i18n class="text-body-secondary mb-0" role="status">Loading the requests…</p>
+      } @else if (pagina && pagina.content.length === 0) {
+        @if (bandeja === 'pendientes') {
+          <app-vacio
+            icono="fa-regular fa-circle-check"
+            i18n-titulo
+            titulo="Nothing waits for your decision"
+            i18n-texto
+            texto="When someone asks you to approve a change, it shows up here and in your notifications."
+          />
+        } @else {
+          <app-vacio icono="fa-regular fa-folder-open" i18n-titulo titulo="No requests" />
+        }
+      } @else if (pagina) {
+        <div class="table-responsive" [class.opacity-50]="cargando" [attr.aria-busy]="cargando">
+          <table class="table table-hover align-middle mb-0" id="solicitudes-tabla">
+            <caption i18n class="visually-hidden">
+              Review requests
+            </caption>
+            <thead>
+              <tr>
+                <th i18n scope="col">Process</th>
+                <th i18n scope="col">Asked by</th>
+                <th i18n scope="col" class="d-none d-md-table-cell">Approvals</th>
+                <th i18n scope="col">State</th>
+                <th i18n scope="col" class="d-none d-sm-table-cell">Asked on</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (solicitud of pagina.content; track solicitud.id) {
+                <tr data-testid="solicitud-fila" [attr.data-solicitud]="solicitud.id">
+                  <td>
+                    <a [routerLink]="['/solicitudes', solicitud.id]" data-testid="solicitud-abrir">
+                      {{ solicitud.proceso }}
+                    </a>
+                    <span i18n class="text-body-secondary small"> · version {{ solicitud.numero }}</span>
+                  </td>
+                  <td>{{ solicitud.solicitante.nombre }}</td>
+                  <td i18n class="d-none d-md-table-cell">
+                    {{ solicitud.aprobaciones }} of {{ solicitud.aprobacionesNecesarias }}
+                  </td>
+                  <td>
+                    <app-insignia [tono]="tono[solicitud.estado]" [texto]="nombreEstado[solicitud.estado]" />
+                  </td>
+                  <td class="d-none d-sm-table-cell text-body-secondary small">
+                    {{ solicitud.fechaCreacion | fecha: 'fechaHora' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+          <span i18n class="small text-body-secondary" id="solicitudes-total">
+            {pagina.totalElements, plural, =1 {1 request} other {{{ pagina.totalElements }} requests}}
+          </span>
+          @if (pagina.totalPages > 1) {
+            <nav i18n-aria-label aria-label="Request pages">
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item" [class.disabled]="pagina.page === 0">
+                  <button
+                    i18n
+                    type="button"
+                    class="page-link"
+                    id="solicitudes-anterior"
+                    [disabled]="pagina.page === 0"
+                    (click)="irAPagina(pagina.page - 1)"
+                  >
+                    Previous
+                  </button>
+                </li>
+                <li class="page-item active" aria-current="page">
+                  <span i18n class="page-link">Page {{ pagina.page + 1 }} of {{ pagina.totalPages }}</span>
+                </li>
+                <li class="page-item" [class.disabled]="pagina.page + 1 >= pagina.totalPages">
+                  <button
+                    i18n
+                    type="button"
+                    class="page-link"
+                    id="solicitudes-siguiente"
+                    [disabled]="pagina.page + 1 >= pagina.totalPages"
+                    (click)="irAPagina(pagina.page + 1)"
+                  >
+                    Next
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>

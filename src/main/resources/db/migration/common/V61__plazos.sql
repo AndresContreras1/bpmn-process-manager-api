@@ -77,10 +77,14 @@ alter table eventos_caso add constraint ck_eventos_caso_tipo check (tipo in ('CA
     'TEMPORIZADOR_DISPARADO', 'TAREA_ASIGNADA', 'TAREA_RECLAMADA', 'TAREA_LIBERADA', 'TAREA_REASIGNADA',
     'TAREA_DELEGADA', 'PLAZO_POR_VENCER', 'PLAZO_VENCIDO', 'TAREA_ESCALADA'));
 
--- Los avisos llegan por el centro de notificaciones del PR 63, con sus tres tipos nuevos.
+-- Los avisos llegan por el centro de notificaciones del PR 63, con sus tres tipos nuevos ademas de los del PR 64.
 alter table notificaciones drop constraint ck_notificaciones_tipo;
 alter table notificaciones add constraint ck_notificaciones_tipo
-    check (tipo in ('MENCION', 'RESPUESTA', 'HILO_RESUELTO', 'PLAZO_POR_VENCER', 'PLAZO_VENCIDO', 'TAREA_ESCALADA'));
+    check (tipo in ('MENCION', 'RESPUESTA', 'HILO_RESUELTO', 'APROBACION_PEDIDA', 'SOLICITUD_APROBADA',
+    'SOLICITUD_PUBLICADA', 'SOLICITUD_SIN_PUBLICAR', 'CAMBIOS_PEDIDOS', 'SOLICITUD_RECHAZADA', 'RECERTIFICACION_PENDIENTE',
+    'RECERTIFICACION_VENCIDA', 'PLAZO_POR_VENCER', 'PLAZO_VENCIDO', 'TAREA_ESCALADA'));
 alter table preferencias_notificacion drop constraint ck_preferencias_notificacion_tipo;
 alter table preferencias_notificacion add constraint ck_preferencias_notificacion_tipo
-    check (tipo in ('MENCION', 'RESPUESTA', 'HILO_RESUELTO', 'PLAZO_POR_VENCER', 'PLAZO_VENCIDO', 'TAREA_ESCALADA'));
+    check (tipo in ('MENCION', 'RESPUESTA', 'HILO_RESUELTO', 'APROBACION_PEDIDA', 'SOLICITUD_APROBADA',
+    'SOLICITUD_PUBLICADA', 'SOLICITUD_SIN_PUBLICAR', 'CAMBIOS_PEDIDOS', 'SOLICITUD_RECHAZADA', 'RECERTIFICACION_PENDIENTE',
+    'RECERTIFICACION_VENCIDA', 'PLAZO_POR_VENCER', 'PLAZO_VENCIDO', 'TAREA_ESCALADA'));
