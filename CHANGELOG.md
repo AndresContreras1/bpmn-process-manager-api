@@ -8,6 +8,11 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- The web screens for documentation and documents: `/procesos/{id}/documentacion` with four tabs —the Markdown
+  documentation with the preview the server cleans, the characterization sheet, the documents and the manual— and the
+  documentation and documents of the selected element in the modeler's side panel. Documents are attached with a
+  button or by dropping them, files over 25 MB are not sent, the antivirus state refreshes until it changes and is
+  announced, and every download goes through a signed link. Read-only users see and download without editing.
 - Documentation in Markdown for a process and each of its elements, converted on the server and cleaned against a
   whitelist, with a preview; a characterization sheet per process; the drawing of each version, which the modeler
   sends right after publishing and the server cleans; and the manual of a published version in HTML and PDF, built in
