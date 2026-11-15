@@ -147,8 +147,10 @@ public class EmpresaController {
             description = "Starts closing the caller's store. For 30 days it is read-only: its users can sign in "
                     + "and read everything, every change answers 409, and an administrator can still cancel the "
                     + "closing. Then the nightly purge deletes every row of the store and leaves of its own row only "
-                    + "the id and the dates, so its NIT and e-mails can register again. The body repeats the "
-                    + "store's name to confirm. Administrators only.")
+                    + "the id and the dates, so its NIT and e-mails can register again, and issues a deletion "
+                    + "certificate. The body repeats the store's name to confirm; with exportar it also asks for a "
+                    + "full export of the store, whose link goes by e-mail, and while the 30 days last an "
+                    + "administrator can ask for more. Administrators only.")
     @ApiResponse(responseCode = "200", description = "The store, with when its closing was asked for and when its "
             + "data will be deleted")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
@@ -159,7 +161,7 @@ public class EmpresaController {
     public ResponseEntity<EmpresaResponse> pedirBaja(@Validated @RequestBody BajaRequest request,
             @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(empresaService.pedirBaja(principal.empresaId(), principal.usuarioId(),
-                request.confirmacion()));
+                request.confirmacion(), request.conExportacion()));
     }
 
     @Operation(summary = "Cancel the closing of the store",

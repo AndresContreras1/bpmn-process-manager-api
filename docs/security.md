@@ -25,11 +25,12 @@
 | Edit one's own comments and delete them | ✓ | ✓ | ✓ |
 | Delete anybody's comment | ✓ | — | — |
 | Read one's own notifications and choose how they arrive | ✓ | ✓ | ✓ |
-| Search the store, finding only what one can view | ✓ | ✓ | ✓ |
 | Read how the store publishes, and its review requests | ✓ | ✓ | ✓ |
 | Choose how the store publishes: directly or with approval | ✓ | — | — |
 | Ask for a review, approve, ask for changes, reject and withdraw one's own request | ✓ | ✓ | — |
 | Confirm a process one owns is still valid | ✓ | ✓ | ✓ |
+| Search the store, finding only what one can view | ✓ | ✓ | ✓ |
+| Export the whole store and close it | ✓ | — | — |
 
 Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
 `SOLO_ADMINISTRADOR`, only administrators create and edit them, and editors keep modeling everything inside a lane.
@@ -285,6 +286,8 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `POLITICA_PUBLICACION_CAMBIADA` | The store's publishing policy changes, with the mode before and after, the approvals and how many people or which role |
 | `PUBLICACION_SOLICITADA` · `SOLICITUD_APROBADA` · `SOLICITUD_CAMBIOS_PEDIDOS` · `SOLICITUD_RECHAZADA` · `SOLICITUD_RETIRADA` · `SOLICITUD_SIN_PUBLICAR` | A review is asked for, decided on, withdrawn (by its requester, by an administrator of the process, or by the API when its requester is anonymized or its process deleted), or approved without publishing, with why; the publication itself is `PROCESO_PUBLICADO` with the request |
 | `PROCESO_RECERTIFICADO` | Someone confirms a process is still valid, with the next and the previous review dates, whether it was overdue and the note |
+| `EXPORTACION_PEDIDA` · `EXPORTACION_LISTA` · `EXPORTACION_FALLIDA` · `EXPORTACION_DESCARGADA` · `EXPORTACION_VENCIDA` | A full export is asked for, is ready with its SHA-256, size and files, fails with the reason, is downloaded with its link (from the address and browser of the download), or expires and is deleted |
+| `TIENDA_BORRADA` | The purge deleted the store: the SHA-256 and the key of its deletion certificate, the rows and the objects (`reanotado` when a retry of the job audits a certificate stored before) |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
 the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
@@ -385,6 +388,39 @@ What people write to each other is cleaned and kept to the store, and what they 
 - **Anonymizing** a person deletes their notifications and preferences, shows the pseudonym wherever they wrote or
   were mentioned, and rewrites `@Name` in the comments that mentioned them.
 
+## Review and approval
+
+Publishing with approval is a layer over the versions, and it cannot be skipped
+([ADR-0069](adr/0069-review-and-approval.md)):
+
+- **No bypass.** With the policy on, publishing directly answers `409` for everyone, administrators included; turning
+  the policy off is the only way back, and it is in the audit trail. Only the administrator changes the policy (route
+  matrix), with its version.
+- **Who asks, who approves.** Asking needs `PUBLICAR` on the process, so a grant that denies publishing cannot be
+  worked around by asking others. The approvers are fixed when the request is opened: active people of the list or
+  role who can view and approve the process through the evaluator, so the separation of duties of PR 60 keeps out
+  whoever changed the process last, and the requester is never one of them. Read-only people never approve: the
+  policy refuses them on its list and does not count them in a role. Publishing through a request and recertifying do
+  not count as changing the process, so they never take the next approval away from whoever did them. Deciding needs
+  `APROBAR` on the process and being one of them; anyone else answers `403`. Each person decides once.
+- **What is approved is what is published.** The request keeps the snapshot it froze; the last approval publishes
+  exactly that, after checking that the version in force is still the one it was compared with and that its
+  diagnosis is still clean. Otherwise it publishes nothing and says why. The request row is locked while a decision
+  is taken, and the process row while a request is opened.
+- **Isolation.** The three tables (`politicas_publicacion`, `solicitudes_publicacion`, `aprobaciones`) have row-level
+  security; another store's request answers `404`, and a request of a process someone cannot view answers `404` too.
+  Lists, the inbox of pending decisions included, filter by the processes the person can view in their own query,
+  so a grant that hides a process also hides its requests from its approvers.
+- **Text.** The request's text and the reasons for changes and rejections are Markdown cleaned like comments, up to
+  10 000 characters (the request and a check of the table); asking for changes or rejecting without a reason is a
+  `400` and a check of the table.
+- **Audit.** Changing the policy, asking, each decision, withdrawing, an approval that could not publish, the
+  publication and each recertification are in the audit trail.
+- **Rate limit.** Every route spends from the bucket of changes per person; there is no upload and no quota, since a
+  request is a snapshot of a process that already counts against the plan.
+- **Recertification.** Only the owner of a process, whatever their role, or whoever can administer it confirms it; the
+  daily warning runs as the system and each job reads and writes only its store.
+
 ## Search
 
 The search finds only what the person could open anyway, and never returns markup
@@ -424,38 +460,39 @@ The search finds only what the person could open anyway, and never returns marku
   quota, since the file it comes from already did.
 - **Changing the store's language** queues a job that rebuilds the vectors in short transactions, so a store with a
   lot of document text never makes that request pass the statement timeout.
-## Review and approval
 
-Publishing with approval is a layer over the versions, and it cannot be skipped
-([ADR-0069](adr/0069-review-and-approval.md)):
+## Organization export
 
-- **No bypass.** With the policy on, publishing directly answers `409` for everyone, administrators included; turning
-  the policy off is the only way back, and it is in the audit trail. Only the administrator changes the policy (route
-  matrix), with its version.
-- **Who asks, who approves.** Asking needs `PUBLICAR` on the process, so a grant that denies publishing cannot be
-  worked around by asking others. The approvers are fixed when the request is opened: active people of the list or
-  role who can view and approve the process through the evaluator, so the separation of duties of PR 60 keeps out
-  whoever changed the process last, and the requester is never one of them. Read-only people never approve: the
-  policy refuses them on its list and does not count them in a role. Publishing through a request and recertifying do
-  not count as changing the process, so they never take the next approval away from whoever did them. Deciding needs
-  `APROBAR` on the process and being one of them; anyone else answers `403`. Each person decides once.
-- **What is approved is what is published.** The request keeps the snapshot it froze; the last approval publishes
-  exactly that, after checking that the version in force is still the one it was compared with and that its
-  diagnosis is still clean. Otherwise it publishes nothing and says why. The request row is locked while a decision
-  is taken, and the process row while a request is opened.
-- **Isolation.** The three tables (`politicas_publicacion`, `solicitudes_publicacion`, `aprobaciones`) have row-level
-  security; another store's request answers `404`, and a request of a process someone cannot view answers `404` too.
-  Lists, the inbox of pending decisions included, filter by the processes the person can view in their own query,
-  so a grant that hides a process also hides its requests from its approvers.
-- **Text.** The request's text and the reasons for changes and rejections are Markdown cleaned like comments, up to
-  10 000 characters (the request and a check of the table); asking for changes or rejecting without a reason is a
-  `400` and a check of the table.
-- **Audit.** Changing the policy, asking, each decision, withdrawing, an approval that could not publish, the
-  publication and each recertification are in the audit trail.
-- **Rate limit.** Every route spends from the bucket of changes per person; there is no upload and no quota, since a
-  request is a snapshot of a process that already counts against the plan.
-- **Recertification.** Only the owner of a process, whatever their role, or whoever can administer it confirms it; the
-  daily warning runs as the system and each job reads and writes only its store.
+The full export of a store carries everything in it, so who gets it and how is narrow
+([ADR-0071](adr/0071-organization-export-and-exit.md), [Export format](export-format.md)):
+
+- **Who.** Only an administrator, by the route matrix, and asking also needs the identity confirmed in the last ten
+  minutes, the step-up of PR 49 that closing the store needs: a stolen cookie does not take the store's data.
+  Listing exports does not show the link.
+- **The link** goes only by e-mail, to whoever asked, through the job queue. It signs the store, the export and its
+  expiry, 24 hours after it is ready, with the same HMAC key as documents' links; a changed or expired link, or one
+  of an export already deleted, answers `404`. It also needs whoever asked to still be an active administrator: the
+  e-mail is not sent, and a link already sent stops working, once they are deactivated or lose the role. The ZIP goes as an attachment with `nosniff`, a sandboxed policy and
+  `no-store`, and NGINX logs the link without its signature.
+- **What leaves.** Each query names its columns. People leave without password hashes, WebAuthn handles, TOTP
+  secrets, recovery codes, passkeys, sessions, refresh tokens, e-mail links or linked identities; those tables are not
+  read. `ExportacionIntegracionTest` builds a store with passwords, a second factor and its recovery codes, sessions,
+  refresh tokens and e-mail links, and searches every file of its export for each of them, hashed and in clear.
+  Storage keys are not exported, and files the antivirus blocked or has not checked stay out.
+- **Paths** inside the ZIP are fixed by the code; a name somebody typed is cleaned before it becomes part of one, and
+  the writer refuses `..`, absolute, hidden or repeated paths.
+- **CSV** cells that a spreadsheet would run as a formula start with an apostrophe (`common/csv/CeldaCsv`, shared
+  with the audit trail's CSV).
+- **Errors.** A failed export says only that it failed; the exception, which can name tables or buckets, stays in
+  the log.
+- **Isolation.** The job pins the store in the row-level security context while it builds, so the database refuses
+  any row of another store. `exportaciones` has row-level security; another store's export answers `404`.
+- **Audit.** Asking, ready, failed, downloaded and expired are in the audit trail.
+- **Rate limit and quota.** Ten a day per person, counted before the authorization so nobody spends another's
+  bucket, and one export at a time per store. The export asked for with the closing (`exportar: true` on
+  `POST /api/v1/empresas/actual/baja`) does not spend that bucket: closing asks for step-up and the store keeps one
+  export at a time. The ZIP does not count against the documents' quota: it is deleted within the hour after its link
+  expires, or as soon as the export fails.
 
 ## Rate limiting
 
@@ -471,6 +508,7 @@ same token.
 | E-mail | Verifying the e-mail, recovering the password and inviting | Address | 20 an hour |
 | Changes | Every other `POST`, `PUT`, `PATCH` and `DELETE` | Person | 600 a minute |
 | Search | `GET /api/v1/busqueda` | Person | 60 a minute |
+| Exports | Asking for a full export of the store (`LIMITE_EXPORTACION_POR_DIA`) | Person | 10 a day |
 
 Reading spends nothing, except the search. A route is matched on its decoded path, the same one Spring MVC uses to
 pick the controller, so a percent-encoded letter (`/api/v1/busqued%61`) still spends from its bucket. An empty bucket
@@ -624,6 +662,20 @@ included, and leaves of its own row only the id and the dates of the closing and
 and e-mails are gone, so they can register again. `BorradoDeTiendasTest` checks against the catalogue of the
 database that the deletion covers every table with `empresa_id` and respects every foreign key, so a new table
 cannot be left behind.
+
+**Leaving with the data** (PR 66). Before going, an administrator takes everything with the full export: closing
+with `"exportar": true` asks for one at once, and during the 30 days asking for more is, besides cancelling the
+closing, the one change a closing store accepts
+([Exporting the organization](api-reference.md#exporting-the-organization)).
+
+**The deletion certificate** (PR 66). After the purge, the job that deletes the store's files writes a certificate:
+the store's id and nothing that names it or anyone in it, when its closing was asked for and when it was deleted,
+how many rows of each table and how many objects of the storage went, the SHA-256 of its last export, and what
+stays (the tombstone row, the audit trail and its anchors). It goes to the immutable storage beside the anchors,
+`certificados/<id>/borrado`, locked for `CERTIFICADO_DE_BORRADO_RETENCION` (ten years), and its SHA-256 to the
+store's audit trail as `TIENDA_BORRADA`. Nobody can sign in to a store that no longer exists, so the operator keeps
+it and hands it to the former administrator who asks with the store's id, which every export manifest carries; the
+hash in the trail proves the copy. Its format is in [Export format](export-format.md#the-deletion-certificate).
 
 **Anonymizing a person.** `POST /api/v1/usuarios/{id}/anonimizar` deletes a person's personal data on request,
 and cannot be undone. Their user stays, because what they did names them, but under a pseudonym (`Persona

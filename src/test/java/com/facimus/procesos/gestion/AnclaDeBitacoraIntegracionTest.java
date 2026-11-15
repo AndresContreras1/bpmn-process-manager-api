@@ -1,11 +1,13 @@
 package com.facimus.procesos.gestion;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -70,6 +72,11 @@ class AnclaDeBitacoraIntegracionTest {
         String correo = "ana" + numero + "@anclas.test";
         empresaId = empresaService.registrar("Anclas " + numero, "9621" + numero + "000-1", correo, "Ana", correo,
                 "un-faro-sobre-la-bahia-quieta").id();
+        // El alta de la administradora se anota despues del commit, en otro hilo: si llegara despues del ancla de una
+        // prueba, el dia siguiente tendria algo nuevo que anclar. Se espera a que llegue antes de empezar.
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(jdbc.queryForObject(
+                "select count(*) from bitacora where empresa_id = ? and accion = 'USUARIO_CREADO'", Integer.class,
+                empresaId)).isEqualTo(1));
     }
 
     private void anotar(String accion) {

@@ -35,6 +35,7 @@ entries in Spanish.
 | `ActividadCaso` | Step of a case | Case | The node of the version it went through, copied by id and by name, its kind, the process role of its lane, state (`PENDIENTE`, `EN_ESPERA`, `COMPLETADA`, `FALLIDA` or `OMITIDA`), how many tokens have reached it, who took it and what they handed over |
 | `EventoCaso` | Timeline entry | Case | What happened, when, and who caused it. Only inserted |
 | `MembresiaRol` | Membership | Store | Which process roles a user belongs to; the pair is unique |
+| `Exportacion` | Full export of the store | Store | Who asked and when, state (`PENDIENTE`, `LISTA`, `FALLIDA` with its reason, or `VENCIDA`), where its ZIP is, its size, files and SHA-256, and until when its link works |
 
 Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory `empresa_id` that cannot be updated.
 Activities, gateways and events share one table through single-table inheritance, so a sequence flow can point to
@@ -59,16 +60,21 @@ column of the process with a GIN index, so a page of the list reads them without
 process ([ADR-0063](adr/0063-granular-permissions.md)). Comments live in `comentarios`, their mentions in an array
 column of ids, and notifications and their preferences in `notificaciones` and `preferencias_notificacion`; none
 stores a name, so they show whatever name the person has now ([ADR-0067](adr/0067-comments-mentions-and-notifications.md)).
+Publishing with approval lives in `politicas_publicacion`, `solicitudes_publicacion` (at most one open per process,
+by a partial unique index) and `aprobaciones` (one per person and request); a request keeps its own copy of the
+snapshot it will publish, so pruning old draft revisions does not touch it
+([ADR-0069](adr/0069-review-and-approval.md)).
+
 What is searched keeps a `tsvector` in the store's language with a GIN index: `procesos.busqueda`,
 `comentarios.busqueda`, `versiones_documento.busqueda` (with the text the job queue read from the file in
 `versiones_documento.texto`) and `elementos_buscables`, one row per element of the draft and of the published
 version with its name, its detail and its documentation. Triggers write them in the transaction of each change; a
 change of the store's language is the exception, rebuilt by a queued job in short id ranges. Nothing else writes
 `elementos_buscables` ([ADR-0070](adr/0070-full-text-search.md)).
-Publishing with approval lives in `politicas_publicacion`, `solicitudes_publicacion` (at most one open per process,
-by a partial unique index) and `aprobaciones` (one per person and request); a request keeps its own copy of the
-snapshot it will publish, so pruning old draft revisions does not touch it
-([ADR-0069](adr/0069-review-and-approval.md)).
+
+Each full export of a store is a row of `exportaciones`: a partial unique index keeps one `PENDIENTE` per store, and an
+expired one keeps its row and its SHA-256 after its ZIP is deleted
+([ADR-0071](adr/0071-organization-export-and-exit.md)).
 
 ## Modeling rules
 

@@ -29,7 +29,9 @@
       confirms it, verified e-mail domains that join a store, and a store that signs in only with a provider
 - [x] Closing a store with 30 days of read-only grace and then deleting everything it had, and anonymizing a
       person on request
-- [ ] Exporting a store's data during the 30 days of its closing
+- [x] Exporting the whole store, also during the 30 days of its closing: one ZIP built in the queue with a
+      manifest of SHA-256 fingerprints, its audit trail verifiable outside the API and no secret of anyone, by a
+      signed link of 24 hours sent by e-mail, and a deletion certificate when the store is purged
 - [x] The browser's session in `HttpOnly` cookies with a CSRF token, and a JWT as RFC 8725 asks, with a signing key
       that rotates without closing sessions
 - [x] Rate limiting on login (`429` with `Retry-After`)
@@ -95,13 +97,15 @@
 - [x] Documentation in Markdown per process and element, cleaned on the server, and a characterization sheet
 - [x] The process manual in HTML and PDF, built in the queue from the published version and the drawing the web
       app sends when publishing
+- [x] Web screens for the documentation, the characterization sheet, the documents and the manual of a process, and
+      for the documentation and documents of an element in the modeler
 - [x] Comment threads on a process, an element or a version, with mentions of who can view it, resolve and reopen,
       and a notification center in the app, over server-sent events and by e-mail, immediate or in a daily digest
-- [x] Full-text search over processes, elements of the draft and of the published version, documents with the text
-      read from the file, and comments, in the store's language and filtered by what each person can view
 - [x] Publishing with approval as an option per store: a request freezes the draft, shows the difference against the
       version in force and is approved, sent back or rejected by N people of a list or a role, never the requester;
       the last approval publishes the frozen version if it still can. Recertification of each process by its owner
+- [x] Full-text search over processes, elements of the draft and of the published version, documents with the text
+      read from the file, and comments, in the store's language and filtered by what each person can view
 - [x] Review, comments and notifications in the web: asking for a review instead of publishing, the inbox to
       approve, each request drawn with its difference and listed in words, comment threads beside the canvas with a
       count over each element and mentions chosen from who can view the process, and the bell, live over

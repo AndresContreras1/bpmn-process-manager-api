@@ -23,6 +23,8 @@ import { elementoDe, marcasDe, marcasDeComparacion } from '../../bpmn/marcas';
 import { ModoProceso } from '../../bpmn/modulos/reglas';
 import { PanelPropiedadesComponent } from '../../bpmn/panel-propiedades.component';
 import { VistaEstructuraComponent } from '../../bpmn/vista-estructura.component';
+import { AdjuntosComponent } from '../../components/documentacion/adjuntos.component';
+import { EditorDocumentacionComponent } from '../../components/documentacion/editor-documentacion.component';
 import { mensajeDeError } from '../../helpers/errores-api';
 import { Diagnostico, Hallazgo } from '../../models/diagnostico.model';
 import { Diagrama } from '../../models/diagrama.model';
@@ -49,6 +51,8 @@ import { VersionService } from '../../service/version.service';
     LeyendaComparacionComponent,
     PanelComentariosComponent,
     PedirRevisionComponent,
+    EditorDocumentacionComponent,
+    AdjuntosComponent,
   ],
   templateUrl: './proceso-modelador.component.html',
   styleUrl: './proceso-modelador.component.scss',
@@ -70,6 +74,9 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   private readonly cambios = inject(ChangeDetectorRef);
 
   @ViewChild(LienzoBpmnComponent) lienzo?: LienzoBpmnComponent;
+
+  /** F20: documentar y adjuntar es del rol, no de quien tiene el dibujo: se puede mientras otra persona modela. */
+  readonly puedeDocumentar: boolean = this.auth.puedeEditar();
 
   procesoId = 0;
   xml: string | null = null;
