@@ -1,6 +1,6 @@
 [← Decision records](README.md)
 
-# ADR-0073: Typed forms frozen in the version
+# ADR-0076: Typed forms frozen in the version
 
 - **Status:** Accepted
 - **Decided in:** plan v5 (PR 69), decisions D6 and D36

@@ -64,11 +64,11 @@ business calendar (`calendarios`, with its changes to the holidays in `festivos`
 
 A form is a value of its node, not an entity: the JSON column `nodos_flujo.formulario`, frozen with the rest of the
 diagram in the definition of each version. Its fields (`CampoDeFormulario`) have a name, a label, one of twelve types
-and the validations and conditions that type admits ([ADR-0073](adr/0073-typed-forms.md)); the answers of a case are
+and the validations and conditions that type admits ([ADR-0076](adr/0076-typed-forms.md)); the answers of a case are
 not stored apart, they are its variables.
 
 Who a task goes to is a value of its activity too: three columns of `nodos_flujo` frozen with the diagram, resolved when
-a case creates the task ([ADR-0074](adr/0074-assignment-and-inbox.md)). From then on the task has a holder or waits in
+a case creates the task ([ADR-0077](adr/0077-assignment-and-inbox.md)). From then on the task has a holder or waits in
 its role tray; a delegation keeps who to give it back to.
 
 ## Modeling rules

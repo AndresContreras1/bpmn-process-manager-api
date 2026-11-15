@@ -1,6 +1,6 @@
 [← Decision records](README.md)
 
-# ADR-0074: Assignment, inboxes and who completes a task
+# ADR-0077: Assignment, inboxes and who completes a task
 
 - **Status:** Accepted
 - **Decided in:** plan v5 (PR 70); amends the completion rule of [ADR-0013](0013-trays-by-process-role.md)
