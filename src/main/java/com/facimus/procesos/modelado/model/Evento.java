@@ -50,6 +50,18 @@ public class Evento extends NodoFlujo {
     @Column
     private Boolean interrumpe;
 
+    /**
+     * PR 71: lo que hace, ademas de abrir su camino, un temporizador de borde que no interrumpe: avisar o reasignar al
+     * supervisor. Nulo en cualquier otro evento, como lo exige el check ck_nodos_flujo_escalamiento_de_borde.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "escalamiento", length = 20)
+    private AccionDeEscalamiento escalamiento;
+
+    /** PR 71: el supervisor de un escalamiento; nulo es el dueno del proceso. */
+    @Column(name = "escalar_a")
+    private Long escalarA;
+
     /** R-31: el proceso empieza en un evento de inicio, asi que ningun arco llega a el. */
     @Override
     public boolean aceptaArcosEntrantes() {

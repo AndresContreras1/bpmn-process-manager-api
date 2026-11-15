@@ -15,11 +15,13 @@ import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.AsociacionResponse;
 import com.facimus.procesos.modelado.dto.response.CorrelacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
 import com.facimus.procesos.modelado.dto.response.EventoResponse;
 import com.facimus.procesos.modelado.dto.response.FormularioResponse;
 import com.facimus.procesos.modelado.dto.response.GatewayResponse;
 import com.facimus.procesos.modelado.dto.response.LaneResponse;
 import com.facimus.procesos.modelado.dto.response.MensajeResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
 import com.facimus.procesos.modelado.dto.response.PoolResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.Artefacto;
@@ -211,11 +213,11 @@ public class DiagramaArmado {
         actividades.replaceAll(a -> a.id().equals(id) ? new ActividadResponse(a.id(), a.bpmnId(), a.nombre(),
                 a.descripcion(), a.tipoActividad(), a.posicionX(), a.posicionY(), a.laneId(), a.version(),
                 a.creadoPor(), a.fechaCreacion(), a.modificadoPor(), a.fechaModificacion(), a.padreId(),
-                a.procesoLlamadoId(), respuesta, a.asignacion()) : a);
+                a.procesoLlamadoId(), respuesta, a.asignacion(), a.plazo()) : a);
         eventos.replaceAll(e -> e.id().equals(id) ? new EventoResponse(e.id(), e.bpmnId(), e.nombre(),
                 e.tipoEvento(), e.posicionX(), e.posicionY(), e.laneId(), e.version(), e.creadoPor(),
                 e.fechaCreacion(), e.modificadoPor(), e.fechaModificacion(), e.tipoTemporizador(), e.temporizador(),
-                e.adjuntoAId(), e.interrumpe(), e.padreId(), respuesta) : e);
+                e.adjuntoAId(), e.interrumpe(), e.padreId(), respuesta, e.plazo(), e.escalamiento()) : e);
     }
 
     /** PR 70: a quien le llega una actividad; nula la deja en la bandeja de su rol. */
@@ -224,7 +226,29 @@ public class DiagramaArmado {
         actividades.replaceAll(a -> a.id().equals(id) ? new ActividadResponse(a.id(), a.bpmnId(), a.nombre(),
                 a.descripcion(), a.tipoActividad(), a.posicionX(), a.posicionY(), a.laneId(), a.version(),
                 a.creadoPor(), a.fechaCreacion(), a.modificadoPor(), a.fechaModificacion(), a.padreId(),
-                a.procesoLlamadoId(), a.formulario(), asignacion) : a);
+                a.procesoLlamadoId(), a.formulario(), asignacion, a.plazo()) : a);
+    }
+
+    /** PR 71: el plazo de la tarea o del inicio que se llama asi; nulo se lo quita. */
+    public void plazo(String nodo, PlazoResponse plazo) {
+        Long id = id(nodo);
+        actividades.replaceAll(a -> a.id().equals(id) ? new ActividadResponse(a.id(), a.bpmnId(), a.nombre(),
+                a.descripcion(), a.tipoActividad(), a.posicionX(), a.posicionY(), a.laneId(), a.version(),
+                a.creadoPor(), a.fechaCreacion(), a.modificadoPor(), a.fechaModificacion(), a.padreId(),
+                a.procesoLlamadoId(), a.formulario(), a.asignacion(), plazo) : a);
+        eventos.replaceAll(e -> e.id().equals(id) ? new EventoResponse(e.id(), e.bpmnId(), e.nombre(),
+                e.tipoEvento(), e.posicionX(), e.posicionY(), e.laneId(), e.version(), e.creadoPor(),
+                e.fechaCreacion(), e.modificadoPor(), e.fechaModificacion(), e.tipoTemporizador(), e.temporizador(),
+                e.adjuntoAId(), e.interrumpe(), e.padreId(), e.formulario(), plazo, e.escalamiento()) : e);
+    }
+
+    /** PR 71: lo que escala el borde que se llama asi; nulo solo abre su camino. */
+    public void escalamiento(String borde, EscalamientoResponse escalamiento) {
+        Long id = id(borde);
+        eventos.replaceAll(e -> e.id().equals(id) ? new EventoResponse(e.id(), e.bpmnId(), e.nombre(),
+                e.tipoEvento(), e.posicionX(), e.posicionY(), e.laneId(), e.version(), e.creadoPor(),
+                e.fechaCreacion(), e.modificadoPor(), e.fechaModificacion(), e.tipoTemporizador(), e.temporizador(),
+                e.adjuntoAId(), e.interrumpe(), e.padreId(), e.formulario(), e.plazo(), escalamiento) : e);
     }
 
     public void modo(ModoProceso nuevo) {

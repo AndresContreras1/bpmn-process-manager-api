@@ -2,6 +2,8 @@ package com.facimus.procesos.ejecucion.dto.response;
 
 import java.util.List;
 
+import com.facimus.procesos.common.Default;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -19,5 +21,20 @@ public record TableroResponse(
         @Schema(description = "Sent messages by state") List<MensajesPorEstadoResponse> salientes,
         @Schema(description = "Received messages by what was done with them")
         List<MensajesPorResultadoResponse> entrantes,
-        @Schema(description = "What went wrong, counted from the timelines") LoQueSalioMalResponse loQueSalioMal) {
+        @Schema(description = "What went wrong, counted from the timelines") LoQueSalioMalResponse loQueSalioMal,
+        @Schema(description = "How deadlines were kept, by process, activity and person, and for whole cases")
+        CumplimientoResponse cumplimiento) {
+
+    /** El de antes del PR 71, sin cumplimiento. */
+    @SuppressWarnings("java:S107") // las partes del tablero, por su nombre
+    public TableroResponse(Long procesoId, long casos, List<CasosPorEstadoResponse> casosPorEstado,
+            CicloDeCasoResponse ciclo, List<TareasPorRolResponse> tareasPorRol, List<MensajesPorEstadoResponse> salientes,
+            List<MensajesPorResultadoResponse> entrantes, LoQueSalioMalResponse loQueSalioMal) {
+        this(procesoId, casos, casosPorEstado, ciclo, tareasPorRol, salientes, entrantes, loQueSalioMal, null);
+    }
+
+    @Default
+    public TableroResponse {
+        // El constructor completo es el que usan Jackson y el servicio
+    }
 }

@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.correo.Correo;
 import com.facimus.procesos.common.correo.CorreoSaliente;
 import com.facimus.procesos.common.correo.Redactor;
+import com.facimus.procesos.common.notificaciones.TipoDeNotificacion.Referencia;
 import com.facimus.procesos.common.trabajos.ManejadorDeTrabajo;
 import com.facimus.procesos.common.trabajos.Trabajo;
 import com.facimus.procesos.gestion.model.ConfiguracionTienda;
@@ -40,6 +41,8 @@ import tools.jackson.databind.json.JsonMapper;
  * web en el idioma de quien lo recibe; nunca lleva el texto de un comentario, que se queda en la aplicacion. Lo que
  * entra al HTML sale escapado. Mandarlo y marcarlo resuelto van en la misma transaccion: si el servidor de correo no
  * lo acepta, la cola lo reintenta, y lo que ya se resolvio no vuelve a salir.
+ *
+ * <p>PR 71: un aviso de plazo o de escalamiento no tiene autor ni comentario: lo manda el sistema, y lleva al caso.
  */
 @Component
 public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
@@ -137,8 +140,14 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
                 List.of(una.get("autor"), una.get("proceso")), locale, usuario.getEmail(), datos);
     }
 
-    /** PR 64: el proceso, y dentro de el lo que la notificacion senala: un comentario, una solicitud o nada. */
+    /**
+     * PR 64: el proceso, y dentro de el lo que la notificacion senala: un comentario, una solicitud o nada. PR 71: un
+     * caso no va dentro del proceso, tiene su pagina.
+     */
     private String enlace(String idioma, Notificacion notificacion) {
+        if (notificacion.getTipo().referencia() == Referencia.CASO && notificacion.getReferenciaId() != null) {
+            return web + "/" + idioma + "/casos/" + notificacion.getReferenciaId();
+        }
         String enlace = web + "/" + idioma + "/procesos/" + notificacion.getProcesoId();
         String parametro = notificacion.getTipo().referencia().parametro();
         return parametro == null || notificacion.getReferenciaId() == null ? enlace

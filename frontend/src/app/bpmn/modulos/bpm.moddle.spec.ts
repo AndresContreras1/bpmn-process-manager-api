@@ -41,6 +41,32 @@ const CON_ASIGNACION = `<?xml version="1.0" encoding="UTF-8"?>
   </bpmn:process>
 </bpmn:definitions>`;
 
+/** El plazo de una tarea y del caso, y un borde que escala (PR 71), tal cual los escribe el EscritorBpmn de la API. */
+const CON_PLAZOS = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpm="urn:bpmn-process-manager:bpm:1" id="Definitions_1" targetNamespace="urn:pruebas">
+  <bpmn:process id="Process_1">
+    <bpmn:startEvent id="Event_1" name="Refund requested">
+      <bpmn:extensionElements>
+        <bpm:plazo cantidad="5" unidad="DIAS_HABILES"/>
+      </bpmn:extensionElements>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Activity_1" name="Approve the refund">
+      <bpmn:extensionElements>
+        <bpm:plazo cantidad="8" unidad="HORAS"/>
+      </bpmn:extensionElements>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="Event_2" name="Six hours" cancelActivity="false" attachedToRef="Activity_1">
+      <bpmn:extensionElements>
+        <bpm:escalamiento accion="REASIGNAR" usuario="5"/>
+      </bpmn:extensionElements>
+      <bpmn:timerEventDefinition id="Event_2_TimerEventDefinition">
+        <bpmn:timeDuration>PT6H</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+  </bpmn:process>
+</bpmn:definitions>`;
+
 describe('el espacio bpm: en bpmn-js', () => {
   it('el formulario de una tarea pasa entero por el editor: se lee sin avisos y se vuelve a escribir', async () => {
     const moddle = new BpmnModdle({ bpm: BPM_MODDLE });
@@ -80,6 +106,33 @@ describe('el espacio bpm: en bpmn-js', () => {
     expect(warnings).toEqual([]);
     expect(xml).toContain('<bpm:asignacion tipo="CAMPO" campo="tarea.reviewOrder.approver" />');
     expect(xml).toContain('<bpm:asignacion tipo="PERSONA" usuario="5" />');
+  });
+
+  it('los plazos y el escalamiento pasan enteros por el editor: se leen sin avisos y se vuelven a escribir', async () => {
+    const moddle = new BpmnModdle({ bpm: BPM_MODDLE });
+
+    const { rootElement, warnings } = await moddle.fromXML(CON_PLAZOS);
+    const { xml } = await moddle.toXML(rootElement);
+
+    expect(warnings).toEqual([]);
+    expect(xml).toContain('<bpm:plazo cantidad="5" unidad="DIAS_HABILES" />');
+    expect(xml).toContain('<bpm:plazo cantidad="8" unidad="HORAS" />');
+    expect(xml).toContain('<bpm:escalamiento accion="REASIGNAR" usuario="5" />');
+  });
+
+  it('sin el plazo y el escalamiento declarados, bpmn-js los descartaria al guardar', async () => {
+    const sinPlazos = {
+      ...BPM_MODDLE,
+      types: BPM_MODDLE.types.filter((tipo) => !['Plazo', 'Escalamiento'].includes(tipo.name)),
+    };
+    const moddle = new BpmnModdle({ bpm: sinPlazos });
+
+    const { rootElement, warnings } = await moddle.fromXML(CON_PLAZOS);
+    const { xml } = await moddle.toXML(rootElement);
+
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(xml).not.toContain('bpm:plazo');
+    expect(xml).not.toContain('bpm:escalamiento');
   });
 
   it('sin la asignacion declarada, bpmn-js la descartaria al guardar', async () => {

@@ -35,5 +35,11 @@ public enum TipoEventoCaso {
     /** PR 70: paso a otra persona, con su motivo. */
     TAREA_REASIGNADA,
     /** PR 70: quien la tenia se la paso a otra persona por un tiempo, con su motivo; le vuelve si la suelta. */
-    TAREA_DELEGADA
+    TAREA_DELEGADA,
+    /** PR 71: una tarea, o el caso, entro en el ultimo cuarto de su plazo. */
+    PLAZO_POR_VENCER,
+    /** PR 71: una tarea, o el caso, paso su plazo. */
+    PLAZO_VENCIDO,
+    /** PR 71: un temporizador de borde que no interrumpe escalo la tarea: avisando, o pasandosela al supervisor. */
+    TAREA_ESCALADA
 }

@@ -220,8 +220,9 @@ class AutorizacionPorRolTest {
             EDITOR        | POST   | /api/v1/simulacion/pedidos     | 403
             SOLO_LECTURA  | POST   | /api/v1/simulacion/pedidos     | 403
 
-            # Tablero: lo lee cualquier rol, como el resto de lo que solo mira
-            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 200
+            # Tablero: lo lee cualquier rol, como el resto de lo que solo mira; PR 71: el de un proceso que no
+            # existe es un 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 404
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual/tablero | 200
 
             # PR 61: los documentos los lee cualquier rol; subirlos y borrarlos es de administrador y editor
@@ -329,6 +330,16 @@ class AutorizacionPorRolTest {
             EDITOR        | PUT    | /api/v1/actividades/{id}/asignacion        | 404
             ADMINISTRADOR | PUT    | /api/v1/actividades/{id}/asignacion        | 404
             SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/asignacion        | 403
+            # PR 71: el plazo de una tarea o de un caso y lo que escala un borde lo decide quien modela
+            EDITOR        | PUT    | /api/v1/actividades/{id}/plazo             | 404
+            ADMINISTRADOR | PUT    | /api/v1/actividades/{id}/plazo             | 404
+            SOLO_LECTURA  | PUT    | /api/v1/actividades/{id}/plazo             | 403
+            EDITOR        | PUT    | /api/v1/eventos/{id}/plazo                 | 404
+            ADMINISTRADOR | PUT    | /api/v1/eventos/{id}/plazo                 | 404
+            SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/plazo                 | 403
+            EDITOR        | PUT    | /api/v1/eventos/{id}/escalamiento          | 404
+            ADMINISTRADOR | PUT    | /api/v1/eventos/{id}/escalamiento          | 404
+            SOLO_LECTURA  | PUT    | /api/v1/eventos/{id}/escalamiento          | 403
 
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
@@ -357,6 +368,9 @@ class AutorizacionPorRolTest {
         } else if (ruta.equals("/api/v1/procesos/{id}/documentacion")) {
             // PR 62: con texto, para que el editor pase la autorizacion y choque con que el proceso no existe
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"markdown\":\"x\"}");
+        } else if (ruta.endsWith("/plazo") || ruta.endsWith("/escalamiento")) {
+            // PR 71: sin plazo ni accion y con su version, para que quien modela pase y choque con que no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}");
         } else if (ruta.equals("/api/v1/procesos/{id}/comentarios") || ruta.startsWith("/api/v1/comentarios/")) {
             // PR 63: con texto y version, para que quien solo lee pase la autorizacion y choque con que no existe
             peticion.contentType(MediaType.APPLICATION_JSON).content(metodo == HttpMethod.PUT

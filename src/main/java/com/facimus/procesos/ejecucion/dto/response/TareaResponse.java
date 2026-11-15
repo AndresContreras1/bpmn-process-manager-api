@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.facimus.procesos.common.Default;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
+import com.facimus.procesos.ejecucion.model.EstadoPlazo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -32,7 +33,24 @@ public record TareaResponse(
         @Schema(example = "0") Long version,
         @Schema(example = "2026-09-24T15:00:00") LocalDateTime fechaCreacion,
         @Schema(description = "Who delegated it to its holder; it goes back to them if the holder releases it",
-                example = "3") Long delegadaPor) {
+                example = "3") Long delegadaPor,
+        @Schema(description = "When it is due, in UTC, if its activity has a deadline and the case runs in "
+                + "PRODUCCION", example = "2026-01-14T20:00:00") LocalDateTime venceEn,
+        @Schema(description = "The store clock tick when it is due, if its activity has a deadline and the case runs "
+                + "in PRUEBA", example = "21") Integer venceTick,
+        @Schema(description = "A_TIEMPO, POR_VENCER (the last quarter of its deadline) or VENCIDA; empty without a "
+                + "deadline. A completed task keeps the one it reached: VENCIDA means it was completed late",
+                example = "A_TIEMPO") EstadoPlazo estadoPlazo) {
+
+    /** El de antes del PR 71, sin plazo. */
+    @SuppressWarnings("java:S107") // los campos de la tarea, por su nombre
+    public TareaResponse(Long id, Long casoId, String casoReferencia, Long procesoId, String procesoNombre,
+            Long nodoId, String nodoNombre, Long rolProcesoId, EstadoActividadCaso estado, Long asignadoA,
+            int tickInicio, Integer tickFin, Map<String, Object> datosSalida, Long version,
+            LocalDateTime fechaCreacion, Long delegadaPor) {
+        this(id, casoId, casoReferencia, procesoId, procesoNombre, nodoId, nodoNombre, rolProcesoId, estado,
+                asignadoA, tickInicio, tickFin, datosSalida, version, fechaCreacion, delegadaPor, null, null, null);
+    }
 
     /** El de antes del PR 70, sin delegacion. */
     @SuppressWarnings("java:S107") // los campos de la tarea, por su nombre
@@ -41,7 +59,7 @@ public record TareaResponse(
             int tickInicio, Integer tickFin, Map<String, Object> datosSalida, Long version,
             LocalDateTime fechaCreacion) {
         this(id, casoId, casoReferencia, procesoId, procesoNombre, nodoId, nodoNombre, rolProcesoId, estado,
-                asignadoA, tickInicio, tickFin, datosSalida, version, fechaCreacion, null);
+                asignadoA, tickInicio, tickFin, datosSalida, version, fechaCreacion, null, null, null, null);
     }
 
     @Default

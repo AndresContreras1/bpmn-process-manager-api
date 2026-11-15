@@ -31,13 +31,18 @@ import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.RolProceso;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
 import com.facimus.procesos.modelado.mapper.ActividadMapper;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.Actividad;
 import com.facimus.procesos.modelado.model.Arco;
+import com.facimus.procesos.modelado.model.Evento;
 import com.facimus.procesos.modelado.model.Lane;
 import com.facimus.procesos.modelado.model.Pool;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoAsignacion;
+import com.facimus.procesos.modelado.model.TipoEvento;
+import com.facimus.procesos.modelado.model.UnidadDePlazo;
 import com.facimus.procesos.modelado.repository.ActividadRepository;
 import com.facimus.procesos.modelado.repository.ArcoRepository;
 import com.facimus.procesos.modelado.repository.LaneRepository;
@@ -294,6 +299,52 @@ class ActividadServiceTest {
 
         assertThatThrownBy(() -> actividadService.obtener(EMPRESA, 30L))
                 .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
+    @DisplayName("PR 71: una actividad con plazo no deja de ser de usuario; sin tipo, sigue siendolo")
+    void editar_conPlazo_soloSigueDeUsuario() {
+        actividad.setPlazoCantidad(8);
+        actividad.setPlazoUnidad(UnidadDePlazo.HORAS);
+        when(actividadRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(actividad));
+        when(nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot("Pick items", 100L,
+                EMPRESA, 30L)).thenReturn(false);
+        when(actividadRepository.saveAndFlush(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatThrownBy(() -> actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", null,
+                TipoActividad.SERVICIO, null, 1, 2, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("La actividad tiene plazo, y solo una de usuario lo lleva: quítalo antes de cambiarle el "
+                        + "tipo.");
+        assertThat(actividad.getTipoActividad()).isEqualTo(TipoActividad.USUARIO);
+
+        ActividadResponse respuesta = actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", null, null, null,
+                1, 2, null);
+        assertThat(respuesta.plazo()).isEqualTo(new PlazoResponse(8, UnidadDePlazo.HORAS));
+    }
+
+    @Test
+    @DisplayName("PR 71: una actividad con un borde que la reasigna no deja de ser de usuario; con uno que avisa, si")
+    void editar_conBordeQueReasigna_soloSigueDeUsuario() {
+        Evento borde = Evento.builder().id(41L).empresa(empresa).lane(lane).nombre("Six hours")
+                .tipoEvento(TipoEvento.TEMPORIZADOR_BORDE).interrumpe(false).adjuntoA(actividad)
+                .escalamiento(AccionDeEscalamiento.REASIGNAR).build();
+        when(actividadRepository.findByIdAndEmpresaId(30L, EMPRESA)).thenReturn(Optional.of(actividad));
+        when(pegados.pegadosA(EMPRESA, 30L)).thenReturn(List.of(borde));
+        when(actividadRepository.saveAndFlush(any(Actividad.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatThrownBy(() -> actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", null,
+                TipoActividad.SERVICIO, null, 1, 2, null))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("Un borde de la actividad se la reasigna al supervisor, y solo se reasigna una de usuario: "
+                        + "cámbialo a avisar antes de cambiarle el tipo.");
+        assertThat(actividad.getTipoActividad()).isEqualTo(TipoActividad.USUARIO);
+        assertThat(actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", null, null, null, 1, 2, null)
+                .tipoActividad()).isEqualTo(TipoActividad.USUARIO);
+
+        borde.setEscalamiento(AccionDeEscalamiento.AVISAR);
+        assertThat(actividadService.editar(EMPRESA, AUTOR, 30L, "Pick items", null, TipoActividad.SERVICIO, null, 1,
+                2, null).tipoActividad()).isEqualTo(TipoActividad.SERVICIO);
     }
 
     @Test

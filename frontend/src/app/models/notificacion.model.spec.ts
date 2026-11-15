@@ -54,6 +54,19 @@ describe('enlaceDeNotificacion', () => {
     }
   });
 
+  it('un plazo o un escalamiento abre su caso', () => {
+    for (const tipo of ['PLAZO_POR_VENCER', 'PLAZO_VENCIDO', 'TAREA_ESCALADA'] as const) {
+      expect(enlaceDeNotificacion(aviso(1, { tipo, referenciaId: 9 }))).toEqual({
+        ruta: ['/casos', 9],
+        consulta: null,
+      });
+    }
+    expect(enlaceDeNotificacion(aviso(1, { tipo: 'PLAZO_VENCIDO', referenciaId: null }))).toEqual({
+      ruta: ['/procesos', 7],
+      consulta: null,
+    });
+  });
+
   it('una fecha de revision, o un aviso sin referencia, abre el proceso', () => {
     expect(enlaceDeNotificacion(aviso(1, { tipo: 'RECERTIFICACION_VENCIDA', referenciaId: 3 }))).toEqual({
       ruta: ['/procesos', 7],
@@ -86,6 +99,9 @@ describe('textoDeNotificacion', () => {
       'Ana rejected your request for Order fulfillment',
       'Order fulfillment is due for review',
       'The review of Order fulfillment is overdue',
+      'A task or a case of Order fulfillment is due soon',
+      'A task or a case of Order fulfillment is overdue',
+      'A task of Order fulfillment was escalated',
     ]);
   });
 

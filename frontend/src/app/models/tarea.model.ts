@@ -1,4 +1,4 @@
-import { Datos, EstadoPaso } from './caso.model';
+import { Datos, EstadoPaso, EstadoPlazo } from './caso.model';
 
 /** Una tarea esperando en la bandeja de un rol de proceso (TareaResponse). */
 export interface Tarea {
@@ -21,6 +21,12 @@ export interface Tarea {
   datosSalida: Datos | null;
   version: number;
   fechaCreacion: string;
+  /** PR 71: cuando vence, en UTC, si su actividad tiene plazo y el caso corre en produccion. */
+  venceEn?: string | null;
+  /** PR 71: el tick en que vence, si su actividad tiene plazo y el caso corre en prueba. */
+  venceTick?: number | null;
+  /** PR 71: como va su plazo; vacio si no tiene. */
+  estadoPlazo?: EstadoPlazo | null;
 }
 
 /** Lo que entrega quien completa la tarea; va a las variables del caso bajo tarea.<nombreEnCamel>. */

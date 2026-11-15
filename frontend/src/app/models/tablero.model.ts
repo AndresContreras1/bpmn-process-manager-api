@@ -38,6 +38,41 @@ export interface LoQueSalioMal {
   variablesAusentes: number;
 }
 
+/** PR 71: cuantos se hicieron a tiempo y cuantos tarde (o siguen esperando pasado su plazo). */
+export interface ATiempoYTarde {
+  aTiempo: number;
+  tarde: number;
+}
+
+export interface CumplimientoPorProceso extends ATiempoYTarde {
+  procesoId: number;
+  procesoNombre: string;
+}
+
+export interface CumplimientoPorActividad extends CumplimientoPorProceso {
+  nodoId: number;
+  nodoNombre: string;
+}
+
+/** Quien la completo, o quien la tiene si sigue esperando pasado su plazo. */
+export interface CumplimientoPorPersona extends ATiempoYTarde {
+  usuarioId: number;
+  nombre: string;
+}
+
+/**
+ * PR 71: como se cumplieron los plazos. Solo cuenta lo que ya se sabe como le fue, de las versiones publicadas y de
+ * los procesos que quien pregunta puede ver (CumplimientoResponse).
+ */
+export interface Cumplimiento {
+  tareasATiempo: number;
+  tareasTarde: number;
+  casos: ATiempoYTarde;
+  porProceso: CumplimientoPorProceso[];
+  porActividad: CumplimientoPorActividad[];
+  porPersona: CumplimientoPorPersona[];
+}
+
 /** Como va la operacion, de un proceso o de la tienda entera (TableroResponse). */
 export interface Tablero {
   /** El proceso del que habla; vacio cuando es la tienda entera. */
@@ -49,4 +84,6 @@ export interface Tablero {
   salientes: MensajesPorEstado[];
   entrantes: MensajesPorResultado[];
   loQueSalioMal: LoQueSalioMal;
+  /** PR 71: el cumplimiento de los plazos. */
+  cumplimiento?: Cumplimiento;
 }

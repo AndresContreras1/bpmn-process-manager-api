@@ -20,4 +20,7 @@ public interface MembresiaRolService {
 
     /** Los ids de sus roles, que es lo unico que la bandeja propia necesita saber. */
     List<Long> idsDeLosRolesDe(Long empresaId, Long usuarioId);
+
+    /** PR 71: los ids de quienes pertenecen a un rol de proceso de la tienda. */
+    List<Long> idsDeLosMiembrosDe(Long empresaId, Long rolProcesoId);
 }

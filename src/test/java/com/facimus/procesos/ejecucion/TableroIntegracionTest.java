@@ -17,6 +17,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.api.Paginacion;
+import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.ejecucion.dto.response.CasosPorEstadoResponse;
 import com.facimus.procesos.ejecucion.dto.response.LoQueSalioMalResponse;
 import com.facimus.procesos.ejecucion.dto.response.MensajesPorEstadoResponse;
@@ -35,6 +36,7 @@ import com.facimus.procesos.ejecucion.service.TareaService;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.model.ParametrosSimulacion;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
+import com.facimus.procesos.gestion.service.Actor;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
@@ -128,7 +130,7 @@ class TableroIntegracionTest {
     @Test
     @DisplayName("El tablero de un proceso cuenta los pedidos por estado y lo que cada uno tardo")
     void elTablero_cuentaLosPedidosYLoQueTardaron() {
-        TableroResponse tablero = tableroService.de(empresaId, procesoId);
+        TableroResponse tablero = tableroService.de(admin(empresaId), procesoId);
 
         assertThat(tablero.procesoId()).isEqualTo(procesoId);
         assertThat(tablero.casos()).isEqualTo(PEDIDOS);
@@ -146,7 +148,7 @@ class TableroIntegracionTest {
     @Test
     @DisplayName("El tablero dice quien tiene trabajo esperando, con el nombre del rol y no con su id")
     void elTablero_diceQuienTieneTrabajo() {
-        TableroResponse tablero = tableroService.de(empresaId, procesoId);
+        TableroResponse tablero = tableroService.de(admin(empresaId), procesoId);
 
         assertThat(tablero.tareasPorRol()).singleElement()
                 .returns((long) ESPERANDO, TareasPorRolResponse::tareas)
@@ -156,7 +158,7 @@ class TableroIntegracionTest {
     @Test
     @DisplayName("El tablero cuenta lo que se mando y lo que llego, por como acabo cada cosa")
     void elTablero_cuentaLosMensajes() {
-        TableroResponse tablero = tableroService.de(empresaId, procesoId);
+        TableroResponse tablero = tableroService.de(admin(empresaId), procesoId);
 
         assertThat(tablero.salientes())
                 .extracting(MensajesPorEstadoResponse::estado, MensajesPorEstadoResponse::cantidad)
@@ -172,13 +174,13 @@ class TableroIntegracionTest {
     @Test
     @DisplayName("El tablero de la tienda suma los dos procesos; el de uno solo no cuenta los del otro")
     void elTableroDeLaTienda_sumaLosDosProcesos() {
-        TableroResponse tablero = tableroService.de(empresaId, null);
+        TableroResponse tablero = tableroService.de(admin(empresaId), null);
 
         assertThat(tablero.procesoId()).isNull();
         assertThat(tablero.casos()).isEqualTo(PEDIDOS + DE_OTRO_PROCESO);
-        assertThat(tableroService.de(empresaId, procesoId).casos()).isEqualTo(PEDIDOS);
-        assertThat(tableroService.de(empresaId, otroProcesoId).casos()).isEqualTo(DE_OTRO_PROCESO);
-        assertThat(tableroService.de(empresaId, otroProcesoId).salientes()).isEmpty();
+        assertThat(tableroService.de(admin(empresaId), procesoId).casos()).isEqualTo(PEDIDOS);
+        assertThat(tableroService.de(admin(empresaId), otroProcesoId).casos()).isEqualTo(DE_OTRO_PROCESO);
+        assertThat(tableroService.de(admin(empresaId), otroProcesoId).salientes()).isEmpty();
     }
 
     @Test
@@ -191,13 +193,16 @@ class TableroIntegracionTest {
     }
 
     @Test
-    @DisplayName("El tablero cuesta seis consultas, tenga la tienda cinco pedidos o cinco mil")
-    void elTablero_cuestaSeisConsultas() {
+    @DisplayName("El tablero cuesta diez consultas, tenga la tienda cinco pedidos o cinco mil (PR 71: cuatro del "
+            + "cumplimiento); el de un proceso, una mas para saber si es de la tienda")
+    void elTablero_cuestaDiezConsultas() {
         estadisticas.clear();
+        tableroService.de(admin(empresaId), null);
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(10);
 
-        tableroService.de(empresaId, procesoId);
-
-        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(6);
+        estadisticas.clear();
+        tableroService.de(admin(empresaId), procesoId);
+        assertThat(estadisticas.getPrepareStatementCount()).isEqualTo(11);
     }
 
     @Test
@@ -206,7 +211,7 @@ class TableroIntegracionTest {
         Long otraId = empresaService.registrar("Tienda sin pedidos", "900606060-2", "contacto@vacia.com",
                 "Otro", "admin@vacia.com", "marea-violeta-del-sur").id();
 
-        TableroResponse tablero = tableroService.de(otraId, null);
+        TableroResponse tablero = tableroService.de(admin(otraId), null);
 
         assertThat(tablero.casos()).isZero();
         assertThat(tablero.casosPorEstado()).isEmpty();
@@ -219,7 +224,7 @@ class TableroIntegracionTest {
     @Test
     @DisplayName("Un pedido cancelado se cerro, pero no es un pedido rapido: no entra en el tiempo de ciclo")
     void unPedidoCancelado_noEntraEnElCiclo() {
-        TableroResponse tablero = tableroService.de(empresaId, procesoId);
+        TableroResponse tablero = tableroService.de(admin(empresaId), procesoId);
 
         assertThat(tablero.casosPorEstado())
                 .extracting(CasosPorEstadoResponse::estado, CasosPorEstadoResponse::cantidad)
@@ -249,12 +254,17 @@ class TableroIntegracionTest {
         simulacionService.tick(avisosId, 1);
 
         // Dos avisos perdidos y nada mas: la bitacora de esos dos pedidos tiene muchas otras lineas.
-        assertThat(tableroService.de(avisosId, suProceso).loQueSalioMal())
+        assertThat(tableroService.de(admin(avisosId), suProceso).loQueSalioMal())
                 .isEqualTo(new LoQueSalioMalResponse(AVISOS_PERDIDOS, 0, 0));
     }
 
     private List<TareaResponse> bandeja() {
         return tareaService.bandeja(empresaId, adminId, false, null, procesoId, null, Paginacion.de(0, 50))
                 .content();
+    }
+
+    /** Quien ve la tienda entera: el tablero no le esconde ningun proceso. */
+    private static Actor admin(Long tienda) {
+        return new Actor(null, tienda, RolAcceso.ADMINISTRADOR);
     }
 }

@@ -125,6 +125,9 @@
     "6282429444367133438": "Tâche libérée",
     "6149446796114031233": "Tâche réattribuée",
     "7337576901409912380": "Tâche déléguée",
+    "7897849295079981230": "Échéance proche",
+    "8547153724791757236": "En retard",
+    "4930334547566034769": "Tâche escaladée",
     "4855704021674551374": "Administrateurs uniquement",
     "4188787129610498423": "Administrateurs et éditeurs",
     "3935445601531613483": "organisation",
@@ -1335,6 +1338,12 @@
     "6639361242178269616": "Rien n'est encore publié ici",
     "6253958265254508515": "Quand un processus de ce dossier est publié, il apparaît ici.",
     "1382960065734033472": "Révision le {$INTERPOLATION}",
-    "5397135774197290481": "Pages de processus"
+    "5397135774197290481": "Pages de processus",
+    "5104708435623536741": "Une tâche ou un cas dont je suis responsable arrive à échéance",
+    "2252125474684381941": "Une tâche ou un cas dont je suis responsable est en retard",
+    "2828920838349407079": "Une tâche que je détenais ou que je supervise est escaladée",
+    "7881415796536546732": "Une tâche ou un cas de {$proceso} arrive à échéance",
+    "5320205221097343681": "Une tâche ou un cas de {$proceso} est en retard",
+    "4857133061435513299": "Une tâche de {$proceso} a été escaladée"
   }
 }

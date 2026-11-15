@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.CamposInvalidosException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
-import com.facimus.procesos.gestion.dto.response.UsuarioResponse;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
@@ -34,8 +33,8 @@ public class ReglaDeAsignacionServiceImpl implements ReglaDeAsignacionService {
     static final String SOLO_DE_USUARIO = "Solo una actividad de usuario se asigna: es la que espera a una persona.";
     static final String NO_ARMADA = "La asignación no está bien armada.";
     static final String SIN_PERSONA = "Con PERSONA hay que decir quién.";
-    static final String NO_ES_DE_LA_TIENDA = "No es una persona de la organización.";
-    static final String NO_COMPLETA = "No puede completar tareas: está desactivada o solo lee.";
+    static final String NO_ES_DE_LA_TIENDA = PersonaQueCompleta.NO_ES_DE_LA_TIENDA;
+    static final String NO_COMPLETA = PersonaQueCompleta.NO_COMPLETA;
     static final String SIN_CAMPO = "Con CAMPO hay que decir la variable del caso que tiene a la persona, como la "
             + "nombra una condición: aprobador, tarea.revisarPedido.aprobador.";
     private static final String USUARIO_ID = "usuarioId";
@@ -70,16 +69,7 @@ public class ReglaDeAsignacionServiceImpl implements ReglaDeAsignacionService {
         if (asignadoId == null) {
             throw new CamposInvalidosException(NO_ARMADA, Map.of(USUARIO_ID, SIN_PERSONA));
         }
-        UsuarioResponse persona;
-        try {
-            persona = usuarioService.obtener(empresaId, asignadoId);
-        } catch (RecursoNoEncontradoException _) {
-            throw new CamposInvalidosException(NO_ARMADA, Map.of(USUARIO_ID, NO_ES_DE_LA_TIENDA));
-        }
-        if (!persona.activo() || !persona.rolAcceso().completaTareas()) {
-            throw new CamposInvalidosException(NO_ARMADA, Map.of(USUARIO_ID, NO_COMPLETA));
-        }
-        return asignadoId;
+        return PersonaQueCompleta.exigir(usuarioService, empresaId, asignadoId, NO_ARMADA, USUARIO_ID);
     }
 
     private static String rutaDeVariable(String campo) {

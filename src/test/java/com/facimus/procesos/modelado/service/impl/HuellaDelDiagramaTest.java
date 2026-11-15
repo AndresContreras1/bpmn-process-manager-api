@@ -19,12 +19,16 @@ import com.facimus.procesos.modelado.dto.response.ActividadResponse;
 import com.facimus.procesos.modelado.dto.response.ArcoResponse;
 import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.dto.response.DiagramaResponse;
+import com.facimus.procesos.modelado.dto.response.EscalamientoResponse;
+import com.facimus.procesos.modelado.dto.response.PlazoResponse;
+import com.facimus.procesos.modelado.model.AccionDeEscalamiento;
 import com.facimus.procesos.modelado.model.DireccionAsociacion;
 import com.facimus.procesos.modelado.model.TipoArtefacto;
 import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoAsociacion;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.model.TipoTemporizador;
+import com.facimus.procesos.modelado.model.UnidadDePlazo;
 import com.facimus.procesos.modelado.service.DiagramaArmado;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -339,5 +343,28 @@ class HuellaDelDiagramaTest {
         assertThat(DiagramaCanonico.de(DiagramaArmado.demo().diagrama(), JSON)).doesNotContain("asignacion");
         assertThat(huella(conUna.diagrama())).isNotEqualTo(huella(DiagramaArmado.demo().diagrama()))
                 .isNotEqualTo(huella(conOtra.diagrama()));
+    }
+
+    @Test
+    @DisplayName("PR 71: sin plazos ni escalamientos la forma canonica es la de antes; uno, o un cambio en el, la cambia")
+    void plazosYEscalamientos() {
+        DiagramaArmado conPlazo = DiagramaArmado.demo();
+        conPlazo.plazo("Receive order", new PlazoResponse(8, UnidadDePlazo.HORAS));
+        DiagramaArmado conOtroPlazo = DiagramaArmado.demo();
+        conOtroPlazo.plazo("Receive order", new PlazoResponse(8, UnidadDePlazo.DIAS_HABILES));
+        DiagramaArmado conBorde = DiagramaArmado.demo();
+        conBorde.bordeQueNoInterrumpe(DiagramaArmado.VENTAS, "Six hours", TipoTemporizador.DURACION, "PT6H",
+                "Receive order");
+        DiagramaArmado conEscalamiento = DiagramaArmado.demo();
+        conEscalamiento.bordeQueNoInterrumpe(DiagramaArmado.VENTAS, "Six hours", TipoTemporizador.DURACION, "PT6H",
+                "Receive order");
+        conEscalamiento.escalamiento("Six hours", new EscalamientoResponse(AccionDeEscalamiento.AVISAR, null));
+
+        String canonica = DiagramaCanonico.de(DiagramaArmado.demo().diagrama(), JSON);
+        assertThat(canonica).doesNotContain("plazo").doesNotContain("escalamiento");
+        assertThat(DiagramaCanonico.de(conBorde.diagrama(), JSON)).doesNotContain("escalamiento");
+        assertThat(huella(conPlazo.diagrama())).isNotEqualTo(huella(DiagramaArmado.demo().diagrama()))
+                .isNotEqualTo(huella(conOtroPlazo.diagrama()));
+        assertThat(huella(conEscalamiento.diagrama())).isNotEqualTo(huella(conBorde.diagrama()));
     }
 }

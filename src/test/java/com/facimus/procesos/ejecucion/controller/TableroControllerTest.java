@@ -27,6 +27,7 @@ import com.facimus.procesos.ejecucion.model.EstadoCaso;
 import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
 import com.facimus.procesos.ejecucion.model.ResultadoCorrelacion;
 import com.facimus.procesos.ejecucion.service.TableroService;
+import com.facimus.procesos.gestion.service.Actor;
 
 @WebMvcTest(TableroController.class)
 class TableroControllerTest {
@@ -40,7 +41,7 @@ class TableroControllerTest {
     @Test
     @DisplayName("GET /procesos/{id}/tablero - responde los numeros del proceso, para cualquier rol (200)")
     void tableroDelProceso_respondeSusNumeros() throws Exception {
-        given(tableroService.de(1L, 10L)).willReturn(tablero(10L));
+        given(tableroService.de(new Actor(1L, 1L, RolAcceso.SOLO_LECTURA), 10L)).willReturn(tablero(10L));
 
         mockMvc.perform(get("/api/v1/procesos/10/tablero").with(principal(RolAcceso.SOLO_LECTURA)))
                 .andExpect(status().isOk())
@@ -58,7 +59,7 @@ class TableroControllerTest {
     @Test
     @DisplayName("GET /empresas/actual/tablero - los mismos numeros de toda la tienda, sin proceso (200)")
     void tableroDeLaTienda_respondeSinProceso() throws Exception {
-        given(tableroService.de(1L, null)).willReturn(tablero(null));
+        given(tableroService.de(new Actor(1L, 1L, RolAcceso.SOLO_LECTURA), null)).willReturn(tablero(null));
 
         mockMvc.perform(get("/api/v1/empresas/actual/tablero").with(principal(RolAcceso.SOLO_LECTURA)))
                 .andExpect(status().isOk())

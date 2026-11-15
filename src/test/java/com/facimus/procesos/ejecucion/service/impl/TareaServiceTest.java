@@ -130,6 +130,9 @@ class TareaServiceTest {
     @Mock
     private Auditoria auditoria;
 
+    @Mock
+    private Plazos plazos;
+
     private final JsonMapper json = JsonMapper.builder().build();
 
     @InjectMocks
@@ -144,7 +147,7 @@ class TareaServiceTest {
         tareaService = new TareaServiceImpl(actividadCasoRepository,
                 new Tareas(actividadCasoRepository, casoRepository, delegacionRepository), membresiaRolService,
                 configuracionTiendaService, new PersonasDeLaTarea(usuarioService, membresiaRolService), grafos, motor,
-                reloj, bitacora, auditoria, casoMapper, json, new FormulariosDelCaso(usuarioService, archivos));
+                reloj, bitacora, auditoria, casoMapper, json, new FormulariosDelCaso(usuarioService, archivos), plazos);
         given(usuarioService.obtener(TIENDA_ID, EDITOR)).willReturn(persona(EDITOR, RolAcceso.EDITOR));
         given(usuarioService.obtener(TIENDA_ID, ADMIN)).willReturn(persona(ADMIN, RolAcceso.ADMINISTRADOR));
         given(membresiaRolService.idsDeLosRolesDe(TIENDA_ID, EDITOR)).willReturn(List.of(ROL));
@@ -218,6 +221,10 @@ class TareaServiceTest {
         assertThat(tarea.getDatosSalida()).isNull();
         verify(motor).seguirDesde(eq(caso), any(GrafoDeVersion.class), eq(tarea.getNodoId()),
                 eq(new Momento(TICK, EDITOR)));
+        // PR 71: el plazo se cierra con el momento en que se completo, antes de guardarla: tarde si ya vencio
+        var orden = inOrder(plazos, actividadCasoRepository);
+        orden.verify(plazos).alCompletar(tarea, new Momento(TICK, EDITOR));
+        orden.verify(actividadCasoRepository).save(tarea);
     }
 
     @Test

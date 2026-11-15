@@ -125,6 +125,9 @@
     "6282429444367133438": "Task released",
     "6149446796114031233": "Task reassigned",
     "7337576901409912380": "Task delegated",
+    "7897849295079981230": "Due soon",
+    "8547153724791757236": "Overdue",
+    "4930334547566034769": "Task escalated",
     "4855704021674551374": "Only administrators",
     "4188787129610498423": "Administrators and editors",
     "3935445601531613483": "organisation",
@@ -1335,6 +1338,12 @@
     "6639361242178269616": "Nothing published here yet",
     "6253958265254508515": "When a process of this folder is published, it shows up here.",
     "1382960065734033472": "Review on {$INTERPOLATION}",
-    "5397135774197290481": "Pages of processes"
+    "5397135774197290481": "Pages of processes",
+    "5104708435623536741": "A task or a case of mine is due soon",
+    "2252125474684381941": "A task or a case of mine is overdue",
+    "2828920838349407079": "A task I held or supervise is escalated",
+    "7881415796536546732": "A task or a case of {$proceso} is due soon",
+    "5320205221097343681": "A task or a case of {$proceso} is overdue",
+    "4857133061435513299": "A task of {$proceso} was escalated"
   }
 }

@@ -1,11 +1,13 @@
 package com.facimus.procesos.ejecucion.model;
 
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import com.facimus.procesos.common.EntidadEditable;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -29,6 +31,9 @@ import lombok.experimental.SuperBuilder;
  * <p>El nodo se guarda por id y por nombre, copiados de la instantanea y sin clave foranea: el id es el del nodo
  * dentro de la version, y el modelo vivo puede haber borrado ese nodo despues sin que lo que el caso recorrio deje
  * de ser cierto.
+ *
+ * <p>PR 71: las bandejas van de la que vence antes a la que vence despues; las de produccion por su hora, las de prueba
+ * por su tick, y las que no tienen plazo al final, de la mas vieja a la mas nueva.
  */
 @NamedQuery(name = "ActividadCaso.bandejaPorRol", query = """
         select a from ActividadCaso a
@@ -40,7 +45,7 @@ import lombok.experimental.SuperBuilder;
           and (:procesoId is null or a.caso.proceso.id = :procesoId)
           and (:asignadoA is null or a.asignadoA = :asignadoA)
           and (:sinAsignar = false or a.asignadoA is null)
-        order by a.id
+        order by a.vencimiento.venceEn asc nulls last, a.vencimiento.venceTick asc nulls last, a.id
         """)
 @NamedQuery(name = "ActividadCaso.bandejaPorRol.count", query = """
         select count(a) from ActividadCaso a
@@ -61,7 +66,7 @@ import lombok.experimental.SuperBuilder;
           and a.estado = :estado
           and a.rolProcesoId in :roles
           and (:procesoId is null or a.caso.proceso.id = :procesoId)
-        order by a.id
+        order by a.vencimiento.venceEn asc nulls last, a.vencimiento.venceTick asc nulls last, a.id
         """)
 @NamedQuery(name = "ActividadCaso.bandejaDeMisRoles.count", query = """
         select count(a) from ActividadCaso a
@@ -77,6 +82,7 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @SuperBuilder
 @Entity
+@DynamicUpdate
 @Table(name = "actividades_caso")
 public class ActividadCaso extends EntidadEditable {
 
@@ -131,6 +137,14 @@ public class ActividadCaso extends EntidadEditable {
 
     @Column(name = "tick_fin")
     private Integer tickFin;
+
+    /**
+     * PR 71: cuando vence la tarea y como va, si su actividad tiene plazo. Las escrituras de la entidad solo llevan las
+     * columnas que cambiaron ({@code DynamicUpdate}): el repaso de los plazos mueve el estado con una escritura
+     * propia, y quien guarde la tarea despues no se lo pisa con el que leyo antes.
+     */
+    @Embedded
+    private Vencimiento vencimiento;
 
     /** Los datos con que se completo la tarea, en JSON; entran a las variables del caso bajo tarea.nombre. */
     @JdbcTypeCode(SqlTypes.LONG32VARCHAR)

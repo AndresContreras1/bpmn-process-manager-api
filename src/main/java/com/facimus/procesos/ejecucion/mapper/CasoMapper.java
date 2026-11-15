@@ -42,6 +42,9 @@ public abstract class CasoMapper {
     @Mapping(target = "procesoNombre", source = "proceso.nombre")
     @Mapping(target = "versionNumero", source = "versionProceso.numero")
     @Mapping(target = "fechaInicio", source = "fechaCreacion")
+    @Mapping(target = "venceEn", source = "vencimiento.venceEn")
+    @Mapping(target = "venceTick", source = "vencimiento.venceTick")
+    @Mapping(target = "estadoPlazo", source = "vencimiento.estado")
     public abstract CasoResponse toResponse(Caso caso);
 
     public abstract List<CasoResponse> toResponses(List<Caso> casos);
@@ -54,6 +57,9 @@ public abstract class CasoMapper {
     @Mapping(target = "casoReferencia", source = "caso.referencia")
     @Mapping(target = "procesoId", source = "caso.proceso.id")
     @Mapping(target = "procesoNombre", source = "caso.proceso.nombre")
+    @Mapping(target = "venceEn", source = "vencimiento.venceEn")
+    @Mapping(target = "venceTick", source = "vencimiento.venceTick")
+    @Mapping(target = "estadoPlazo", source = "vencimiento.estado")
     public abstract TareaResponse toTarea(ActividadCaso tarea);
 
     public abstract List<TareaResponse> toTareas(List<ActividadCaso> tareas);

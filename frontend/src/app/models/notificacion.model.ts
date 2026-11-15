@@ -1,4 +1,4 @@
-/** PR 63 y PR 64: los avisos de cada persona, que solo ella ve, y como le llegan por correo. */
+/** PR 63, PR 64 y PR 71: los avisos de cada persona, que solo ella ve, y como le llegan por correo. */
 
 export type TipoDeNotificacion =
   | 'MENCION'
@@ -11,7 +11,10 @@ export type TipoDeNotificacion =
   | 'CAMBIOS_PEDIDOS'
   | 'SOLICITUD_RECHAZADA'
   | 'RECERTIFICACION_PENDIENTE'
-  | 'RECERTIFICACION_VENCIDA';
+  | 'RECERTIFICACION_VENCIDA'
+  | 'PLAZO_POR_VENCER'
+  | 'PLAZO_VENCIDO'
+  | 'TAREA_ESCALADA';
 
 export type EnvioPorCorreo = 'INMEDIATO' | 'RESUMEN_DIARIO' | 'NUNCA';
 
@@ -21,7 +24,7 @@ export interface Notificacion {
   tipo: TipoDeNotificacion;
   procesoId: number;
   proceso: string;
-  /** El comentario, el hilo o la solicitud, segun el tipo; null para una fecha de revision. */
+  /** El comentario, el hilo, la solicitud o el caso, segun el tipo; null para una fecha de revision. */
   referenciaId: number | null;
   autorId: number | null;
   autor: string | null;
@@ -47,7 +50,7 @@ export type EventoDeNotificaciones =
   | { tipo: 'conteo'; datos: ConteoDeNotificaciones }
   | { tipo: 'notificacion'; datos: Notificacion };
 
-/** Los tipos en el orden en que se leen en las preferencias: comentarios, revisiones y fechas de revision. */
+/** Los tipos en el orden en que se leen en las preferencias: comentarios, revisiones, fechas de revision y plazos. */
 export const TIPOS_DE_NOTIFICACION: readonly TipoDeNotificacion[] = [
   'MENCION',
   'RESPUESTA',
@@ -60,6 +63,9 @@ export const TIPOS_DE_NOTIFICACION: readonly TipoDeNotificacion[] = [
   'SOLICITUD_RECHAZADA',
   'RECERTIFICACION_PENDIENTE',
   'RECERTIFICACION_VENCIDA',
+  'PLAZO_POR_VENCER',
+  'PLAZO_VENCIDO',
+  'TAREA_ESCALADA',
 ];
 
 export const ENVIOS: readonly EnvioPorCorreo[] = ['INMEDIATO', 'RESUMEN_DIARIO', 'NUNCA'];
@@ -83,6 +89,9 @@ export const NOMBRE_TIPO_DE_NOTIFICACION: Record<TipoDeNotificacion, string> = {
   SOLICITUD_RECHAZADA: $localize`Someone rejects my request`,
   RECERTIFICACION_PENDIENTE: $localize`A process I own is due for review`,
   RECERTIFICACION_VENCIDA: $localize`The review of a process I own is overdue`,
+  PLAZO_POR_VENCER: $localize`A task or a case of mine is due soon`,
+  PLAZO_VENCIDO: $localize`A task or a case of mine is overdue`,
+  TAREA_ESCALADA: $localize`A task I held or supervise is escalated`,
 };
 
 /** Lo que dice un aviso en la campana: quien hizo que, y en que proceso. */
@@ -112,6 +121,12 @@ export function textoDeNotificacion(notificacion: Notificacion): string {
       return $localize`${proceso}:proceso: is due for review`;
     case 'RECERTIFICACION_VENCIDA':
       return $localize`The review of ${proceso}:proceso: is overdue`;
+    case 'PLAZO_POR_VENCER':
+      return $localize`A task or a case of ${proceso}:proceso: is due soon`;
+    case 'PLAZO_VENCIDO':
+      return $localize`A task or a case of ${proceso}:proceso: is overdue`;
+    case 'TAREA_ESCALADA':
+      return $localize`A task of ${proceso}:proceso: was escalated`;
   }
 }
 
@@ -130,13 +145,18 @@ const DE_SOLICITUD: readonly TipoDeNotificacion[] = [
   'CAMBIOS_PEDIDOS',
   'SOLICITUD_RECHAZADA',
 ];
+const DE_CASO: readonly TipoDeNotificacion[] = ['PLAZO_POR_VENCER', 'PLAZO_VENCIDO', 'TAREA_ESCALADA'];
 
 /**
  * Lo que abre un aviso: un comentario abre su proceso en ese hilo (?comentario=, lo mismo que el enlace del correo),
- * una solicitud abre su pagina, y una fecha de revision, el proceso. Sin referencia, siempre el proceso.
+ * una solicitud abre su pagina, un plazo o un escalamiento abre su caso (lo mismo que el enlace del correo), y una
+ * fecha de revision, el proceso. Sin referencia, siempre el proceso.
  */
 export function enlaceDeNotificacion(notificacion: Notificacion): EnlaceDeNotificacion {
   const referencia = notificacion.referenciaId;
+  if (referencia !== null && DE_CASO.includes(notificacion.tipo)) {
+    return { ruta: ['/casos', referencia], consulta: null };
+  }
   if (referencia !== null && DE_SOLICITUD.includes(notificacion.tipo)) {
     return { ruta: ['/solicitudes', referencia], consulta: null };
   }

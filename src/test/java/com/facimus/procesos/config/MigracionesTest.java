@@ -121,7 +121,7 @@ class MigracionesTest {
                         "V55__revision_y_aprobacion.sql", "V56__busqueda.sql",
                         "V57__exportaciones.sql",
                         "V58__calendario_y_temporizadores.sql", "V59__formularios.sql",
-                        "V60__asignacion.sql");
+                        "V60__asignacion.sql", "V61__plazos.sql");
     }
 
     @Test

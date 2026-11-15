@@ -18,7 +18,7 @@ Angular web app built on it.
 ![Angular 22](https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white)
 ![bpmn-js 18](https://img.shields.io/badge/bpmn--js-18%20%C2%B7%20BPMN%202.0.2-404040)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-3959-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-4110-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2087%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -75,9 +75,10 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Execution** | Cases that walk a published version, tasks waiting in the tray of each process role, and gateway conditions in a small language of its own that cannot run code. | [Execution](docs/execution.md#running-a-process) |
 | **Time and calendars** | Timers that run — waits, boundary timers that interrupt or only warn, and timer starts that open cases — counted on the wall clock with each organization's business calendar: working hours, and the public holidays of Colombia, the United States, France and Australia, computed and editable. They fire once, also with two replicas or after the API was down. Test cases keep the ticks, and a draft can be tried without publishing it. | [Time](docs/execution.md#time-production-and-test-cases) |
 | **Assignment and inboxes** | A task reaches its role's tray, a fixed person, whoever opened the case or the person a form field names, frozen in the version. Claim, release, reassign and delegate with a reason, each in the case timeline and the audit trail; only the holder completes it, and two people claiming it at once cannot both get it. Inboxes for what is mine, my roles' and nobody's, and the workload per person. | [Assignment](docs/api-reference.md#assignment-and-inboxes) |
+| **Deadlines and escalation** | A deadline on each user task and on the whole case, in hours or business days of the organization's calendar. On time, due soon and overdue, with a notice once at each change to whoever has the task and the process owner, a boundary timer that escalates to a supervisor, compliance per process, activity and person in the dashboard, and inboxes ordered by due date. | [Deadlines](docs/api-reference.md#deadlines-and-escalation) |
 | **Forms** | Typed forms on user tasks and start events — text, numbers, money, dates, yes/no, lists, people, files and sections — with required fields, limits and RE2 patterns that cannot hang the server, fields that show or become required by a condition the server compiles for the web, and defaults from the case. Frozen in the version, carried in BPMN, and checked by the server on every answer, field by field. | [Typed forms](docs/api-reference.md#typed-forms) |
 | **Messaging and simulation** | Outbox and inbox per process, correlation by key, a clock in ticks per store, and four simulated partners — payments, carrier, notifications, customer — deterministic by seed. | [Simulation](docs/execution.md#messages-and-the-clock) |
-| **Dashboard** | Cases by state, cycle time with average and p95, work waiting per role and what did not go as expected, in six queries however many orders there are. | [Dashboard](docs/execution.md#the-dashboard) |
+| **Dashboard** | Cases by state, cycle time with average and p95, work waiting per role, what did not go as expected, and deadline compliance per process, activity and person, in ten queries however many orders there are. | [Dashboard](docs/execution.md#the-dashboard) |
 | **Operations** | Health probes, Prometheus metrics on a management port of their own with business counters, JSON logs, OpenTelemetry traces, and a request id in every response, log line and error. | [Operations endpoints](docs/getting-started.md#operations-endpoints) |
 | **Backup and recovery** | Every WAL segment archived within a minute and a full backup every week with daily differentials, by pgBackRest, encrypted, into a bucket with Object Lock that the database's own keys cannot empty; documents with versions. A drill every month restores into an empty container and checks the rows of every table, every audit trail and every version fingerprint, and measures the RPO and the RTO. | [Backup and recovery](docs/runbook.md#backup-and-recovery) |
 | **Sign-in** | The session in `HttpOnly` cookies with a CSRF token, a short-lived JWT with rotating refresh tokens, and idle and maximum limits each store chooses. Passwords as NIST SP 800-63B-4 asks, a second factor with an authenticator app or a passkey and recovery codes that each store can require, signing in without a password with a passkey, and signing in with Google or Microsoft, where an account is linked only after its owner confirms it. | [Authentication](docs/security.md#authentication) |
@@ -195,7 +196,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **3959 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+- **4110 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
   controller and repository slices, service units, security and store isolation — permissions included, as a matrix
   of six people, eight actions and five resources — and integration across modules.
 - **Coverage gate** with JaCoCo: 96 % of lines and 89 % of branches today, and the build fails below 90 % and 80 %
@@ -203,7 +204,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 - **Mutation testing** with PIT over the services, the engine and the conditions: 91 % of 3274 mutations caught,
   run every night with a floor of 75 %, and a **fuzzer** that feeds the BPMN importer broken files every night after
   it. Spotless keeps the imports and the whitespace of every changed file in order.
-- **The web app** has 456 Vitest tests over its logic — the rules of the modeler, the tree of the
+- **The web app** has 459 Vitest tests over its logic — the rules of the modeler, the tree of the
   structure view, the autosave, the live connection, the screens of the documentation, the filters in the
   address, the search and the permissions, the comments, the review and the bell, and what the read-only
   portal shows and offers — and 36 Selenium scenarios, with axe-core over every screen.
