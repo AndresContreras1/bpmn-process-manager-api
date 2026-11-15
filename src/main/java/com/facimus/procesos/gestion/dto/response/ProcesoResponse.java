@@ -39,7 +39,11 @@ public record ProcesoResponse(
         @Schema(description = "The user who owns it", example = "2") Long duenoId,
         @Schema(description = "When it has to be reviewed next", example = "2027-03-01") LocalDate proximaRevision,
         @Schema(example = "INTERNA") Clasificacion clasificacion,
-        @Schema(example = "[\"logistics\"]") List<String> etiquetas) {
+        @Schema(example = "[\"logistics\"]") List<String> etiquetas,
+        @Schema(description = "How many months confirming that it is still valid moves the next review", example = "12")
+        Integer mesesEntreRevisiones,
+        @Schema(description = "True when the next review date has passed and nobody confirmed it is still valid",
+                example = "false") Boolean revisionVencida) {
 
     /** PR 55: un proceso viene con su modo; uno que llega sin el, como el de una instantanea vieja, es ejecutable. */
     @Default
@@ -47,6 +51,16 @@ public record ProcesoResponse(
         modo = modo == null ? ModoProceso.EJECUTABLE : modo;
         clasificacion = clasificacion == null ? Clasificacion.INTERNA : clasificacion;
         etiquetas = etiquetas == null ? List.of() : List.copyOf(etiquetas);
+    }
+
+    /** El de antes del PR 64, sin la recertificacion. */
+    public ProcesoResponse(Long id, String nombre, String descripcion, String categoria, EstadoProceso estado,
+            boolean activo, LocalDateTime fechaCreacion, LocalDateTime fechaModificacion, Long version, Long creadoPor,
+            Long modificadoPor, Integer versionPublicada, Boolean borradorPendiente, ModoProceso modo, Long carpetaId,
+            Long duenoId, LocalDate proximaRevision, Clasificacion clasificacion, List<String> etiquetas) {
+        this(id, nombre, descripcion, categoria, estado, activo, fechaCreacion, fechaModificacion, version, creadoPor,
+                modificadoPor, versionPublicada, borradorPendiente, modo, carpetaId, duenoId, proximaRevision,
+                clasificacion, etiquetas, null, null);
     }
 
     /** El de antes del PR 59, sin los datos del repositorio. */
@@ -72,13 +86,13 @@ public record ProcesoResponse(
     public ProcesoResponse publicadoComo(int numero) {
         return new ProcesoResponse(id, nombre, descripcion, categoria, EstadoProceso.PUBLICADO, activo, fechaCreacion,
                 fechaModificacion, version, creadoPor, modificadoPor, numero, false, modo, carpetaId, duenoId,
-                proximaRevision, clasificacion, etiquetas);
+                proximaRevision, clasificacion, etiquetas, mesesEntreRevisiones, revisionVencida);
     }
 
     /** El mismo proceso diciendo si su borrador tiene cambios sin publicar; lo calcula quien ya tiene el diagrama. */
     public ProcesoResponse conBorradorPendiente(Boolean pendiente) {
         return new ProcesoResponse(id, nombre, descripcion, categoria, estado, activo, fechaCreacion,
                 fechaModificacion, version, creadoPor, modificadoPor, versionPublicada, pendiente, modo, carpetaId,
-                duenoId, proximaRevision, clasificacion, etiquetas);
+                duenoId, proximaRevision, clasificacion, etiquetas, mesesEntreRevisiones, revisionVencida);
     }
 }

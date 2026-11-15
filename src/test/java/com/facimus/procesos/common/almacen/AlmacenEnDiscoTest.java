@@ -58,8 +58,9 @@ class AlmacenEnDiscoTest {
         almacen.guardar(ClaveDeAlmacen.deDocumento(1, 13, 1, "b"), archivo("dos"), "text/plain");
         almacen.guardar(ClaveDeAlmacen.deDocumento(11, 14, 1, "c"), archivo("de otra"), "text/plain");
 
-        almacen.borrarPrefijo(ClaveDeAlmacen.deEmpresa(1));
-        almacen.borrarPrefijo(ClaveDeAlmacen.deEmpresa(5));
+        assertThat(almacen.borrarPrefijo(ClaveDeAlmacen.deEmpresa(1))).as("PR 66: los archivos, no las carpetas")
+                .isEqualTo(2);
+        assertThat(almacen.borrarPrefijo(ClaveDeAlmacen.deEmpresa(5))).isZero();
 
         assertThat(raiz.resolve("empresas/1")).doesNotExist();
         assertThat(raiz.resolve("empresas/11/documentos/14/1-c")).exists();
@@ -77,6 +78,12 @@ class AlmacenEnDiscoTest {
         try (InputStream contenido = almacen.abrir("anclas/1/2026-11-12")) {
             assertThat(contenido.readAllBytes()).containsExactly('{', '}');
         }
+        // PR 66: en el disco, lo inmutable se lee del mismo sitio que lo demas
+        try (InputStream contenido = almacen.abrirInmutable("anclas/1/2026-11-12")) {
+            assertThat(contenido.readAllBytes()).containsExactly('{', '}');
+        }
+        assertThatThrownBy(() -> almacen.abrirInmutable("anclas/1/2026-11-13"))
+                .isInstanceOf(ArchivoNoEncontradoException.class);
     }
 
     @Test

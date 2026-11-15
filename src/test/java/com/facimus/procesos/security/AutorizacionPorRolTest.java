@@ -251,10 +251,43 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/notificaciones/preferencias   | 200
             EDITOR        | PUT    | /api/v1/notificaciones/preferencias   | 200
 
+            # PR 64: la politica la lee cualquier rol y la cambia el administrador; pedir una revision es de quien
+            # publica, decidir de quien aprueba, y leerlas de cualquier rol; el dueno confirma que sigue vigente
+            SOLO_LECTURA  | GET    | /api/v1/empresas/actual/politica-de-publicacion | 200
+            EDITOR        | PUT    | /api/v1/empresas/actual/politica-de-publicacion | 403
+            SOLO_LECTURA  | PUT    | /api/v1/empresas/actual/politica-de-publicacion | 403
+            ADMINISTRADOR | PUT    | /api/v1/empresas/actual/politica-de-publicacion | 400
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/solicitudes     | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/solicitudes     | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/solicitudes     | 403
+            SOLO_LECTURA  | GET    | /api/v1/solicitudes                   | 200
+            SOLO_LECTURA  | GET    | /api/v1/solicitudes?pendientesDeMi=true | 200
+            SOLO_LECTURA  | GET    | /api/v1/solicitudes/{id}              | 404
+            EDITOR        | POST   | /api/v1/solicitudes/{id}/aprobar      | 404
+            SOLO_LECTURA  | POST   | /api/v1/solicitudes/{id}/aprobar      | 403
+            EDITOR        | POST   | /api/v1/solicitudes/{id}/pedir-cambios | 404
+            SOLO_LECTURA  | POST   | /api/v1/solicitudes/{id}/rechazar     | 403
+            EDITOR        | POST   | /api/v1/solicitudes/{id}/retirar      | 404
+            SOLO_LECTURA  | POST   | /api/v1/solicitudes/{id}/retirar      | 403
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/recertificacion | 404
+
             # PR 65: cualquier rol busca; encuentra solo lo que puede ver
             ADMINISTRADOR | GET    | /api/v1/busqueda?q=pedido             | 200
             EDITOR        | GET    | /api/v1/busqueda?q=pedido             | 200
             SOLO_LECTURA  | GET    | /api/v1/busqueda?q=pedido             | 200
+
+            # PR 66: la exportacion completa es del administrador, y pedirla pide ademas una verificacion reciente
+            # (el login de esta prueba lo es: el pedido de verdad se prueba en ExportacionIntegracionTest). Bajarla
+            # con el enlace no pide sesion: un enlace inventado no existe.
+            ADMINISTRADOR | GET    | /api/v1/organizacion/exportaciones      | 200
+            EDITOR        | GET    | /api/v1/organizacion/exportaciones      | 403
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/exportaciones      | 403
+            ADMINISTRADOR | GET    | /api/v1/organizacion/exportaciones/{id} | 404
+            EDITOR        | GET    | /api/v1/organizacion/exportaciones/{id} | 403
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/exportaciones/{id} | 403
+            EDITOR        | POST   | /api/v1/organizacion/exportaciones      | 403
+            SOLO_LECTURA  | POST   | /api/v1/organizacion/exportaciones      | 403
+            SOLO_LECTURA  | GET    | /api/v1/descargas/exportaciones/{id}?empresa=1&vence=1&firma=x | 404
 
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204

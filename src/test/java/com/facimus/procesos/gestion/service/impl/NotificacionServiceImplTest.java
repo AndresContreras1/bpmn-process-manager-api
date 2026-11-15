@@ -305,11 +305,17 @@ class NotificacionServiceImplTest {
                 PreferenciaNotificacion.builder().usuarioId(BETO).tipo(TipoDeNotificacion.MENCION)
                         .envio(EnvioPorCorreo.NUNCA).build()));
 
-        assertThat(servicio.preferencias(EMPRESA, BETO)).containsExactly(
+        assertThat(servicio.preferencias(EMPRESA, BETO)).hasSize(TipoDeNotificacion.values().length).startsWith(
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.MENCION, EnvioPorCorreo.NUNCA, false),
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.RESPUESTA, EnvioPorCorreo.INMEDIATO, true),
                 new PreferenciaDeNotificacionResponse(TipoDeNotificacion.HILO_RESUELTO,
-                        EnvioPorCorreo.RESUMEN_DIARIO, true));
+                        EnvioPorCorreo.RESUMEN_DIARIO, true))
+                // PR 64: una aprobacion parcial espera al resumen; lo que cierra o avisa la recertificacion, no
+                .contains(new PreferenciaDeNotificacionResponse(TipoDeNotificacion.APROBACION_PEDIDA,
+                        EnvioPorCorreo.INMEDIATO, true), new PreferenciaDeNotificacionResponse(
+                                TipoDeNotificacion.SOLICITUD_APROBADA, EnvioPorCorreo.RESUMEN_DIARIO, true),
+                        new PreferenciaDeNotificacionResponse(TipoDeNotificacion.RECERTIFICACION_VENCIDA,
+                                EnvioPorCorreo.INMEDIATO, true));
     }
 
     @Test
@@ -322,7 +328,7 @@ class NotificacionServiceImplTest {
         pedidas.put(TipoDeNotificacion.MENCION, EnvioPorCorreo.RESUMEN_DIARIO);
         pedidas.put(TipoDeNotificacion.HILO_RESUELTO, EnvioPorCorreo.NUNCA);
 
-        assertThat(servicio.guardarPreferencias(EMPRESA, BETO, pedidas)).hasSize(3);
+        assertThat(servicio.guardarPreferencias(EMPRESA, BETO, pedidas)).hasSize(TipoDeNotificacion.values().length);
 
         ArgumentCaptor<PreferenciaNotificacion> guardadas = ArgumentCaptor.forClass(PreferenciaNotificacion.class);
         verify(preferenciaRepository, times(2)).save(guardadas.capture());

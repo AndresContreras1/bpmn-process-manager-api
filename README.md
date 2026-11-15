@@ -18,7 +18,7 @@ Angular web app built on it.
 ![Angular 22](https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white)
 ![bpmn-js 18](https://img.shields.io/badge/bpmn--js-18%20%C2%B7%20BPMN%202.0.2-404040)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-2922-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-3194-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2087%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -65,9 +65,11 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Diagnosis** | A deterministic catalogue of 21 errors and 16 warnings, each pointing at an element, and a what-if that says what a deletion would take with it. | [Diagnosis](docs/diagnosis-and-versions.md#diagnosis) |
 | **Versions** | Publishing freezes the whole diagram with a SHA-256 fingerprint and keeps its BPMN file, the same bytes forever. What is edited afterwards is the draft, and the process says when it is ahead. | [Versions](docs/diagnosis-and-versions.md#published-versions) |
 | **Documents** | Files attached to a process or one of its elements, with versions. The type comes from the content against a whitelist, an antivirus and a ZIP bomb check review each one in the job queue, each store has a quota, and a download is a five-minute signed link that always arrives as an attachment. Stored in S3 or any compatible service. | [Documents](docs/security.md#documents) |
-| **Documentation** | Markdown for the process and each of its elements, converted and cleaned on the server, a characterization sheet, and a manual of each published version in HTML and PDF, in the reader's language, with the drawing the modeler sent when publishing. | [Documentation](docs/api-reference.md#documentation-and-the-manual) |
+| **Documentation** | Markdown for the process and each of its elements, converted and cleaned on the server, a characterization sheet, and a manual of each published version in HTML and PDF, in the reader's language, with the drawing the modeler sent when publishing. The web edits all of it, attaches documents by dropping them and follows each one until the antivirus is done, from the process and from the modeler's side panel. | [Documentation](docs/api-reference.md#documentation-and-the-manual) |
+| **Review and approval** | Publishing directly, as always, or with approval: a request freezes the draft and shows what changes against the version in force, N people of a list or a role approve it, ask for changes or reject it, never the requester, and the last approval publishes it. Each process is recertified by its owner, who is told when its review date arrives. | [Review and approval](docs/api-reference.md#review-and-approval) |
 | **Comments and notifications** | Threads on a process, one of its elements or a version, with replies and mentions of who can view it, resolved and reopened. A notification center only its recipient sees, live over server-sent events shared by every replica, and e-mail in each person's language, at once or in a daily digest, as each one chooses. | [Comments and notifications](docs/api-reference.md#comments-and-notifications) |
 | **Search** | One box for the whole store: processes, elements of the draft and of the published version, the text inside PDF, Office, OpenOffice and plain-text files, and comments, in the store's language and without minding accents, with quotes, `-` and `or`. Only what each person can view, names ranked first, with the matching words highlighted. | [Search](docs/api-reference.md#search) |
+| **Export and exit** | The whole store in one ZIP built in the job queue: every process with its versions in BPMN and JSON, documents, comments, history, the audit trail verifiable outside the API, the people without any secret and the cases as JSON and CSV, with a manifest of SHA-256 fingerprints. A 24-hour signed link by e-mail, for an administrator with a recent verification, and a deletion certificate when a closed store is purged. | [Export format](docs/export-format.md) |
 | **Repository** | A tree of folders, and for each process its owner, the date of its next review, how reserved it is and its tags, all of them filters of the list. | [The process repository](docs/api-reference.md#the-process-repository) |
 | **Permissions** | Actions granted on a folder or a process — view, comment, model, review, approve, publish, export and administer — to a person, a process role or the whole store, inherited down the folders. The access role sets the ceiling, separation of duties goes last, and a list only shows what each person can see, in the same query. | [Permissions](docs/security.md#permissions-on-folders-and-processes) |
 | **Execution** | Cases that walk a published version, tasks waiting in the tray of each process role, and gateway conditions in a small language of its own that cannot run code. | [Execution](docs/execution.md#running-a-process) |
@@ -187,7 +189,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **2922 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+- **3194 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
   controller and repository slices, service units, security and store isolation — permissions included, as a matrix
   of six people, eight actions and five resources — and integration across modules.
 - **Coverage gate** with JaCoCo: 96 % of lines and 87 % of branches today, and the build fails below 90 % and 80 %
@@ -195,8 +197,9 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 - **Mutation testing** with PIT over the services, the engine and the conditions: 91 % of 3274 mutations caught,
   run every night with a floor of 75 %, and a **fuzzer** that feeds the BPMN importer broken files every night after
   it. Spotless keeps the imports and the whitespace of every changed file in order.
-- **The web app** has 120 Vitest tests over its logic — the rules of the modeler, the tree of the structure view, the
-  autosave, the live connection — and 27 Selenium scenarios, with axe-core over every screen.
+- **The web app** has 170 Vitest tests over its logic — the rules of the modeler, the tree of the structure view, the
+  autosave, the live connection, the screens of the documentation — and 30 Selenium scenarios, with axe-core over
+  every screen.
 - **Every pull request** runs nine jobs: build and test on Ubuntu and Windows, architecture rules, Docker image
   with k6 load tests, SonarCloud quality gate, frontend build, web image with the whole stack, Selenium end-to-end
   tests against it, the format check and the supply chain checks; CodeQL runs beside them.

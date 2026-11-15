@@ -28,6 +28,32 @@ public final class ClaveDeAlmacen {
         return comprobar(deEmpresa(empresaId) + "manuales/" + manualId + "/" + formato);
     }
 
+    /** PR 66: la carpeta de una exportacion completa de la tienda; al vencer se borra entera. */
+    public static String carpetaDeExportacion(long empresaId, long exportacionId) {
+        return comprobar(deEmpresa(empresaId) + "exportaciones/" + exportacionId + "/");
+    }
+
+    /**
+     * PR 66: la carpeta de un intento de armar una exportacion. Cada intento sube a la suya: si la cola arma la misma
+     * exportacion dos veces a la vez, el que llega tarde no pisa ni borra el ZIP del que ya la dejo lista.
+     */
+    public static String carpetaDelIntento(long empresaId, long exportacionId, String intento) {
+        return comprobar(carpetaDeExportacion(empresaId, exportacionId) + intento + "/");
+    }
+
+    /** PR 66: el ZIP de un intento de una exportacion, dentro de la carpeta del intento. */
+    public static String deExportacion(long empresaId, long exportacionId, String intento) {
+        return comprobar(carpetaDelIntento(empresaId, exportacionId, intento) + "organizacion");
+    }
+
+    /**
+     * PR 66: el certificado de borrado de una tienda. Va fuera de su prefijo, como sus anclas: lo que se borra con la
+     * tienda no puede ser lo que prueba que se borro.
+     */
+    public static String deCertificado(long empresaId) {
+        return comprobar("certificados/" + empresaId + "/borrado");
+    }
+
     /** El ancla de la bitacora de una tienda en un dia. */
     public static String deAncla(long empresaId, String dia) {
         return comprobar("anclas/" + empresaId + "/" + dia);
