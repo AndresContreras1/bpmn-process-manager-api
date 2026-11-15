@@ -128,10 +128,6 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         return "GET".equals(request.getMethod()) && BUSQUEDA.equals(ruta);
     }
 
-    private static boolean porPersona(ClaseDeLimite clase) {
-        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.BUSQUEDA;
-    }
-
     /** De que cubo gasta. Lo que cambia algo sin sesion no cuenta por persona: la autorizacion lo va a rechazar. */
     private static Optional<ClaseDeLimite> clase(HttpServletRequest request, String ruta) {
         if (esBusqueda(request, ruta)) {
@@ -158,7 +154,8 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
 
     /** Lo que cuenta por persona y no por direccion: lo que solo se pide con sesion. */
     private static boolean porPersona(ClaseDeLimite clase) {
-        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.EXPORTACION;
+        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.BUSQUEDA
+                || clase == ClaseDeLimite.EXPORTACION;
     }
 
     private static Optional<Long> usuario() {
