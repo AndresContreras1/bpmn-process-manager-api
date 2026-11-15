@@ -25,6 +25,10 @@
 | Edit one's own comments and delete them | ✓ | ✓ | ✓ |
 | Delete anybody's comment | ✓ | — | — |
 | Read one's own notifications and choose how they arrive | ✓ | ✓ | ✓ |
+| Read how the store publishes, and its review requests | ✓ | ✓ | ✓ |
+| Choose how the store publishes: directly or with approval | ✓ | — | — |
+| Ask for a review, approve, ask for changes, reject and withdraw one's own request | ✓ | ✓ | — |
+| Confirm a process one owns is still valid | ✓ | ✓ | ✓ |
 | Export the whole store and close it | ✓ | — | — |
 
 Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
@@ -62,8 +66,10 @@ people of a process role or the whole store ([API](api-reference.md#permissions)
   its elements is `MODELAR`, publishing and retiring versions is `PUBLICAR`, the AI review is `REVISAR`, deleting the
   process, sharing it and granting on it is `ADMINISTRAR`, and downloading its BPMN file is `EXPORTAR`. Opening a
   case or sending a message only needs `VER`: running a process is not modeling it. Writing a comment is `COMENTAR`,
-  which the read-only role has, and its service also asks `VER` (PR 63). The routes with no resource in the path,
-  such as creating a process, check in their service.
+  which the read-only role has, and its service also asks `VER` (PR 63). Asking for a review is `PUBLICAR`, deciding
+  on one is `APROBAR` on the process of the request, and confirming a process is still valid is `VER` with its
+  service deciding who (PR 64). The routes with no resource in the path, such as creating a process, check in their
+  service.
 - **A process someone cannot see does not exist for them.** Refusing `VER` answers `404`, the same as a process of
   another store, so it does not reveal that it is there.
 - **Lists filter in their own query.** What a person cannot see is worked out once from the grants, the folders and
@@ -270,6 +276,9 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `TIENDA_DADA_DE_BAJA` · `BAJA_CANCELADA` | The store is closed or the closing is cancelled |
 | `DOCUMENTO_SUBIDO` · `DOCUMENTO_ELIMINADO` · `DOCUMENTO_BLOQUEADO` | A document or a new version is uploaded, a document is deleted, or the review retains a version |
 | `COMENTARIO_RESUELTO` · `COMENTARIO_REABIERTO` · `COMENTARIO_ELIMINADO` | A comment thread is resolved or reopened, or a comment is deleted, with whether it was one's own |
+| `POLITICA_PUBLICACION_CAMBIADA` | The store's publishing policy changes, with the mode before and after, the approvals and how many people or which role |
+| `PUBLICACION_SOLICITADA` · `SOLICITUD_APROBADA` · `SOLICITUD_CAMBIOS_PEDIDOS` · `SOLICITUD_RECHAZADA` · `SOLICITUD_RETIRADA` · `SOLICITUD_SIN_PUBLICAR` | A review is asked for, decided on, withdrawn (by its requester, by an administrator of the process, or by the API when its requester is anonymized or its process deleted), or approved without publishing, with why; the publication itself is `PROCESO_PUBLICADO` with the request |
+| `PROCESO_RECERTIFICADO` | Someone confirms a process is still valid, with the next and the previous review dates, whether it was overdue and the note |
 | `EXPORTACION_PEDIDA` · `EXPORTACION_LISTA` · `EXPORTACION_FALLIDA` · `EXPORTACION_DESCARGADA` · `EXPORTACION_VENCIDA` | A full export is asked for, is ready with its SHA-256, size and files, fails with the reason, is downloaded with its link (from the address and browser of the download), or expires and is deleted |
 | `TIENDA_BORRADA` | The purge deleted the store: the SHA-256 and the key of its deletion certificate, the rows and the objects (`reanotado` when a retry of the job audits a certificate stored before) |
 
@@ -363,6 +372,39 @@ What people write to each other is cleaned and kept to the store, and what they 
   are escaped. The outbox keeps ids, not text.
 - **Anonymizing** a person deletes their notifications and preferences, shows the pseudonym wherever they wrote or
   were mentioned, and rewrites `@Name` in the comments that mentioned them.
+
+## Review and approval
+
+Publishing with approval is a layer over the versions, and it cannot be skipped
+([ADR-0069](adr/0069-review-and-approval.md)):
+
+- **No bypass.** With the policy on, publishing directly answers `409` for everyone, administrators included; turning
+  the policy off is the only way back, and it is in the audit trail. Only the administrator changes the policy (route
+  matrix), with its version.
+- **Who asks, who approves.** Asking needs `PUBLICAR` on the process, so a grant that denies publishing cannot be
+  worked around by asking others. The approvers are fixed when the request is opened: active people of the list or
+  role who can view and approve the process through the evaluator, so the separation of duties of PR 60 keeps out
+  whoever changed the process last, and the requester is never one of them. Read-only people never approve: the
+  policy refuses them on its list and does not count them in a role. Publishing through a request and recertifying do
+  not count as changing the process, so they never take the next approval away from whoever did them. Deciding needs
+  `APROBAR` on the process and being one of them; anyone else answers `403`. Each person decides once.
+- **What is approved is what is published.** The request keeps the snapshot it froze; the last approval publishes
+  exactly that, after checking that the version in force is still the one it was compared with and that its
+  diagnosis is still clean. Otherwise it publishes nothing and says why. The request row is locked while a decision
+  is taken, and the process row while a request is opened.
+- **Isolation.** The three tables (`politicas_publicacion`, `solicitudes_publicacion`, `aprobaciones`) have row-level
+  security; another store's request answers `404`, and a request of a process someone cannot view answers `404` too.
+  Lists, the inbox of pending decisions included, filter by the processes the person can view in their own query,
+  so a grant that hides a process also hides its requests from its approvers.
+- **Text.** The request's text and the reasons for changes and rejections are Markdown cleaned like comments, up to
+  10 000 characters (the request and a check of the table); asking for changes or rejecting without a reason is a
+  `400` and a check of the table.
+- **Audit.** Changing the policy, asking, each decision, withdrawing, an approval that could not publish, the
+  publication and each recertification are in the audit trail.
+- **Rate limit.** Every route spends from the bucket of changes per person; there is no upload and no quota, since a
+  request is a snapshot of a process that already counts against the plan.
+- **Recertification.** Only the owner of a process, whatever their role, or whoever can administer it confirms it; the
+  daily warning runs as the system and each job reads and writes only its store.
 
 ## Organization export
 
@@ -582,7 +624,9 @@ and cannot be undone. Their user stays, because what they did names them, but un
 anonimizada 12`) and an address that is not theirs, deactivated, with no password that works, no sessions, no
 process roles and no links; the store's history names them by the pseudonym too, and their e-mail can register
 again. Their comments stay under the pseudonym, the comments that mentioned them as `@Name` say the pseudonym instead,
-and their notifications and preferences are deleted (PR 63). Nobody can anonymize their own account, and an anonymized user can no longer be edited, reactivated or
+and their notifications and preferences are deleted (PR 63). They leave the list of approvers of the publishing
+policy, and their open review requests are withdrawn with a reason; their decisions stay under the pseudonym (PR 64).
+Nobody can anonymize their own account, and an anonymized user can no longer be edited, reactivated or
 given a password.
 
 ## Supply chain

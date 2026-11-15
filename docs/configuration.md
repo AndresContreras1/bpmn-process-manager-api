@@ -44,6 +44,7 @@ the profile's database aside: [The database of the tests](testing.md#the-databas
 | `BITACORA_ANCLA_RETENCION` | How long nobody can delete an anchor of the audit trail | `400d` |
 | `NOTIFICACIONES_RESUMEN_CRON` | When the daily digest of notifications is put in the queue, in UTC, the same hour for everyone. `-` turns it off | `0 0 7 * * *` |
 | `NOTIFICACIONES_RETENCION` | How long a read notification is kept before the nightly purge deletes it; unread ones stay | `90d` |
+| `RECERTIFICACION_CRON` | When the daily job looks for processes whose review date arrived or passed and puts one job per store in the queue to tell their owners, in UTC. `-` turns it off | `0 30 6 * * *` |
 | `EXPORTACIONES_ENLACE_VIDA` | How long the e-mailed link of a full export works; then its ZIP is deleted | `24h` |
 | `EXPORTACIONES_LIMPIEZA_CRON` | When the job that deletes expired exports runs, in UTC. `-` turns it off | `0 15 * * * *` (hourly) |
 | `EXPORTACIONES_PENDIENTE_MAXIMA` | How long an export can stay pending before it is marked failed, so another can be asked for | `6h` |

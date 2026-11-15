@@ -8,6 +8,18 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Review and approval: each store publishes directly, as before, or with approval by N people of a list or a process
+  role. Asking for review (needs PUBLICAR) freezes the draft in a revision and in the snapshot to publish, answers
+  the semantic difference against the version in force, and notifies the approvers; each one approves, asks for
+  changes or rejects with a reason, never the requester, and the last approval publishes the frozen snapshot through
+  the usual path, or says why it no longer can (the version in force changed, or the diagnosis is not clean). With
+  approval on, publishing directly answers 409 for everyone. Recertification: a daily job tells each process owner
+  when its review date arrives and once more when it passes, "still valid" moves the date by the process's months
+  between reviews, and process answers say when a review is overdue. Everything is audited.
+  Publishing through a request and recertifying leave the process's version and last editor alone, so the separation
+  of duties never blocks the next round; the approvers are evaluated in one pass; read-only people never count as
+  approvers; turning the policy off never fails over stale approvers; a role the policy names cannot be deleted;
+  deleting a process withdraws its open request.
 - Organization export and exit: an administrator, with a recent verification, asks for a full export of the store,
   built in the job queue as one ZIP with every process (versions as BPMN and JSON, the draft, documentation, sheet
   and manuals), the documents with every version, comments, history, the audit trail with its hashes and anchors so
