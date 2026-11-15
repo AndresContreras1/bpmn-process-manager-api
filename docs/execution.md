@@ -63,7 +63,7 @@ declares, the body of every message received. `caso.referencia` and `caso.tick` 
 the case itself.
 
 **Forms.** A user task or a plain start event can ask for its data with a typed form, frozen in the version
-([ADR-0073](adr/0073-typed-forms.md)). Then what a task hands over, or what a case opens with, are the answers to that
+([ADR-0076](adr/0076-typed-forms.md)). Then what a task hands over, or what a case opens with, are the answers to that
 form: the server walks it from the top, drops the fields a condition hides, refuses a key it does not ask for, checks
 each answer against its type and its rules, and answers `400` with an error per field when one fails. What passes lands
 with its type, so `tarea.approveRefund.aprobado == true` compares a boolean and `tarea.approveRefund.monto > 100` a

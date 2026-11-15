@@ -360,7 +360,7 @@ What PR 68 adds, against the checklist every resource goes through ([ADR-0072](a
 
 ## Typed forms
 
-What PR 69 adds, against the checklist every resource goes through ([ADR-0073](adr/0073-typed-forms.md)):
+What PR 69 adds, against the checklist every resource goes through ([ADR-0076](adr/0076-typed-forms.md)):
 
 - **Row-level security.** A form is a column of `nodos_flujo` (V59), which already has the store's policy; the answers
   are case variables. A test reads and updates the forms as another store and sees nothing.

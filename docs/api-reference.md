@@ -275,7 +275,7 @@ What passes is stored with its type under `tarea.<taskNameInCamel>`: numbers as 
 ISO 8601 text, a multiple list as a list, a person or a file as its id (an active person of the store; a document of
 the process whose latest version is available). A hidden field is dropped. Without a form, free key-value data is
 taken only by a `PRUEBA` case; a `PRODUCCION` one answers `400` for each key. The form also travels in BPMN as
-`bpm:formulario` ([ADR-0073](adr/0073-typed-forms.md)).
+`bpm:formulario` ([ADR-0076](adr/0076-typed-forms.md)).
 
 ## Permissions
 
