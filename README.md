@@ -18,7 +18,7 @@ Angular web app built on it.
 ![Angular 22](https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white)
 ![bpmn-js 18](https://img.shields.io/badge/bpmn--js-18%20%C2%B7%20BPMN%202.0.2-404040)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-3194-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-3201-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2087%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -66,8 +66,8 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Versions** | Publishing freezes the whole diagram with a SHA-256 fingerprint and keeps its BPMN file, the same bytes forever. What is edited afterwards is the draft, and the process says when it is ahead. | [Versions](docs/diagnosis-and-versions.md#published-versions) |
 | **Documents** | Files attached to a process or one of its elements, with versions. The type comes from the content against a whitelist, an antivirus and a ZIP bomb check review each one in the job queue, each store has a quota, and a download is a five-minute signed link that always arrives as an attachment. Stored in S3 or any compatible service. | [Documents](docs/security.md#documents) |
 | **Documentation** | Markdown for the process and each of its elements, converted and cleaned on the server, a characterization sheet, and a manual of each published version in HTML and PDF, in the reader's language, with the drawing the modeler sent when publishing. The web edits all of it, attaches documents by dropping them and follows each one until the antivirus is done, from the process and from the modeler's side panel. | [Documentation](docs/api-reference.md#documentation-and-the-manual) |
-| **Review and approval** | Publishing directly, as always, or with approval: a request freezes the draft and shows what changes against the version in force, N people of a list or a role approve it, ask for changes or reject it, never the requester, and the last approval publishes it. Each process is recertified by its owner, who is told when its review date arrives. | [Review and approval](docs/api-reference.md#review-and-approval) |
-| **Comments and notifications** | Threads on a process, one of its elements or a version, with replies and mentions of who can view it, resolved and reopened. A notification center only its recipient sees, live over server-sent events shared by every replica, and e-mail in each person's language, at once or in a daily digest, as each one chooses. | [Comments and notifications](docs/api-reference.md#comments-and-notifications) |
+| **Review and approval** | Publishing directly, as always, or with approval: a request freezes the draft and shows what changes against the version in force, N people of a list or a role approve it, ask for changes or reject it, never the requester, and the last approval publishes it. In the web, asking for review takes the place of Publish, an inbox lists what waits for each approver, and a request shows its difference on the diagram and in words. Each process is recertified by its owner, who is told when its review date arrives. | [Review and approval](docs/api-reference.md#review-and-approval) |
+| **Comments and notifications** | Threads on a process, one of its elements or a version, with replies and mentions of who can view it, resolved and reopened. A notification center only its recipient sees, live over server-sent events shared by every replica, and e-mail in each person's language, at once or in a daily digest, as each one chooses. In the web, the threads of each element sit beside the canvas with a count over it, mentions are picked from who can view the process, and a bell in the header counts what is unread, live. | [Comments and notifications](docs/api-reference.md#comments-and-notifications) |
 | **Search** | One box for the whole store: processes, elements of the draft and of the published version, the text inside PDF, Office, OpenOffice and plain-text files, and comments, in the store's language and without minding accents, with quotes, `-` and `or`. Only what each person can view, names ranked first, with the matching words highlighted. In the web it opens from the header or with Ctrl+K and is driven from the keyboard. | [Search](docs/api-reference.md#search) |
 | **Export and exit** | The whole store in one ZIP built in the job queue: every process with its versions in BPMN and JSON, documents, comments, history, the audit trail verifiable outside the API, the people without any secret and the cases as JSON and CSV, with a manifest of SHA-256 fingerprints. A 24-hour signed link by e-mail, for an administrator with a recent verification, and a deletion certificate when a closed store is purged. | [Export format](docs/export-format.md) |
 | **Repository** | A tree of folders, and for each process its owner, the date of its next review, how reserved it is and its tags, all of them filters of the list that live in its address, so a filtered list can be shared. Processes and folders move from a dialog, without dragging. | [The process repository](docs/api-reference.md#the-process-repository) |
@@ -81,7 +81,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **E-mail** | Verifying the e-mail, recovering the password and inviting by e-mail, in Spanish, English and French, with links that work once. Sent over any SMTP server from a queue of jobs that retries. | [Links sent by e-mail](docs/api-reference.md#links-sent-by-e-mail) |
 | **API contract** | OpenAPI for every operation, Problem Details errors, optimistic locking, idempotency keys and stable pagination. | [API reference](docs/api-reference.md) |
 | **AI review** | An optional second opinion from a language model, answered in a validated schema and limited per store. It only advises. | [AI review](docs/diagnosis-and-versions.md#ai-review) |
-| **Web app** | Angular client for all of it, in Spanish, English and French, light or dark: the bpmn-js modeler with live diagnosis and a structure view that edits without a mouse, who else is editing, the comparison of two states, viewers for versions and cases, the repository with its folders and filters, the global search, the grants, account security, administration, cases, tasks, clock and dashboard. | [frontend/](frontend/README.md) |
+| **Web app** | Angular client for all of it, in Spanish, English and French, light or dark: the bpmn-js modeler with live diagnosis and a structure view that edits without a mouse, who else is editing, the comparison of two states, viewers for versions and cases, the repository with its folders and filters, the global search, the grants, review requests, comments and the notification bell, account security, administration, cases, tasks, clock and dashboard. | [frontend/](frontend/README.md) |
 
 ## Architecture
 
@@ -189,7 +189,7 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **3194 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+- **3201 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
   controller and repository slices, service units, security and store isolation — permissions included, as a matrix
   of six people, eight actions and five resources — and integration across modules.
 - **Coverage gate** with JaCoCo: 96 % of lines and 87 % of branches today, and the build fails below 90 % and 80 %
@@ -197,9 +197,10 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 - **Mutation testing** with PIT over the services, the engine and the conditions: 91 % of 3274 mutations caught,
   run every night with a floor of 75 %, and a **fuzzer** that feeds the BPMN importer broken files every night after
   it. Spotless keeps the imports and the whitespace of every changed file in order.
-- **The web app** has 279 Vitest tests over its logic — the rules of the modeler, the tree of the
+- **The web app** has 387 Vitest tests over its logic — the rules of the modeler, the tree of the
   structure view, the autosave, the live connection, the screens of the documentation, the filters in the
-  address, the search and the permissions — and 33 Selenium scenarios, with axe-core over every screen.
+  address, the search and the permissions, the comments, the review and the bell — and 35 Selenium
+  scenarios, with axe-core over every screen.
 - **Every pull request** runs nine jobs: build and test on Ubuntu and Windows, architecture rules, Docker image
   with k6 load tests, SonarCloud quality gate, frontend build, web image with the whole stack, Selenium end-to-end
   tests against it, the format check and the supply chain checks; CodeQL runs beside them.
@@ -226,11 +227,9 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ## Roadmap
 
 Modeling, execution, simulation, observability and the security of accounts and data are done, and so are BPMN
-files in both directions, editing with others, the repository of processes and its permissions, comments and
-full-text search. What is still open:
+files in both directions, editing with others, the repository of processes and its permissions, comments, review
+and approval, and full-text search. What is still open:
 
-- A screen to grant permissions on folders and processes; today they are granted through the API.
-- Review and approval.
 - Exporting a store's data during the 30 days of its closing.
 - An AI review of a change instead of the whole diagram, so the model only reads what moved.
 - HSTS preload, a month after production runs on HTTPS.

@@ -1,14 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { EMPTY, Observable, catchError, finalize, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
 
+import { ElementoComentado, PanelComentariosComponent } from '../../components/comentarios/panel-comentarios.component';
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
 import { MoverProcesoComponent } from '../../components/mover-proceso/mover-proceso.component';
+import { PedirRevisionComponent } from '../../components/pedir-revision/pedir-revision.component';
 import { FichaRepositorioComponent } from './components/ficha-repositorio/ficha-repositorio.component';
 import { esConflictoDeVersion, mensajeDeError, mensajeDeLaApi } from '../../helpers/errores-api';
+import { Comentario } from '../../models/comentario.model';
 import { Accion, BotonesDelProceso, botonesDelProceso } from '../../models/concesion.model';
 import { Diagrama } from '../../models/diagrama.model';
 import {
@@ -20,11 +23,13 @@ import {
   avisosAlAbrir,
   cambioEnIngles,
 } from '../../models/proceso.model';
+import { Solicitud } from '../../models/solicitud.model';
 import { Version } from '../../models/version.model';
 import { AuthService } from '../../service/auth.service';
 import { ConcesionService } from '../../service/concesion.service';
 import { DiagramaService } from '../../service/diagrama.service';
 import { ProcesoService } from '../../service/proceso.service';
+import { SolicitudService } from '../../service/solicitud.service';
 import { VersionService } from '../../service/version.service';
 import { DetalleNodo, MensajeDibujo, bpmnIdsDeNodos, detallarNodo, numerarMensajes } from '../../bpmn/detalle-nodo';
 import { ElementoElegido, LienzoBpmnComponent } from '../../bpmn/lienzo-bpmn.component';
@@ -61,6 +66,8 @@ interface Respuesta {
     MoverProcesoComponent,
     LienzoBpmnComponent,
     FichaRepositorioComponent,
+    PanelComentariosComponent,
+    PedirRevisionComponent,
   ],
   templateUrl: './proceso-detalle.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -73,6 +80,7 @@ export class ProcesoDetalleComponent implements OnInit {
   private readonly modelos: ModeloService = inject(ModeloService);
   private readonly authService: AuthService = inject(AuthService);
   private readonly concesionService: ConcesionService = inject(ConcesionService);
+  private readonly solicitudService: SolicitudService = inject(SolicitudService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
@@ -89,6 +97,21 @@ export class ProcesoDetalleComponent implements OnInit {
   botones: BotonesDelProceso = botonesDelProceso(null, this.rol);
   /** Abierto el dialogo de mover de carpeta. */
   moviendo: boolean = false;
+
+  @ViewChild(LienzoBpmnComponent) private lienzo?: LienzoBpmnComponent;
+  /** F21: la organizacion publica con aprobacion, asi que en vez de publicar se pide la revision. */
+  conAprobacion: boolean = false;
+  /** F21: la revision abierta del proceso, si hay una: no se puede pedir otra. */
+  solicitudAbierta: Solicitud | null = null;
+  pidiendoRevision: boolean = false;
+  /** F21: el elemento cuyos comentarios se ven, cualquiera del dibujo; null es el proceso entero. */
+  elementoComentado: ElementoComentado | null = null;
+  /** F21: el comentario al que lleva la direccion (?comentario=), como el enlace de un aviso o de un correo. */
+  comentarioPedido: number | null = null;
+  contadoresDeComentarios: Record<string, number> = {};
+  /** El elemento que hay que elegir en el lienzo en cuanto termine de dibujar. */
+  private elementoAlDibujar: string | null = null;
+  private dibujado: boolean = false;
   /** El bpmnId que trae la direccion, hasta que el diagrama llega y se elige. */
   private elementoPedido: string | null = null;
 
@@ -100,6 +123,12 @@ export class ProcesoDetalleComponent implements OnInit {
   /** Un proceso de otra tienda no se toca, por mucho rol que se tenga en la propia. */
   get soloLectura(): boolean {
     return this.diagrama?.compartido === true;
+  }
+
+  /** F21: un borrador sin publicar, o uno con cambios sobre lo publicado: lo que una revision puede llevar. */
+  get hayQuePublicar(): boolean {
+    const proceso = this.detalle?.proceso;
+    return proceso !== undefined && (proceso.estado === 'BORRADOR' || proceso.borradorPendiente === true);
   }
 
   /** La version que se esta mirando, cuando se mira una publicada: de ahi sale si todavia se puede retirar. */
@@ -128,6 +157,14 @@ export class ProcesoDetalleComponent implements OnInit {
     let alAbrir: AvisosAlAbrir | null = avisosAlAbrir(consulta);
     // F19: la busqueda global abre un proceso con el elemento que encontro (?elemento=), tambien desde otro proceso
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((parametros: ParamMap) => {
+      // F21: el enlace de un correo sobre una solicitud (?solicitud=) va a su pagina
+      const solicitud: number = Number(parametros.get('solicitud'));
+      if (solicitud > 0) {
+        void this.router.navigate(['/solicitudes', solicitud], { replaceUrl: true });
+        return;
+      }
+      const comentario: number = Number(parametros.get('comentario'));
+      this.comentarioPedido = comentario > 0 ? comentario : null;
       this.elementoPedido = parametros.get('elemento');
       this.elegirElPedido();
     });
@@ -160,6 +197,7 @@ export class ProcesoDetalleComponent implements OnInit {
       .subscribe((carga: Carga) => {
         this.mostrar(carga);
         this.cargando = false;
+        this.cargarRevision(carga.detalle.proceso.id);
         if (alAbrir) {
           this.error = alAbrir.error;
           this.aviso = alAbrir.aviso;
@@ -206,6 +244,7 @@ export class ProcesoDetalleComponent implements OnInit {
 
   /** Muestra el detalle de la tarea, el gateway o el evento elegido; elegirlo otra vez lo cierra. */
   elegirNodo(elegido: ElementoElegido | null): void {
+    this.elementoComentado = elegido ? { id: elegido.id, nombre: elegido.nombre } : null;
     const diagrama = this.diagrama;
     if (!elegido || !diagrama) {
       this.nodoElegido = null;
@@ -227,6 +266,40 @@ export class ProcesoDetalleComponent implements OnInit {
         this.elementoPedido = null;
       }
     }
+  }
+
+  /** F21: el lienzo termino de dibujar; si un enlace pedia un elemento, se elige ahora. */
+  alDibujar(): void {
+    this.dibujado = true;
+    const pendiente = this.elementoAlDibujar;
+    this.elementoAlDibujar = null;
+    if (pendiente) {
+      this.lienzo?.mostrar(pendiente);
+    }
+  }
+
+  /**
+   * F21: el hilo al que lleva un enlace. Si es de otra version se muestra esa version; despues se elige su elemento en
+   * el lienzo, que es lo que hace que el panel muestre sus hilos.
+   */
+  irAlHilo(comentario: Comentario): void {
+    if (comentario.versionDelProceso !== this.verVersion) {
+      this.elementoAlDibujar = comentario.bpmnId;
+      this.mostrarVersion(comentario.versionDelProceso);
+      return;
+    }
+    if (!comentario.bpmnId) {
+      this.elegirNodo(null);
+    } else if (this.dibujado) {
+      this.lienzo?.mostrar(comentario.bpmnId);
+    } else {
+      this.elementoAlDibujar = comentario.bpmnId;
+    }
+  }
+
+  alPedirRevision(solicitud: Solicitud): void {
+    this.pidiendoRevision = false;
+    void this.router.navigate(['/solicitudes', solicitud.id]);
   }
 
   alGuardarFicha(proceso: Proceso): void {
@@ -343,6 +416,10 @@ export class ProcesoDetalleComponent implements OnInit {
 
   /** Deja en pantalla lo que llego: el proceso, su diagrama ya calculado y ningun nodo abierto. */
   private mostrar(carga: Carga): void {
+    if (carga.xml !== this.xml) {
+      this.dibujado = false;
+    }
+    this.elementoComentado = null;
     this.detalle = carga.detalle;
     this.diagrama = carga.diagrama;
     this.versiones = carga.versiones;
@@ -352,6 +429,27 @@ export class ProcesoDetalleComponent implements OnInit {
     if (carga.acciones !== null) {
       this.botones = botonesDelProceso(carga.acciones, this.rol);
     }
+  }
+
+  /**
+   * F21: como publica la organizacion y si el proceso ya tiene una revision abierta. Si no llega, se ofrece publicar
+   * como antes, y la API dice con un 409 que hay que pedir la revision. Una invitada no publica ni pide nada.
+   */
+  private cargarRevision(id: number): void {
+    if (this.soloLectura) {
+      this.conAprobacion = false;
+      this.solicitudAbierta = null;
+      return;
+    }
+    forkJoin({
+      politica: this.solicitudService.politica().pipe(catchError(() => of(null))),
+      abiertas: this.solicitudService.delProceso(id, 'ABIERTA').pipe(catchError(() => of(null))),
+    })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ politica, abiertas }) => {
+        this.conAprobacion = politica?.modo === 'CON_APROBACION';
+        this.solicitudAbierta = abiertas?.content[0] ?? null;
+      });
   }
 
   /**

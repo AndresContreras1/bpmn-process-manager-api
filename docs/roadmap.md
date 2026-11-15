@@ -106,6 +106,10 @@
       the last approval publishes the frozen version if it still can. Recertification of each process by its owner
 - [x] Full-text search over processes, elements of the draft and of the published version, documents with the text
       read from the file, and comments, in the store's language and filtered by what each person can view
+- [x] Review, comments and notifications in the web: asking for a review instead of publishing, the inbox to
+      approve, each request drawn with its difference and listed in words, comment threads beside the canvas with a
+      count over each element and mentions chosen from who can view the process, and the bell, live over
+      server-sent events, with its settings per type
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline

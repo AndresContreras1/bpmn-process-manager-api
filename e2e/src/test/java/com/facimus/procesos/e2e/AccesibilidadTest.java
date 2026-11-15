@@ -27,7 +27,8 @@ class AccesibilidadTest extends PruebaE2E {
 
     /** Cada pantalla de la barra lateral, y crear un proceso, con un administrador. */
     private static final List<String> CON_SESION = List.of("/procesos", "/procesos/nuevo", "/tareas", "/casos",
-            "/tablero", "/simulacion", "/usuarios", "/roles", "/configuracion", "/historial", "/cuenta");
+            "/solicitudes", "/tablero", "/simulacion", "/usuarios", "/roles", "/configuracion",
+            "/politica-de-publicacion", "/historial", "/cuenta", "/cuenta/notificaciones");
 
     @Test
     @DisplayName("las pantallas publicas no tienen violaciones serias de accesibilidad, en claro y en oscuro")

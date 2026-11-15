@@ -1,6 +1,7 @@
 package com.facimus.procesos.modelado.controller;
 
 import java.net.URI;
+import java.util.List;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ import com.facimus.procesos.modelado.dto.request.EdicionDeComentarioRequest;
 import com.facimus.procesos.modelado.dto.request.RespuestaRequest;
 import com.facimus.procesos.modelado.dto.response.ComentarioResponse;
 import com.facimus.procesos.modelado.dto.response.HiloResponse;
+import com.facimus.procesos.modelado.dto.response.PersonaResponse;
 import com.facimus.procesos.modelado.model.EstadoHilo;
 import com.facimus.procesos.modelado.service.ComentarioService;
 
@@ -34,6 +36,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -76,6 +79,24 @@ public class ComentarioController {
             @AuthenticationPrincipal ApiPrincipal principal) {
         return ResponseEntity.ok(comentarioService.listar(principal.empresaId(), procesoId,
                 new ComentarioService.Filtro(bpmnId, version, estado), Paginacion.de(pagina, tamano)));
+    }
+
+    @Operation(summary = "People who can be mentioned in a process",
+            description = "Active people of the store who can view the process and whose name contains the text, "
+                    + "without whoever asks, by name and up to 20: what a mention picker offers. Needs viewing the "
+                    + "process.")
+    @ApiResponse(responseCode = "200", description = "The people, by name")
+    @ApiResponse(responseCode = "400", ref = "BadRequest")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @GetMapping("/procesos/{procesoId}/mencionables")
+    public ResponseEntity<List<PersonaResponse>> mencionables(@PathVariable Long procesoId,
+            @Parameter(description = "Part of the name, up to 100 characters; empty for the first ones",
+                    example = "an")
+            @RequestParam(required = false) @Size(max = 100, message = "El texto admite hasta 100 caracteres.")
+            String q, @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity
+                .ok(comentarioService.mencionables(principal.empresaId(), principal.usuarioId(), procesoId, q));
     }
 
     @Operation(summary = "Start a comment thread",

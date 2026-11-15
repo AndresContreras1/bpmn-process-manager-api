@@ -16,14 +16,15 @@ import { TemaService } from '../../service/tema.service';
 import { VerificacionService } from '../../service/verificacion.service';
 import { AvisoDeInactividadComponent } from '../aviso-de-inactividad/aviso-de-inactividad.component';
 import { BusquedaGlobalComponent } from '../busqueda-global/busqueda-global.component';
+import { CampanaComponent } from '../campana/campana.component';
 import { DialogoDeVerificacionComponent } from '../dialogo-de-verificacion/dialogo-de-verificacion.component';
 import { AvisosComponent } from '../ui/avisos.component';
 import { Miga, migasDe } from './migas';
 
 /**
- * La estructura de toda la web: el encabezado con la marca, la busqueda, el tema y la cuenta; la barra lateral con las
- * secciones, para quien entro; las migas de la pantalla abierta, el contenido y el pie. Los enlaces conservan los id
- * que tenia la barra de navegacion, que son los que buscan las pruebas de punta a punta.
+ * La estructura de toda la web: el encabezado con la marca, la busqueda, el tema, la campana y la cuenta; la barra
+ * lateral con las secciones, para quien entro; las migas de la pantalla abierta, el contenido y el pie. Los enlaces
+ * conservan los id que tenia la barra de navegacion, que son los que buscan las pruebas de punta a punta.
  */
 @Component({
   selector: 'app-estructura',
@@ -35,6 +36,7 @@ import { Miga, migasDe } from './migas';
     AvisosComponent,
     AvisoDeInactividadComponent,
     BusquedaGlobalComponent,
+    CampanaComponent,
     DialogoDeVerificacionComponent,
   ],
   templateUrl: './estructura.component.html',
