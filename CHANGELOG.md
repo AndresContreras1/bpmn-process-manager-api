@@ -8,6 +8,12 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
+  like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
+  can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads
+  reach a notification center that only its recipient sees, a server-sent event stream shared by every replica, and
+  e-mail in the person's language, immediate or in a daily digest as each person chooses per type. Resolving,
+  reopening and deleting are audited; read notifications are purged after 90 days.
 - The web screens for documentation and documents: `/procesos/{id}/documentacion` with four tabs —the Markdown
   documentation with the preview the server cleans, the characterization sheet, the documents and the manual— and the
   documentation and documents of the selected element in the modeler's side panel. Documents are attached with a

@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import com.facimus.procesos.common.avisos.ReceptorDeAvisos;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.modelado.dto.response.PresenciaResponse;
 import com.facimus.procesos.modelado.model.Presencia;
@@ -32,7 +33,7 @@ import tools.jackson.databind.json.JsonMapper;
  * quien esta se lee de la base al recibirlo.
  */
 @Component
-public class CanalEnVivo {
+public class CanalEnVivo implements ReceptorDeAvisos {
 
     /** El canal de PostgreSQL. */
     static final String CANAL = "en_vivo";
@@ -78,8 +79,14 @@ public class CanalEnVivo {
         return conexiones.remove(conexion) != null;
     }
 
+    @Override
+    public String canal() {
+        return CANAL;
+    }
+
     /** Un aviso que llego por {@code LISTEN}: va a las conexiones de ese proceso que haya en esta replica. */
-    void recibir(String aviso) {
+    @Override
+    public void recibir(String aviso) {
         JsonNode nodo = json.readTree(aviso);
         Long empresaId = nodo.get("empresaId").longValue();
         Long procesoId = nodo.get("procesoId").longValue();
@@ -117,7 +124,8 @@ public class CanalEnVivo {
      * El latido, cada 25 segundos: un comentario que mantiene la conexion y deja ver si sigue viva, la marca en la base,
      * y barre lo que nadie marco, como las conexiones de una replica que se cayo.
      */
-    void latir() {
+    @Override
+    public void latir() {
         List<String> vivas = new ArrayList<>();
         for (Conexion conexion : conexiones.values()) {
             try {

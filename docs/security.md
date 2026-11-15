@@ -21,6 +21,10 @@
 | Send a message to a process | ✓ | ✓ | — |
 | Move the store's clock, watch its simulation and ask for a batch of orders | ✓ | — | — |
 | Decide how the store's simulated partners behave | ✓ | — | — |
+| Comment on a process, reply, mention, resolve and reopen threads | ✓ | ✓ | ✓ |
+| Edit one's own comments and delete them | ✓ | ✓ | ✓ |
+| Delete anybody's comment | ✓ | — | — |
+| Read one's own notifications and choose how they arrive | ✓ | ✓ | ✓ |
 
 Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
 `SOLO_ADMINISTRADOR`, only administrators create and edit them, and editors keep modeling everything inside a lane.
@@ -56,8 +60,9 @@ people of a process role or the whole store ([API](api-reference.md#permissions)
   resource, from a table that is a pure function and is tested whole: reading is `VER`, saving the model or any of
   its elements is `MODELAR`, publishing and retiring versions is `PUBLICAR`, the AI review is `REVISAR`, deleting the
   process, sharing it and granting on it is `ADMINISTRAR`, and downloading its BPMN file is `EXPORTAR`. Opening a
-  case or sending a message only needs `VER`: running a process is not modeling it. The routes with no resource in
-  the path, such as creating a process, check in their service.
+  case or sending a message only needs `VER`: running a process is not modeling it. Writing a comment is `COMENTAR`,
+  which the read-only role has, and its service also asks `VER` (PR 63). The routes with no resource in the path,
+  such as creating a process, check in their service.
 - **A process someone cannot see does not exist for them.** Refusing `VER` answers `404`, the same as a process of
   another store, so it does not reveal that it is there.
 - **Lists filter in their own query.** What a person cannot see is worked out once from the grants, the folders and
@@ -263,6 +268,7 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `PROCESO_PUBLICADO` | A version is published |
 | `TIENDA_DADA_DE_BAJA` · `BAJA_CANCELADA` | The store is closed or the closing is cancelled |
 | `DOCUMENTO_SUBIDO` · `DOCUMENTO_ELIMINADO` · `DOCUMENTO_BLOQUEADO` | A document or a new version is uploaded, a document is deleted, or the review retains a version |
+| `COMENTARIO_RESUELTO` · `COMENTARIO_REABIERTO` · `COMENTARIO_ELIMINADO` | A comment thread is resolved or reopened, or a comment is deleted, with whether it was one's own |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
 the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
@@ -328,6 +334,32 @@ What people write and draw is cleaned the same way ([ADR-0066](adr/0066-document
   whitelist of SVG elements and attributes: no scripts, event handlers, `foreignObject`, images, `use`, links, or
   styles that load something from outside.
 - **The manual** is printed from a template that loads nothing; the PDF renderer is told not to fetch any resource.
+
+## Comments and notifications
+
+What people write to each other is cleaned and kept to the store, and what they are told is theirs alone
+([ADR-0067](adr/0067-comments-mentions-and-notifications.md)):
+
+- **The text** is Markdown cleaned like the documentation, up to 10 000 characters (the request and a check of the
+  table); only the cleaned HTML is shown.
+- **Who can write.** Every role comments, so the route matrix lets each one `POST`, `PUT` and `DELETE` the comment
+  routes; the resource rule turns them into `COMENTAR` on the process of the comment, and the service also asks
+  `VER`, so a grant that hides a process hides its comments from writing too. Editing is the author's; deleting, the
+  author's or an administrator's (`403`).
+- **Mentions** are at most 20 ids, each an active person of the store who can view the process. Anything else answers
+  `400` with the same reason, whether the person cannot view it, is inactive, is from another store or does not
+  exist: the answer never tells which.
+- **Isolation.** The three tables have row-level security; another store's comment or notification answers `404`, and
+  so does another person's notification in the same store: every query filters by store and recipient.
+- **Audit.** Resolving, reopening and deleting are in the audit trail; writing a comment is not, the comment is its own
+  record.
+- **Rate limit.** Writing a comment, and marking notifications read, spend from the bucket of changes per person; there
+  is no quota beyond the length and the mentions, since a comment is text. A notification stream is read-only and
+  counts against five streams per person on each instance.
+- **E-mail** never carries the comment's text, only who, what, which process and a link; names that enter the HTML
+  are escaped. The outbox keeps ids, not text.
+- **Anonymizing** a person deletes their notifications and preferences, shows the pseudonym wherever they wrote or
+  were mentioned, and rewrites `@Name` in the comments that mentioned them.
 
 ## Rate limiting
 
@@ -498,7 +530,8 @@ cannot be left behind.
 and cannot be undone. Their user stays, because what they did names them, but under a pseudonym (`Persona
 anonimizada 12`) and an address that is not theirs, deactivated, with no password that works, no sessions, no
 process roles and no links; the store's history names them by the pseudonym too, and their e-mail can register
-again. Nobody can anonymize their own account, and an anonymized user can no longer be edited, reactivated or
+again. Their comments stay under the pseudonym, the comments that mentioned them as `@Name` say the pseudonym instead,
+and their notifications and preferences are deleted (PR 63). Nobody can anonymize their own account, and an anonymized user can no longer be edited, reactivated or
 given a password.
 
 ## Supply chain

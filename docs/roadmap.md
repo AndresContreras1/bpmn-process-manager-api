@@ -94,7 +94,9 @@
       app sends when publishing
 - [x] Web screens for the documentation, the characterization sheet, the documents and the manual of a process, and
       for the documentation and documents of an element in the modeler
-- [ ] Comments with mentions, review and approval, and full-text search
+- [x] Comment threads on a process, an element or a version, with mentions of who can view it, resolve and reopen,
+      and a notification center in the app, over server-sent events and by e-mail, immediate or in a daily digest
+- [ ] Review and approval, and full-text search
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline

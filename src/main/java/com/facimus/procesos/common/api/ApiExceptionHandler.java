@@ -62,7 +62,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(SolicitudInvalidaException.class)
     public ProblemDetail manejarSolicitudInvalida(SolicitudInvalidaException ex, WebRequest req) {
-        return construir(HttpStatus.BAD_REQUEST, "Solicitud inválida", ex.getMessage(), req);
+        ProblemDetail problema = construir(HttpStatus.BAD_REQUEST, "Solicitud inválida", ex.getMessage(), req);
+        // PR 63: lo que se rechaza por varios campos dice cuales, como la validacion
+        if (!ex.getErrores().isEmpty()) {
+            problema.setProperty(ERRORES, ex.getErrores());
+        }
+        return problema;
     }
 
     /** Un enlace del correo usado, vencido o inventado: los tres responden lo mismo. */
