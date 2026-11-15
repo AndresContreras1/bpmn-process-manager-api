@@ -283,8 +283,7 @@ public class DocumentoServiceImpl implements DocumentoService {
                 version.setMotivo("Sin antivirus configurado: el documento espera su revisión.");
                 return;
             }
-            version.setEstado(EstadoDocumento.DISPONIBLE);
-            version.setMotivo(null);
+            disponer(version);
             return;
         }
         ResultadoDelAntivirus resultado;
@@ -295,10 +294,22 @@ public class DocumentoServiceImpl implements DocumentoService {
         }
         version.setRevisado(true);
         if (resultado.limpio()) {
-            version.setEstado(EstadoDocumento.DISPONIBLE);
-            version.setMotivo(null);
+            disponer(version);
         } else {
             bloquear(version, "El antivirus encontró " + resultado.firma() + ".");
+        }
+    }
+
+    /**
+     * Lo deja para bajar y, si tiene texto, encola leerlo para la busqueda (PR 65): solo ahora, con el antivirus ya
+     * conforme, el archivo pasa por un parser.
+     */
+    private void disponer(VersionDocumento version) {
+        version.setEstado(EstadoDocumento.DISPONIBLE);
+        version.setMotivo(null);
+        if (TipoDeArchivo.deMime(version.getTipo()).filter(TipoDeArchivo::tieneTexto).isPresent()) {
+            cola.encolar(version.getEmpresa().getId(), TextoDeDocumentosServiceImpl.TRABAJO_DE_LECTURA,
+                    String.valueOf(version.getId()));
         }
     }
 

@@ -1,0 +1,124 @@
+<div class="modal-backdrop fade show"></div>
+<div class="modal d-block" tabindex="-1">
+  <div
+    #dialogo
+    class="modal-dialog modal-lg modal-dialog-scrollable"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="busqueda-titulo"
+    id="busqueda-dialogo"
+    (keydown)="teclearEnDialogo($event)"
+  >
+    <div class="modal-content">
+      <div class="modal-header gap-2">
+        <h2 i18n class="visually-hidden" id="busqueda-titulo">Search everything</h2>
+        <i class="fa-solid fa-magnifying-glass text-body-secondary" aria-hidden="true"></i>
+        <input
+          #campo
+          i18n-placeholder
+          i18n-aria-label
+          type="text"
+          class="form-control border-0 shadow-none"
+          id="busqueda-campo"
+          name="q"
+          role="combobox"
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="200"
+          aria-autocomplete="list"
+          aria-controls="busqueda-resultados"
+          aria-label="Search processes, elements, documents and comments"
+          aria-describedby="busqueda-ayuda"
+          placeholder="Search processes, elements, documents and comments"
+          [attr.aria-expanded]="grupos.length > 0"
+          [attr.aria-activedescendant]="activa >= 0 ? idDe(activa) : null"
+          [(ngModel)]="texto"
+          (ngModelChange)="escribir($event)"
+          (keydown)="teclear($event)"
+        />
+        <button
+          i18n-aria-label
+          type="button"
+          class="btn-close"
+          aria-label="Close"
+          id="busqueda-cerrar"
+          (click)="cerrar()"
+        ></button>
+      </div>
+
+      <div class="modal-body pt-2">
+        <p i18n class="small text-body-secondary mb-2" id="busqueda-ayuda">
+          "two words" finds the phrase, -word leaves it out, and or finds either. Arrows move, Enter opens, Escape
+          closes.
+        </p>
+
+        <div class="visually-hidden" role="status" aria-live="polite" id="busqueda-estado">
+          @if (estado && estado.texto) {
+            @if (estado.buscando) {
+              <ng-container i18n>Searching…</ng-container>
+            } @else if (estado.error) {
+              {{ error }}
+            } @else {
+              <ng-container i18n>{estado.total, plural,
+                =0 {Nothing found.}
+                =1 {1 result.}
+                other {{{ estado.total }} results.}
+              }</ng-container>
+            }
+          }
+        </div>
+
+        @if (error) {
+          <div class="alert alert-danger py-2 small" role="alert" id="busqueda-error">{{ error }}</div>
+        }
+
+        <div role="listbox" id="busqueda-resultados" i18n-aria-label aria-label="Results">
+          @for (grupo of grupos; track grupo.tipo) {
+            <div role="group" class="mb-3" [attr.aria-labelledby]="'busqueda-grupo-' + grupo.tipo">
+              <div
+                role="presentation"
+                class="small text-uppercase fw-semibold text-body-secondary mb-1"
+                [id]="'busqueda-grupo-' + grupo.tipo"
+              >
+                {{ grupo.nombre }}
+              </div>
+              @for (uno of grupo.resultados; track uno.indice) {
+                <div
+                  role="option"
+                  class="resultado rounded px-2 py-1"
+                  data-testid="busqueda-resultado"
+                  [id]="idDe(uno.indice)"
+                  [attr.data-tipo]="uno.resultado.tipo"
+                  [attr.aria-selected]="uno.indice === activa"
+                  [attr.aria-label]="etiqueta.opcion(uno.resultado)"
+                  [class.activa]="uno.indice === activa"
+                  (mousedown)="$event.preventDefault()"
+                  tabindex="-1"
+                  (click)="abrir(uno.resultado)"
+                  (keydown.enter)="abrir(uno.resultado)"
+                >
+                  <div class="fw-semibold text-truncate">{{ uno.resultado.titulo }}</div>
+                  @if (uno.resultado.tipo !== 'PROCESO') {
+                    <div class="small text-body-secondary text-truncate">{{ uno.resultado.proceso }}</div>
+                  }
+                  @if (uno.resultado.fragmento.length) {
+                    <div class="small fragmento"><app-fragmento [segmentos]="uno.resultado.fragmento" /></div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        @if (estado && estado.texto && !estado.buscando && !estado.error && estado.total === 0) {
+          <p i18n class="text-body-secondary mb-0" id="busqueda-vacio">Nothing found for “{{ estado.texto }}”.</p>
+        }
+        @if (estado && estado.total > estado.resultados.length) {
+          <p i18n class="small text-body-secondary mb-0 mt-2" id="busqueda-mas">
+            Showing the {{ estado.resultados.length }} most relevant of {{ estado.total }}. Add words to narrow it down.
+          </p>
+        }
+      </div>
+    </div>
+  </div>
+</div>

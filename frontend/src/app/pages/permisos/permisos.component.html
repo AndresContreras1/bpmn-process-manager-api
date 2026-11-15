@@ -1,0 +1,233 @@
+<div class="container py-5" id="permisos">
+  @if (noEncontrado) {
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-5 text-center" id="permisos-no-encontrado">
+        <h1 i18n class="h4 fw-bold">Not found</h1>
+        <p i18n class="text-body-secondary">It does not exist in your organization, or it was deleted.</p>
+        <a i18n class="btn btn-primary" routerLink="/procesos">Back to processes</a>
+      </div>
+    </div>
+  } @else {
+    <div class="row justify-content-center">
+      <div class="col-lg-9">
+        <h1 class="h4 fw-bold mb-0" id="permisos-titulo">
+          @if (esProceso) {
+            <ng-container i18n>Who can do what with “{{ nombre }}”</ng-container>
+          } @else {
+            <ng-container i18n>Who can do what in the folder “{{ nombre }}”</ng-container>
+          }
+        </h1>
+        <p i18n class="text-body-secondary">
+          Without any grant, the access role decides: everyone views, editors and administrators change. Once an action
+          is granted here, only those who have it, and administrators, can do it. What is granted on a folder reaches
+          everything inside it.
+        </p>
+        <p class="small">
+          <a i18n [routerLink]="rutaDelRecurso" [queryParams]="consultaDelRecurso" id="permisos-volver">← Back</a>
+        </p>
+
+        @if (aviso) {
+          <div class="alert alert-success" role="status" id="permisos-aviso">{{ aviso }}</div>
+        }
+        <div role="alert" id="permisos-region-error">
+          @if (error) {
+            <div class="alert alert-danger" id="permisos-error">{{ error }}</div>
+          }
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body p-4">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold">Grant</h2>
+            <form [formGroup]="formulario" (ngSubmit)="conceder()" novalidate id="permisos-formulario">
+              <div class="row g-3">
+                <fieldset class="col-md-6">
+                  <legend i18n class="form-label small mb-1">Who</legend>
+                  @for (sujeto of sujetos; track sujeto) {
+                    @if (sujeto !== 'PERSONA' || !sinPersonas) {
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="radio"
+                          formControlName="sujeto"
+                          [id]="'permisos-sujeto-' + sujeto"
+                          [value]="sujeto"
+                        />
+                        <label class="form-check-label" [for]="'permisos-sujeto-' + sujeto">{{
+                          nombreSujeto[sujeto]
+                        }}</label>
+                      </div>
+                    }
+                  }
+                  @if (sinPersonas) {
+                    <div i18n class="form-text">Only an administrator can choose a person.</div>
+                  }
+                  @if (falta === 'sujeto') {
+                    <div class="invalid-feedback d-block">{{ avisoDeFalta('sujeto') }}</div>
+                  }
+                </fieldset>
+
+                <div class="col-md-6">
+                  @if (formulario.controls.sujeto.value === 'PERSONA') {
+                    <label i18n class="form-label small" for="permisos-usuario">Person</label>
+                    <select
+                      class="form-select"
+                      id="permisos-usuario"
+                      formControlName="usuarioId"
+                      [class.is-invalid]="falta === 'usuario'"
+                      [attr.aria-describedby]="falta === 'usuario' ? 'permisos-falta-usuario' : null"
+                    >
+                      <option i18n [ngValue]="null">Choose…</option>
+                      @for (usuario of usuarios; track usuario.id) {
+                        <option [ngValue]="usuario.id">{{ usuario.nombre }} · {{ usuario.email }}</option>
+                      }
+                    </select>
+                    @if (falta === 'usuario') {
+                      <div class="invalid-feedback" id="permisos-falta-usuario">{{ avisoDeFalta('usuario') }}</div>
+                    }
+                  } @else if (formulario.controls.sujeto.value === 'ROL') {
+                    <label i18n class="form-label small" for="permisos-rol">Process role</label>
+                    <select
+                      class="form-select"
+                      id="permisos-rol"
+                      formControlName="rolProcesoId"
+                      [class.is-invalid]="falta === 'rol'"
+                      [attr.aria-describedby]="falta === 'rol' ? 'permisos-falta-rol' : null"
+                    >
+                      <option i18n [ngValue]="null">Choose…</option>
+                      @for (rol of roles; track rol.id) {
+                        <option [ngValue]="rol.id">{{ rol.nombre }}</option>
+                      }
+                    </select>
+                    @if (falta === 'rol') {
+                      <div class="invalid-feedback" id="permisos-falta-rol">{{ avisoDeFalta('rol') }}</div>
+                    }
+                  }
+                </div>
+
+                <div class="col-md-6">
+                  <label i18n class="form-label small" for="permisos-accion">Can</label>
+                  <select
+                    class="form-select"
+                    id="permisos-accion"
+                    formControlName="accion"
+                    aria-describedby="permisos-ayuda-accion"
+                    [class.is-invalid]="falta === 'accion'"
+                  >
+                    @for (accion of acciones; track accion) {
+                      <option [ngValue]="accion">{{ nombreAccion[accion] }}</option>
+                    }
+                  </select>
+                  <div class="form-text" id="permisos-ayuda-accion">
+                    @if (formulario.controls.accion.value; as accion) {
+                      {{ ayudaAccion[accion] }}
+                    }
+                  </div>
+                  @if (falta === 'accion') {
+                    <div class="invalid-feedback d-block">{{ avisoDeFalta('accion') }}</div>
+                  }
+                </div>
+
+                <div class="col-md-6 d-flex align-items-end">
+                  <button i18n type="submit" class="btn btn-primary" id="permisos-conceder" [disabled]="enviando">
+                    Grant
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <section class="card border-0 shadow-sm mb-3" aria-labelledby="permisos-directas-titulo">
+          <div class="card-body p-4">
+            <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold" id="permisos-directas-titulo">
+              Granted here
+            </h2>
+            @if (cargando) {
+              <p i18n class="text-body-secondary mb-0" role="status">Loading…</p>
+            } @else if (directas.length === 0) {
+              <p i18n class="text-body-secondary mb-0" id="permisos-sin-directas">Nothing granted here.</p>
+            } @else {
+              <ul class="list-group list-group-flush" id="permisos-directas">
+                @for (concesion of directas; track concesion.id) {
+                  <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-testid="concesion">
+                    <div class="flex-grow-1">
+                      <span class="fw-semibold" data-testid="concesion-accion">{{
+                        nombreAccion[concesion.accion]
+                      }}</span>
+                      <span class="text-body-secondary"> · </span>
+                      <span data-testid="concesion-sujeto">{{ sujetoDe(concesion) }}</span>
+                    </div>
+                    <button
+                      i18n
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      data-testid="concesion-retirar"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal-retirar-concesion"
+                      (click)="seleccionada = concesion"
+                    >
+                      Take back
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        </section>
+
+        @if (heredadas.length) {
+          <section class="card border-0 shadow-sm" aria-labelledby="permisos-heredadas-titulo">
+            <div class="card-body p-4">
+              <h2 i18n class="h6 text-uppercase text-body-secondary fw-semibold" id="permisos-heredadas-titulo">
+                Inherited from the folders above
+              </h2>
+              <p i18n class="small text-body-secondary">These apply here too. They are changed in their own folder.</p>
+              @for (heredada of heredadas; track heredada.carpeta.id) {
+                <h3 class="h6 mt-3 mb-1">
+                  <a
+                    [routerLink]="['/carpetas', heredada.carpeta.id, 'permisos']"
+                    [attr.data-carpeta]="heredada.carpeta.nombre"
+                    ><i class="fa-solid fa-folder" aria-hidden="true"></i> {{ heredada.carpeta.nombre }}</a
+                  >
+                </h3>
+                @if (heredada.concesiones === null) {
+                  <p i18n class="small text-body-secondary mb-0" data-testid="heredada-sin-leer">
+                    You do not administer this folder, so its grants cannot be shown here.
+                  </p>
+                } @else if (heredada.concesiones.length === 0) {
+                  <p i18n class="small text-body-secondary mb-0">Nothing granted there.</p>
+                } @else {
+                  <ul class="list-group list-group-flush">
+                    @for (concesion of heredada.concesiones; track concesion.id) {
+                      <li
+                        class="list-group-item d-flex flex-wrap align-items-center gap-2"
+                        data-testid="concesion-heredada"
+                      >
+                        <span class="fw-semibold">{{ nombreAccion[concesion.accion] }}</span>
+                        <span class="text-body-secondary">·</span>
+                        <span>{{ sujetoDe(concesion) }}</span>
+                        <span i18n class="badge text-bg-light border ms-auto">inherited</span>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            </div>
+          </section>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+<app-modal-confirmar
+  i18n-textoBoton
+  i18n-titulo
+  i18n-mensaje
+  idModal="modal-retirar-concesion"
+  titulo="Take this grant back?"
+  textoBoton="Take back"
+  [peligro]="true"
+  mensaje="They lose this action here, unless another grant or their access role still gives it to them."
+  (confirmar)="confirmarRetirada()"
+/>

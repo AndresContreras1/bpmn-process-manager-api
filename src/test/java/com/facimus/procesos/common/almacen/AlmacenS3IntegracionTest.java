@@ -121,7 +121,7 @@ class AlmacenS3IntegracionTest {
             almacen.guardar(ClaveDeAlmacen.deDocumento(2, i, 1, "a"), uno, "text/plain");
         }
 
-        almacen.borrarPrefijo(ClaveDeAlmacen.deEmpresa(2));
+        assertThat(almacen.borrarPrefijo(ClaveDeAlmacen.deEmpresa(2))).isEqualTo(1005);
 
         assertThat(s3.listObjectsV2(peticion -> peticion.bucket("documentos").prefix("empresas/2/")).contents())
                 .isEmpty();
@@ -129,7 +129,7 @@ class AlmacenS3IntegracionTest {
 
     @Test
     @DisplayName("un ancla con Object Lock no se puede borrar antes de su fecha, ni con las credenciales de la API")
-    void anclaInmutable() {
+    void anclaInmutable() throws IOException {
         Almacen almacen = new AlmacenS3(s3, "documentos", "anclas", false);
         String clave = ClaveDeAlmacen.deAncla(3, "2026-11-12");
 
@@ -146,6 +146,30 @@ class AlmacenS3IntegracionTest {
                         .isEqualTo(403));
         assertThat(new String(s3.getObjectAsBytes(peticion -> peticion.bucket("anclas").key(clave)
                 .versionId(version)).asByteArray())).isEqualTo("{\"hash\":\"abc\"}");
+        // PR 66: se lee de donde quedo, el bucket de anclas, y no del de los documentos
+        try (InputStream contenido = almacen.abrirInmutable(clave)) {
+            assertThat(new String(contenido.readAllBytes())).isEqualTo("{\"hash\":\"abc\"}");
+        }
+        assertThatThrownBy(() -> almacen.abrir(clave)).isInstanceOf(ArchivoNoEncontradoException.class);
+        String otroDia = ClaveDeAlmacen.deAncla(3, "2026-11-13");
+        assertThatThrownBy(() -> almacen.abrirInmutable(otroDia))
+                .isInstanceOf(ArchivoNoEncontradoException.class);
+    }
+
+    @Test
+    @DisplayName("un ancla guardada antes de configurar el bucket de anclas se sigue leyendo del de documentos, donde "
+            + "quedo")
+    void anclaDeAntesDelBucketDeAnclas() throws IOException {
+        String clave = ClaveDeAlmacen.deAncla(5, "2026-11-01");
+        assertThat(new AlmacenS3(s3, "documentos", "", false).guardarInmutable(clave, "{\"hash\":\"vieja\"}"
+                .getBytes(), Instant.now().plusSeconds(60))).isFalse();
+
+        Almacen conBucketDeAnclas = new AlmacenS3(s3, "documentos", "anclas", false);
+
+        try (InputStream contenido = conBucketDeAnclas.abrirInmutable(clave)) {
+            assertThat(new String(contenido.readAllBytes())).isEqualTo("{\"hash\":\"vieja\"}");
+        }
+        assertThat(s3.listObjectsV2(peticion -> peticion.bucket("anclas").prefix(clave)).contents()).isEmpty();
     }
 
     @Test
@@ -209,6 +233,9 @@ class AlmacenS3IntegracionTest {
 
         assertThat(bloqueado).isFalse();
         assertThat(leer(almacen, clave)).isEqualTo("{}");
+        try (InputStream contenido = almacen.abrirInmutable(clave)) {
+            assertThat(new String(contenido.readAllBytes())).isEqualTo("{}");
+        }
         assertThat(almacen.descripcion()).isEqualTo("S3, bucket documentos");
     }
 }

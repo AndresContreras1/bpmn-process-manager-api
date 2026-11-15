@@ -5,7 +5,9 @@ import {
   ConexionEnVivo,
   ESPERA_INICIAL_MS,
   ESPERA_MAXIMA_MS,
+  EventoDeConexion,
   FuenteDeEventos,
+  TIPOS_EN_VIVO,
   esperaDeReconexion,
 } from './conexion-en-vivo';
 
@@ -122,5 +124,34 @@ describe('ConexionEnVivo', () => {
 
     expect(esperas).toHaveLength(0);
     expect(eventos).toHaveLength(0);
+  });
+});
+
+describe('ConexionEnVivo con otros eventos', () => {
+  it('F21: lee solo los tipos que se le dicen, como el conteo y los avisos de la campana', () => {
+    const fuente = new FuenteFalsa();
+    const eventos: EventoDeConexion[] = [];
+    const conexion = new ConexionEnVivo<EventoDeConexion>(
+      { abrir: () => fuente, esperar: () => null, cancelar: () => undefined, azar: () => 1 },
+      (evento) => eventos.push(evento),
+      ['conteo', 'notificacion'],
+    );
+    conexion.iniciar();
+
+    fuente.emitir('conteo', { noLeidas: 1 });
+    fuente.emitir('presencia', { personas: [] });
+
+    expect([...fuente.oyentes.keys()]).toEqual(['conteo', 'notificacion']);
+    expect(eventos).toEqual([{ tipo: 'conteo', datos: { noLeidas: 1 } }]);
+  });
+
+  it('por defecto lee los de un proceso en vivo', () => {
+    const fuente = new FuenteFalsa();
+    new ConexionEnVivo(
+      { abrir: () => fuente, esperar: () => null, cancelar: () => undefined, azar: () => 1 },
+      () => undefined,
+    ).iniciar();
+
+    expect([...fuente.oyentes.keys()]).toEqual([...TIPOS_EN_VIVO]);
   });
 });

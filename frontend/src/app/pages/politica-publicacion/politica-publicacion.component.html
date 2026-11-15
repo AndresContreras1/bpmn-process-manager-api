@@ -1,0 +1,190 @@
+<div class="container py-5" id="politica">
+  <div class="mb-4">
+    <h1 i18n class="h3 fw-bold mb-1" id="politica-titulo">Publishing policy</h1>
+    <p i18n class="text-body-secondary mb-0">
+      How a new version of a process gets published: right away, or once other people approve it.
+    </p>
+  </div>
+
+  @if (aviso) {
+    <div class="alert alert-success" role="status" id="politica-aviso">{{ aviso }}</div>
+  }
+  @if (error) {
+    <div class="alert alert-danger" role="alert" id="politica-error">
+      {{ error }}
+      @if (erroresDelServidor.length) {
+        <ul class="mb-0 mt-1 small">
+          @for (uno of erroresDelServidor; track $index) {
+            <li>{{ uno }}</li>
+          }
+        </ul>
+      }
+    </div>
+  }
+
+  @if (cargando) {
+    <p i18n class="text-body-secondary" role="status">Loading the policy…</p>
+  } @else if (valores && politica) {
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-3 p-md-4">
+        @if (!esAdministrador) {
+          <p class="mb-0" id="politica-solo-lectura">
+            @if (politica.modo === 'DIRECTA') {
+              <ng-container i18n>Processes are published directly by whoever can publish them.</ng-container>
+            } @else {
+              <ng-container i18n
+                >A change is published once it gets {{ politica.aprobacionesNecesarias }} approvals.</ng-container
+              >
+            }
+            <ng-container i18n>Only an administrator changes this policy.</ng-container>
+          </p>
+        } @else {
+          <form (ngSubmit)="guardar()" novalidate>
+            <fieldset class="mb-3">
+              <legend i18n class="h6">How processes are published</legend>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="modo"
+                  id="politica-directa"
+                  value="DIRECTA"
+                  [(ngModel)]="valores.modo"
+                />
+                <label i18n class="form-check-label" for="politica-directa">
+                  Directly: whoever can publish a process publishes it
+                </label>
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="modo"
+                  id="politica-con-aprobacion"
+                  value="CON_APROBACION"
+                  [(ngModel)]="valores.modo"
+                />
+                <label i18n class="form-check-label" for="politica-con-aprobacion">
+                  With approval: a review is asked for, and the last approval publishes it
+                </label>
+              </div>
+            </fieldset>
+
+            @if (valores.modo === 'CON_APROBACION') {
+              <div class="mb-3">
+                <label i18n class="form-label" for="politica-aprobaciones">Approvals each request needs</label>
+                <input
+                  type="number"
+                  class="form-control w-auto"
+                  id="politica-aprobaciones"
+                  name="aprobaciones"
+                  [min]="minimo"
+                  [max]="maximo"
+                  [class.is-invalid]="intentado && falta === 'aprobaciones'"
+                  [attr.aria-invalid]="intentado && falta === 'aprobaciones'"
+                  aria-describedby="politica-aprobaciones-ayuda"
+                  [(ngModel)]="valores.aprobacionesNecesarias"
+                />
+                <p i18n class="form-text small" id="politica-aprobaciones-ayuda">
+                  From {{ minimo }} to {{ maximo }}. Whoever asks for a review never approves it.
+                </p>
+              </div>
+
+              <fieldset class="mb-3">
+                <legend i18n class="h6">Who approves</legend>
+                <div class="form-check form-check-inline">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="fuente"
+                    id="politica-fuente-personas"
+                    value="PERSONAS"
+                    [(ngModel)]="valores.fuente"
+                  />
+                  <label i18n class="form-check-label" for="politica-fuente-personas">Some people</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="fuente"
+                    id="politica-fuente-rol"
+                    value="ROL"
+                    [(ngModel)]="valores.fuente"
+                  />
+                  <label i18n class="form-check-label" for="politica-fuente-rol">The people of a process role</label>
+                </div>
+              </fieldset>
+
+              @if (valores.fuente === 'ROL') {
+                <div class="mb-3">
+                  <label i18n class="form-label" for="politica-rol">Process role</label>
+                  <select
+                    class="form-select w-auto"
+                    id="politica-rol"
+                    name="rol"
+                    [class.is-invalid]="intentado && falta === 'rol'"
+                    [(ngModel)]="valores.rolProcesoId"
+                  >
+                    <option i18n [ngValue]="null">Pick a role</option>
+                    @for (rol of roles; track rol.id) {
+                      <option [ngValue]="rol.id">{{ rol.nombre }}</option>
+                    }
+                  </select>
+                  <p i18n class="form-text small">
+                    Its active people who are not read-only approve, as they are when each review is asked for.
+                  </p>
+                </div>
+              } @else {
+                <fieldset class="mb-3" aria-describedby="politica-personas-ayuda">
+                  <legend i18n class="form-label fs-6">People who approve</legend>
+                  <p i18n class="form-text small mt-0" id="politica-personas-ayuda">
+                    Read-only people cannot approve. Up to {{ tope }}.
+                  </p>
+                  <ul class="list-unstyled row row-cols-1 row-cols-md-2 g-1 mb-0" id="politica-personas">
+                    @for (persona of personas; track persona.id) {
+                      <li class="col">
+                        <div class="form-check">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            [id]="'politica-persona-' + persona.id"
+                            [attr.data-persona]="persona.nombre"
+                            [checked]="elegido(persona)"
+                            [disabled]="!puedeAprobar(persona)"
+                            (change)="alternarPersona(persona, $any($event.target).checked)"
+                          />
+                          <label class="form-check-label" [for]="'politica-persona-' + persona.id">
+                            {{ persona.nombre }}
+                            <span class="text-body-secondary small">· {{ nombreRol[persona.rolAcceso] }}</span>
+                          </label>
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                </fieldset>
+              }
+            }
+
+            @if (intentado && falta) {
+              <div class="alert alert-warning py-2 small" role="alert" id="politica-falta">
+                {{ mensajeDeFalta[falta] }}
+              </div>
+            }
+
+            <div class="d-flex flex-wrap align-items-center gap-3">
+              <button i18n type="submit" class="btn btn-primary" id="politica-guardar" [disabled]="enviando">
+                Save the policy
+              </button>
+              @if (politica.fechaModificacion) {
+                <span i18n class="small text-body-secondary"
+                  >Last changed on {{ politica.fechaModificacion | fecha: 'fechaHora' }}</span
+                >
+              }
+            </div>
+          </form>
+        }
+      </div>
+    </div>
+  }
+</div>

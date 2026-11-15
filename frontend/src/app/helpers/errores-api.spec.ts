@@ -1,7 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormControl, FormGroup } from '@angular/forms';
 
-import { esConflictoDeVersion, marcarErroresDelServidor, mensajeConLosCampos, mensajeDeError } from './errores-api';
+import {
+  esConflictoDeVersion,
+  marcarErroresDelServidor,
+  mensajeConLosCampos,
+  mensajeDeError,
+  mensajeDeLaApi,
+} from './errores-api';
 
 function error(status: number, cuerpo: unknown = null): HttpErrorResponse {
   return new HttpErrorResponse({ status, error: cuerpo });
@@ -18,6 +24,15 @@ describe('errores de la API', () => {
       'El proceso ya esta publicado.',
     );
     expect(mensajeDeError(error(500))).toBe('Something went wrong. Please try again.');
+  });
+
+  it('mensajeDeLaApi deja hablar a la API en un 403 que explica por que, y en lo demas dice lo de siempre', () => {
+    expect(mensajeDeLaApi(error(403, { detail: 'Quien cambio esto no lo aprueba.' }))).toBe(
+      'Quien cambio esto no lo aprueba.',
+    );
+    expect(mensajeDeLaApi(error(403))).toBe('Your role does not allow this action.');
+    expect(mensajeDeLaApi(error(409, { detail: 'Esa concesión ya existe.' }))).toBe('Esa concesión ya existe.');
+    expect(mensajeDeLaApi(error(0))).toContain('cannot be reached');
   });
 
   it('suma al detalle el mensaje de cada campo rechazado, y sin campos es el detalle solo', () => {

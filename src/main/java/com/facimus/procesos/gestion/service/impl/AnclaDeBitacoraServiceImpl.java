@@ -110,7 +110,8 @@ public class AnclaDeBitacoraServiceImpl implements AnclaDeBitacoraService {
             return Optional.empty();
         }
         Fila fila = filas.getFirst();
-        try (InputStream contenido = almacen.abrir(fila.clave())) {
+        // PR 66: del sitio donde se guardo inmutable; en S3, el bucket con Object Lock y no el de los documentos
+        try (InputStream contenido = almacen.abrirInmutable(fila.clave())) {
             JsonNode ancla = json.readTree(contenido);
             return Optional.of(new Ancla(fila.dia(), ancla.get(SECUENCIA).asLong(), ancla.get(HASH).asString()));
         } catch (ArchivoNoEncontradoException _) {

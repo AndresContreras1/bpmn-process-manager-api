@@ -16,6 +16,15 @@ export function mensajeDeError(error: HttpErrorResponse): string {
 }
 
 /**
+ * Como mensajeDeError, pero un 403 con detalle dice el suyo: lo usan las pantallas donde la API explica por que no,
+ * como una concesion que falta o la separacion de funciones, que no es cuestion del rol.
+ */
+export function mensajeDeLaApi(error: HttpErrorResponse): string {
+  const detalle: string | undefined = (error.error as ProblemDetail | null)?.detail;
+  return error.status === 403 && detalle ? detalle : mensajeDeError(error);
+}
+
+/**
  * El mensaje general y, detras, el de cada campo que la API rechazo en el mapa errors de un 400: sirve donde la
  * pantalla no tiene un control por campo, como los datos libres de una tarea que la API revisa contra su formulario.
  */

@@ -15,6 +15,18 @@ public enum ClaseDeLimite {
     /** Lo que manda un correo: verificar, recuperar la clave e invitar. Por IP, para que no se use para molestar. */
     CORREO,
 
-    /** Todo lo demas que cambia algo: por persona. Leer no cuenta. */
-    ESCRITURA
+    /** Todo lo demas que cambia algo: por persona. Leer no cuenta, salvo buscar. */
+    ESCRITURA,
+
+    /**
+     * PR 65: buscar, por persona. Es la unica lectura con cubo: cada busqueda ordena y resalta texto en la base, y es
+     * barato repetirla.
+     */
+    BUSQUEDA,
+
+    /**
+     * PR 66: pedir la exportacion completa de la tienda, que lee cada fila suya: por persona y por dia. Por persona y
+     * no por tienda, porque se cuenta antes de la autorizacion: quien no puede exportar no gasta el cubo de quien si.
+     */
+    EXPORTACION
 }
