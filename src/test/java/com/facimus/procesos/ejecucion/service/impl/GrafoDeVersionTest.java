@@ -13,11 +13,13 @@ import com.facimus.procesos.common.formularios.CampoArmado;
 import com.facimus.procesos.common.formularios.Formulario;
 import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
+import com.facimus.procesos.modelado.dto.response.AsignacionResponse;
 import com.facimus.procesos.modelado.model.AccionSiFalla;
 import com.facimus.procesos.modelado.model.CampoDeMensaje;
 import com.facimus.procesos.modelado.model.Integracion;
 import com.facimus.procesos.modelado.model.PoliticaSinCaso;
 import com.facimus.procesos.modelado.model.TipoActividad;
+import com.facimus.procesos.modelado.model.TipoAsignacion;
 import com.facimus.procesos.modelado.model.TipoDeDato;
 import com.facimus.procesos.modelado.model.TipoDestino;
 import com.facimus.procesos.modelado.model.TipoEvento;
@@ -406,5 +408,25 @@ class GrafoDeVersionTest {
         assertThat(grafo.formularioDe(armado.id("Cancel order"))).isEmpty();
         assertThat(grafo.formularioDe(armado.id("Order received"))).isEmpty();
         assertThat(grafo.formularioDe(armado.id("Their own task"))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("PR 70: el grafo da la asignacion de las tareas de usuario de la tienda, y de nada mas")
+    void asignaciones() {
+        DiagramaArmado armado = DiagramaArmado.demo();
+        armado.lane("Carrier", "Dispatch");
+        armado.dejaDeSerCajaNegra("Carrier");
+        armado.actividad("Dispatch", "Their own task", TipoActividad.USUARIO);
+        AsignacionResponse alIniciador = new AsignacionResponse(TipoAsignacion.INICIADOR, null, null);
+        for (String nodo : new String[] {"Pick and pack items", "Cancel order", "Their own task"}) {
+            armado.asignacion(nodo, alIniciador);
+        }
+
+        GrafoDeVersion grafo = GrafoDeVersion.de(armado.diagrama());
+
+        assertThat(grafo.asignacionDe(armado.id("Pick and pack items"))).contains(alIniciador);
+        assertThat(grafo.asignacionDe(armado.id("Receive order"))).isEmpty();
+        assertThat(grafo.asignacionDe(armado.id("Cancel order"))).isEmpty();
+        assertThat(grafo.asignacionDe(armado.id("Their own task"))).isEmpty();
     }
 }

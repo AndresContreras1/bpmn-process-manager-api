@@ -45,7 +45,7 @@ on the wall and what the store actually does are the same thing.
 | Published version | The diagram frozen the day it was published. It does not change when the model does: what is edited afterwards is the draft | Version 2 of *Order fulfillment* |
 | Case | One run of a published version, from start to end | Order `ORD-1001` |
 | Task | A step of a case that waits for a person, in the tray of its lane's role | *Pick and pack items* of `ORD-1001`, waiting for Warehouse |
-| Membership | Which process roles a person belongs to, so they can ask for their own tray | *Ana* is in *Warehouse* |
+| Membership | Which process roles a person belongs to: it lets them ask for their own tray, and claim and complete the tasks of those roles that nobody holds | *Ana* is in *Warehouse* |
 | Case variables | What the case knows, and what the conditions of its gateways read | `payment.status`, `order.total` |
 
 ## How it works

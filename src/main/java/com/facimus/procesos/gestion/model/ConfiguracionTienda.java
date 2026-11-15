@@ -90,4 +90,12 @@ public class ConfiguracionTienda extends EntidadEditable {
     @Column(name = "solo_entrada_externa", nullable = false)
     @Builder.Default
     private boolean soloEntradaExterna = false;
+
+    /**
+     * PR 70: un administrador completa la tarea que tiene otra persona. Apagada, solo la completa quien la tiene; quien
+     * la necesite completar por otro primero se la reasigna, y eso queda con su motivo.
+     */
+    @Column(name = "administrador_completa_por_otro", nullable = false)
+    @Builder.Default
+    private boolean administradorCompletaPorOtro = false;
 }

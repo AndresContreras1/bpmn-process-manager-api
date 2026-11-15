@@ -289,6 +289,8 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `EXPORTACION_PEDIDA` · `EXPORTACION_LISTA` · `EXPORTACION_FALLIDA` · `EXPORTACION_DESCARGADA` · `EXPORTACION_VENCIDA` | A full export is asked for, is ready with its SHA-256, size and files, fails with the reason, is downloaded with its link (from the address and browser of the download), or expires and is deleted |
 | `TIENDA_BORRADA` | The purge deleted the store: the SHA-256 and the key of its deletion certificate, the rows and the objects (`reanotado` when a retry of the job audits a certificate stored before) |
 | `CALENDARIO_EDITADO` · `FESTIVO_NOMBRADO` · `FESTIVO_QUITADO` · `FESTIVO_RESTAURADO` | The business calendar changes, or a holiday is added or renamed, removed, or put back as the law says |
+| `TAREA_RECLAMADA` · `TAREA_LIBERADA` · `TAREA_REASIGNADA` · `TAREA_DELEGADA` | A task is claimed, released, reassigned or delegated, with its case and who it went from and to |
+| `TAREA_COMPLETADA_POR_OTRO` | An administrator completes a task another person holds, which the store's policy allows |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
 the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
@@ -570,6 +572,44 @@ What PR 69 adds, against the checklist every resource goes through ([ADR-0076](a
   does not ask for, or one of a hidden field, never reaches the case variables.
 - **References.** A person field takes only an active user of the store; a file field, only a document of the same
   process whose latest version passed the antivirus.
+
+## Assignment and inboxes
+
+What PR 70 adds, against the checklist every resource goes through ([ADR-0077](adr/0077-assignment-and-inbox.md)):
+
+- **Row-level security.** `delegaciones` (V60) carries `empresa_id` with the store's policy, enabled and forced; the
+  assignment rule is three columns of `nodos_flujo`, the holder and the delegator two of `actividades_caso`, and the
+  initiator one of `casos`, all tables that already have it. A test reads and updates the delegations as another store
+  and sees nothing. The store deletion and the purge of test runs delete the delegations before the steps.
+- **IDOR.** Claiming, releasing, reassigning, delegating or completing another store's task, reading it, and saving
+  the assignment of another store's activity answer `404`; so does handing a task to a person of another store, which
+  `UsuarioService.obtener` looks up inside the caller's store.
+- **Who.** The four actions and completing are administrators' and editors' (the route matrix), and then a rule of the
+  task: a member of its process role or an administrator claims one nobody holds; only the holder completes, delegates
+  and, with administrators, releases and reassigns it (`403` otherwise). A delegated task is reassigned by whoever
+  delegated it or an administrator, never by the delegate, so a delegate cannot keep it from coming back by passing it
+  on; a delegate who releases it gives it back only if the delegator can still hold tasks. Completing another person's
+  task is an
+  administrator's only when the store turns on `administradorCompletaPorOtro`, which only an administrator edits.
+  Whoever receives a task must be an active administrator or editor (`409`): a read-only user could never complete it.
+  Saving the rule is `MODELAR` on the element. The inboxes and the workload are operations routes read by any role,
+  scoped to the store.
+- **Race safety.** Every action, a claim included, locks the case first, as completing, cancelling and a firing timer
+  do. A claim is also one conditional `UPDATE` that bumps the task's version: two at once, one wins and the other gets
+  `409`. The other actions save with the optimistic lock, so none overwrites a claim.
+- **Audit trail.** Each action and each completion on someone's behalf (`TAREA_COMPLETADA_POR_OTRO`), with the case and
+  the user ids. The free-text reason stays in the case timeline and the delegation, not in the trail, which keeps no
+  free text; the timeline names people by id. Taking a task by completing it is a `TAREA_RECLAMADA` too. Changing the
+  policy is `CONFIGURACION_CAMBIADA` with its value.
+- **Personal data in a reason.** The reason of a release, a reassignment or a delegation is free text kept in the
+  case timeline and in `delegaciones.motivo`, and anonymizing a person does not rewrite it, as it does not rewrite
+  the timeline. The API asks for the why, not for who; a store that writes names there keeps them after an
+  anonymization, the way a comment would.
+- **Rate limit and quota.** The general limit on changes. A reason has up to 500 characters and a variable path up to
+  200.
+- **What arrives from a file.** A BPMN file can name any user id as the fixed person. It is never trusted: when the
+  task is created the engine looks the id up in the case's store, and a person who is not there, deactivated or
+  read-only leaves the task in its role tray.
 
 ## Rate limiting
 

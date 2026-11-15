@@ -63,7 +63,8 @@ import com.facimus.procesos.modelado.model.TipoTemporizador;
  * <li>un {@code BPMNDiagram} con la geometria que el modelo ya tiene (PR 52);</li>
  * <li>lo que BPMN no tiene, en el espacio {@code bpm:} ({@link EspaciosBpmn#BPM}): tipo, integracion y orden del
  * participante, rol de la lane, orden de los flujos, y el contenido, los campos, el destino, el fallo, la respuesta y
- * la correlacion de cada mensaje; PR 69: el formulario de cada tarea de usuario y de cada inicio simple.</li>
+ * la correlacion de cada mensaje; PR 69: el formulario de cada tarea de usuario y de cada inicio simple; PR 70: a
+ * quien le llega cada tarea de usuario.</li>
  * </ul>
  *
  * <p>PR 55: lo descriptivo. Los eventos de temporizador (de inicio, de espera y de borde) con su
@@ -599,9 +600,15 @@ public final class EscritorBpmn {
             }
             ajenos.atributos(id, salida);
             documentacion(actividad.descripcion());
-            // PR 69: el formulario de la tarea, que BPMN no tiene
-            extensiones(id, actividad.formulario() != null,
-                    () -> FormularioBpmn.escribir(salida, actividad.formulario()));
+            // PR 69 y PR 70: el formulario de la tarea y a quien le llega, que BPMN no tiene
+            extensiones(id, actividad.formulario() != null || actividad.asignacion() != null, () -> {
+                if (actividad.formulario() != null) {
+                    FormularioBpmn.escribir(salida, actividad.formulario());
+                }
+                if (actividad.asignacion() != null) {
+                    AsignacionBpmn.escribir(salida, actividad.asignacion());
+                }
+            });
             entradasYSalidas(actividad.id());
             datosDeLaActividad(id);
             if (tipo != null && tipo.esSubproceso()) {

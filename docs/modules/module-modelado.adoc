@@ -25,6 +25,7 @@
 * `c.f.p.g.service.LecturaDeFilas` (in Gestion)
 * `c.f.p.g.service.PreferenciasService` (in Gestion)
 * `c.f.p.g.service.PoliticaDePublicacionService` (in Gestion)
+* `c.f.p.g.service.UsuarioService` (in Gestion)
 |Aggregate roots
 |* `c.f.p.m.model.NodoFlujo`
 * `c.f.p.m.model.Actividad`

@@ -74,6 +74,11 @@ public class ActividadServiceImpl implements ActividadService {
             throw new ReglaNegocioException("La actividad tiene formulario, y solo una de usuario lo lleva: quítalo "
                     + "antes de cambiarle el tipo.");
         }
+        if (actividad.getTipoAsignacion() != null && deUsuarioSiFalta(tipoActividad) != TipoActividad.USUARIO) {
+            // PR 70: la asignacion dice a quien espera la tarea; con otro tipo no espera a nadie
+            throw new ReglaNegocioException("La actividad tiene asignación, y solo una de usuario la lleva: "
+                    + "devuélvela a la bandeja de su rol antes de cambiarle el tipo.");
+        }
         Long procesoId = actividad.getLane().getPool().getProceso().getId();
         if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
                 empresaId, actividadId)) {

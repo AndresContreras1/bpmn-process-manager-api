@@ -35,6 +35,9 @@ public record ConfiguracionTiendaRequest(
         @Schema(description = "True when the people of the store sign in only with Google or Microsoft; the "
                 + "administrators keep their password. Leave it out to keep the current one", example = "false")
         Boolean soloEntradaExterna,
+        @Schema(description = "True lets an administrator complete a task another person holds, recorded in the "
+                + "audit trail; leave it out to keep the current one", example = "false")
+        Boolean administradorCompletaPorOtro,
         @Schema(description = "Version read with the last GET; if someone saved a change since, the edit answers 409",
                 example = "0")
         @NotNull(message = "La versión es obligatoria.") Long version) {

@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { PageResponse } from '../models/page-response.model';
-import { AsignarTareaRequest, CompletarTareaRequest, FiltrosTarea, Tarea } from '../models/tarea.model';
+import { CompletarTareaRequest, FiltrosTarea, Tarea } from '../models/tarea.model';
 
 /** La bandeja: lo que los casos abiertos estan esperando que haga alguien. */
 @Injectable({ providedIn: 'root' })
@@ -39,8 +39,13 @@ export class TareaService {
     return this.http.post<Tarea>(`${this.url}/${id}/completar`, solicitud);
   }
 
-  /** Tomarla es una nota para el equipo: el rol entero la sigue viendo y completarla no exige haberla tomado. */
-  asignar(id: number, solicitud: AsignarTareaRequest): Observable<Tarea> {
-    return this.http.post<Tarea>(`${this.url}/${id}/asignar`, solicitud);
+  /** La toma quien es de su rol: desde entonces solo esa persona la completa. Si otro la tomo antes, 409. */
+  reclamar(id: number): Observable<Tarea> {
+    return this.http.post<Tarea>(`${this.url}/${id}/reclamar`, null);
+  }
+
+  /** La devuelve a la bandeja de su rol, o a quien la delego si quien la tiene es un delegado. */
+  soltar(id: number): Observable<Tarea> {
+    return this.http.post<Tarea>(`${this.url}/${id}/soltar`, {});
   }
 }

@@ -1,14 +1,17 @@
 package com.facimus.procesos.ejecucion.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.facimus.procesos.common.RepositorioTenant;
+import com.facimus.procesos.ejecucion.dto.response.CargaPorPersonaResponse;
 import com.facimus.procesos.ejecucion.dto.response.TareasPorRolResponse;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
@@ -18,11 +21,69 @@ public interface ActividadCasoRepository extends RepositorioTenant<ActividadCaso
 
     /**
      * La bandeja de tareas, opcionalmente la de un rol o la de un proceso. Es la consulta con nombre que declara la
-     * entidad (D22), con su gemela de conteo para poder paginarla.
+     * entidad (D22), con su gemela de conteo para poder paginarla. PR 70: tambien la de una persona (las que tiene) o
+     * la de lo que nadie tiene, de la mas vieja a la mas nueva.
      */
+    @SuppressWarnings("java:S107") // cada filtro de la bandeja, por su nombre
     Page<ActividadCaso> bandejaPorRol(@Param("empresaId") Long empresaId,
             @Param("rolProcesoId") Long rolProcesoId, @Param("procesoId") Long procesoId,
-            @Param("estado") EstadoActividadCaso estado, Pageable pagina);
+            @Param("estado") EstadoActividadCaso estado, @Param("asignadoA") Long asignadoA,
+            @Param("sinAsignar") boolean sinAsignar, Pageable pagina);
+
+    /**
+     * PR 70: reclamar una tarea es una sola escritura que solo pasa si nadie la tiene. Dos personas que la reclaman a
+     * la vez escriben las dos, pero la base hace esperar a la segunda hasta que la primera termina, y para entonces la
+     * tarea ya tiene a alguien: a la segunda no le toca ninguna fila. Sube la version, asi que quien la tuviera leida
+     * para completarla o reasignarla choca con el bloqueo optimista en vez de pisarla.
+     *
+     * @return 1 si la tomo, 0 si ya la tenia alguien, ya no esperaba o no es de esta tienda
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update ActividadCaso a
+            set a.asignadoA = :usuarioId, a.version = a.version + 1, a.modificadoPor = :usuarioId,
+                a.fechaModificacion = :ahora
+            where a.id = :id
+              and a.empresa.id = :empresaId
+              and a.estado = com.facimus.procesos.ejecucion.model.EstadoActividadCaso.EN_ESPERA
+              and a.asignadoA is null
+            """)
+    int reclamar(@Param("id") Long id, @Param("empresaId") Long empresaId, @Param("usuarioId") Long usuarioId,
+            @Param("ahora") LocalDateTime ahora);
+
+    /**
+     * PR 70: la carga de cada persona, las tareas que esperan y tiene ella, con su nombre, de la que mas tiene a la que
+     * menos. Las pruebas de un borrador no cuentan: no son trabajo de nadie.
+     */
+    @Query("""
+            select new com.facimus.procesos.ejecucion.dto.response.CargaPorPersonaResponse(
+                    a.asignadoA, u.nombre, count(a))
+            from ActividadCaso a, com.facimus.procesos.gestion.model.Usuario u
+            where a.empresa.id = :empresaId
+              and u.id = a.asignadoA
+              and a.tipoNodo = com.facimus.procesos.ejecucion.model.TipoNodoCaso.ACTIVIDAD
+              and a.subtipo = 'USUARIO'
+              and a.estado = com.facimus.procesos.ejecucion.model.EstadoActividadCaso.EN_ESPERA
+              and (:procesoId is null or a.caso.proceso.id = :procesoId)
+              and a.caso.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
+            group by a.asignadoA, u.nombre
+            order by count(a) desc, u.nombre
+            """)
+    List<CargaPorPersonaResponse> cargaPorPersona(@Param("empresaId") Long empresaId,
+            @Param("procesoId") Long procesoId);
+
+    /** PR 70: las tareas que esperan y no tiene nadie, con el mismo alcance que la carga por persona. */
+    @Query("""
+            select count(a) from ActividadCaso a
+            where a.empresa.id = :empresaId
+              and a.asignadoA is null
+              and a.tipoNodo = com.facimus.procesos.ejecucion.model.TipoNodoCaso.ACTIVIDAD
+              and a.subtipo = 'USUARIO'
+              and a.estado = com.facimus.procesos.ejecucion.model.EstadoActividadCaso.EN_ESPERA
+              and (:procesoId is null or a.caso.proceso.id = :procesoId)
+              and a.caso.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
+            """)
+    long sinAsignar(@Param("empresaId") Long empresaId, @Param("procesoId") Long procesoId);
 
     /**
      * La bandeja de una persona: la misma consulta, acotada a los roles de proceso a los que pertenece (D13). Es

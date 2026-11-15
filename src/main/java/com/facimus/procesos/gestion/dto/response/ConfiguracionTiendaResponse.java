@@ -2,6 +2,7 @@ package com.facimus.procesos.gestion.dto.response;
 
 import java.time.LocalDateTime;
 
+import com.facimus.procesos.common.Default;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.PoliticaEstructura;
 import com.facimus.procesos.gestion.model.PoliticaSegundoFactor;
@@ -28,5 +29,22 @@ public record ConfiguracionTiendaResponse(
         @Schema(description = "Send it back when editing; it goes up with every saved change", example = "0")
         Long version,
         @Schema(example = "2026-09-21T15:30:00") LocalDateTime fechaModificacion,
-        @Schema(description = "Id of the user who saved the last change", example = "5") Long modificadoPor) {
+        @Schema(description = "Id of the user who saved the last change", example = "5") Long modificadoPor,
+        @Schema(description = "True when an administrator may complete a task another person holds; the audit trail "
+                + "records each time", example = "false") boolean administradorCompletaPorOtro) {
+
+    /** El de antes del PR 70, sin la politica de completar por otro: apagada. */
+    @SuppressWarnings("java:S107") // cada parte de la configuracion, por su nombre
+    public ConfiguracionTiendaResponse(PoliticaEstructura politicaEstructura, int reloj, ModoSimulacion modoSimulacion,
+            ParametrosSimulacionResponse simulacion, int inactividadSesionMinutos, int duracionSesionHoras,
+            PoliticaSegundoFactor politicaSegundoFactor, boolean soloEntradaExterna, Long version,
+            LocalDateTime fechaModificacion, Long modificadoPor) {
+        this(politicaEstructura, reloj, modoSimulacion, simulacion, inactividadSesionMinutos, duracionSesionHoras,
+                politicaSegundoFactor, soloEntradaExterna, version, fechaModificacion, modificadoPor, false);
+    }
+
+    @Default
+    public ConfiguracionTiendaResponse {
+        // El constructor completo es el que usan MapStruct y Jackson
+    }
 }

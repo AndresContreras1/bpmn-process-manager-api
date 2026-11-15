@@ -25,5 +25,15 @@ public enum TipoEventoCaso {
     /** PR 68: un temporizador se armo, y dice cuando vence. */
     TEMPORIZADOR_PROGRAMADO,
     /** PR 68: un temporizador salto. */
-    TEMPORIZADOR_DISPARADO
+    TEMPORIZADOR_DISPARADO,
+    /** PR 70: la regla de la tarea se la dio a una persona al crearse. */
+    TAREA_ASIGNADA,
+    /** PR 70: alguien de su rol la tomo. */
+    TAREA_RECLAMADA,
+    /** PR 70: quien la tenia la solto: vuelve a la bandeja del rol, o a quien la delego. */
+    TAREA_LIBERADA,
+    /** PR 70: paso a otra persona, con su motivo. */
+    TAREA_REASIGNADA,
+    /** PR 70: quien la tenia se la paso a otra persona por un tiempo, con su motivo; le vuelve si la suelta. */
+    TAREA_DELEGADA
 }

@@ -68,3 +68,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0074 | [Review, comments and notifications in the web](0074-review-comments-and-notifications-ui.md) | Accepted |
 | 0075 | [A read-only portal of what is published](0075-read-only-portal.md) | Accepted |
 | 0076 | [Typed forms frozen in the version](0076-typed-forms.md) | Accepted |
+| 0077 | [Assignment, inboxes and who completes a task](0077-assignment-and-inbox.md) | Accepted |

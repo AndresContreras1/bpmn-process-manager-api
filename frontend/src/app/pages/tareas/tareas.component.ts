@@ -135,19 +135,21 @@ export class TareasComponent implements OnInit {
     return this.yo !== null && tarea.asignadoA === this.yo;
   }
 
-  /** Tomarla es una nota para el equipo: el rol entero la sigue viendo y cualquiera la puede completar. */
+  /**
+   * Completa la que tiene quien mira, o la que no tiene nadie, que asi la toma. La de otra persona solo la completa
+   * ella; la API la rechaza, asi que el boton no se ofrece.
+   */
+  puedeCompletar(tarea: Tarea): boolean {
+    return tarea.asignadoA === null || this.esMia(tarea);
+  }
+
+  /** Tomarla la deja en manos de quien la toma: desde entonces solo esa persona la completa. */
   tomar(tarea: Tarea): void {
-    this.mandar(
-      this.tareaService.asignar(tarea.id, { usuarioId: this.yo }),
-      $localize`You took "${tarea.nodoNombre}".`,
-    );
+    this.mandar(this.tareaService.reclamar(tarea.id), $localize`You took "${tarea.nodoNombre}".`);
   }
 
   soltar(tarea: Tarea): void {
-    this.mandar(
-      this.tareaService.asignar(tarea.id, { usuarioId: null }),
-      $localize`"${tarea.nodoNombre}" is free again.`,
-    );
+    this.mandar(this.tareaService.soltar(tarea.id), $localize`"${tarea.nodoNombre}" is free again.`);
   }
 
   /** Abre el formulario de completar, con los datos que la tarea ya tuviera. */

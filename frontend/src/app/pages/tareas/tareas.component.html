@@ -164,15 +164,17 @@
                               Leave
                             </button>
                           }
-                          <button
-                            i18n
-                            type="button"
-                            class="btn btn-primary"
-                            data-testid="tarea-completar"
-                            (click)="alternarCompletar(tarea)"
-                          >
-                            Complete
-                          </button>
+                          @if (puedeCompletar(tarea)) {
+                            <button
+                              i18n
+                              type="button"
+                              class="btn btn-primary"
+                              data-testid="tarea-completar"
+                              (click)="alternarCompletar(tarea)"
+                            >
+                              Complete
+                            </button>
+                          }
                         </div>
                       }
                     </td>

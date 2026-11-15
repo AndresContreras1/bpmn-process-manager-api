@@ -1,8 +1,8 @@
 /**
  * El espacio {@code bpm:} para bpmn-js: lo que BPMN no tiene y el producto guarda (tipo y orden del participante, rol
- * de la lane, datos del mensaje y, desde el PR 69, el formulario de una tarea o de un inicio). Es el mismo que declara
- * {@code bpmn/xsd/bpm.xsd} en la API. Un tipo que no estuviera aqui se perderia al guardar desde el editor: bpmn-js
- * descarta lo que no reconoce de un espacio que conoce.
+ * de la lane, datos del mensaje, desde el PR 69 el formulario de una tarea o de un inicio y, desde el PR 70, a quien le
+ * llega una tarea). Es el mismo que declara {@code bpmn/xsd/bpm.xsd} en la API. Un tipo que no estuviera aqui se
+ * perderia al guardar desde el editor: bpmn-js descarta lo que no reconoce de un espacio que conoce.
  */
 export const BPM_MODDLE = {
   name: 'BPM',
@@ -59,6 +59,15 @@ export const BPM_MODDLE = {
       name: 'Formulario',
       superClass: ['Element'],
       properties: [{ name: 'campos', type: 'CampoFormulario', isMany: true }],
+    },
+    {
+      name: 'Asignacion',
+      superClass: ['Element'],
+      properties: [
+        { name: 'tipo', isAttr: true, type: 'String' },
+        { name: 'usuario', isAttr: true, type: 'String' },
+        { name: 'campo', isAttr: true, type: 'String' },
+      ],
     },
     {
       name: 'CampoFormulario',

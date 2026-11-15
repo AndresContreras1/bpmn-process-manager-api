@@ -16,7 +16,12 @@ export type TipoEventoCaso =
   | 'SIN_CAMINO'
   | 'VARIABLE_AUSENTE'
   | 'CASO_TERMINADO'
-  | 'CASO_CANCELADO';
+  | 'CASO_CANCELADO'
+  | 'TAREA_ASIGNADA'
+  | 'TAREA_RECLAMADA'
+  | 'TAREA_LIBERADA'
+  | 'TAREA_REASIGNADA'
+  | 'TAREA_DELEGADA';
 
 /** En que va un paso del caso. PENDIENTE y EN_ESPERA son los dos que tienen el token vivo. */
 export type EstadoPaso = 'PENDIENTE' | 'EN_ESPERA' | 'COMPLETADA' | 'FALLIDA' | 'OMITIDA';
@@ -150,6 +155,11 @@ export const NOMBRE_EVENTO_CASO: Record<TipoEventoCaso, string> = {
   VARIABLE_AUSENTE: $localize`Variable missing`,
   CASO_TERMINADO: $localize`Case finished`,
   CASO_CANCELADO: $localize`Case cancelled`,
+  TAREA_ASIGNADA: $localize`Task assigned`,
+  TAREA_RECLAMADA: $localize`Task taken`,
+  TAREA_LIBERADA: $localize`Task released`,
+  TAREA_REASIGNADA: $localize`Task reassigned`,
+  TAREA_DELEGADA: $localize`Task delegated`,
 };
 
 /** Los que cuentan algo que no salio bien: se pintan en rojo. */

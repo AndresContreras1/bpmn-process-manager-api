@@ -2188,25 +2188,16 @@
 					"response": []
 				},
 				{
-					"name": "Reservar la tarea",
+					"name": "Reclamar la tarea",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"usuarioId\": \"{{usuarioId}}\"\n}"
-						},
+						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/tareas/{{tareaId}}/asignar",
+							"raw": "{{baseUrl}}/api/v1/tareas/{{tareaId}}/reclamar",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "tareas", "{{tareaId}}", "asignar"]
+							"path": ["api", "v1", "tareas", "{{tareaId}}", "reclamar"]
 						},
-						"description": "Una nota para el equipo: la bandeja la sigue viendo el rol entero y completarla no exige tenerla reservada. Sin usuarioId vuelve a quedar libre. Administrador y editor."
+						"description": "La toma quien pertenece al rol de su lane, o un administrador, si no la tiene nadie: desde entonces solo esa persona la completa. Si otra la tomo antes, 409. Administrador y editor."
 					},
 					"response": []
 				},

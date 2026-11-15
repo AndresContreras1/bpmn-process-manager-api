@@ -33,9 +33,22 @@ public interface ConfiguracionTiendaService {
      * las que tenia.
      */
     @SuppressWarnings("java:S107") // cada parte de la configuracion, por su nombre
+    default ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
+            ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones,
+            PoliticaSegundoFactor segundoFactor, Boolean soloEntradaExterna, Long version) {
+        return editar(empresaId, usuarioId, politica, modo, parametros, sesiones, segundoFactor, soloEntradaExterna,
+                null, version);
+    }
+
+    /** PR 70: lo mismo con la politica de completar por otro; nula deja la que tenia. */
+    @SuppressWarnings("java:S107") // cada parte de la configuracion, por su nombre
     ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,
             ModoSimulacion modo, ParametrosSimulacion parametros, LimitesDeSesion sesiones,
-            PoliticaSegundoFactor segundoFactor, Boolean soloEntradaExterna, Long version);
+            PoliticaSegundoFactor segundoFactor, Boolean soloEntradaExterna, Boolean administradorCompletaPorOtro,
+            Long version);
+
+    /** PR 70: si en esta tienda un administrador completa la tarea que tiene otra persona. */
+    boolean administradorCompletaPorOtro(Long empresaId);
 
     /** La edicion de la simulacion, que no toca las sesiones. */
     default ConfiguracionTiendaResponse editar(Long empresaId, Long usuarioId, PoliticaEstructura politica,

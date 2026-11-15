@@ -23,6 +23,24 @@ const CON_FORMULARIO = `<?xml version="1.0" encoding="UTF-8"?>
   </bpmn:process>
 </bpmn:definitions>`;
 
+/** Una tarea asignada a la persona de un campo (PR 70), tal cual la escribe el EscritorBpmn de la API. */
+const CON_ASIGNACION = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpm="urn:bpmn-process-manager:bpm:1" id="Definitions_1" targetNamespace="urn:pruebas">
+  <bpmn:process id="Process_1">
+    <bpmn:userTask id="Activity_1" name="Approve the refund">
+      <bpmn:extensionElements>
+        <bpm:asignacion tipo="CAMPO" campo="tarea.reviewOrder.approver"/>
+      </bpmn:extensionElements>
+    </bpmn:userTask>
+    <bpmn:userTask id="Activity_2" name="Pay the refund">
+      <bpmn:extensionElements>
+        <bpm:asignacion tipo="PERSONA" usuario="5"/>
+      </bpmn:extensionElements>
+    </bpmn:userTask>
+  </bpmn:process>
+</bpmn:definitions>`;
+
 describe('el espacio bpm: en bpmn-js', () => {
   it('el formulario de una tarea pasa entero por el editor: se lee sin avisos y se vuelve a escribir', async () => {
     const moddle = new BpmnModdle({ bpm: BPM_MODDLE });
@@ -51,5 +69,27 @@ describe('el espacio bpm: en bpmn-js', () => {
 
     expect(warnings.length).toBeGreaterThan(0);
     expect(xml).not.toContain('bpm:formulario');
+  });
+
+  it('a quien le llega una tarea pasa entero por el editor: se lee sin avisos y se vuelve a escribir', async () => {
+    const moddle = new BpmnModdle({ bpm: BPM_MODDLE });
+
+    const { rootElement, warnings } = await moddle.fromXML(CON_ASIGNACION);
+    const { xml } = await moddle.toXML(rootElement);
+
+    expect(warnings).toEqual([]);
+    expect(xml).toContain('<bpm:asignacion tipo="CAMPO" campo="tarea.reviewOrder.approver" />');
+    expect(xml).toContain('<bpm:asignacion tipo="PERSONA" usuario="5" />');
+  });
+
+  it('sin la asignacion declarada, bpmn-js la descartaria al guardar', async () => {
+    const sinAsignacion = { ...BPM_MODDLE, types: BPM_MODDLE.types.filter((tipo) => tipo.name !== 'Asignacion') };
+    const moddle = new BpmnModdle({ bpm: sinAsignacion });
+
+    const { rootElement, warnings } = await moddle.fromXML(CON_ASIGNACION);
+    const { xml } = await moddle.toXML(rootElement);
+
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(xml).not.toContain('bpm:asignacion');
   });
 });
