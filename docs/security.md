@@ -421,6 +421,26 @@ Publishing with approval is a layer over the versions, and it cannot be skipped
 - **Recertification.** Only the owner of a process, whatever their role, or whoever can administer it confirms it; the
   daily warning runs as the system and each job reads and writes only its store.
 
+## The read-only portal
+
+The portal of the web ([ADR-0075](adr/0075-read-only-portal.md)) adds no route and no table: it reads what the
+other routes already answer, each with its own rule, and searches with `publicado=true`, which only narrows what
+`GET /busqueda` finds (no comments, nothing that exists only in a draft).
+
+- **Permissions.** Every read is `VER` on the process: the detail, the permissions, the published version's file with
+  `?para=dibujar`, the documentation, the sheet, the documents and their links, and the manuals and theirs; another
+  store's process answers `404` to each, and so does one hidden by a grant. `GET /procesos/{id}/permisos` used to
+  answer every action for an id it did not evaluate; it now checks that the process is in the store first, and the
+  integration test asks each of these reads, the two signed-link routes and the search as another store. Building a manual is the only request the
+  portal can send, offered when the permissions say `EXPORTAR` and the role may send a `POST`; the route matrix and
+  `ControlDeRecursos` decide anyway.
+- **The owner's name** (`duenoNombre` in `GET /procesos/{id}`) is read in the store of the session, and only the
+  name: never the e-mail or the role. It is shown to whoever can view the process, like the authors of its history.
+- **What is shown.** Documentation is only the HTML the API cleaned, through Angular's sanitizer too; a file is never
+  opened in the page, it is downloaded from a signed link asked for at the click.
+- **What does not apply.** No new table, so no new row-level security, store deletion or quota; no write, so no
+  audit event or rate-limit bucket beyond those of building a manual, which are unchanged.
+
 ## Search
 
 The search finds only what the person could open anyway, and never returns markup

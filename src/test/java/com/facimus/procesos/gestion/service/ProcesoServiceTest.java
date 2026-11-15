@@ -434,6 +434,24 @@ class ProcesoServiceTest {
     }
 
     @Test
+    @DisplayName("F22: el detalle nombra al dueno, leido en la tienda del proceso; sin dueno no busca a nadie")
+    void detalleConDueno() {
+        when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 1L)).thenReturn(Optional.of(proceso));
+        assertNull(procesoService.obtenerDetalle(1L, 100L, false).duenoNombre());
+        verify(usuarioRepository, never()).findByIdAndEmpresaId(any(), any());
+
+        usuario.setNombre("Ana Gomez");
+        proceso.setDuenoId(10L);
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        assertEquals("Ana Gomez", procesoService.obtenerDetalle(1L, 100L, false).duenoNombre());
+
+        // Un dueno que ya no se encuentra en la tienda no rompe el detalle: se dice que no hay
+        proceso.setDuenoId(11L);
+        when(usuarioRepository.findByIdAndEmpresaId(11L, 1L)).thenReturn(Optional.empty());
+        assertNull(procesoService.obtenerDetalle(1L, 100L, false).duenoNombre());
+    }
+
+    @Test
     @DisplayName("Un proceso eliminado se lee solo pidiendo los inactivos")
     void obtener_inactivo() {
         proceso.setActivo(false);

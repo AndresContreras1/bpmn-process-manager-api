@@ -19,7 +19,9 @@ public interface BusquedaService {
     /**
      * Lo que encuentra el texto, con la sintaxis de un buscador web (comillas, {@code -} y {@code or}), lo mas
      * relevante primero. Sin tipo, de todos. Un texto vacio, o solo de palabras que no cuentan, no encuentra nada.
+     * Con {@code soloPublicado} (F22, el portal de lectura), solo los procesos con una version vigente, los elementos de
+     * esa version y los documentos de esos procesos, sin comentarios.
      */
     PageResponse<ResultadoDeBusquedaResponse> buscar(Actor actor, String texto, TipoDeResultado tipo,
-            Pageable pagina);
+            boolean soloPublicado, Pageable pagina);
 }

@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   OnChanges,
@@ -20,6 +21,9 @@ import { CarpetaService } from '../../service/carpeta.service';
 /**
  * El arbol de carpetas al lado de la lista: elegir una filtra, y quien edita las crea, renombra, mueve y borra aqui.
  * F19: la carpeta elegida llega de la direccion, asi que un enlace o una recarga la dejan marcada.
+ *
+ * Lo que responde la API se marca para revisar: dentro de una pagina OnPush, como el portal, la vuelta de cambios que
+ * trae la respuesta no entra a este componente si la pagina no cambio, y el arbol se quedaria sin pintar.
  */
 @Component({
   selector: 'app-carpetas',
@@ -35,6 +39,7 @@ export class CarpetasComponent implements OnInit, OnChanges {
 
   private readonly carpetas = inject(CarpetaService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly cambios = inject(ChangeDetectorRef);
 
   private todas: Carpeta[] = [];
   filas: FilaDeCarpeta[] = [];
@@ -93,9 +98,10 @@ export class CarpetasComponent implements OnInit, OnChanges {
         next: () => {
           this.elegirCarpeta(null);
           this.aviso = $localize`Folder deleted.`;
+          this.cambios.markForCheck();
           this.recargar();
         },
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
+        error: (error: HttpErrorResponse) => this.fallo(error),
       });
   }
 
@@ -106,9 +112,10 @@ export class CarpetasComponent implements OnInit, OnChanges {
       next: () => {
         this.nombre = '';
         this.aviso = aviso;
+        this.cambios.markForCheck();
         this.recargar();
       },
-      error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
+      error: (error: HttpErrorResponse) => this.fallo(error),
     });
   }
 
@@ -129,8 +136,14 @@ export class CarpetasComponent implements OnInit, OnChanges {
           this.todas = carpetas;
           this.filas = aplanarCarpetas(carpetas);
           this.marcar(this.actual?.id ?? this.seleccionada());
+          this.cambios.markForCheck();
         },
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
+        error: (error: HttpErrorResponse) => this.fallo(error),
       });
+  }
+
+  private fallo(error: HttpErrorResponse): void {
+    this.error = mensajeDeLaApi(error);
+    this.cambios.markForCheck();
   }
 }

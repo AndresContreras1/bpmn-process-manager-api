@@ -384,6 +384,33 @@ else models.
 - **Read-only users** see the saved HTML, the sheet as text, and download documents and manuals, without the editor,
   the drop zone or the buttons that change anything; the page says why. The API refuses the same with a `403`.
 
+## The read-only portal
+
+[ADR-0075](../docs/adr/0075-read-only-portal.md): what is published, for the people who read processes, with nothing
+that changes anything.
+
+- **`/portal`** lists the published processes of a folder (that folder and the ones inside it, by name) beside the
+  folder tree, which here has no controls to change it, or what the search finds. The search is the API of the global
+  search through `PortalService`, with `publicado=true`: only processes with a version in force, the elements of
+  that version and those processes' documents, without comments. The folder, the text and the page live in the
+  address. Each process says its classification and its next review, or *Review overdue* when the API says so.
+- **`/portal/procesos/:id`** opens one process with every read at once (`PortalService.abrir`): the detail, which
+  names the owner (`duenoNombre`), the permissions, the characterization sheet, the documentation, the documents, the
+  manuals and the BPMN file of the version in force, read with `para=dibujar`. If one of the extras fails the page
+  shows the rest; without the permissions it offers nothing.
+- **The diagram** is the bpmn-js viewer with the elements that have something to read marked with a thicker line. A
+  click on an element shows beside it its documentation, only as the HTML the API cleaned, and its documents, each
+  downloaded from a signed link asked for at the click; nothing chosen is the whole process. The structure view walks
+  the same elements with the keyboard in read-only mode, where Enter chooses, and the choice is announced. A link
+  with `?elemento=`, which the search uses, opens the process with that element chosen.
+- **The manual** of the version in force: the newest one ready, in the reader's language if there is one, as PDF or as
+  a web page. Asking to build one is offered only when the permissions say `EXPORTAR` and the role may send changes
+  (`controlesDelPortal`), and the page asks again every two seconds until the queue finishes it, for three minutes
+  at most; after that it says to come back later. The manual's language is shown by its name in the reader's.
+- **Readers start here.** The read-only role lands on `/portal` after signing in, accepting an invitation or linking
+  a provider (`inicioDe`), has it first in the sidebar, and the home page offers it; the other roles start in the
+  process list, as before.
+
 ## Administration
 
 Six screens that used to need Postman. The navbar shows the administration ones only to an administrator, taking

@@ -44,6 +44,8 @@ import lombok.RequiredArgsConstructor;
  * un documento, y la documentacion de un proceso o de un elemento, salen de sus primeros {@value #LARGO_DEL_FRAGMENTO}
  * caracteres: ts_headline vuelve a leer cada texto que recibe, y una pagina de textos largos no puede costar millones
  * de caracteres.
+ * <p>F22: solo lo publicado deja fuera los procesos que nunca se publicaron, los elementos que solo estan en el
+ * borrador y los comentarios; de un elemento que esta en las dos, sale la fila de la version vigente.
  */
 @Service
 @RequiredArgsConstructor
@@ -72,6 +74,7 @@ public class BusquedaServiceImpl implements BusquedaService {
             , visibles as (
                 select p.id, p.version_publicada from procesos p
                 where p.empresa_id = :empresa and p.activo
+                  and (not :publicado or p.version_publicada is not null)
                   and (p.carpeta_id is null or p.carpeta_id <> all(cast(:carpetasOcultas as bigint[]))
                        or p.id = any(cast(:procesosVisibles as bigint[])))
                   and p.id <> all(cast(:procesosOcultos as bigint[]))
@@ -92,7 +95,7 @@ public class BusquedaServiceImpl implements BusquedaService {
                     join visibles v on v.id = i.proceso_id
                     cross join buscado b
                     where i.busqueda @@ b.consulta
-                      and (i.version_numero is null or i.version_numero = v.version_publicada)
+                      and (i.version_numero = v.version_publicada or (i.version_numero is null and not :publicado))
                       and coalesce(:tipo, 'ELEMENTO') = 'ELEMENTO'
                     order by i.proceso_id, i.bpmn_id, rango desc, i.version_numero nulls first
                 ) e
@@ -110,6 +113,7 @@ public class BusquedaServiceImpl implements BusquedaService {
                 join visibles v on v.id = c.proceso_id
                 cross join buscado b
                 where c.busqueda @@ b.consulta
+                  and not :publicado
                   and coalesce(:tipo, 'COMENTARIO') = 'COMENTARIO'
             )
             """;
@@ -192,7 +196,7 @@ public class BusquedaServiceImpl implements BusquedaService {
 
     @Override
     public PageResponse<ResultadoDeBusquedaResponse> buscar(Actor actor, String texto, TipoDeResultado tipo,
-            Pageable pagina) {
+            boolean soloPublicado, Pageable pagina) {
         String buscado = texto == null ? "" : texto.strip();
         if (buscado.isEmpty()) {
             return PageResponse.from(Page.empty(pagina));
@@ -205,6 +209,7 @@ public class BusquedaServiceImpl implements BusquedaService {
                 .addValue("carpetasOcultas", arreglo(visible.carpetasOcultas()))
                 .addValue("procesosVisibles", arreglo(visible.procesosVisibles()))
                 .addValue("procesosOcultos", arreglo(visible.procesosOcultos()))
+                .addValue("publicado", soloPublicado, Types.BOOLEAN)
                 .addValue("tamano", pagina.getPageSize())
                 .addValue("desde", pagina.getOffset());
         List<Acierto> aciertos = jdbc.query(PAGINA, parametros, ACIERTO);

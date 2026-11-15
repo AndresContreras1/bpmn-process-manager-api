@@ -1,4 +1,4 @@
-import { AsyncPipe } from '@angular/common';
+import { AsyncPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -30,6 +30,7 @@ import { Miga, migasDe } from './migas';
   selector: 'app-estructura',
   imports: [
     AsyncPipe,
+    NgTemplateOutlet,
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
