@@ -403,7 +403,7 @@
 						<param>com.facimus.procesos.common.condiciones.*</param>
 					</targetTests>
 					<threads>4</threads>
-					<!-- Medido el 2026-09-30: 1660 mutaciones, 1259 detectadas (76 %) y 91 % de las que las pruebas
+					<!-- Medido el 2026-11-11: 3274 mutaciones, 2984 detectadas (91 %) y 95 % de las que las pruebas
 					     alcanzan. Por debajo del 75 % la corrida falla: una regla nueva tiene que llegar con su prueba. -->
 					<mutationThreshold>75</mutationThreshold>
 					<timestampedReports>false</timestampedReports>

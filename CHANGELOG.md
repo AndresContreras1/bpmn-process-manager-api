@@ -133,6 +133,9 @@ tagged. Each pull request adds its line under *Unreleased*.
 - The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
   old SVG canvas and its element-by-element editor are gone; `/procesos/{id}/editar-diagrama` redirects to the modeler,
   which can publish.
+- Unit tests for the services that only the integration suites checked (second factor, external sign-in, sessions,
+  accounts, settings, the audit log, permissions, folders, BPMN import, autosave and live editing among them): the
+  nightly mutation run is back above its 75 % floor, with 2984 of 3274 mutations caught (91 %).
 - The web app has a design system: tokens in the DTCG format turned into Bootstrap's Sass variables and CSS
   variables, a green scale checked against WCAG AA, a dark mode, a shell with a sidebar, breadcrumbs and a search,
   shared components for loading, empty, errors, notices and statuses, and axe-core over every screen in the
