@@ -134,5 +134,11 @@ class ReglaDeRecursoTest {
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/notificaciones", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("POST", "/api/v1/notificaciones/{id}/leida", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/notificaciones/preferencias", null)).isEmpty();
+        // PR 66: la exportacion es de la tienda entera, no de un proceso: la decide la matriz de rutas, y bajarla, la
+        // firma de su enlace
+        assertThat(ReglaDeRecurso.de("POST", "/api/v1/organizacion/exportaciones", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/organizacion/exportaciones", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/organizacion/exportaciones/{id}", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/exportaciones/{id}", null)).isEmpty();
     }
 }
