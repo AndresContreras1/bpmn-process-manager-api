@@ -62,3 +62,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0069 | [Review and approval before publishing, and recertification](0069-review-and-approval.md) | Accepted |
 | 0070 | [Full-text search in PostgreSQL](0070-full-text-search.md) | Accepted |
 | 0071 | [Organization export and exit](0071-organization-export-and-exit.md) | Accepted |
+| 0073 | [The repository, the search and the permissions in the web](0073-repository-and-permissions-ui.md) | Accepted |

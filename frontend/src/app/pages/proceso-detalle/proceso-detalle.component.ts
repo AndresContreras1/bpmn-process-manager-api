@@ -6,12 +6,23 @@ import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { EMPTY, Observable, catchError, finalize, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
 
 import { ModalConfirmarComponent } from '../../components/modal-confirmar/modal-confirmar.component';
+import { MoverProcesoComponent } from '../../components/mover-proceso/mover-proceso.component';
 import { FichaRepositorioComponent } from './components/ficha-repositorio/ficha-repositorio.component';
-import { esConflictoDeVersion, mensajeDeError } from '../../helpers/errores-api';
+import { esConflictoDeVersion, mensajeDeError, mensajeDeLaApi } from '../../helpers/errores-api';
+import { Accion, BotonesDelProceso, botonesDelProceso } from '../../models/concesion.model';
 import { Diagrama } from '../../models/diagrama.model';
-import { EstadoProceso, NOMBRE_ESTADO, Proceso, ProcesoDetalle, cambioEnIngles } from '../../models/proceso.model';
+import {
+  AvisosAlAbrir,
+  EstadoProceso,
+  NOMBRE_ESTADO,
+  Proceso,
+  ProcesoDetalle,
+  avisosAlAbrir,
+  cambioEnIngles,
+} from '../../models/proceso.model';
 import { Version } from '../../models/version.model';
 import { AuthService } from '../../service/auth.service';
+import { ConcesionService } from '../../service/concesion.service';
 import { DiagramaService } from '../../service/diagrama.service';
 import { ProcesoService } from '../../service/proceso.service';
 import { VersionService } from '../../service/version.service';
@@ -19,6 +30,7 @@ import { DetalleNodo, MensajeDibujo, bpmnIdsDeNodos, detallarNodo, numerarMensaj
 import { ElementoElegido, LienzoBpmnComponent } from '../../bpmn/lienzo-bpmn.component';
 import { ModeloService } from '../../service/modelo.service';
 import { FechaPipe } from '../../pipes/fecha.pipe';
+import { environment } from '../../../environments/environment';
 
 /** Lo que la pagina pide al abrir un proceso: sus datos con el historial y su diagrama. */
 interface Carga {
@@ -26,6 +38,7 @@ interface Carga {
   diagrama: Diagrama | null;
   xml: string | null;
   versiones: Version[];
+  acciones: Accion[] | null;
 }
 
 /** Lo que contestan las tres peticiones antes de decidir si hay pagina que mostrar. */
@@ -34,6 +47,7 @@ interface Respuesta {
   diagrama: Diagrama | null;
   xml: string | null;
   versiones: Version[];
+  acciones: Accion[] | null;
 }
 
 /** Un proceso con sus datos, su diagrama y su historial de cambios, y las acciones que permite el rol del usuario. */
@@ -44,6 +58,7 @@ interface Respuesta {
     FormsModule,
     RouterLink,
     ModalConfirmarComponent,
+    MoverProcesoComponent,
     LienzoBpmnComponent,
     FichaRepositorioComponent,
   ],
@@ -57,14 +72,30 @@ export class ProcesoDetalleComponent implements OnInit {
   private readonly versionService: VersionService = inject(VersionService);
   private readonly modelos: ModeloService = inject(ModeloService);
   private readonly authService: AuthService = inject(AuthService);
+  private readonly concesionService: ConcesionService = inject(ConcesionService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
   private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   readonly nombreEstado: Record<EstadoProceso, string> = NOMBRE_ESTADO;
   readonly cambioEnIngles: (descripcion: string) => string = cambioEnIngles;
-  readonly puedeEditar: boolean = this.authService.puedeEditar();
   readonly esAdministrador: boolean = this.authService.esAdministrador();
+  private readonly rol = this.authService.usuarioActual()?.rolAcceso ?? null;
+
+  /**
+   * F19: los botones que van a funcionar, de lo que la API dice que esta persona puede hacer con este proceso
+   * (GET /procesos/{id}/permisos). La API sigue mandando: si algo cambio entretanto, responde 403 y se dice.
+   */
+  botones: BotonesDelProceso = botonesDelProceso(null, this.rol);
+  /** Abierto el dialogo de mover de carpeta. */
+  moviendo: boolean = false;
+  /** El bpmnId que trae la direccion, hasta que el diagrama llega y se elige. */
+  private elementoPedido: string | null = null;
+
+  /** El archivo BPMN como descarga: la API lo manda como adjunto con el nombre del proceso, y pide EXPORTAR. */
+  get enlaceBpmn(): string {
+    return `${environment.apiUrl}/api/v1/procesos/${this.detalle?.proceso.id}/modelo`;
+  }
 
   /** Un proceso de otra tienda no se toca, por mucho rol que se tenga en la propia. */
   get soloLectura(): boolean {
@@ -92,12 +123,14 @@ export class ProcesoDetalleComponent implements OnInit {
   aviso: string | null = null;
 
   ngOnInit(): void {
+    // Lo que trae la direccion se dice con la primera carga: antes, la carga limpia los mensajes y se lo llevaria
     const consulta: ParamMap = this.route.snapshot.queryParamMap;
-    if (consulta.has('creado')) {
-      this.aviso = $localize`Process created as a draft.`;
-    } else if (consulta.has('editado')) {
-      this.aviso = $localize`Changes saved.`;
-    }
+    let alAbrir: AvisosAlAbrir | null = avisosAlAbrir(consulta);
+    // F19: la busqueda global abre un proceso con el elemento que encontro (?elemento=), tambien desde otro proceso
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((parametros: ParamMap) => {
+      this.elementoPedido = parametros.get('elemento');
+      this.elegirElPedido();
+    });
     // Si el id de la ruta cambia, switchMap cancela la peticion anterior y carga el proceso nuevo
     this.route.paramMap
       .pipe(
@@ -106,6 +139,7 @@ export class ProcesoDetalleComponent implements OnInit {
           this.cargando = true;
           this.noEncontrado = false;
           this.error = null;
+          this.aviso = null;
         }),
         switchMap((id: number) =>
           this.cargar(id).pipe(
@@ -126,6 +160,12 @@ export class ProcesoDetalleComponent implements OnInit {
       .subscribe((carga: Carga) => {
         this.mostrar(carga);
         this.cargando = false;
+        if (alAbrir) {
+          this.error = alAbrir.error;
+          this.aviso = alAbrir.aviso;
+          alAbrir = null;
+        }
+        this.elegirElPedido();
       });
   }
 
@@ -153,7 +193,13 @@ export class ProcesoDetalleComponent implements OnInit {
       )
       .subscribe({
         next: ({ diagrama, xml }) =>
-          this.mostrar({ detalle: this.detalle as ProcesoDetalle, diagrama, xml, versiones: this.versiones }),
+          this.mostrar({
+            detalle: this.detalle as ProcesoDetalle,
+            diagrama,
+            xml,
+            versiones: this.versiones,
+            acciones: null,
+          }),
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
   }
@@ -169,10 +215,30 @@ export class ProcesoDetalleComponent implements OnInit {
     this.nodoElegido = nodo ? detallarNodo(diagrama, nodo[0], this.mensajes) : null;
   }
 
+  /**
+   * El elemento que pidio la direccion, elegido una vez, cuando llega un diagrama que lo tiene; despues lo elige la
+   * persona. Si la direccion cambia antes que el proceso, el diagrama de ahora no lo tiene y se espera al siguiente.
+   */
+  private elegirElPedido(): void {
+    const pedido = this.elementoPedido;
+    if (pedido && this.diagrama && !this.cargando) {
+      this.elegirNodo({ id: pedido, tipo: '', nombre: '' });
+      if (this.nodoElegido) {
+        this.elementoPedido = null;
+      }
+    }
+  }
+
   alGuardarFicha(proceso: Proceso): void {
     if (this.detalle) {
       this.detalle = { ...this.detalle, proceso };
     }
+  }
+
+  alMover(proceso: Proceso): void {
+    this.moviendo = false;
+    this.alGuardarFicha(proceso);
+    this.aviso = $localize`Moved to its new folder.`;
   }
 
   cerrarNodo(): void {
@@ -236,7 +302,7 @@ export class ProcesoDetalleComponent implements OnInit {
           this.mostrar(carga);
           this.aviso = $localize`Version ${numero} was retired. New cases will start on whatever is in force now.`;
         },
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
       });
   }
 
@@ -255,7 +321,7 @@ export class ProcesoDetalleComponent implements OnInit {
       )
       .subscribe({
         next: () => this.router.navigate(['/procesos'], { queryParams: { eliminado: 1 } }),
-        error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
+        error: (error: HttpErrorResponse) => (this.error = mensajeDeLaApi(error)),
       });
   }
 
@@ -265,7 +331,8 @@ export class ProcesoDetalleComponent implements OnInit {
    */
   private noSePudoPublicar(id: number, error: HttpErrorResponse): void {
     if (!esConflictoDeVersion(error)) {
-      this.error = mensajeDeError(error);
+      // Un 403 por una concesion que falta trae su propio motivo, que no es cuestion del rol
+      this.error = mensajeDeLaApi(error);
       return;
     }
     this.error = $localize`Someone saved a change before you, so the process was not published. This page now shows the latest version: check it and publish again.`;
@@ -282,6 +349,9 @@ export class ProcesoDetalleComponent implements OnInit {
     this.xml = carga.xml;
     this.mensajes = carga.diagrama ? numerarMensajes(carga.diagrama) : [];
     this.nodoElegido = null;
+    if (carga.acciones !== null) {
+      this.botones = botonesDelProceso(carga.acciones, this.rol);
+    }
   }
 
   /**
@@ -309,6 +379,8 @@ export class ProcesoDetalleComponent implements OnInit {
       ),
       // Una invitada no puede listar las versiones del proceso de otra tienda: sin lista, no hay selector
       versiones: this.versionService.listar(id).pipe(catchError(() => of([] as Version[]))),
+      // Sin la respuesta, los botones siguen al rol, como antes; una invitada no la recibe y no ve botones igual
+      acciones: this.concesionService.permisos(id).pipe(catchError(() => of(null))),
     }).pipe(
       switchMap((respuesta: Respuesta) => {
         // A una invitada la API solo le abre el diagrama: el detalle y el historial le responden 404. El
@@ -317,7 +389,13 @@ export class ProcesoDetalleComponent implements OnInit {
           respuesta.detalle ?? (respuesta.diagrama ? { proceso: respuesta.diagrama.proceso, historial: [] } : null);
         return detalle === null
           ? throwError(() => falloDelDetalle ?? new HttpErrorResponse({ status: 404 }))
-          : of({ detalle, diagrama: respuesta.diagrama, xml: respuesta.xml, versiones: respuesta.versiones });
+          : of({
+              detalle,
+              diagrama: respuesta.diagrama,
+              xml: respuesta.xml,
+              versiones: respuesta.versiones,
+              acciones: respuesta.acciones,
+            });
       }),
     );
   }

@@ -193,6 +193,35 @@ export const routes: Routes = [
       ],
     },
   },
+  // F19: quien puede hacer que con un proceso o una carpeta (PR 60)
+  {
+    path: 'procesos/:id/permisos',
+    loadComponent: () => import('./pages/permisos/permisos.component').then((modulo) => modulo.PermisosComponent),
+    canActivate: [authGuard],
+    title: $localize`Permissions · BPMN Process Manager`,
+    data: {
+      recurso: 'procesos',
+      migas: [
+        { etiqueta: $localize`Processes`, ruta: '/procesos' },
+        { etiqueta: $localize`Process`, ruta: '/procesos/:id' },
+        { etiqueta: $localize`Permissions` },
+      ],
+    },
+  },
+  {
+    path: 'carpetas/:id/permisos',
+    loadComponent: () => import('./pages/permisos/permisos.component').then((modulo) => modulo.PermisosComponent),
+    canActivate: [authGuard],
+    title: $localize`Folder permissions · BPMN Process Manager`,
+    data: {
+      recurso: 'carpetas',
+      migas: [
+        { etiqueta: $localize`Processes`, ruta: '/procesos' },
+        { etiqueta: $localize`Folder` },
+        { etiqueta: $localize`Permissions` },
+      ],
+    },
+  },
   {
     path: 'procesos/:id/modelar',
     loadComponent: () =>

@@ -59,7 +59,7 @@
 
       <!-- F20: la documentacion la leen todos los roles de la tienda; una invitada solo ve el diagrama -->
       @if (!soloLectura) {
-        <div class="d-flex flex-wrap gap-2">
+        <div class="d-flex flex-wrap gap-2" id="proceso-detalle-acciones">
           <a
             i18n
             class="btn btn-outline-secondary"
@@ -68,7 +68,7 @@
           >
             <i class="fa-solid fa-book-open" aria-hidden="true"></i> Documentation
           </a>
-          @if (puedeEditar) {
+          @if (botones.editar) {
             <a
               i18n
               class="btn btn-outline-secondary"
@@ -77,6 +77,8 @@
             >
               <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
             </a>
+          }
+          @if (botones.modelar) {
             <a
               i18n
               class="btn btn-outline-primary"
@@ -85,48 +87,78 @@
             >
               <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Model
             </a>
-            @if (detalle.proceso.estado === 'BORRADOR') {
-              <button
-                i18n
-                type="button"
-                class="btn btn-success"
-                id="proceso-detalle-publicar"
-                [disabled]="enviando"
-                data-bs-toggle="modal"
-                data-bs-target="#modal-publicar"
-              >
-                <i class="fa-solid fa-rocket" aria-hidden="true"></i> Publish
-              </button>
-            }
-            @if (esAdministrador) {
-              <a
-                i18n
-                class="btn btn-outline-secondary"
-                [routerLink]="['/procesos', detalle.proceso.id, 'comparar']"
-                id="proceso-detalle-comparar"
-              >
-                <i class="fa-solid fa-code-compare" aria-hidden="true"></i> Compare
-              </a>
-              <a
-                i18n
-                class="btn btn-outline-secondary"
-                [routerLink]="['/procesos', detalle.proceso.id, 'compartir']"
-                id="proceso-detalle-compartir"
-              >
-                <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Share
-              </a>
-              <button
-                i18n
-                type="button"
-                class="btn btn-outline-danger"
-                id="proceso-detalle-eliminar"
-                [disabled]="enviando"
-                data-bs-toggle="modal"
-                data-bs-target="#modal-eliminar"
-              >
-                <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete
-              </button>
-            }
+          }
+          @if (botones.publicar && detalle.proceso.estado === 'BORRADOR') {
+            <button
+              i18n
+              type="button"
+              class="btn btn-success"
+              id="proceso-detalle-publicar"
+              [disabled]="enviando"
+              data-bs-toggle="modal"
+              data-bs-target="#modal-publicar"
+            >
+              <i class="fa-solid fa-rocket" aria-hidden="true"></i> Publish
+            </button>
+          }
+          @if (botones.editar) {
+            <button
+              i18n
+              type="button"
+              class="btn btn-outline-secondary"
+              id="proceso-detalle-mover"
+              (click)="moviendo = true"
+            >
+              <i class="fa-solid fa-folder-tree" aria-hidden="true"></i> Move
+            </button>
+          }
+          @if (botones.exportar) {
+            <a i18n class="btn btn-outline-secondary" [href]="enlaceBpmn" download id="proceso-detalle-exportar">
+              <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> BPMN file
+            </a>
+          }
+          @if (esAdministrador) {
+            <a
+              i18n
+              class="btn btn-outline-secondary"
+              [routerLink]="['/procesos', detalle.proceso.id, 'comparar']"
+              id="proceso-detalle-comparar"
+            >
+              <i class="fa-solid fa-code-compare" aria-hidden="true"></i> Compare
+            </a>
+          }
+          @if (botones.permisos) {
+            <a
+              i18n
+              class="btn btn-outline-secondary"
+              [routerLink]="['/procesos', detalle.proceso.id, 'permisos']"
+              id="proceso-detalle-permisos"
+            >
+              <i class="fa-solid fa-user-lock" aria-hidden="true"></i> Permissions
+            </a>
+          }
+          @if (botones.compartir) {
+            <a
+              i18n
+              class="btn btn-outline-secondary"
+              [routerLink]="['/procesos', detalle.proceso.id, 'compartir']"
+              id="proceso-detalle-compartir"
+            >
+              <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Share
+            </a>
+          }
+          @if (botones.eliminar) {
+            <button
+              i18n
+              type="button"
+              class="btn btn-outline-danger"
+              id="proceso-detalle-eliminar"
+              [disabled]="enviando"
+              data-bs-toggle="modal"
+              data-bs-target="#modal-eliminar"
+            >
+              <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete
+            </button>
           }
         </div>
       }
@@ -425,7 +457,11 @@
 
       @if (!diagrama?.compartido) {
         <div class="col-12">
-          <app-ficha-repositorio [proceso]="detalle.proceso" (guardado)="alGuardarFicha($event)" />
+          <app-ficha-repositorio
+            [proceso]="detalle.proceso"
+            [puedeArchivar]="botones.editar"
+            (guardado)="alGuardarFicha($event)"
+          />
         </div>
       }
 
@@ -466,6 +502,7 @@
 </div>
 
 <app-modal-confirmar
+  i18n-textoBoton
   i18n-titulo
   idModal="modal-publicar"
   titulo="Publish this process?"
@@ -476,6 +513,7 @@
 />
 
 <app-modal-confirmar
+  i18n-textoBoton
   i18n-titulo
   i18n-mensaje
   idModal="modal-retirar"
@@ -489,6 +527,7 @@
 />
 
 <app-modal-confirmar
+  i18n-textoBoton
   i18n-titulo
   idModal="modal-eliminar"
   titulo="Delete this process?"
@@ -498,3 +537,7 @@
   i18n-mensaje
   (confirmar)="eliminar()"
 />
+
+@if (moviendo && detalle) {
+  <app-mover-proceso [proceso]="detalle.proceso" (movido)="alMover($event)" (cerrar)="moviendo = false" />
+}
