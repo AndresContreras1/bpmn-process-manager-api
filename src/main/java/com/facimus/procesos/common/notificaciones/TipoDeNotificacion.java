@@ -52,7 +52,7 @@ public enum TipoDeNotificacion {
             this.parametro = parametro;
         }
 
-        /** El parametro del enlace; vacio si la notificacion solo senala el proceso. */
+        /** El parametro del enlace dentro del proceso; null para un caso, que tiene su pagina, y para NINGUNA. */
         public String parametro() {
             return parametro;
         }

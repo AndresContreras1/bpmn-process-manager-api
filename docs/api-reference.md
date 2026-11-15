@@ -219,7 +219,7 @@ notification that only they see; another's answers `404`.
 
 | Route | Answers |
 |---|---|
-| `GET /api/v1/notificaciones?noLeidas=true&pagina=0&tamano=20` | A page, newest first and up to 50: `tipo`, `procesoId` and `proceso`, `referenciaId` (the comment), `autor`, `creadaEn`, `leidaEn` |
+| `GET /api/v1/notificaciones?noLeidas=true&pagina=0&tamano=20` | A page, newest first and up to 50: `tipo`, `procesoId` and `proceso`, `referenciaId` (the comment, the review request, or the case for a deadline or an escalation; empty for a review date), `autor` (empty when the system sent it), `creadaEn`, `leidaEn` |
 | `GET /api/v1/notificaciones/conteo` | `{ "noLeidas": 3 }` |
 | `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` | The notification read · the count, now `0` |
 | `GET /api/v1/notificaciones/flujo` | Server-sent events: `conteo` when it opens and whenever it changes, `notificacion` with each new one, and a heartbeat every 25 seconds; at most five per person on each instance (`429`) |
@@ -588,8 +588,6 @@ curl -s -X PUT http://localhost:8080/api/v1/eventos/15/escalamiento -b sesion.tx
 
 How deadlines are counted and why they are not timers is in
 [ADR-0078](adr/0078-deadlines-and-escalation.md).
-
-```
 
 ## Permissions
 

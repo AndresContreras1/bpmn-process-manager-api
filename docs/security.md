@@ -646,7 +646,6 @@ What PR 71 adds, against the checklist every resource goes through ([ADR-0078](a
   import with a note, and `REASIGNAR` on a boundary of an activity that is not a user task becomes `AVISAR`, with a
   note, as the API would require.
 
-
 ## Rate limiting
 
 Every request that changes something spends a token of a bucket (Bucket4j) before it reaches anything. Each bucket

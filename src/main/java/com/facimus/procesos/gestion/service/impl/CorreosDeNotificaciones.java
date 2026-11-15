@@ -145,7 +145,7 @@ public class CorreosDeNotificaciones implements ManejadorDeTrabajo {
      * caso no va dentro del proceso, tiene su pagina.
      */
     private String enlace(String idioma, Notificacion notificacion) {
-        if (notificacion.getTipo().referencia() == Referencia.CASO) {
+        if (notificacion.getTipo().referencia() == Referencia.CASO && notificacion.getReferenciaId() != null) {
             return web + "/" + idioma + "/casos/" + notificacion.getReferenciaId();
         }
         String enlace = web + "/" + idioma + "/procesos/" + notificacion.getProcesoId();
