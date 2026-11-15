@@ -40,6 +40,7 @@ public class LimitesDePeticiones {
             @Value("${limites.registro-por-hora}") long registro,
             @Value("${limites.correo-por-hora}") long correo,
             @Value("${limites.escritura-por-minuto}") long escritura,
+            @Value("${limites.busqueda-por-minuto}") long busqueda,
             @Value("${limites.exportacion-por-dia}") long exportacion) {
         this.activos = activos;
         this.cubos = Bucket4jPostgreSQL.selectForUpdateBasedBuilder(dataSource)
@@ -54,6 +55,7 @@ public class LimitesDePeticiones {
         configuraciones.put(ClaseDeLimite.REGISTRO, cubo(registro, Duration.ofHours(1)));
         configuraciones.put(ClaseDeLimite.CORREO, cubo(correo, Duration.ofHours(1)));
         configuraciones.put(ClaseDeLimite.ESCRITURA, cubo(escritura, Duration.ofMinutes(1)));
+        configuraciones.put(ClaseDeLimite.BUSQUEDA, cubo(busqueda, Duration.ofMinutes(1)));
         configuraciones.put(ClaseDeLimite.EXPORTACION, cubo(exportacion, Duration.ofDays(1)));
     }
 

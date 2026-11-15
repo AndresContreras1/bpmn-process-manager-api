@@ -101,7 +101,8 @@
 - [x] Publishing with approval as an option per store: a request freezes the draft, shows the difference against the
       version in force and is approved, sent back or rejected by N people of a list or a role, never the requester;
       the last approval publishes the frozen version if it still can. Recertification of each process by its owner
-- [ ] Full-text search
+- [x] Full-text search over processes, elements of the draft and of the published version, documents with the text
+      read from the file, and comments, in the store's language and filtered by what each person can view
 
 **Running processes**
 - [x] Cases that run a published version: tokens as steps, the tray of tasks by process role, and the timeline

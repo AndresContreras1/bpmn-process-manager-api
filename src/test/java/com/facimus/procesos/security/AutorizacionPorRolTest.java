@@ -271,6 +271,11 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | POST   | /api/v1/solicitudes/{id}/retirar      | 403
             SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/recertificacion | 404
 
+            # PR 65: cualquier rol busca; encuentra solo lo que puede ver
+            ADMINISTRADOR | GET    | /api/v1/busqueda?q=pedido             | 200
+            EDITOR        | GET    | /api/v1/busqueda?q=pedido             | 200
+            SOLO_LECTURA  | GET    | /api/v1/busqueda?q=pedido             | 200
+
             # PR 66: la exportacion completa es del administrador, y pedirla pide ademas una verificacion reciente
             # (el login de esta prueba lo es: el pedido de verdad se prueba en ExportacionIntegracionTest). Bajarla
             # con el enlace no pide sesion: un enlace inventado no existe.

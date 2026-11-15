@@ -12,7 +12,7 @@ entries in Spanish.
 | `Proceso` | Process | Store | Name, description, category, state (`BORRADOR` or `PUBLICADO`), mode (`EJECUTABLE` or `DOCUMENTAL`), and its filing: folder, owner, next review, classification (`INTERNA`, `CONFIDENCIAL` or `RESTRINGIDA`) and tags; how many months confirming it is still valid moves the next review (12 by default), and the review dates its owner was already told about |
 | `Carpeta` | Folder | Store | Name and parent folder; sisters do not share a name, and the tree has at most eight levels |
 | `Documento` | Document | Process | The element it is attached to (`bpmnId`, or none for the whole process), the name of its latest version and which one it is |
-| `VersionDocumento` | Document version | Document | Number, cleaned name, type detected from the content, size, SHA-256, storage key, state (`PENDIENTE`, `DISPONIBLE` or `BLOQUEADO`) with its reason, and whether an antivirus reviewed it |
+| `VersionDocumento` | Document version | Document | Number, cleaned name, type detected from the content, size, SHA-256, storage key, state (`PENDIENTE`, `DISPONIBLE` or `BLOQUEADO`) with its reason, whether an antivirus reviewed it, and when its text was read for the search |
 | `Documentacion` | Documentation | Process | The element it documents (`bpmnId`, or none for the whole process), its Markdown and the cleaned HTML |
 | `Caracterizacion` | Characterization sheet | Process | Objective, scope, inputs, outputs, suppliers, customers, indicators, risks and regulation |
 | `Manual` | Process manual | Process | The published version it describes, its language, state (`PENDIENTE`, `DISPONIBLE` or `FALLIDO`) with its reason, and where its HTML and PDF are |
@@ -64,6 +64,13 @@ Publishing with approval lives in `politicas_publicacion`, `solicitudes_publicac
 by a partial unique index) and `aprobaciones` (one per person and request); a request keeps its own copy of the
 snapshot it will publish, so pruning old draft revisions does not touch it
 ([ADR-0069](adr/0069-review-and-approval.md)).
+
+What is searched keeps a `tsvector` in the store's language with a GIN index: `procesos.busqueda`,
+`comentarios.busqueda`, `versiones_documento.busqueda` (with the text the job queue read from the file in
+`versiones_documento.texto`) and `elementos_buscables`, one row per element of the draft and of the published
+version with its name, its detail and its documentation. Triggers write them in the transaction of each change; a
+change of the store's language is the exception, rebuilt by a queued job in short id ranges. Nothing else writes
+`elementos_buscables` ([ADR-0070](adr/0070-full-text-search.md)).
 
 Each full export of a store is a row of `exportaciones`: a partial unique index keeps one `PENDIENTE` per store, and an
 expired one keeps its row and its SHA-256 after its ZIP is deleted

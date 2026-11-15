@@ -14,6 +14,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 import com.facimus.procesos.common.api.Problemas;
 import com.facimus.procesos.common.security.ApiPrincipal;
@@ -39,6 +40,9 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
             "/api/v1/auth/segundo-factor/verificacion/passkey", "/api/v1/auth/reautenticacion/passkey");
 
     private static final String REGISTRO = "/api/v1/empresas";
+
+    /** PR 65: la unica lectura que gasta de un cubo, el de buscar de cada persona. */
+    private static final String BUSQUEDA = "/api/v1/busqueda";
 
     /** PR 54: las rutas que reciben un archivo BPMN, que tienen su propio tope, el mismo que lee SecureXml. */
     private static final Pattern RUTAS_BPMN = Pattern
@@ -73,19 +77,20 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return SIN_EFECTOS.contains(request.getMethod()) || !request.getRequestURI().startsWith("/api/");
+        String ruta = ruta(request);
+        return !ruta.startsWith("/api/") || SIN_EFECTOS.contains(request.getMethod()) && !esBusqueda(request, ruta);
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        long tope = tope(request.getRequestURI());
+        String ruta = ruta(request);
+        long tope = tope(ruta);
         if (request.getContentLengthLong() > tope) {
             responder(request, response, HttpStatus.CONTENT_TOO_LARGE, "Cuerpo demasiado grande",
                     "La petición no puede superar " + (tope / 1024) + " KB.", null);
             return;
         }
-        String ruta = request.getRequestURI();
         String ip = request.getRemoteAddr();
         Optional<Duration> espera = clase(request, ruta).flatMap(clase -> limites.gastar(clase,
                 porPersona(clase) ? "usuario:" + usuario().orElseThrow() : "ip:" + ip));
@@ -103,6 +108,15 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * La ruta como la compara Spring MVC al elegir el controller: decodificada y sin parametros de ruta. Comparar la
+     * URI tal como llega dejaria pasar {@code /api/v1/busqued%61} o {@code /api/v1/auth/logi%6E} sin gastar de su cubo,
+     * y llegarian al mismo controller.
+     */
+    private static String ruta(HttpServletRequest request) {
+        return UrlPathHelper.defaultInstance.getPathWithinApplication(request);
+    }
+
     private long tope(String ruta) {
         if (RUTAS_BPMN.matcher(ruta).matches()) {
             return cuerpoMaximoBpmn;
@@ -110,8 +124,15 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         return RUTAS_DOCUMENTOS.matcher(ruta).matches() ? cuerpoMaximoDocumento : cuerpoMaximo;
     }
 
+    private static boolean esBusqueda(HttpServletRequest request, String ruta) {
+        return "GET".equals(request.getMethod()) && BUSQUEDA.equals(ruta);
+    }
+
     /** De que cubo gasta. Lo que cambia algo sin sesion no cuenta por persona: la autorizacion lo va a rechazar. */
     private static Optional<ClaseDeLimite> clase(HttpServletRequest request, String ruta) {
+        if (esBusqueda(request, ruta)) {
+            return usuario().map(id -> ClaseDeLimite.BUSQUEDA);
+        }
         boolean esPost = "POST".equals(request.getMethod());
         if (esPost && AUTENTICACION.contains(ruta)) {
             return Optional.of(ClaseDeLimite.AUTENTICACION);
@@ -133,7 +154,8 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
 
     /** Lo que cuenta por persona y no por direccion: lo que solo se pide con sesion. */
     private static boolean porPersona(ClaseDeLimite clase) {
-        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.EXPORTACION;
+        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.BUSQUEDA
+                || clase == ClaseDeLimite.EXPORTACION;
     }
 
     private static Optional<Long> usuario() {

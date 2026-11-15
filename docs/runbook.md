@@ -176,9 +176,10 @@ SHA-256 is the one the store's audit trail kept: `select detalle from bitacora w
 accion = 'TIENDA_BORRADA'`. Send them the file; it names nobody
 ([Export format](export-format.md#the-deletion-certificate)).
 
-**Someone gets `429` while working.** The rate limits count changes per person and signing in per address
-([Rate limiting](security.md#rate-limiting)). An office behind one address shares the bucket of signing in: raise
-`LIMITE_AUTENTICACION_POR_MINUTO` in `.env` and recreate the API. A bucket fills again on its own; to empty one at
+**Someone gets `429` while working.** The rate limits count changes and searches per person and signing in per
+address ([Rate limiting](security.md#rate-limiting)). An office behind one address shares the bucket of signing in:
+raise `LIMITE_AUTENTICACION_POR_MINUTO` in `.env` and recreate the API; someone who searches a lot needs
+`LIMITE_BUSQUEDA_POR_MINUTO`. A bucket fills again on its own; to empty one at
 once, `DELETE FROM cubos_de_peticiones WHERE id LIKE 'autenticacion:ip:<address>'`.
 
 **The database password leaked.** Change it in PostgreSQL (`ALTER ROLE procesos PASSWORD '...'`), then in `.env`, and

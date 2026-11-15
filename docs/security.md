@@ -29,6 +29,7 @@
 | Choose how the store publishes: directly or with approval | ✓ | — | — |
 | Ask for a review, approve, ask for changes, reject and withdraw one's own request | ✓ | ✓ | — |
 | Confirm a process one owns is still valid | ✓ | ✓ | ✓ |
+| Search the store, finding only what one can view | ✓ | ✓ | ✓ |
 | Export the whole store and close it | ✓ | — | — |
 
 Participants and lanes are the one row the store decides: with the setting `politicaEstructura` on
@@ -406,6 +407,44 @@ Publishing with approval is a layer over the versions, and it cannot be skipped
 - **Recertification.** Only the owner of a process, whatever their role, or whoever can administer it confirms it; the
   daily warning runs as the system and each job reads and writes only its store.
 
+## Search
+
+The search finds only what the person could open anyway, and never returns markup
+([ADR-0070](adr/0070-full-text-search.md)):
+
+- **Isolation.** Every table it reads has row-level security, `elementos_buscables` included (V56); the query also
+  filters by the store of the session, so another store's process, element, document or comment is never a hit, and
+  there is no id in the route to try another store's.
+- **Permissions in the same query.** `GET /api/v1/busqueda` is open to every role in the route matrix and has no rule
+  in the resource filter, since it names no resource. The service asks `Permisos.visibilidad` once, as the process
+  list does, and the query keeps only active processes the person can `VER` and what hangs from them: a person
+  without `VER` on a folder finds none of its processes, elements, documents or comments.
+- **Read-only.** Both queries only read; the vectors are written by triggers in the transaction of each change.
+- **The query is data.** It goes through `websearch_to_tsquery`, which has no syntax errors to provoke, never through
+  `to_tsquery`; it is a bound parameter, at most 200 characters (`400`), and the page is at most 50.
+- **The fragment is plain text.** `ts_headline` marks the matches with two private-use characters removed from the text
+  beforehand, and the answer splits the fragment by them into `{texto, resaltado}` segments. Its own output keeps
+  things like `<img src=x onerror=...>` as written, which is why it is never treated as HTML.
+- **Text of uploaded files** is read in the job queue only after the antivirus clears the version, with the parser of
+  the type detected on upload, without OCR or embedded documents, up to 1,000,000 characters and 30 seconds per file
+  (counted from when it takes one of two reading slots). A PDF keeps at most 32 MB of what it decompresses in memory;
+  the rest goes to PDFBox's scratch files in the JVM's temporary folder (`java.io.tmpdir`), not in
+  `ARCHIVOS_TEMPORALES`, because Tika gives no way to choose their folder. PDFBox names them at random and deletes them
+  when the document closes, and in the container that folder is the API's own in-memory `/tmp`, which nothing else
+  writes to. When time is up the reading thread is interrupted; if it has not let go of the file 5 seconds later, it is
+  counted as stuck, logged as a warning, and its slot is given back, up to 8 stuck threads at once, so a few files
+  crafted to hang a parser cannot stop every later document from being read. A file that finds no free slot is not
+  marked as read: its job is postponed without spending an attempt. Tika and POI read the XML inside Office and
+  OpenOffice files with their own hardened readers (no DTDs, no external entities): those parsers are the one place XML
+  is not read through `SecureXml`. A file that cannot be read is found by its name only.
+- **Audit, rate limit and quota.** A search changes nothing, so it is not in the audit trail. It is the only read that
+  spends from a bucket, `BUSQUEDA` (60 a minute per person), since each one ranks and highlights text in the database;
+  the 30-second statement timeout of the API's role bounds a single one, and the fragment of a document, or of a
+  process's or element's documentation, comes from its first 20,000 characters. The extracted text counts in no
+  quota, since the file it comes from already did.
+- **Changing the store's language** queues a job that rebuilds the vectors in short transactions, so a store with a
+  lot of document text never makes that request pass the statement timeout.
+
 ## Organization export
 
 The full export of a store carries everything in it, so who gets it and how is narrow
@@ -452,11 +491,14 @@ same token.
 | Registration | Registering a store | Address | 10 an hour |
 | E-mail | Verifying the e-mail, recovering the password and inviting | Address | 20 an hour |
 | Changes | Every other `POST`, `PUT`, `PATCH` and `DELETE` | Person | 600 a minute |
+| Search | `GET /api/v1/busqueda` | Person | 60 a minute |
 | Exports | Asking for a full export of the store (`LIMITE_EXPORTACION_POR_DIA`) | Person | 10 a day |
 
-Reading spends nothing. An empty bucket answers `429` with the title "Demasiadas peticiones" and `Retry-After` in
-seconds. The limit of failed logins per e-mail still applies on top of the one per address. The AI review keeps
-its own limit per store, which is what it costs.
+Reading spends nothing, except the search. A route is matched on its decoded path, the same one Spring MVC uses to
+pick the controller, so a percent-encoded letter (`/api/v1/busqued%61`) still spends from its bucket. An empty bucket
+answers `429` with the title "Demasiadas peticiones" and `Retry-After` in seconds. The limit of failed logins per
+e-mail still applies on top of the one per address. The AI review keeps its own limit per store, which is what it
+costs.
 
 A body over 1 MB answers `413` before it is read, and NGINX cuts at the same size in front of the API. When
 `TURNSTILE_SECRET` is set, registering a store asks for Cloudflare Turnstile: the web app sends what the widget gave

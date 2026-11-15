@@ -157,6 +157,8 @@ class ReglaDeRecursoTest {
         // PR 64: la bandeja de solicitudes la filtra su servicio, y la politica es de la tienda
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/solicitudes", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/empresas/actual/politica-de-publicacion", null)).isEmpty();
+        // PR 65: la busqueda no tiene recurso: su servicio filtra lo que cada quien puede ver, en la misma consulta
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/busqueda", null)).isEmpty();
         // PR 66: la exportacion es de la tienda entera, no de un proceso: la decide la matriz de rutas, y bajarla, la
         // firma de su enlace
         assertThat(ReglaDeRecurso.de("POST", "/api/v1/organizacion/exportaciones", null)).isEmpty();
