@@ -24,6 +24,7 @@ import com.facimus.procesos.modelado.model.TipoTemporizador;
 import com.facimus.procesos.modelado.service.DiagramaArmado;
 
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * La huella es lo que decide si un borrador tiene algo sin publicar y si una publicacion nueva vale la pena. Tiene
@@ -227,6 +228,47 @@ class HuellaDelDiagramaTest {
 
         assertThat(huella(borrador.conProceso(borrador.proceso().publicadoComo(1), false)))
                 .isEqualTo(huella(borrador));
+    }
+
+    @Test
+    @DisplayName("PR 67: la definicion guardada de una version da otra vez la huella con que se publico")
+    void definicionGuardada_mismaHuella() {
+        InstantaneaDelDiagrama instantanea = new InstantaneaDelDiagrama(null, null, null, JSON);
+        DiagramaArmado completo = DiagramaArmado.demo();
+        completo.modo(ModoProceso.DOCUMENTAL);
+        String nota = completo.artefacto(null, null, "Nota", TipoArtefacto.ANOTACION, "Hello");
+        completo.asociacion(TipoAsociacion.ASOCIACION, nota, "Activity_1", DireccionAsociacion.NINGUNA);
+        completo.temporizador(DiagramaArmado.VENTAS, "Wait", TipoEvento.TEMPORIZADOR_INTERMEDIO,
+                TipoTemporizador.DURACION, "PT2H", null);
+
+        for (DiagramaResponse diagrama : List.of(DiagramaArmado.demo().diagrama(), completo.diagrama())) {
+            assertThat(instantanea.huellaDe(JSON.writeValueAsString(diagrama))).isEqualTo(huella(diagrama));
+        }
+    }
+
+    @Test
+    @DisplayName("PR 67: una definicion cambiada despues de publicarse ya no da su huella")
+    void definicionCambiada_otraHuella() {
+        InstantaneaDelDiagrama instantanea = new InstantaneaDelDiagrama(null, null, null, JSON);
+        DiagramaResponse diagrama = DiagramaArmado.demo().diagrama();
+        String nombre = diagrama.actividades().getFirst().nombre();
+        String guardada = JSON.writeValueAsString(diagrama);
+
+        assertThat(instantanea.huellaDe(guardada.replace("\"" + nombre + "\"", "\"Otro nombre\"")))
+                .isNotEqualTo(huella(diagrama));
+    }
+
+    @Test
+    @DisplayName("PR 67: una instantanea de antes del PR 55, sin modo, artefactos ni asociaciones, da la de entonces")
+    void instantaneaVieja_suHuella() {
+        InstantaneaDelDiagrama instantanea = new InstantaneaDelDiagrama(null, null, null, JSON);
+        DiagramaResponse diagrama = DiagramaArmado.demo().diagrama();
+        ObjectNode vieja = (ObjectNode) JSON.valueToTree(diagrama);
+        vieja.remove("artefactos");
+        vieja.remove("asociaciones");
+        ((ObjectNode) vieja.get("proceso")).remove("modo");
+
+        assertThat(instantanea.huellaDe(JSON.writeValueAsString(vieja))).isEqualTo(huella(diagrama));
     }
 
     private static String huella(DiagramaResponse diagrama) {

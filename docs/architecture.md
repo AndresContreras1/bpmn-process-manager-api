@@ -8,7 +8,7 @@
 |---|---|
 | Language | Java 25 (virtual threads, AOT cache) |
 | Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Security 7) |
-| Persistence | Hibernate 7.4 · Flyway 12 · PostgreSQL 16 everywhere: `dev` through Docker Compose, the tests through Testcontainers |
+| Persistence | Hibernate 7.4 · Flyway 12 · PostgreSQL 16 everywhere: `dev` through Docker Compose, the tests through Testcontainers · pgBackRest for the WAL archive and the backups ([Backup and recovery](runbook.md#backup-and-recovery)) |
 | Files | AWS SDK v2 for S3 or a compatible service (SeaweedFS in `compose.yaml`) · Apache Tika's type detection · ClamAV through clamd |
 | Security | Spring Security `AuthenticationManager` · JWT (jjwt 0.12.6, HS256) · BCrypt · SHA-256-hashed refresh tokens |
 | API documentation | springdoc-openapi 3 (OpenAPI 3 and Swagger UI) |

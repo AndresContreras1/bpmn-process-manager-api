@@ -40,4 +40,13 @@ public class InstantaneaDelDiagrama implements InstantaneaDelModelo {
         return new Instantanea(json.writeValueAsString(diagrama), Huella.de(DiagramaCanonico.de(diagrama, json)),
                 new String(bpmn, StandardCharsets.UTF_8));
     }
+
+    /**
+     * PR 67: la definicion se lee como la lee quien responde una version publicada, con lo que una instantanea vieja
+     * no trae puesto por defecto, y pasa por la misma forma canonica que al publicar.
+     */
+    @Override
+    public String huellaDe(String definicion) {
+        return Huella.de(DiagramaCanonico.de(json.readValue(definicion, DiagramaResponse.class), json));
+    }
 }

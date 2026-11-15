@@ -52,6 +52,7 @@ public class AlmacenConfig {
             @Value("${almacen.s3.usuario:}") String usuario, @Value("${almacen.s3.clave:}") String clave,
             @Value("${almacen.s3.cifrar:false}") boolean cifrar,
             @Value("${almacen.s3.crear-buckets:false}") boolean crearBuckets,
+            @Value("${almacen.s3.dias-de-versiones:35}") int diasDeVersiones,
             @Value("${almacen.directorio}") String directorio) {
         if (!StringUtils.hasText(bucket)) {
             AlmacenEnDisco disco = new AlmacenEnDisco(Path.of(directorio));
@@ -71,7 +72,7 @@ public class AlmacenConfig {
                 : DefaultCredentialsProvider.builder().build());
         AlmacenS3 s3 = new AlmacenS3(cliente.build(), bucket, bucketDeAnclas, cifrar);
         if (crearBuckets) {
-            s3.crearBucketsQueFalten();
+            s3.prepararBuckets(diasDeVersiones);
         }
         if (log.isInfoEnabled()) {
             log.info("Almacen de documentos: {}", s3.descripcion());

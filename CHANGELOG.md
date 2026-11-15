@@ -8,6 +8,16 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Backups with pgBackRest: PostgreSQL archives every WAL segment within a minute, and a `respaldo` service takes a
+  full backup every Sunday and a differential every other day, into a bucket with Object Lock in compliance mode, every
+  file encrypted with `RESPALDO_CLAVE`. After each backup the rows of every table are counted and a restore point is
+  left at that instant. The database runs as `postgres`, read-only and without capabilities, from an image of its own
+  that Trivy scans.
+- The restore drill, `ops/respaldo/simulacro.sh`, and a monthly workflow that runs it: the last backup is restored
+  into an empty container, its rows are compared with the count, and the API, started with `RESPALDO_VERIFICAR=true`,
+  verifies every audit trail against its anchor and every published version against its fingerprint. It prints the
+  RPO and the RTO it measured.
+- The documents' bucket keeps every version for 35 days (`ALMACEN_S3_DIAS_DE_VERSIONES`) when the API prepares it.
 - A read-only portal of what is published, in the web: `/portal` lists the published processes of a folder beside
   the folder tree, or what the search finds among what is published (`GET /api/v1/busqueda?publicado=true`: processes
   with a version in force, the elements of that version and their documents, without comments), with the folder, the

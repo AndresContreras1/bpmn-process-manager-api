@@ -67,8 +67,9 @@ updates:
   # A major version of a base image is a decision, not an update: the Java and Node lines follow their long-term
   # support releases and what the framework supports, and a new major of PostgreSQL needs its data upgraded. Those
   # come in a pull request of their own that says why; Dependabot keeps the rebuilds and the minor releases.
+  # PR 67: the database image, PostgreSQL with pgBackRest, is one of them (ops/respaldo).
   - package-ecosystem: docker
-    directories: ["/", "/frontend"]
+    directories: ["/", "/frontend", "/ops/respaldo"]
     schedule:
       interval: weekly
       day: monday

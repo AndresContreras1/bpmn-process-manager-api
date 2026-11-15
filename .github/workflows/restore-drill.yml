@@ -1,0 +1,98 @@
+name: Restore Drill
+
+# PR 67: the whole way back from a backup, once a month. The stack runs as compose.yaml declares it, the order peak
+# writes real data through the API, a differential backup is taken, and ops/respaldo/simulacro.sh restores it into an
+# empty container and checks it: the rows of every table, the audit trail of every store against its anchor, and the
+# fingerprint of every published version. A backup that does not restore fails this workflow, not the day it is needed.
+on:
+  schedule:
+    # The 3rd of every month at 04:17 UTC, on main.
+    - cron: '17 4 3 * *'
+  # Any branch, by hand, from the Actions tab.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restore-drill-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    name: Backup, Restore & Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        # With pipefail: the drill's output goes through tee, and its exit code still decides the step.
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The backup scripts pass ShellCheck
+        run: shellcheck --shell=sh ops/respaldo/*.sh
+
+      - name: Bring up the database, the storage, the backups and the API
+        run: |
+          cp .env.example .env
+          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ci-only-password/" .env
+          sed -i "s/^JWT_SECRET=.*/JWT_SECRET=ci-only-signing-key-with-at-least-32-characters/" .env
+          sed -i "s/^MFA_CLAVE_DE_CIFRADO=.*/MFA_CLAVE_DE_CIFRADO=ci-only-encryption-key-with-at-least-32-characters/" .env
+          sed -i "s/^ALMACEN_S3_CLAVE=.*/ALMACEN_S3_CLAVE=ci-only-storage-key-with-at-least-32-characters/" .env
+          sed -i "s/^RESPALDO_CLAVE=.*/RESPALDO_CLAVE=ci-only-backup-passphrase-with-at-least-32-characters/" .env
+          sed -i "s/^API_PORT=.*/API_PORT=8081/" .env
+          sed -i "s/^LIMITE_ESCRITURA_POR_MINUTO=.*/LIMITE_ESCRITURA_POR_MINUTO=1000000/" .env
+          # --wait returns when every one is healthy; the backup service is healthy once its first full backup is in
+          # the repository.
+          docker compose up -d --build --wait db almacen respaldo api
+
+      - name: Write through the API
+        run: |
+          # The order peak registers a store, publishes a process and runs cases: versions, audit entries, trays,
+          # jobs and the tables behind them, written the way the product writes them.
+          docker run --rm -i --network host -e BASE_URL=http://localhost:8081 \
+            grafana/k6:0.54.0@sha256:1f40432b1cbe7234e977f96c362c9bc550a2d2b583d014dd8669fe40d3e9e755 run - < k6/pico-de-pedidos.js
+
+      - name: Take a differential backup
+        run: docker compose exec -T respaldo respaldo ahora diff
+
+      - name: Restore the backup to its restore point and verify it
+        run: |
+          # One more write after the backup, so the drill measures how long a change takes to reach the repository.
+          curl -sS --fail-with-body -X POST http://localhost:8081/api/v1/empresas -H 'Content-Type: application/json' \
+            -d '{"nombreEmpresa":"Drill Store","nit":"900000067-1","correoContacto":"drill@store.com","nombreAdmin":"Drill Admin","emailAdmin":"drill@store.com","passwordAdmin":"harbor lights at dusk"}'
+          echo
+          ops/respaldo/simulacro.sh 2>&1 | tee simulacro.txt
+          {
+            echo "### Restore to the restore point of the last backup"
+            echo
+            echo '```'
+            sed -n '/^Simulacro de restauracion/,$p' simulacro.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Restore to the end of the WAL and verify it
+        run: |
+          # The same check of the audit trails and the versions, on everything the archive has: the store written
+          # after the backup included.
+          ops/respaldo/simulacro.sh --ultimo 2>&1 | tee simulacro-ultimo.txt
+          {
+            echo "### Restore to the end of the archived WAL"
+            echo
+            echo '```'
+            sed -n '/^Simulacro de restauracion/,$p' simulacro-ultimo.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Show the stack logs
+        if: failure()
+        run: docker compose --profile simulacro logs
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose --profile simulacro down -v
