@@ -4,7 +4,7 @@
 
 - **Status:** Accepted
 - **Decided in:** plan v5 (PR 71); builds on [ADR-0072](0072-business-calendar-and-timers.md) (the calendar and the
-  boundary timer), [ADR-0074](0074-assignment-and-inbox.md) (who holds a task) and
+  boundary timer), [ADR-0077](0077-assignment-and-inbox.md) (who holds a task) and
   [ADR-0067](0067-comments-mentions-and-notifications.md) (the notification center)
 
 ## Context
