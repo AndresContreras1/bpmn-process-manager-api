@@ -21,8 +21,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Documentation | `GET, PUT /api/v1/procesos/{id}/documentacion` · `POST /api/v1/documentacion/vista-previa` · `GET, PUT /api/v1/procesos/{id}/caracterizacion` |
 | Manuals | `GET, POST /api/v1/procesos/{id}/manuales[?version=]` · `GET /api/v1/manuales/{id}` · `GET /api/v1/manuales/{id}/enlace?formato=pdf\|html` · `GET /api/v1/descargas/manuales/{id}/{formato}` · `PUT /api/v1/procesos/{id}/versiones/{numero}/dibujo` |
 | Comments | `GET, POST /api/v1/procesos/{id}/comentarios[?bpmnId=&version=&estado=]` · `POST /api/v1/comentarios/{id}/respuestas` · `PUT, DELETE /api/v1/comentarios/{id}` · `POST /api/v1/comentarios/{id}/resolver` · `POST /api/v1/comentarios/{id}/reabrir` · `GET /api/v1/procesos/{id}/mencionables[?q=]` |
-| Search | `GET /api/v1/busqueda?q=&tipo=&publicado=&pagina=&tamano=` |
 | Review and approval | `GET, PUT /api/v1/empresas/actual/politica-de-publicacion` · `GET, POST /api/v1/procesos/{id}/solicitudes[?estado=]` · `GET /api/v1/solicitudes[?pendientesDeMi=true&estado=]` · `GET /api/v1/solicitudes/{id}` · `POST /api/v1/solicitudes/{id}/aprobar`, `/pedir-cambios`, `/rechazar`, `/retirar` · `POST /api/v1/procesos/{id}/recertificacion` |
+| Search | `GET /api/v1/busqueda?q=&tipo=&publicado=&pagina=&tamano=` |
 | Notifications | `GET /api/v1/notificaciones[?noLeidas=true]` · `GET /api/v1/notificaciones/conteo` · `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` · `GET /api/v1/notificaciones/flujo` · `GET, PUT /api/v1/notificaciones/preferencias` |
 | Permissions | `GET /api/v1/procesos/{id}/permisos` · `GET, POST /api/v1/procesos/{id}/concesiones` · `GET, POST /api/v1/carpetas/{id}/concesiones` · `DELETE /api/v1/concesiones/{id}` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
@@ -53,6 +53,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Sign in with a provider | `GET /api/v1/auth/proveedores` · `GET /api/v1/auth/oidc/{proveedor}` · `POST /api/v1/auth/identidades/vinculo` · `GET /api/v1/auth/identidades` · `DELETE /api/v1/auth/identidades/{id}` |
 | Store domains | `GET, POST /api/v1/empresas/actual/dominios` · `POST /api/v1/empresas/actual/dominios/{id}/verificacion` · `DELETE /api/v1/empresas/actual/dominios/{id}` |
 | Audit trail | `GET /api/v1/auditoria` · `GET /api/v1/auditoria/exportacion?formato=csv\|json` · `GET /api/v1/auditoria/verificacion` |
+| Organization export | `GET, POST /api/v1/organizacion/exportaciones` · `GET /api/v1/organizacion/exportaciones/{id}` · `GET /api/v1/descargas/exportaciones/{id}` |
 | Account by e-mail | `POST /api/v1/auth/verificacion` · `POST /api/v1/auth/verificacion/confirmar` · `POST /api/v1/auth/invitacion/aceptar` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 | Cases | `POST /api/v1/procesos/{procesoId}/casos` · `GET /api/v1/casos` · `GET /api/v1/casos/{id}` · `GET /api/v1/casos/{id}/eventos` · `POST /api/v1/casos/{id}/cancelar` · `PATCH /api/v1/casos/{id}/variables` · `POST /api/v1/casos/{id}/reintentar` |
@@ -227,47 +228,6 @@ curl -s -X POST http://localhost:8080/api/v1/procesos/1/comentarios -b sesion.tx
 curl -N http://localhost:8080/api/v1/notificaciones/flujo -b sesion.txt
 ```
 
-## Search
-
-`GET /api/v1/busqueda?q=credit%20approval` finds the text in what the person can view of the store: processes (name,
-description, category, tags and documentation), elements of the draft and of the published version (name, description,
-condition or message content, and documentation), documents (file name and the text read from the file) and comments
-that were not deleted. Every role searches, and finds only what it can `VER`, in the same query; another store's
-content is never there.
-
-| Parameter | |
-|---|---|
-| `q` | Up to 200 characters (`400` beyond), web search syntax: `"credit approval"` is a phrase, `-card` excludes, `card or cash` is either. Accents and case do not matter, and words match by their stem in the store's language (Spanish, English or French). Empty, or only common words like "the", answers an empty page |
-| `tipo` | Only `PROCESO`, `ELEMENTO`, `DOCUMENTO` or `COMENTARIO` (`400` for anything else) |
-| `publicado` | `true` keeps only what is published: processes with a version in force, the elements of that version (the hit carries its `version`), the documents of those processes, and no comments. `false` by default. The read-only portal searches this way ([ADR-0075](adr/0075-read-only-portal.md)) |
-| `pagina`, `tamano` | From `0`; from 1 to 50, 20 by default |
-
-The answer is a page, most relevant first: a name beats a description, a description beats a body.
-
-```json
-{ "content": [
-    { "tipo": "ELEMENTO", "procesoId": 12, "proceso": "Order fulfillment", "titulo": "Pack the order",
-      "bpmnId": "Activity_0b3k9xq", "tipoDeElemento": "ACTIVIDAD", "version": null, "documentoId": null,
-      "comentarioId": null, "hiloId": null,
-      "fragmento": [ { "texto": "Use ", "resaltado": false }, { "texto": "reinforced", "resaltado": true },
-                     { "texto": " tape on large boxes", "resaltado": false } ] } ],
-  "page": 0, "size": 20, "totalElements": 1, "totalPages": 1 }
-```
-
-`titulo` is the process, element or file name, or the author of a comment. `version` is set for an element of the
-published version, or for a thread on one; an element that is the same in the draft and in the published version is
-one hit, the draft's. A document carries its `documentoId` and the `bpmnId` of the element it is attached to; a
-comment its `comentarioId`, its thread (`hiloId`) and the thread's `bpmnId` and `version`. The text of a file is
-searchable once the antivirus clears it and the job queue reads it, a few seconds after the upload; until then, and
-for a file that cannot be read, only its name is; a document's fragment comes from the first 20,000 characters of
-its text. `fragmento` is plain text in segments: show each one as text and mark the highlighted ones, never as HTML
-([ADR-0070](adr/0070-full-text-search.md)). Each person searches up to 60 times a minute; beyond that, `429` with
-`Retry-After`. After a store changes its language, its content is re-indexed in the background within moments.
-
-```bash
-curl -s "http://localhost:8080/api/v1/busqueda?q=%22reinforced%20tape%22%20-pallet&tipo=ELEMENTO" -b sesion.txt
-```
-
 ## Review and approval
 
 A store publishes directly, as always, or with approval ([ADR-0069](adr/0069-review-and-approval.md)).
@@ -340,6 +300,47 @@ The owner is notified once when the review date arrives (`RECERTIFICACION_PENDIE
 (`RECERTIFICACION_VENCIDA`). Every process answer carries `mesesEntreRevisiones` and `revisionVencida`, true once the
 date has passed with nobody confirming it. Days are UTC days of the API clock, for every store.
 
+## Search
+
+`GET /api/v1/busqueda?q=credit%20approval` finds the text in what the person can view of the store: processes (name,
+description, category, tags and documentation), elements of the draft and of the published version (name, description,
+condition or message content, and documentation), documents (file name and the text read from the file) and comments
+that were not deleted. Every role searches, and finds only what it can `VER`, in the same query; another store's
+content is never there.
+
+| Parameter | |
+|---|---|
+| `q` | Up to 200 characters (`400` beyond), web search syntax: `"credit approval"` is a phrase, `-card` excludes, `card or cash` is either. Accents and case do not matter, and words match by their stem in the store's language (Spanish, English or French). Empty, or only common words like "the", answers an empty page |
+| `tipo` | Only `PROCESO`, `ELEMENTO`, `DOCUMENTO` or `COMENTARIO` (`400` for anything else) |
+| `publicado` | `true` keeps only what is published: processes with a version in force, the elements of that version (the hit carries its `version`), the documents of those processes, and no comments. `false` by default. The read-only portal searches this way ([ADR-0075](adr/0075-read-only-portal.md)) |
+| `pagina`, `tamano` | From `0`; from 1 to 50, 20 by default |
+
+The answer is a page, most relevant first: a name beats a description, a description beats a body.
+
+```json
+{ "content": [
+    { "tipo": "ELEMENTO", "procesoId": 12, "proceso": "Order fulfillment", "titulo": "Pack the order",
+      "bpmnId": "Activity_0b3k9xq", "tipoDeElemento": "ACTIVIDAD", "version": null, "documentoId": null,
+      "comentarioId": null, "hiloId": null,
+      "fragmento": [ { "texto": "Use ", "resaltado": false }, { "texto": "reinforced", "resaltado": true },
+                     { "texto": " tape on large boxes", "resaltado": false } ] } ],
+  "page": 0, "size": 20, "totalElements": 1, "totalPages": 1 }
+```
+
+`titulo` is the process, element or file name, or the author of a comment. `version` is set for an element of the
+published version, or for a thread on one; an element that is the same in the draft and in the published version is
+one hit, the draft's. A document carries its `documentoId` and the `bpmnId` of the element it is attached to; a
+comment its `comentarioId`, its thread (`hiloId`) and the thread's `bpmnId` and `version`. The text of a file is
+searchable once the antivirus clears it and the job queue reads it, a few seconds after the upload; until then, and
+for a file that cannot be read, only its name is; a document's fragment comes from the first 20,000 characters of
+its text. `fragmento` is plain text in segments: show each one as text and mark the highlighted ones, never as HTML
+([ADR-0070](adr/0070-full-text-search.md)). Each person searches up to 60 times a minute; beyond that, `429` with
+`Retry-After`. After a store changes its language, its content is re-indexed in the background within moments.
+
+```bash
+curl -s "http://localhost:8080/api/v1/busqueda?q=%22reinforced%20tape%22%20-pallet&tipo=ELEMENTO" -b sesion.txt
+```
+
 ## Permissions
 
 A grant is an action on a folder or a process for a subject: `{ "accion": "MODELAR", "sujeto": "PERSONA",
@@ -369,12 +370,49 @@ curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -b ses
   -H "Content-Type: application/json" -d '{"politicaEstructura":"SOLO_ADMINISTRADOR","version":0}'
 ```
 
+## Exporting the organization
+
+`POST /api/v1/organizacion/exportaciones`, without a body, asks for a full export of the caller's store. It answers
+`202` with the export `PENDIENTE` and its `Location`; the job queue builds one ZIP with every process (each version as
+BPMN and as JSON, the draft, the documentation, the characterization sheet and the manuals), the documents with every
+version, the comments, the history, the audit trail with its chain hashes and anchors, the people without any secret,
+and the cases as JSON and as CSV, plus a `manifest.json` with the size and SHA-256 of every file. Its layout, and how
+to check it without the API, is in [Export format](export-format.md).
+
+When it is ready, an e-mail in the language of whoever asked brings a link to `GET
+/api/v1/descargas/exportaciones/{id}?empresa=&vence=&firma=`, which downloads the ZIP without a session for 24 hours;
+a changed or expired link answers `404`, and so does a good one once whoever asked is no longer an active
+administrator of the store; a missing or non-numeric `empresa` or `vence` answers `400`. The link is only in the
+e-mail. Then the ZIP is deleted.
+
+| Route | Answers |
+|---|---|
+| `POST /api/v1/organizacion/exportaciones` | `202` with the export; `409` while another one of the store is being built; `403` "Verificación requerida" when the identity was not confirmed in the last ten minutes (`POST /api/v1/auth/reautenticacion` fixes it); `429` after ten in a day |
+| `GET /api/v1/organizacion/exportaciones?pagina=0&tamano=20` | A page of the store's exports, newest first (`tamano` 1 to 50, `400` otherwise), as `content`, `page`, `size`, `totalElements` and `totalPages` |
+| `GET /api/v1/organizacion/exportaciones/{id}` | One export: `estado` (`PENDIENTE`, `LISTA`, `FALLIDA` with a `motivo`, or `VENCIDA`), `pedidaPor`, `pedidaEn`, `listaEn`, `venceEn`, `tamano`, `archivos` and the `sha256` of the ZIP; another store's id answers `404` |
+
+A failed export's `motivo` never says what failed inside: it is "No se pudo armar la exportación: pide otra." or, when
+the queue gave up on it, "La cola no la terminó a tiempo: pide otra."; the cause is in the log with the export's id.
+
+Administrators only. Asking, ready, failed, downloaded and expired go to the audit trail
+([Security](security.md#organization-export)).
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/organizacion/exportaciones -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+curl -s http://localhost:8080/api/v1/organizacion/exportaciones/4 -b sesion.txt
+```
+
 ## Closing the store
 
 `POST /api/v1/empresas/actual/baja` with `{"confirmacion": "<the store's name>"}` closes the caller's store and
 answers it with `bajaSolicitadaEn` and `borradoProgramadoPara`, 30 days later. Until then the store is read-only,
 every change answers `409` with the title "Tienda dada de baja", and `DELETE /api/v1/empresas/actual/baja` cancels
 the closing; then everything of the store is deleted ([The life of the data](security.md#the-life-of-the-data)).
+With `"exportar": true` the closing also asks for a full export, in the same transaction; if one is already being
+built, the closing goes on without asking for another, and that one's link reaches whoever asked for it. While the 30
+days last an administrator can ask for more: besides cancelling the closing, it is the only change a closing store
+accepts. The purge leaves a deletion certificate
+([Export format](export-format.md#the-deletion-certificate)).
 Administrators only, like `POST /api/v1/usuarios/{id}/anonimizar`, which deletes the personal data of a user on
 request.
 
