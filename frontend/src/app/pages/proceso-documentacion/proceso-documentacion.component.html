@@ -1,0 +1,107 @@
+<div class="container py-5" id="proceso-documentacion">
+  @if (noEncontrado) {
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-5 text-center" id="documentacion-no-encontrado">
+        <i class="fa-solid fa-circle-question fa-2x text-body-tertiary mb-3" aria-hidden="true"></i>
+        <h1 i18n class="h4 fw-bold">Process not found</h1>
+        <p i18n class="text-body-secondary">This process does not exist in your organization, or it was deleted.</p>
+        <a i18n class="btn btn-primary" routerLink="/procesos">Back to processes</a>
+      </div>
+    </div>
+  } @else if (error) {
+    <h1 i18n class="h4 fw-bold">Documentation</h1>
+    <div class="alert alert-danger" role="alert" id="documentacion-carga-error">{{ error }}</div>
+  } @else if (proceso) {
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+      <div>
+        <h1 class="h3 fw-bold mb-1" id="documentacion-proceso">{{ proceso.nombre }}</h1>
+        <p i18n class="text-body-secondary mb-0">
+          What the process means, its characterization sheet, the documents attached to it and its manual.
+        </p>
+      </div>
+      <a i18n class="btn btn-outline-secondary" [routerLink]="['/procesos', proceso.id]" id="documentacion-volver"
+        >Back to the process</a
+      >
+    </div>
+
+    @if (!puedeEditar) {
+      <div i18n class="alert alert-info py-2 small" id="documentacion-solo-lectura">
+        Your role can read the documentation and download the documents, but not change them.
+      </div>
+    }
+
+    <ul class="nav nav-tabs mb-3" role="tablist" i18n-aria-label aria-label="Documentation of the process">
+      @for (una of pestanas; track una) {
+        <li class="nav-item" role="presentation">
+          <button
+            type="button"
+            class="nav-link"
+            role="tab"
+            [id]="'pestana-' + una"
+            [class.active]="pestana === una"
+            [attr.aria-selected]="pestana === una"
+            [attr.aria-controls]="'panel-' + una"
+            [tabIndex]="pestana === una ? 0 : -1"
+            (click)="elegir(una)"
+            (keydown)="alTeclear($event)"
+          >
+            {{ nombrePestana[una] }}
+          </button>
+        </li>
+      }
+    </ul>
+
+    <section
+      class="card border-0 shadow-sm"
+      role="tabpanel"
+      id="panel-texto"
+      aria-labelledby="pestana-texto"
+      [hidden]="pestana !== 'texto'"
+    >
+      <div class="card-body p-4">
+        <app-editor-documentacion [procesoId]="proceso.id" [soloLectura]="!puedeEditar" />
+      </div>
+    </section>
+    <section
+      class="card border-0 shadow-sm"
+      role="tabpanel"
+      id="panel-ficha"
+      aria-labelledby="pestana-ficha"
+      [hidden]="pestana !== 'ficha'"
+    >
+      <div class="card-body p-4">
+        <app-ficha-caracterizacion [procesoId]="proceso.id" [soloLectura]="!puedeEditar" />
+      </div>
+    </section>
+    <section
+      class="card border-0 shadow-sm"
+      role="tabpanel"
+      id="panel-adjuntos"
+      aria-labelledby="pestana-adjuntos"
+      [hidden]="pestana !== 'adjuntos'"
+    >
+      <div class="card-body p-4">
+        <app-adjuntos [procesoId]="proceso.id" [soloLectura]="!puedeEditar" />
+      </div>
+    </section>
+    <section
+      class="card border-0 shadow-sm"
+      role="tabpanel"
+      id="panel-manual"
+      aria-labelledby="pestana-manual"
+      [hidden]="pestana !== 'manual'"
+    >
+      <div class="card-body p-4">
+        <app-manual-proceso
+          [procesoId]="proceso.id"
+          [versionPublicada]="proceso.versionPublicada"
+          [puedePedir]="puedeEditar"
+        />
+      </div>
+    </section>
+  } @else if (cargando) {
+    <div i18n class="text-center text-body-secondary py-5" role="status" id="documentacion-cargando">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Loading the process…
+    </div>
+  }
+</div>

@@ -92,6 +92,8 @@
 - [x] Documentation in Markdown per process and element, cleaned on the server, and a characterization sheet
 - [x] The process manual in HTML and PDF, built in the queue from the published version and the drawing the web
       app sends when publishing
+- [x] Web screens for the documentation, the characterization sheet, the documents and the manual of a process, and
+      for the documentation and documents of an element in the modeler
 - [x] Comment threads on a process, an element or a version, with mentions of who can view it, resolve and reopen,
       and a notification center in the app, over server-sent events and by e-mail, immediate or in a daily digest
 - [ ] Review and approval, and full-text search
