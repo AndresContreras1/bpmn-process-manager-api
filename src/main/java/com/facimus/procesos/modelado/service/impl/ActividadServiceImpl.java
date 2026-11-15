@@ -69,6 +69,11 @@ public class ActividadServiceImpl implements ActividadService {
             String descripcion, TipoActividad tipoActividad, Long laneId, int posX, int posY, Long version) {
         Actividad actividad = buscar(empresaId, actividadId);
         actividad.verificarVersion(version);
+        if (actividad.getFormulario() != null && deUsuarioSiFalta(tipoActividad) != TipoActividad.USUARIO) {
+            // PR 69: el formulario es de quien hace la tarea; con otro tipo nadie lo llenaria
+            throw new ReglaNegocioException("La actividad tiene formulario, y solo una de usuario lo lleva: quítalo "
+                    + "antes de cambiarle el tipo.");
+        }
         Long procesoId = actividad.getLane().getPool().getProceso().getId();
         if (nodoFlujoRepository.existsByNombreIgnoreCaseAndLane_Pool_ProcesoIdAndEmpresaIdAndIdNot(nombre, procesoId,
                 empresaId, actividadId)) {

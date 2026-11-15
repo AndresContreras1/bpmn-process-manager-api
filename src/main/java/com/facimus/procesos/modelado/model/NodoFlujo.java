@@ -1,10 +1,14 @@
 package com.facimus.procesos.modelado.model;
 
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 
 import com.facimus.procesos.common.EntidadEditable;
+import com.facimus.procesos.common.formularios.Formulario;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -63,6 +67,15 @@ public abstract class NodoFlujo extends EntidadEditable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "padre_id")
     private NodoFlujo padre;
+
+    /**
+     * PR 69: el formulario de una actividad de usuario o de un evento de inicio; nulo en cualquier otro nodo, como lo
+     * exige el check ck_nodos_flujo_formulario. Va aqui y no en cada subtipo porque las dos clases de nodo que lo
+     * llevan comparten la columna, y el servicio decide en cual se puede poner.
+     */
+    @Convert(converter = FormularioConverter.class)
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
+    private Formulario formulario;
 
     /**
      * Si cada arco que sale de este nodo necesita condicion. Es un metodo y no un instanceof porque el origen de un

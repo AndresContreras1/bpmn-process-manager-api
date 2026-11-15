@@ -5,6 +5,7 @@ import java.util.Map;
 import org.springframework.data.domain.Pageable;
 
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeTareaResponse;
 import com.facimus.procesos.ejecucion.dto.response.TareaResponse;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 
@@ -25,9 +26,16 @@ public interface TareaService {
 
     /**
      * Completa la tarea y deja que el caso siga. Los datos entran a las variables del caso, asi que un gateway
-     * posterior puede preguntar por ellos. Una tarea se completa una sola vez (R-49).
+     * posterior puede preguntar por ellos. Una tarea se completa una sola vez (R-49). PR 69: si la tarea tiene
+     * formulario, los datos son sus respuestas y se validan contra el; sin formulario, solo en PRUEBA se aceptan.
      */
     TareaResponse completar(Long empresaId, Long usuarioId, Long tareaId, Map<String, Object> datos);
+
+    /**
+     * PR 69: el formulario de la tarea, como lo congelo la version de su caso, con lo que se propone en cada campo y
+     * las variables que sus condiciones leen.
+     */
+    FormularioDeTareaResponse formulario(Long empresaId, Long tareaId);
 
     /** Reserva la tarea para alguien de la tienda, o la libera si no llega ningun usuario. */
     TareaResponse asignar(Long empresaId, Long tareaId, Long usuarioId);

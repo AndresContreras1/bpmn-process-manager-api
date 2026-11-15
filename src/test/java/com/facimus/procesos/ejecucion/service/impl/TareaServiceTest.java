@@ -18,22 +18,28 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.InOrder;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import com.facimus.procesos.common.CamposInvalidosException;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.api.Paginacion;
+import com.facimus.procesos.common.formularios.ArchivosDeFormularios;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.common.model.Empresa;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeTareaResponse;
 import com.facimus.procesos.ejecucion.mapper.CasoMapper;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.ModoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
 import com.facimus.procesos.ejecucion.repository.CasoRepository;
@@ -43,6 +49,7 @@ import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.VersionProceso;
 import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.modelado.dto.response.CampoDeFormularioResponse;
 import com.facimus.procesos.modelado.model.TipoActividad;
 import com.facimus.procesos.modelado.model.TipoEvento;
 import com.facimus.procesos.modelado.service.DiagramaArmado;
@@ -91,6 +98,9 @@ class TareaServiceTest {
     @Mock
     private CasoMapper casoMapper;
 
+    @Mock
+    private ArchivosDeFormularios archivos;
+
     private final JsonMapper json = JsonMapper.builder().build();
 
     @InjectMocks
@@ -103,7 +113,8 @@ class TareaServiceTest {
     @BeforeEach
     void laTiendaYSuCaso() {
         tareaService = new TareaServiceImpl(actividadCasoRepository, casoRepository, usuarioService,
-                membresiaRolService, grafos, motor, reloj, bitacora, casoMapper, json);
+                membresiaRolService, grafos, motor, reloj, bitacora, casoMapper, json,
+                new FormulariosDelCaso(usuarioService, archivos));
         given(reloj.ahora(TIENDA_ID)).willReturn(TICK);
         tienda = Empresa.builder().id(TIENDA_ID).nombre("Demo Store").build();
         Proceso proceso = Proceso.builder().id(10L).empresa(tienda).nombre("Order fulfillment")
@@ -301,6 +312,134 @@ class TareaServiceTest {
 
         verify(actividadCasoRepository).bandejaDeMisRoles(TIENDA_ID, java.util.List.of(3L), null,
                 EstadoActividadCaso.EN_ESPERA, Paginacion.de(0, 10));
+    }
+
+    // ---------- PR 69: el formulario de la tarea ----------
+
+    /** La tarea del proceso minimo, con un formulario congelado en su version. */
+    private ActividadCaso conFormulario(EstadoActividadCaso estado) {
+        DiagramaArmado armado = unProcesoConTarea();
+        armado.formulario("Pick and pack items", CampoArmado.formulario(
+                CampoArmado.campo("cajas", TipoDeCampo.NUMERO).requerido().minimo("1").porDefecto("order.boxes"),
+                CampoArmado.campo("fragil", TipoDeCampo.SI_NO),
+                CampoArmado.campo("motivo", TipoDeCampo.TEXTO).visibleSi("fragil == true").requerido()));
+        given(grafos.del(TIENDA_ID, version)).willReturn(GrafoDeVersion.de(armado.diagrama()));
+        ActividadCaso tarea = conTarea(estado);
+        tarea.setNodoId(armado.id("Pick and pack items"));
+        return tarea;
+    }
+
+    @Test
+    @DisplayName("PR 69: con formulario, las respuestas entran con su tipo bajo tarea.<nombre> y en los datos de salida")
+    void completar_conFormulario_guardaLosValoresConTipo() {
+        ActividadCaso tarea = conFormulario(EstadoActividadCaso.EN_ESPERA);
+
+        tareaService.completar(TIENDA_ID, EDITOR, TAREA_ID, Map.of("cajas", 2.0, "fragil", false, "motivo", "x"));
+
+        assertThat(caso.getVariables())
+                .isEqualTo("{\"tarea\":{\"pickAndPackItems\":{\"cajas\":2,\"fragil\":false}}}");
+        assertThat(tarea.getDatosSalida()).isEqualTo("{\"cajas\":2,\"fragil\":false}");
+        assertThat(tarea.getEstado()).isEqualTo(EstadoActividadCaso.COMPLETADA);
+        verify(motor).seguirDesde(eq(caso), any(GrafoDeVersion.class), eq(tarea.getNodoId()), any());
+    }
+
+    @Test
+    @DisplayName("PR 69: una respuesta que no cumple el formulario es un 400 con cada campo, y la tarea no se completa")
+    void completar_conFormulario_respuestasMalas() {
+        ActividadCaso tarea = conFormulario(EstadoActividadCaso.EN_ESPERA);
+        Map<String, Object> malas = Map.of("cajas", 0, "fragil", true, "extra", 1);
+
+        assertThatThrownBy(() -> tareaService.completar(TIENDA_ID, EDITOR, TAREA_ID, malas))
+                .isInstanceOfSatisfying(CamposInvalidosException.class, error -> assertThat(error.errores())
+                        .containsExactly(Map.entry("datos.cajas", "Debe ser al menos 1."),
+                                Map.entry("datos.extra", "No es un campo de este formulario."),
+                                Map.entry("datos.motivo", "Es obligatorio.")));
+        assertThat(tarea.getEstado()).isEqualTo(EstadoActividadCaso.EN_ESPERA);
+        assertThat(caso.getVariables()).isEqualTo("{}");
+        verify(actividadCasoRepository, never()).save(any());
+        verify(motor, never()).seguirDesde(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("PR 69: con formulario, tampoco en PRUEBA entran datos libres")
+    void completar_conFormulario_enPruebaTambienValida() {
+        conFormulario(EstadoActividadCaso.EN_ESPERA);
+        Map<String, Object> libres = Map.of("packedItems", 3);
+
+        assertThatThrownBy(() -> tareaService.completar(TIENDA_ID, EDITOR, TAREA_ID, libres))
+                .isInstanceOf(CamposInvalidosException.class);
+    }
+
+    @Test
+    @DisplayName("PR 69: en produccion, una tarea sin formulario no recibe datos libres")
+    void completar_enProduccionSinFormulario_noRecibeDatos() {
+        caso.setModo(ModoCaso.PRODUCCION);
+        ActividadCaso tarea = conTarea(EstadoActividadCaso.EN_ESPERA);
+        Map<String, Object> libres = Map.of("packedItems", 3);
+
+        assertThatThrownBy(() -> tareaService.completar(TIENDA_ID, EDITOR, TAREA_ID, libres))
+                .isInstanceOfSatisfying(CamposInvalidosException.class, error -> {
+                    assertThat(error).hasMessage(FormulariosDelCaso.SIN_FORMULARIO);
+                    assertThat(error.errores()).containsExactly(Map.entry("datos.packedItems",
+                            FormulariosDelCaso.NO_ES_UN_CAMPO));
+                });
+        assertThat(tarea.getEstado()).isEqualTo(EstadoActividadCaso.EN_ESPERA);
+    }
+
+    @Test
+    @DisplayName("PR 69: en produccion, una tarea sin formulario se completa sin datos")
+    void completar_enProduccionSinDatos() {
+        caso.setModo(ModoCaso.PRODUCCION);
+        ActividadCaso tarea = conTarea(EstadoActividadCaso.EN_ESPERA);
+
+        tareaService.completar(TIENDA_ID, EDITOR, TAREA_ID, Map.of());
+
+        assertThat(tarea.getEstado()).isEqualTo(EstadoActividadCaso.COMPLETADA);
+        assertThat(tarea.getDatosSalida()).isNull();
+        assertThat(caso.getVariables()).isEqualTo("{}");
+    }
+
+    @Test
+    @DisplayName("PR 69: el formulario de la tarea trae lo que propone cada campo y las variables que leen sus condiciones")
+    void formulario_conLoQueProponeYLasVariables() {
+        caso.setVariables("{\"order\":{\"boxes\":4}}");
+        conFormulario(EstadoActividadCaso.EN_ESPERA);
+
+        FormularioDeTareaResponse respuesta = tareaService.formulario(TIENDA_ID, TAREA_ID);
+
+        assertThat(respuesta.tareaId()).isEqualTo(TAREA_ID);
+        assertThat(respuesta.casoId()).isEqualTo(CASO_ID);
+        assertThat(respuesta.nodo()).isEqualTo("Pick and pack items");
+        assertThat(respuesta.formulario().campos()).extracting(CampoDeFormularioResponse::nombre)
+                .containsExactly("cajas", "fragil", "motivo");
+        assertThat(respuesta.formulario().campos().get(2).visibleSiArbol().operador()).isEqualTo("==");
+        assertThat(respuesta.valores()).containsExactly(Map.entry("cajas", 4L));
+        assertThat(respuesta.variables()).containsEntry("order", Map.of("boxes", 4))
+                .containsEntry("caso", Map.of("referencia", "ORD-1", "tick", 0));
+        verify(casoRepository, never()).bloquear(any(), any());
+    }
+
+    @Test
+    @DisplayName("PR 69: una tarea sin formulario lo dice con uno vacio")
+    void formulario_sinFormulario() {
+        conTarea(EstadoActividadCaso.EN_ESPERA);
+
+        FormularioDeTareaResponse respuesta = tareaService.formulario(TIENDA_ID, TAREA_ID);
+
+        assertThat(respuesta.formulario()).isNull();
+        assertThat(respuesta.valores()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("PR 69: el formulario de un paso que no es tarea, o de otra tienda, no existe")
+    void formulario_soloDeTareas() {
+        given(actividadCasoRepository.findByIdAndEmpresaId(TAREA_ID, TIENDA_ID))
+                .willReturn(Optional.of(paso(TipoNodoCaso.GATEWAY, "EXCLUSIVO", EstadoActividadCaso.EN_ESPERA)));
+
+        assertThatThrownBy(() -> tareaService.formulario(TIENDA_ID, TAREA_ID))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> tareaService.formulario(2L, TAREA_ID))
+                .isInstanceOf(RecursoNoEncontradoException.class);
     }
 
     private ActividadCaso conTarea(EstadoActividadCaso estado) {

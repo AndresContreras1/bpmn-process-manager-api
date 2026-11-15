@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.api.PageResponse;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeTareaResponse;
 import com.facimus.procesos.ejecucion.dto.response.TareaResponse;
 import com.facimus.procesos.ejecucion.mapper.CasoMapper;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
@@ -23,6 +24,7 @@ import com.facimus.procesos.ejecucion.repository.CasoRepository;
 import com.facimus.procesos.ejecucion.service.TareaService;
 import com.facimus.procesos.gestion.service.MembresiaRolService;
 import com.facimus.procesos.gestion.service.UsuarioService;
+import com.facimus.procesos.modelado.dto.response.FormularioResponse;
 
 import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.json.JsonMapper;
@@ -46,6 +48,7 @@ public class TareaServiceImpl implements TareaService {
     private final Bitacora bitacora;
     private final CasoMapper casoMapper;
     private final JsonMapper json;
+    private final FormulariosDelCaso formularios;
 
     @Override
     public PageResponse<TareaResponse> bandeja(Long empresaId, Long usuarioId, boolean mias, Long rolProcesoId,
@@ -91,11 +94,14 @@ public class TareaServiceImpl implements TareaService {
             throw new ReglaNegocioException("El caso ya está cerrado.");
         }
 
-        if (datos != null && !datos.isEmpty()) {
-            VariablesDelCaso variables = VariablesDelCaso.de(caso, json);
-            variables.ponerDeLaTarea(tarea.getNodoNombre(), datos);
+        GrafoDeVersion grafo = grafos.del(empresaId, caso.getVersionProceso());
+        VariablesDelCaso variables = VariablesDelCaso.de(caso, json);
+        Map<String, Object> valores = formularios.alCompletar(empresaId, caso.getProceso().getId(), grafo,
+                tarea.getNodoId(), caso.getModo(), datos, variables);
+        if (!valores.isEmpty()) {
+            variables.ponerDeLaTarea(tarea.getNodoNombre(), valores);
             caso.setVariables(variables.comoJson());
-            tarea.setDatosSalida(casoMapper.aJson(datos));
+            tarea.setDatosSalida(casoMapper.aJson(valores));
         }
         Momento momento = new Momento(reloj.ahora(empresaId), usuarioId);
         tarea.setEstado(EstadoActividadCaso.COMPLETADA);
@@ -104,8 +110,20 @@ public class TareaServiceImpl implements TareaService {
         bitacora.anotar(caso, momento.tick(), TipoEventoCaso.TAREA_COMPLETADA,
                 "\"" + tarea.getNodoNombre() + "\" se completo.", usuarioId);
 
-        motor.seguirDesde(caso, grafos.del(empresaId, caso.getVersionProceso()), tarea.getNodoId(), momento);
+        motor.seguirDesde(caso, grafo, tarea.getNodoId(), momento);
         return casoMapper.toTarea(tarea);
+    }
+
+    /** Solo lee: el formulario viene de la version del caso, que no cambia, y las variables, de su fila. */
+    @Override
+    public FormularioDeTareaResponse formulario(Long empresaId, Long tareaId) {
+        ActividadCaso tarea = exigirTarea(empresaId, tareaId);
+        Caso caso = tarea.getCaso();
+        FormularioResponse formulario = grafos.del(empresaId, caso.getVersionProceso())
+                .formularioDe(tarea.getNodoId()).orElse(null);
+        VariablesDelCaso variables = VariablesDelCaso.de(caso, json);
+        return new FormularioDeTareaResponse(tarea.getId(), caso.getId(), tarea.getNodoNombre(), formulario,
+                FormulariosDelCaso.iniciales(formulario, variables), variables.paraLeer());
     }
 
     /**

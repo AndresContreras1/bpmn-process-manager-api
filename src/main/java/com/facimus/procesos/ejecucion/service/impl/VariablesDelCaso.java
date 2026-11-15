@@ -1,6 +1,7 @@
 package com.facimus.procesos.ejecucion.service.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,6 +88,13 @@ final class VariablesDelCaso implements Variables {
         if (tareas instanceof Map<?, ?> mapa) {
             ((Map<String, Object>) mapa).put(enCamello(nombreDelNodo), datos);
         }
+    }
+
+    /** PR 69: lo que una condicion puede leer, lo del caso incluido, para mandarlo a quien llena un formulario. */
+    Map<String, Object> paraLeer() {
+        Map<String, Object> todas = new LinkedHashMap<>(guardadas);
+        todas.put(DEL_CASO, Collections.unmodifiableMap(delCaso));
+        return Collections.unmodifiableMap(todas);
     }
 
     /** Lo que se guarda en la columna: sin lo del caso, que se lee de sus columnas cada vez. */

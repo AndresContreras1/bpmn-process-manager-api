@@ -11,6 +11,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.facimus.procesos.common.Huella;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.gestion.dto.response.ProcesoResponse;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.modelado.dto.response.ActividadResponse;
@@ -74,6 +76,20 @@ class HuellaDelDiagramaTest {
         conCuando.temporizador(DiagramaArmado.VENTAS, "Wait", TipoEvento.TEMPORIZADOR_INTERMEDIO,
                 TipoTemporizador.DURACION, "PT2H", null);
         assertThat(huella(conCuando.diagrama())).isNotEqualTo(sinCuando);
+    }
+
+    @Test
+    @DisplayName("PR 69: sin formularios la forma canonica es la de antes; un formulario, o un cambio en el, la cambia")
+    void formularios() {
+        DiagramaArmado conUno = DiagramaArmado.demo();
+        conUno.formulario("Receive order", CampoArmado.formulario(CampoArmado.campo("total", TipoDeCampo.NUMERO)));
+        DiagramaArmado conOtro = DiagramaArmado.demo();
+        conOtro.formulario("Receive order", CampoArmado.formulario(CampoArmado.campo("total", TipoDeCampo.NUMERO)
+                .requerido()));
+
+        assertThat(DiagramaCanonico.de(DiagramaArmado.demo().diagrama(), JSON)).doesNotContain("formulario");
+        assertThat(huella(conUno.diagrama())).isNotEqualTo(huella(DiagramaArmado.demo().diagrama()))
+                .isNotEqualTo(huella(conOtro.diagrama()));
     }
 
     @Test

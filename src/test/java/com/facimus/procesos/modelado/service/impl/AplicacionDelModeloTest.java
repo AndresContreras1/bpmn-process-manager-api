@@ -39,6 +39,9 @@ import org.mockito.stubbing.Answer;
 import org.springframework.data.repository.CrudRepository;
 
 import com.facimus.procesos.common.SinPermisoException;
+import com.facimus.procesos.common.formularios.CampoArmado;
+import com.facimus.procesos.common.formularios.Formulario;
+import com.facimus.procesos.common.formularios.TipoDeCampo;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.common.model.RolAcceso;
 import com.facimus.procesos.gestion.dto.response.RolProcesoVistaResponse;
@@ -750,6 +753,52 @@ class AplicacionDelModeloTest {
     }
 
     @Test
+    @DisplayName("PR 69: un formulario que llega, cambia o se va es una edicion; el mismo de antes no")
+    void formularios_cadaCambioEsUnaEdicion() {
+        preparar();
+        Formulario antes = CampoArmado.formulario(CampoArmado.campo("cajas", TipoDeCampo.NUMERO));
+        Formulario despues = CampoArmado.formulario(CampoArmado.campo("cajas", TipoDeCampo.NUMERO).requerido());
+        empacar.setFormulario(antes);
+        inicio.setFormulario(antes);
+        planNodos.get(EMPACAR).formulario = despues;
+        planNodos.get(INICIO).formulario = antes;
+
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(empacar.getFormulario()).isEqualTo(despues);
+        assertThat(inicio.getFormulario()).isEqualTo(antes);
+    }
+
+    @Test
+    @DisplayName("PR 69: un archivo sin el formulario se lo quita al nodo")
+    void formularios_unArchivoSinElLoQuita() {
+        preparar();
+        empacar.setFormulario(CampoArmado.formulario(CampoArmado.campo("cajas", TipoDeCampo.NUMERO)));
+
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(0, 1, 0));
+        assertThat(empacar.getFormulario()).isNull();
+    }
+
+    @Test
+    @DisplayName("PR 69: una tarea y un evento nuevos se crean con el formulario del archivo")
+    void formularios_nodosNuevos() {
+        preparar();
+        guardaConId(actividadRepository, Actividad.class, Actividad::setId);
+        guardaConId(eventoRepository, Evento.class, Evento::setId);
+        Formulario formulario = CampoArmado.formulario(CampoArmado.campo("motivo", TipoDeCampo.TEXTO));
+        nodoPlan(NodoPlan.actividad("Activity_Aprobar", VENTAS, TipoActividad.USUARIO, "Approve", 150, 60))
+                .formulario = formulario;
+        nodoPlan(NodoPlan.evento("Event_AMano", VENTAS, TipoEvento.INICIO, "By hand", 20, 7)).formulario = formulario;
+
+        assertThat(aplicar(RolAcceso.EDITOR)).isEqualTo(new AplicacionDelModelo.Cambios(2, 0, 0));
+        ArgumentCaptor<Actividad> actividad = ArgumentCaptor.forClass(Actividad.class);
+        verify(actividadRepository).save(actividad.capture());
+        assertThat(actividad.getValue().getFormulario()).isEqualTo(formulario);
+        ArgumentCaptor<Evento> evento = ArgumentCaptor.forClass(Evento.class);
+        verify(eventoRepository).save(evento.capture());
+        assertThat(evento.getValue().getFormulario()).isEqualTo(formulario);
+    }
+
+    @Test
     @DisplayName("Un gateway que cambia de tipo es una edicion")
     void gateway_cambiaDeTipo() {
         preparar();
@@ -1442,6 +1491,7 @@ class AplicacionDelModeloTest {
         private String temporizador;
         private String padre;
         private Long procesoLlamado;
+        private Formulario formulario;
 
         private NodoPlan(String bpmnId, PlanBpmn.Clase clase, String lane, String nombre, int x, int y) {
             this.bpmnId = bpmnId;
@@ -1472,7 +1522,7 @@ class AplicacionDelModeloTest {
 
         PlanBpmn.Nodo armar() {
             return new PlanBpmn.Nodo(bpmnId, lane, clase, tipoActividad, tipoGateway, tipoEvento, nombre, descripcion,
-                    x, y, adjuntoA, interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado);
+                    x, y, adjuntoA, interrumpe, tipoTemporizador, temporizador, padre, procesoLlamado, formulario);
         }
     }
 

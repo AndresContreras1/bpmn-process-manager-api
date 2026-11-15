@@ -16,7 +16,8 @@ public record AbrirCasoRequest(
         @Schema(description = "What the messages of this case will be matched by, usually the order number",
                 example = "ORD-1001")
         @Size(max = 120, message = "La referencia no puede superar 120 caracteres.") String referencia,
-        @Schema(description = "Case variables the conditions of the gateways will read",
+        @Schema(description = "Case variables the conditions of the gateways will read: the answers to the start "
+                + "form when it has one; free variables only in PRUEBA mode",
                 example = "{\"order\": {\"total\": 150}}") Map<String, Object> variables,
         @Schema(description = "PRODUCCION runs on the wall clock and the business calendar; PRUEBA, the default, on "
                 + "the store clock ticks and the simulated partners", example = "PRODUCCION") ModoCaso modo) {

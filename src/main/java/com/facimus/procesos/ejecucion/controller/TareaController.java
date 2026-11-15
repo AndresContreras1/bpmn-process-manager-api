@@ -16,6 +16,7 @@ import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.security.ApiPrincipal;
 import com.facimus.procesos.ejecucion.dto.request.AsignarTareaRequest;
 import com.facimus.procesos.ejecucion.dto.request.CompletarTareaRequest;
+import com.facimus.procesos.ejecucion.dto.response.FormularioDeTareaResponse;
 import com.facimus.procesos.ejecucion.dto.response.TareaResponse;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.service.TareaService;
@@ -74,10 +75,25 @@ public class TareaController {
         return ResponseEntity.ok(tareaService.obtener(principal.empresaId(), id));
     }
 
+    @Operation(summary = "Get the form of a task",
+            description = "The form frozen in the version of the task's case, with its conditions compiled for the "
+                    + "web to evaluate, the value offered in each field (from the case variable its porDefecto "
+                    + "names) and the case variables the conditions may read. Any role.")
+    @ApiResponse(responseCode = "200", description = "The form of the task; empty when it has none")
+    @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    @ApiResponse(responseCode = "404", ref = "NotFound")
+    @GetMapping("/{id}/formulario")
+    public ResponseEntity<FormularioDeTareaResponse> formulario(@PathVariable Long id,
+            @AuthenticationPrincipal ApiPrincipal principal) {
+        return ResponseEntity.ok(tareaService.formulario(principal.empresaId(), id));
+    }
+
     @Operation(summary = "Complete a task",
             description = "Completes it and lets the case move on. Whatever data is handed over lands in the case "
-                    + "variables under tarea.<taskNameInCamel>, so a later gateway can ask for it. A task is "
-                    + "completed once. Administrators and editors.")
+                    + "variables under tarea.<taskNameInCamel>, so a later gateway can ask for it. When the task has "
+                    + "a form, the data are its answers: they are checked against it and stored with the type of "
+                    + "each field, and a wrong answer is a 400 with each field under datos. Without a form, free "
+                    + "data are taken only in PRUEBA mode. A task is completed once. Administrators and editors.")
     @ApiResponse(responseCode = "200", description = "The task, now completed")
     @ApiResponse(responseCode = "400", ref = "BadRequest")
     @ApiResponse(responseCode = "401", ref = "Unauthorized")

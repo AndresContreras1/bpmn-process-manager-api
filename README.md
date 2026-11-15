@@ -18,7 +18,7 @@ Angular web app built on it.
 ![Angular 22](https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white)
 ![bpmn-js 18](https://img.shields.io/badge/bpmn--js-18%20%C2%B7%20BPMN%202.0.2-404040)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-3495-success?logo=junit5&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-3793-success?logo=junit5&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-96%25%20lines%20%C2%B7%2087%25%20branches-success)
 [![License](https://img.shields.io/badge/License-MIT-4c8bf5)](LICENSE)
 
@@ -38,7 +38,7 @@ Angular web app built on it.
 ```mermaid
 flowchart LR
     M["<b>Model</b><br/>in the bpmn-js modeler,<br/>or from a BPMN file"]
-    D["<b>Diagnose</b><br/>21 errors that block<br/>publishing, 16 warnings"]
+    D["<b>Diagnose</b><br/>22 errors that block<br/>publishing, 16 warnings"]
     P["<b>Publish</b><br/>an immutable version,<br/>fingerprinted"]
     R["<b>Run</b><br/>cases, trays, messages<br/>and the store's clock"]
     W["<b>Watch</b><br/>dashboard, case timeline<br/>and Actuator gauges"]
@@ -62,7 +62,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Modeling** | Participants, lanes, tasks, gateways, events with timers and boundary events, sub-processes and call activities, sequence and message flows, correlation keys, and annotations, groups and data objects. A process is executable or only documents. Every change is checked against the BPMN rules, so a model never ends up in an invalid state. | [Domain model](docs/domain-model.md) |
 | **BPMN 2.0.2 files** | Export a process or any of its versions as a file that validates against the OMG schemas and opens in bpmn.io and Camunda Modeler. Import from any tool by differences, element by element, with a report of what was converted, what was left out and what was kept to write it back. A fuzzer feeds the importer every night. | [BPMN files](docs/api-reference.md#endpoints) |
 | **Editing together** | Autosave of the whole model with `ETag` and `If-Match`, draft revisions to go back to, who is on a process over server-sent events shared by every replica, a soft lock with *take control*, and a comparison by meaning between versions, the draft or a file that was not saved. | [Concurrent edits](docs/api-reference.md#concurrent-edits) |
-| **Diagnosis** | A deterministic catalogue of 21 errors and 16 warnings, each pointing at an element, and a what-if that says what a deletion would take with it. | [Diagnosis](docs/diagnosis-and-versions.md#diagnosis) |
+| **Diagnosis** | A deterministic catalogue of 22 errors and 16 warnings, each pointing at an element, and a what-if that says what a deletion would take with it. | [Diagnosis](docs/diagnosis-and-versions.md#diagnosis) |
 | **Versions** | Publishing freezes the whole diagram with a SHA-256 fingerprint and keeps its BPMN file, the same bytes forever. What is edited afterwards is the draft, and the process says when it is ahead. | [Versions](docs/diagnosis-and-versions.md#published-versions) |
 | **Documents** | Files attached to a process or one of its elements, with versions. The type comes from the content against a whitelist, an antivirus and a ZIP bomb check review each one in the job queue, each store has a quota, and a download is a five-minute signed link that always arrives as an attachment. Stored in S3 or any compatible service. | [Documents](docs/security.md#documents) |
 | **Documentation** | Markdown for the process and each of its elements, converted and cleaned on the server, a characterization sheet, and a manual of each published version in HTML and PDF, in the reader's language, with the drawing the modeler sent when publishing. The web edits all of it, attaches documents by dropping them and follows each one until the antivirus is done, from the process and from the modeler's side panel. | [Documentation](docs/api-reference.md#documentation-and-the-manual) |
@@ -74,6 +74,7 @@ the [order-fulfillment example](docs/example-order-fulfillment.md) walks the dem
 | **Permissions** | Actions granted on a folder or a process — view, comment, model, review, approve, publish, export and administer — to a person, a process role or the whole store, inherited down the folders. The access role sets the ceiling, separation of duties goes last, and a list only shows what each person can see, in the same query. A screen grants and takes back, showing what is inherited, and the web only offers the buttons that will work. | [Permissions](docs/security.md#permissions-on-folders-and-processes) |
 | **Execution** | Cases that walk a published version, tasks waiting in the tray of each process role, and gateway conditions in a small language of its own that cannot run code. | [Execution](docs/execution.md#running-a-process) |
 | **Time and calendars** | Timers that run — waits, boundary timers that interrupt or only warn, and timer starts that open cases — counted on the wall clock with each organization's business calendar: working hours, and the public holidays of Colombia, the United States, France and Australia, computed and editable. They fire once, also with two replicas or after the API was down. Test cases keep the ticks, and a draft can be tried without publishing it. | [Time](docs/execution.md#time-production-and-test-cases) |
+| **Forms** | Typed forms on user tasks and start events — text, numbers, money, dates, yes/no, lists, people, files and sections — with required fields, limits and RE2 patterns that cannot hang the server, fields that show or become required by a condition the server compiles for the web, and defaults from the case. Frozen in the version, carried in BPMN, and checked by the server on every answer, field by field. | [Typed forms](docs/api-reference.md#typed-forms) |
 | **Messaging and simulation** | Outbox and inbox per process, correlation by key, a clock in ticks per store, and four simulated partners — payments, carrier, notifications, customer — deterministic by seed. | [Simulation](docs/execution.md#messages-and-the-clock) |
 | **Dashboard** | Cases by state, cycle time with average and p95, work waiting per role and what did not go as expected, in six queries however many orders there are. | [Dashboard](docs/execution.md#the-dashboard) |
 | **Operations** | Health probes, Prometheus metrics on a management port of their own with business counters, JSON logs, OpenTelemetry traces, and a request id in every response, log line and error. | [Operations endpoints](docs/getting-started.md#operations-endpoints) |
@@ -193,15 +194,15 @@ requests with curl, the Postman collection, the end-to-end tests and the operati
 ./mvnw verify
 ```
 
-- **3495 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
+- **3793 tests** in the build, every one of them against PostgreSQL 16 with Testcontainers: architecture rules,
   controller and repository slices, service units, security and store isolation — permissions included, as a matrix
   of six people, eight actions and five resources — and integration across modules.
-- **Coverage gate** with JaCoCo: 96 % of lines and 87 % of branches today, and the build fails below 90 % and 80 %
+- **Coverage gate** with JaCoCo: 96 % of lines and 88 % of branches today, and the build fails below 90 % and 80 %
   in the service packages, where the business rules live.
 - **Mutation testing** with PIT over the services, the engine and the conditions: 91 % of 3274 mutations caught,
   run every night with a floor of 75 %, and a **fuzzer** that feeds the BPMN importer broken files every night after
   it. Spotless keeps the imports and the whitespace of every changed file in order.
-- **The web app** has 451 Vitest tests over its logic — the rules of the modeler, the tree of the
+- **The web app** has 454 Vitest tests over its logic — the rules of the modeler, the tree of the
   structure view, the autosave, the live connection, the screens of the documentation, the filters in the
   address, the search and the permissions, the comments, the review and the bell, and what the read-only
   portal shows and offers — and 36 Selenium scenarios, with axe-core over every screen.

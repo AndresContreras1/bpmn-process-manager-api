@@ -1,7 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormControl, FormGroup } from '@angular/forms';
 
-import { esConflictoDeVersion, marcarErroresDelServidor, mensajeDeError, mensajeDeLaApi } from './errores-api';
+import {
+  esConflictoDeVersion,
+  marcarErroresDelServidor,
+  mensajeConLosCampos,
+  mensajeDeError,
+  mensajeDeLaApi,
+} from './errores-api';
 
 function error(status: number, cuerpo: unknown = null): HttpErrorResponse {
   return new HttpErrorResponse({ status, error: cuerpo });
@@ -27,6 +33,19 @@ describe('errores de la API', () => {
     expect(mensajeDeLaApi(error(403))).toBe('Your role does not allow this action.');
     expect(mensajeDeLaApi(error(409, { detail: 'Esa concesión ya existe.' }))).toBe('Esa concesión ya existe.');
     expect(mensajeDeLaApi(error(0))).toContain('cannot be reached');
+  });
+
+  it('suma al detalle el mensaje de cada campo rechazado, y sin campos es el detalle solo', () => {
+    const cuerpo = {
+      detail: 'Las respuestas no cumplen el formulario.',
+      errors: { 'datos.monto': 'Es obligatorio.', 'datos.pedido': 'No cumple el patron.' },
+    };
+
+    expect(mensajeConLosCampos(error(400, cuerpo))).toBe(
+      'Las respuestas no cumplen el formulario. datos.monto: Es obligatorio. datos.pedido: No cumple el patron.',
+    );
+    expect(mensajeConLosCampos(error(409, { detail: 'La tarea ya no espera.' }))).toBe('La tarea ya no espera.');
+    expect(mensajeConLosCampos(error(0))).toContain('cannot be reached');
   });
 
   it('reconoce el conflicto de version por el titulo, no por el 409 solo', () => {

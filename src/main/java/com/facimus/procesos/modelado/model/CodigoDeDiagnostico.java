@@ -58,6 +58,8 @@ public enum CodigoDeDiagnostico {
     E20(Severidad.ALTA),
     /** PR 56: procesos que se llaman en circulo. */
     E21(Severidad.ALTA, true),
+    /** PR 69: un formulario mal armado, o en un nodo que no llena una persona. */
+    E22(Severidad.ALTA),
 
     /** Un mensaje sin anclar hacia un pool modelado por dentro, sin ningun nodo con ese nombre que lo espere. */
     A01(Severidad.MEDIA),

@@ -6,7 +6,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Observable, Subject, catchError, debounceTime, of, switchMap, tap } from 'rxjs';
 
 import { ParClaveValor, aDatos, comoTexto } from '../../helpers/datos-libres';
-import { mensajeDeError } from '../../helpers/errores-api';
+import { mensajeConLosCampos, mensajeDeError } from '../../helpers/errores-api';
 import { Datos, EstadoPaso, NOMBRE_ESTADO_PASO } from '../../models/caso.model';
 import { PageResponse } from '../../models/page-response.model';
 import { Proceso } from '../../models/proceso.model';
@@ -190,7 +190,8 @@ export class TareasComponent implements OnInit {
         },
         error: (error: HttpErrorResponse) => {
           this.enviando = false;
-          this.error = mensajeDeError(error);
+          // Una tarea con formulario rechaza cada dato por su clave: se dice cual, aunque aqui se escriban libres
+          this.error = mensajeConLosCampos(error);
         },
       });
   }
