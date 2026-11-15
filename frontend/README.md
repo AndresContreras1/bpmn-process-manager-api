@@ -53,7 +53,8 @@ What the pipeline checks before it builds:
 npm run lint           # angular-eslint over the TypeScript and the templates, accessibility rules included
 npm run format:check   # Prettier over src; npm run format writes it
 npm test               # Vitest over the logic that is not a screen: the rules of the modeler, the structure
-                       # tree, the autosave, the live connection, the helpers and the session
+                       # tree, the autosave, the live connection, the helpers and the session; and the
+                       # services and components of the documentation
 ```
 
 ## Languages
@@ -87,7 +88,7 @@ EUR). English (en-US) is the language of the source.
   against WCAG 2.2 AA: 4.5 for text and 3 for the border of a control.
 - **Dark mode.** The header switches `data-bs-theme` on the page, which Bootstrap reads; the choice is remembered in
   this browser, and without one the app follows the system.
-- **Shell.** A header with the brand, a search of processes by name, the theme and the account; for whoever signed
+- **Shell.** A header with the brand, the global search, the theme and the account; for whoever signed
   in, a sidebar with the sections (Processes, Work, Dashboard and, for administrators, Administration) and the
   breadcrumbs each route declares in `data.migas`. A skip link jumps to the content. The links keep the ids the
   navbar had, which the end-to-end suite looks for.
@@ -161,8 +162,25 @@ EUR). English (en-US) is the language of the source.
   stops typing and cancels the previous request (`debounceTime` and `switchMap`); the state and category filters work
   the same way, and clicking a category filters by it.
 - **Folders** sit beside the list: a tree where a folder filters the list by itself and everything inside it, and
-  where folders are created, renamed and deleted, only when empty. Tags, the classification and the date of the next
-  review filter the list too, and the next review has a column of its own.
+  where folders are created, renamed, moved inside another one and deleted, only when empty. A folder is offered only
+  the folders that are not inside it. Tags, the owner (*Me* for anyone, and each person for an administrator), the
+  classification and the date of the next review filter the list too, and the next review and the classification
+  have columns of their own that sort.
+- **The filters live in the address** ([ADR-0073](../docs/adr/0073-repository-and-permissions-ui.md)):
+  `/procesos?carpeta=3&clasificacion=CONFIDENCIAL&orden=proximaRevision,asc&pagina=2` is a list anyone can open again,
+  and a reload keeps it. Every change of a filter writes the address with `replaceUrl`, so Back leaves the screen
+  instead of undoing a letter, and every change of the address, a link or Back included, reloads the list. What the
+  address says is not trusted: a state, classification or order that does not exist, an id that is not a number or a
+  badly written date fall back to the default. The pure functions are `filtrosDesdeUrl` and `filtrosEnUrl`.
+- **Moving a process** opens a dialog with the tree as radio buttons: it opens on the folder the process is in, the
+  arrows choose another, Enter moves it and Escape closes, and the focus goes back to the button that opened it. It
+  saves the filing card with only the folder changed. The list has a Move button on each row, and the process page
+  has one too.
+- **A new process can be filed as it is created:** the form takes its folder (the one the list was showing, to start
+  with), its owner (for an administrator), the date of its next review, its classification and its tags, and saves
+  them with the filing card right after creating it. The tags are checked before sending by the API's own rule, at
+  most 10 of at most 40 characters each. If that second call fails the process exists anyway, and its page says the
+  filing is still to be done.
 - **The filing card** sits under the diagram of a process: its folder, owner, next review, classification and tags,
   saved on their own with `PUT /procesos/{id}/ficha`, so filing a process is not a change waiting to be published.
 - The API records the change history in Spanish, so the detail page shows each known entry in English and falls back
@@ -177,8 +195,41 @@ EUR). English (en-US) is the language of the source.
   API, such as a repeated name or a diagram that cannot be published yet.
 - The detail page shows the process and its change history. Publishing and deleting ask first in a Bootstrap modal,
   and the page changes only with the API's answer. A published process cannot go back to draft.
-- Buttons follow the user's role: administrators and editors create, edit and publish, only administrators delete,
-  and read-only users just browse. The API enforces the same rules and answers `403` otherwise.
+- **The buttons of a process follow what the API says the person can do with it**, `GET /procesos/{id}/permisos`:
+  Edit, Model, Move and the filing card need `MODELAR`, Publish `PUBLICAR`, the BPMN file `EXPORTAR`, Permissions
+  `ADMINISTRAR`, and Share and Delete `ADMINISTRAR` and an administrator, as the route matrix says. If that answer does
+  not arrive they follow the role, as before: administrators and editors create, edit and publish, only
+  administrators delete, and read-only users browse. The rows of the list ask the same, in parallel for the page on
+  screen (at most 50), and keep the role's buttons until each answer arrives. The API decides either way and answers
+  `403` otherwise, and a refusal that comes from a grant shows the API's own reason. The Documentation
+  button is there for every role of the store, and not for a guest store, which only gets the diagram.
+
+## Search
+
+The header button and Ctrl+K, or Cmd+K, open the search of the whole organization (`GET /busqueda`): processes,
+elements, documents and comments, only what the person can view. The dialog arrives the first time it opens.
+
+- It is a WAI-ARIA combobox: the focus stays in the field, the arrows move the active result across the groups,
+  Enter opens its process (an element opens with that element chosen, `?elemento=`), Escape closes, and the focus
+  goes back where it was. Enter does nothing while the results on screen belong to a text that has changed since.
+  Ctrl+K does not open it over another modal dialog, and the header shows the shortcut as Cmd K on a Mac. The number of results and the errors
+  are read out in an `aria-live` region.
+- It asks 250 ms after the last key, never twice for the same text, and throws away the answer to a text that has
+  changed since (`buscarMientrasSeEscribe`, tested with fake timers).
+- The fragment comes as plain-text segments. Each one is interpolated, the highlighted ones in a `mark`, so whatever a
+  document or a comment says, `<script>` included, is read as text.
+
+## Permissions
+
+`/procesos/:id/permisos` and `/carpetas/:id/permisos`, from the process page and from the folder tree, list what is
+granted there, grant an action to a person, a process role or the whole organization, and take a grant back.
+
+- The grants of every folder above are listed too, as inherited and read-only, each linking to its folder. A folder
+  the person does not administer cannot be read, and the screen says so.
+- The form says what is missing before sending, by the same rule as the API: a person with `PERSONA`, a role with
+  `ROL`, and nothing more. The list of people is the administrator's, so an editor who administers a process grants
+  to a role or to everyone. It is read page by page, so a store with more than 50 people can pick any of them.
+- What the API refuses is shown with its own message, separation of duties included.
 
 ## Diagram viewer
 
@@ -261,8 +312,104 @@ leads here. It is bpmn-js limited to what the model can hold.
 
 `/procesos/:id/comparar` takes two states of a process —any version, the one in force or the draft— and draws the
 second with what changed: added, changed and moved, each with its own line style, and a legend in words that says
-it again. The legend is also the only place that can say what was removed, since it is not in the drawing. Color is
-never the only signal.
+it again, with a count of each kind and each group sorted by name. The legend is also the only place that can say
+what was removed, since it is not in the drawing. Color is never the only signal. The modeler and the page of a
+request use the same legend component.
+
+## Review, comments and notifications
+
+[ADR-0074](../docs/adr/0074-review-comments-and-notifications-ui.md), over the API of comments and notifications and of
+review and approval:
+
+- **Asking for review.** When the organization publishes with approval
+  (`GET /empresas/actual/politica-de-publicacion`), the process page and the modeler show *Ask for review* instead of
+  Publish, or *Review waiting* with a link to the open request. The modeler saves what is left before asking, since
+  the API freezes what is saved; like Publish, it waits for a saved draft, and a failed save stops it with the
+  reason. `/politica-de-publicacion` is where the administrator chooses directly or with
+  approval, how many approvals, and a list of people (read-only ones cannot approve) or a process role.
+- **`/solicitudes`** is the inbox: by default what waits for the person's decision, and in the other tab every
+  request of the organization, filtered by state; the tab and the state live in the address. **`/solicitudes/:id`**
+  draws the frozen draft (read with `para=dibujar`, so viewing is enough) with the markers of the comparison and
+  lists the same difference with the comparison legend, so what was removed is said too. An approver who has not
+  decided approves, asks for changes or rejects, the last two with a reason; the requester or whoever administers the
+  process withdraws it, after confirming.
+- **Comments** sit in a panel beside the canvas, in the modeler and on the process page: the threads of the selected
+  element, or of the whole process when nothing is selected, in the draft or in the version on screen. The canvas
+  draws over each element a button with its open threads, which selects it. Replies, resolve and reopen, edit and
+  delete (asked twice) are in each thread. The text is shown only as the HTML the API cleaned. A link with
+  `?comentario=`, which the bell and the e-mails use, opens the thread's version, selects its element and focuses
+  the thread; `?solicitud=` goes to the request.
+- **Mentions** are a WAI-ARIA combobox that asks `GET /procesos/{id}/mencionables` 250 ms after the last key: the
+  arrows move, Enter chooses, Escape closes, and each chosen person is a chip with a button to remove it. The state
+  lives in `SelectorDeMenciones`, a plain class with its tests: it never offers who is already chosen and stops at 20.
+  Typed and immediate searches share one `switchMap`, and an answer for other text or after the field lost focus is
+  dropped.
+- **The bell** in the header arrives when the browser is idle. Its number is the count the notification stream sends
+  (`/notificaciones/flujo`), on opening and on every change, so it needs no polling and a reconnection catches up by
+  itself; the stream reconnects like the modeler's. While it is open, marking one as read leaves the count to it. It opens a panel with the latest 20, each linking to what it
+  points to, mark one or all as read, and a link to `/cuenta/notificaciones`, where each type is sent at once, in the
+  daily digest or never. A new notification is read out in an `aria-live` region, and the button says the number in
+  words.
+
+## Documentation and documents
+
+`/procesos/:id/documentacion`, reachable from the Documentation button of the process, has four tabs that follow
+the WAI-ARIA tabs pattern —the arrows, Home and End move between them— and keep the chosen one in the address
+(`?pestana=`). All four load when the page opens and the hidden ones are only hidden, so switching tabs never loses
+what was being typed. The same editor and document list sit in the modeler's side panel, for the element selected,
+under its properties. They follow the role, not the lock of the drawing: an editor can document a step while someone
+else models.
+
+- **Documentation.** Markdown, with *Write* and *Preview*. The web never turns Markdown into HTML: the preview is
+  what `POST /documentacion/vista-previa` answers, the HTML the server converted and cleaned against its whitelist,
+  and it goes in with `[innerHTML]`, which passes it through Angular's sanitizer once more. Saving sends the version
+  read; saving it empty removes it.
+- **Characterization sheet.** Its nine fields as one reactive form, saved whole with its version.
+- In both, a `409` *Conflicto de versión* says someone else saved first and keeps what was typed on screen until the
+  person chooses to reload, which replaces it.
+- **Documents.** Attached with the button or by dropping files on the zone, one after another. A file over 25 MB is
+  not sent, and the screen says which one; what the API refuses shows its own reason (`413` for the size or the
+  quota, `415` for a type it does not take). The upload sends the raw file as `application/octet-stream`, so the type
+  is the one the server reads from the content. It shows no percentage: the app uses `HttpClient`'s fetch backend,
+  which cannot report the progress of an upload, so a spinner says what is being uploaded.
+- **The antivirus state.** A new document or version is *being checked*, with a spinner; while any is, the list is
+  asked for again every two seconds, and it stops when none is. When one becomes available or blocked, an
+  `aria-live` region says so, and a blocked one shows its reason. Each document lists its versions, downloads any
+  available one, takes a new version and, for administrators and editors, is deleted after a confirmation.
+- **Downloads** ask for the signed link right before using it, since it lasts five minutes, and open it as a link
+  with `download`: the API sends it as an attachment, so the page stays where it was.
+- **Manual.** Generated for the version in force and built in the job queue: it shows *being built* with a spinner
+  and is asked for every two seconds until it is ready or failed, with the reason; then it downloads as PDF or HTML.
+  Without a published version the screen says the process has to be published first.
+- **Read-only users** see the saved HTML, the sheet as text, and download documents and manuals, without the editor,
+  the drop zone or the buttons that change anything; the page says why. The API refuses the same with a `403`.
+
+## The read-only portal
+
+[ADR-0075](../docs/adr/0075-read-only-portal.md): what is published, for the people who read processes, with nothing
+that changes anything.
+
+- **`/portal`** lists the published processes of a folder (that folder and the ones inside it, by name) beside the
+  folder tree, which here has no controls to change it, or what the search finds. The search is the API of the global
+  search through `PortalService`, with `publicado=true`: only processes with a version in force, the elements of
+  that version and those processes' documents, without comments. The folder, the text and the page live in the
+  address. Each process says its classification and its next review, or *Review overdue* when the API says so.
+- **`/portal/procesos/:id`** opens one process with every read at once (`PortalService.abrir`): the detail, which
+  names the owner (`duenoNombre`), the permissions, the characterization sheet, the documentation, the documents, the
+  manuals and the BPMN file of the version in force, read with `para=dibujar`. If one of the extras fails the page
+  shows the rest; without the permissions it offers nothing.
+- **The diagram** is the bpmn-js viewer with the elements that have something to read marked with a thicker line. A
+  click on an element shows beside it its documentation, only as the HTML the API cleaned, and its documents, each
+  downloaded from a signed link asked for at the click; nothing chosen is the whole process. The structure view walks
+  the same elements with the keyboard in read-only mode, where Enter chooses, and the choice is announced. A link
+  with `?elemento=`, which the search uses, opens the process with that element chosen.
+- **The manual** of the version in force: the newest one ready, in the reader's language if there is one, as PDF or as
+  a web page. Asking to build one is offered only when the permissions say `EXPORTAR` and the role may send changes
+  (`controlesDelPortal`), and the page asks again every two seconds until the queue finishes it, for three minutes
+  at most; after that it says to come back later. The manual's language is shown by its name in the reader's.
+- **Readers start here.** The read-only role lands on `/portal` after signing in, accepting an invitation or linking
+  a provider (`inicioDe`), has it first in the sidebar, and the home page offers it; the other roles start in the
+  process list, as before.
 
 ## Administration
 
@@ -279,7 +426,8 @@ the role from the observable rather than from a snapshot, because the navbar is 
   opens with the ones the person already answers for already ticked: saving sends the whole list, so opening it
   blank and saving would have taken every role away.
 - **Process roles** (`/roles`): the list says which ones a lane is using, and Delete is disabled on those, because
-  the API refuses them with a `409`.
+  the API refuses them with a `409`. *Used by* opens the processes that use one, from `GET /roles/{id}`, each
+  linking to its page.
 - **Sharing** (`/procesos/:id/compartir`): by tax id, which is how a store is known to other stores. It is a
   read-only door to the version in force of that one diagram. What other stores share with you is listed on the
   process list, which is how a guest reaches it.
@@ -359,7 +507,7 @@ demo data is seeded by `dev`, which is what `npm start` talks to.
 src/
 ├── app/
 │   ├── bpmn/          the drawing on bpmn-js: the canvas, its modules, the properties panel, the structure view,
-│   │                  the autosave and the live connection
+│   │                  the autosave, the live connection and the difference of a review request
 │   ├── components/    components shared by several pages, such as the navbar
 │   ├── pages/         one folder per page, with a components/ folder for pieces only that page uses
 │   ├── models/        interfaces that mirror the API's DTOs, with the same field names
@@ -386,7 +534,10 @@ src/
   or on the page structure.
 - **What sorts a table is a button**, styled to look like a column title, with `aria-sort` on the cell and an arrow
   that says which way it goes. A `(click)` on the `<th>` works with a mouse and does not exist for a keyboard.
-- Vitest covers the logic that does not need a screen, written as plain functions so it can be tested alone. The
-  screens are tested end to end, in [`../e2e/`](../e2e/), with a real browser against the stack of containers.
+- Vitest covers the logic that does not need a screen, written as plain functions so it can be tested alone, and the
+  services and components of the documentation, mounted with `TestBed` against `HttpTestingController`: the request
+  each one sends, its states, the drop zone, the refresh while something is pending (with fake timers) and the
+  read-only view. The screens are tested end to end, in [`../e2e/`](../e2e/), with a real browser against the stack
+  of containers.
 - Enum values are turned into lists with `Object.keys` and typed, so a template can index the map of names without
   a cast. There is no `$any` in a template.

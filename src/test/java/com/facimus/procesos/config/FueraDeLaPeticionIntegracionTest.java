@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -18,6 +20,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.facimus.procesos.common.auditoria.SucesoAuditable;
+import com.facimus.procesos.common.notificaciones.NotificacionPedida;
+import com.facimus.procesos.common.notificaciones.TipoDeNotificacion;
 import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.common.security.ContextoDeTienda.Alcance;
 import com.facimus.procesos.common.trabajos.ColaDeTrabajos;
@@ -30,7 +34,9 @@ import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
 import com.facimus.procesos.gestion.service.LimpiezaService;
+import com.facimus.procesos.gestion.service.NotificacionService;
 import com.facimus.procesos.gestion.service.ProcesoService;
+import com.facimus.procesos.gestion.service.RecertificacionService;
 import com.facimus.procesos.gestion.service.SesionService;
 import com.facimus.procesos.gestion.service.VersionService;
 import com.facimus.procesos.modelado.service.RevisionService;
@@ -63,6 +69,7 @@ class FueraDeLaPeticionIntegracionTest {
     @Autowired private DesafiosWebAuthn desafiosWebAuthn;
     @Autowired private LimitesDePeticiones limitesDePeticiones;
     @Autowired private ConfiguracionTiendaService configuracionTiendaService;
+    @Autowired private NotificacionService notificacionService;
     @Autowired private SimulacionService simulacionService;
     @Autowired private CasoService casoService;
     @Autowired private TemporizadorService temporizadorService;
@@ -70,6 +77,7 @@ class FueraDeLaPeticionIntegracionTest {
     @Autowired private VersionService versionService;
     @Autowired private BorradoDePruebas borradoDePruebas;
     @Autowired private Clock reloj;
+    @Autowired private RecertificacionService recertificacionService;
 
     private Long empresaId;
     private Long adminId;
@@ -123,8 +131,8 @@ class FueraDeLaPeticionIntegracionTest {
         Long version = versionConUnCaso("PRUEBA", 0, LocalDateTime.now().minusDays(2));
         Long publicada = versionConUnCaso("PUBLICADA", 1, LocalDateTime.now().minusDays(2));
         LimpiezaConfig limpieza = new LimpiezaConfig(limpiezaService, revisionService, intentosDeLogin,
-                colaDeTrabajos, cuentaService, empresaService, limitesDePeticiones, desafiosWebAuthn, casoService,
-                Duration.ofDays(1), reloj);
+                colaDeTrabajos, cuentaService, empresaService, limitesDePeticiones, desafiosWebAuthn,
+                notificacionService, casoService, Duration.ofDays(1), reloj);
 
         comoEnProduccion(() -> {
             limpieza.limpiar();
@@ -215,6 +223,36 @@ class FueraDeLaPeticionIntegracionTest {
     }
 
     @Test
+    @DisplayName("PR 63: una notificacion se crea en la tienda del pedido; el resumen del dia y la purga cruzan tiendas")
+    void notificaciones() {
+        comoEnProduccion(() -> {
+            notificacionService.notificar(new NotificacionPedida(empresaId, TipoDeNotificacion.HILO_RESUELTO, null,
+                    null, null, List.of(adminId)));
+            return null;
+        });
+        assertThat(jdbc.queryForObject("select count(*) from notificaciones where empresa_id = ? and usuario_id = ? "
+                + "and envio = 'RESUMEN_DIARIO'", Integer.class, empresaId, adminId)).isOne();
+
+        comoEnProduccion(() -> {
+            new ResumenDeNotificacionesConfig(notificacionService).resumir();
+            return null;
+        });
+        assertThat(jdbc.queryForObject("select count(*) from trabajos where empresa_id = ? and tipo = "
+                + "'notificaciones.correo' and datos like '%\"resumen\":true%'", Integer.class, empresaId)).isOne();
+
+        jdbc.update("update notificaciones set leida_en = ? where empresa_id = ?", LocalDateTime.now().minusDays(91),
+                empresaId);
+        comoEnProduccion(() -> {
+            new LimpiezaConfig(limpiezaService, revisionService, intentosDeLogin, colaDeTrabajos, cuentaService,
+                    empresaService, limitesDePeticiones, desafiosWebAuthn, notificacionService, casoService,
+                    Duration.ofDays(1), reloj).limpiar();
+            return null;
+        });
+        assertThat(jdbc.queryForObject("select count(*) from notificaciones where empresa_id = ?", Integer.class,
+                empresaId)).isZero();
+    }
+
+    @Test
     @DisplayName("El reloj de la simulacion encuentra las tiendas en automatico y mueve cada una en su alcance")
     void relojDeLaSimulacion() {
         jdbc.update("update configuracion_tienda set modo_simulacion = 'AUTOMATICO' where empresa_id = ?", empresaId);
@@ -227,6 +265,26 @@ class FueraDeLaPeticionIntegracionTest {
         });
         assertThat(jdbc.queryForObject("select reloj from configuracion_tienda where empresa_id = ?", Integer.class,
                 empresaId)).isEqualTo(antes + 1);
+    }
+
+    @Test
+    @DisplayName("PR 64: el aviso diario de recertificacion cruza tiendas, y el trabajo de cada una avisa en la suya")
+    void recertificacion() {
+        LocalDate hoy = LocalDate.now(ZoneOffset.UTC);
+        Long procesoId = procesoService.crear(empresaId, adminId, "Recertificable", "Se revisa cada año", "Gobierno")
+                .id();
+        jdbc.update("update procesos set dueno_id = ?, proxima_revision = ? where id = ?", adminId, hoy, procesoId);
+
+        comoEnProduccion(() -> {
+            new RecertificacionConfig(recertificacionService, Clock.systemUTC()).avisar();
+            return null;
+        });
+        assertThat(jdbc.queryForObject("select count(*) from trabajos where empresa_id = ? and tipo = "
+                + "'recertificacion.avisos'", Integer.class, empresaId)).isOne();
+
+        assertThat(comoEnProduccion(() -> recertificacionService.avisar(empresaId, hoy))).isOne();
+        assertThat(jdbc.queryForObject("select revision_avisada from procesos where id = ?", LocalDate.class,
+                procesoId)).isEqualTo(hoy);
     }
 
     /** Como corre en produccion un hilo que no dice de que tienda es: sin ninguna fila. */

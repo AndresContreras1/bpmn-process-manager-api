@@ -36,6 +36,78 @@ tagged. Each pull request adds its line under *Unreleased*.
   verifies every audit trail against its anchor and every published version against its fingerprint. It prints the
   RPO and the RTO it measured.
 - The documents' bucket keeps every version for 35 days (`ALMACEN_S3_DIAS_DE_VERSIONES`) when the API prepares it.
+- A read-only portal of what is published, in the web: `/portal` lists the published processes of a folder beside
+  the folder tree, or what the search finds among what is published (`GET /api/v1/busqueda?publicado=true`: processes
+  with a version in force, the elements of that version and their documents, without comments), with the folder, the
+  text and the page in the address; `/portal/procesos/{id}` shows the process sheet (owner,
+  classification, next review and characterization), the diagram of the version in force with the documented
+  elements marked, where a click or Enter in the read-only structure tree shows an element's documentation and its
+  documents to download, and the manual of that version, which only someone who may export can ask to build. Overdue
+  reviews carry a badge in the list and on the page, and nothing in the portal changes anything. The read-only role
+  starts in the portal after signing in, and has it first in the sidebar.
+  `GET /api/v1/procesos/{id}` adds `duenoNombre`, the owner's name. The initial bundle is 740 kB.
+- Review, comments and notifications in the web: with a publishing policy that asks for approval, the process page
+  and the modeler offer *Ask for review* instead of Publish, or a link to the open request; an inbox lists what waits
+  for the person's decision and every request of the store by state; a request page draws the frozen draft with its
+  difference marked like the compare page and lists it in words, and lets an approver approve, ask for changes or
+  reject, and the requester or whoever administers the process withdraw it after confirming; the administrator sets the policy on its
+  own screen. Comment threads sit in a panel beside the canvas in the modeler and the viewer, for the selected element
+  or the whole process, with a count of open threads drawn over each element, replies, resolve and reopen, edit and
+  delete, the HTML the API cleaned and mentions chosen from a picker that sends ids. The header has a bell with the
+  unread count, live over the notification stream with its own reconnection, the latest notifications, mark one or
+  all read, and a settings page per type. `GET /api/v1/procesos/{id}/mencionables` answers who can be mentioned in a
+  process. The initial bundle stays at 738 kB.
+- The repository and the permissions in the web: the filters of the process list (folder, owner, tag,
+  classification, review date, state, category, name, order and page) live in the address; folders move inside
+  others and processes move between folders from a dialog driven by the keyboard; a new process can be filed as it
+  is created, with its folder, owner, next review, classification and tags; a global search opens from the header or
+  with Ctrl+K or Cmd+K, grouped by kind, with the matching words marked and never read as HTML; a screen lists,
+  grants and takes back what a person, a process role or the whole organization can do with a folder or a process,
+  with what comes from the folders above as inherited; the process page and each row of the list only offer the
+  buttons that `GET /procesos/{id}/permisos` allows; and the roles page lists the processes that use each role. The
+  header search by name became the global search, and the initial bundle went from 789 kB to 732 kB.
+- Full-text search: `GET /api/v1/busqueda` finds a text in processes, elements of the draft and of the published
+  version, documents and comments, with web search syntax (quotes, `-`, `or`), in the store's language (Spanish,
+  English or French) and without minding accents. It finds only what the person can view, filtered in the same query,
+  ranks names above descriptions and bodies, and answers each hit with the ids to open it and a fragment in plain-text
+  segments with the matches highlighted. PostgreSQL keeps the vectors with triggers and GIN indexes; the job queue
+  reads the text of PDF, Office, OpenOffice and plain-text files once the antivirus clears them, with Tika's parsers,
+  a cap of 1,000,000 characters and 30 seconds per file, replacing a reading thread that a file leaves stuck, and
+  searches the rest by name. A job that finds no free reading slot is postponed without spending an attempt.
+  Changing the store's language rebuilds the vectors in a queued job, in short transactions; searching spends from its
+  own bucket, 60 a minute per person.
+- Review and approval: each store publishes directly, as before, or with approval by N people of a list or a process
+  role. Asking for review (needs PUBLICAR) freezes the draft in a revision and in the snapshot to publish, answers
+  the semantic difference against the version in force, and notifies the approvers; each one approves, asks for
+  changes or rejects with a reason, never the requester, and the last approval publishes the frozen snapshot through
+  the usual path, or says why it no longer can (the version in force changed, or the diagnosis is not clean). With
+  approval on, publishing directly answers 409 for everyone. Recertification: a daily job tells each process owner
+  when its review date arrives and once more when it passes, "still valid" moves the date by the process's months
+  between reviews, and process answers say when a review is overdue. Everything is audited.
+  Publishing through a request and recertifying leave the process's version and last editor alone, so the separation
+  of duties never blocks the next round; the approvers are evaluated in one pass; read-only people never count as
+  approvers; turning the policy off never fails over stale approvers; a role the policy names cannot be deleted;
+  deleting a process withdraws its open request.
+- Organization export and exit: an administrator, with a recent verification, asks for a full export of the store,
+  built in the job queue as one ZIP with every process (versions as BPMN and JSON, the draft, documentation, sheet
+  and manuals), the documents with every version, comments, history, the audit trail with its hashes and anchors so
+  it can be verified outside, the people without any secret, and the cases as JSON and as CSV safe from formulas, with
+  a manifest of sizes and SHA-256 fingerprints. Its link, signed for 24 hours, goes by e-mail in the asker's language
+  and works only while they are an active administrator; every step is audited, one export runs per store at a time,
+  and an hourly job deletes expired ones; a failed export leaves no file behind, and a file the storage lost is
+  listed as missing instead of stopping the export. Closing a store can ask for an export, the grace period accepts
+  more, and the purge issues a deletion certificate with no personal data whose hash goes to the store's audit trail.
+- Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
+  like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
+  can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads
+  reach a notification center that only its recipient sees, a server-sent event stream shared by every replica, and
+  e-mail in the person's language, immediate or in a daily digest as each person chooses per type. Resolving,
+  reopening and deleting are audited; read notifications are purged after 90 days.
+- The web screens for documentation and documents: `/procesos/{id}/documentacion` with four tabs —the Markdown
+  documentation with the preview the server cleans, the characterization sheet, the documents and the manual— and the
+  documentation and documents of the selected element in the modeler's side panel. Documents are attached with a
+  button or by dropping them, files over 25 MB are not sent, the antivirus state refreshes until it changes and is
+  announced, and every download goes through a signed link. Read-only users see and download without editing.
 - Documentation in Markdown for a process and each of its elements, converted on the server and cleaned against a
   whitelist, with a preview; a characterization sheet per process; the drawing of each version, which the modeler
   sends right after publishing and the server cleans; and the manual of a published version in HTML and PDF, built in
@@ -167,6 +239,8 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- Verifying the audit trail reads its anchors from where they were written: with S3, the Object Lock bucket, which
+  the storage did not read before.
 - `E-18` no longer stops an executable process from publishing a timer: it now flags a cycle on a timer that fires only
   once. A case step keeps a subtype of up to 30 characters, so `TEMPORIZADOR_INTERMEDIO` fits.
 - The README and the guides cover BPMN files, the bpmn-js modeler, editing together, the process repository and
@@ -199,6 +273,8 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Security
 
+- `GET /api/v1/procesos/{id}/permisos` answers `404` for another store's process, like every other read of it,
+  instead of every action.
 - The browser's session lives in two `HttpOnly`, `Secure`, `SameSite=Lax` cookies, and what changes something with
   them, the login included, needs the CSRF token of the `XSRF-TOKEN` cookie in `X-XSRF-TOKEN`. The access token
   follows RFC 8725 (`iss`, `aud`, `jti`, `kid`), and the signing key can rotate without closing sessions.

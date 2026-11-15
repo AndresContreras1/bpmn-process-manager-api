@@ -16,6 +16,15 @@ export function mensajeDeError(error: HttpErrorResponse): string {
 }
 
 /**
+ * Como mensajeDeError, pero un 403 con detalle dice el suyo: lo usan las pantallas donde la API explica por que no,
+ * como una concesion que falta o la separacion de funciones, que no es cuestion del rol.
+ */
+export function mensajeDeLaApi(error: HttpErrorResponse): string {
+  const detalle: string | undefined = (error.error as ProblemDetail | null)?.detail;
+  return error.status === 403 && detalle ? detalle : mensajeDeError(error);
+}
+
+/**
  * Un 409 tiene varios motivos —un nombre repetido, una regla de negocio, un dato unico— y el titulo del
  * ProblemDetail es lo que los separa. Este es el de editar sobre una version que ya cambio.
  */

@@ -1,0 +1,77 @@
+<div class="position-relative">
+  <label i18n class="form-label small mb-1" [for]="id + '-campo'">Mention people</label>
+  <input
+    type="text"
+    class="form-control form-control-sm"
+    role="combobox"
+    autocomplete="off"
+    i18n-placeholder
+    placeholder="Type part of a name"
+    [id]="id + '-campo'"
+    data-testid="menciones-campo"
+    [attr.aria-expanded]="selector.abierto"
+    [attr.aria-controls]="id + '-opciones'"
+    [attr.aria-activedescendant]="activa"
+    [attr.aria-describedby]="id + '-ayuda'"
+    aria-autocomplete="list"
+    [disabled]="selector.lleno"
+    [value]="texto"
+    (input)="escribir($event)"
+    (focus)="enfocar()"
+    (blur)="salir()"
+    (keydown)="teclear($event)"
+  />
+  <p i18n class="form-text small mb-1" [id]="id + '-ayuda'">
+    Only people who can view this process can be mentioned, up to 20. They get a notification.
+  </p>
+  @if (selector.abierto) {
+    <ul
+      class="list-group position-absolute w-100 shadow-sm menciones-opciones"
+      role="listbox"
+      i18n-aria-label
+      aria-label="People to mention"
+      [id]="id + '-opciones'"
+    >
+      @for (persona of selector.opciones; track persona.id; let indice = $index) {
+        <li
+          class="list-group-item list-group-item-action py-1 small"
+          role="option"
+          data-testid="mencion-opcion"
+          [id]="id + '-opcion-' + indice"
+          [class.active]="indice === selector.activa"
+          [attr.aria-selected]="indice === selector.activa"
+          (mousedown)="$event.preventDefault(); elegir(indice)"
+        >
+          {{ persona.nombre }}
+        </li>
+      }
+    </ul>
+  } @else {
+    <!-- La lista vacia sigue existiendo para aria-controls -->
+    <ul class="d-none" role="listbox" i18n-aria-label aria-label="People to mention" [id]="id + '-opciones'"></ul>
+  }
+  <div class="visually-hidden" aria-live="polite">
+    @if (sinResultados) {
+      <ng-container i18n>Nobody to mention with that name.</ng-container>
+    } @else if (selector.abierto) {
+      <ng-container i18n>{{ selector.opciones.length }} people to mention.</ng-container>
+    }
+  </div>
+  @if (selector.elegidas.length) {
+    <ul class="list-inline mb-0" i18n-aria-label aria-label="Mentioned" data-testid="menciones-elegidas">
+      @for (persona of selector.elegidas; track persona.id) {
+        <li class="list-inline-item mb-1">
+          <span class="badge rounded-pill text-bg-secondary d-inline-flex align-items-center gap-1">
+            {{ persona.nombre }}
+            <button
+              type="button"
+              class="btn-close btn-close-white mencion-quitar"
+              [attr.aria-label]="etiquetaDeQuitar(persona)"
+              (click)="quitar(persona)"
+            ></button>
+          </span>
+        </li>
+      }
+    </ul>
+  }
+</div>

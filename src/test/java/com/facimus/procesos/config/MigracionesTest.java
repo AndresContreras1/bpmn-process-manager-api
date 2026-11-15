@@ -117,7 +117,9 @@ class MigracionesTest {
                         "V49__presencia_y_bloqueo_suave.sql",
                         "V50__repositorio_de_procesos.sql",
                         "V51__concesiones.sql", "V52__documentos.sql",
-                        "V53__documentacion_y_manual.sql",
+                        "V53__documentacion_y_manual.sql", "V54__comentarios_y_notificaciones.sql",
+                        "V55__revision_y_aprobacion.sql", "V56__busqueda.sql",
+                        "V57__exportaciones.sql",
                         "V58__calendario_y_temporizadores.sql");
     }
 

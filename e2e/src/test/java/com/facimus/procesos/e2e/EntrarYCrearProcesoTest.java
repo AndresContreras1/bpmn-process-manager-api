@@ -45,7 +45,8 @@ class EntrarYCrearProcesoTest extends PruebaE2E {
         escribir(Paginas.Formulario.NOMBRE, "Returns and refunds");
         escribir(Paginas.Formulario.CATEGORIA, "After-sales");
         escribir(Paginas.Formulario.DESCRIPCION, "What happens when a customer sends an order back.");
-        pulsable(Paginas.Formulario.GUARDAR).click();
+        // Con la ficha plegada debajo, el boton queda al borde de la ventana: se manda con Enter, como una persona
+        enviarConEnter(Paginas.Formulario.NOMBRE);
 
         // Crear lleva al detalle del proceso recien creado, y nace como borrador
         esperarTexto(Paginas.Detalle.NOMBRE, "Returns and refunds");

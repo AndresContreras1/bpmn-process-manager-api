@@ -53,6 +53,16 @@ class ReglaDeRecursoTest {
                 Arguments.of("PUT", P + "/versiones/{numero}/dibujo", null, Accion.PUBLICAR),
                 Arguments.of("GET", P + "/manuales", null, Accion.VER),
                 Arguments.of("POST", P + "/manuales", null, Accion.EXPORTAR),
+                // PR 63: comentar no es modelar: tambien lo hace quien solo lee
+                Arguments.of("GET", P + "/comentarios", null, Accion.VER),
+                Arguments.of("POST", P + "/comentarios", null, Accion.COMENTAR),
+                // F21: a quien mencionar lo sabe quien ve el proceso
+                Arguments.of("GET", P + "/mencionables", null, Accion.VER),
+                // PR 64: pedir una revision es el primer paso de publicar; confirmar que sigue vigente lo decide su
+                // servicio, a quien ve el proceso
+                Arguments.of("GET", P + "/solicitudes", null, Accion.VER),
+                Arguments.of("POST", P + "/solicitudes", null, Accion.PUBLICAR),
+                Arguments.of("POST", P + "/recertificacion", null, Accion.VER),
                 // PR 68: probar el borrador es modelarlo; mirar los inicios temporizados, verlo
                 Arguments.of("POST", P + "/pruebas", null, Accion.MODELAR),
                 Arguments.of("GET", P + "/temporizadores", null, Accion.VER));
@@ -85,6 +95,36 @@ class ReglaDeRecursoTest {
         assertThat(regla.tipo()).isEqualTo(tipo);
     }
 
+    static Stream<Arguments> rutasDeComentarios() {
+        return Stream.of(Arguments.of("PUT", "/api/v1/comentarios/{id}"),
+                Arguments.of("DELETE", "/api/v1/comentarios/{id}"),
+                Arguments.of("POST", "/api/v1/comentarios/{id}/respuestas"),
+                Arguments.of("POST", "/api/v1/comentarios/{id}/resolver"),
+                Arguments.of("POST", "/api/v1/comentarios/{id}/reabrir"));
+    }
+
+    @ParameterizedTest(name = "{0} {1} pide COMENTAR sobre el proceso del comentario")
+    @MethodSource("rutasDeComentarios")
+    void rutaDeComentario(String metodo, String patron) {
+        assertThat(ReglaDeRecurso.de(metodo, patron, null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(Accion.COMENTAR, ReglaDeRecurso.Clase.ELEMENTO, "comentarios"));
+    }
+
+    static Stream<Arguments> rutasDeSolicitudes() {
+        return Stream.of(Arguments.of("GET", "/api/v1/solicitudes/{id}", Accion.VER),
+                Arguments.of("POST", "/api/v1/solicitudes/{id}/aprobar", Accion.APROBAR),
+                Arguments.of("POST", "/api/v1/solicitudes/{id}/pedir-cambios", Accion.APROBAR),
+                Arguments.of("POST", "/api/v1/solicitudes/{id}/rechazar", Accion.APROBAR),
+                Arguments.of("POST", "/api/v1/solicitudes/{id}/retirar", Accion.VER));
+    }
+
+    @ParameterizedTest(name = "{0} {1} pide {2} sobre el proceso de la solicitud")
+    @MethodSource("rutasDeSolicitudes")
+    void rutaDeSolicitud(String metodo, String patron, Accion esperada) {
+        assertThat(ReglaDeRecurso.de(metodo, patron, null).orElseThrow())
+                .isEqualTo(new ReglaDeRecurso(esperada, ReglaDeRecurso.Clase.ELEMENTO, "solicitudes"));
+    }
+
     @Test
     @DisplayName("lo que cuelga de un elemento se decide por ese elemento")
     void anidado() {
@@ -115,6 +155,21 @@ class ReglaDeRecursoTest {
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/documentos/{documentoId}/{numero}", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/manuales/{manualId}/{formato}", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("POST", "/api/v1/documentacion/vista-previa", null)).isEmpty();
+        // PR 63: las notificaciones son de cada persona, no de un proceso: las filtra su servicio
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/notificaciones", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("POST", "/api/v1/notificaciones/{id}/leida", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/notificaciones/preferencias", null)).isEmpty();
+        // PR 64: la bandeja de solicitudes la filtra su servicio, y la politica es de la tienda
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/solicitudes", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/empresas/actual/politica-de-publicacion", null)).isEmpty();
+        // PR 65: la busqueda no tiene recurso: su servicio filtra lo que cada quien puede ver, en la misma consulta
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/busqueda", null)).isEmpty();
+        // PR 66: la exportacion es de la tienda entera, no de un proceso: la decide la matriz de rutas, y bajarla, la
+        // firma de su enlace
+        assertThat(ReglaDeRecurso.de("POST", "/api/v1/organizacion/exportaciones", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/organizacion/exportaciones", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/organizacion/exportaciones/{id}", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/exportaciones/{id}", null)).isEmpty();
         // PR 68: el calendario es de la tienda entera, y un caso se comprueba en su service
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/organizacion/calendario", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("DELETE", "/api/v1/organizacion/calendario/festivos/{fecha}", null)).isEmpty();

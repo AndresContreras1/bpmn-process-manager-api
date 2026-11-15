@@ -157,7 +157,7 @@ class ProcesoControllerTest {
     @DisplayName("GET /api/v1/procesos/{id} - detalle proceso (200)")
     void detalle_proceso() throws Exception {
         given(procesoService.obtenerDetalle(1L, 1L, false))
-                .willReturn(new ProcesoDetalleResponse(crearProceso(1L, "Ventas"), List.of()));
+                .willReturn(new ProcesoDetalleResponse(crearProceso(1L, "Ventas"), List.of(), "Ana"));
 
         mockMvc.perform(get("/api/v1/procesos/1").with(principal(RolAcceso.EDITOR)))
                 .andExpect(status().isOk())

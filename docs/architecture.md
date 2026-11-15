@@ -77,7 +77,7 @@ nothing of the engine beyond the port.
 |---|---|
 | `common` | What every module needs: the store and the access role, the authenticated identity (`ApiPrincipal`), the tenant base entity and the tenant-aware repository contract, business exceptions, Problem Details, pagination, the queue of jobs, and the e-mail and its templates |
 | `security` | Filter chain, the authentication endpoints, login and its rate limit, JWT issuing and validation, the session cookies and the CSRF check, closed sessions, `401` and `403` handlers, CORS |
-| `gestion` | Management: stores, users and their sessions, processes, process roles and change history |
+| `gestion` | Management: stores, users and their sessions, processes, process roles and change history, and the full export of a store, whose ZIP each module fills through the port `ParteDeLaExportacion` |
 | `modelado` | BPMN modeling: pools, lanes, activities, gateways, sequence flows, message flows and correlation keys |
 | `ejecucion` | Running a published version: cases, the steps they go through, the tray of tasks, the timeline, the two message trays, the store's clock and the engine that moves them. It publishes the port the partner on the other side of a message is asked through |
 | `integracion` | The simulated partners behind that port: the payment gateway, the carrier, the notifications provider, the customer, and the echo that stands in for a participant with no partner of its own. They receive a message and answer; they know nothing about cases, trays or who called them, and they open no connections |
@@ -232,7 +232,7 @@ PostgreSQL, not in its memory (D34).
 | AI reviews | Table `revisiones_ia`, one row per answer of the model | They reuse the last one of a process and count the same ones for the store's limit |
 | Scheduled jobs | Table `shedlock`, the lock of each job, with the database's clock | The purge and the simulation clock run in one instance at a time; the lock of the clock lasts as long as the pause between ticks, so two instances do not move it twice as fast |
 | Events for another module | Table `event_publication`, the outbox of Spring Modulith | An event for an `@ApplicationModuleListener` is written in the transaction that publishes it and deleted when its listener finishes; what a listener did not finish is delivered again when an instance starts. The listeners that have to act inside the transaction, such as the one that creates the pool of a new process or the notice of a closed session, do not go through it |
-| Jobs | Table `trabajos`, the queue | Any instance takes the next job with `FOR UPDATE SKIP LOCKED`, so two never take the same one and none waits for another. A job that fails comes back after a wait that doubles each time, up to an hour, and after its attempts it stays `FALLIDO` with its last error. A store has at most `TRABAJOS_MAXIMO_EN_CURSO_POR_TIENDA` jobs running at once, so a big export does not hold up the others, and a job that an instance left half done goes back to the queue after fifteen minutes |
+| Jobs | Table `trabajos`, the queue | Any instance takes the next job with `FOR UPDATE SKIP LOCKED`, so two never take the same one and none waits for another. A job that fails comes back after a wait that doubles each time, up to an hour, and after its attempts it stays `FALLIDO` with its last error. A job that cannot start for a reason outside it, such as no free slot to read a file, is postponed by its base wait without spending an attempt. A store has at most `TRABAJOS_MAXIMO_EN_CURSO_POR_TIENDA` jobs running at once, so a big export does not hold up the others, and a job that an instance left half done goes back to the queue after fifteen minutes |
 
 What stays in each instance is safe to keep apart: the cache of published versions, which never change, and the
 metrics, which Prometheus reads from each instance. Counting and recording a failed login are not one transaction,
@@ -264,6 +264,10 @@ default):
 - **Links of the e-mails** that expired more than a week ago. An expired one opens nothing.
 - **Stores whose closing is 30 days old**: every row of the store, table by table in the order of their foreign
   keys, and of its own row everything but the id and the dates ([The life of the data](security.md#the-life-of-the-data)).
+  A job then deletes its files and issues the deletion certificate.
+
+Expired full exports do not wait for the night: an hourly job (`EXPORTACIONES_LIMPIEZA_CRON`) deletes each ZIP whose
+link expired and keeps the row with its fingerprint ([ADR-0071](adr/0071-organization-export-and-exit.md)).
 
 The outbox needs no sweeping: an event leaves it when its listener finishes, and what stays is what still has to be
 delivered.

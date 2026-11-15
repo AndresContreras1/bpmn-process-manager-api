@@ -9,8 +9,16 @@
           data never reaches another organization.
         </p>
         <div class="d-flex flex-wrap gap-2 mb-3">
-          @if (usuario$ | async) {
-            <a i18n class="btn btn-primary btn-lg" routerLink="/procesos" id="inicio-ir-procesos">Open my processes</a>
+          @if (usuario$ | async; as usuario) {
+            @if (usuario.rolAcceso === 'SOLO_LECTURA') {
+              <a i18n class="btn btn-primary btn-lg" routerLink="/portal" id="inicio-ir-portal"
+                >Open the process portal</a
+              >
+            } @else {
+              <a i18n class="btn btn-primary btn-lg" routerLink="/procesos" id="inicio-ir-procesos"
+                >Open my processes</a
+              >
+            }
             <a i18n class="btn btn-outline-primary btn-lg" routerLink="/cuenta" id="inicio-ir-cuenta">My account</a>
           } @else {
             <a i18n class="btn btn-primary btn-lg" routerLink="/login" id="inicio-login">Sign in</a>

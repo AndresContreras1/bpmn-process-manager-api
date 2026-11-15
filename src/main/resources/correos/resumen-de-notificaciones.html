@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}">
+<head>
+  <meta charset="UTF-8">
+  <title th:text="#{comun.firma}">Asunto</title>
+</head>
+<body style="font-family: Arial, Helvetica, sans-serif; color: #212529; line-height: 1.5;">
+  <p th:text="#{notificacion.saludo(${nombre})}">Hola:</p>
+  <p th:text="#{resumen-de-notificaciones.cuerpo}">Cuerpo</p>
+  <ul>
+    <li th:each="linea : ${notificaciones}">
+      <span th:text="#{${'notificacion.' + linea.tipo + '.linea'}(${linea.autor}, ${linea.proceso})}">Linea</span>
+      &middot; <a th:href="${linea.enlace}" th:text="#{notificacion.abrir}">Abrir</a>
+    </li>
+  </ul>
+  <p style="font-size: 12px; color: #6c757d;">
+    <span th:text="#{notificacion.preferencias}">Preferencias</span><br>
+    <a th:href="${cuenta}" th:text="${cuenta}">Cuenta</a>
+  </p>
+  <p style="font-size: 12px; color: #6c757d;" th:text="#{comun.firma}">Firma</p>
+</body>
+</html>
