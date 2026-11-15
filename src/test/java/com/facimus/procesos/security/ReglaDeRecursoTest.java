@@ -157,5 +157,11 @@ class ReglaDeRecursoTest {
         // PR 64: la bandeja de solicitudes la filtra su servicio, y la politica es de la tienda
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/solicitudes", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("PUT", "/api/v1/empresas/actual/politica-de-publicacion", null)).isEmpty();
+        // PR 66: la exportacion es de la tienda entera, no de un proceso: la decide la matriz de rutas, y bajarla, la
+        // firma de su enlace
+        assertThat(ReglaDeRecurso.de("POST", "/api/v1/organizacion/exportaciones", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/organizacion/exportaciones", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/organizacion/exportaciones/{id}", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/exportaciones/{id}", null)).isEmpty();
     }
 }

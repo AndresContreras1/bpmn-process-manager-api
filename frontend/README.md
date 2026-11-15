@@ -53,7 +53,8 @@ What the pipeline checks before it builds:
 npm run lint           # angular-eslint over the TypeScript and the templates, accessibility rules included
 npm run format:check   # Prettier over src; npm run format writes it
 npm test               # Vitest over the logic that is not a screen: the rules of the modeler, the structure
-                       # tree, the autosave, the live connection, the helpers and the session
+                       # tree, the autosave, the live connection, the helpers and the session; and the
+                       # services and components of the documentation
 ```
 
 ## Languages
@@ -178,7 +179,8 @@ EUR). English (en-US) is the language of the source.
 - The detail page shows the process and its change history. Publishing and deleting ask first in a Bootstrap modal,
   and the page changes only with the API's answer. A published process cannot go back to draft.
 - Buttons follow the user's role: administrators and editors create, edit and publish, only administrators delete,
-  and read-only users just browse. The API enforces the same rules and answers `403` otherwise.
+  and read-only users just browse. The API enforces the same rules and answers `403` otherwise. The Documentation
+  button is there for every role of the store, and not for a guest store, which only gets the diagram.
 
 ## Diagram viewer
 
@@ -263,6 +265,39 @@ leads here. It is bpmn-js limited to what the model can hold.
 second with what changed: added, changed and moved, each with its own line style, and a legend in words that says
 it again. The legend is also the only place that can say what was removed, since it is not in the drawing. Color is
 never the only signal.
+
+## Documentation and documents
+
+`/procesos/:id/documentacion`, reachable from the Documentation button of the process, has four tabs that follow
+the WAI-ARIA tabs pattern —the arrows, Home and End move between them— and keep the chosen one in the address
+(`?pestana=`). All four load when the page opens and the hidden ones are only hidden, so switching tabs never loses
+what was being typed. The same editor and document list sit in the modeler's side panel, for the element selected,
+under its properties. They follow the role, not the lock of the drawing: an editor can document a step while someone
+else models.
+
+- **Documentation.** Markdown, with *Write* and *Preview*. The web never turns Markdown into HTML: the preview is
+  what `POST /documentacion/vista-previa` answers, the HTML the server converted and cleaned against its whitelist,
+  and it goes in with `[innerHTML]`, which passes it through Angular's sanitizer once more. Saving sends the version
+  read; saving it empty removes it.
+- **Characterization sheet.** Its nine fields as one reactive form, saved whole with its version.
+- In both, a `409` *Conflicto de versión* says someone else saved first and keeps what was typed on screen until the
+  person chooses to reload, which replaces it.
+- **Documents.** Attached with the button or by dropping files on the zone, one after another. A file over 25 MB is
+  not sent, and the screen says which one; what the API refuses shows its own reason (`413` for the size or the
+  quota, `415` for a type it does not take). The upload sends the raw file as `application/octet-stream`, so the type
+  is the one the server reads from the content. It shows no percentage: the app uses `HttpClient`'s fetch backend,
+  which cannot report the progress of an upload, so a spinner says what is being uploaded.
+- **The antivirus state.** A new document or version is *being checked*, with a spinner; while any is, the list is
+  asked for again every two seconds, and it stops when none is. When one becomes available or blocked, an
+  `aria-live` region says so, and a blocked one shows its reason. Each document lists its versions, downloads any
+  available one, takes a new version and, for administrators and editors, is deleted after a confirmation.
+- **Downloads** ask for the signed link right before using it, since it lasts five minutes, and open it as a link
+  with `download`: the API sends it as an attachment, so the page stays where it was.
+- **Manual.** Generated for the version in force and built in the job queue: it shows *being built* with a spinner
+  and is asked for every two seconds until it is ready or failed, with the reason; then it downloads as PDF or HTML.
+  Without a published version the screen says the process has to be published first.
+- **Read-only users** see the saved HTML, the sheet as text, and download documents and manuals, without the editor,
+  the drop zone or the buttons that change anything; the page says why. The API refuses the same with a `403`.
 
 ## Administration
 
@@ -386,7 +421,10 @@ src/
   or on the page structure.
 - **What sorts a table is a button**, styled to look like a column title, with `aria-sort` on the cell and an arrow
   that says which way it goes. A `(click)` on the `<th>` works with a mouse and does not exist for a keyboard.
-- Vitest covers the logic that does not need a screen, written as plain functions so it can be tested alone. The
-  screens are tested end to end, in [`../e2e/`](../e2e/), with a real browser against the stack of containers.
+- Vitest covers the logic that does not need a screen, written as plain functions so it can be tested alone, and the
+  services and components of the documentation, mounted with `TestBed` against `HttpTestingController`: the request
+  each one sends, its states, the drop zone, the refresh while something is pending (with fake timers) and the
+  read-only view. The screens are tested end to end, in [`../e2e/`](../e2e/), with a real browser against the stack
+  of containers.
 - Enum values are turned into lists with `Object.keys` and typed, so a template can index the map of names without
   a cast. There is no `$any` in a template.

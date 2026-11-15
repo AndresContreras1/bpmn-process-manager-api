@@ -60,3 +60,4 @@ records that are not kept in this repository, not 0001 and 0002.
 | 0066 | [Documentation in Markdown and the process manual](0066-documentation-and-process-manual.md) | Accepted |
 | 0067 | [Comments, mentions and notifications](0067-comments-mentions-and-notifications.md) | Accepted |
 | 0069 | [Review and approval before publishing, and recertification](0069-review-and-approval.md) | Accepted |
+| 0071 | [Organization export and exit](0071-organization-export-and-exit.md) | Accepted |

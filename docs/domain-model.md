@@ -35,6 +35,7 @@ entries in Spanish.
 | `ActividadCaso` | Step of a case | Case | The node of the version it went through, copied by id and by name, its kind, the process role of its lane, state (`PENDIENTE`, `EN_ESPERA`, `COMPLETADA`, `FALLIDA` or `OMITIDA`), how many tokens have reached it, who took it and what they handed over |
 | `EventoCaso` | Timeline entry | Case | What happened, when, and who caused it. Only inserted |
 | `MembresiaRol` | Membership | Store | Which process roles a user belongs to; the pair is unique |
+| `Exportacion` | Full export of the store | Store | Who asked and when, state (`PENDIENTE`, `LISTA`, `FALLIDA` with its reason, or `VENCIDA`), where its ZIP is, its size, files and SHA-256, and until when its link works |
 
 Every entity except `Empresa` extends `EntidadEmpresa`, which holds a mandatory `empresa_id` that cannot be updated.
 Activities, gateways and events share one table through single-table inheritance, so a sequence flow can point to
@@ -63,6 +64,10 @@ Publishing with approval lives in `politicas_publicacion`, `solicitudes_publicac
 by a partial unique index) and `aprobaciones` (one per person and request); a request keeps its own copy of the
 snapshot it will publish, so pruning old draft revisions does not touch it
 ([ADR-0069](adr/0069-review-and-approval.md)).
+
+Each full export of a store is a row of `exportaciones`: a partial unique index keeps one `PENDIENTE` per store, and an
+expired one keeps its row and its SHA-256 after its ZIP is deleted
+([ADR-0071](adr/0071-organization-export-and-exit.md)).
 
 ## Modeling rules
 

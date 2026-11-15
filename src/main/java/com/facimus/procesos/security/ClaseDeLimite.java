@@ -16,5 +16,11 @@ public enum ClaseDeLimite {
     CORREO,
 
     /** Todo lo demas que cambia algo: por persona. Leer no cuenta. */
-    ESCRITURA
+    ESCRITURA,
+
+    /**
+     * PR 66: pedir la exportacion completa de la tienda, que lee cada fila suya: por persona y por dia. Por persona y
+     * no por tienda, porque se cuenta antes de la autorizacion: quien no puede exportar no gasta el cubo de quien si.
+     */
+    EXPORTACION
 }

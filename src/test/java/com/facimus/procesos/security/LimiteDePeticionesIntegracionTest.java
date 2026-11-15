@@ -48,6 +48,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @SpringBootTest(properties = {"limites.activos=true", "limites.autenticacion-por-minuto=3",
         "limites.registro-por-hora=2", "limites.correo-por-hora=2", "limites.escritura-por-minuto=5",
+        "limites.exportacion-por-dia=2",
         "limites.cuerpo-maximo=2KB", "limites.cuerpo-maximo-bpmn=4KB", "turnstile.secreto=secreto-de-pruebas"})
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
@@ -173,8 +174,8 @@ class LimiteDePeticionesIntegracionTest {
     @Test
     @DisplayName("Dos instancias gastan del mismo cubo: lo que una gasto, la otra ya no lo tiene")
     void dosInstanciasCompartenElCubo() {
-        LimitesDePeticiones una = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5);
-        LimitesDePeticiones otra = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5);
+        LimitesDePeticiones una = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5, 2);
+        LimitesDePeticiones otra = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5, 2);
         String clave = "compartida-" + DIRECCIONES.incrementAndGet();
 
         assertThat(una.gastar(ClaseDeLimite.AUTENTICACION, clave)).isEmpty();
@@ -186,7 +187,7 @@ class LimiteDePeticionesIntegracionTest {
     @Test
     @DisplayName("La purga se lleva los cubos que ya se llenaron y deja los que estan en uso")
     void olvidarVencidos() {
-        LimitesDePeticiones limites = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5);
+        LimitesDePeticiones limites = new LimitesDePeticiones(dataSource, true, 3, 2, 2, 5, 2);
         String enUso = "en-uso-" + DIRECCIONES.incrementAndGet();
         limites.gastar(ClaseDeLimite.CORREO, enUso);
         jdbc.update("insert into cubos_de_peticiones (id, estado, vence_en) values (?, null, 1)", "viejo-" + enUso);
@@ -223,6 +224,27 @@ class LimiteDePeticionesIntegracionTest {
             peticion.header(VerificacionHumana.CABECERA, turnstile);
         }
         return mockMvc.perform(peticion);
+    }
+
+    @Test
+    @DisplayName("PR 66: pedir la exportacion completa tiene su cubo diario por persona: el tercero del cubo de dos "
+            + "responde 429, y lo que cambia otra cosa sigue gastando del suyo")
+    void exportacionPorPersonaYPorDia() throws Exception {
+        int numero = TIENDAS.incrementAndGet();
+        String admin = "admin" + numero + "@exportacion.test";
+        empresaService.registrar("Tienda que exporta " + numero, "9052" + numero + "000-1", admin, "Ana", admin,
+                CLAVE);
+        String acceso = SesionEnCookies.acceso(login(admin, CLAVE, direccion()).andExpect(status().isOk()));
+
+        exportar(acceso).andExpect(status().isAccepted());
+        exportar(acceso).andExpect(status().isConflict());
+        exportar(acceso).andExpect(status().isTooManyRequests()).andExpect(header().exists(HttpHeaders.RETRY_AFTER));
+        crearProceso(acceso, "Mientras exporta").andExpect(status().isCreated());
+    }
+
+    private ResultActions exportar(String acceso) throws Exception {
+        return mockMvc.perform(post("/api/v1/organizacion/exportaciones").with(SesionEnCookies.conSesion(acceso))
+                .with(direccion()));
     }
 
     private ResultActions crearProceso(String acceso, String nombre) throws Exception {

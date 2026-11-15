@@ -20,12 +20,26 @@ tagged. Each pull request adds its line under *Unreleased*.
   of duties never blocks the next round; the approvers are evaluated in one pass; read-only people never count as
   approvers; turning the policy off never fails over stale approvers; a role the policy names cannot be deleted;
   deleting a process withdraws its open request.
+- Organization export and exit: an administrator, with a recent verification, asks for a full export of the store,
+  built in the job queue as one ZIP with every process (versions as BPMN and JSON, the draft, documentation, sheet
+  and manuals), the documents with every version, comments, history, the audit trail with its hashes and anchors so
+  it can be verified outside, the people without any secret, and the cases as JSON and as CSV safe from formulas, with
+  a manifest of sizes and SHA-256 fingerprints. Its link, signed for 24 hours, goes by e-mail in the asker's language
+  and works only while they are an active administrator; every step is audited, one export runs per store at a time,
+  and an hourly job deletes expired ones; a failed export leaves no file behind, and a file the storage lost is
+  listed as missing instead of stopping the export. Closing a store can ask for an export, the grace period accepts
+  more, and the purge issues a deletion certificate with no personal data whose hash goes to the store's audit trail.
 - Comments and notifications: threads on a process, one of its elements or a published version, in Markdown cleaned
   like the documentation, with replies, resolve and reopen. Every role comments; mentions are limited to people who
   can view the process (400 names the others, with the same reason for all). Mentions, replies and resolved threads
   reach a notification center that only its recipient sees, a server-sent event stream shared by every replica, and
   e-mail in the person's language, immediate or in a daily digest as each person chooses per type. Resolving,
   reopening and deleting are audited; read notifications are purged after 90 days.
+- The web screens for documentation and documents: `/procesos/{id}/documentacion` with four tabs —the Markdown
+  documentation with the preview the server cleans, the characterization sheet, the documents and the manual— and the
+  documentation and documents of the selected element in the modeler's side panel. Documents are attached with a
+  button or by dropping them, files over 25 MB are not sent, the antivirus state refreshes until it changes and is
+  announced, and every download goes through a signed link. Read-only users see and download without editing.
 - Documentation in Markdown for a process and each of its elements, converted on the server and cleaned against a
   whitelist, with a preview; a characterization sheet per process; the drawing of each version, which the modeler
   sends right after publishing and the server cleans; and the manual of a published version in HTML and PDF, built in
@@ -157,6 +171,8 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Changed
 
+- Verifying the audit trail reads its anchors from where they were written: with S3, the Object Lock bucket, which
+  the storage did not read before.
 - The README and the guides cover BPMN files, the bpmn-js modeler, editing together, the process repository and
   permissions, with the numbers of today's build.
 - The process, version and case viewers draw on bpmn-js, with the case's progress as markers and token counters. The
