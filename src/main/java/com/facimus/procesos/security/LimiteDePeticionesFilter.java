@@ -55,6 +55,9 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
     private static final Set<String> CORREO = Set.of("/api/v1/auth/recuperacion", "/api/v1/auth/verificacion",
             "/api/v1/usuarios/invitaciones");
 
+    /** PR 66: pedir la exportacion completa, con su propio cubo diario. */
+    private static final String EXPORTACIONES = "/api/v1/organizacion/exportaciones";
+
     private final LimitesDePeticiones limites;
     private final VerificacionHumana verificacionHumana;
     private final JsonMapper jsonMapper;
@@ -125,10 +128,6 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         return "GET".equals(request.getMethod()) && BUSQUEDA.equals(ruta);
     }
 
-    private static boolean porPersona(ClaseDeLimite clase) {
-        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.BUSQUEDA;
-    }
-
     /** De que cubo gasta. Lo que cambia algo sin sesion no cuenta por persona: la autorizacion lo va a rechazar. */
     private static Optional<ClaseDeLimite> clase(HttpServletRequest request, String ruta) {
         if (esBusqueda(request, ruta)) {
@@ -144,10 +143,19 @@ public class LimiteDePeticionesFilter extends OncePerRequestFilter {
         if (esPost && CORREO.contains(ruta)) {
             return Optional.of(ClaseDeLimite.CORREO);
         }
+        if (esPost && EXPORTACIONES.equals(ruta)) {
+            return usuario().map(id -> ClaseDeLimite.EXPORTACION);
+        }
         if (ruta.startsWith("/api/v1/auth/oidc")) {
             return Optional.empty();
         }
         return usuario().map(id -> ClaseDeLimite.ESCRITURA);
+    }
+
+    /** Lo que cuenta por persona y no por direccion: lo que solo se pide con sesion. */
+    private static boolean porPersona(ClaseDeLimite clase) {
+        return clase == ClaseDeLimite.ESCRITURA || clase == ClaseDeLimite.BUSQUEDA
+                || clase == ClaseDeLimite.EXPORTACION;
     }
 
     private static Optional<Long> usuario() {

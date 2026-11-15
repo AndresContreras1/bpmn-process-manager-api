@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -84,6 +87,14 @@ class ProcesoServiceTest {
     @Mock
     private Auditoria auditoria;
 
+    /** PR 64: sin politica guardada, la tienda publica directo. */
+    @Mock
+    private PoliticaDePublicacionService politicaDePublicacion;
+
+    /** PR 64: el dia contra el que se mira si una revision vencio. */
+    @Mock
+    private Clock reloj;
+
     @InjectMocks
     private ProcesoServiceImpl procesoService;
 
@@ -96,6 +107,8 @@ class ProcesoServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(reloj.instant()).thenReturn(Instant.parse("2026-11-12T10:00:00Z"));
+        lenient().when(reloj.getZone()).thenReturn(ZoneOffset.UTC);
         empresa = new Empresa();
         empresa.setId(1L);
         empresa.setNombre("Acme");

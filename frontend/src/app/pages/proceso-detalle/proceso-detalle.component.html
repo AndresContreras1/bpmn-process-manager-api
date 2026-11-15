@@ -57,8 +57,17 @@
         }
       </div>
 
+      <!-- F20: la documentacion la leen todos los roles de la tienda; una invitada solo ve el diagrama -->
       @if (!soloLectura) {
         <div class="d-flex flex-wrap gap-2" id="proceso-detalle-acciones">
+          <a
+            i18n
+            class="btn btn-outline-secondary"
+            [routerLink]="['/procesos', detalle.proceso.id, 'documentacion']"
+            id="proceso-detalle-documentacion"
+          >
+            <i class="fa-solid fa-book-open" aria-hidden="true"></i> Documentation
+          </a>
           @if (botones.editar) {
             <a
               i18n

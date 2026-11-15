@@ -1,0 +1,122 @@
+<div class="editor-documentacion" [attr.aria-busy]="cargando">
+  @if (error) {
+    <div class="alert alert-danger py-2 small" role="alert" id="documentacion-error">{{ error }}</div>
+  }
+  @if (conflicto) {
+    <div
+      class="alert alert-warning py-2 small d-flex flex-wrap align-items-center gap-2"
+      role="alert"
+      id="documentacion-conflicto"
+    >
+      <span i18n class="me-auto"
+        >Someone else saved this text while you were writing. Copy what you wrote if you need it, then reload to see
+        theirs.</span
+      >
+      <button
+        i18n
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        id="documentacion-recargar"
+        (click)="cargar()"
+      >
+        Reload
+      </button>
+    </div>
+  }
+  @if (aviso) {
+    <div class="alert alert-success py-2 small" role="status" id="documentacion-aviso">{{ aviso }}</div>
+  }
+
+  @if (cargando) {
+    <p i18n class="small text-body-secondary mb-0" role="status">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading the documentation…
+    </p>
+  } @else if (soloLectura()) {
+    @if (guardada) {
+      <div class="texto-documentado" id="documentacion-html" [innerHTML]="guardada.html"></div>
+      <p i18n class="small text-body-secondary mt-2 mb-0">
+        Last changed {{ guardada.fechaModificacion | fecha: 'fechaHora' }}
+      </p>
+    } @else {
+      <p i18n class="small text-body-secondary mb-0" id="documentacion-vacia">Nothing has been written yet.</p>
+    }
+  } @else {
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <div class="btn-group btn-group-sm" role="group" i18n-aria-label aria-label="How to see the text">
+        <button
+          i18n
+          type="button"
+          class="btn btn-outline-secondary"
+          id="documentacion-escribir"
+          [class.active]="vista === 'escribir'"
+          [attr.aria-pressed]="vista === 'escribir'"
+          (click)="escribir()"
+        >
+          Write
+        </button>
+        <button
+          i18n
+          type="button"
+          class="btn btn-outline-secondary"
+          id="documentacion-ver-previa"
+          [class.active]="vista === 'previa'"
+          [attr.aria-pressed]="vista === 'previa'"
+          (click)="verPrevia()"
+        >
+          Preview
+        </button>
+      </div>
+      <button
+        i18n
+        type="button"
+        class="btn btn-primary btn-sm ms-auto"
+        id="documentacion-guardar"
+        [disabled]="guardando || texto.invalid || conflicto"
+        (click)="guardar()"
+      >
+        @if (guardando) {
+          Saving…
+        } @else {
+          Save
+        }
+      </button>
+    </div>
+
+    @if (vista === 'escribir') {
+      <label i18n class="form-label small" for="documentacion-texto">Text in Markdown</label>
+      <textarea
+        class="form-control form-control-sm font-monospace"
+        id="documentacion-texto"
+        aria-describedby="documentacion-ayuda"
+        [rows]="compacto() ? 6 : 14"
+        [class.is-invalid]="texto.invalid"
+        [formControl]="texto"
+      ></textarea>
+      @if (texto.hasError('maxlength')) {
+        <div i18n class="invalid-feedback d-block" id="documentacion-largo">
+          The text cannot be longer than 100,000 characters.
+        </div>
+      }
+      <div i18n class="form-text small" id="documentacion-ayuda">
+        Headings with #, **bold**, *italics*, lists with -, tables and links. Images, HTML and scripts are not kept.
+        Save it empty to remove it.
+      </div>
+    } @else {
+      <div class="texto-documentado border rounded-3 p-3" id="documentacion-previa" aria-live="polite">
+        @if (previsualizando) {
+          <span class="small text-body-secondary" role="status">
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+            <ng-container i18n>Preparing the preview…</ng-container>
+          </span>
+        } @else if (previa) {
+          <div id="documentacion-previa-html" [innerHTML]="previa"></div>
+        } @else {
+          <span i18n class="small text-body-secondary">Nothing to show yet.</span>
+        }
+      </div>
+      <div i18n class="form-text small">
+        This is what will be saved: the server converts the Markdown and cleans it.
+      </div>
+    }
+  }
+</div>

@@ -111,4 +111,5 @@ and the [Postman collection](../postman/) walks it end to end.
 | Partners that behave the same way twice | What the simulated gateway, carrier and notifier decide comes from the store's seed, not from chance. The same demo shown twice gives the same rejections, the same lost parcels and the same amounts. |
 | Complete history | Every change keeps its author and date, and deleted items stay on record. The store reads its own history: users, roles, processes and its registration, in one place. |
 | Nothing breaks by surprise | A diagram can be checked against the rules at any moment, and before deleting anything it says what would go with it and what would be left without a path. |
+| Leaving with everything | An administrator can take the whole store in one file whose every part can be checked, and when a closed store is purged, a certificate says what was deleted without naming anyone. |
 | A second opinion | A model can review a diagram and point out what is missing, such as a decision with no alternative path. It only advises: nothing is changed without a person. |
