@@ -36,6 +36,7 @@ import com.facimus.procesos.ejecucion.dto.response.EventoCasoResponse;
 import com.facimus.procesos.ejecucion.dto.response.PasoDelCasoResponse;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.ModoCaso;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.service.CasoService;
@@ -54,7 +55,8 @@ class CasoControllerTest {
     @Test
     @DisplayName("POST /api/v1/procesos/{id}/casos - abre el caso y responde donde quedo (201)")
     void abrir_devuelveElCasoYSuUbicacion() throws Exception {
-        given(casoService.abrir(eq(1L), eq(1L), eq(10L), eq("ORD-1001"), any())).willReturn(caso());
+        given(casoService.abrir(eq(1L), eq(1L), eq(10L), eq("ORD-1001"), any(), eq(ModoCaso.PRUEBA)))
+                .willReturn(caso());
 
         mockMvc.perform(post("/api/v1/procesos/10/casos")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -84,7 +86,7 @@ class CasoControllerTest {
     @Test
     @DisplayName("POST /api/v1/procesos/{id}/casos - un proceso que empieza por mensaje lo dice (409)")
     void abrir_procesoQueEmpiezaPorMensaje_esConflicto() throws Exception {
-        given(casoService.abrir(any(), any(), any(), any(), any()))
+        given(casoService.abrir(any(), any(), any(), any(), any(), any()))
                 .willThrow(new ReglaNegocioException("Este proceso se inicia con el mensaje \"Order placed\"; "
                         + "envíelo como mensaje entrante."));
 

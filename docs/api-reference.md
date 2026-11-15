@@ -57,6 +57,9 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Account by e-mail | `POST /api/v1/auth/verificacion` · `POST /api/v1/auth/verificacion/confirmar` · `POST /api/v1/auth/invitacion/aceptar` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 | Cases | `POST /api/v1/procesos/{procesoId}/casos` · `GET /api/v1/casos` · `GET /api/v1/casos/{id}` · `GET /api/v1/casos/{id}/eventos` · `POST /api/v1/casos/{id}/cancelar` · `PATCH /api/v1/casos/{id}/variables` · `POST /api/v1/casos/{id}/reintentar` |
+| Test runs of a draft | `POST /api/v1/procesos/{procesoId}/pruebas` |
+| Timers | `GET /api/v1/casos/{id}/temporizadores` · `GET /api/v1/procesos/{procesoId}/temporizadores` |
+| Business calendar | `GET, PUT /api/v1/organizacion/calendario` · `GET /api/v1/organizacion/calendario/festivos?anio=` · `PUT, DELETE /api/v1/organizacion/calendario/festivos/{fecha}` · `GET /api/v1/organizacion/calendario/ediciones` · `DELETE /api/v1/organizacion/calendario/ediciones/{fecha}` |
 | Tasks | `GET /api/v1/tareas` · `GET /api/v1/tareas/{id}` · `POST /api/v1/tareas/{id}/completar` · `POST /api/v1/tareas/{id}/asignar` |
 | Messaging | `POST /api/v1/procesos/{procesoId}/mensajes-entrantes` · `GET /api/v1/procesos/{procesoId}/bandeja-salida` · `GET /api/v1/procesos/{procesoId}/bandeja-entrada` · `GET /api/v1/casos/{id}/mensajes` |
 | Simulation | `GET /api/v1/simulacion` · `POST /api/v1/simulacion/tick` · `POST /api/v1/simulacion/pedidos` |
@@ -340,6 +343,47 @@ its text. `fragmento` is plain text in segments: show each one as text and mark 
 ```bash
 curl -s "http://localhost:8080/api/v1/busqueda?q=%22reinforced%20tape%22%20-pallet&tipo=ELEMENTO" -b sesion.txt
 ```
+
+## The business calendar and timers
+
+`GET /api/v1/organizacion/calendario` answers the store's calendar: `pais` (`CO`, `US`, `FR` or `AU`), `zonaHoraria`,
+`horaInicio`, `horaFin`, `diasHabiles` and `version`. Until an administrator saves one it is the default of the
+store's country, without a version. `PUT` replaces it whole, administrators only, with the `version` read (none the
+first time); a zone that does not exist or a working day that ends before it starts answers `400`, and an old version
+`409`:
+
+```json
+{ "pais": "FR", "zonaHoraria": "Europe/Paris", "horaInicio": "09:00", "horaFin": "18:00",
+  "diasHabiles": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"], "version": 0 }
+```
+
+`GET .../festivos?anio=2026` lists the holidays of a year, from 1900 to 2199, each with `fecha`, `nombre` and
+`origen` (`CALCULADO` from the country's law, or `EDITADO`). Administrators change them by day:
+`PUT .../festivos/{fecha}` with `{ "nombre": "King's Birthday" }` makes a day a holiday or renames it;
+`DELETE .../festivos/{fecha}` removes one (`409` if the day is not a holiday); `DELETE .../ediciones/{fecha}` undoes the
+store's change to that day (`404` if there is none). `GET .../ediciones` lists the changes, not paged: a store changes
+at most 500 days, and a new one past that answers `409`. Anyone reads the calendar.
+
+A case opens in `PRUEBA` unless it asks for `{"modo": "PRODUCCION"}` in `POST /api/v1/procesos/{id}/casos`; the mode
+comes back in every case. `GET /api/v1/casos/{id}/temporizadores` lists the timers its waits and the boundaries of its
+activities armed: `clase`, `modo`, `tipoTemporizador`, `expresion`, `interrumpe`, `venceEn` (UTC, in `PRODUCCION`) or
+`venceTick` (in `PRUEBA`), `repeticiones`, `disparos`, `estado` and, for one that failed, `ultimoError` (a fixed reason
+with the exception's class; the details stay in the server log). `GET /api/v1/procesos/{id}/temporizadores?pagina=&tamano=`
+pages the timer starts of a process, newest first (20 by default, at most 50), in the usual page envelope: each publish
+arms new ones and cancels those of the previous version, so the list grows with the process. A process that starts with
+a timer opens its cases on its own, and opening one by hand answers `409`.
+
+Timer expressions have caps, checked by the diagnosis (`E-16`) and again when a timer is armed: a duration up to a
+hundred years, a business duration (`DURACION_HABIL`) up to 366 working days or 366 days of working hours, dates from
+1900 to 9999, and a cycle at most once a minute (an ISO period of a minute or more; a cron expression with a fixed
+seconds field, or a macro such as `@hourly`).
+
+`POST /api/v1/procesos/{id}/pruebas`, with an optional `referencia` and `variables`, tries the draft without publishing
+it: it answers `201` with a `PRUEBA` case on a test version (`versionNumero` 0) that no version list shows. The draft has
+to pass the diagnosis (`409` with the errors), and whoever asks needs `MODELAR` on the process. Test-run cases are
+listed with the others and their tasks reach the trays, so whoever tests can walk each path; incoming messages never
+correlate with them, and the dashboard does not count them. How the timers work is
+in [ADR-0072](adr/0072-business-calendar-and-timers.md) and [Execution](execution.md).
 
 ## Permissions
 

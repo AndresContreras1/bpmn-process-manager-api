@@ -44,6 +44,7 @@ import com.facimus.procesos.ejecucion.repository.MensajeEntranteRepository;
 import com.facimus.procesos.ejecucion.repository.MensajeSalienteRepository;
 import com.facimus.procesos.ejecucion.service.DatosDelEntrante;
 import com.facimus.procesos.ejecucion.service.MensajeriaService;
+import com.facimus.procesos.ejecucion.service.TemporizadorService;
 import com.facimus.procesos.gestion.dto.response.ConfiguracionTiendaResponse;
 import com.facimus.procesos.gestion.model.ModoSimulacion;
 import com.facimus.procesos.gestion.model.VersionProceso;
@@ -86,6 +87,8 @@ class SimulacionServiceTest {
     private EntregaDeMensajes entrega;
     @Mock
     private RelojDeLaTienda reloj;
+    @Mock
+    private TemporizadorService temporizadorService;
 
     @InjectMocks
     private SimulacionServiceImpl service;
@@ -116,6 +119,20 @@ class SimulacionServiceTest {
         orden.verify(entrega).reintentar(TIENDA_ID, 22L);
         orden.verify(entrega).entregar(TIENDA_ID, 31L, 15);
         assertThat(panel.reloj()).isEqualTo(15);
+    }
+
+    @Test
+    @DisplayName("PR 68: despues de los mensajes, el tick dispara los temporizadores de prueba vencidos en el")
+    void tick_disparaLosTemporizadoresDespuesDeLosMensajes() {
+        conLoQueHay(15);
+        when(reloj.avanzar(TIENDA_ID, 3)).thenReturn(15);
+        when(entrega.vencidos(TIENDA_ID, 15)).thenReturn(List.of(31L));
+
+        service.tick(TIENDA_ID, 3);
+
+        InOrder orden = inOrder(entrega, temporizadorService);
+        orden.verify(entrega).entregar(TIENDA_ID, 31L, 15);
+        orden.verify(temporizadorService).dispararEnTick(TIENDA_ID, 15);
     }
 
     @Test

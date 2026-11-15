@@ -47,7 +47,10 @@ public enum CodigoDeDiagnostico {
     E16(Severidad.ALTA),
     /** PR 55: una tarea sin tipo: en un proceso que corre, nadie sabe quien la hace. */
     E17(Severidad.ALTA),
-    /** PR 55: un evento de temporizador en un proceso que corre: los temporizadores todavia no saltan. */
+    /**
+     * PR 55: un evento de temporizador en un proceso que corre, cuando los temporizadores no saltaban. PR 68: un ciclo
+     * en un temporizador que salta una sola vez (el intermedio y el de borde que interrumpe).
+     */
     E18(Severidad.ALTA),
     /** PR 56: un subproceso en un proceso que corre: el motor no los corre. */
     E19(Severidad.ALTA),

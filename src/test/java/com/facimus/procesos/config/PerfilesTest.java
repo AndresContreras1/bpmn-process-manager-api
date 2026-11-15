@@ -69,9 +69,10 @@ class PerfilesTest {
         void dev_cadaTrabajoTomaSuCandado() {
             context.getBean(LimpiezaConfig.class).limpiar();
             context.getBean(SimulacionConfig.class).mover();
+            context.getBean(TemporizadoresConfig.class).disparar();
 
             assertThat(context.getBean(JdbcTemplate.class).queryForList("select name from shedlock", String.class))
-                    .containsExactlyInAnyOrder("limpieza", "reloj-de-simulacion");
+                    .containsExactlyInAnyOrder("limpieza", "reloj-de-simulacion", "temporizadores-vencidos");
         }
 
         @Test
@@ -101,6 +102,12 @@ class PerfilesTest {
         void dev_programaElRelojDeLaSimulacion() {
             assertThat(context.getBeanNamesForType(SimulacionConfig.class)).isNotEmpty();
         }
+
+        @Test
+        @DisplayName("PR 68: dev programa el planificador de los temporizadores")
+        void dev_programaLosTemporizadores() {
+            assertThat(context.getBeanNamesForType(TemporizadoresConfig.class)).isNotEmpty();
+        }
     }
 
     @Nested
@@ -116,6 +123,7 @@ class PerfilesTest {
         void test_noProgramaNada() {
             assertThat(context.getBeanNamesForType(LimpiezaConfig.class)).isEmpty();
             assertThat(context.getBeanNamesForType(SimulacionConfig.class)).isEmpty();
+            assertThat(context.getBeanNamesForType(TemporizadoresConfig.class)).isEmpty();
         }
     }
 

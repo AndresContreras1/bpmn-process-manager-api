@@ -35,6 +35,7 @@ public interface MensajeSalienteRepository extends RepositorioTenant<MensajeSali
             from MensajeSaliente m
             where m.empresa.id = :empresaId
               and (:procesoId is null or m.caso.proceso.id = :procesoId)
+              and m.caso.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
             group by m.estado
             order by m.estado
             """)

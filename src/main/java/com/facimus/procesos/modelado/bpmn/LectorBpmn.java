@@ -268,7 +268,7 @@ public final class LectorBpmn {
                     Dom.referencia(Dom.atributo(hijo, "default")), definiciones(hijo),
                     Dom.referencia(Dom.atributo(hijo, "attachedToRef")),
                     !"false".equals(Dom.atributo(hijo, "cancelActivity")),
-                    tiempo == null ? null : tiempo.getLocalName(), Dom.texto(tiempo), padre,
+                    tiempo == null ? null : claseDeTiempo(tiempo), Dom.texto(tiempo), padre,
                     Dom.atributo(hijo, "calledElement")));
             extension(suId, hijo);
             asociacionesDeDatos(hijo, suId, TAREAS.contains(elemento));
@@ -331,6 +331,13 @@ public final class LectorBpmn {
             if (envoltorio != null) {
                 extensiones.put(clave, envoltorio);
             }
+        }
+
+        /** PR 68: el {@code timeDuration} con {@code bpm:habil="true"} se cuenta en tiempo habil. */
+        private static String claseDeTiempo(Element tiempo) {
+            return "timeDuration".equals(tiempo.getLocalName()) && "true".equals(Dom.atributo(tiempo, BPM, "habil"))
+                    ? Nodo.DURACION_HABIL
+                    : tiempo.getLocalName();
         }
     }
 

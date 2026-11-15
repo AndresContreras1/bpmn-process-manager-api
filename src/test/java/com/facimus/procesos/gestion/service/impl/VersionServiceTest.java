@@ -2,6 +2,7 @@ package com.facimus.procesos.gestion.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -10,29 +11,39 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
+import com.facimus.procesos.gestion.event.VersionRetirada;
 import com.facimus.procesos.gestion.mapper.VersionProcesoMapper;
 import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.model.TipoVersion;
+import com.facimus.procesos.gestion.model.Usuario;
 import com.facimus.procesos.gestion.model.VersionProceso;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
 import com.facimus.procesos.gestion.repository.UsuarioRepository;
 import com.facimus.procesos.gestion.repository.VersionProcesoRepository;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
+import com.facimus.procesos.gestion.service.Instantanea;
 import com.facimus.procesos.gestion.service.ModeloBpmn;
 
 /**
@@ -59,6 +70,70 @@ class VersionServiceTest {
     private VersionProcesoMapper versionProcesoMapper;
     @Mock
     private MetricasDeNegocio metricas;
+    @Mock
+    private ApplicationEventPublisher eventos;
+    @Mock
+    private Clock reloj;
+
+    @Test
+    @DisplayName("PR 68: una version de prueba se guarda con numero 0, retirada y de tipo PRUEBA")
+    void guardarPrueba() {
+        Empresa tienda = Empresa.builder().id(EMPRESA).build();
+        Proceso deLaTienda = Proceso.builder().id(PROCESO).empresa(tienda).build();
+        when(versionProcesoRepository.save(any(VersionProceso.class))).thenAnswer(guardar -> guardar.getArgument(0));
+        when(reloj.instant()).thenReturn(Instant.parse("2026-11-11T03:30:00Z"));
+        when(reloj.getZone()).thenReturn(ZoneOffset.UTC);
+
+        VersionProceso guardada = service.guardarPrueba(deLaTienda, 3L,
+                new Instantanea("{}", "a".repeat(64), "<bpmn:definitions/>"));
+
+        assertThat(guardada.getNumero()).isZero();
+        assertThat(guardada.getEstado()).isEqualTo(EstadoVersion.RETIRADA);
+        assertThat(guardada.getTipo()).isEqualTo(TipoVersion.PRUEBA);
+        assertThat(guardada.getProceso()).isSameAs(deLaTienda);
+        assertThat(guardada.getEmpresa()).isSameAs(tienda);
+        assertThat(guardada.getPublicadoPor()).isEqualTo(3L);
+        assertThat(guardada.getHuella()).isEqualTo("a".repeat(64));
+        assertThat(guardada.getDefinicion()).isEqualTo("{}");
+        assertThat(guardada.getModeloBpmn()).isEqualTo("<bpmn:definitions/>");
+        assertThat(guardada.getFechaPublicacion()).isEqualTo(LocalDateTime.parse("2026-11-11T03:30:00"));
+        verify(metricas, never()).versionPublicada();
+    }
+
+    @Test
+    @DisplayName("PR 68: borrar una prueba dice si borro algo; la condicion de tipo la pone el repositorio")
+    void borrarPrueba() {
+        when(versionProcesoRepository.borrarPrueba(8L)).thenReturn(1);
+        when(versionProcesoRepository.borrarPrueba(9L)).thenReturn(0);
+
+        assertThat(service.borrarPrueba(8L)).isTrue();
+        assertThat(service.borrarPrueba(9L)).isFalse();
+    }
+
+    @Test
+    @DisplayName("PR 68: una publicada nace de tipo PUBLICADA")
+    void publicar_esDeTipoPublicada() {
+        service.publicar(proceso, 2, 3L, new Instantanea("{}", "a".repeat(64), "<bpmn:definitions/>"));
+
+        ArgumentCaptor<VersionProceso> guardada = ArgumentCaptor.forClass(VersionProceso.class);
+        verify(versionProcesoRepository).save(guardada.capture());
+        assertThat(guardada.getValue().getTipo()).isEqualTo(TipoVersion.PUBLICADA);
+    }
+
+    @Test
+    @DisplayName("PR 68: retirar una version lo avisa, para que los inicios temporizados sigan a la vigente")
+    void retirar_loAvisa() {
+        VersionProceso version = VersionProceso.builder().id(5L).numero(2).estado(EstadoVersion.VIGENTE).build();
+        when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(PROCESO, EMPRESA)).thenReturn(Optional.of(proceso));
+        when(versionProcesoRepository.findByProcesoIdAndNumeroAndEmpresaId(PROCESO, 2, EMPRESA))
+                .thenReturn(Optional.of(version));
+        when(usuarioRepository.findByIdAndEmpresaId(3L, EMPRESA)).thenReturn(Optional.of(new Usuario()));
+
+        service.retirar(EMPRESA, PROCESO, 2, 3L);
+
+        assertThat(version.getEstado()).isEqualTo(EstadoVersion.RETIRADA);
+        verify(eventos).publishEvent(new VersionRetirada(EMPRESA, PROCESO, 2));
+    }
 
     @InjectMocks
     private VersionServiceImpl service;

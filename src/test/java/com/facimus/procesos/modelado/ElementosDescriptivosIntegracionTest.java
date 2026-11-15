@@ -402,15 +402,17 @@ class ElementosDescriptivosIntegracionTest {
     }
 
     @Test
-    @DisplayName("Volver a ejecutable trae de vuelta lo que no puede correr: no se publica")
-    void ejecutable_noPublicaUnTemporizador() {
-        borde("Late", trabajo.id(), ventas);
+    @DisplayName("PR 68: los temporizadores corren, asi que uno de borde ya no impide publicar un proceso ejecutable")
+    void ejecutable_publicaUnTemporizador() {
+        EventoResponse tarde = borde("Late", trabajo.id(), ventas);
+        Long escalado = eventoService.crear(empresaId, adminId, ventas, "Escalated", TipoEvento.FIN, 360, 120).id();
+        arcoService.crear(empresaId, adminId, DatosDeArco.entre(tarde.id(), escalado));
         cambiarModo(ModoProceso.DOCUMENTAL);
         cambiarModo(ModoProceso.EJECUTABLE);
 
-        assertThatThrownBy(this::publicar).isInstanceOf(ReglaNegocioException.class)
-                .satisfies(error -> assertThat(((ReglaNegocioException) error).getErrores())
-                        .anySatisfy(texto -> assertThat(texto).contains("E-18")));
+        publicar();
+
+        assertThat(procesoService.obtener(empresaId, procesoId, false).versionPublicada()).isOne();
     }
 
     @Test

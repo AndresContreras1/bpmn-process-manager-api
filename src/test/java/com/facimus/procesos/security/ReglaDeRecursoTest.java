@@ -62,7 +62,10 @@ class ReglaDeRecursoTest {
                 // servicio, a quien ve el proceso
                 Arguments.of("GET", P + "/solicitudes", null, Accion.VER),
                 Arguments.of("POST", P + "/solicitudes", null, Accion.PUBLICAR),
-                Arguments.of("POST", P + "/recertificacion", null, Accion.VER));
+                Arguments.of("POST", P + "/recertificacion", null, Accion.VER),
+                // PR 68: probar el borrador es modelarlo; mirar los inicios temporizados, verlo
+                Arguments.of("POST", P + "/pruebas", null, Accion.MODELAR),
+                Arguments.of("GET", P + "/temporizadores", null, Accion.VER));
     }
 
     @ParameterizedTest(name = "{0} {1} {2} pide {3}")
@@ -167,5 +170,9 @@ class ReglaDeRecursoTest {
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/organizacion/exportaciones", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/organizacion/exportaciones/{id}", null)).isEmpty();
         assertThat(ReglaDeRecurso.de("GET", "/api/v1/descargas/exportaciones/{id}", null)).isEmpty();
+        // PR 68: el calendario es de la tienda entera, y un caso se comprueba en su service
+        assertThat(ReglaDeRecurso.de("PUT", "/api/v1/organizacion/calendario", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("DELETE", "/api/v1/organizacion/calendario/festivos/{fecha}", null)).isEmpty();
+        assertThat(ReglaDeRecurso.de("GET", "/api/v1/casos/{id}/temporizadores", null)).isEmpty();
     }
 }

@@ -1,8 +1,10 @@
 package com.facimus.procesos.gestion.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -10,17 +12,43 @@ import com.facimus.procesos.common.RepositorioTenant;
 import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.VersionProceso;
 
-/** Las versiones publicadas de un proceso. Solo se agregan y se retiran: ninguna consulta las modifica. */
+/**
+ * Las versiones publicadas de un proceso. Solo se agregan y se retiran: ninguna consulta las modifica, salvo el
+ * borrado de una de prueba.
+ *
+ * <p>PR 68: cada consulta pide las de tipo PUBLICADA. Las de PRUEBA, con las que se prueba un borrador, comparten la
+ * tabla pero no son versiones del proceso para nadie: ni se listan, ni se leen por numero, ni pueden ser la vigente.
+ */
 public interface VersionProcesoRepository extends RepositorioTenant<VersionProceso> {
 
     /** De la mas reciente a la mas vieja, que es como las lee quien quiere ver la ultima. */
-    List<VersionProceso> findAllByProcesoIdAndEmpresaIdOrderByNumeroDesc(Long procesoId, Long empresaId);
+    @Query("""
+            select v from VersionProceso v
+            where v.proceso.id = :procesoId and v.empresa.id = :empresaId
+              and v.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
+            order by v.numero desc
+            """)
+    List<VersionProceso> findAllByProcesoIdAndEmpresaIdOrderByNumeroDesc(@Param("procesoId") Long procesoId,
+            @Param("empresaId") Long empresaId);
 
-    Optional<VersionProceso> findByProcesoIdAndNumeroAndEmpresaId(Long procesoId, int numero, Long empresaId);
+    @Query("""
+            select v from VersionProceso v
+            where v.proceso.id = :procesoId and v.numero = :numero and v.empresa.id = :empresaId
+              and v.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
+            """)
+    Optional<VersionProceso> findByProcesoIdAndNumeroAndEmpresaId(@Param("procesoId") Long procesoId,
+            @Param("numero") int numero, @Param("empresaId") Long empresaId);
 
     /** La vigente es la ultima que no se retiro; si se retiraron todas, el proceso se queda sin ninguna. */
-    Optional<VersionProceso> findFirstByProcesoIdAndEmpresaIdAndEstadoOrderByNumeroDesc(Long procesoId, Long empresaId,
-            EstadoVersion estado);
+    @Query("""
+            select v from VersionProceso v
+            where v.proceso.id = :procesoId and v.empresa.id = :empresaId and v.estado = :estado
+              and v.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
+            order by v.numero desc limit 1
+            """)
+    Optional<VersionProceso> findFirstByProcesoIdAndEmpresaIdAndEstadoOrderByNumeroDesc(
+            @Param("procesoId") Long procesoId, @Param("empresaId") Long empresaId,
+            @Param("estado") EstadoVersion estado);
 
     /**
      * El id de la version vigente, sin traerse el diagrama con ella. Es la mitad que nunca se puede guardar en
@@ -30,6 +58,7 @@ public interface VersionProcesoRepository extends RepositorioTenant<VersionProce
     @Query("""
             select v.id from VersionProceso v
             where v.proceso.id = :procesoId and v.empresa.id = :empresaId and v.estado = :estado
+              and v.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
             order by v.numero desc limit 1
             """)
     Optional<Long> idDeLaVigente(@Param("procesoId") Long procesoId, @Param("empresaId") Long empresaId,
@@ -39,6 +68,7 @@ public interface VersionProcesoRepository extends RepositorioTenant<VersionProce
     @Query("""
             select v.id from VersionProceso v
             where v.proceso.id = :procesoId and v.numero = :numero and v.empresa.id = :empresaId
+              and v.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
             """)
     Optional<Long> idDeLaVersion(@Param("procesoId") Long procesoId, @Param("numero") int numero,
             @Param("empresaId") Long empresaId);
@@ -53,6 +83,25 @@ public interface VersionProcesoRepository extends RepositorioTenant<VersionProce
     /** PR 53: el BPMN de una version, sin cargar la entidad entera ni su JSON. */
     @Query("select v.modeloBpmn from VersionProceso v where v.id = :id and v.empresa.id = :empresaId")
     Optional<String> modeloBpmnDe(@Param("id") Long id, @Param("empresaId") Long empresaId);
+
+    /**
+     * PR 68: las versiones de prueba armadas antes de ese momento, de todas las tiendas: las que la purga se lleva. Lo
+     * que colgo de ellas lo borra la ejecucion, y cada borrado vuelve a pedir que sean de prueba.
+     */
+    @Query("""
+            select v.id from VersionProceso v
+            where v.tipo = com.facimus.procesos.gestion.model.TipoVersion.PRUEBA and v.fechaPublicacion < :limite
+            order by v.id
+            """)
+    List<Long> pruebasAntesDe(@Param("limite") LocalDateTime limite);
+
+    /** PR 68: borra una version de prueba. La condicion del tipo va en el borrado mismo: una publicada no se toca. */
+    @Modifying
+    @Query("""
+            delete from VersionProceso v
+            where v.id = :id and v.tipo = com.facimus.procesos.gestion.model.TipoVersion.PRUEBA
+            """)
+    int borrarPrueba(@Param("id") Long id);
 
     /** El numero de la ultima publicada, retirada o no: los numeros no se reusan. */
     @Query("select max(v.numero) from VersionProceso v where v.proceso.id = :procesoId and v.empresa.id = :empresaId")

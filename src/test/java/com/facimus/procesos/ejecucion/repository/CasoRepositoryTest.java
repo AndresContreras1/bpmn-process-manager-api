@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,15 +20,26 @@ import org.springframework.test.context.ActiveProfiles;
 import com.facimus.procesos.common.api.Paginacion;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.config.AuditoriaConfig;
+import com.facimus.procesos.ejecucion.dto.response.CasosPorEstadoResponse;
+import com.facimus.procesos.ejecucion.dto.response.MensajesPorEstadoResponse;
+import com.facimus.procesos.ejecucion.dto.response.TareasPorRolResponse;
 import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.EstadoMensajeSaliente;
+import com.facimus.procesos.ejecucion.model.EventoCaso;
+import com.facimus.procesos.ejecucion.model.MensajeSaliente;
+import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.EstadoVersion;
 import com.facimus.procesos.gestion.model.Proceso;
+import com.facimus.procesos.gestion.model.RolProceso;
+import com.facimus.procesos.gestion.model.TipoVersion;
 import com.facimus.procesos.gestion.model.VersionProceso;
+import com.facimus.procesos.modelado.model.Integracion;
+import com.facimus.procesos.modelado.model.TipoDestino;
 
 /**
  * D22: las consultas con las que la operacion busca casos y tareas van como consultas con nombre en la entidad. Si
@@ -52,6 +64,12 @@ class CasoRepositoryTest {
 
     @Autowired
     private ActividadCasoRepository actividadCasoRepository;
+
+    @Autowired
+    private EventoCasoRepository eventoCasoRepository;
+
+    @Autowired
+    private MensajeSalienteRepository mensajeSalienteRepository;
 
     private Empresa tienda;
     private Proceso proceso;
@@ -108,6 +126,19 @@ class CasoRepositoryTest {
         }
 
         @Test
+        @DisplayName("PR 68: porReferencia no ve los casos de una prueba del borrador, aunque digan el mismo pedido")
+        void porReferencia_noVeLasPruebas() {
+            Caso real = casoRepository.save(caso("ORD-1001", EstadoCaso.ABIERTO));
+            casoRepository.save(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(prueba(proceso))
+                    .referencia("ORD-1001").estado(EstadoCaso.ABIERTO).variables(SIN_VARIABLES).build());
+            em.flush();
+
+            assertThat(casoRepository.porReferencia(tienda.getId(), proceso.getId(), "ORD-1001"))
+                    .extracting(Caso::getId)
+                    .containsExactly(real.getId());
+        }
+
+        @Test
         @DisplayName("porReferencia no cruza tiendas aunque dos pedidos se llamen igual")
         void porReferencia_noCruzaTiendas() {
             casoRepository.save(caso("ORD-1", EstadoCaso.ABIERTO));
@@ -138,6 +169,61 @@ class CasoRepositoryTest {
             em.clear();
 
             assertThat(em.find(Caso.class, guardado.getId()).getVariables()).isEqualTo(largas);
+        }
+    }
+
+    @Nested
+    @DisplayName("PR 68: el tablero y el medidor no cuentan las pruebas del borrador")
+    class SinLasPruebas {
+
+        @Test
+        @DisplayName("Casos por estado, tiempo de ciclo, tareas por rol, lo que salio mal y lo que se mando")
+        void tablero_soloLoPublicado() {
+            RolProceso bodega = em.persistFlushFind(RolProceso.builder().empresa(tienda).nombre("Warehouse")
+                    .descripcion("Hace su parte").activo(true).build());
+            conTodo(version, bodega);
+            conTodo(prueba(proceso), bodega);
+            em.flush();
+
+            assertThat(casoRepository.casosPorEstado(tienda.getId(), proceso.getId()))
+                    .containsExactly(new CasosPorEstadoResponse(EstadoCaso.TERMINADO, 1L));
+            assertThat(casoRepository.ticksDeCiclo(tienda.getId(), proceso.getId())).containsExactly(4);
+            assertThat(actividadCasoRepository.tareasPorRol(tienda.getId(), proceso.getId()))
+                    .containsExactly(new TareasPorRolResponse(bodega.getId(), "Warehouse", 1L));
+            assertThat(eventoCasoRepository.contarPorTipo(tienda.getId(), proceso.getId(),
+                    List.of(TipoEventoCaso.SIN_CAMINO)))
+                    .singleElement().satisfies(fila -> assertThat(fila[1]).isEqualTo(1L));
+            assertThat(mensajeSalienteRepository.salientesPorEstado(tienda.getId(), proceso.getId()))
+                    .containsExactly(new MensajesPorEstadoResponse(EstadoMensajeSaliente.PENDIENTE, 1L));
+        }
+
+        @Test
+        @DisplayName("El medidor de casos abiertos cuenta los de una version publicada, no los de una prueba")
+        void medidor_soloLoPublicado() {
+            long antes = casoRepository.countByEstado(EstadoCaso.ABIERTO);
+            casoRepository.save(caso("ORD-1", EstadoCaso.ABIERTO));
+            casoRepository.save(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(prueba(proceso))
+                    .referencia("TEST-1").estado(EstadoCaso.ABIERTO).variables(SIN_VARIABLES).build());
+            em.flush();
+
+            assertThat(casoRepository.countByEstado(EstadoCaso.ABIERTO)).isEqualTo(antes + 1);
+        }
+
+        /** Un caso terminado en cuatro ticks, con una tarea esperando, un camino que falto y un mensaje sin salir. */
+        private void conTodo(VersionProceso suVersion, RolProceso rol) {
+            Caso caso = casoRepository.save(Caso.builder().empresa(tienda).proceso(proceso).versionProceso(suVersion)
+                    .referencia("ORD-" + suVersion.getId()).estado(EstadoCaso.TERMINADO).variables(SIN_VARIABLES)
+                    .tickInicio(2).tickFin(6).build());
+            actividadCasoRepository.save(ActividadCaso.builder().empresa(tienda).caso(caso).nodoId(7L)
+                    .nodoNombre("Pick items").tipoNodo(TipoNodoCaso.ACTIVIDAD).subtipo("USUARIO")
+                    .rolProcesoId(rol.getId()).estado(EstadoActividadCaso.EN_ESPERA).build());
+            eventoCasoRepository.save(EventoCaso.builder().empresa(tienda).caso(caso).tick(3)
+                    .fecha(LocalDateTime.now()).tipo(TipoEventoCaso.SIN_CAMINO).detalle("Sin camino.").build());
+            mensajeSalienteRepository.save(MensajeSaliente.builder().empresa(tienda).caso(caso).mensajeId(9L)
+                    .nombre("Payment authorization request").poolDestinoNombre("Payment gateway")
+                    .integracion(Integracion.PAGOS).tipoDestino(TipoDestino.SERVICIO_WEB).clave(caso.getReferencia())
+                    .cuerpo(SIN_VARIABLES).estado(EstadoMensajeSaliente.PENDIENTE).tickCreacion(3).tickEntrega(4)
+                    .intentos(0).fecha(LocalDateTime.now()).build());
         }
     }
 
@@ -264,7 +350,7 @@ class CasoRepositoryTest {
             em.flush();
 
             assertThat(actividadCasoRepository.findAllByCasoIdAndEmpresaIdAndEstadoInOrderByIdAsc(caso.getId(),
-                    tienda.getId(), java.util.List.of(EstadoActividadCaso.PENDIENTE, EstadoActividadCaso.EN_ESPERA)))
+                    tienda.getId(), List.of(EstadoActividadCaso.PENDIENTE, EstadoActividadCaso.EN_ESPERA)))
                     .extracting(ActividadCaso::getId)
                     .containsExactly(pendiente.getId(), enEspera.getId());
         }
@@ -306,6 +392,21 @@ class CasoRepositoryTest {
                 .categoria("Fulfillment")
                 .estado(EstadoProceso.PUBLICADO)
                 .activo(true)
+                .build());
+    }
+
+    /** PR 68: una prueba del borrador: numero 0, retirada desde que nace y de tipo PRUEBA. */
+    private VersionProceso prueba(Proceso suyo) {
+        return em.persistFlushFind(VersionProceso.builder()
+                .empresa(suyo.getEmpresa())
+                .proceso(suyo)
+                .numero(0)
+                .estado(EstadoVersion.RETIRADA)
+                .tipo(TipoVersion.PRUEBA)
+                .fechaPublicacion(LocalDateTime.now())
+                .huella(HUELLA)
+                .definicion("{}")
+                .modeloBpmn("<bpmn:definitions/>")
                 .build());
     }
 

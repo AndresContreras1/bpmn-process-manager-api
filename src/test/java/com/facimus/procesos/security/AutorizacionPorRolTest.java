@@ -291,6 +291,23 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | POST   | /api/v1/organizacion/exportaciones      | 403
             SOLO_LECTURA  | GET    | /api/v1/descargas/exportaciones/{id}?empresa=1&vence=1&firma=x | 404
 
+            # PR 68: el calendario lo lee cualquier rol y lo cambia el administrador; los temporizadores se leen;
+            # probar el borrador es de quien modela
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/calendario                      | 200
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/calendario/festivos?anio=2026   | 200
+            SOLO_LECTURA  | GET    | /api/v1/organizacion/calendario/ediciones            | 200
+            ADMINISTRADOR | PUT    | /api/v1/organizacion/calendario                      | 400
+            EDITOR        | PUT    | /api/v1/organizacion/calendario                      | 403
+            SOLO_LECTURA  | PUT    | /api/v1/organizacion/calendario                      | 403
+            EDITOR        | PUT    | /api/v1/organizacion/calendario/festivos/2026-09-04  | 403
+            ADMINISTRADOR | DELETE | /api/v1/organizacion/calendario/ediciones/2026-09-04 | 404
+            EDITOR        | DELETE | /api/v1/organizacion/calendario/festivos/2026-08-17  | 403
+            SOLO_LECTURA  | DELETE | /api/v1/organizacion/calendario/ediciones/2026-09-04 | 403
+            SOLO_LECTURA  | GET    | /api/v1/casos/{id}/temporizadores                    | 404
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/temporizadores                 | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/pruebas                        | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/pruebas                        | 403
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)
@@ -332,7 +349,8 @@ class AutorizacionPorRolTest {
             peticion.contentType(MediaType.APPLICATION_JSON)
                     .content("{\"procesoId\":" + ID_INEXISTENTE + ",\"cantidad\":1}");
         } else if (metodo != HttpMethod.GET && (ruta.startsWith("/api/v1/tareas/")
-                || ruta.equals("/api/v1/procesos/{id}/casos"))) {
+                || ruta.equals("/api/v1/procesos/{id}/casos") || ruta.equals("/api/v1/procesos/{id}/pruebas")
+                || ruta.equals("/api/v1/organizacion/calendario"))) {
             // Llevan cuerpo: sin el, la peticion fallaria por el cuerpo y no por la regla de roles, que es lo que
             // esta matriz comprueba.
             peticion.contentType(MediaType.APPLICATION_JSON).content("{}");

@@ -21,6 +21,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedQuery;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -49,6 +50,7 @@ import lombok.experimental.SuperBuilder;
         where c.empresa.id = :empresaId
           and c.proceso.id = :procesoId
           and c.referencia = :referencia
+          and c.versionProceso.tipo = com.facimus.procesos.gestion.model.TipoVersion.PUBLICADA
         order by c.id
         """)
 @Getter
@@ -82,6 +84,12 @@ public class Caso extends EntidadEditable {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoCaso estado;
+
+    /** PR 68: con que tiempo corre; PRUEBA, el de siempre, si quien lo abre no dice otro. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, updatable = false)
+    @Builder.Default
+    private ModoCaso modo = ModoCaso.PRUEBA;
 
     /**
      * Las variables del caso en JSON: lo que se paso al abrirlo, los cuerpos de los mensajes recibidos y los datos

@@ -35,6 +35,7 @@ import com.facimus.procesos.gestion.model.EstadoProceso;
 import com.facimus.procesos.gestion.model.ModoProceso;
 import com.facimus.procesos.gestion.model.Proceso;
 import com.facimus.procesos.gestion.model.Usuario;
+import com.facimus.procesos.gestion.model.VersionProceso;
 import com.facimus.procesos.gestion.repository.CarpetaRepository;
 import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.repository.ProcesoRepository;
@@ -423,6 +424,18 @@ public class ProcesoServiceImpl implements ProcesoService {
         }
         auditoria.registrar(empresaId, usuarioId, "PROCESO_RECERTIFICADO", "PROCESO", procesoId, detalle);
         return conBorrador(proceso);
+    }
+
+    /** PR 68: lo que corre un caso de prueba es lo mismo que se publicaria, asi que pasa el mismo diagnostico. */
+    @Override
+    @Transactional
+    public VersionProceso versionDePrueba(Long empresaId, Long procesoId, Long usuarioId) {
+        Proceso proceso = buscarActivo(empresaId, procesoId);
+        exigirSinErrores("El borrador no se puede probar: ",
+                diagnosticoDelModelo.errores(empresaId, procesoMapper.toResponse(proceso)));
+        Instantanea instantanea = instantaneaDelModelo.tomar(empresaId, procesoMapper.toResponse(proceso)
+                .publicadoComo(0));
+        return versionService.guardarPrueba(proceso, usuarioId, instantanea);
     }
 
     @Override

@@ -15,7 +15,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Cuatro conteos, uno por medidor. Se leen cuando alguien pide las metricas y no en un bucle: un medidor que se
- * calculara solo cada pocos segundos seria trabajo constante para una cifra que casi nadie mira.
+ * calculara solo cada pocos segundos seria trabajo constante para una cifra que casi nadie mira. PR 68: los casos
+ * abiertos son los de las versiones publicadas; los de una prueba del borrador no son pedidos.
  */
 @Service
 @RequiredArgsConstructor

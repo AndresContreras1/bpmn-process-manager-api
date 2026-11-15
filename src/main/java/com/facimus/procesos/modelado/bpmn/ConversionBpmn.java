@@ -585,6 +585,7 @@ public final class ConversionBpmn {
             return switch (nodo.tipoTemporizador()) {
                 case "timeDate" -> TipoTemporizador.FECHA;
                 case "timeCycle" -> TipoTemporizador.CICLO;
+                case ModeloLeido.Nodo.DURACION_HABIL -> TipoTemporizador.DURACION_HABIL;
                 default -> TipoTemporizador.DURACION;
             };
         }

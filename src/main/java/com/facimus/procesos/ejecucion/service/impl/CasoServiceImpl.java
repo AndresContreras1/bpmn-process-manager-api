@@ -19,6 +19,7 @@ import com.facimus.procesos.ejecucion.model.ActividadCaso;
 import com.facimus.procesos.ejecucion.model.Caso;
 import com.facimus.procesos.ejecucion.model.EstadoActividadCaso;
 import com.facimus.procesos.ejecucion.model.EstadoCaso;
+import com.facimus.procesos.ejecucion.model.ModoCaso;
 import com.facimus.procesos.ejecucion.model.TipoEventoCaso;
 import com.facimus.procesos.ejecucion.model.TipoNodoCaso;
 import com.facimus.procesos.ejecucion.repository.ActividadCasoRepository;
@@ -27,6 +28,7 @@ import com.facimus.procesos.ejecucion.repository.CasoSpecifications;
 import com.facimus.procesos.ejecucion.repository.EventoCasoRepository;
 import com.facimus.procesos.ejecucion.service.CasoService;
 import com.facimus.procesos.gestion.model.VersionProceso;
+import com.facimus.procesos.gestion.service.ProcesoService;
 import com.facimus.procesos.gestion.service.VersionService;
 
 import lombok.RequiredArgsConstructor;
@@ -49,28 +51,73 @@ public class CasoServiceImpl implements CasoService {
     private final RelojDeLaTienda reloj;
     private final Bitacora bitacora;
     private final CasoMapper casoMapper;
+    private final ProcesoService procesoService;
+    private final BorradoDePruebas borradoDePruebas;
 
     /**
      * R-47 y R-48: solo se abre sobre la version vigente de un proceso propio, y solo si esa version empieza por un
-     * evento de inicio. Un proceso que empieza por mensaje se abre mandando el mensaje, no desde aqui.
+     * evento de inicio. Un proceso que empieza por mensaje se abre mandando el mensaje, no desde aqui; PR 68: uno que
+     * empieza por un temporizador abre sus casos solo.
      */
     @Override
     @Transactional
     public CasoResponse abrir(Long empresaId, Long usuarioId, Long procesoId, String referencia,
-            Map<String, Object> variables) {
+            Map<String, Object> variables, ModoCaso modo) {
         VersionProceso version = versionService.vigente(empresaId, procesoId)
                 .orElseThrow(() -> new ReglaNegocioException("El proceso no tiene una versión publicada vigente."));
         GrafoDeVersion grafo = grafos.del(empresaId, version).queSeEjecute();
         NodoDeLaVersion inicio = grafo.inicioAMano().orElseThrow(() -> new ReglaNegocioException(porDondeEmpieza(
                 grafo)));
+        return arrancar(version, grafo, inicio, new Momento(reloj.ahora(empresaId), usuarioId), referencia,
+                variables, modo);
+    }
 
-        Momento momento = new Momento(reloj.ahora(empresaId), usuarioId);
+    /**
+     * PR 68: lo que corre es lo que se publicaria hoy, asi que pasa el mismo diagnostico; corre siempre en PRUEBA, en
+     * ticks y con los socios simulados, que es lo que se puede mover a mano para ver cada camino.
+     */
+    @Override
+    @Transactional
+    public CasoResponse probar(Long empresaId, Long usuarioId, Long procesoId, String referencia,
+            Map<String, Object> variables) {
+        VersionProceso version = procesoService.versionDePrueba(empresaId, procesoId, usuarioId);
+        GrafoDeVersion grafo = grafos.del(empresaId, version);
+        if (!grafo.ejecutable()) {
+            throw new ReglaNegocioException("El borrador es documental: se publica y se documenta, pero no corre. "
+                    + "Páselo a ejecutable para probarlo.");
+        }
+        NodoDeLaVersion inicio = grafo.inicioDeUnaPrueba()
+                .orElseThrow(() -> new ReglaNegocioException("El borrador no tiene ningún evento de inicio."));
+        return arrancar(version, grafo, inicio, new Momento(reloj.ahora(empresaId), usuarioId), referencia,
+                variables, ModoCaso.PRUEBA);
+    }
+
+    /**
+     * PR 68: cuales son viejas lo dice gestion, que las fecha; lo que hicieron sus casos lo borra la ejecucion, que es
+     * de quien son, y la version al final otra vez gestion. Corre como sistema, en la purga: cruza tiendas a proposito.
+     */
+    @Override
+    @Transactional
+    public int olvidarPruebasAntesDe(LocalDateTime limite) {
+        int olvidadas = 0;
+        for (Long version : versionService.pruebasAntesDe(limite)) {
+            borradoDePruebas.borrar(version);
+            if (versionService.borrarPrueba(version)) {
+                olvidadas++;
+            }
+        }
+        return olvidadas;
+    }
+
+    private CasoResponse arrancar(VersionProceso version, GrafoDeVersion grafo, NodoDeLaVersion inicio,
+            Momento momento, String referencia, Map<String, Object> variables, ModoCaso modo) {
         Caso caso = casoRepository.save(Caso.builder()
                 .empresa(version.getEmpresa())
                 .proceso(version.getProceso())
                 .versionProceso(version)
                 .referencia(referencia)
                 .estado(EstadoCaso.ABIERTO)
+                .modo(modo)
                 .variables(casoMapper.aJson(variables))
                 .tickInicio(momento.tick())
                 .build());
@@ -78,8 +125,16 @@ public class CasoServiceImpl implements CasoService {
         return casoMapper.toResponse(caso);
     }
 
-    /** Por que no se puede abrir a mano: porque lo abre un mensaje, o porque la version no empieza en ningun lado. */
+    /**
+     * Por que no se puede abrir a mano: porque lo abre un mensaje o un temporizador, o porque la version no empieza en
+     * ningun lado.
+     */
     private static String porDondeEmpieza(GrafoDeVersion grafo) {
+        List<TemporizadorDeLaVersion> temporizados = grafo.iniciosTemporizados();
+        if (!temporizados.isEmpty()) {
+            return "Este proceso se inicia con el temporizador \"" + temporizados.getFirst().nombre()
+                    + "\": sus casos se abren solos cuando salta.";
+        }
         return grafo.inicioPorMensaje()
                 .map(inicio -> "Este proceso se inicia con el mensaje \""
                         + grafo.mensajeQueEspera(inicio.id()).map(MensajeDeLaVersion::nombre)
