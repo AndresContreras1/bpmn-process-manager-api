@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.facimus.procesos.common.RecursoNoEncontradoException;
 import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.metricas.MetricasDeNegocio;
+import com.facimus.procesos.common.xml.SaneadorDeSvg;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
 import com.facimus.procesos.gestion.mapper.VersionProcesoMapper;
 import com.facimus.procesos.gestion.model.EstadoVersion;
@@ -124,6 +125,23 @@ public class VersionServiceImpl implements VersionService {
         anotarLaVigente(proceso, empresaId);
         historialCambioService.registrar(proceso, autor(empresaId, usuarioId), "Versión " + numero + " retirada.");
         return versionProcesoMapper.toResponse(version);
+    }
+
+    @Override
+    @Transactional
+    public void guardarDibujo(Long empresaId, Long procesoId, int numero, byte[] svg) {
+        VersionProceso version = buscar(empresaId, procesoId, numero);
+        if (version.getSvg() != null) {
+            throw new ReglaNegocioException("La versión " + numero + " ya tiene su dibujo, y una versión no cambia.");
+        }
+        version.setSvg(SaneadorDeSvg.sanear(svg));
+        versionProcesoRepository.save(version);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<String> dibujo(Long empresaId, Long procesoId, int numero) {
+        return Optional.ofNullable(buscar(empresaId, procesoId, numero).getSvg());
     }
 
     /**

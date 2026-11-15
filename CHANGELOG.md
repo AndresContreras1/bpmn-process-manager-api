@@ -8,6 +8,10 @@ tagged. Each pull request adds its line under *Unreleased*.
 
 ### Added
 
+- Documentation in Markdown for a process and each of its elements, converted on the server and cleaned against a
+  whitelist, with a preview; a characterization sheet per process; the drawing of each version, which the modeler
+  sends right after publishing and the server cleans; and the manual of a published version in HTML and PDF, built in
+  the job queue in the language of whoever asks it and downloaded through a signed link.
 - Documents attached to a process or one of its elements, with versions: the type comes from the content against a
   whitelist (415), the name is cleaned, uploads stream up to 25 MB within a quota per store (413), and the job queue
   reviews each version with ClamAV and, for Office and OpenOffice files, a ZIP bomb check before it can be downloaded.

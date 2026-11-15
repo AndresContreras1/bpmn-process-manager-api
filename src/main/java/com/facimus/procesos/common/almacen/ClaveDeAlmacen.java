@@ -23,6 +23,11 @@ public final class ClaveDeAlmacen {
         return comprobar(deEmpresa(empresaId) + "documentos/" + documentoId + "/" + version + "-" + sufijo);
     }
 
+    /** PR 62: un archivo de un manual: su HTML o su PDF. */
+    public static String deManual(long empresaId, long manualId, String formato) {
+        return comprobar(deEmpresa(empresaId) + "manuales/" + manualId + "/" + formato);
+    }
+
     /** El ancla de la bitacora de una tienda en un dia. */
     public static String deAncla(long empresaId, String dia) {
         return comprobar("anclas/" + empresaId + "/" + dia);

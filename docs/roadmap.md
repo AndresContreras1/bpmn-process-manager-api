@@ -89,7 +89,9 @@
 - [x] A tree of folders, and for each process its owner, next review, classification and tags, with their filters
 - [x] Documents attached to a process or an element, with versions, a type from the content, an antivirus and ZIP
       bomb check in the queue, a quota per store and downloads by signed link, on S3 or compatible storage
-- [ ] The process manual
+- [x] Documentation in Markdown per process and element, cleaned on the server, and a characterization sheet
+- [x] The process manual in HTML and PDF, built in the queue from the published version and the drawing the web
+      app sends when publishing
 - [ ] Comments with mentions, review and approval, and full-text search
 
 **Running processes**

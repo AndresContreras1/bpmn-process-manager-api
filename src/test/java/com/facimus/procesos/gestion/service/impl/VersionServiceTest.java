@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.facimus.procesos.common.RecursoNoEncontradoException;
+import com.facimus.procesos.common.ReglaNegocioException;
 import com.facimus.procesos.common.metricas.MetricasDeNegocio;
 import com.facimus.procesos.common.model.Empresa;
 import com.facimus.procesos.gestion.dto.response.VersionResponse;
@@ -140,6 +142,26 @@ class VersionServiceTest {
                 .isInstanceOf(RecursoNoEncontradoException.class);
         assertThatThrownBy(() -> service.modelo(EMPRESA, PROCESO, 1)).isInstanceOf(RecursoNoEncontradoException.class);
         verify(versionProcesoRepository, never()).idDeLaVersion(anyLong(), anyInt(), anyLong());
+    }
+
+    @Test
+    @DisplayName("PR 62: el dibujo de una version se guarda saneado una sola vez, y despues se lee igual")
+    void dibujo() {
+        conProceso();
+        VersionProceso version = VersionProceso.builder().id(5L).proceso(proceso).numero(2).build();
+        when(versionProcesoRepository.findByProcesoIdAndNumeroAndEmpresaId(PROCESO, 2, EMPRESA))
+                .thenReturn(Optional.of(version));
+        byte[] svg = ("<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script>"
+                + "<rect width=\"1\" height=\"1\"/></svg>").getBytes(StandardCharsets.UTF_8);
+
+        assertThat(service.dibujo(EMPRESA, PROCESO, 2)).isEmpty();
+        service.guardarDibujo(EMPRESA, PROCESO, 2, svg);
+
+        assertThat(version.getSvg()).contains("<rect").doesNotContain("script");
+        assertThat(service.dibujo(EMPRESA, PROCESO, 2)).contains(version.getSvg());
+        verify(versionProcesoRepository).save(version);
+        assertThatThrownBy(() -> service.guardarDibujo(EMPRESA, PROCESO, 2, svg))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("ya tiene su dibujo");
     }
 
     private void conProceso() {

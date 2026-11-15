@@ -82,4 +82,11 @@ public class VersionProceso extends EntidadEmpresa {
     @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
     @Column(name = "modelo_bpmn", nullable = false, updatable = false)
     private String modeloBpmn;
+
+    /**
+     * PR 62: el dibujo de la version, el SVG que la web hace con bpmn-js al publicar, saneado. El servidor no dibuja
+     * BPMN: lo guarda para el manual. Se escribe una sola vez, como el resto de la version.
+     */
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
+    private String svg;
 }

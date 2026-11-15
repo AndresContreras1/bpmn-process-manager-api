@@ -225,6 +225,17 @@ class AutorizacionPorRolTest {
             EDITOR        | DELETE | /api/v1/documentos/{id}               | 404
             SOLO_LECTURA  | DELETE | /api/v1/documentos/{id}               | 403
 
+            # PR 62: la documentacion y los manuales los lee cualquier rol; escribirlos y pedirlos, administrador y editor
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/documentacion    | 404
+            EDITOR        | PUT    | /api/v1/procesos/{id}/documentacion    | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/documentacion    | 403
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/caracterizacion  | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/caracterizacion  | 403
+            EDITOR        | POST   | /api/v1/procesos/{id}/manuales         | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/manuales         | 403
+            SOLO_LECTURA  | GET    | /api/v1/manuales/{id}                  | 404
+            SOLO_LECTURA  | PUT    | /api/v1/procesos/{id}/versiones/1/dibujo | 403
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)
@@ -249,6 +260,9 @@ class AutorizacionPorRolTest {
         } else if (ruta.equals("/api/v1/procesos/{id}/mensajes-entrantes")) {
             // Con nombre, para que el editor pase la autorizacion y choque con que el proceso no existe.
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"nombre\":\"Order placed\"}");
+        } else if (ruta.equals("/api/v1/procesos/{id}/documentacion")) {
+            // PR 62: con texto, para que el editor pase la autorizacion y choque con que el proceso no existe
+            peticion.contentType(MediaType.APPLICATION_JSON).content("{\"markdown\":\"x\"}");
         } else if (ruta.equals("/api/v1/simulacion/tick")) {
             peticion.contentType(MediaType.APPLICATION_JSON).content("{\"ticks\":1}");
         } else if (ruta.equals("/api/v1/simulacion/pedidos")) {

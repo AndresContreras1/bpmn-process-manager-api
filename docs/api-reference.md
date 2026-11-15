@@ -18,6 +18,8 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Folders | `GET, POST /api/v1/carpetas` · `PUT, DELETE /api/v1/carpetas/{id}` |
 | Filing | `PUT /api/v1/procesos/{id}/ficha` · `GET /api/v1/procesos/etiquetas` |
 | Documents | `GET, POST /api/v1/procesos/{id}/documentos` · `GET, DELETE /api/v1/documentos/{id}` · `POST /api/v1/documentos/{id}/versiones` · `GET /api/v1/documentos/{id}/enlace` · `GET /api/v1/descargas/documentos/{id}/{version}` |
+| Documentation | `GET, PUT /api/v1/procesos/{id}/documentacion` · `POST /api/v1/documentacion/vista-previa` · `GET, PUT /api/v1/procesos/{id}/caracterizacion` |
+| Manuals | `GET, POST /api/v1/procesos/{id}/manuales[?version=]` · `GET /api/v1/manuales/{id}` · `GET /api/v1/manuales/{id}/enlace?formato=pdf\|html` · `GET /api/v1/descargas/manuales/{id}/{formato}` · `PUT /api/v1/procesos/{id}/versiones/{numero}/dibujo` |
 | Permissions | `GET /api/v1/procesos/{id}/permisos` · `GET, POST /api/v1/procesos/{id}/concesiones` · `GET, POST /api/v1/carpetas/{id}/concesiones` · `DELETE /api/v1/concesiones/{id}` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
 | Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` · `PUT /api/v1/procesos/{procesoId}/pools/orden` |
@@ -144,6 +146,22 @@ The answer is `201` with the document `PENDIENTE`: the antivirus checks it in th
 `409` while the version is pending or if it was blocked; the link is a plain `GET` that downloads the file as an
 attachment. A file over 25 MB, or over what is left of the store's quota, answers `413`; one whose content is not an
 accepted type answers `415`, whatever its name says ([Security](security.md#documents)).
+
+## Documentation and the manual
+
+`PUT /api/v1/procesos/{id}/documentacion` takes `{ "elemento": "<bpmnId>", "markdown": "...", "version": n }`: the
+text of the whole process without `elemento`, or of one element. It answers the Markdown and the `html` to show, which
+the server converted and cleaned: HTML written inside the Markdown comes out as text, and there are no images, styles,
+scripts or links other than http, https and mailto. An empty text removes it. `POST /api/v1/documentacion/vista-previa`
+answers the same HTML without saving it, for a preview. `GET, PUT /api/v1/procesos/{id}/caracterizacion` read and write
+the characterization sheet: objective, scope, inputs, outputs, suppliers, customers, indicators, risks and regulation.
+
+Right after publishing, the web app sends the drawing of the new version with `PUT .../versiones/{numero}/dibujo`
+(the SVG of bpmn-js, up to 4 MB): the server keeps a cleaned copy, once. `POST /api/v1/procesos/{id}/manuales` asks for
+the manual of the version in force, or of `?version=n`, in the language of whoever asks: it answers `202` with the
+manual `PENDIENTE`, and the job queue builds it as HTML and PDF — the sheet, the drawing, the documentation of the
+process and of every step lane by lane, and the documents available. `GET /api/v1/manuales/{id}/enlace?formato=pdf`
+(or `html`) answers a five-minute signed link, like a document's.
 
 ## Permissions
 

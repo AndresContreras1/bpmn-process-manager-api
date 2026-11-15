@@ -23,6 +23,7 @@ import com.facimus.procesos.common.antivirus.SinAntivirus;
 import com.facimus.procesos.common.archivos.ArchivosTemporales;
 import com.facimus.procesos.common.archivos.DetectorDeTipo;
 import com.facimus.procesos.common.archivos.InspeccionDeZip;
+import com.facimus.procesos.common.markdown.Markdown;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -97,6 +98,12 @@ public class AlmacenConfig {
     @Bean
     public ArchivosTemporales archivosTemporales(@Value("${archivos.temporales}") String carpeta) {
         return new ArchivosTemporales(Path.of(carpeta));
+    }
+
+    /** PR 62: Markdown a HTML saneado, para la documentacion. */
+    @Bean
+    public Markdown markdown() {
+        return new Markdown();
     }
 
     @Bean

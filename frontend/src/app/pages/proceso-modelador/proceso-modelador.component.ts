@@ -32,6 +32,7 @@ import { DiagramaService } from '../../service/diagrama.service';
 import { EnVivoService } from '../../service/en-vivo.service';
 import { ProcesoService } from '../../service/proceso.service';
 import { ModeloService } from '../../service/modelo.service';
+import { VersionService } from '../../service/version.service';
 
 /** El modelador: dibuja con bpmn-js, guarda solo y dice en vivo lo que el diagnostico encuentra. */
 @Component({
@@ -53,6 +54,7 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
   private readonly diagramas = inject(DiagramaService);
   private readonly diagnosticos = inject(DiagnosticoService);
   private readonly procesos = inject(ProcesoService);
+  private readonly versiones = inject(VersionService);
   private readonly enVivo = inject(EnVivoService);
   private readonly auth = inject(AuthService);
   private readonly copias = inject(CopiaLocalService);
@@ -374,10 +376,27 @@ export class ProcesoModeladorComponent implements OnInit, OnDestroy {
             publicado.versionPublicada === null
               ? $localize`The process is published.`
               : $localize`Published as version ${publicado.versionPublicada}.`;
+          if (publicado.versionPublicada !== null) {
+            void this.guardarDibujo(publicado.versionPublicada);
+          }
           this.refrescarDiagnostico();
         },
         error: (error: HttpErrorResponse) => (this.error = mensajeDeError(error)),
       });
+  }
+
+  /**
+   * PR 62: el dibujo de la version recien publicada, para su manual. Si no llega, el manual lo dice; publicar ya
+   * salio bien y no se deshace por esto.
+   */
+  private async guardarDibujo(numero: number): Promise<void> {
+    const svg = await this.lienzo?.leerSvg();
+    if (svg) {
+      this.versiones
+        .guardarDibujo(this.procesoId, numero, svg)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({ error: () => undefined });
+    }
   }
 
   async exportarBpmn(): Promise<void> {
