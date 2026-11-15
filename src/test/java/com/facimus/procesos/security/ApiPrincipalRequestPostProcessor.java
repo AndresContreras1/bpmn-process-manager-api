@@ -20,7 +20,11 @@ public final class ApiPrincipalRequestPostProcessor {
     }
 
     public static RequestPostProcessor principal(RolAcceso rol) {
-        ApiPrincipal principal = new ApiPrincipal(1L, 1L, rol, "test@acme.com", SESION, false);
+        return principal(new ApiPrincipal(1L, 1L, rol, "test@acme.com", SESION, false));
+    }
+
+    /** PR 61: una persona de verdad de la base, entrada con su contrasena, para las pruebas de integracion. */
+    public static RequestPostProcessor principal(ApiPrincipal principal) {
         // Recien entrado con su contrasena: lo que pide una verificacion reciente la encuentra.
         var authentication = new UsernamePasswordAuthenticationToken(principal, null,
                 new TokenDeAcceso(principal, EnumSet.of(Factor.PASSWORD), Instant.now()).autoridades());

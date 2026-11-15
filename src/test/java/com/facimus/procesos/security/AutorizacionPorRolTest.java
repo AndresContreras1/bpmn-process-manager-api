@@ -214,6 +214,17 @@ class AutorizacionPorRolTest {
             SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/tablero  | 200
             SOLO_LECTURA  | GET    | /api/v1/empresas/actual/tablero | 200
 
+            # PR 61: los documentos los lee cualquier rol; subirlos y borrarlos es de administrador y editor
+            SOLO_LECTURA  | GET    | /api/v1/procesos/{id}/documentos      | 404
+            EDITOR        | POST   | /api/v1/procesos/{id}/documentos?nombre=a.pdf | 404
+            SOLO_LECTURA  | POST   | /api/v1/procesos/{id}/documentos?nombre=a.pdf | 403
+            SOLO_LECTURA  | GET    | /api/v1/documentos/{id}               | 404
+            SOLO_LECTURA  | GET    | /api/v1/documentos/{id}/enlace        | 404
+            EDITOR        | POST   | /api/v1/documentos/{id}/versiones?nombre=a.pdf | 404
+            SOLO_LECTURA  | POST   | /api/v1/documentos/{id}/versiones?nombre=a.pdf | 403
+            EDITOR        | DELETE | /api/v1/documentos/{id}               | 404
+            SOLO_LECTURA  | DELETE | /api/v1/documentos/{id}               | 403
+
             # Cerrar sesion: cualquier rol (HU-03)
             SOLO_LECTURA  | POST   | /api/v1/auth/logout                   | 204
             """)

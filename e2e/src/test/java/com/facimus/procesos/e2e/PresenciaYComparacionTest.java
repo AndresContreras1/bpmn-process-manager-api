@@ -122,6 +122,7 @@ class PresenciaYComparacionTest extends PruebaE2E {
 
         esperarTexto(By.id("comparacion-agregados"), "Add a card");
         visible(By.cssSelector("[data-element-id='" + bpmnIdDe(nueva) + "'].marca-agregado"));
+        quieta();
 
         Results resultado = new AxeBuilder().withTags(List.of("wcag2a", "wcag2aa", "wcag21a", "wcag21aa"))
                 .analyze(navegador);

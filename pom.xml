@@ -27,6 +27,9 @@
 		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
 		<shedlock.version>7.10.1</shedlock.version>
 		<spring-modulith.version>2.1.1</spring-modulith.version>
+		<!-- PR 61: el almacen de documentos (S3 o compatible, como SeaweedFS) y el tipo de un archivo por su contenido -->
+		<aws-sdk.version>2.57.5</aws-sdk.version>
+		<tika.version>4.2.0</tika.version>
 		<!-- SonarCloud: organizacion y proyecto que crea la importacion automatica del repositorio -->
 		<sonar.organization>andrescontreras1</sonar.organization>
 		<sonar.projectKey>AndresContreras1_bpmn-process-manager-api</sonar.projectKey>
@@ -45,6 +48,13 @@
 				<groupId>org.springframework.modulith</groupId>
 				<artifactId>spring-modulith-bom</artifactId>
 				<version>${spring-modulith.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>${aws-sdk.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -97,6 +107,32 @@
 			<groupId>com.bucket4j</groupId>
 			<artifactId>bucket4j_jdk17-postgresql</artifactId>
 			<version>8.20.0</version>
+		</dependency>
+		<!-- PR 61: los documentos van a un almacen S3 (AWS, SeaweedFS o cualquier compatible). Con el cliente HTTP del JDK:
+		     sin Netty ni el cliente de Apache, que no hacen falta para subir y bajar archivos. -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>netty-nio-client</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>apache-client</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>url-connection-client</artifactId>
+		</dependency>
+		<!-- PR 61: el tipo de un archivo por lo que tiene adentro, no por su nombre. Solo el detector: sin parsers. -->
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-core</artifactId>
+			<version>${tika.version}</version>
 		</dependency>
 		<!-- Actuator: estado, datos de la version y metricas para quien opera la API -->
 		<dependency>

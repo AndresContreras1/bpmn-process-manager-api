@@ -79,6 +79,11 @@ public class OpenApiConfig {
                                 .addHeaderObject(HttpHeaders.RETRY_AFTER, new Header()
                                         .description("Seconds until the request can be tried again")
                                         .schema(new IntegerSchema().example(900))))
+                        .addResponses("PayloadTooLarge", respuestaDeError("The file is larger than what this "
+                                + "operation accepts, or than what is left of the organization's quota. Nothing was "
+                                + "saved."))
+                        .addResponses("UnsupportedMediaType", respuestaDeError("The file's content is not one of the "
+                                + "accepted types, whatever its name says. Nothing was saved."))
                         .addResponses("BadGateway", respuestaDeError("A service this API depends on did not answer, "
                                 + "or answered something it cannot use. Nothing was changed."))
                         .addResponses("ServiceUnavailable", respuestaDeError("The operation exists but is switched "

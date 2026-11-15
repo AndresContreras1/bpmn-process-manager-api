@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.TreeMap;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,6 +19,7 @@ import com.facimus.procesos.common.security.ContextoDeTienda;
 import com.facimus.procesos.gestion.dto.response.PaginaDeBitacoraResponse;
 import com.facimus.procesos.gestion.dto.response.RegistroDeBitacoraResponse;
 import com.facimus.procesos.gestion.dto.response.VerificacionDeBitacoraResponse;
+import com.facimus.procesos.gestion.service.AnclaDeBitacoraService;
 import com.facimus.procesos.gestion.service.BitacoraService;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -55,10 +57,12 @@ public class BitacoraServiceImpl implements BitacoraService {
 
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
+    private final AnclaDeBitacoraService anclas;
 
-    public BitacoraServiceImpl(JdbcTemplate jdbc, JsonMapper json) {
+    public BitacoraServiceImpl(JdbcTemplate jdbc, JsonMapper json, AnclaDeBitacoraService anclas) {
         this.jdbc = jdbc;
         this.json = json;
+        this.anclas = anclas;
     }
 
     @Override
@@ -125,11 +129,32 @@ public class BitacoraServiceImpl implements BitacoraService {
                     }
                     anterior[0] = fila.getString("hash");
                 }, empresaId);
-        return rotura[0] != null ? rotura[0] : new VerificacionDeBitacoraResponse(true, revisados[0], null, null);
+        return rotura[0] != null ? rotura[0] : contraElAncla(empresaId, revisados[0]);
+    }
+
+    /**
+     * PR 61: una cadena que cierra por dentro puede estar reescrita entera. La ultima ancla, leida del almacen donde
+     * nadie la puede cambiar, dice que hash tenia ese eslabon el dia que se anclo.
+     */
+    private VerificacionDeBitacoraResponse contraElAncla(Long empresaId, long revisados) {
+        Optional<AnclaDeBitacoraService.Ancla> ultima = anclas.ultima(empresaId);
+        if (ultima.isEmpty()) {
+            return new VerificacionDeBitacoraResponse(true, revisados, null, null, null);
+        }
+        AnclaDeBitacoraService.Ancla ancla = ultima.get();
+        if (ancla.hash() == null) {
+            return rota(revisados, ancla.secuencia(), "El ancla del " + ancla.dia() + " ya no está en el almacén.");
+        }
+        List<String> enLaCadena = jdbc.queryForList("select hash from bitacora where empresa_id = ? and secuencia = ?",
+                String.class, empresaId, ancla.secuencia());
+        if (enLaCadena.isEmpty() || !ancla.hash().equals(enLaCadena.getFirst())) {
+            return rota(revisados, ancla.secuencia(), "No coincide con el ancla del " + ancla.dia() + ".");
+        }
+        return new VerificacionDeBitacoraResponse(true, revisados, null, null, ancla.dia());
     }
 
     private static VerificacionDeBitacoraResponse rota(long revisados, long secuencia, String motivo) {
-        return new VerificacionDeBitacoraResponse(false, revisados, secuencia, motivo);
+        return new VerificacionDeBitacoraResponse(false, revisados, secuencia, motivo, null);
     }
 
     /** Cada filtro, el cursor y el tope, en el orden de DONDE; uno nulo no filtra. */

@@ -52,7 +52,7 @@
 - [x] Row-level security in PostgreSQL on every table of a store, with a role that cannot bypass it
 - [x] An audit trail per store chained with SHA-256, that nobody can change or delete, fed from the outbox, with a
       verification that names where it breaks and a CSV export safe from formulas
-- [ ] The daily anchor of the last hash in a bucket with Object Lock
+- [x] The daily anchor of the last hash in a bucket with Object Lock, checked when the trail is verified
 - [x] Flyway migrations with `ddl-auto=validate`, composite unique constraints and `empresa_id` indexes
 - [x] Soft delete and change history for every BPMN element
 - [x] Auditing fields (`createdBy`, `lastModifiedBy`) filled from the authenticated principal
@@ -87,7 +87,9 @@
 
 **Process repository**
 - [x] A tree of folders, and for each process its owner, next review, classification and tags, with their filters
-- [ ] Documents attached to a process and the process manual
+- [x] Documents attached to a process or an element, with versions, a type from the content, an antivirus and ZIP
+      bomb check in the queue, a quota per store and downloads by signed link, on S3 or compatible storage
+- [ ] The process manual
 - [ ] Comments with mentions, review and approval, and full-text search
 
 **Running processes**

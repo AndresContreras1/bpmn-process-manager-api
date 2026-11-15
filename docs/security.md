@@ -262,6 +262,7 @@ Each store has an audit trail (`bitacora`) of what happened in it:
 | `CONFIGURACION_CAMBIADA` | The settings change, with the policies that resulted |
 | `PROCESO_PUBLICADO` | A version is published |
 | `TIENDA_DADA_DE_BAJA` · `BAJA_CANCELADA` | The store is closed or the closing is cancelled |
+| `DOCUMENTO_SUBIDO` · `DOCUMENTO_ELIMINADO` · `DOCUMENTO_BLOQUEADO` | A document or a new version is uploaded, a document is deleted, or the review retains a version |
 
 Each entry says who (a person, or the API), the action, the resource, whether it worked, the address, the browser,
 the request id and the trace id, and a detail in JSON. It holds ids and never names or e-mails: nothing in it can
@@ -277,12 +278,46 @@ What makes it hard to touch:
 - A trigger turns down `UPDATE`, `DELETE` and `TRUNCATE`, for the API too.
 - `GET /api/v1/auditoria/verificacion` recomputes the chain from its first entry and names the first one that was
   changed, deleted or put out of order.
+- **The daily anchor** (PR 61). Once a day one instance copies the last link of each store's trail to a bucket with
+  Object Lock in compliance mode, where nobody, the API's credentials included, can change or delete it before its
+  retention ends (`BITACORA_ANCLA_RETENCION`, 400 days). Verifying also checks the latest anchor, read from that
+  bucket and not from the database: a trail rewritten from the start, every hash recomputed, no longer matches the
+  hash its anchor kept, and an anchor that is gone breaks the verification too. The answer says which day it was
+  checked against (`anclaVerificada`). Without a bucket for anchors they are written to the documents' storage and
+  marked as not locked.
 
 The administrator reads it newest first, 50 at a time, with filters (`GET /api/v1/auditoria`), and exports it as CSV
 or JSON (`/exportacion`); in the CSV, a cell a spreadsheet would run as a formula starts with an apostrophe. The trail
-outlives its store, which stays as a tombstone. Anchoring the last hash of each day outside the database comes with
-object storage (PR 61), and the role the API connects with gets only `INSERT` and `SELECT` on it with row-level
-security (PR 51).
+outlives its store, which stays as a tombstone, and so do its anchors. The role the API connects with gets only
+`INSERT` and `SELECT` on it with row-level security (PR 51).
+
+## Documents
+
+A file from outside is treated as hostile until it has been checked ([ADR-0065](adr/0065-object-storage-and-documents.md)):
+
+- **Its type comes from its bytes**, with Tika's signatures, against a whitelist: PDF, PNG, JPEG, GIF, WebP, SVG,
+  plain text, CSV, Markdown, BPMN, Word, Excel and PowerPoint, and OpenDocument text and spreadsheets. An executable
+  named `informe.pdf` is an executable, and the answer is `415`. A ZIP that is not one of those documents is refused.
+- **Its name is cleaned**: only the last part of a path, no control or direction characters, no characters a file
+  system refuses, no leading dots, Windows' reserved names replaced, and the extension of the type that was detected.
+  The name is only shown and sent on download: it never becomes part of a storage key.
+- **Size and quota.** At most 25 MB, cut while reading, so a body without `Content-Length` does not arrive whole
+  either; NGINX cuts at the same size. Each store has a quota (`DOCUMENTOS_CUOTA_POR_TIENDA`, 1 GB), counting every
+  version. Both answer `413` and save nothing.
+- **Reviewed before anyone can download it.** A new version waits `PENDIENTE` while the job queue sends it to ClamAV
+  (`ANTIVIRUS_HOST`, clamd's `INSTREAM` protocol) and, if it is an Office or OpenOffice document, opens it for real
+  with limits — 200 MB, a hundred times its size, ten thousand parts, and no path that leaves its folder — so a ZIP
+  bomb is retained before it reaches anything. It ends `DISPONIBLE` or `BLOQUEADO` with the reason, in the audit
+  trail. An antivirus that does not answer leaves it pending and the queue tries again.
+- **Downloaded only through a signed link** of five minutes, which the API serves itself: the storage is never
+  reachable from a browser. The link signs the store, the document, the version and its expiry with HMAC-SHA256 and a
+  key derived from the API secret; a changed or expired link answers `404`. The file always goes as an attachment,
+  with `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox` and `no-store`; an
+  SVG or an HTML goes as `application/octet-stream`, so a browser never runs it. NGINX logs the link without its
+  signature.
+- **Permissions** are those of the process: reading needs `VER`, uploading and deleting need `MODELAR`. Another
+  store's document does not exist (`404`).
+- Closing a store deletes its files too, through the job queue, which retries until the storage confirms it.
 
 ## Rate limiting
 

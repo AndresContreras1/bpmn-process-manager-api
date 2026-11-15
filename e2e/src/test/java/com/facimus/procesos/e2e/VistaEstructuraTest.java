@@ -136,6 +136,7 @@ class VistaEstructuraTest extends PruebaE2E {
     @DisplayName("el modelador con la vista de estructura no tiene violaciones serias de accesibilidad")
     void sinViolacionesSerias() {
         sembrar("axe");
+        quieta();
 
         Results resultado = new AxeBuilder().withTags(REGLAS).analyze(navegador);
 

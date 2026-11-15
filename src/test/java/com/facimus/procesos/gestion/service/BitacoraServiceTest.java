@@ -3,18 +3,23 @@ package com.facimus.procesos.gestion.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +46,7 @@ import tools.jackson.databind.json.JsonMapper;
 class BitacoraServiceTest {
 
     private static final Long EMPRESA = 7L;
+    private static final LocalDate DIA = LocalDate.of(2026, 11, 12);
     private static final String GENESIS = "0".repeat(64);
     private static final List<String> COLUMNAS = List.of("empresa_id", "secuencia", "momento", "actor_tipo",
             "actor_id", "accion", "recurso", "recurso_id", "exito", "ip", "user_agent", "request_id", "trace_id",
@@ -50,11 +56,18 @@ class BitacoraServiceTest {
     private final List<Map<String, Object>> tabla = new ArrayList<>();
     private final List<Object> candados = new ArrayList<>();
     private final List<Object[]> parametrosDeConsulta = new ArrayList<>();
+    private final AnclaDeBitacoraService anclas = mock(AnclaDeBitacoraService.class);
     private BitacoraServiceImpl bitacora;
 
     @BeforeEach
     void laTablaEnMemoria() {
-        bitacora = new BitacoraServiceImpl(jdbc, JsonMapper.builder().build());
+        bitacora = new BitacoraServiceImpl(jdbc, JsonMapper.builder().build(), anclas);
+        // PR 61: el hash de un eslabon, para compararlo con el ancla
+        doAnswer(invocacion -> tabla.stream()
+                .filter(fila -> fila.get("secuencia").equals(invocacion.getArgument(3)))
+                .map(fila -> (String) fila.get("hash")).toList())
+                .when(jdbc).queryForList(eq("select hash from bitacora where empresa_id = ? and secuencia = ?"),
+                        eq(String.class), any(), any());
         doAnswer(invocacion -> {
             Object[] fila = valores(invocacion.getArguments());
             Map<String, Object> registro = new HashMap<>();
@@ -124,11 +137,13 @@ class BitacoraServiceTest {
     @Test
     @DisplayName("Una cadena sin tocar se verifica entera; una vacia tambien")
     void verificarIntegra() {
-        assertThat(bitacora.verificar(EMPRESA)).isEqualTo(new VerificacionDeBitacoraResponse(true, 0, null, null));
+        assertThat(bitacora.verificar(EMPRESA))
+                .isEqualTo(new VerificacionDeBitacoraResponse(true, 0, null, null, null));
 
         anotarTres();
 
-        assertThat(bitacora.verificar(EMPRESA)).isEqualTo(new VerificacionDeBitacoraResponse(true, 3, null, null));
+        assertThat(bitacora.verificar(EMPRESA))
+                .isEqualTo(new VerificacionDeBitacoraResponse(true, 3, null, null, null));
     }
 
     @Test
@@ -138,7 +153,7 @@ class BitacoraServiceTest {
         tabla.get(1).put("detalle", "{\"a\":2}");
 
         assertThat(bitacora.verificar(EMPRESA)).isEqualTo(new VerificacionDeBitacoraResponse(false, 2, 2L,
-                "El hash no coincide con lo que dice el registro."));
+                "El hash no coincide con lo que dice el registro.", null));
     }
 
     @Test
@@ -148,7 +163,7 @@ class BitacoraServiceTest {
         tabla.remove(1);
 
         assertThat(bitacora.verificar(EMPRESA)).isEqualTo(new VerificacionDeBitacoraResponse(false, 2, 3L,
-                "Falta el registro 2: la secuencia salta a 3."));
+                "Falta el registro 2: la secuencia salta a 3.", null));
     }
 
     @Test
@@ -159,7 +174,54 @@ class BitacoraServiceTest {
         tabla.get(2).put("detalle", "{}");
 
         assertThat(bitacora.verificar(EMPRESA)).isEqualTo(new VerificacionDeBitacoraResponse(false, 2, 2L,
-                "No sigue al registro anterior."));
+                "No sigue al registro anterior.", null));
+    }
+
+    @Test
+    @DisplayName("PR 61: con un ancla que coincide, la cadena se da por integra y dice el dia del ancla")
+    void verificarContraElAncla() {
+        anotarTres();
+        String hash = (String) tabla.get(1).get("hash");
+        when(anclas.ultima(EMPRESA)).thenReturn(Optional.of(new AnclaDeBitacoraService.Ancla(DIA, 2, hash)));
+
+        assertThat(bitacora.verificar(EMPRESA)).isEqualTo(new VerificacionDeBitacoraResponse(true, 3, null, null,
+                DIA));
+    }
+
+    @Test
+    @DisplayName("PR 61: una cadena que cierra por dentro pero no coincide con su ancla esta reescrita")
+    void verificarReescrita() {
+        anotarTres();
+        when(anclas.ultima(EMPRESA)).thenReturn(Optional.of(new AnclaDeBitacoraService.Ancla(DIA, 2, "f".repeat(64))));
+
+        assertThat(bitacora.verificar(EMPRESA)).isEqualTo(new VerificacionDeBitacoraResponse(false, 3, 2L,
+                "No coincide con el ancla del 2026-11-12.", null));
+    }
+
+    @Test
+    @DisplayName("PR 61: un ancla de un eslabon que ya no esta, o que el almacen ya no tiene, rompe la cadena")
+    void verificarSinEslabonOSinAncla() {
+        anotarTres();
+        when(anclas.ultima(EMPRESA)).thenReturn(Optional.of(new AnclaDeBitacoraService.Ancla(DIA, 9, "a")));
+
+        assertThat(bitacora.verificar(EMPRESA)).isEqualTo(new VerificacionDeBitacoraResponse(false, 3, 9L,
+                "No coincide con el ancla del 2026-11-12.", null));
+
+        when(anclas.ultima(EMPRESA)).thenReturn(Optional.of(new AnclaDeBitacoraService.Ancla(DIA, 2, null)));
+
+        assertThat(bitacora.verificar(EMPRESA)).isEqualTo(new VerificacionDeBitacoraResponse(false, 3, 2L,
+                "El ancla del 2026-11-12 ya no está en el almacén.", null));
+    }
+
+    @Test
+    @DisplayName("PR 61: una cadena rota no se compara con el ancla")
+    void rotaSinAncla() {
+        anotarTres();
+        tabla.get(1).put("detalle", "{\"a\":2}");
+
+        bitacora.verificar(EMPRESA);
+
+        verify(anclas, never()).ultima(any());
     }
 
     @Test

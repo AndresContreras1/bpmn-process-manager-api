@@ -12,6 +12,7 @@ this repository (`compose.yaml`); the remote environments add their own steps to
 | `db` | PostgreSQL 16, data in the `postgres-data` volume | `5432`, not published | `pg_isready` |
 | `api` | The API in the `prod` profile | `8080` for the API (`API_PORT` on the host, only on `127.0.0.1`); `8081` for Actuator, never published | `/actuator/health/readiness` on `8081` |
 | `web` | NGINX with the compiled app, and the door to the API under `/api` | `8080` (`WEB_PORT` on the host) | `/healthz` |
+| `almacen` | SeaweedFS, the S3 storage of the documents and of the audit-trail anchors, data in the `almacen-data` volume | `8333`, not published | `/healthz` on `8333` |
 
 The API and the web containers run read-only, without Linux capabilities, and write only to `/tmp`, which lives in
 memory. `docker compose ps` shows whether each one is healthy.
@@ -145,6 +146,23 @@ data by hand, `psql` connects as the owner, which is not limited; `SET ROLE proc
 matches. Nothing in the API can change it, so it was changed in the database with the trigger off: treat it as an
 incident. Keep a copy of the table as it is, and compare it with the last backup to find what changed.
 
+**A document stays `PENDIENTE`.** Its review is a job of the queue (`documentos.revisar`). Without
+`ANTIVIRUS_HOST` and with `DOCUMENTOS_EXIGIR_ANTIVIRUS=true`, it waits on purpose: its `motivo` says so. With an
+antivirus, look at the job: `select estado, intentos, ultimo_error from trabajos where tipo = 'documentos.revisar'
+order by id desc limit 5`. "ClamAV no contesto" means clamd is down or still loading its signatures, which takes a
+minute after it starts; the job tries again by itself.
+
+**A document was blocked and the person says it is clean.** The `motivo` says who blocked it: the name of the
+signature ClamAV found, or the limits of a container (it grows too much when opened, has too many parts, or a path
+that leaves it). A false positive of the antivirus is not overridden from the API: the person uploads the file again
+as a PDF or another type, or the operator updates the signatures (`freshclam`).
+
+**The audit trail does not match its anchor.** The chain closes by itself but not with the hash the anchor kept that
+day: the table was rewritten after that day. Treat it as an incident: keep the database as it is, compare the
+anchored hash (`anclas/<store>/<day>` in the anchors' bucket) with the entry of that sequence, and restore from the
+backup of before that day to see what changed. An anchor that "is no longer in the storage" means the bucket was not
+created with Object Lock, or its retention passed.
+
 **Someone gets `429` while working.** The rate limits count changes per person and signing in per address
 ([Rate limiting](security.md#rate-limiting)). An office behind one address shares the bucket of signing in: raise
 `LIMITE_AUTENTICACION_POR_MINUTO` in `.env` and recreate the API. A bucket fills again on its own; to empty one at
@@ -208,6 +226,9 @@ docker compose start api
 ```
 
 A copy that was never restored is a hope, not a backup: restore one into a scratch stack now and then.
+
+The documents live in the `almacen-data` volume (SeaweedFS), apart from the database: a copy of one without the other
+leaves rows without files or files without rows. Copy both at the same time, or stop the API while copying.
 
 ## Stopping and starting
 

@@ -17,6 +17,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Processes | `GET, POST /api/v1/procesos` · `GET, PUT, PATCH, DELETE /api/v1/procesos/{id}` · `GET /api/v1/procesos/{id}/historial` |
 | Folders | `GET, POST /api/v1/carpetas` · `PUT, DELETE /api/v1/carpetas/{id}` |
 | Filing | `PUT /api/v1/procesos/{id}/ficha` · `GET /api/v1/procesos/etiquetas` |
+| Documents | `GET, POST /api/v1/procesos/{id}/documentos` · `GET, DELETE /api/v1/documentos/{id}` · `POST /api/v1/documentos/{id}/versiones` · `GET /api/v1/documentos/{id}/enlace` · `GET /api/v1/descargas/documentos/{id}/{version}` |
 | Permissions | `GET /api/v1/procesos/{id}/permisos` · `GET, POST /api/v1/procesos/{id}/concesiones` · `GET, POST /api/v1/carpetas/{id}/concesiones` · `DELETE /api/v1/concesiones/{id}` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
 | Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` · `PUT /api/v1/procesos/{procesoId}/pools/orden` |
@@ -127,6 +128,22 @@ curl -s -X PUT http://localhost:8080/api/v1/procesos/1/ficha -b sesion.txt -H "X
   -H "Content-Type: application/json" \
   -d '{"carpetaId":1,"duenoId":2,"proximaRevision":"2027-03-01","clasificacion":"CONFIDENCIAL","etiquetas":["logistics"],"version":0}'
 ```
+
+## Documents
+
+A document belongs to a process, or with `elemento=<bpmnId>` to one of its elements, and keeps every version. The
+upload is the file itself as the body, not a form, with its name in `nombre`:
+
+```bash
+curl -s -X POST "http://localhost:8080/api/v1/procesos/1/documentos?nombre=Packing%20instructions.pdf"   -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" -H "Content-Type: application/octet-stream" --data-binary @packing.pdf
+```
+
+The answer is `201` with the document `PENDIENTE`: the antivirus checks it in the background, and it turns
+`DISPONIBLE` or `BLOQUEADO` with a `motivo`. `POST /api/v1/documentos/{id}/versiones` adds a version the same way.
+`GET /api/v1/documentos/{id}/enlace[?version=]` answers a link that works without a session for five minutes, and
+`409` while the version is pending or if it was blocked; the link is a plain `GET` that downloads the file as an
+attachment. A file over 25 MB, or over what is left of the store's quota, answers `413`; one whose content is not an
+accepted type answers `415`, whatever its name says ([Security](security.md#documents)).
 
 ## Permissions
 
