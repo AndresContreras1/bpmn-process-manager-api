@@ -20,6 +20,10 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Documents | `GET, POST /api/v1/procesos/{id}/documentos` · `GET, DELETE /api/v1/documentos/{id}` · `POST /api/v1/documentos/{id}/versiones` · `GET /api/v1/documentos/{id}/enlace` · `GET /api/v1/descargas/documentos/{id}/{version}` |
 | Documentation | `GET, PUT /api/v1/procesos/{id}/documentacion` · `POST /api/v1/documentacion/vista-previa` · `GET, PUT /api/v1/procesos/{id}/caracterizacion` |
 | Manuals | `GET, POST /api/v1/procesos/{id}/manuales[?version=]` · `GET /api/v1/manuales/{id}` · `GET /api/v1/manuales/{id}/enlace?formato=pdf\|html` · `GET /api/v1/descargas/manuales/{id}/{formato}` · `PUT /api/v1/procesos/{id}/versiones/{numero}/dibujo` |
+| Comments | `GET, POST /api/v1/procesos/{id}/comentarios[?bpmnId=&version=&estado=]` · `POST /api/v1/comentarios/{id}/respuestas` · `PUT, DELETE /api/v1/comentarios/{id}` · `POST /api/v1/comentarios/{id}/resolver` · `POST /api/v1/comentarios/{id}/reabrir` · `GET /api/v1/procesos/{id}/mencionables[?q=]` |
+| Review and approval | `GET, PUT /api/v1/empresas/actual/politica-de-publicacion` · `GET, POST /api/v1/procesos/{id}/solicitudes[?estado=]` · `GET /api/v1/solicitudes[?pendientesDeMi=true&estado=]` · `GET /api/v1/solicitudes/{id}` · `POST /api/v1/solicitudes/{id}/aprobar`, `/pedir-cambios`, `/rechazar`, `/retirar` · `POST /api/v1/procesos/{id}/recertificacion` |
+| Search | `GET /api/v1/busqueda?q=&tipo=&publicado=&pagina=&tamano=` |
+| Notifications | `GET /api/v1/notificaciones[?noLeidas=true]` · `GET /api/v1/notificaciones/conteo` · `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` · `GET /api/v1/notificaciones/flujo` · `GET, PUT /api/v1/notificaciones/preferencias` |
 | Permissions | `GET /api/v1/procesos/{id}/permisos` · `GET, POST /api/v1/procesos/{id}/concesiones` · `GET, POST /api/v1/carpetas/{id}/concesiones` · `DELETE /api/v1/concesiones/{id}` |
 | Process roles | `GET, POST /api/v1/roles` · `GET, PUT, DELETE /api/v1/roles/{id}` |
 | Pools | `GET, POST /api/v1/procesos/{procesoId}/pools` · `GET, PUT, DELETE /api/v1/pools/{id}` · `PUT /api/v1/procesos/{procesoId}/pools/orden` |
@@ -51,6 +55,7 @@ endpoint is left undocumented. The `prod` profile does not publish the documenta
 | Sign in with a provider | `GET /api/v1/auth/proveedores` · `GET /api/v1/auth/oidc/{proveedor}` · `POST /api/v1/auth/identidades/vinculo` · `GET /api/v1/auth/identidades` · `DELETE /api/v1/auth/identidades/{id}` |
 | Store domains | `GET, POST /api/v1/empresas/actual/dominios` · `POST /api/v1/empresas/actual/dominios/{id}/verificacion` · `DELETE /api/v1/empresas/actual/dominios/{id}` |
 | Audit trail | `GET /api/v1/auditoria` · `GET /api/v1/auditoria/exportacion?formato=csv\|json` · `GET /api/v1/auditoria/verificacion` |
+| Organization export | `GET, POST /api/v1/organizacion/exportaciones` · `GET /api/v1/organizacion/exportaciones/{id}` · `GET /api/v1/descargas/exportaciones/{id}` |
 | Account by e-mail | `POST /api/v1/auth/verificacion` · `POST /api/v1/auth/verificacion/confirmar` · `POST /api/v1/auth/invitacion/aceptar` |
 | Process sharing | `GET, POST /api/v1/procesos/{id}/compartidos` · `GET, DELETE /api/v1/procesos/{id}/compartidos/{empresaInvitadaId}` · `GET /api/v1/procesos/compartidos-conmigo` |
 | Cases | `POST /api/v1/procesos/{procesoId}/casos` · `GET /api/v1/casos` · `GET /api/v1/casos/{id}` · `GET /api/v1/casos/{id}/eventos` · `POST /api/v1/casos/{id}/cancelar` · `PATCH /api/v1/casos/{id}/variables` · `POST /api/v1/casos/{id}/reintentar` |
@@ -122,9 +127,16 @@ the tree has at most eight levels, and only an empty folder is deleted: `409` sa
 
 `PUT /api/v1/procesos/{id}/ficha` files a process: its `carpetaId`, its owner (`duenoId`, a user of the store), the
 date of its `proximaRevision`, its `clasificacion` (`INTERNA`, `CONFIDENCIAL` or `RESTRINGIDA`) and up to ten
-`etiquetas`, kept in lowercase, with the `version` read. It does not touch the model, so it neither changes the
+`etiquetas`, kept in lowercase, with the `version` read. Since PR 64 it also takes `mesesEntreRevisiones`, 1 to 60:
+how far confirming that the process is still valid moves its next review; left out, it keeps the current value (12
+by default). It does not touch the model, so it neither changes the
 fingerprint of the draft nor counts as a change waiting to be published ([ADR-0062](adr/0062-process-repository.md)).
 `GET /api/v1/procesos/etiquetas` lists the tags in use, to suggest them.
+
+`GET /api/v1/procesos/{id}` also answers `duenoNombre`, the owner's name, beside the process and its history: the
+list of people is the administrator's, so for anyone else the owner's id names nobody. It is `null` when the process
+has no owner, or when the owner is no longer found in the store. The read-only portal of the web shows it in the
+process sheet ([ADR-0075](adr/0075-read-only-portal.md)).
 
 `GET /api/v1/procesos` filters by all of it: `carpetaId` (that folder and everything inside it), `etiqueta`,
 `duenoId`, `clasificacion` and `revisionAntesDe`, and sorts by `proximaRevision` and `clasificacion` too.
@@ -167,6 +179,172 @@ the manual of the version in force, or of `?version=n`, in the language of whoev
 manual `PENDIENTE`, and the job queue builds it as HTML and PDF — the sheet, the drawing, the documentation of the
 process and of every step lane by lane, and the documents available. `GET /api/v1/manuales/{id}/enlace?formato=pdf`
 (or `html`) answers a five-minute signed link, like a document's.
+
+## Comments and notifications
+
+A thread starts with `POST /api/v1/procesos/{id}/comentarios`:
+
+```json
+{ "markdown": "Who checks the **address** before packing?", "bpmnId": "Activity_0b3k9xq",
+  "versionDelProceso": 2, "menciones": [2, 5] }
+```
+
+Only `markdown` is required, up to 10 000 characters, converted and cleaned like the documentation. `bpmnId` anchors
+the thread to an element of the draft (`404` if it has none), or with `versionDelProceso` to an element of that
+published version (`404` if the version does not exist). `menciones` are ids of people of the store who can view
+the process, at most 20; any other id answers `400` with `errors` naming its position (`"menciones[1]"`) and the same
+reason for every case, so it never says whether someone exists. The answer is `201` with the comment: its `html`, the
+`autor` and the `menciones` with their names, `estado` (`ABIERTO` or `RESUELTO`, only on the first comment of a
+thread) and the `version` to send back when editing.
+
+`POST /api/v1/comentarios/{id}/respuestas` takes `{ "markdown", "menciones" }`; replying to a reply answers in its
+thread. `PUT /api/v1/comentarios/{id}` takes the same with the `version` read, and only its author edits it (`403`,
+`409` with a stale version). `POST .../resolver` and `.../reabrir` act on the first comment of a thread (`409` on a
+reply, on a resolved thread or on an open one). `DELETE` is for its author or an administrator: the comment loses its
+text and keeps its place, so a thread with replies stays, marked `eliminado`. `GET /api/v1/procesos/{id}/comentarios`
+answers a page of threads, newest first and up to 50, each with its replies oldest first, filtered by `bpmnId`,
+`version` and `estado`. Every role comments, the read-only one too; reading needs `VER` and writing `COMENTAR` and
+`VER` on the process ([Security](security.md#comments-and-notifications)).
+
+`GET /api/v1/procesos/{id}/mencionables?q=an` answers who can be mentioned there, for a picker: `[{ "id": 2,
+"nombre": "Ana" }]`, the active people of the store who can view the process and whose name contains `q` (up to 100
+characters, `400` beyond; empty for the first ones; `%` and `_` are plain characters, not wildcards), without whoever asks, by name and up to 20. It needs `VER` on the
+process, and another store's process answers `404`. Of the first 50 people by name only those who can view it stay,
+so with many people who cannot, a longer `q` finds the rest.
+
+Who hears about it: those mentioned (`MENCION`), everyone else who wrote in the thread when someone replies
+(`RESPUESTA`), and everyone who wrote in it when it is resolved (`HILO_RESUELTO`), never the author. Each one gets a
+notification that only they see; another's answers `404`.
+
+| Route | Answers |
+|---|---|
+| `GET /api/v1/notificaciones?noLeidas=true&pagina=0&tamano=20` | A page, newest first and up to 50: `tipo`, `procesoId` and `proceso`, `referenciaId` (the comment), `autor`, `creadaEn`, `leidaEn` |
+| `GET /api/v1/notificaciones/conteo` | `{ "noLeidas": 3 }` |
+| `POST /api/v1/notificaciones/{id}/leida` · `POST /api/v1/notificaciones/leidas` | The notification read · the count, now `0` |
+| `GET /api/v1/notificaciones/flujo` | Server-sent events: `conteo` when it opens and whenever it changes, `notificacion` with each new one, and a heartbeat every 25 seconds; at most five per person on each instance (`429`) |
+| `GET, PUT /api/v1/notificaciones/preferencias` | Each type with `envio`: `INMEDIATO`, `RESUMEN_DIARIO` or `NUNCA`, and whether it is the default. `PUT` takes `{ "preferencias": [{ "tipo": "HILO_RESUELTO", "envio": "NUNCA" }] }` and leaves the other types as they were |
+
+By default a mention and a reply are e-mailed at once, and a resolved thread waits for the daily digest. An e-mail is
+written in the person's language, says who did what in which process with a link to it, and never carries the
+comment's text; one that is already read when its e-mail would leave is not sent.
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/comentarios -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"   -H "Content-Type: application/json" -d '{"markdown":"Who checks the address?","menciones":[2]}'
+curl -N http://localhost:8080/api/v1/notificaciones/flujo -b sesion.txt
+```
+
+## Review and approval
+
+A store publishes directly, as always, or with approval ([ADR-0069](adr/0069-review-and-approval.md)).
+`GET /api/v1/empresas/actual/politica-de-publicacion` answers its policy to any role: `modo` (`DIRECTA` or
+`CON_APROBACION`), `aprobacionesNecesarias`, `rolProcesoId` and `rolProceso`, the `aprobadores` with their name and
+whether they are still active, and the `version` (empty while the store never saved one). The administrator changes it
+with `PUT` and the `version` read:
+
+```json
+{ "modo": "CON_APROBACION", "aprobacionesNecesarias": 2, "aprobadores": [4, 5], "version": 0 }
+```
+
+`aprobacionesNecesarias` goes from 1 to 10 (1 when left out). The approvers come from `aprobadores` (up to 50 people)
+or from `rolProcesoId` (the people of that process role), never both (`400`); with approval there have to be at least
+as many people who can approve as approvals (`400`): active, and not read-only. An id that is not an active person of
+the store answers `400` naming its position (`"aprobadores[1]"`), the same for every case, and a read-only person too,
+saying so; of a role, only its active people who are not read-only count; a role that does not exist, `404`; a stale
+`version`, `409`. Turning the policy off with `DIRECTA` never fails over who approved: people who could not approve
+any more and a role that was deleted are dropped, and the rest is kept for turning it on again. A process role that
+the policy names cannot be deleted (`409`) until the policy names another source.
+
+With `CON_APROBACION`, `PATCH /api/v1/procesos/{id}` with `"estado": "PUBLICADO"` answers `409` for everyone, the
+administrator included, with a problem whose `detail` says that a review has to be asked for. Its request and its
+answer do not change.
+
+`POST /api/v1/procesos/{id}/solicitudes` asks for the review, with an optional `{ "markdown": "What changed and why" }`
+(up to 10 000 characters, cleaned like comments). It needs `PUBLICAR` on the process. It freezes the draft in a draft
+revision (`revisionId`) and in the snapshot the last approval will publish, so editing the draft afterwards does not
+change what is reviewed. It answers `201` with `Location` and the request: `estado` `ABIERTA`, `solicitante`,
+`numero` (the version it publishes), `versionBase` (the one in force, or empty), `aprobacionesNecesarias`,
+`aprobaciones`, the `aprobadores` fixed now (the people of the list or role who are active and can view and approve
+the process, never the requester nor whoever changed the process last) and `diferencia`, the comparison of
+`GET .../comparar` between the version in force and the frozen snapshot (against an empty diagram if there is none).
+It answers `409` when the store publishes directly, when the process already has an open request, when fewer people
+can approve than the policy asks, when more than 200 could (a request keeps up to 200 approvers: a role that large
+has to be replaced by a smaller one or a list), and with the same reasons as publishing: diagnosis errors or no
+change since the version in force. Deleting the process withdraws its open request, with the reason.
+
+Publishing through a request does not count as a change of the process by its last approver: the process keeps its
+`version` and its `modificadoPor`, so whoever approved can approve the next request too. The same holds for
+recertifying.
+
+| Route | What it does |
+|---|---|
+| `GET /api/v1/solicitudes/{id}` | The request with its `decisiones` (approver, `decision`, Markdown and HTML, date) and its `diferencia` |
+| `GET /api/v1/procesos/{id}/solicitudes?estado=` | Those of a process, newest first, up to 50 a page, without the difference |
+| `GET /api/v1/solicitudes?pendientesDeMi=true` | The store's requests on processes the person can view; with `pendientesDeMi`, only the open ones waiting for their decision |
+| `POST /api/v1/solicitudes/{id}/aprobar` | `{ "markdown" }` optional. The approval that completes `aprobacionesNecesarias` publishes the frozen snapshot (`PUBLICADA`, `versionPublicada`); if the version in force changed since it was asked for, or the diagnosis of the frozen diagram is no longer clean, it ends `APROBADA_SIN_PUBLICAR` with the `motivo` |
+| `POST /api/v1/solicitudes/{id}/pedir-cambios` · `.../rechazar` | `{ "markdown" }` required (`400` without it); closes it as `CAMBIOS_PEDIDOS` or `RECHAZADA` |
+| `POST /api/v1/solicitudes/{id}/retirar` | Closes it as `RETIRADA`: by its requester, or by whoever can administer the process |
+
+Deciding needs `APROBAR` on the process and being one of the request's approvers: the requester answers `403`, and so
+does anyone else who is not one of them; a second decision by the same person, or any on a closed request, `409`.
+The approvers are notified when it is asked for (`APROBACION_PEDIDA`), and the requester of each approval
+(`SOLICITUD_APROBADA`), of the result (`SOLICITUD_PUBLICADA`, `SOLICITUD_SIN_PUBLICAR`) and of changes asked or a
+rejection (`CAMBIOS_PEDIDOS`, `SOLICITUD_RECHAZADA`); their `referenciaId` is the request.
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/procesos/1/solicitudes -b sesion.txt -H "X-XSRF-TOKEN: $XSRF" \
+  -H "Content-Type: application/json" -d '{"markdown":"Adds the fraud check before packing."}'
+curl -s -X POST http://localhost:8080/api/v1/solicitudes/4/aprobar -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+```
+
+**Recertification.** `POST /api/v1/procesos/{id}/recertificacion`, with an optional `{ "nota": "What was checked" }`
+(up to 2000 characters), confirms the process is still valid: its owner does it, whatever their role, or whoever can
+administer the process (`403` otherwise). It answers the process with `proximaRevision` moved to today plus its
+`mesesEntreRevisiones` (its `version` stays the same), and records who, when, the note and whether it was overdue in
+the audit trail and the history.
+The owner is notified once when the review date arrives (`RECERTIFICACION_PENDIENTE`) and once more when it has passed
+(`RECERTIFICACION_VENCIDA`). Every process answer carries `mesesEntreRevisiones` and `revisionVencida`, true once the
+date has passed with nobody confirming it. Days are UTC days of the API clock, for every store.
+
+## Search
+
+`GET /api/v1/busqueda?q=credit%20approval` finds the text in what the person can view of the store: processes (name,
+description, category, tags and documentation), elements of the draft and of the published version (name, description,
+condition or message content, and documentation), documents (file name and the text read from the file) and comments
+that were not deleted. Every role searches, and finds only what it can `VER`, in the same query; another store's
+content is never there.
+
+| Parameter | |
+|---|---|
+| `q` | Up to 200 characters (`400` beyond), web search syntax: `"credit approval"` is a phrase, `-card` excludes, `card or cash` is either. Accents and case do not matter, and words match by their stem in the store's language (Spanish, English or French). Empty, or only common words like "the", answers an empty page |
+| `tipo` | Only `PROCESO`, `ELEMENTO`, `DOCUMENTO` or `COMENTARIO` (`400` for anything else) |
+| `publicado` | `true` keeps only what is published: processes with a version in force, the elements of that version (the hit carries its `version`), the documents of those processes, and no comments. `false` by default. The read-only portal searches this way ([ADR-0075](adr/0075-read-only-portal.md)) |
+| `pagina`, `tamano` | From `0`; from 1 to 50, 20 by default |
+
+The answer is a page, most relevant first: a name beats a description, a description beats a body.
+
+```json
+{ "content": [
+    { "tipo": "ELEMENTO", "procesoId": 12, "proceso": "Order fulfillment", "titulo": "Pack the order",
+      "bpmnId": "Activity_0b3k9xq", "tipoDeElemento": "ACTIVIDAD", "version": null, "documentoId": null,
+      "comentarioId": null, "hiloId": null,
+      "fragmento": [ { "texto": "Use ", "resaltado": false }, { "texto": "reinforced", "resaltado": true },
+                     { "texto": " tape on large boxes", "resaltado": false } ] } ],
+  "page": 0, "size": 20, "totalElements": 1, "totalPages": 1 }
+```
+
+`titulo` is the process, element or file name, or the author of a comment. `version` is set for an element of the
+published version, or for a thread on one; an element that is the same in the draft and in the published version is
+one hit, the draft's. A document carries its `documentoId` and the `bpmnId` of the element it is attached to; a
+comment its `comentarioId`, its thread (`hiloId`) and the thread's `bpmnId` and `version`. The text of a file is
+searchable once the antivirus clears it and the job queue reads it, a few seconds after the upload; until then, and
+for a file that cannot be read, only its name is; a document's fragment comes from the first 20,000 characters of
+its text. `fragmento` is plain text in segments: show each one as text and mark the highlighted ones, never as HTML
+([ADR-0070](adr/0070-full-text-search.md)). Each person searches up to 60 times a minute; beyond that, `429` with
+`Retry-After`. After a store changes its language, its content is re-indexed in the background within moments.
+
+```bash
+curl -s "http://localhost:8080/api/v1/busqueda?q=%22reinforced%20tape%22%20-pallet&tipo=ELEMENTO" -b sesion.txt
+```
 
 ## The business calendar and timers
 
@@ -350,7 +528,8 @@ A grant is an action on a folder or a process for a subject: `{ "accion": "MODEL
 "usuarioId": 2 }`, with `ROL` and `rolProcesoId` for the people of a process role, or `ORGANIZACION` for everyone in
 the store. The actions are `VER`, `COMENTAR`, `MODELAR`, `REVISAR`, `APROBAR`, `PUBLICAR`, `EXPORTAR` and
 `ADMINISTRAR`. Listing, granting and revoking need `ADMINISTRAR` on the resource. `GET /api/v1/procesos/{id}/permisos`
-answers what the person asking can do with a process, so a client shows only the buttons that will work. How the
+answers what the person asking can do with a process, so a client shows only the buttons that will work; another
+store's process answers `404`, like every other read of it. How the
 grants are decided is in [Security](security.md#permissions-on-folders-and-processes).
 
 ## The store's own history and settings
@@ -373,12 +552,49 @@ curl -s -X PUT http://localhost:8080/api/v1/empresas/actual/configuracion -b ses
   -H "Content-Type: application/json" -d '{"politicaEstructura":"SOLO_ADMINISTRADOR","version":0}'
 ```
 
+## Exporting the organization
+
+`POST /api/v1/organizacion/exportaciones`, without a body, asks for a full export of the caller's store. It answers
+`202` with the export `PENDIENTE` and its `Location`; the job queue builds one ZIP with every process (each version as
+BPMN and as JSON, the draft, the documentation, the characterization sheet and the manuals), the documents with every
+version, the comments, the history, the audit trail with its chain hashes and anchors, the people without any secret,
+and the cases as JSON and as CSV, plus a `manifest.json` with the size and SHA-256 of every file. Its layout, and how
+to check it without the API, is in [Export format](export-format.md).
+
+When it is ready, an e-mail in the language of whoever asked brings a link to `GET
+/api/v1/descargas/exportaciones/{id}?empresa=&vence=&firma=`, which downloads the ZIP without a session for 24 hours;
+a changed or expired link answers `404`, and so does a good one once whoever asked is no longer an active
+administrator of the store; a missing or non-numeric `empresa` or `vence` answers `400`. The link is only in the
+e-mail. Then the ZIP is deleted.
+
+| Route | Answers |
+|---|---|
+| `POST /api/v1/organizacion/exportaciones` | `202` with the export; `409` while another one of the store is being built; `403` "Verificación requerida" when the identity was not confirmed in the last ten minutes (`POST /api/v1/auth/reautenticacion` fixes it); `429` after ten in a day |
+| `GET /api/v1/organizacion/exportaciones?pagina=0&tamano=20` | A page of the store's exports, newest first (`tamano` 1 to 50, `400` otherwise), as `content`, `page`, `size`, `totalElements` and `totalPages` |
+| `GET /api/v1/organizacion/exportaciones/{id}` | One export: `estado` (`PENDIENTE`, `LISTA`, `FALLIDA` with a `motivo`, or `VENCIDA`), `pedidaPor`, `pedidaEn`, `listaEn`, `venceEn`, `tamano`, `archivos` and the `sha256` of the ZIP; another store's id answers `404` |
+
+A failed export's `motivo` never says what failed inside: it is "No se pudo armar la exportación: pide otra." or, when
+the queue gave up on it, "La cola no la terminó a tiempo: pide otra."; the cause is in the log with the export's id.
+
+Administrators only. Asking, ready, failed, downloaded and expired go to the audit trail
+([Security](security.md#organization-export)).
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/organizacion/exportaciones -b sesion.txt -H "X-XSRF-TOKEN: $XSRF"
+curl -s http://localhost:8080/api/v1/organizacion/exportaciones/4 -b sesion.txt
+```
+
 ## Closing the store
 
 `POST /api/v1/empresas/actual/baja` with `{"confirmacion": "<the store's name>"}` closes the caller's store and
 answers it with `bajaSolicitadaEn` and `borradoProgramadoPara`, 30 days later. Until then the store is read-only,
 every change answers `409` with the title "Tienda dada de baja", and `DELETE /api/v1/empresas/actual/baja` cancels
 the closing; then everything of the store is deleted ([The life of the data](security.md#the-life-of-the-data)).
+With `"exportar": true` the closing also asks for a full export, in the same transaction; if one is already being
+built, the closing goes on without asking for another, and that one's link reaches whoever asked for it. While the 30
+days last an administrator can ask for more: besides cancelling the closing, it is the only change a closing store
+accepts. The purge leaves a deletion certificate
+([Export format](export-format.md#the-deletion-certificate)).
 Administrators only, like `POST /api/v1/usuarios/{id}/anonimizar`, which deletes the personal data of a user on
 request.
 

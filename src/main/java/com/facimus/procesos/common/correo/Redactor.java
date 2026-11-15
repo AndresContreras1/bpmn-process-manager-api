@@ -1,6 +1,7 @@
 package com.facimus.procesos.common.correo;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -57,9 +58,18 @@ public class Redactor {
     }
 
     public CorreoSaliente redactar(String plantilla, Locale pedido, String para, Map<String, Object> datos) {
+        return redactar(plantilla, plantilla + ".asunto", List.of(), pedido, para, datos);
+    }
+
+    /**
+     * PR 63: con un asunto que no es el de la plantilla, como el de cada tipo de notificacion, y con lo que va en sus
+     * {0}, {1}...
+     */
+    public CorreoSaliente redactar(String plantilla, String claveDelAsunto, List<Object> argumentosDelAsunto,
+            Locale pedido, String para, Map<String, Object> datos) {
         Locale idioma = idioma(pedido);
         Context contexto = new Context(idioma, datos);
-        String asunto = mensajes.getMessage(plantilla + ".asunto", null, idioma);
+        String asunto = mensajes.getMessage(claveDelAsunto, argumentosDelAsunto.toArray(), idioma);
         return new CorreoSaliente(para, asunto, texto.process(plantilla, contexto), html.process(plantilla, contexto));
     }
 

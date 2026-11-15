@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -85,6 +88,14 @@ class ProcesoServiceTest {
     @Mock
     private Auditoria auditoria;
 
+    /** PR 64: sin politica guardada, la tienda publica directo. */
+    @Mock
+    private PoliticaDePublicacionService politicaDePublicacion;
+
+    /** PR 64: el dia contra el que se mira si una revision vencio. */
+    @Mock
+    private Clock reloj;
+
     @InjectMocks
     private ProcesoServiceImpl procesoService;
 
@@ -97,6 +108,8 @@ class ProcesoServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(reloj.instant()).thenReturn(Instant.parse("2026-11-12T10:00:00Z"));
+        lenient().when(reloj.getZone()).thenReturn(ZoneOffset.UTC);
         empresa = new Empresa();
         empresa.setId(1L);
         empresa.setNombre("Acme");
@@ -419,6 +432,24 @@ class ProcesoServiceTest {
         assertSame(historial, procesoService.obtenerDetalle(1L, 100L, false).historial());
         assertEquals(100L, procesoService.obtenerDetalle(1L, 100L, false).proceso().id());
         assertThrows(RecursoNoEncontradoException.class, () -> procesoService.listarHistorial(1L, 101L));
+    }
+
+    @Test
+    @DisplayName("F22: el detalle nombra al dueno, leido en la tienda del proceso; sin dueno no busca a nadie")
+    void detalleConDueno() {
+        when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(100L, 1L)).thenReturn(Optional.of(proceso));
+        assertNull(procesoService.obtenerDetalle(1L, 100L, false).duenoNombre());
+        verify(usuarioRepository, never()).findByIdAndEmpresaId(any(), any());
+
+        usuario.setNombre("Ana Gomez");
+        proceso.setDuenoId(10L);
+        when(usuarioRepository.findByIdAndEmpresaId(10L, 1L)).thenReturn(Optional.of(usuario));
+        assertEquals("Ana Gomez", procesoService.obtenerDetalle(1L, 100L, false).duenoNombre());
+
+        // Un dueno que ya no se encuentra en la tienda no rompe el detalle: se dice que no hay
+        proceso.setDuenoId(11L);
+        when(usuarioRepository.findByIdAndEmpresaId(11L, 1L)).thenReturn(Optional.empty());
+        assertNull(procesoService.obtenerDetalle(1L, 100L, false).duenoNombre());
     }
 
     @Test

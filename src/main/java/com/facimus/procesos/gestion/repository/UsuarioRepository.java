@@ -1,5 +1,7 @@
 package com.facimus.procesos.gestion.repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -15,6 +17,9 @@ import com.facimus.procesos.gestion.model.Usuario;
 public interface UsuarioRepository extends RepositorioTenant<Usuario>, JpaSpecificationExecutor<Usuario> {
 
     Optional<Usuario> findByEmpresaIdAndEmail(Long empresaId, String email);
+
+    /** PR 63: varias personas de la tienda de una vez, como las que menciona un comentario. */
+    List<Usuario> findAllByEmpresaIdAndIdIn(Long empresaId, Collection<Long> ids);
 
     long countByEmpresaIdAndRolAccesoAndActivoTrue(Long empresaId, RolAcceso rolAcceso);
 

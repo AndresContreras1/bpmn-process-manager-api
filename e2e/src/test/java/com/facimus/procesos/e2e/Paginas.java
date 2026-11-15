@@ -210,4 +210,36 @@ final class Paginas {
         static final By INVITADA = By.cssSelector("[data-testid='invitada']");
         static final By AVISO = By.id("compartir-aviso");
     }
+
+    /** F20: la documentacion de un proceso, su ficha, sus documentos y su manual, una pestana cada uno. */
+    static final class Documentacion {
+        static final By DESDE_EL_DETALLE = By.id("proceso-detalle-documentacion");
+        static final By SOLO_LECTURA = By.id("documentacion-solo-lectura");
+        static final By TEXTO = By.id("documentacion-texto");
+        static final By VER_PREVIA = By.id("documentacion-ver-previa");
+        static final By PREVIA_TITULO = By.cssSelector("#documentacion-previa-html h2");
+        static final By PREVIA_NEGRITA = By.cssSelector("#documentacion-previa-html strong");
+        static final By GUARDAR = By.id("documentacion-guardar");
+        static final By AVISO = By.id("documentacion-aviso");
+        static final By GUARDADA = By.id("documentacion-html");
+        static final By FICHA_OBJETIVO = By.id("caracterizacion-objetivo");
+        static final By FICHA_RIESGOS = By.id("caracterizacion-riesgos");
+        static final By FICHA_GUARDAR = By.id("caracterizacion-guardar");
+        static final By FICHA_AVISO = By.id("caracterizacion-aviso");
+        static final By FICHA_LEIDA_OBJETIVO = By.id("caracterizacion-ver-objetivo");
+        static final By ZONA = By.id("adjuntos-zona");
+        static final By ARCHIVO = By.id("adjuntos-archivo");
+        static final By DISPONIBLE = By.cssSelector("[data-testid='documento'][data-estado='DISPONIBLE']");
+        static final By BAJAR = By.cssSelector("[data-testid='documento-bajar']");
+        static final By VERSIONES = By.cssSelector("[data-testid='documento-versiones']");
+        static final By VERSION = By.cssSelector("[data-testid='version-documento']");
+        static final By GENERAR_MANUAL = By.id("manual-generar");
+        static final By MANUAL_LISTO = By.cssSelector("[data-testid='manual'][data-estado='DISPONIBLE']");
+        static final By MANUAL_PDF = By.cssSelector("[data-testid='manual-pdf']");
+
+        /** La pestana de cada parte: texto, ficha, adjuntos o manual. */
+        static By pestana(String cual) {
+            return By.id("pestana-" + cual);
+        }
+    }
 }

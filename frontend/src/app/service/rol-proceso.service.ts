@@ -34,6 +34,11 @@ export class RolProcesoService {
     return this.http.get<PageResponse<RolProceso>>(this.url, { params });
   }
 
+  /** HU-20.4: un rol con la lista de los procesos cuyas lanes lo usan; la lista de roles solo los cuenta. */
+  obtener(id: number): Observable<RolProceso> {
+    return this.http.get<RolProceso>(`${this.url}/${id}`);
+  }
+
   crear(solicitud: RolProcesoRequest): Observable<RolProceso> {
     return this.http.post<RolProceso>(this.url, solicitud);
   }

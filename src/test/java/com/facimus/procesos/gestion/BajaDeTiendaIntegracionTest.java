@@ -140,7 +140,7 @@ class BajaDeTiendaIntegracionTest {
         configuracionTiendaService.editar(tienda.id(), tienda.adminId(), antes.politicaEstructura(),
                 ModoSimulacion.AUTOMATICO, null, antes.version());
 
-        empresaService.pedirBaja(tienda.id(), tienda.adminId(), tienda.nombre());
+        empresaService.pedirBaja(tienda.id(), tienda.adminId(), tienda.nombre(), false);
         assertThat(configuracionTiendaService.tiendasEnAutomatico()).doesNotContain(tienda.id());
 
         empresaService.cancelarBaja(tienda.id(), tienda.adminId());
@@ -152,9 +152,12 @@ class BajaDeTiendaIntegracionTest {
             + "service tambien")
     void dosBajas_sonUnConflicto() {
         Tienda tienda = registrar();
-        empresaService.pedirBaja(tienda.id(), tienda.adminId(), tienda.nombre());
+        Long id = tienda.id();
+        Long adminId = tienda.adminId();
+        String nombre = tienda.nombre();
+        empresaService.pedirBaja(id, adminId, nombre, false);
 
-        assertThatThrownBy(() -> empresaService.pedirBaja(tienda.id(), tienda.adminId(), tienda.nombre()))
+        assertThatThrownBy(() -> empresaService.pedirBaja(id, adminId, nombre, false))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("ya está dada de baja");
     }
@@ -163,7 +166,7 @@ class BajaDeTiendaIntegracionTest {
     @DisplayName("Dentro de los 30 dias la purga no borra nada")
     void dentroDeLaGracia_noSeBorra() {
         Tienda tienda = registrar();
-        empresaService.pedirBaja(tienda.id(), tienda.adminId(), tienda.nombre());
+        empresaService.pedirBaja(tienda.id(), tienda.adminId(), tienda.nombre(), false);
         pedidaHace(tienda, 29);
 
         assertThat(empresaService.borrarLasDadasDeBaja()).isZero();
@@ -194,7 +197,7 @@ class BajaDeTiendaIntegracionTest {
                         "refresh_tokens", "trabajos", "roles_proceso", "configuracion_tienda", "usuarios")
                 .allSatisfy(filas -> assertThat(filas).isPositive());
 
-        empresaService.pedirBaja(seVa.id(), seVa.adminId(), seVa.nombre());
+        empresaService.pedirBaja(seVa.id(), seVa.adminId(), seVa.nombre(), false);
         pedidaHace(seVa, 31);
         assertThat(empresaService.borrarLasDadasDeBaja()).isOne();
 

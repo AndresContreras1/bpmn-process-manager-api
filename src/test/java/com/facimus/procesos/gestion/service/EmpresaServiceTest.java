@@ -61,6 +61,9 @@ class EmpresaServiceTest {
     private BorradoDeTiendas borradoDeTiendas;
 
     @Mock
+    private ExportacionService exportacionService;
+
+    @Mock
     private Auditoria auditoria;
 
     @InjectMocks
@@ -149,7 +152,7 @@ class EmpresaServiceTest {
         when(empresaRepository.bloquear(1L)).thenReturn(Optional.of(acme));
         when(empresaRepository.saveAndFlush(acme)).thenReturn(acme);
 
-        EmpresaResponse respuesta = empresaService.pedirBaja(1L, 7L, "  Acme ");
+        EmpresaResponse respuesta = empresaService.pedirBaja(1L, 7L, "  Acme ", false);
 
         assertNotNull(acme.getBajaSolicitadaEn());
         assertEquals(acme.getBajaSolicitadaEn(), respuesta.bajaSolicitadaEn());
@@ -157,6 +160,35 @@ class EmpresaServiceTest {
         verify(historialCambioService).registrarDeTienda(1L, 7L, RecursoDeHistorial.EMPRESA, 1L,
                 "Tienda dada de baja: hasta el " + acme.getBajaSolicitadaEn().plusDays(30).toLocalDate()
                         + " solo se puede consultar, y ese día se borran sus datos.");
+        verify(auditoria).registrar(1L, 7L, "TIENDA_DADA_DE_BAJA", "EMPRESA", 1L, Map.of());
+        verifyNoInteractions(exportacionService);
+    }
+
+    @Test
+    @DisplayName("PR 66: dar de baja con exportar pide tambien la exportacion completa, de quien la da de baja")
+    void pedirBaja_conExportacion() {
+        Empresa acme = acme();
+        when(empresaRepository.bloquear(1L)).thenReturn(Optional.of(acme));
+        when(empresaRepository.saveAndFlush(acme)).thenReturn(acme);
+
+        empresaService.pedirBaja(1L, 7L, "Acme", true);
+
+        assertNotNull(acme.getBajaSolicitadaEn());
+        verify(exportacionService).pedir(1L, 7L);
+    }
+
+    @Test
+    @DisplayName("PR 66: con una exportacion ya en curso, la baja sigue y no pide otra: el enlace de esa ya va a llegar")
+    void pedirBaja_conExportacionEnCurso() {
+        Empresa acme = acme();
+        when(empresaRepository.bloquear(1L)).thenReturn(Optional.of(acme));
+        when(empresaRepository.saveAndFlush(acme)).thenReturn(acme);
+        when(exportacionService.hayEnCurso(1L)).thenReturn(true);
+
+        EmpresaResponse respuesta = empresaService.pedirBaja(1L, 7L, "Acme", true);
+
+        assertNotNull(respuesta.bajaSolicitadaEn());
+        verify(exportacionService, never()).pedir(any(), any());
         verify(auditoria).registrar(1L, 7L, "TIENDA_DADA_DE_BAJA", "EMPRESA", 1L, Map.of());
     }
 
@@ -166,16 +198,16 @@ class EmpresaServiceTest {
         Empresa acme = acme();
         when(empresaRepository.bloquear(1L)).thenReturn(Optional.of(acme));
 
-        assertThrows(SolicitudInvalidaException.class, () -> empresaService.pedirBaja(1L, 7L, "acme"));
+        assertThrows(SolicitudInvalidaException.class, () -> empresaService.pedirBaja(1L, 7L, "acme", false));
         assertNull(acme.getBajaSolicitadaEn());
 
         LocalDateTime pedida = LocalDateTime.of(2026, 11, 1, 10, 0);
         acme.setBajaSolicitadaEn(pedida);
         ReglaNegocioException yaEnBaja = assertThrows(ReglaNegocioException.class,
-                () -> empresaService.pedirBaja(1L, 7L, "Acme"));
+                () -> empresaService.pedirBaja(1L, 7L, "Acme", false));
         assertEquals("La tienda ya está dada de baja: sus datos se borran el 2026-12-01.", yaEnBaja.getMessage());
         assertEquals(pedida, acme.getBajaSolicitadaEn());
-        assertThrows(RecursoNoEncontradoException.class, () -> empresaService.pedirBaja(2L, 7L, "Acme"));
+        assertThrows(RecursoNoEncontradoException.class, () -> empresaService.pedirBaja(2L, 7L, "Acme", false));
         verify(empresaRepository, never()).saveAndFlush(any());
         verifyNoInteractions(auditoria);
     }

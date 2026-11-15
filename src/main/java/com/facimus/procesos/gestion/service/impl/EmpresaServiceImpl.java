@@ -25,6 +25,7 @@ import com.facimus.procesos.gestion.repository.EmpresaRepository;
 import com.facimus.procesos.gestion.service.ConfiguracionTiendaService;
 import com.facimus.procesos.gestion.service.CuentaService;
 import com.facimus.procesos.gestion.service.EmpresaService;
+import com.facimus.procesos.gestion.service.ExportacionService;
 import com.facimus.procesos.gestion.service.HistorialCambioService;
 import com.facimus.procesos.gestion.service.UsuarioService;
 
@@ -45,6 +46,7 @@ public class EmpresaServiceImpl implements EmpresaService {
     private final CuentaService cuentaService;
     private final EmpresaMapper empresaMapper;
     private final BorradoDeTiendas borradoDeTiendas;
+    private final ExportacionService exportacionService;
     private final Auditoria auditoria;
 
     @Override
@@ -87,7 +89,7 @@ public class EmpresaServiceImpl implements EmpresaService {
 
     @Override
     @Transactional
-    public EmpresaResponse pedirBaja(Long empresaId, Long autorId, String confirmacion) {
+    public EmpresaResponse pedirBaja(Long empresaId, Long autorId, String confirmacion, boolean exportar) {
         // Bloqueada: dos administradores que la dan de baja a la vez no la dan de baja dos veces.
         Empresa empresa = empresaRepository.bloquear(empresaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException(NO_ENCONTRADA));
@@ -105,7 +107,13 @@ public class EmpresaServiceImpl implements EmpresaService {
                 "Tienda dada de baja: hasta el " + Empresa.borradoProgramadoDesde(baja).toLocalDate()
                         + " solo se puede consultar, y ese día se borran sus datos.");
         auditoria.registrar(empresaId, autorId, "TIENDA_DADA_DE_BAJA", "EMPRESA", empresaId, Map.of());
-        return empresaMapper.toResponse(empresaRepository.saveAndFlush(empresa));
+        EmpresaResponse respuesta = empresaMapper.toResponse(empresaRepository.saveAndFlush(empresa));
+        if (exportar && !exportacionService.hayEnCurso(empresaId)) {
+            // PR 66: llevarse lo suyo antes de irse; el enlace le llega por correo a quien la da de baja. Con una ya
+            // en curso no se pide otra, y la baja sigue: el enlace de esa le llega a quien la pidio.
+            exportacionService.pedir(empresaId, autorId);
+        }
+        return respuesta;
     }
 
     @Override

@@ -1,0 +1,12 @@
+[(#{notificacion.saludo(${nombre})})]
+
+[(#{resumen-de-notificaciones.cuerpo})]
+
+[# th:each="linea : ${notificaciones}"]- [(#{${'notificacion.' + linea.tipo + '.linea'}(${linea.autor}, ${linea.proceso})})]
+  [(${linea.enlace})]
+[/]
+[(#{notificacion.preferencias})]
+[(${cuenta})]
+
+--
+[(#{comun.firma})]

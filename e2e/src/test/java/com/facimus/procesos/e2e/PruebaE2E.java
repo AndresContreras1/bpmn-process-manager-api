@@ -18,6 +18,7 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.OutputType;
+import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -68,7 +69,10 @@ abstract class PruebaE2E {
         consola.enable(LogType.BROWSER, Level.ALL);
         opciones.setCapability("goog:loggingPrefs", consola);
         navegador = new ChromeDriver(opciones);
+        // Una pantalla que Angular vuelve a pintar deja viejo el elemento que se estaba leyendo: la espera lo busca
+        // otra vez en la siguiente vuelta en lugar de caerse
         espera = new WebDriverWait(navegador, ESPERA);
+        espera.ignoring(StaleElementReferenceException.class);
         api = new ApiDeDatos(API);
     }
 
@@ -151,13 +155,16 @@ abstract class PruebaE2E {
         entrarCon(tienda.correo(), tienda.clave());
     }
 
-    /** Entra con cualquiera: hace falta para probar lo que ve quien no es administrador. */
+    /**
+     * Entra con cualquiera: hace falta para probar lo que ve quien no es administrador. Cada rol empieza en su inicio
+     * (F22: quien solo lee, en el portal), asi que se espera a salir del login, no a una pagina.
+     */
     protected void entrarCon(String correo, String clave) {
         ir("/login");
         escribir(Paginas.Login.EMAIL, correo);
         escribir(Paginas.Login.CLAVE, clave);
         pulsable(Paginas.Login.ENTRAR).click();
-        esperarUrl("/procesos");
+        espera.until(ExpectedConditions.not(ExpectedConditions.urlContains("/login")));
     }
 
     /**
