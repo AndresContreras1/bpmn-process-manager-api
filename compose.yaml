@@ -146,7 +146,7 @@ services:
   # compose. El bucket de anclas se crea con Object Lock: lo que se guarda ahi no se puede borrar antes de su fecha.
   # PR 67: tambien el repositorio de los respaldos, por HTTPS en 8334; el de documentos guarda cada version.
   almacen:
-    image: chrislusf/seaweedfs:4.50@sha256:c2658820e763294a9e9de7b36c81e59b879e3459148351aee4e31a126ca64860
+    image: chrislusf/seaweedfs:4.54@sha256:4b42c212543a0acd4c0e675215ecdcaf62a186ef98def76c7e12701871222d15
     command: ["server", "-s3", "-dir=/data", "-master.volumeSizeLimitMB=1024", "-volume.max=100",
               "-s3.port.https=8334", "-s3.cert.file=/etc/almacen-tls/almacen.crt",
               "-s3.key.file=/etc/almacen-tls/almacen.key"]
